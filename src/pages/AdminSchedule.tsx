@@ -213,7 +213,7 @@ export default function AdminSchedule() {
     setIsModalOpen(true);
   };
 
-  const filteredSchedule = searchBranch 
+  const filteredSchedule = searchBranch && searchBranch !== "all"
     ? schedule.filter(item => item.office_name === searchBranch && item.is_active)
     : schedule.filter(item => item.is_active);
 
@@ -270,7 +270,7 @@ export default function AdminSchedule() {
                     <SelectValue placeholder="Все филиалы" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Все филиалы</SelectItem>
+                    <SelectItem value="all">Все филиалы</SelectItem>
                     {BRANCHES.map(branch => (
                       <SelectItem key={branch} value={branch}>{branch}</SelectItem>
                     ))}
