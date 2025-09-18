@@ -31,15 +31,12 @@ export default function Header() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-18 min-h-[72px]">
             {/* Logo */}
-            <Link to="/" className="flex items-center space-x-3 flex-shrink-0 min-w-0">
+            <Link to="/" className="flex items-center flex-shrink-0 min-w-0">
               <img 
                 src={logoImage} 
-                alt="O'KEY ENGLISH Logo" 
-                className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                alt="O'KEY ENGLISH" 
+                className="h-14 w-auto object-contain"
               />
-              <span className="font-heading font-bold text-lg sm:text-xl text-secondary whitespace-nowrap">
-                O'KEY ENGLISH
-              </span>
             </Link>
 
             {/* Desktop Navigation */}
