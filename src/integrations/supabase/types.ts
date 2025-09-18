@@ -97,7 +97,57 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      schedule_public: {
+        Row: {
+          compact_classroom: string | null
+          compact_days: string | null
+          compact_teacher: string | null
+          compact_time: string | null
+          created_at: string | null
+          group_URL: string | null
+          id: string | null
+          is_active: boolean | null
+          level: string | null
+          name: string | null
+          office_name: string | null
+          updated_at: string | null
+          vacancies: number | null
+          Возраст: string | null
+        }
+        Insert: {
+          compact_classroom?: string | null
+          compact_days?: string | null
+          compact_teacher?: never
+          compact_time?: string | null
+          created_at?: string | null
+          group_URL?: never
+          id?: string | null
+          is_active?: boolean | null
+          level?: string | null
+          name?: string | null
+          office_name?: string | null
+          updated_at?: string | null
+          vacancies?: number | null
+          Возраст?: string | null
+        }
+        Update: {
+          compact_classroom?: string | null
+          compact_days?: string | null
+          compact_teacher?: never
+          compact_time?: string | null
+          created_at?: string | null
+          group_URL?: never
+          id?: string | null
+          is_active?: boolean | null
+          level?: string | null
+          name?: string | null
+          office_name?: string | null
+          updated_at?: string | null
+          vacancies?: number | null
+          Возраст?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       binary_quantize: {
@@ -135,6 +185,10 @@ export type Database = {
       hnswhandler: {
         Args: { "": unknown }
         Returns: unknown
+      }
+      is_admin_user: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
       ivfflat_bit_support: {
         Args: { "": unknown }
