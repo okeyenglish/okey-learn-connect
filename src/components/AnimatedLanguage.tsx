@@ -21,7 +21,7 @@ export default function AnimatedLanguage() {
       setTimeout(() => {
         setCurrentIndex((prev) => (prev + 1) % languages.length);
         setIsAnimating(false);
-      }, 300); // Half of the animation duration
+      }, 200);
       
     }, 2000);
 
@@ -29,16 +29,20 @@ export default function AnimatedLanguage() {
   }, []);
 
   return (
-    <span className="relative inline-block overflow-hidden">
+    <span 
+      className="relative inline-block align-baseline"
+      style={{ 
+        width: '280px',
+        minWidth: '280px',
+        textAlign: 'left'
+      }}
+    >
       <span
-        className={`inline-block transition-all duration-600 ease-in-out ${
+        className={`block transition-all duration-400 ease-out ${
           isAnimating 
-            ? 'transform translate-y-[-100%] opacity-0' 
+            ? 'transform -translate-y-full opacity-0' 
             : 'transform translate-y-0 opacity-100'
         }`}
-        style={{
-          transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
-        }}
       >
         {languages[currentIndex]}
       </span>
