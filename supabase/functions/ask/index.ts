@@ -36,36 +36,6 @@ serve(async (req) => {
       return new Response(JSON.stringify(response), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Quick intents: branches addresses and pricing
-    const branchQuick = [
-      { key: 'котельник', title: "Филиал в Котельниках", url: '/branches/kotelniki', address: 'ул. Новая, 6' },
-      { key: 'новокосин', title: "Филиал в Новокосино", url: '/branches/novokosino', address: 'Суздальская ул., 18к1' },
-      { key: 'окск', title: "Филиал на Окской", url: '/branches/okskaya', address: 'Окская ул., 5' },
-      { key: 'стахановск', title: "Филиал на Стахановской", url: '/branches/stakhanovskaya', address: 'ул. Стахановская, 24' },
-      { key: 'солнцев', title: "Филиал в Солнцево", url: '/branches/solntsevo', address: 'Солнцевский пр-т, 25' },
-      { key: 'мытищ', title: "Филиал в Мытищах", url: '/branches/mytishchi', address: 'ул. Мира, 2/22' },
-      { key: 'люберц', title: "Филиал Люберцы-1", url: '/branches/lyubertsy-1', address: 'Октябрьский проспект, 151' },
-      { key: 'красн', title: "Филиал Люберцы-2 (Красная горка)", url: '/branches/lyubertsy-2', address: 'ул. 3-е Почтовое отделение, 90' },
-      { key: 'онлайн', title: "Онлайн обучение", url: '/branches/online', address: 'онлайн-формат (без адреса)' },
-    ];
-
-    const mentionsAddress = normalized.includes('адрес') || normalized.includes('где') || normalized.includes('как добраться');
-    const branchHit = branchQuick.find(b => normalized.includes(b.key));
-    if (branchHit && (mentionsAddress || normalized.includes('филиал') || normalized.includes('школ'))) {
-      const quickAnswer = branchHit.address.includes('без адреса')
-        ? `Да, у нас есть онлайн-обучение — занятия проходят дистанционно в удобное для вас время.`
-        : `Да, у нас есть филиал: ${branchHit.title}. Адрес: ${branchHit.address}. Рядом с метро.`;
-      const sources = [{ idx: 1, url: branchHit.url, title: branchHit.title, similarity: 1 }];
-      return new Response(JSON.stringify({ answer: quickAnswer, sources, showContacts: false }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
-    const priceTriggers = ['цена', 'стоим', 'сколько стоит', 'стоимость', 'прайс', 'оплата'];
-    if (priceTriggers.some(p => normalized.includes(p))) {
-      const quickAnswer = `Актуальные цены: групповые занятия от 800 руб/урок (8 занятий ~ 6400 руб), индивидуальные от 1200 руб/урок, онлайн — скидка 20%.`;
-      const sources = [{ idx: 1, url: '/pricing', title: 'Цены на обучение', similarity: 1 }];
-      return new Response(JSON.stringify({ answer: quickAnswer, sources, showContacts: false }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
