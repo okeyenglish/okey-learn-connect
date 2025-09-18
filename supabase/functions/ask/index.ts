@@ -25,6 +25,17 @@ serve(async (req) => {
 
     console.log('Processing question:', question);
 
+    // Quick handling for greetings and small talk to save tokens and avoid empty answers
+    const normalized = (question || '').trim().toLowerCase().replace(/[!.,?]+$/g, '');
+    const greetingPhrases = [
+      'привет','здравствуйте','добрый день','добрый вечер','доброе утро','hello','hi','добрый ночи','доброй ночи'
+    ];
+    if (greetingPhrases.some(p => normalized === p || normalized.startsWith(p))) {
+      const quickAnswer = "Здравствуйте! Я помощник O'KEY ENGLISH. Чем могу помочь: филиалы, расписание, цены, пробный урок?";
+      const response = { answer: quickAnswer, sources: [], showContacts: false };
+      return new Response(JSON.stringify(response), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
@@ -87,19 +98,21 @@ serve(async (req) => {
     console.log('Found contexts:', contexts?.length || 0);
 
     const siteName = "O'KEY ENGLISH";
-    const instruction = `Ты — помощник сайта ${siteName}. Отвечай кратко, по делу, на русском. 
-Если вопрос не по теме школы и курсов — мягко верни пользователя к услугам школы. 
-Всегда добавляй релевантные ссылки на разделы сайта из списка источников.`;
+    const instruction = `Ты — помощник сайта ${siteName}. Отвечай кратко и по делу, на русском.
+Если вопрос не по теме школы и курсов — мягко верни пользователя к услугам школы.
+Если источники есть — добавь релевантные ссылки на разделы сайта из списка источников. Если источников нет — отвечай без ссылок.`;
 
     const contextText = contexts
       ?.map((c: any, i: number) => `[#${i + 1}] ${c.title || ''} \nURL: ${c.url}\n${c.content.slice(0, 1200)}\n`)
       .join("\n\n") || '';
 
+    const hasContexts = !!(contexts && contexts.length > 0);
+
     const messages = [
       { role: "system", content: instruction },
       { 
         role: "user", 
-        content: `Вопрос: ${question}\n\nВот выдержки из сайта (источники):\n${contextText}\n\nСформируй ответ и перечисли используемые источники в конце формата [1], [2]...` 
+        content: `Вопрос: ${question}\n\nВот выдержки из сайта (источники):\n${contextText}\n\nСформируй ответ.${hasContexts ? " В конце укажи источники формата [1], [2]..." : " Источники не указывай."}` 
       },
     ];
 
