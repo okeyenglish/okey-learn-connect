@@ -18,18 +18,18 @@
     --popover: 0 0% 100%;
     --popover-foreground: 210 24% 16%;
 
-    /* Primary - Brand Red #E53935 */
-    --primary: 4 82% 56%;
+    /* Primary - Brand Red from logo */
+    --primary: 0 84% 60%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 4 82% 48%;
+    --primary-hover: 0 84% 52%;
 
-    /* Secondary - Dark Gray #111827 */
-    --secondary: 210 24% 16%;
+    /* Secondary - Brand Blue from logo */
+    --secondary: 220 70% 50%;
     --secondary-foreground: 0 0% 100%;
 
-    /* Accent - Orange #F59E0B */
-    --accent: 45 93% 50%;
-    --accent-foreground: 210 24% 16%;
+    /* Accent - Brand Purple/Blue border from logo */
+    --accent: 250 60% 65%;
+    --accent-foreground: 0 0% 100%;
 
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
@@ -44,14 +44,14 @@
     --radius: 8px;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(4 82% 56%), hsl(45 93% 50%));
-    --gradient-hero: linear-gradient(135deg, hsl(4 82% 56%) 0%, hsl(4 82% 48%) 50%, hsl(45 93% 50%) 100%);
-    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 40% 98%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(0 84% 60%), hsl(220 70% 50%));
+    --gradient-hero: linear-gradient(135deg, hsl(0 84% 60%) 0%, hsl(0 84% 52%) 50%, hsl(250 60% 65%) 100%);
+    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(250 60% 98%) 100%);
 
     /* Shadows */
-    --shadow-primary: 0 4px 20px hsl(4 82% 56% / 0.25);
-    --shadow-card: 0 4px 12px hsl(210 24% 16% / 0.08);
-    --shadow-elevated: 0 8px 30px hsl(210 24% 16% / 0.12);
+    --shadow-primary: 0 4px 20px hsl(0 84% 60% / 0.25);
+    --shadow-card: 0 4px 12px hsl(220 70% 50% / 0.08);
+    --shadow-elevated: 0 8px 30px hsl(220 70% 50% / 0.12);
 
     /* Animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
