@@ -12,6 +12,15 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  if (req.method === 'GET') {
+    const n8nWebhookUrl = Deno.env.get('N8N_WEBHOOK_URL');
+    const n8nProxyToken = Deno.env.get('N8N_PROXY_TOKEN');
+    return new Response(
+      JSON.stringify({ ok: true, health: 'webhook-proxy', env: { N8N_WEBHOOK_URL: !!n8nWebhookUrl, N8N_PROXY_TOKEN: !!n8nProxyToken }, time: new Date().toISOString() }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   if (req.method !== 'POST') {
     return new Response(
       JSON.stringify({ ok: false, error: 'Method not allowed' }),
