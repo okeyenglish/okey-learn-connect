@@ -49,7 +49,7 @@ export default function SuperSafari() {
 Филиал: ${branch}
 Промокод: HAPPYENGLISH (скидка 5000₽)`;
     
-    window.open(`https://wa.me/74997073535?text=${encodeURIComponent(message)}`, "_blank");
+    window.open(`https://wa.me/79937073553?text=${encodeURIComponent(message)}`, "_blank");
     
     toast({
       title: "Заявка отправлена!",
@@ -59,7 +59,7 @@ export default function SuperSafari() {
 
   const handleWhatsApp = () => {
     const message = "Здравствуйте! Интересует курс Super Safari для детей 3-6 лет. Хочу записаться на пробный урок.";
-    window.open(`https://wa.me/74997073535?text=${encodeURIComponent(message)}`, "_blank");
+    window.open(`https://wa.me/79937073553?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   const handleTelegram = () => {

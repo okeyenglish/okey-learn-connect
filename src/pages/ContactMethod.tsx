@@ -8,7 +8,7 @@ export default function ContactMethod() {
 
   const handleWhatsApp = () => {
     const message = "Здравствуйте! Я отправил заявку на пробный урок английского языка через сайт. Хочу обсудить детали.";
-    window.open(`https://wa.me/74997073535?text=${encodeURIComponent(message)}`, "_blank");
+    window.open(`https://wa.me/79937073553?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   const handleTelegram = () => {

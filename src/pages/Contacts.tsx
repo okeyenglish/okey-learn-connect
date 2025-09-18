@@ -107,7 +107,7 @@ export default function Contacts() {
 
   const handleWhatsApp = () => {
     const message = "Здравствуйте! Хочу записаться на пробный урок английского языка.";
-    window.open(`https://wa.me/74997073535?text=${encodeURIComponent(message)}`, "_blank");
+    window.open(`https://wa.me/79937073553?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   return (

@@ -67,7 +67,7 @@ export default function Footer() {
                 <span>hello@okeyenglish.ru</span>
               </a>
               <a
-                href="https://wa.me/74997073535"
+                href="https://wa.me/79937073553"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center space-x-2 text-sm hover:text-accent transition-colors"

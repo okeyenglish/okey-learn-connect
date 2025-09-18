@@ -20,7 +20,7 @@ export default function LocationNovokosino() {
               <Phone className="w-4 h-4" />
               Позвонить
             </Button>
-            <Button variant="outline" onClick={() => window.open("https://wa.me/74997073535")} className="flex items-center gap-2">
+            <Button onClick={() => window.open("https://wa.me/79937073553")} className="flex items-center gap-2">
               <MessageCircle className="w-4 h-4" />
               WhatsApp
             </Button>

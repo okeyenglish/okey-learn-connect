@@ -118,7 +118,7 @@ const branches = [
 export default function Locations() {
   const handleWhatsApp = (branchName: string) => {
     const message = `Здравствуйте! Интересует обучение в филиале ${branchName}.`;
-    window.open(`https://wa.me/74997073535?text=${encodeURIComponent(message)}`, "_blank");
+    window.open(`https://wa.me/79937073553?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   return (

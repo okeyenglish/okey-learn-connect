@@ -21,7 +21,7 @@ export default function Header() {
   const location = useLocation();
 
   const handleWhatsApp = () => {
-    window.open("https://wa.me/74997073535", "_blank");
+    window.open("https://wa.me/79937073553", "_blank");
   };
 
   return (

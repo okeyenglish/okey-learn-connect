@@ -114,7 +114,7 @@ const courses = [
 export default function Courses() {
   const handleWhatsApp = (course: string) => {
     const message = `Здравствуйте! Интересует курс "${course}".`;
-    window.open(`https://wa.me/74997073535?text=${encodeURIComponent(message)}`, "_blank");
+    window.open(`https://wa.me/79937073553?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   return (

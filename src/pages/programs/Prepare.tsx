@@ -51,7 +51,7 @@ export default function Prepare() {
 Филиал: ${branch}
 Промокод: HAPPYENGLISH (скидка 5000₽ + 1 месяц в подарок)`;
     
-    window.open(`https://wa.me/74997073535?text=${encodeURIComponent(message)}`, "_blank");
+    window.open(`https://wa.me/79937073553?text=${encodeURIComponent(message)}`, "_blank");
     
     toast({
       title: "Заявка отправлена!",
@@ -61,7 +61,7 @@ export default function Prepare() {
 
   const handleWhatsApp = () => {
     const message = "Здравствуйте! Интересует курс Prepare для подростков 10-17 лет. Хочу записаться на консультацию.";
-    window.open(`https://wa.me/74997073535?text=${encodeURIComponent(message)}`, "_blank");
+    window.open(`https://wa.me/79937073553?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   const handleTelegram = () => {

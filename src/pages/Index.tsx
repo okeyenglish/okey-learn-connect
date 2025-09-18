@@ -39,7 +39,7 @@ export default function Index() {
     const message = branch 
       ? `Здравствуйте! Интересует обучение в филиале ${branch}.`
       : "Здравствуйте! Интересует обучение английскому языку.";
-    window.open(`https://wa.me/74997073535?text=${encodeURIComponent(message)}`, "_blank");
+    window.open(`https://wa.me/79937073553?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   return (

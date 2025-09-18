@@ -11,11 +11,11 @@ export default function LocationKotelniki() {
 
   const handleWhatsApp = () => {
     const message = encodeURIComponent("Здравствуйте! Хочу узнать подробнее об обучении в филиале Котельники");
-    window.open(`https://wa.me/79260204405?text=${message}`, '_blank');
+    window.open(`https://wa.me/79937073553?text=${message}`, '_blank');
   };
 
   const handlePhone = () => {
-    window.open('tel:+79260204405', '_self');
+    window.open('tel:+74997073535', '_self');
   };
 
   return (
@@ -59,7 +59,7 @@ export default function LocationKotelniki() {
                   className="flex items-center gap-2"
                 >
                   <Phone className="w-4 h-4" />
-                  +7 (926) 020-44-05
+                  +7 (499) 707-35-35
                 </Button>
                 <Button 
                   variant="outline" 
@@ -85,15 +85,15 @@ export default function LocationKotelniki() {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span>Понедельник - Пятница:</span>
-                  <span className="font-medium">9:00 - 21:00</span>
+                  <span className="font-medium">09:00 - 21:00</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Суббота:</span>
-                  <span className="font-medium">9:00 - 19:00</span>
+                  <span className="font-medium">09:00 - 15:00</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Воскресенье:</span>
-                  <span className="font-medium">10:00 - 18:00</span>
+                  <span className="font-medium">09:00 - 15:00</span>
                 </div>
               </div>
             </CardContent>

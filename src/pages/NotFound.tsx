@@ -41,7 +41,7 @@ const NotFound = () => {
   };
 
   const phoneNumber = "+74997073535";
-  const whatsappUrl = `https://wa.me/74997073535?text=Здравствуйте! Я получил скидку 5000₽ на странице 404. Хочу записаться на обучение.`;
+  const whatsappUrl = `https://wa.me/79937073553?text=Здравствуйте! Я получил скидку 5000₽ на странице 404. Хочу записаться на обучение.`;
   const telegramUrl = `https://t.me/+74997073535`;
 
   return (
