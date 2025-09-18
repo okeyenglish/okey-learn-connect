@@ -12,6 +12,7 @@ import empowerImg from "@/assets/empower.png";
 const programs = [
   {
     name: "Super Safari",
+    ageCategory: "Дошкольникам 3-5 лет",
     age: "3–6 лет",
     level: "Starter",
     description: "Английский через игры, песни и сказки. Мягкое погружение в язык с первых шагов.",
@@ -22,6 +23,7 @@ const programs = [
   },
   {
     name: "Kid's Box",
+    ageCategory: "Младшим школьникам 6-9 лет",
     age: "6–9 лет", 
     level: "A1–A2",
     description: "Читаем, говорим, понемногу пишем. Движемся к уверенному базовому уровню.",
@@ -32,6 +34,7 @@ const programs = [
   },
   {
     name: "Prepare",
+    ageCategory: "Подросткам 10-17 лет",
     age: "10–17 лет",
     level: "A1–B2", 
     description: "Подростковые темы, уверенная речь, подготовка к KET/PET/FCE, ОГЭ/ЕГЭ.",
@@ -41,7 +44,8 @@ const programs = [
     href: "/programs/prepare"
   },
   {
-    name: "Empower", 
+    name: "Empower",
+    ageCategory: "Взрослым", 
     age: "Взрослые",
     level: "A1–C2",
     description: "Английский для жизни и работы. Комбинированный формат и speaking-клуб.",
@@ -99,7 +103,7 @@ export default function Programs() {
                   />
                 </div>
                 <div className="p-6">
-                  <h3 className="text-xl font-bold mb-2">{program.name}</h3>
+                  <h3 className="text-xl font-bold mb-2">{program.ageCategory}</h3>
                   <div className="flex items-center gap-2 mb-3">
                     <Target className="w-5 h-5 text-primary" />
                     <span className="font-semibold text-primary">{program.name} ({program.level})</span>
