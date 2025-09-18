@@ -158,52 +158,62 @@ serve(async (req) => {
     let processed = 0;
 
     for (const item of siteContent) {
-      console.log(`Processing: ${item.title}`);
-      
-      // Создаем эмбеддинг для контента
-      const embRes = await fetch("https://api.openai.com/v1/embeddings", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${OPENAI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "text-embedding-3-small",
-          input: item.content,
-        }),
-      });
-
-      if (!embRes.ok) {
-        console.error(`Failed to create embedding for ${item.title}`);
-        continue;
-      }
-
-      const embJson = await embRes.json();
-      const embedding = embJson.data?.[0]?.embedding;
-
-      if (!embedding) {
-        console.error(`No embedding received for ${item.title}`);
-        continue;
-      }
-
-      // Сохраняем в базу данных
-      const { error } = await supabase
-        .from('docs')
-        .upsert({
-          url: item.url,
-          title: item.title,
-          content: item.content,
-          embedding: embedding,
-          tokens: item.content.length / 4 // примерная оценка токенов
-        }, {
-          onConflict: 'url'
+      try {
+        console.log(`Processing: ${item.title}`);
+        
+        // Создаем эмбеддинг для контента
+        const embRes = await fetch("https://api.openai.com/v1/embeddings", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${OPENAI_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "text-embedding-3-small",
+            input: item.content,
+          }),
         });
 
-      if (error) {
-        console.error(`Error saving ${item.title}:`, error);
-      } else {
-        console.log(`Successfully indexed: ${item.title}`);
-        processed++;
+        if (!embRes.ok) {
+          const errorText = await embRes.text();
+          console.error(`Failed to create embedding for ${item.title}:`, errorText);
+          continue;
+        }
+
+        const embJson = await embRes.json();
+        const embedding = embJson.data?.[0]?.embedding;
+
+        if (!embedding) {
+          console.error(`No embedding received for ${item.title}`);
+          continue;
+        }
+
+        // Сохраняем в базу данных
+        const { error } = await supabase
+          .from('docs')
+          .upsert({
+            url: item.url,
+            title: item.title,
+            content: item.content,
+            embedding: embedding,
+            tokens: item.content.length / 4 // примерная оценка токенов
+          }, {
+            onConflict: 'url'
+          });
+
+        if (error) {
+          console.error(`Error saving ${item.title}:`, error);
+        } else {
+          console.log(`Successfully indexed: ${item.title}`);
+          processed++;
+        }
+        
+        // Небольшая задержка между запросами к OpenAI
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+      } catch (itemError) {
+        console.error(`Error processing ${item.title}:`, itemError);
+        continue;
       }
     }
 
