@@ -29,13 +29,13 @@ export default function Header() {
       {/* Desktop Header */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-24 min-h-[96px]">
+          <div className="flex justify-between items-center h-64 min-h-[256px]">
             {/* Logo */}
             <Link to="/" className="relative flex items-center flex-shrink-0 min-w-0 z-50">
               <img 
                 src={logoImage} 
                 alt="O'KEY ENGLISH" 
-                className="h-20 w-20 rounded-full object-cover border-2 border-white shadow-lg"
+                className="h-60 w-60 rounded-full object-cover border-2 border-white shadow-lg"
               />
             </Link>
 
