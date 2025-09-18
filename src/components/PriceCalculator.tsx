@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Gift, Phone, User, MapPin, BookOpen, Calendar, Check, Sparkles } from "lucide-react";
+import { Gift, Phone, User, MapPin, BookOpen, Calendar, Check, Sparkles, MessageCircle } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 
 interface PriceCalculatorProps {
@@ -43,7 +43,7 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const totalSteps = 6;
+  const totalSteps = 5;
   const progress = (currentStep / totalSteps) * 100;
 
   const getBasePrice = () => {
@@ -110,7 +110,7 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
         description: "Мы свяжемся с вами в ближайшее время",
       });
 
-      setCurrentStep(totalSteps);
+      setCurrentStep(5);
     } catch (error) {
       toast({
         title: "Ошибка",
@@ -143,8 +143,6 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
                 >
                   <CardContent className="p-6 text-center">
                     <div className="text-lg font-semibold">{range.label}</div>
-                    <div className="text-2xl font-bold text-primary mt-2">{range.basePrice}₽</div>
-                    <div className="text-sm text-muted-foreground">за месяц</div>
                   </CardContent>
                 </Card>
               ))}
@@ -219,38 +217,23 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <User className="w-12 h-12 text-primary mx-auto mb-4" />
-              <h3 className="text-2xl font-bold mb-2">Имя ученика</h3>
-              <p className="text-muted-foreground">Получите скидку 1000₽ за указание имени!</p>
-            </div>
-            <div className="max-w-md mx-auto">
-              <Label htmlFor="childName">Как зовут ученика?</Label>
-              <Input
-                id="childName"
-                value={formData.childName}
-                onChange={(e) => setFormData({ ...formData, childName: e.target.value })}
-                placeholder="Введите имя"
-                className="mt-2"
-              />
-              {formData.childName && (
-                <Badge variant="secondary" className="mt-3 bg-green-100 text-green-800">
-                  <Gift className="w-4 h-4 mr-1" />
-                  Скидка 1000₽ получена!
-                </Badge>
-              )}
-            </div>
-          </div>
-        );
-
-      case 5:
-        return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <Phone className="w-12 h-12 text-primary mx-auto mb-4" />
-              <h3 className="text-2xl font-bold mb-2">Номер телефона</h3>
-              <p className="text-muted-foreground">Еще одна скидка 1000₽ за номер телефона!</p>
+              <Gift className="w-12 h-12 text-primary mx-auto mb-4" />
+              <h3 className="text-2xl font-bold mb-2">Добавим разовую скидку 5000₽</h3>
+              <p className="text-muted-foreground">На кого используете?</p>
             </div>
             <div className="max-w-md mx-auto space-y-4">
+              <div>
+                <Label htmlFor="childName">
+                  {formData.age === "18+" ? "Ваше имя" : "Имя ребенка"}
+                </Label>
+                <Input
+                  id="childName"
+                  value={formData.childName}
+                  onChange={(e) => setFormData({ ...formData, childName: e.target.value })}
+                  placeholder="Введите имя"
+                  className="mt-2"
+                />
+              </div>
               <div>
                 <Label htmlFor="phone">Номер телефона</Label>
                 <Input
@@ -261,12 +244,6 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
                   placeholder="+7 (999) 123-45-67"
                   className="mt-2"
                 />
-                {formData.phone && (
-                  <Badge variant="secondary" className="mt-3 bg-green-100 text-green-800">
-                    <Gift className="w-4 h-4 mr-1" />
-                    Скидка 1000₽ получена!
-                  </Badge>
-                )}
               </div>
               <div>
                 <Label htmlFor="webhook">URL вебхука для заявки</Label>
@@ -282,15 +259,49 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
           </div>
         );
 
-      case 6:
+      case 5:
         return (
           <div className="space-y-6 text-center">
             <div className="text-center">
               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Check className="w-10 h-10 text-green-600" />
               </div>
-              <h3 className="text-3xl font-bold mb-4">Поздравляем!</h3>
-              <p className="text-lg text-muted-foreground mb-6">Ваша заявка успешно отправлена</p>
+              <h3 className="text-3xl font-bold mb-4">Спасибо!</h3>
+              <p className="text-lg text-muted-foreground mb-6">
+                Сейчас сделаем расчёт для Вас и отправим на WhatsApp или перезвоним
+              </p>
+            </div>
+
+            <div className="flex justify-center space-x-4 mb-6">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(`https://wa.me/79937073553`, '_blank')}
+                className="flex items-center space-x-2"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>WhatsApp</span>
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(`https://t.me/okeyenglish`, '_blank')}
+                className="flex items-center space-x-2"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>Telegram</span>
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(`tel:+74997073535`, '_blank')}
+                className="flex items-center space-x-2"
+              >
+                <Phone className="w-4 h-4" />
+                <span>Позвонить</span>
+              </Button>
             </div>
 
             <Card className="max-w-md mx-auto">
@@ -314,10 +325,6 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
                 </div>
               </CardContent>
             </Card>
-
-            <p className="text-muted-foreground">
-              Мы свяжемся с вами в течение 30 минут для подтверждения записи
-            </p>
           </div>
         );
 
@@ -326,7 +333,7 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
     }
   };
 
-  if (currentStep === 6) {
+  if (currentStep === 5) {
     return (
       <Card className="w-full max-w-2xl mx-auto">
         <CardContent className="p-8">
@@ -347,7 +354,7 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
             </Badge>
           </div>
           <Progress value={progress} className="w-full" />
-          {currentStep > 3 && (
+          {currentStep > 2 && (
             <div className="text-center text-sm text-muted-foreground">
               🎉 Почти закончили! Осталось совсем немного
             </div>
@@ -392,7 +399,7 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
             Назад
           </Button>
           
-          {currentStep < 5 ? (
+          {currentStep < 4 ? (
             <Button
               onClick={handleNext}
               disabled={
@@ -406,9 +413,9 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
           ) : (
             <Button
               onClick={handleSubmit}
-              disabled={!formData.phone || !formData.webhookUrl || isSubmitting}
+              disabled={!formData.phone || !formData.childName || !formData.webhookUrl || isSubmitting}
             >
-              {isSubmitting ? "Отправляем..." : "Отправить заявку"}
+              {isSubmitting ? "Отправляем..." : "Рассчитать стоимость"}
             </Button>
           )}
         </div>
