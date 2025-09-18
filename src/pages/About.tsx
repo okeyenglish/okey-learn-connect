@@ -1,13 +1,54 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { BookOpen, Globe, Users, Laptop, GraduationCap, Star, BookMarked, Heart, MessageCircle, Calendar, Phone, Send } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { BookOpen, Globe, Users, Laptop, GraduationCap, Star, BookMarked, Heart, MessageCircle, Calendar, Phone, Send, Video } from "lucide-react";
+import { useState } from "react";
 
 export default function About() {
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const sendToWebhook = async (source: string) => {
+    setIsLoading(true);
+    
+    try {
+      const response = await fetch('https://n8n.okey-english.ru/webhook-test/okeyenglish.ru', {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        mode: "no-cors",
+        body: JSON.stringify({
+          timestamp: new Date().toISOString(),
+          source: source,
+          page: "about",
+          triggered_from: window.location.origin,
+        }),
+      });
+
+      toast({
+        title: "Заявка отправлена",
+        description: "Мы свяжемся с вами в ближайшее время!",
+      });
+    } catch (error) {
+      console.error("Error sending webhook:", error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось отправить заявку. Попробуйте еще раз.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleWhatsApp = () => {
+    sendToWebhook('whatsapp');
     window.open('https://wa.me/79999999999', '_blank');
   };
 
   const handleTelegram = () => {
+    sendToWebhook('telegram');
     window.open('https://t.me/your_telegram_handle', '_blank');
   };
 
@@ -36,6 +77,11 @@ export default function About() {
       icon: GraduationCap,
       title: "Подготовка к экзаменам",
       text: "ОГЭ, ЕГЭ, Cambridge Exams, IELTS, TOEFL."
+    },
+    {
+      icon: Video,
+      title: "Онлайн обучение",
+      text: "Качественные видеоуроки и интерактивные занятия в удобное время."
     }
   ];
 
@@ -105,8 +151,9 @@ export default function About() {
               size="lg" 
               variant="secondary"
               className="text-lg px-8 py-4"
+              disabled={isLoading}
             >
-              Записаться на пробный урок
+              {isLoading ? "Отправляем..." : "Записаться на пробный урок"}
             </Button>
           </div>
         </div>
@@ -159,6 +206,7 @@ export default function About() {
                 variant="outline"
                 size="lg"
                 className="flex items-center gap-2"
+                disabled={isLoading}
               >
                 <Phone className="w-5 h-5 text-green-600" />
                 WhatsApp
@@ -168,6 +216,7 @@ export default function About() {
                 variant="outline"
                 size="lg"
                 className="flex items-center gap-2"
+                disabled={isLoading}
               >
                 <Send className="w-5 h-5 text-blue-500" />
                 Telegram
@@ -201,8 +250,9 @@ export default function About() {
                       onClick={handleWhatsApp}
                       variant="secondary"
                       className="mt-4 bg-white text-primary hover:bg-white/90"
+                      disabled={isLoading}
                     >
-                      Записаться
+                      {isLoading ? "Отправляем..." : "Записаться"}
                     </Button>
                   )}
                 </CardContent>
@@ -276,8 +326,9 @@ export default function About() {
               size="lg" 
               variant="default"
               className="text-lg px-8 py-4"
+              disabled={isLoading}
             >
-              Записаться
+              {isLoading ? "Отправляем..." : "Записаться"}
             </Button>
           </div>
         </div>
