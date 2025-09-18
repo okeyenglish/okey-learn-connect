@@ -38,19 +38,34 @@ const mapToEuropeanLevel = (courseName: string, originalLevel: string): string =
   const lowerName = courseName.toLowerCase();
   const lowerLevel = originalLevel.toLowerCase();
   
-  // Super Safari - все уровни pre-A1
+  // Super Safari (1–3) - все уровни pre-A1
   if (lowerName.includes('safari') || lowerName.includes('ss')) {
     return 'pre-A1';
   }
   
-  // Kid's Box - KB2 = A1, остальные по оригиналу
+  // Kid's Box (1–6)
   if (lowerName.includes("kid's box") || lowerName.includes('kb')) {
-    if (lowerLevel.includes('2') || lowerLevel.includes('a1')) return 'A1';
+    if (lowerLevel.includes('1') || lowerLevel.includes('2')) return 'pre-A1';
+    if (lowerLevel.includes('3') || lowerLevel.includes('4')) return 'A1';
+    if (lowerLevel.includes('5') || lowerLevel.includes('6')) return 'A2';
   }
   
-  // Empower 1 = A1
+  // Prepare (1–7)
+  if (lowerName.includes('prepare') || lowerName.includes('pr')) {
+    if (lowerLevel.includes('1')) return 'A1';
+    if (lowerLevel.includes('2') || lowerLevel.includes('3')) return 'A2';
+    if (lowerLevel.includes('4') || lowerLevel.includes('5')) return 'B1';
+    if (lowerLevel.includes('6') || lowerLevel.includes('7')) return 'B2';
+  }
+  
+  // Empower (1–6)
   if (lowerName.includes('empower') || lowerName.includes('em')) {
-    if (lowerLevel.includes('1') || lowerLevel.includes('a1')) return 'A1';
+    if (lowerLevel.includes('1')) return 'A1';
+    if (lowerLevel.includes('2')) return 'A2';
+    if (lowerLevel.includes('3')) return 'B1';
+    if (lowerLevel.includes('4')) return 'B1+';
+    if (lowerLevel.includes('5')) return 'B2';
+    if (lowerLevel.includes('6')) return 'C1';
   }
   
   return originalLevel;
@@ -60,9 +75,9 @@ const mapToEuropeanLevel = (courseName: string, originalLevel: string): string =
 const getAgeRange = (courseName: string): string => {
   const lowerName = courseName.toLowerCase();
   if (lowerName.includes('safari') || lowerName.includes('ss')) return '3-6 лет';
-  if (lowerName.includes("kid's box") || lowerName.includes('kb')) return '7-10 лет';
-  if (lowerName.includes('prepare') || lowerName.includes('pr')) return '11-13 лет';
-  if (lowerName.includes('empower') || lowerName.includes('em')) return '14-17 лет';
+  if (lowerName.includes("kid's box") || lowerName.includes('kb')) return '5-9 лет';
+  if (lowerName.includes('prepare') || lowerName.includes('pr')) return '10-17 лет';
+  if (lowerName.includes('empower') || lowerName.includes('em')) return '18+ лет';
   return 'Уточняйте';
 };
 
@@ -100,6 +115,7 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
   const [loading, setLoading] = useState(true);
   const [searchLevel, setSearchLevel] = useState<string>("all");
   const [searchDays, setSearchDays] = useState<string>("all");
+  const [searchAge, setSearchAge] = useState<string>("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<ScheduleItem | null>(null);
   const [formData, setFormData] = useState({
@@ -206,8 +222,15 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
       );
     }
 
+    if (searchAge && searchAge !== "all") {
+      filtered = filtered.filter(item => {
+        const ageRange = getAgeRange(item.name);
+        return ageRange === searchAge;
+      });
+    }
+
     setFilteredSchedule(filtered);
-  }, [schedule, searchLevel, searchDays]);
+  }, [schedule, searchLevel, searchDays, searchAge]);
 
   const getVacancyBadge = (vacancies: number) => {
     if (vacancies === 0) {
@@ -319,8 +342,22 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
               <SelectItem value="A1">A1 (Начальный)</SelectItem>
               <SelectItem value="A2">A2 (Элементарный)</SelectItem>
               <SelectItem value="B1">B1 (Средний)</SelectItem>
+              <SelectItem value="B1+">B1+ (Средний+)</SelectItem>
               <SelectItem value="B2">B2 (Выше среднего)</SelectItem>
               <SelectItem value="C1">C1 (Продвинутый)</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={searchAge} onValueChange={setSearchAge}>
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectValue placeholder="Фильтр по возрасту" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Все возрасты</SelectItem>
+              <SelectItem value="3-6 лет">3-6 лет</SelectItem>
+              <SelectItem value="5-9 лет">5-9 лет</SelectItem>
+              <SelectItem value="10-17 лет">10-17 лет</SelectItem>
+              <SelectItem value="18+ лет">18+ лет</SelectItem>
             </SelectContent>
           </Select>
 
