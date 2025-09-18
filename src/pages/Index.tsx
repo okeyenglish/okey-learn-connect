@@ -89,8 +89,26 @@ export default function Index() {
                   <GraduationCap className="w-7 h-7 text-white" />
                 </div>
                 <div>
-                  <div className="text-3xl font-black text-primary drop-shadow-lg">5000+</div>
+                  <div className="text-3xl font-black text-primary drop-shadow-lg">10000+</div>
                   <div className="text-sm text-primary/80 font-medium">выпускников</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 hover-scale">
+                <div className="w-14 h-14 bg-gradient-primary rounded-full flex items-center justify-center shadow-lg">
+                  <BookOpen className="w-7 h-7 text-white" />
+                </div>
+                <div>
+                  <div className="text-3xl font-black text-primary drop-shadow-lg">10+</div>
+                  <div className="text-sm text-primary/80 font-medium">языков преподаём</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 hover-scale">
+                <div className="w-14 h-14 bg-gradient-primary rounded-full flex items-center justify-center shadow-lg">
+                  <Target className="w-7 h-7 text-white" />
+                </div>
+                <div>
+                  <div className="text-2xl font-black text-primary drop-shadow-lg">Cambridge</div>
+                  <div className="text-sm text-primary/80 font-medium">Preparation Centre</div>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 hover-scale">
