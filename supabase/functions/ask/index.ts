@@ -137,9 +137,22 @@ serve(async (req) => {
       similarity: Number(c.similarity?.toFixed?.(3) || 0)
     })) || [];
 
+    const answer = chatJson.choices?.[0]?.message?.content || "Извините, не удалось получить ответ.";
+    
+    // Check if the AI indicates it doesn't know the answer
+    const unknownIndicators = [
+      "не знаю", "не могу ответить", "не имею информации", 
+      "недостаточно информации", "обратитесь", "свяжитесь"
+    ];
+    
+    const isUnknown = unknownIndicators.some(indicator => 
+      answer.toLowerCase().includes(indicator)
+    );
+
     const response = {
-      answer: chatJson.choices?.[0]?.message?.content || "Извините, не удалось получить ответ.",
-      sources
+      answer,
+      sources,
+      showContacts: isUnknown
     };
 
     console.log('Response generated successfully');

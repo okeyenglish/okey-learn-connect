@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface Message {
   role: "user" | "assistant";
   content: string;
+  showContacts?: boolean;
   sources?: Array<{
     idx: number;
     url: string;
@@ -44,7 +45,10 @@ export default function ChatBot() {
 
       const assistantMessage: Message = {
         role: "assistant",
-        content: data.answer,
+        content: data.showContacts 
+          ? "Лучше такой вопрос уточнить у менеджера поддержки. Они сейчас онлайн в мессенджерах:"
+          : data.answer,
+        showContacts: data.showContacts,
         sources: data.sources
       };
       
@@ -53,7 +57,8 @@ export default function ChatBot() {
       console.error('Chat error:', e);
       const errorMessage: Message = {
         role: "assistant",
-        content: "Извините, не удалось получить ответ. Попробуйте позже."
+        content: "Лучше такой вопрос уточнить у менеджера поддержки. Они сейчас онлайн в мессенджерах:",
+        showContacts: true
       };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
@@ -124,6 +129,27 @@ export default function ChatBot() {
                   }`}>
                     {m.content}
                   </div>
+                  
+                  {m.role === "assistant" && m.showContacts ? (
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs"
+                        onClick={() => window.open('https://wa.me/79000000000', '_blank')}
+                      >
+                        📱 WhatsApp
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs"
+                        onClick={() => window.open('https://t.me/okeyenglish_support', '_blank')}
+                      >
+                        💬 Telegram
+                      </Button>
+                    </div>
+                  ) : null}
                   
                   {m.role === "assistant" && m.sources?.length ? (
                     <div className="text-xs text-muted-foreground space-x-2">
