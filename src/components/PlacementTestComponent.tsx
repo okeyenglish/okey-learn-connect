@@ -8,7 +8,7 @@ import { Clock, Users, GraduationCap, Phone, Mail } from "lucide-react";
 import { questionBank } from "@/lib/questionBank";
 
 interface TestState {
-  track: 'kids' | 'adults';
+  track: 'kids' | 'teens' | 'adults';
   name: string;
   ageOrGrade: string;
   phone: string;
@@ -94,8 +94,9 @@ export default function PlacementTestComponent() {
   };
 
   const loadNextQuestion = (state: TestState) => {
-    const levels = questionBank[state.track].levels;
-    const blocks = questionBank[state.track].blocks;
+    const trackForQuestions = state.track === 'teens' ? 'adults' : state.track;
+    const levels = questionBank[trackForQuestions].levels;
+    const blocks = questionBank[trackForQuestions].blocks;
     const questions = blocks[state.currentLevel as keyof typeof blocks];
     
     if (questions && state.levelQuestionCount < 4) {
@@ -115,7 +116,8 @@ export default function PlacementTestComponent() {
     const levelAnswers = state.answers.slice(-4);
     const correctCount = levelAnswers.filter(a => a.correct).length;
     
-    const levels = questionBank[state.track].levels;
+    const trackForQuestions = state.track === 'teens' ? 'adults' : state.track;
+    const levels = questionBank[trackForQuestions].levels;
     const currentLevelIndex = levels.indexOf(state.currentLevel);
     
     let nextLevel = state.currentLevel;
@@ -126,8 +128,8 @@ export default function PlacementTestComponent() {
       if (currentLevelIndex < levels.length - 1) {
         nextLevel = levels[currentLevelIndex + 1];
       } else {
-        // At highest level, check for C1 for adults
-        if (state.track === 'adults' && state.currentLevel === 'B2') {
+        // At highest level, check for C1 for adults/teens
+        if ((state.track === 'adults' || state.track === 'teens') && state.currentLevel === 'B2') {
           nextLevel = 'C1';
         } else {
           shouldContinue = false;
@@ -214,9 +216,17 @@ export default function PlacementTestComponent() {
   const getLevelDescription = (level: string, track: string) => {
     const descriptions = {
       kids: {
-        'Pre-A1': 'Начинаем с азов: цвета, числа, простые фразы. Рекомендуем Kids Box Starter. Запишем на пробный?',
-        'A1': 'Уже строит короткие фразы и понимает простые диалоги. Подойдут группы Kids Box 2–3.',
-        'A2': 'Уверенно понимает и говорит на базовые темы. Рассмотрите переход к Prepare для подростков (по возрасту).'
+        'Pre-A1': 'Начинаем с азов: цвета, числа, простые фразы. Рекомендуем Kid\'s Box Starter.',
+        'A1': 'Уже строит короткие фразы и понимает простые диалоги. Подойдут группы Kid\'s Box 2–3.',
+        'A2': 'Уверенно понимает и говорит на базовые темы. Переходите к Kid\'s Box 4-6.'
+      },
+      teens: {
+        'A0': 'Старт с нуля: алфавит, базовая лексика. Курс Prepare Starter.',
+        'A1': 'Повседневные темы, простые диалоги. Prepare Level 1-2.',
+        'A2': 'Уверенный базовый уровень. Prepare Level 3-4.',
+        'B1': 'Свободное общение, подготовка к экзаменам. Prepare Level 5-6.',
+        'B2': 'Уверенный разговорный уровень. Prepare Level 7 или FCE.',
+        'B2/C1': 'Продвинутый уровень. Рассмотрите CAE подготовку.'
       },
       adults: {
         'A0': 'Старт с нуля: алфавит, базовая лексика, простые конструкции. Курс Empower A0–A1.',
@@ -239,7 +249,7 @@ export default function PlacementTestComponent() {
             <CardTitle className="text-2xl mb-4">Выберите тип теста</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid md:grid-cols-3 gap-4">
               <Card 
                 className={`cursor-pointer transition-all hover:shadow-md ${
                   testState.track === 'kids' ? 'ring-2 ring-primary' : ''
@@ -248,11 +258,24 @@ export default function PlacementTestComponent() {
               >
                 <CardContent className="p-6 text-center">
                   <GraduationCap className="w-12 h-12 mx-auto mb-3 text-primary" />
-                  <h3 className="font-semibold mb-2">Дети 6–10 лет</h3>
-                  <p className="text-sm text-muted-foreground">Pre-A1, A1, A2</p>
+                  <h3 className="font-semibold mb-2">Дети 6–9 лет</h3>
+                  <p className="text-sm text-muted-foreground">Kid's Box</p>
                 </CardContent>
               </Card>
               
+              <Card 
+                className={`cursor-pointer transition-all hover:shadow-md ${
+                  testState.track === 'teens' ? 'ring-2 ring-primary' : ''
+                }`}
+                onClick={() => setTestState({...testState, track: 'teens'})}
+              >
+                <CardContent className="p-6 text-center">
+                  <Users className="w-12 h-12 mx-auto mb-3 text-primary" />
+                  <h3 className="font-semibold mb-2">Подростки 10–17 лет</h3>
+                  <p className="text-sm text-muted-foreground">Prepare</p>
+                </CardContent>
+              </Card>
+
               <Card 
                 className={`cursor-pointer transition-all hover:shadow-md ${
                   testState.track === 'adults' ? 'ring-2 ring-primary' : ''
@@ -261,8 +284,8 @@ export default function PlacementTestComponent() {
               >
                 <CardContent className="p-6 text-center">
                   <Users className="w-12 h-12 mx-auto mb-3 text-primary" />
-                  <h3 className="font-semibold mb-2">Подростки/Взрослые 11+</h3>
-                  <p className="text-sm text-muted-foreground">A0, A1, A2, B1, B2, C1</p>
+                  <h3 className="font-semibold mb-2">Взрослые 18+</h3>
+                  <p className="text-sm text-muted-foreground">Empower</p>
                 </CardContent>
               </Card>
             </div>
@@ -287,7 +310,11 @@ export default function PlacementTestComponent() {
                   id="ageOrGrade"
                   value={testState.ageOrGrade}
                   onChange={(e) => setTestState({...testState, ageOrGrade: e.target.value})}
-                  placeholder={testState.track === 'kids' ? '8 лет / 2 класс' : '25 лет'}
+                  placeholder={
+                    testState.track === 'kids' ? '8 лет / 2 класс' : 
+                    testState.track === 'teens' ? '14 лет / 8 класс' : 
+                    '25 лет'
+                  }
                 />
               </div>
 
