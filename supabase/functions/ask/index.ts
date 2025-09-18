@@ -100,21 +100,31 @@ serve(async (req) => {
     const siteName = "O'KEY ENGLISH";
     const instruction = `Ты — помощник школы английского языка ${siteName}. 
 
-ВАЖНО: Отвечай конкретно и информативно на основе предоставленных источников. НЕ перенаправляй к менеджерам, если информация есть в источниках.
+КРИТИЧЕСКИ ВАЖНО: Ты ОБЯЗАН отвечать конкретно на основе предоставленных источников. 
 
-Правила:
-1. Если вопрос о филиалах, расписании, программах, ценах — отвечай конкретно из источников
-2. Используй дружелюбный тон, как консультант школы
-3. В конце ответа указывай релевантные источники [1], [2], если они есть
-4. Только если информации действительно нет в источниках, тогда предложи связаться с менеджерами
+ЗАПРЕЩЕНО:
+- Говорить "обратитесь к менеджеру" если информация есть в источниках
+- Говорить "свяжитесь" если можешь ответить из источников  
+- Перенаправлять к контактам при наличии информации
 
-Примеры хороших ответов:
-- "Да, у нас есть филиал в Котельниках по адресу ул. Новая, 6. Рядом с метро, современные классы [1]"
-- "Kids Box — это программа для детей 4-7 лет с игровой формой обучения [2]"`;
+ОБЯЗАТЕЛЬНО:
+- Отвечай прямо на вопрос из источников
+- Используй конкретные факты: адреса, цены, программы
+- В конце добавляй номера источников [1], [2]
+
+ПРИМЕРЫ:
+Вопрос: "Есть ли школа в Котельниках?"
+Ответ: "Да, у нас есть филиал в Котельниках по адресу ул. Новая, 6, рядом с метро. [1]"
+
+Вопрос: "Сколько стоит обучение?"  
+Ответ: "Групповые занятия от 800 руб/урок, индивидуальные от 1200 руб/урок. [2]"`;
 
     const contextText = contexts
-      ?.map((c: any, i: number) => `[#${i + 1}] ${c.title || ''} \nURL: ${c.url}\n${c.content.slice(0, 1200)}\n`)
-      .join("\n\n") || '';
+      ?.map((c: any, i: number) => `[${i + 1}] ${c.title}\n${c.content}\n`)
+      .join("\n") || '';
+
+    console.log('Context text length:', contextText.length);
+    console.log('Number of contexts:', contexts?.length || 0);
 
     const hasContexts = !!(contexts && contexts.length > 0);
 
@@ -122,12 +132,19 @@ serve(async (req) => {
       { role: "system", content: instruction },
       { 
         role: "user", 
-        content: `Вопрос: ${question}\n\nВот выдержки из сайта (источники):\n${contextText}\n\nОтветь конкретно на основе источников.${hasContexts ? " В конце укажи источники [1], [2]..." : " Если источников нет, скажи что нужно уточнить у менеджеров."}` 
+        content: hasContexts 
+          ? `ВОПРОС: ${question}\n\nИСТОЧНИКИ:\n${contextText}\n\nОТВЕЧАЙ КОНКРЕТНО ИЗ ИСТОЧНИКОВ! Укажи номера источников в конце.`
+          : `ВОПРОС: ${question}\n\nИсточников нет. Скажи что нужно уточнить у менеджеров.`
       },
     ];
 
     // 3) Generate response using OpenAI
-    console.log('Generating response...');
+    console.log('OpenAI request:', {
+      model: "gpt-5-nano-2025-08-07",
+      hasContexts,
+      contextLength: contextText.length,
+      questionLength: question.length
+    });
     const chatRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -161,6 +178,9 @@ serve(async (req) => {
 
     const fallbackText = "Извините, не удалось получить ответ.";
     const answer = chatJson.choices?.[0]?.message?.content || fallbackText;
+
+    console.log('AI response:', answer);
+    console.log('Response length:', answer.length);
 
     if (!chatJson.choices?.[0]?.message?.content) {
       console.warn('OpenAI returned empty content, falling back to contacts.');
