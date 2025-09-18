@@ -131,9 +131,9 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
       try {
         setLoading(true);
         
-        // Fetch from secure Supabase function instead of view
+        // Fetch from secure Supabase function with branch filter
         const { data: scheduleData, error } = await supabase
-          .rpc('get_public_schedule');
+          .rpc('get_public_schedule', { branch_name: branchName });
 
         if (error) {
           console.error("Supabase error:", error);
@@ -141,11 +141,8 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
         }
 
         if (scheduleData && scheduleData.length > 0) {
-          // Filter by branch since the function returns all active schedules
-          const branchSchedule = scheduleData.filter(item => item.office_name === branchName);
-          
           // Convert database format to component format
-          const convertedData: ScheduleItem[] = branchSchedule.map(item => ({
+          const convertedData: ScheduleItem[] = scheduleData.map(item => ({
             id: item.id,
             name: item.name,
             officeName: item.office_name,

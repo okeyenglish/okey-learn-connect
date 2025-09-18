@@ -105,7 +105,7 @@ export type Database = {
         Returns: unknown
       }
       get_public_schedule: {
-        Args: Record<PropertyKey, never>
+        Args: Record<PropertyKey, never> | { branch_name?: string }
         Returns: {
           compact_classroom: string
           compact_days: string
