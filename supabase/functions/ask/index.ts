@@ -80,7 +80,7 @@ serve(async (req) => {
 
     // 2) Vector search using Supabase RPC
     const matchCount = 6;
-    console.log('Performing vector search...');
+    console.log('Performing vector search for:', question);
     
     const { data: contexts, error: searchError } = await supabase.rpc('match_docs', {
       query_embedding: queryEmbedding,
@@ -96,6 +96,12 @@ serve(async (req) => {
     }
 
     console.log('Found contexts:', contexts?.length || 0);
+    if (contexts && contexts.length > 0) {
+      console.log('Top 3 results:');
+      contexts.slice(0, 3).forEach((ctx: any, i: number) => {
+        console.log(`${i + 1}. ${ctx.title} (similarity: ${ctx.similarity?.toFixed(3)}) - ${ctx.content.substring(0, 100)}...`);
+      });
+    }
 
     const siteName = "O'KEY ENGLISH";
     const instruction = `Ты — помощник школы английского языка ${siteName}. 
