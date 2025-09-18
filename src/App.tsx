@@ -29,6 +29,7 @@ import LocationLyubertsy2 from "./pages/branches/Lyubertsy2";
 import LocationOnline from "./pages/branches/Online";
 import Contacts from "./pages/Contacts";
 import ContactMethod from "./pages/ContactMethod";
+import AdminSchedule from "./pages/AdminSchedule";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -67,6 +68,7 @@ const App = () => (
               <Route path="/faq" element={<FAQ />} />
               <Route path="/contacts" element={<Contacts />} />
               <Route path="/contact-method" element={<ContactMethod />} />
+              <Route path="/admin/schedule" element={<AdminSchedule />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>

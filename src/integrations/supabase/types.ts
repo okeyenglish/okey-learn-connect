@@ -14,7 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      schedule: {
+        Row: {
+          compact_classroom: string
+          compact_days: string
+          compact_teacher: string
+          compact_time: string
+          created_at: string
+          group_link: string | null
+          id: string
+          is_active: boolean
+          level: string
+          name: string
+          office_name: string
+          updated_at: string
+          vacancies: number
+        }
+        Insert: {
+          compact_classroom: string
+          compact_days: string
+          compact_teacher: string
+          compact_time: string
+          created_at?: string
+          group_link?: string | null
+          id?: string
+          is_active?: boolean
+          level: string
+          name: string
+          office_name: string
+          updated_at?: string
+          vacancies?: number
+        }
+        Update: {
+          compact_classroom?: string
+          compact_days?: string
+          compact_teacher?: string
+          compact_time?: string
+          created_at?: string
+          group_link?: string | null
+          id?: string
+          is_active?: boolean
+          level?: string
+          name?: string
+          office_name?: string
+          updated_at?: string
+          vacancies?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

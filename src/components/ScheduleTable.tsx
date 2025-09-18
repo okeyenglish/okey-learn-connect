@@ -48,69 +48,64 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
       try {
         setLoading(true);
         
-        // Try to fetch from n8n webhook first
-        const webhookUrl = "https://n8n.okey-english.ru/webhook/public/schedule";
-        
-        try {
-          const response = await fetch(webhookUrl);
-          if (response.ok) {
-            const data = await response.json();
-            const branchSchedule = data.filter((item: ScheduleItem) => 
-              item.officeName === branchName
-            );
-            setSchedule(branchSchedule);
-            setFilteredSchedule(branchSchedule);
-          } else {
-            throw new Error("Failed to fetch from webhook");
-          }
-        } catch (webhookError) {
-          console.warn("Failed to fetch from n8n, using demo data:", webhookError);
+        // First try to fetch from Supabase database
+        const { data: scheduleData, error } = await supabase
+          .from('schedule')
+          .select('*')
+          .eq('office_name', branchName)
+          .eq('is_active', true)
+          .order('created_at', { ascending: true });
+
+        if (error) {
+          console.error("Supabase error:", error);
+          throw error;
+        }
+
+        if (scheduleData && scheduleData.length > 0) {
+          // Convert database format to component format
+          const convertedData: ScheduleItem[] = scheduleData.map(item => ({
+            id: item.id,
+            name: item.name,
+            officeName: item.office_name,
+            level: item.level,
+            compactDays: item.compact_days,
+            compactTime: item.compact_time,
+            compactClassroom: item.compact_classroom,
+            compactTeacher: item.compact_teacher,
+            vacancies: item.vacancies,
+            groupLink: item.group_link
+          }));
           
-          // Fallback to demo data
-          const demoData: ScheduleItem[] = [
-            {
-              id: "1",
-              name: "English for Kids",
-              officeName: branchName,
-              level: "A1",
-              compactDays: "Пн, Ср, Пт",
-              compactTime: "16:00-17:30",
-              compactClassroom: "Кабинет 1",
-              compactTeacher: "Анна Иванова",
-              vacancies: 3
-            },
-            {
-              id: "2", 
-              name: "General English",
-              officeName: branchName,
-              level: "B1",
-              compactDays: "Вт, Чт",
-              compactTime: "18:00-19:30",
-              compactClassroom: "Кабинет 2",
-              compactTeacher: "Елена Петрова",
-              vacancies: 1
-            },
-            {
-              id: "3",
-              name: "Advanced English",
-              officeName: branchName,
-              level: "C1",
-              compactDays: "Сб",
-              compactTime: "10:00-13:00",
-              compactClassroom: "Кабинет 3",
-              compactTeacher: "Михаил Сидоров",
-              vacancies: 0
+          setSchedule(convertedData);
+          setFilteredSchedule(convertedData);
+        } else {
+          // Fallback: Try n8n webhook if no data in Supabase
+          try {
+            const webhookUrl = "https://n8n.okey-english.ru/webhook/public/schedule";
+            const response = await fetch(webhookUrl);
+            if (response.ok) {
+              const data = await response.json();
+              const branchSchedule = data.filter((item: ScheduleItem) => 
+                item.officeName === branchName
+              );
+              setSchedule(branchSchedule);
+              setFilteredSchedule(branchSchedule);
+            } else {
+              throw new Error("No schedule data available");
             }
-          ];
-          setSchedule(demoData);
-          setFilteredSchedule(demoData);
+          } catch (webhookError) {
+            console.warn("No schedule data found:", webhookError);
+            setSchedule([]);
+            setFilteredSchedule([]);
+          }
         }
       } catch (error) {
         console.error("Error fetching schedule:", error);
+        setSchedule([]);
+        setFilteredSchedule([]);
         toast({
-          title: "Ошибка загрузки расписания",
-          description: "Не удалось загрузить актуальное расписание",
-          variant: "destructive"
+          title: "Информация",
+          description: "Расписание обновляется. Попробуйте позже.",
         });
       } finally {
         setLoading(false);
