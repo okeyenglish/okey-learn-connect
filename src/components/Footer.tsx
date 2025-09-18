@@ -36,18 +36,14 @@ export default function Footer() {
             <p className="text-sm text-secondary-foreground/80">
               Сильный английский для детей, подростков и взрослых с гарантией прогресса
             </p>
-            <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-8">
               <div className="text-center">
-                <div className="text-3xl font-bold text-primary animate-pulse">10 лет</div>
+                <div className="text-2xl font-bold text-white">10 лет</div>
                 <div className="text-xs text-secondary-foreground/80">на рынке</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-primary animate-pulse">5000+</div>
+                <div className="text-2xl font-bold text-white">5000+</div>
                 <div className="text-xs text-secondary-foreground/80">выпускников</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-bold text-primary">Лицензия</div>
-                <div className="text-xs text-secondary-foreground/80">на образование</div>
               </div>
             </div>
           </div>
@@ -144,11 +140,17 @@ export default function Footer() {
               >
                 Цены
               </Link>
-              <Link
+               <Link
                 to="/faq"
                 className="block text-sm hover:text-accent transition-colors"
               >
                 FAQ
+              </Link>
+              <Link
+                to="/about"
+                className="block text-sm hover:text-accent transition-colors"
+              >
+                Лицензия на образование
               </Link>
             </div>
           </div>
