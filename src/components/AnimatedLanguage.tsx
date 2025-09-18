@@ -59,16 +59,22 @@ export default function AnimatedLanguage() {
   return (
     <span
       ref={containerRef}
-      className="inline-block align-baseline overflow-hidden leading-none"
-      style={{ height: '1em', width: width ?? undefined }}
+      className="inline-block align-baseline overflow-hidden"
+      style={{ 
+        height: '1em', 
+        width: width ?? undefined,
+        verticalAlign: 'baseline',
+        lineHeight: 'inherit'
+      }}
     >
       <span
         className={`block transition-transform duration-500 ease-out will-change-transform ${
           isAnimating ? '-translate-y-full' : 'translate-y-0'
         }`}
+        style={{ lineHeight: 'inherit' }}
       >
-        <span className="block text-gradient whitespace-nowrap">{languages[currentIndex]}</span>
-        <span className="block text-gradient whitespace-nowrap">{languages[nextIndex]}</span>
+        <span className="block text-gradient whitespace-nowrap" style={{ lineHeight: 'inherit' }}>{languages[currentIndex]}</span>
+        <span className="block text-gradient whitespace-nowrap" style={{ lineHeight: 'inherit' }}>{languages[nextIndex]}</span>
       </span>
     </span>
   );
