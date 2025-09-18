@@ -3,6 +3,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { GraduationCap, Users, Clock, Target, ArrowRight } from "lucide-react";
 
+// Import program images
+import superSafariImg from "@/assets/super-safari.png";
+import kidsBoxImg from "@/assets/kids-box.png";
+import prepareImg from "@/assets/prepare.png";
+import empowerImg from "@/assets/empower.png";
+
 const programs = [
   {
     name: "Super Safari",
@@ -11,6 +17,7 @@ const programs = [
     description: "Английский через игры, песни и сказки. Мягкое погружение в язык с первых шагов.",
     features: ["Игровая методика", "Развитие речи", "Подготовка к школе"],
     color: "bg-gradient-to-r from-pink-500 to-rose-500",
+    image: superSafariImg,
     href: "/programs/supersafari"
   },
   {
@@ -20,6 +27,7 @@ const programs = [
     description: "Читаем, говорим, понемногу пишем. Движемся к уверенному базовому уровню.",
     features: ["Cambridge материалы", "YLE подготовка", "Развитие навыков"],
     color: "bg-gradient-to-r from-blue-500 to-cyan-500",
+    image: kidsBoxImg,
     href: "/programs/kidsbox"
   },
   {
@@ -29,6 +37,7 @@ const programs = [
     description: "Подростковые темы, уверенная речь, подготовка к KET/PET/FCE, ОГЭ/ЕГЭ.",
     features: ["7 уровней", "Экзамены Cambridge", "Speaking Club"],
     color: "bg-gradient-to-r from-purple-500 to-indigo-500",
+    image: prepareImg,
     href: "/programs/prepare"
   },
   {
@@ -38,6 +47,7 @@ const programs = [
     description: "Английский для жизни и работы. Комбинированный формат и speaking-клуб.",
     features: ["Для работы и жизни", "Гибкий график", "Workshop 56 ситуаций"],
     color: "bg-gradient-to-r from-emerald-500 to-teal-500",
+    image: empowerImg,
     href: "/programs/empower"
   }
 ];
@@ -79,13 +89,14 @@ export default function Programs() {
         {/* Programs Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
           {programs.map((program) => (
-            <Card key={program.name} className="card-elevated group hover:border-primary/50 transition-all">
+            <Card key={program.name} className="card-elevated group hover:border-primary/50 transition-all overflow-hidden">
               <CardContent className="p-0">
-                <div className={`h-32 ${program.color} rounded-t-lg flex items-center justify-center`}>
-                  <div className="text-center text-white">
-                    <h3 className="text-2xl font-bold mb-1">{program.name}</h3>
-                    <p className="text-lg opacity-90">{program.age}</p>
-                  </div>
+                <div className="relative h-64">
+                  <img 
+                    src={program.image} 
+                    alt={`${program.name} - ${program.description}`}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <div className="p-6">
                   <div className="flex items-center gap-2 mb-3">
