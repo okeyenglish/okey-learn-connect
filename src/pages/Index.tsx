@@ -62,7 +62,7 @@ export default function Index() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
               <Link to="/test">
                 <Button variant="hero" size="lg" className="flex items-center gap-2">
-                  <TestTube className="w-5 h-5" />
+                  <BookOpen className="w-5 h-5" />
                   Пройти онлайн-тест уровня
                 </Button>
               </Link>
@@ -74,13 +74,13 @@ export default function Index() {
               </Link>
             </div>
 
-            <div className="flex flex-wrap justify-center items-center gap-8 text-center">
+            <div className="flex flex-wrap justify-center items-center gap-6 text-center">
               <div className="flex items-center gap-3 p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 hover-scale">
                 <div className="w-14 h-14 bg-gradient-primary rounded-full flex items-center justify-center shadow-lg">
                   <Award className="w-7 h-7 text-white" />
                 </div>
                 <div>
-                  <div className="text-3xl font-black text-white drop-shadow-lg animate-pulse">10 лет</div>
+                  <div className="text-3xl font-black text-primary drop-shadow-lg">10 лет</div>
                   <div className="text-sm text-white/80 font-medium">на рынке</div>
                 </div>
               </div>
@@ -89,8 +89,17 @@ export default function Index() {
                   <GraduationCap className="w-7 h-7 text-white" />
                 </div>
                 <div>
-                  <div className="text-3xl font-black text-white drop-shadow-lg animate-pulse">5000+</div>
-                  <div className="text-sm text-muted-foreground">выпускников</div>
+                  <div className="text-3xl font-black text-primary drop-shadow-lg">5000+</div>
+                  <div className="text-sm text-white/80 font-medium">выпускников</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 hover-scale">
+                <div className="w-14 h-14 bg-gradient-primary rounded-full flex items-center justify-center shadow-lg">
+                  <CheckCircle className="w-7 h-7 text-white" />
+                </div>
+                <div>
+                  <div className="text-lg font-black text-primary drop-shadow-lg">Лицензия</div>
+                  <div className="text-sm text-white/80 font-medium">на образование</div>
                 </div>
               </div>
             </div>

@@ -27,7 +27,7 @@ export default function Footer() {
               <img 
                 src={okeyLogo} 
                 alt="O'KEY ENGLISH" 
-                className="w-12 h-12 object-contain rounded-lg"
+                className="w-12 h-12 object-cover rounded-full"
               />
               <span className="font-heading font-bold text-lg text-white">
                 O'KEY ENGLISH
@@ -38,12 +38,16 @@ export default function Footer() {
             </p>
             <div className="flex items-center space-x-6">
               <div className="text-center">
-                <div className="text-3xl font-bold text-white bg-gradient-to-r from-accent to-primary bg-clip-text text-transparent animate-pulse">10 лет</div>
+                <div className="text-3xl font-bold text-primary animate-pulse">10 лет</div>
                 <div className="text-xs text-secondary-foreground/80">на рынке</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-white bg-gradient-to-r from-accent to-primary bg-clip-text text-transparent animate-pulse">5000+</div>
+                <div className="text-3xl font-bold text-primary animate-pulse">5000+</div>
                 <div className="text-xs text-secondary-foreground/80">выпускников</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-primary">Лицензия</div>
+                <div className="text-xs text-secondary-foreground/80">на образование</div>
               </div>
             </div>
           </div>
