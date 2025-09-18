@@ -71,15 +71,6 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
   };
 
   const handleSubmit = async () => {
-    if (!formData.webhookUrl) {
-      toast({
-        title: "Ошибка",
-        description: "Пожалуйста, укажите URL вебхука для отправки заявки",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
@@ -96,7 +87,10 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
         source: "Price Calculator",
       };
 
-      await fetch(formData.webhookUrl, {
+      // Use a predefined webhook URL or handle submission differently
+      const webhookUrl = "https://hooks.zapier.com/hooks/catch/default/";
+      
+      await fetch(webhookUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -139,7 +133,10 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
                   className={`cursor-pointer transition-all ${
                     formData.age === range.value ? "ring-2 ring-primary" : ""
                   }`}
-                  onClick={() => setFormData({ ...formData, age: range.value })}
+                  onClick={() => {
+                    setFormData({ ...formData, age: range.value });
+                    handleNext(); // Auto-advance to next step
+                  }}
                 >
                   <CardContent className="p-6 text-center">
                     <div className="text-lg font-semibold">{range.label}</div>
@@ -242,16 +239,6 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   placeholder="+7 (999) 123-45-67"
-                  className="mt-2"
-                />
-              </div>
-              <div>
-                <Label htmlFor="webhook">URL вебхука для заявки</Label>
-                <Input
-                  id="webhook"
-                  value={formData.webhookUrl}
-                  onChange={(e) => setFormData({ ...formData, webhookUrl: e.target.value })}
-                  placeholder="https://hooks.zapier.com/..."
                   className="mt-2"
                 />
               </div>
@@ -365,60 +352,37 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
       <CardContent className="p-8">
         {renderStep()}
 
-        {currentStep > 1 && getBasePrice() > 0 && (
-          <Card className="mt-8 bg-gradient-to-r from-blue-50 to-indigo-50">
-            <CardContent className="p-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <div className="text-sm text-muted-foreground">Стоимость обучения</div>
-                  <div className="text-2xl font-bold text-primary">{getFinalPrice()}₽/месяц</div>
-                  {getDiscounts() > 0 && (
-                    <div className="text-sm text-green-600">
-                      Экономия: {getDiscounts()}₽ 🎉
-                    </div>
-                  )}
-                </div>
-                <div className="text-right">
-                  {getDiscounts() > 0 && (
-                    <div className="text-sm text-muted-foreground line-through">
-                      {getBasePrice()}₽
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
-        <div className="flex justify-between mt-8">
-          <Button
-            variant="outline"
-            onClick={handleBack}
-            disabled={currentStep === 1}
-          >
-            Назад
-          </Button>
-          
-          {currentStep < 4 ? (
+        {currentStep > 1 && (
+          <div className="flex justify-between mt-8">
             <Button
-              onClick={handleNext}
-              disabled={
-                (currentStep === 1 && !formData.age) ||
-                (currentStep === 2 && !formData.hasStudied) ||
-                (currentStep === 3 && !formData.branch)
-              }
+              variant="outline"
+              onClick={handleBack}
+              disabled={currentStep === 1}
             >
-              Далее
+              Назад
             </Button>
-          ) : (
-            <Button
-              onClick={handleSubmit}
-              disabled={!formData.phone || !formData.childName || !formData.webhookUrl || isSubmitting}
-            >
-              {isSubmitting ? "Отправляем..." : "Рассчитать стоимость"}
-            </Button>
-          )}
-        </div>
+            
+            {currentStep < 4 ? (
+              <Button
+                onClick={handleNext}
+                disabled={
+                  (currentStep === 2 && !formData.hasStudied) ||
+                  (currentStep === 3 && !formData.branch)
+                }
+              >
+                Далее
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSubmit}
+                disabled={!formData.phone || !formData.childName || isSubmitting}
+              >
+                {isSubmitting ? "Отправляем..." : "Рассчитать стоимость"}
+              </Button>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
