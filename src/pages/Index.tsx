@@ -80,8 +80,8 @@ export default function Index() {
                   <Award className="w-7 h-7 text-white" />
                 </div>
                 <div>
-                  <div className="text-3xl font-black text-white drop-shadow-lg">10 лет</div>
-                  <div className="text-sm text-white/80 font-medium">на рынке</div>
+                  <div className="text-3xl font-black text-primary drop-shadow-lg">10 лет</div>
+                  <div className="text-sm text-primary/80 font-medium">на рынке</div>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 hover-scale">
@@ -89,8 +89,8 @@ export default function Index() {
                   <GraduationCap className="w-7 h-7 text-white" />
                 </div>
                 <div>
-                  <div className="text-3xl font-black text-white drop-shadow-lg">5000+</div>
-                  <div className="text-sm text-white/80 font-medium">выпускников</div>
+                  <div className="text-3xl font-black text-primary drop-shadow-lg">5000+</div>
+                  <div className="text-sm text-primary/80 font-medium">выпускников</div>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 hover-scale">
@@ -98,8 +98,8 @@ export default function Index() {
                   <CheckCircle className="w-7 h-7 text-white" />
                 </div>
                 <div>
-                  <div className="text-lg font-black text-white drop-shadow-lg">Лицензия</div>
-                  <div className="text-sm text-white/80 font-medium">на образование</div>
+                  <div className="text-lg font-black text-primary drop-shadow-lg">Лицензия</div>
+                  <div className="text-sm text-primary/80 font-medium">на образование</div>
                 </div>
               </div>
             </div>
