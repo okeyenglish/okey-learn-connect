@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { MapPin, Phone, MessageCircle, UserCheck } from "lucide-react";
+import ScheduleTable from "@/components/ScheduleTable";
 
 export default function LocationOkskaya() {
   return (
@@ -20,6 +21,11 @@ export default function LocationOkskaya() {
               Пробный урок
             </Button>
           </div>
+        </div>
+
+        {/* Schedule Section */}
+        <div className="mt-16">
+          <ScheduleTable branchName="Окская" />
         </div>
       </div>
     </div>

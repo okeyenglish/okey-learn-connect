@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Globe, Monitor, Headphones, Clock, Users, Award } from "lucide-react";
+import ScheduleTable from "@/components/ScheduleTable";
 
 const LocationOnline = () => {
   return (
@@ -133,6 +134,11 @@ const LocationOnline = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Schedule Section */}
+        <div className="mb-12">
+          <ScheduleTable branchName="Онлайн" />
+        </div>
 
         {/* CTA Section */}
         <div className="text-center">

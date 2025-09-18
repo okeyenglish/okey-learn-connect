@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { MapPin, UserCheck } from "lucide-react";
+import ScheduleTable from "@/components/ScheduleTable";
 
 export default function LocationStakhanovskaya() {
   return (
@@ -18,6 +19,11 @@ export default function LocationStakhanovskaya() {
             <UserCheck className="w-4 h-4" />
             Пробный урок
           </Button>
+        </div>
+
+        {/* Schedule Section */}
+        <div className="mt-16">
+          <ScheduleTable branchName="Стахановская" />
         </div>
       </div>
     </div>
