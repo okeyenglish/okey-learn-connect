@@ -181,7 +181,7 @@ serve(async (req) => {
           model,
           messages,
           max_completion_tokens: isRetry ? 1000 : 600,
-          temperature: 0.3
+          temperature: 0.0
         }),
       });
     };
