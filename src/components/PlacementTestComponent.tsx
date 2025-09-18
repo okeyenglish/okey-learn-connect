@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Clock, Users, GraduationCap, Phone, Mail } from "lucide-react";
 import { questionBank } from "@/lib/questionBank";
+import { supabase } from "@/integrations/supabase/client";
 
 interface TestState {
   track: 'kids' | 'teens' | 'adults';
@@ -36,6 +38,7 @@ interface Question {
 }
 
 export default function PlacementTestComponent() {
+  const navigate = useNavigate();
   const [screen, setScreen] = useState<'selection' | 'test' | 'result'>('selection');
   const [testState, setTestState] = useState<TestState>({
     track: 'kids',
@@ -164,30 +167,51 @@ export default function PlacementTestComponent() {
     }
   };
 
-  const finishTest = (state: TestState, finalLevel: string) => {
+  const finishTest = async (state: TestState, finalLevel: string) => {
     const timeSpent = Math.floor((Date.now() - startTime) / 1000);
     
-    setTestState({
+    const newState = {
       ...state,
       finalLevel,
       timeSpent
-    });
+    };
+    
+    setTestState(newState);
 
     // Send webhook data
     const webhookData = {
-      track: state.track,
+      source: "website",
+      page: "/test",
+      utm: "placement_test",
       name: state.name,
-      age_or_grade: state.ageOrGrade,
       phone: state.phone,
       email: state.email,
-      answers: state.answers,
-      raw_score: state.answers.filter(a => a.correct).length,
-      final_level: finalLevel,
-      time_spent_sec: timeSpent,
-      utm: { source: 'site', campaign: 'placement' }
+      branch: "", // Empty for placement test
+      age: state.ageOrGrade,
+      test_data: {
+        track: state.track,
+        answers: state.answers,
+        raw_score: state.answers.filter(a => a.correct).length,
+        final_level: finalLevel,
+        time_spent_sec: timeSpent,
+        total_questions: state.answers.length
+      }
     };
 
-    console.log('Test completed:', webhookData);
+    try {
+      const { error } = await supabase.functions.invoke('webhook-proxy', {
+        body: webhookData
+      });
+
+      if (error) {
+        console.error('Failed to send webhook:', error);
+      } else {
+        console.log('Test results sent successfully');
+      }
+    } catch (error) {
+      console.error('Webhook error:', error);
+    }
+
     setScreen('result');
   };
 
@@ -453,11 +477,44 @@ export default function PlacementTestComponent() {
             </p>
 
             <div className="space-y-4">
-              <Button variant="hero" size="lg" className="w-full">
+              <Button 
+                variant="hero" 
+                size="lg" 
+                className="w-full"
+                onClick={() => navigate('/contact-method', { 
+                  state: { 
+                    from: 'test',
+                    testResults: {
+                      level: testState.finalLevel,
+                      score: `${testState.answers.filter(a => a.correct).length}/${testState.answers.length}`,
+                      name: testState.name,
+                      phone: testState.phone,
+                      email: testState.email
+                    }
+                  }
+                })}
+              >
                 📞 Записаться на пробный урок
               </Button>
               
-              <Button variant="outline" size="lg" className="w-full">
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="w-full"
+                onClick={() => navigate('/contact-method', { 
+                  state: { 
+                    from: 'test',
+                    action: 'coupon',
+                    testResults: {
+                      level: testState.finalLevel,
+                      score: `${testState.answers.filter(a => a.correct).length}/${testState.answers.length}`,
+                      name: testState.name,
+                      phone: testState.phone,
+                      email: testState.email
+                    }
+                  }
+                })}
+              >
                 🎁 Получить купон 5000 ₽
               </Button>
             </div>
