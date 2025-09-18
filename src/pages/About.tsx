@@ -12,12 +12,11 @@ export default function About() {
     setIsLoading(true);
     
     try {
-      const response = await fetch('https://n8n.okey-english.ru/webhook/okeyenglish.ru', {
+      const response = await fetch('https://kbojujfwtvmsgudumown.supabase.co/functions/v1/webhook-proxy', {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        mode: "no-cors",
         body: JSON.stringify({
           timestamp: new Date().toISOString(),
           source: source,
@@ -25,6 +24,15 @@ export default function About() {
           triggered_from: window.location.origin,
         }),
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const result = await response.json();
+      if (!result.ok) {
+        throw new Error(result.error || 'Webhook request failed');
+      }
 
       toast({
         title: "Заявка отправлена",
