@@ -1,10 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { BookOpen, Globe, Users, Laptop, GraduationCap, Star, BookMarked, Heart, MessageCircle, Calendar } from "lucide-react";
+import { BookOpen, Globe, Users, Laptop, GraduationCap, Star, BookMarked, Heart, MessageCircle, Calendar, Phone, Send } from "lucide-react";
 
 export default function About() {
   const handleWhatsApp = () => {
     window.open('https://wa.me/79999999999', '_blank');
+  };
+
+  const handleTelegram = () => {
+    window.open('https://t.me/your_telegram_handle', '_blank');
   };
 
   const features1 = [
@@ -136,6 +140,39 @@ export default function About() {
                 </CardContent>
               </Card>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Choose Your Option */}
+      <section className="py-16">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-4xl mx-auto text-center">
+            <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">Подберите свой вариант</h2>
+            <p className="text-xl text-muted-foreground mb-12">
+              Выберите удобный для себя формат и график
+            </p>
+            
+            <div className="flex justify-center gap-4 mb-8">
+              <Button 
+                onClick={handleWhatsApp}
+                variant="outline"
+                size="lg"
+                className="flex items-center gap-2"
+              >
+                <Phone className="w-5 h-5 text-green-600" />
+                WhatsApp
+              </Button>
+              <Button 
+                onClick={handleTelegram}
+                variant="outline"
+                size="lg"
+                className="flex items-center gap-2"
+              >
+                <Send className="w-5 h-5 text-blue-500" />
+                Telegram
+              </Button>
+            </div>
           </div>
         </div>
       </section>
