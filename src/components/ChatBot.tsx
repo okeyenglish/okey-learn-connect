@@ -144,7 +144,7 @@ export default function ChatBot() {
                         size="sm"
                         variant="outline"
                         className="text-xs"
-                        onClick={() => window.open('https://t.me/okeyenglish_support', '_blank')}
+                        onClick={() => window.open('https://t.me/englishmanager', '_blank')}
                       >
                         💬 Telegram
                       </Button>

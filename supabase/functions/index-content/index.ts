@@ -195,7 +195,7 @@ serve(async (req) => {
         Телефон: +7 (499) 707-35-35
         Email: info@okeyenglish.ru
         WhatsApp: +7 (993) 707-35-53
-        Telegram: @okeyenglish_support
+        Telegram: @englishmanager
         Часы работы: Пн-Пт 10:00-21:00, Сб-Вс 10:00-18:00
         Запись на пробный урок по телефону или в мессенджерах.`
       },
