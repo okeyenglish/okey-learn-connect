@@ -49,7 +49,7 @@ export default function Index() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="text-center max-w-4xl mx-auto">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
-              <span className="text-gradient">Сильный <AnimatedLanguage /></span>
+              <span className="text-gradient">Сильный</span>{" "}<AnimatedLanguage />
               <br />
               для детей, подростков и взрослых
             </h1>
