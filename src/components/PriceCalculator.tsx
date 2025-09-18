@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Gift, Phone, User, MapPin, BookOpen, Calendar, Check, Sparkles, MessageCircle } from "lucide-react";
+import { Gift, Phone, User, MapPin, BookOpen, Calendar, Check, Sparkles, MessageCircle, Clock } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 
 interface PriceCalculatorProps {
@@ -39,9 +39,48 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
     branch: preSelectedBranch || "",
     childName: "",
     phone: "",
-    webhookUrl: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(60);
+  const [currentOffer, setCurrentOffer] = useState("разовую скидку 5000₽");
+
+  const offers = [
+    "разовую скидку 5000₽",
+    "учебный комплект",
+    "4 разговорных клуба"
+  ];
+
+  // Timer for step 4
+  useEffect(() => {
+    if (currentStep === 4 && timeLeft > 0) {
+      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentStep, timeLeft]);
+
+  // Offer animation for step 4
+  useEffect(() => {
+    if (currentStep === 4) {
+      setTimeLeft(60); // Reset timer when entering step 4
+      
+      let offerIndex = 0;
+      const offerInterval = setInterval(() => {
+        offerIndex = (offerIndex + 1) % offers.length;
+        setCurrentOffer(offers[offerIndex]);
+      }, 800);
+
+      // After 3 seconds, always show the discount offer
+      const finalTimeout = setTimeout(() => {
+        clearInterval(offerInterval);
+        setCurrentOffer("разовую скидку 5000₽");
+      }, 3000);
+
+      return () => {
+        clearInterval(offerInterval);
+        clearTimeout(finalTimeout);
+      };
+    }
+  }, [currentStep]);
 
   const totalSteps = 5;
   const progress = (currentStep / totalSteps) * 100;
@@ -160,7 +199,10 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
                 className={`cursor-pointer transition-all ${
                   formData.hasStudied === "yes" ? "ring-2 ring-primary" : ""
                 }`}
-                onClick={() => setFormData({ ...formData, hasStudied: "yes" })}
+                onClick={() => {
+                  setFormData({ ...formData, hasStudied: "yes" });
+                  handleNext();
+                }}
               >
                 <CardContent className="p-6 text-center">
                   <Check className="w-8 h-8 text-green-500 mx-auto mb-2" />
@@ -172,7 +214,10 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
                 className={`cursor-pointer transition-all ${
                   formData.hasStudied === "no" ? "ring-2 ring-primary" : ""
                 }`}
-                onClick={() => setFormData({ ...formData, hasStudied: "no" })}
+                onClick={() => {
+                  setFormData({ ...formData, hasStudied: "no" });
+                  handleNext();
+                }}
               >
                 <CardContent className="p-6 text-center">
                   <Sparkles className="w-8 h-8 text-blue-500 mx-auto mb-2" />
@@ -199,7 +244,10 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
                   className={`cursor-pointer transition-all ${
                     formData.branch === branch.value ? "ring-2 ring-primary" : ""
                   }`}
-                  onClick={() => setFormData({ ...formData, branch: branch.value })}
+                  onClick={() => {
+                    setFormData({ ...formData, branch: branch.value });
+                    handleNext();
+                  }}
                 >
                   <CardContent className="p-4 text-center">
                     <div className="font-medium">{branch.name}</div>
@@ -215,8 +263,22 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
           <div className="space-y-6">
             <div className="text-center">
               <Gift className="w-12 h-12 text-primary mx-auto mb-4" />
-              <h3 className="text-2xl font-bold mb-2">Добавим разовую скидку 5000₽</h3>
-              <p className="text-muted-foreground">На кого используете?</p>
+              <h3 className="text-2xl font-bold mb-2">
+                Добавим{" "}
+                <span className="inline-block animate-fade-in text-primary">
+                  {currentOffer}
+                </span>
+              </h3>
+              <p className="text-muted-foreground mb-4">На кого используете?</p>
+              
+              {/* Timer */}
+              <div className="flex items-center justify-center gap-2 mb-6">
+                <Clock className="w-5 h-5 text-orange-500" />
+                <span className="text-lg font-semibold text-orange-500">
+                  {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+                </span>
+                <span className="text-sm text-muted-foreground">до конца предложения</span>
+              </div>
             </div>
             <div className="max-w-md mx-auto space-y-4">
               <div>
@@ -353,34 +415,36 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
         {renderStep()}
 
 
-        {currentStep > 1 && (
+        {currentStep > 1 && currentStep < 4 && (
           <div className="flex justify-between mt-8">
             <Button
               variant="outline"
               onClick={handleBack}
-              disabled={currentStep === 1}
             >
               Назад
             </Button>
             
-            {currentStep < 4 ? (
-              <Button
-                onClick={handleNext}
-                disabled={
-                  (currentStep === 2 && !formData.hasStudied) ||
-                  (currentStep === 3 && !formData.branch)
-                }
-              >
-                Далее
-              </Button>
-            ) : (
-              <Button
-                onClick={handleSubmit}
-                disabled={!formData.phone || !formData.childName || isSubmitting}
-              >
-                {isSubmitting ? "Отправляем..." : "Рассчитать стоимость"}
-              </Button>
-            )}
+            <Button
+              onClick={handleNext}
+              disabled={
+                (currentStep === 2 && !formData.hasStudied) ||
+                (currentStep === 3 && !formData.branch)
+              }
+            >
+              Далее
+            </Button>
+          </div>
+        )}
+
+        {currentStep === 4 && (
+          <div className="flex justify-center mt-8">
+            <Button
+              onClick={handleSubmit}
+              disabled={!formData.phone || !formData.childName || isSubmitting}
+              className="w-full max-w-md"
+            >
+              {isSubmitting ? "Отправляем..." : "Рассчитать стоимость"}
+            </Button>
           </div>
         )}
       </CardContent>
