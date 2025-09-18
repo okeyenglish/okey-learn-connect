@@ -51,7 +51,7 @@ export default function Contacts() {
 
     try {
       // Submit form data to webhook
-      const response = await fetch('{{N8N_LEAD_WEBHOOK}}', {
+      const response = await fetch('https://kbojujfwtvmsgudumown.supabase.co/functions/v1/webhook-proxy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -67,28 +67,34 @@ export default function Contacts() {
         }),
       });
 
-      if (response.ok) {
-        toast({
-          title: "Заявка отправлена!",
-          description: "Мы свяжемся с вами в течение 15 минут",
-        });
-
-        // Reset form
-        setFormData({
-          name: "",
-          phone: "",
-          branch: "",
-          age: ""
-        });
-
-        // Redirect to thank you page
-        setTimeout(() => {
-          window.location.href = "/thank-you";
-        }, 2000);
-      } else {
-        throw new Error('Ошибка отправки');
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
       }
+      
+      const result = await response.json();
+      if (!result.ok) {
+        throw new Error(result.error || 'Webhook request failed');
+      }
+      
+      toast({
+        title: "Заявка отправлена!",
+        description: "Мы свяжемся с вами в течение 15 минут",
+      });
+
+      // Reset form
+      setFormData({
+        name: "",
+        phone: "",
+        branch: "",
+        age: ""
+      });
+
+      // Redirect to thank you page
+      setTimeout(() => {
+        window.location.href = "/thank-you";
+      }, 2000);
     } catch (error) {
+      console.error("Error submitting form:", error);
       toast({
         title: "Ошибка",
         description: "Не удалось отправить заявку. Попробуйте еще раз или свяжитесь с нами по телефону.",
