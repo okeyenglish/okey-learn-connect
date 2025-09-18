@@ -183,14 +183,46 @@ serve(async (req) => {
     })) || [];
 
     const fallbackText = "Извините, не удалось получить ответ.";
-    const answer = chatJson.choices?.[0]?.message?.content || fallbackText;
+
+    // Helper: build a deterministic answer from contexts (no AI) when needed
+    const buildAnswerFromContexts = (q: string, ctxs: any[] = []) => {
+      try {
+        if (!ctxs.length) return "";
+        const lower = (q || '').toLowerCase();
+        const isBranches = /(какие.*филиал|филиал(ы)?|адрес(а|ы)?|где.*наход)/i.test(lower);
+        const items = ctxs.map((c: any, i: number) => {
+          const title = c.title || `Источник ${i + 1}`;
+          const m = (c.content || '').match(/Адрес:\s*([^\n\.]+)/i);
+          const address = m?.[1]?.trim();
+          return { title, address, idx: i + 1 };
+        });
+
+        if (isBranches) {
+          const uniq = new Map<string, { title: string; address?: string; idx: number }>();
+          for (const it of items) if (!uniq.has(it.title)) uniq.set(it.title, it);
+          const list = Array.from(uniq.values())
+            .map((it) => `- ${it.title}${it.address ? ` — ${it.address}` : ''} [${it.idx}]`)
+            .join('\n');
+          return `Наши филиалы:\n${list}`;
+        }
+
+        const list = items.slice(0, 5).map((it) => `- ${it.title} [${it.idx}]`).join('\n');
+        return `По данным источников:\n${list}`;
+      } catch (_) {
+        return "";
+      }
+    };
+
+    let answer = (chatJson.choices?.[0]?.message?.content || '').trim();
+
+    if (!answer) {
+      console.warn('OpenAI returned empty content, constructing answer from contexts.');
+      const constructed = buildAnswerFromContexts(question, contexts || []);
+      answer = constructed || fallbackText;
+    }
 
     console.log('AI response:', answer);
     console.log('Response length:', answer.length);
-
-    if (!chatJson.choices?.[0]?.message?.content) {
-      console.warn('OpenAI returned empty content, falling back to contacts.');
-    }
     
     // Check if the AI indicates it doesn't know the answer or we used fallback
     const unknownIndicators = [
@@ -205,7 +237,7 @@ serve(async (req) => {
     const response = {
       answer,
       sources,
-      showContacts: isUnknown || answer === fallbackText
+      showContacts: isUnknown && answer === fallbackText
     };
 
     console.log('Response generated successfully');
