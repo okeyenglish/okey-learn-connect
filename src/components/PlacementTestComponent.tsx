@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,6 +40,7 @@ interface Question {
 export default function PlacementTestComponent() {
   const navigate = useNavigate();
   const [screen, setScreen] = useState<'selection' | 'test' | 'result'>('selection');
+  const webhookSentRef = useRef(false);
   const [testState, setTestState] = useState<TestState>({
     track: 'kids',
     name: '',
@@ -81,6 +82,9 @@ export default function PlacementTestComponent() {
 
   const startTest = () => {
     if (!testState.name.trim()) return;
+    
+    // Reset webhook flag when starting a new test
+    webhookSentRef.current = false;
     
     const initialLevel = testState.track === 'kids' ? 'A1' : 'A1';
     const newState = {
@@ -168,6 +172,14 @@ export default function PlacementTestComponent() {
   };
 
   const finishTest = async (state: TestState, finalLevel: string) => {
+    // Prevent duplicate webhook calls
+    if (webhookSentRef.current) {
+      console.log('Webhook already sent, skipping...');
+      setScreen('result');
+      return;
+    }
+    
+    webhookSentRef.current = true;
     const timeSpent = Math.floor((Date.now() - startTime) / 1000);
     
     const newState = {
@@ -178,7 +190,7 @@ export default function PlacementTestComponent() {
     
     setTestState(newState);
 
-    // Send webhook data
+    // Send webhook data only once
     const webhookData = {
       source: "website",
       page: "/test",
@@ -199,6 +211,7 @@ export default function PlacementTestComponent() {
     };
 
     try {
+      console.log('Sending webhook data:', webhookData);
       const { error } = await supabase.functions.invoke('webhook-proxy', {
         body: webhookData
       });
