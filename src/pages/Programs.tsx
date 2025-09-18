@@ -1,0 +1,143 @@
+import { Link } from "react-router-dom";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { GraduationCap, Users, Clock, Target, ArrowRight } from "lucide-react";
+
+const programs = [
+  {
+    name: "Super Safari",
+    age: "3–6 лет",
+    level: "Starter",
+    description: "Английский через игры, песни и сказки. Мягкое погружение в язык с первых шагов.",
+    features: ["Игровая методика", "Развитие речи", "Подготовка к школе"],
+    color: "bg-gradient-to-r from-pink-500 to-rose-500",
+    href: "/programs/supersafari"
+  },
+  {
+    name: "Kid's Box",
+    age: "6–9 лет", 
+    level: "A1–A2",
+    description: "Читаем, говорим, понемногу пишем. Движемся к уверенному базовому уровню.",
+    features: ["Cambridge материалы", "YLE подготовка", "Развитие навыков"],
+    color: "bg-gradient-to-r from-blue-500 to-cyan-500",
+    href: "/programs/kidsbox"
+  },
+  {
+    name: "Prepare",
+    age: "10–17 лет",
+    level: "A1–C2", 
+    description: "Подростковые темы, уверенная речь, подготовка к KET/PET/FCE, ОГЭ/ЕГЭ.",
+    features: ["7 уровней", "Экзамены Cambridge", "Speaking Club"],
+    color: "bg-gradient-to-r from-purple-500 to-indigo-500",
+    href: "/programs/prepare"
+  },
+  {
+    name: "Empower", 
+    age: "Взрослые",
+    level: "A1–C2",
+    description: "Английский для жизни и работы. Комбинированный формат и speaking-клуб.",
+    features: ["Для работы и жизни", "Гибкий график", "Workshop 56 ситуаций"],
+    color: "bg-gradient-to-r from-emerald-500 to-teal-500",
+    href: "/programs/empower"
+  }
+];
+
+export default function Programs() {
+  return (
+    <div className="min-h-screen py-20">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="text-center mb-16">
+          <h1 className="text-4xl lg:text-5xl font-bold mb-6">
+            <span className="text-gradient">Программы обучения</span>
+          </h1>
+          <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
+            Cambridge-курсы для каждого возраста: от первых слов до свободного общения
+          </p>
+          <div className="flex flex-wrap justify-center items-center gap-8 text-center">
+            <div className="flex items-center gap-2">
+              <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center">
+                <Users className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-primary">4</div>
+                <div className="text-sm text-muted-foreground">программы</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center">
+                <GraduationCap className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-primary">Pre-A1–C2</div>
+                <div className="text-sm text-muted-foreground">уровни</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Programs Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+          {programs.map((program) => (
+            <Card key={program.name} className="card-elevated group hover:border-primary/50 transition-all">
+              <CardContent className="p-0">
+                <div className={`h-32 ${program.color} rounded-t-lg flex items-center justify-center`}>
+                  <div className="text-center text-white">
+                    <h3 className="text-2xl font-bold mb-1">{program.name}</h3>
+                    <p className="text-lg opacity-90">{program.age}</p>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Target className="w-5 h-5 text-primary" />
+                    <span className="font-semibold text-primary">{program.level}</span>
+                  </div>
+                  
+                  <p className="text-muted-foreground mb-4">{program.description}</p>
+                  
+                  <ul className="space-y-2 mb-6">
+                    {program.features.map((feature) => (
+                      <li key={feature} className="flex items-center gap-2 text-sm">
+                        <Clock className="w-4 h-4 text-accent" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  
+                  <Link to={program.href}>
+                    <Button className="w-full group-hover:bg-primary/90 transition-colors">
+                      Подробнее о программе
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* CTA Section */}
+        <div className="text-center bg-muted/50 rounded-lg p-8">
+          <h2 className="text-2xl font-bold mb-4">Не знаете, какая программа подойдет?</h2>
+          <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
+            Пройдите бесплатный онлайн-тест или запишитесь на пробный урок — поможем определить уровень и подберем идеальную группу.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link to="/test">
+              <Button variant="outline" size="lg" className="flex items-center gap-2">
+                <Target className="w-5 h-5" />
+                Пройти тест уровня
+              </Button>
+            </Link>
+            <Link to="/contacts">
+              <Button size="lg" className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Записаться на пробный урок
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

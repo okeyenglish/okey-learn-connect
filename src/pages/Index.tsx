@@ -60,7 +60,7 @@ export default function Index() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-              <Link to="/placement-test">
+              <Link to="/test">
                 <Button variant="hero" size="lg" className="flex items-center gap-2">
                   <TestTube className="w-5 h-5" />
                   Пройти онлайн-тест уровня
@@ -120,7 +120,7 @@ export default function Index() {
                   <p className="text-sm text-muted-foreground">{branch.address}</p>
                   
                   <div className="flex flex-col gap-2">
-                    <Link to={`/locations/${branch.slug}`}>
+                    <Link to={`/branches/${branch.slug}`}>
                       <Button variant="outline" size="sm" className="w-full">
                         Посмотреть расписание
                       </Button>

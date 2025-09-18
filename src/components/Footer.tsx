@@ -94,7 +94,7 @@ export default function Footer() {
               {branches.map((branch) => (
                 <Link
                   key={branch.slug}
-                  to={`/locations/${branch.slug}`}
+                  to={`/branches/${branch.slug}`}
                   className="block text-sm hover:text-accent transition-colors"
                 >
                   <div className="font-medium">{branch.name}</div>
@@ -111,13 +111,13 @@ export default function Footer() {
             <h4 className="font-heading font-semibold text-white">Разделы</h4>
             <div className="space-y-2">
               <Link
-                to="/courses"
+                to="/programs"
                 className="block text-sm hover:text-accent transition-colors"
               >
-                Курсы
+                Программы
               </Link>
               <Link
-                to="/placement-test"
+                to="/test"
                 className="block text-sm hover:text-accent transition-colors"
               >
                 Тест уровня

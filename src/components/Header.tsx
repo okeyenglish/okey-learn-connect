@@ -7,8 +7,8 @@ import logoImage from "@/assets/okey-english-logo.jpg";
 
 const navigation = [
   { name: "Главная", href: "/" },
-  { name: "Курсы", href: "/courses" },
-  { name: "Филиалы", href: "/locations" },
+  { name: "Программы", href: "/programs" },
+  { name: "Филиалы", href: "/branches" },
   { name: "О школе", href: "/about" },
   { name: "Преподаватели", href: "/teachers" },
   { name: "Отзывы", href: "/reviews" },
@@ -70,7 +70,7 @@ export default function Header() {
                 <MessageCircle className="w-4 h-4" />
                 <span className="hidden xl:inline">WhatsApp</span>
               </Button>
-              <Link to="/placement-test">
+              <Link to="/test">
                 <Button variant="outline" size="sm" className="flex items-center gap-1 px-3">
                   <TestTube className="w-4 h-4" />
                   <span className="hidden xl:inline">Тест</span>
@@ -116,7 +116,7 @@ export default function Header() {
                       <MessageCircle className="w-4 h-4" />
                       WhatsApp
                     </Button>
-                    <Link to="/placement-test" onClick={() => setIsOpen(false)}>
+                    <Link to="/test" onClick={() => setIsOpen(false)}>
                       <Button variant="outline" className="w-full justify-center gap-2">
                         <TestTube className="w-4 h-4" />
                         Тест уровня (5 мин)
@@ -157,7 +157,7 @@ export default function Header() {
             <MessageCircle className="w-5 h-5" />
             <span className="text-xs">WhatsApp</span>
           </Button>
-          <Link to="/placement-test">
+          <Link to="/test">
             <Button
               variant="ghost"
               size="sm"

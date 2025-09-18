@@ -154,7 +154,7 @@ export default function Locations() {
           {branches.map((branch) => (
             <Link 
               key={branch.id}
-              to={`/locations/${branch.id}`}
+              to={`/branches/${branch.id}`}
               className="text-center p-4 rounded-lg border hover:border-primary/50 hover:bg-muted/50 transition-all"
             >
               <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-3">
@@ -226,7 +226,7 @@ export default function Locations() {
 
                 {/* Actions */}
                 <div className="flex flex-col gap-3">
-                  <Link to={`/locations/${branch.id}`}>
+                  <Link to={`/branches/${branch.id}`}>
                     <Button variant="hero" className="w-full">
                       <ArrowRight className="w-4 h-4 mr-2" />
                       Подробнее о филиале
