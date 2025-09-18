@@ -101,6 +101,21 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
     return Math.max(0, getBasePrice() - getDiscounts());
   };
 
+  const getCourseName = () => {
+    switch (formData.age) {
+      case "3-6":
+        return "Super Safari";
+      case "5-9":
+        return "Kid's Box";
+      case "10-17":
+        return "Prepare";
+      case "18+":
+        return "Empower";
+      default:
+        return "курс";
+    }
+  };
+
   const handleNext = () => {
     setCurrentStep(prev => Math.min(prev + 1, totalSteps));
   };
@@ -326,7 +341,7 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
                 variant="outline"
                 size="sm"
                 onClick={() => window.open(`https://wa.me/79937073553`, '_blank')}
-                className="flex items-center space-x-2"
+                className="flex items-center space-x-2 text-green-600 border-green-600 hover:bg-green-50"
               >
                 <MessageCircle className="w-4 h-4" />
                 <span>WhatsApp</span>
@@ -336,7 +351,7 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
                 variant="outline"
                 size="sm"
                 onClick={() => window.open(`https://t.me/okeyenglish`, '_blank')}
-                className="flex items-center space-x-2"
+                className="flex items-center space-x-2 text-blue-600 border-blue-600 hover:bg-blue-50"
               >
                 <MessageCircle className="w-4 h-4" />
                 <span>Telegram</span>
@@ -370,6 +385,13 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
                   <div className="text-left">
                     <div className="font-semibold">Персональный план обучения</div>
                     <div className="text-sm text-muted-foreground">Индивидуальная программа развития</div>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg">
+                  <Gift className="w-6 h-6 text-green-600" />
+                  <div className="text-left">
+                    <div className="font-semibold">5000₽ на курс {getCourseName()}</div>
+                    <div className="text-sm text-muted-foreground">Скидка на обучение по программе</div>
                   </div>
                 </div>
               </CardContent>
