@@ -42,7 +42,7 @@ export default function Footer() {
                 <div className="text-xs text-secondary-foreground/80">на рынке</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-white">5000+</div>
+                <div className="text-2xl font-bold text-white">10000+</div>
                 <div className="text-xs text-secondary-foreground/80">выпускников</div>
               </div>
             </div>
