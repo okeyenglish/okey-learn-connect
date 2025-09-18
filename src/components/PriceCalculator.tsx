@@ -143,17 +143,19 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
         source: "Price Calculator",
       };
 
-      // Use a predefined webhook URL or handle submission differently
-      const webhookUrl = "https://hooks.zapier.com/hooks/catch/default/";
-      
-      await fetch(webhookUrl, {
+      // Use Supabase edge function to proxy webhook data
+      const response = await fetch("https://kbojujfwtvmsgudumown.supabase.co/functions/v1/webhook-proxy", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtib2p1amZ3dHZtc2d1ZHVtb3duIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxOTQ5MzksImV4cCI6MjA3Mzc3MDkzOX0.4SZggdlllMM8SYUo9yZKR-fR-nK4fIL4ZMciQW2EaNY`
         },
-        mode: "no-cors",
         body: JSON.stringify(webhookData),
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
       toast({
         title: "Заявка отправлена!",
