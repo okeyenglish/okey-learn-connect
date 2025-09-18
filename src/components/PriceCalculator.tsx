@@ -67,13 +67,13 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
       const offerInterval = setInterval(() => {
         offerIndex = (offerIndex + 1) % offers.length;
         setCurrentOffer(offers[offerIndex]);
-      }, 1500); // Increased from 800ms to 1500ms for slower animation
+      }, 2000); // Increased to 2000ms (2 seconds)
 
-      // After 6 seconds, always show the discount offer
+      // After 8 seconds, always show the discount offer
       const finalTimeout = setTimeout(() => {
         clearInterval(offerInterval);
         setCurrentOffer("разовую скидку 5000₽");
-      }, 6000); // Increased from 3s to 6s
+      }, 8000); // Increased to 8s
 
       return () => {
         clearInterval(offerInterval);
