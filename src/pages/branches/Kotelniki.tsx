@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MapPin, Phone, MessageCircle, Send, Clock, Star } from "lucide-react";
+import { MapPin, Phone, MessageCircle, Send, Clock } from "lucide-react";
 import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
+import YandexReviews from "@/components/YandexReviews";
 import classroomImage from "@/assets/kotelniki-classroom.png";
 import teacherMale1 from "@/assets/teacher-male-1.png";
 import teacherMale2 from "@/assets/teacher-male-2.png";
@@ -168,78 +169,16 @@ export default function LocationKotelniki() {
           </div>
         </div>
 
-        {/* Reviews */}
+        {/* Reviews from Yandex Maps */}
         <div className="mb-16">
-          <h2 className="text-3xl font-bold text-center mb-8">Отзывы родителей</h2>
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center mb-4">
-                  <div className="flex text-yellow-400">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-5 h-5 fill-current" />
-                    ))}
-                  </div>
-                </div>
-                <p className="text-muted-foreground mb-4">
-                  "Отличная школа! Мой сын с удовольствием ходит на занятия. Преподаватели очень внимательные, 
-                  всегда готовы помочь. За полгода обучения заметен значительный прогресс."
-                </p>
-                <p className="font-semibold">Мария, мама ученика 8 лет</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center mb-4">
-                  <div className="flex text-yellow-400">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-5 h-5 fill-current" />
-                    ))}
-                  </div>
-                </div>
-                <p className="text-muted-foreground mb-4">
-                  "Дочка начала говорить на английском уже через несколько месяцев. Очень довольны подходом 
-                  к обучению и атмосферой в школе. Рекомендуем всем!"
-                </p>
-                <p className="font-semibold">Алексей, папа ученицы 10 лет</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center mb-4">
-                  <div className="flex text-yellow-400">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-5 h-5 fill-current" />
-                    ))}
-                  </div>
-                </div>
-                <p className="text-muted-foreground mb-4">
-                  "Современные методики, интерактивные занятия, индивидуальный подход к каждому ребенку. 
-                  Сын с нетерпением ждет каждого урока!"
-                </p>
-                <p className="font-semibold">Ольга, мама ученика 7 лет</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center mb-4">
-                  <div className="flex text-yellow-400">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-5 h-5 fill-current" />
-                    ))}
-                  </div>
-                </div>
-                <p className="text-muted-foreground mb-4">
-                  "Прекрасное расположение, удобно добираться. Качество обучения на высоте, 
-                  дочка уже участвует в олимпиадах по английскому языку."
-                </p>
-                <p className="font-semibold">Игорь, папа ученицы 12 лет</p>
-              </CardContent>
-            </Card>
-          </div>
+          <h2 className="text-3xl font-bold text-center mb-8">Отзывы с Яндекс.Карт</h2>
+          <YandexReviews 
+            orgId="1599363543"
+            orgUrl="https://yandex.ru/maps/org/1599363543"
+            orgTitle="O'KEY ENGLISH Котельники на Яндекс.Картах"
+            height={600}
+            maxWidth={800}
+          />
         </div>
 
         {/* Map and Directions */}

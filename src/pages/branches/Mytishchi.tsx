@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { MapPin, UserCheck } from "lucide-react";
 import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
+import YandexReviews from "@/components/YandexReviews";
 
 export default function LocationMytishchi() {
   return (
@@ -20,6 +21,18 @@ export default function LocationMytishchi() {
             <UserCheck className="w-4 h-4" />
             Пробный урок
           </Button>
+        </div>
+
+        {/* Reviews from Yandex Maps */}
+        <div className="mb-16">
+          <h2 className="text-3xl font-bold text-center mb-8">Отзывы с Яндекс.Карт</h2>
+          <YandexReviews 
+            orgId="45748069943"
+            orgUrl="https://yandex.ru/sprav/45748069943/p/edit/main"
+            orgTitle="O'KEY ENGLISH Мытищи на Яндекс.Картах"
+            height={600}
+            maxWidth={800}
+          />
         </div>
 
         {/* Price Calculator Section */}

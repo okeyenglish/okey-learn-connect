@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { MapPin, UserCheck } from "lucide-react";
 import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
+import YandexReviews from "@/components/YandexReviews";
 
 export default function LocationLyubertsy1() {
 
@@ -21,6 +22,15 @@ export default function LocationLyubertsy1() {
             <UserCheck className="w-4 h-4" />
             Пробный урок
           </Button>
+        </div>
+
+        {/* Reviews from Yandex Maps */}
+        <div className="mb-16">
+          <h2 className="text-3xl font-bold text-center mb-8">Отзывы с Яндекс.Карт</h2>
+          {/* TODO: Добавить ID организации для Люберцы-1 */}
+          <div className="text-center text-muted-foreground">
+            <p>Отзывы для этого филиала будут добавлены после получения ID организации на Яндекс.Картах</p>
+          </div>
         </div>
 
         {/* Price Calculator Section */}

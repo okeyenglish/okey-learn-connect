@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { MapPin, Phone, MessageCircle, UserCheck } from "lucide-react";
 import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
+import YandexReviews from "@/components/YandexReviews";
 
 export default function LocationNovokosino() {
   return (
@@ -30,6 +31,18 @@ export default function LocationNovokosino() {
               Пробный урок
             </Button>
           </div>
+        </div>
+
+        {/* Reviews from Yandex Maps */}
+        <div className="mb-16">
+          <h2 className="text-3xl font-bold text-center mb-8">Отзывы с Яндекс.Карт</h2>
+          <YandexReviews 
+            orgId="92516357375"
+            orgUrl="https://yandex.ru/sprav/92516357375/p/edit/main"
+            orgTitle="O'KEY ENGLISH Новокосино на Яндекс.Картах"
+            height={600}
+            maxWidth={800}
+          />
         </div>
 
         {/* Price Calculator Section */}
