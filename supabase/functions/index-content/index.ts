@@ -166,7 +166,7 @@ serve(async (req) => {
         title: "Онлайн обучение",
         content: `Онлайн обучение в O'KEY ENGLISH. Дистанционные занятия с живым преподавателем.
         Платформы: Zoom, Skype. Интерактивные материалы.
-        Скидка 20% на групповые занятия. Гибкое расписание.
+        Гибкое расписание.
         Все программы доступны онлайн.`
       },
       {
@@ -230,9 +230,18 @@ serve(async (req) => {
     ];
 
     console.log(`Processing ${siteContent.length} items`);
+
+    // Cleanup: remove outdated pricing docs to avoid hallucinated prices
+    try {
+      await supabase.from('docs').delete().eq('url', '/pricing');
+      await supabase.from('docs').delete().ilike('title', '%цен%');
+      console.log('Cleanup completed: removed legacy pricing entries if existed');
+    } catch (cleanupErr) {
+      console.warn('Cleanup warning:', cleanupErr?.message);
+    }
+
     let processed = 0;
     const errors = [];
-
     for (let i = 0; i < siteContent.length; i++) {
       const item = siteContent[i];
       console.log(`\n--- Processing item ${i + 1}/${siteContent.length}: ${item.title} ---`);

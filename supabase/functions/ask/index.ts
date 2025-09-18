@@ -104,26 +104,21 @@ serve(async (req) => {
     }
 
     const siteName = "O'KEY ENGLISH";
-    const instruction = `Ты — помощник школы английского языка ${siteName}. 
+    const instruction = `Ты — помощник школы английского языка ${siteName}.
 
-КРИТИЧЕСКИ ВАЖНО: Ты ОБЯЗАН отвечать конкретно на основе предоставленных источников. 
+КРИТИЧЕСКИ ВАЖНО: отвечай ТОЛЬКО на основе предоставленных источников.
 
 ЗАПРЕЩЕНО:
-- Говорить "обратитесь к менеджеру" если информация есть в источниках
-- Говорить "свяжитесь" если можешь ответить из источников  
-- Перенаправлять к контактам при наличии информации
+- Выдумывать факты, адреса, цены, скидки
+- Перенаправлять к менеджерам, если ответ явно есть в источниках
+
+ОСОБЫЕ ПРАВИЛА ДЛЯ ВОПРОСОВ О ЦЕНАХ/СКИДКАХ:
+- Даёшь цифры ТОЛЬКО если в источниках есть явные суммы с валютой (руб, ₽) или проценты
+- Если таких данных нет — честно скажи, что актуальные цены уточняются у менеджера, и предложи контакты
 
 ОБЯЗАТЕЛЬНО:
-- Отвечай прямо на вопрос из источников
-- Используй конкретные факты: адреса, цены, программы
-- В конце добавляй номера источников [1], [2]
-
-ПРИМЕРЫ:
-Вопрос: "Есть ли школа в Котельниках?"
-Ответ: "Да, у нас есть филиал в Котельниках по адресу ул. Новая, 6, рядом с метро. [1]"
-
-Вопрос: "Сколько стоит обучение?"  
-Ответ: "Групповые занятия от 800 руб/урок, индивидуальные от 1200 руб/урок. [2]"`;
+- Отвечай кратко и конкретно, ссылаясь на источники [1], [2]
+- Если данных нет — вежливо сообщи об этом и предложи контакты`;
 
     const contextText = contexts
       ?.map((c: any, i: number) => `[${i + 1}] ${c.title}\n${c.content}\n`)
@@ -134,12 +129,30 @@ serve(async (req) => {
 
     const hasContexts = !!(contexts && contexts.length > 0);
 
+    // Guard for price questions: never invent numbers
+    const qLower = (question || '').toLowerCase();
+    const isPriceQuestion = /(цены|стоимост|сколько стоит|прайс|сколько.*руб|сколько.*стоит|тариф|оплат|сколько.*урок)/i.test(qLower);
+    const hasPriceData = /\d[\d\s]*(?:руб|₽)/i.test(contextText) || /скидк\w*\s*\d+\s*%/i.test(contextText);
+
+    if (isPriceQuestion && (!hasContexts || !hasPriceData)) {
+      const sources = contexts?.map((c: any, i: number) => ({
+        idx: i + 1,
+        url: c.url,
+        title: c.title || c.url,
+        similarity: Number(c.similarity?.toFixed?.(3) || 0)
+      })) || [];
+
+      const safeAnswer = "Актуальные цены уточняются у менеджера поддержки — пришлём точный расчёт по вашему кейсу. Напишите нам в WhatsApp или Telegram.";
+      const response = { answer: safeAnswer, sources, showContacts: true };
+      return new Response(JSON.stringify(response), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     const messages = [
       { role: "system", content: instruction },
       { 
         role: "user", 
         content: hasContexts 
-          ? `ВОПРОС: ${question}\n\nИСТОЧНИКИ:\n${contextText}\n\nОТВЕЧАЙ КОНКРЕТНО ИЗ ИСТОЧНИКОВ! Укажи номера источников в конце.`
+          ? `ВОПРОС: ${question}\n\nИСТОЧНИКИ:\n${contextText}\n\nОТВЕЧАЙ КОНКРЕТНО ИЗ ИСТОЧНИКОВ! Если вопрос про цены и в источниках нет чисел с валютой — скажи, что цены уточняются у менеджера. Укажи номера источников в конце.`
           : `ВОПРОС: ${question}\n\nИсточников нет. Скажи что нужно уточнить у менеджеров.`
       },
     ];
@@ -237,7 +250,7 @@ serve(async (req) => {
     const response = {
       answer,
       sources,
-      showContacts: isUnknown && answer === fallbackText
+      showContacts: isUnknown
     };
 
     console.log('Response generated successfully');
