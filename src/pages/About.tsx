@@ -60,6 +60,21 @@ export default function About() {
       icon: Calendar,
       title: "Удобное расписание",
       text: "Филиалы рядом с домом и занятия онлайн."
+    },
+    {
+      icon: BookMarked,
+      title: "Лицензия на образование",
+      text: "Обучение в O'KEY ENGLISH является структурированным, эффективным и безопасным."
+    },
+    {
+      icon: Star,
+      title: "Аккредитация Cambridge",
+      text: "С 2019 года O'KEY ENGLISH получил аккредитацию Cambridge в связи с высокими результатами учеников."
+    },
+    {
+      icon: Heart,
+      title: "Используйте материнский капитал",
+      text: "Оплачивайте обучение детей с гос.поддержкой."
     }
   ];
 
@@ -187,18 +202,38 @@ export default function About() {
         </div>
       </section>
 
-      {/* Final CTA */}
-      <section className="py-20 bg-gradient-primary text-white">
+      {/* Try Free Section */}
+      <section className="py-16 bg-gradient-primary text-white">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-3xl md:text-4xl font-bold mb-6">Сделайте первый шаг</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-6">Попробуйте бесплатно</h2>
             <p className="text-xl mb-8 text-white/90">
-              Запишитесь на бесплатный пробный урок — и уже через несколько занятий почувствуете результат!
+              Запишитесь на пробный урок, чтобы ощутить все преимущества лично
             </p>
             <Button 
               onClick={handleWhatsApp}
               size="lg" 
               variant="secondary"
+              className="text-lg px-8 py-4 bg-white text-primary hover:bg-white/90"
+            >
+              Записаться на пробный урок
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="py-20 bg-secondary/20">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl mx-auto text-center">
+            <h2 className="text-3xl md:text-4xl font-bold mb-6">Сделайте первый шаг</h2>
+            <p className="text-xl mb-8 text-muted-foreground">
+              Запишитесь на бесплатный пробный урок — и уже через несколько занятий почувствуете результат!
+            </p>
+            <Button 
+              onClick={handleWhatsApp}
+              size="lg" 
+              variant="default"
               className="text-lg px-8 py-4"
             >
               Записаться
