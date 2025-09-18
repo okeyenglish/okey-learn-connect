@@ -75,6 +75,12 @@ export default function About() {
       icon: Heart,
       title: "Используйте материнский капитал",
       text: "Оплачивайте обучение детей с гос.поддержкой."
+    },
+    {
+      icon: Star,
+      title: "Попробуйте бесплатно",
+      text: "Запишитесь на пробный урок, чтобы ощутить все преимущества лично",
+      isHighlighted: true
     }
   ];
 
@@ -140,11 +146,28 @@ export default function About() {
           <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">Наши преимущества</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features2.map((feature, index) => (
-              <Card key={index} className="text-center hover:shadow-lg transition-shadow">
+              <Card key={index} className={`text-center hover:shadow-lg transition-shadow ${
+                feature.isHighlighted ? 'bg-gradient-primary text-white' : ''
+              }`}>
                 <CardContent className="p-6">
-                  <feature.icon className="w-12 h-12 text-primary mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold mb-3">{feature.title}</h3>
-                  <p className="text-muted-foreground">{feature.text}</p>
+                  <feature.icon className={`w-12 h-12 mx-auto mb-4 ${
+                    feature.isHighlighted ? 'text-white' : 'text-primary'
+                  }`} />
+                  <h3 className={`text-xl font-semibold mb-3 ${
+                    feature.isHighlighted ? 'text-white' : ''
+                  }`}>{feature.title}</h3>
+                  <p className={feature.isHighlighted ? 'text-white/90' : 'text-muted-foreground'}>
+                    {feature.text}
+                  </p>
+                  {feature.isHighlighted && (
+                    <Button 
+                      onClick={handleWhatsApp}
+                      variant="secondary"
+                      className="mt-4 bg-white text-primary hover:bg-white/90"
+                    >
+                      Записаться
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -202,25 +225,6 @@ export default function About() {
         </div>
       </section>
 
-      {/* Try Free Section */}
-      <section className="py-16 bg-gradient-primary text-white">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-3xl md:text-4xl font-bold mb-6">Попробуйте бесплатно</h2>
-            <p className="text-xl mb-8 text-white/90">
-              Запишитесь на пробный урок, чтобы ощутить все преимущества лично
-            </p>
-            <Button 
-              onClick={handleWhatsApp}
-              size="lg" 
-              variant="secondary"
-              className="text-lg px-8 py-4 bg-white text-primary hover:bg-white/90"
-            >
-              Записаться на пробный урок
-            </Button>
-          </div>
-        </div>
-      </section>
 
       {/* Final CTA */}
       <section className="py-20 bg-secondary/20">
