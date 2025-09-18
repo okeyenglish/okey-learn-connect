@@ -13,11 +13,19 @@ serve(async (req) => {
   }
 
   try {
+    console.log('=== STARTING CONTENT INDEXING ===');
+    
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
+    console.log('Environment check:');
+    console.log('- OPENAI_API_KEY:', !!OPENAI_API_KEY);
+    console.log('- SUPABASE_URL:', !!SUPABASE_URL);
+    console.log('- SUPABASE_SERVICE_ROLE_KEY:', !!SUPABASE_SERVICE_ROLE_KEY);
+
     if (!OPENAI_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('Missing environment variables');
       return new Response(
         JSON.stringify({ error: "Missing configuration" }), 
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -26,142 +34,36 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Контент для индексации (основные разделы сайта)
+    // Упрощенный контент для диагностики
     const siteContent = [
       {
         url: "/",
-        title: "Главная страница O'KEY ENGLISH",
-        content: `O'KEY ENGLISH - школа английского языка в Москве. Мы предлагаем курсы английского языка для детей и взрослых. 
-        Наши программы: Kids Box для детей 4-7 лет, Super Safari для малышей 3-6 лет, Prepare для подростков 11-17 лет, Empower для взрослых.
-        9 филиалов в Москве: Котельники, Люберцы, Мытищи, Новокосино, Окская, Солнцево, Стахановская, онлайн обучение.
-        Квалифицированные преподаватели, современные методики, индивидуальный подход.`
+        title: "Главная страница",
+        content: "O'KEY ENGLISH - школа английского языка в Москве. 9 филиалов. Курсы для детей и взрослых."
       },
       {
-        url: "/courses",
-        title: "Курсы английского языка",
-        content: `Курсы английского в O'KEY ENGLISH:
-        
-        Kids Box (4-7 лет) - основная программа для дошкольников и младших школьников. Игровая форма обучения, развитие всех языковых навыков.
-        
-        Super Safari (3-6 лет) - программа для самых маленьких. Веселые уроки с песнями, играми и творчеством.
-        
-        Prepare (11-17 лет) - курс для подростков с подготовкой к международным экзаменам. Современные темы, развитие критического мышления.
-        
-        Empower (взрослые) - курс для взрослых студентов. Практическая направленность, бизнес-английский, подготовка к IELTS/TOEFL.
-        
-        Все курсы включают: учебные материалы Cambridge, интерактивные занятия, контроль прогресса, сертификаты.`
+        url: "/courses", 
+        title: "Курсы",
+        content: "Kids Box, Super Safari, Prepare, Empower - программы для всех возрастов."
       },
       {
         url: "/branches",
-        title: "Филиалы O'KEY ENGLISH",
-        content: `Филиалы школы O'KEY ENGLISH в Москве:
-        
-        Котельники - ул. Новая, 6. Современные классы, удобное расположение рядом с метро.
-        Люберцы 1 - Октябрский проспект, 151. Просторные аудитории, парковка.
-        Люберцы 2 - ул. 3-е Почтовое отделение, 90. Уютная атмосфера для обучения.
-        Мытищи - ул. Мира, 2/22. Новое оборудование, центр города.
-        Новокосино - Суздальская ул., 18к1. Рядом с метро, комфортные условия.
-        Окская - Окская ул., 5. Тихое место для концентрации на учебе.
-        Солнцево - Солнцевский пр-т, 25. Большие классы, современное оснащение.
-        Стахановская - ул. Стахановская, 24. Удобная транспортная доступность.
-        Онлайн - дистанционное обучение с живым преподавателем.
-        
-        Все филиалы оборудованы интерактивными досками, имеют библиотеки, зоны отдыха.`
-      },
-      {
-        url: "/teachers",
-        title: "Преподаватели",
-        content: `Преподаватели O'KEY ENGLISH - это команда профессионалов:
-        
-        - Высшее педагогическое или лингвистическое образование
-        - Международные сертификаты CELTA, TESOL, TKT
-        - Опыт работы от 3 лет
-        - Регулярное повышение квалификации
-        - Знание современных методик преподавания
-        
-        Наши преподаватели умеют работать с детьми и взрослыми, создают дружелюбную атмосферу на уроках, мотивируют студентов изучать язык.
-        
-        Мужчины и женщины преподаватели, носители языка и русскоязычные специалисты. Индивидуальный подход к каждому студенту.`
-      },
-      {
-        url: "/pricing",
-        title: "Цены и стоимость обучения",
-        content: `Стоимость обучения в O'KEY ENGLISH:
-        
-        Групповые занятия:
-        - 8 занятий в месяц: от 6400 рублей
-        - 12 занятий в месяц: от 9600 рублей
-        - Безлимитные занятия: от 12000 рублей
-        
-        Индивидуальные занятия:
-        - 1 урок: от 1200 рублей
-        - Пакет из 8 уроков: от 9600 рублей
-        
-        Онлайн обучение:
-        - Групповые: скидка 20%
-        - Индивидуальные: от 1000 рублей за урок
-        
-        Дополнительные услуги:
-        - Тестирование уровня: бесплатно
-        - Учебные материалы: включены в стоимость
-        - Сертификат по окончании: бесплатно
-        
-        Скидки: семейная скидка 10%, корпоративным клиентам, при оплате за полгода.`
-      },
-      {
-        url: "/about",
-        title: "О школе O'KEY ENGLISH",
-        content: `О школе английского языка O'KEY ENGLISH:
-        
-        Работаем с 2015 года. За это время обучили более 5000 студентов.
-        
-        Наша миссия - сделать изучение английского языка доступным, эффективным и увлекательным для каждого.
-        
-        Преимущества:
-        - Проверенные методики Cambridge
-        - Квалифицированные преподаватели
-        - Небольшие группы до 8 человек
-        - Современное оборудование
-        - Гибкое расписание
-        - Удобные локации
-        
-        Мы используем коммуникативный подход, который помогает быстро преодолеть языковой барьер и начать говорить на английском.
-        
-        Регулярные мероприятия: разговорные клубы, тематические вечера, конкурсы для студентов.`
-      },
-      {
-        url: "/contacts",
-        title: "Контакты O'KEY ENGLISH",
-        content: `Контактная информация O'KEY ENGLISH:
-        
-        Телефон: +7 (495) 123-45-67
-        Email: info@okeyenglish.ru
-        Сайт: www.okeyenglish.ru
-        
-        Социальные сети:
-        WhatsApp: +79000000000
-        Telegram: @okeyenglish_support
-        Instagram: @okey_english_school
-        VKontakte: vk.com/okeyenglish
-        
-        Часы работы:
-        Понедельник-Пятница: 10:00-21:00
-        Суббота-Воскресенье: 10:00-18:00
-        
-        Центральный офис: г. Москва, ул. Примерная, д. 1
-        
-        Для записи на пробный урок обращайтесь по телефону или через мессенджеры. Наши менеджеры онлайн и готовы ответить на все вопросы.`
+        title: "Филиалы", 
+        content: "Котельники, Люберцы, Мытищи, Новокосино, Окская, Солнцево, Стахановская, Онлайн."
       }
     ];
 
-    console.log('Starting content indexing...');
+    console.log(`Processing ${siteContent.length} items`);
     let processed = 0;
+    const errors = [];
 
-    for (const item of siteContent) {
+    for (let i = 0; i < siteContent.length; i++) {
+      const item = siteContent[i];
+      console.log(`\n--- Processing item ${i + 1}/${siteContent.length}: ${item.title} ---`);
+      
       try {
-        console.log(`Processing: ${item.title}`);
-        
-        // Создаем эмбеддинг для контента
+        // Шаг 1: Создание embedding
+        console.log('Step 1: Creating embedding...');
         const embRes = await fetch("https://api.openai.com/v1/embeddings", {
           method: "POST",
           headers: {
@@ -174,64 +76,88 @@ serve(async (req) => {
           }),
         });
 
+        console.log('OpenAI API response status:', embRes.status);
+        
         if (!embRes.ok) {
           const errorText = await embRes.text();
-          console.error(`Failed to create embedding for ${item.title}:`, errorText);
+          console.error(`OpenAI API error for ${item.title}:`, errorText);
+          errors.push(`${item.title}: OpenAI API error - ${errorText}`);
           continue;
         }
 
         const embJson = await embRes.json();
+        console.log('Embedding response received, data length:', embJson.data?.length);
+        
         const embedding = embJson.data?.[0]?.embedding;
 
         if (!embedding) {
-          console.error(`No embedding received for ${item.title}`);
+          console.error(`No embedding in response for ${item.title}`);
+          errors.push(`${item.title}: No embedding in response`);
           continue;
         }
 
-        // Сохраняем в базу данных
-        const { error } = await supabase
+        console.log('Embedding created successfully, vector length:', embedding.length);
+
+        // Шаг 2: Сохранение в базу
+        console.log('Step 2: Saving to database...');
+        const { data, error } = await supabase
           .from('docs')
           .upsert({
             url: item.url,
             title: item.title,
             content: item.content,
             embedding: embedding,
-            tokens: item.content.length / 4 // примерная оценка токенов
+            tokens: Math.ceil(item.content.length / 4)
           }, {
             onConflict: 'url'
           });
 
         if (error) {
-          console.error(`Error saving ${item.title}:`, error);
+          console.error(`Database error for ${item.title}:`, error);
+          errors.push(`${item.title}: Database error - ${error.message}`);
         } else {
-          console.log(`Successfully indexed: ${item.title}`);
+          console.log(`✅ Successfully saved: ${item.title}`);
           processed++;
         }
         
-        // Небольшая задержка между запросами к OpenAI
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Небольшая задержка
+        if (i < siteContent.length - 1) {
+          console.log('Waiting 500ms before next item...');
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
         
       } catch (itemError) {
-        console.error(`Error processing ${item.title}:`, itemError);
-        continue;
+        console.error(`Unexpected error processing ${item.title}:`, itemError);
+        errors.push(`${item.title}: Unexpected error - ${itemError.message}`);
       }
     }
 
-    console.log(`Indexing completed. Processed ${processed} items.`);
+    console.log('\n=== INDEXING COMPLETED ===');
+    console.log(`Successfully processed: ${processed}/${siteContent.length}`);
+    console.log('Errors:', errors);
 
     return new Response(
       JSON.stringify({ 
-        success: true, 
+        success: processed > 0, 
         message: `Проиндексировано ${processed} страниц из ${siteContent.length}`,
-        processed 
+        processed,
+        total: siteContent.length,
+        errors
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Indexing error:', error);
+    console.error('=== FATAL ERROR ===');
+    console.error('Error details:', error);
+    console.error('Stack trace:', error.stack);
+    
     return new Response(
-      JSON.stringify({ error: error?.message || "Server error" }), 
+      JSON.stringify({ 
+        success: false,
+        error: error?.message || "Unknown server error",
+        stack: error?.stack 
+      }), 
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
