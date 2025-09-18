@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageCircle, Send, Bot, User } from "lucide-react";
+import { MessageCircle, Send, Bot, User, Phone, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Message {
@@ -131,22 +131,33 @@ export default function ChatBot() {
                   </div>
                   
                   {m.role === "assistant" && m.showContacts ? (
-                    <div className="flex gap-2 mt-2">
+                    <div className="flex gap-2 mt-2 flex-wrap">
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-xs"
+                        className="text-xs flex items-center gap-1"
                         onClick={() => window.open('https://wa.me/79000000000', '_blank')}
                       >
-                        📱 WhatsApp
+                        <MessageCircle className="w-3 h-3 text-green-600" />
+                        WhatsApp
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-xs"
+                        className="text-xs flex items-center gap-1"
                         onClick={() => window.open('https://t.me/englishmanager', '_blank')}
                       >
-                        💬 Telegram
+                        <Send className="w-3 h-3 text-blue-500" />
+                        Telegram
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs flex items-center gap-1"
+                        onClick={() => window.open('tel:+79000000000', '_blank')}
+                      >
+                        <Phone className="w-3 h-3 text-orange-500" />
+                        Позвонить
                       </Button>
                     </div>
                   ) : null}
@@ -186,6 +197,42 @@ export default function ChatBot() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Permanent contact options */}
+        <div className="border-t pt-3">
+          <div className="text-xs text-muted-foreground text-center mb-2">
+            Нужна помощь? Свяжитесь с нами:
+          </div>
+          <div className="flex gap-2 justify-center">
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs flex items-center gap-1 flex-1"
+              onClick={() => window.open('https://wa.me/79000000000', '_blank')}
+            >
+              <MessageCircle className="w-3 h-3 text-green-600" />
+              WhatsApp
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs flex items-center gap-1 flex-1"
+              onClick={() => window.open('https://t.me/englishmanager', '_blank')}
+            >
+              <Send className="w-3 h-3 text-blue-500" />
+              Telegram
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs flex items-center gap-1 flex-1"
+              onClick={() => window.open('tel:+79000000000', '_blank')}
+            >
+              <Phone className="w-3 h-3 text-orange-500" />
+              Звонок
+            </Button>
+          </div>
         </div>
 
         <div className="flex gap-2">
