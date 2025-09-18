@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Phone, MessageCircle, TestTube, UserCheck } from "lucide-react";
+import { Menu, Phone, MessageCircle, BookOpen, UserCheck } from "lucide-react";
 import logoImage from "@/assets/okey-english-logo.jpg";
 
 const navigation = [
@@ -72,7 +72,7 @@ export default function Header() {
               </Button>
               <Link to="/test">
                 <Button variant="outline" size="sm" className="flex items-center gap-1 px-3">
-                  <TestTube className="w-4 h-4" />
+                  <BookOpen className="w-4 h-4" />
                   <span className="hidden xl:inline">Тест</span>
                 </Button>
               </Link>
@@ -118,7 +118,7 @@ export default function Header() {
                     </Button>
                     <Link to="/test" onClick={() => setIsOpen(false)}>
                       <Button variant="outline" className="w-full justify-center gap-2">
-                        <TestTube className="w-4 h-4" />
+                        <BookOpen className="w-4 h-4" />
                         Тест уровня (5 мин)
                       </Button>
                     </Link>
@@ -163,7 +163,7 @@ export default function Header() {
               size="sm"
               className="flex flex-col items-center gap-1 h-auto py-2 w-full"
             >
-              <TestTube className="w-5 h-5" />
+              <BookOpen className="w-5 h-5" />
               <span className="text-xs">Тест</span>
             </Button>
           </Link>
