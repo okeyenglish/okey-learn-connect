@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Phone, MessageCircle, UserCheck, Clock, Star } from "lucide-react";
 import ScheduleTable from "@/components/ScheduleTable";
+import PriceCalculator from "@/components/PriceCalculator";
 import classroomImage from "@/assets/kotelniki-classroom.png";
 import teacherMale1 from "@/assets/teacher-male-1.png";
 import teacherMale2 from "@/assets/teacher-male-2.png";
@@ -293,6 +294,17 @@ export default function LocationKotelniki() {
               </CardContent>
             </Card>
           </div>
+        </div>
+
+        {/* Price Calculator Section */}
+        <div className="mt-16">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">Рассчитайте стоимость обучения</h2>
+            <p className="text-lg text-muted-foreground mb-8">
+              Узнайте точную стоимость с учетом всех скидок и получите 2 подарка!
+            </p>
+          </div>
+          <PriceCalculator preSelectedBranch="kotelniki" />
         </div>
 
         {/* Schedule Section */}

@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { MapPin, Phone, MessageCircle, UserCheck } from "lucide-react";
 import ScheduleTable from "@/components/ScheduleTable";
+import PriceCalculator from "@/components/PriceCalculator";
 
 export default function LocationNovokosino() {
   return (
@@ -29,6 +30,17 @@ export default function LocationNovokosino() {
               Пробный урок
             </Button>
           </div>
+        </div>
+
+        {/* Price Calculator Section */}
+        <div className="mt-16">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">Рассчитайте стоимость обучения</h2>
+            <p className="text-lg text-muted-foreground mb-8">
+              Узнайте точную стоимость с учетом всех скидок и получите 2 подарка!
+            </p>
+          </div>
+          <PriceCalculator preSelectedBranch="novokosino" />
         </div>
 
         {/* Schedule Section */}

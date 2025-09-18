@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Globe, Monitor, Headphones, Clock, Users, Award } from "lucide-react";
 import ScheduleTable from "@/components/ScheduleTable";
+import PriceCalculator from "@/components/PriceCalculator";
 
 const LocationOnline = () => {
   return (
@@ -134,6 +135,17 @@ const LocationOnline = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Price Calculator Section */}
+        <div className="mb-12">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">Рассчитайте стоимость обучения</h2>
+            <p className="text-lg text-muted-foreground mb-8">
+              Узнайте точную стоимость с учетом всех скидок и получите 2 подарка!
+            </p>
+          </div>
+          <PriceCalculator preSelectedBranch="online" />
+        </div>
 
         {/* Schedule Section */}
         <div className="mb-12">
