@@ -227,12 +227,20 @@ serve(async (req) => {
     };
 
     let answer = (chatJson.choices?.[0]?.message?.content || '').trim();
-
+    
     if (!answer) {
       console.warn('OpenAI returned empty content, constructing answer from contexts.');
       const constructed = buildAnswerFromContexts(question, contexts || []);
       answer = constructed || fallbackText;
     }
+
+    // Sanitize outdated contact handles in the generated text
+    const sanitizeOutdatedContacts = (text: string) => text
+      .replace(/t\.me\/okeyenglish_support/gi, 't.me/englishmanager')
+      .replace(/@okeyenglish_support/gi, '@englishmanager')
+      .replace(/okeyenglish_support/gi, 'englishmanager');
+
+    answer = sanitizeOutdatedContacts(answer);
 
     console.log('AI response:', answer);
     console.log('Response length:', answer.length);

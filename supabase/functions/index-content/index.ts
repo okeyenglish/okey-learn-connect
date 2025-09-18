@@ -231,11 +231,18 @@ serve(async (req) => {
 
     console.log(`Processing ${siteContent.length} items`);
 
-    // Cleanup: remove outdated pricing docs to avoid hallucinated prices
+    // Cleanup: remove outdated pricing docs and any content with old Telegram handle
     try {
+      // Legacy pricing entries
       await supabase.from('docs').delete().eq('url', '/pricing');
       await supabase.from('docs').delete().ilike('title', '%цен%');
-      console.log('Cleanup completed: removed legacy pricing entries if existed');
+
+      // Remove any docs that still reference the old Telegram handle
+      await supabase.from('docs').delete().ilike('content', '%okeyenglish_support%');
+      await supabase.from('docs').delete().ilike('content', '%t.me/okeyenglish_support%');
+      await supabase.from('docs').delete().ilike('content', '%okeyenglish_suppor%');
+
+      console.log('Cleanup completed: removed legacy pricing and outdated Telegram handle entries if existed');
     } catch (cleanupErr) {
       console.warn('Cleanup warning:', cleanupErr?.message);
     }
