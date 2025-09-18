@@ -136,22 +136,27 @@ serve(async (req) => {
       similarity: Number(c.similarity?.toFixed?.(3) || 0)
     })) || [];
 
-    const answer = chatJson.choices?.[0]?.message?.content || "Извините, не удалось получить ответ.";
+    const fallbackText = "Извините, не удалось получить ответ.";
+    const answer = chatJson.choices?.[0]?.message?.content || fallbackText;
+
+    if (!chatJson.choices?.[0]?.message?.content) {
+      console.warn('OpenAI returned empty content, falling back to contacts.');
+    }
     
-    // Check if the AI indicates it doesn't know the answer
+    // Check if the AI indicates it doesn't know the answer or we used fallback
     const unknownIndicators = [
-      "не знаю", "не могу ответить", "не имею информации", 
-      "недостаточно информации", "обратитесь", "свяжитесь"
+      "не знаю", "не могу ответить", "не имею информации",
+      "недостаточно информации", "обратитесь", "свяжитесь", "не удалось получить ответ"
     ];
     
-    const isUnknown = unknownIndicators.some(indicator => 
+    const isUnknown = unknownIndicators.some(indicator =>
       answer.toLowerCase().includes(indicator)
     );
 
     const response = {
       answer,
       sources,
-      showContacts: isUnknown
+      showContacts: isUnknown || answer === fallbackText
     };
 
     console.log('Response generated successfully');
