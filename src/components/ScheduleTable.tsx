@@ -156,7 +156,7 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
             compactClassroom: item.compact_classroom,
             compactTeacher: item.compact_teacher,
             vacancies: item.vacancies,
-            groupLink: item.group_link
+            groupLink: item.group_URL
           }));
           
           // Сортируем курсы по программам

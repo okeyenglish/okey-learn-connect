@@ -20,7 +20,7 @@ interface ScheduleItem {
   compact_classroom: string;
   compact_teacher: string;
   vacancies: number;
-  group_link?: string;
+  group_URL?: string;
   is_active: boolean;
 }
 
@@ -42,7 +42,7 @@ export default function AdminSchedule() {
     compact_classroom: "",
     compact_teacher: "",
     vacancies: 0,
-    group_link: ""
+    group_URL: ""
   });
   const { toast } = useToast();
 
@@ -100,7 +100,7 @@ export default function AdminSchedule() {
             compact_classroom: formData.compact_classroom,
             compact_teacher: formData.compact_teacher,
             vacancies: formData.vacancies,
-            group_link: formData.group_link
+            group_URL: formData.group_URL
           })
           .eq('id', editingItem.id);
 
@@ -115,6 +115,7 @@ export default function AdminSchedule() {
         const { error } = await supabase
           .from('schedule')
           .insert([{
+            id: crypto.randomUUID(),
             name: formData.name,
             office_name: formData.office_name,
             level: formData.level,
@@ -123,7 +124,7 @@ export default function AdminSchedule() {
             compact_classroom: formData.compact_classroom,
             compact_teacher: formData.compact_teacher,
             vacancies: formData.vacancies,
-            group_link: formData.group_link
+            group_URL: formData.group_URL
           }]);
 
         if (error) throw error;
@@ -159,7 +160,7 @@ export default function AdminSchedule() {
       compact_classroom: item.compact_classroom,
       compact_teacher: item.compact_teacher,
       vacancies: item.vacancies,
-      group_link: item.group_link || ""
+      group_URL: item.group_URL || ""
     });
     setIsModalOpen(true);
   };
@@ -201,7 +202,7 @@ export default function AdminSchedule() {
       compact_classroom: "",
       compact_teacher: "",
       vacancies: 0,
-      group_link: ""
+      group_URL: ""
     });
   };
 
@@ -359,8 +360,8 @@ export default function AdminSchedule() {
                     <div>
                       <Input
                         placeholder="Ссылка на группу (необязательно)"
-                        value={formData.group_link}
-                        onChange={(e) => setFormData({...formData, group_link: e.target.value})}
+                        value={formData.group_URL}
+                        onChange={(e) => setFormData({...formData, group_URL: e.target.value})}
                       />
                     </div>
 

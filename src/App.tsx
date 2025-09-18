@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import ChatBot from "@/components/ChatBot";
 import Index from "./pages/Index";
 import SuperSafari from "./pages/programs/SuperSafari";
 import KidsBox from "./pages/programs/KidsBox";
@@ -73,6 +74,7 @@ const App = () => (
             </Routes>
           </main>
           <Footer />
+          <ChatBot />
         </div>
       </BrowserRouter>
     </TooltipProvider>
