@@ -169,18 +169,6 @@ export default function LocationKotelniki() {
           </div>
         </div>
 
-        {/* Reviews from Yandex Maps */}
-        <div className="mb-16">
-          <h2 className="text-3xl font-bold text-center mb-8">Отзывы с Яндекс.Карт</h2>
-          <YandexReviews 
-            orgId="1599363543"
-            orgUrl="https://yandex.ru/maps/org/1599363543"
-            orgTitle="O'KEY ENGLISH Котельники на Яндекс.Картах"
-            height={600}
-            maxWidth={800}
-          />
-        </div>
-
         {/* Map and Directions */}
         <div className="mb-16">
           <h2 className="text-3xl font-bold text-center mb-8">Как добраться</h2>
@@ -258,6 +246,18 @@ export default function LocationKotelniki() {
         {/* Schedule Section */}
         <div className="mt-16">
           <ScheduleTable branchName="Котельники" />
+        </div>
+
+        {/* Reviews from Yandex Maps */}
+        <div className="mt-16">
+          <h2 className="text-3xl font-bold text-center mb-8">Отзывы с Яндекс.Карт</h2>
+          <YandexReviews 
+            orgId="1599363543"
+            orgUrl="https://yandex.ru/maps/org/1599363543"
+            orgTitle="O'KEY ENGLISH Котельники на Яндекс.Картах"
+            height={600}
+            maxWidth={800}
+          />
         </div>
       </div>
     </div>
