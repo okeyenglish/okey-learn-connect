@@ -38,6 +38,7 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
     hasStudied: "",
     branch: preSelectedBranch || "",
     childName: "",
+    parentName: "",
     phone: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -133,6 +134,7 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
         hasStudied: formData.hasStudied === "yes" ? "Да" : "Нет",
         branch: branches.find(b => b.value === formData.branch)?.name || formData.branch,
         childName: formData.childName,
+        parentName: formData.parentName,
         phone: formData.phone,
         basePrice: getBasePrice(),
         discounts: getDiscounts(),
@@ -308,16 +310,30 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
                   className="mt-2"
                 />
               </div>
-              <div>
-                <Label htmlFor="phone">Номер телефона</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="+7 (999) 123-45-67"
-                  className="mt-2"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {formData.age !== "18+" && (
+                  <div>
+                    <Label htmlFor="parentName">Ваше имя</Label>
+                    <Input
+                      id="parentName"
+                      value={formData.parentName}
+                      onChange={(e) => setFormData({ ...formData, parentName: e.target.value })}
+                      placeholder="Введите ваше имя"
+                      className="mt-2"
+                    />
+                  </div>
+                )}
+                <div className={formData.age === "18+" ? "md:col-span-2" : ""}>
+                  <Label htmlFor="phone">Номер телефона</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="+7 (999) 123-45-67"
+                    className="mt-2"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -332,7 +348,7 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
               </div>
               <h3 className="text-3xl font-bold mb-4">Спасибо!</h3>
               <p className="text-lg text-muted-foreground mb-6">
-                Сейчас сделаем расчёт для Вас и отправим на WhatsApp или перезвоним
+                Сейчас сделаем расчёт для Вас и отправим на WhatsApp или перезвоним. Активировать подарки можете прямо сейчас удобным способом.
               </p>
             </div>
 
@@ -441,7 +457,7 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
           <div className="flex justify-center mt-8">
             <Button
               onClick={handleSubmit}
-              disabled={!formData.phone || !formData.childName || isSubmitting}
+              disabled={!formData.phone || !formData.childName || (formData.age !== "18+" && !formData.parentName) || isSubmitting}
               className="w-full max-w-md"
             >
               {isSubmitting ? "Отправляем..." : "Рассчитать стоимость"}
