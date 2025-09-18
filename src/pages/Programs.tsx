@@ -33,7 +33,7 @@ const programs = [
   {
     name: "Prepare",
     age: "10–17 лет",
-    level: "A1–C2", 
+    level: "A1–B2", 
     description: "Подростковые темы, уверенная речь, подготовка к KET/PET/FCE, ОГЭ/ЕГЭ.",
     features: ["7 уровней", "Экзамены Cambridge", "Speaking Club"],
     color: "bg-gradient-to-r from-purple-500 to-indigo-500",
