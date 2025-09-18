@@ -97,62 +97,31 @@ export type Database = {
       }
     }
     Views: {
-      schedule_public: {
-        Row: {
-          compact_classroom: string | null
-          compact_days: string | null
-          compact_teacher: string | null
-          compact_time: string | null
-          created_at: string | null
-          group_URL: string | null
-          id: string | null
-          is_active: boolean | null
-          level: string | null
-          name: string | null
-          office_name: string | null
-          updated_at: string | null
-          vacancies: number | null
-          Возраст: string | null
-        }
-        Insert: {
-          compact_classroom?: string | null
-          compact_days?: string | null
-          compact_teacher?: never
-          compact_time?: string | null
-          created_at?: string | null
-          group_URL?: never
-          id?: string | null
-          is_active?: boolean | null
-          level?: string | null
-          name?: string | null
-          office_name?: string | null
-          updated_at?: string | null
-          vacancies?: number | null
-          Возраст?: string | null
-        }
-        Update: {
-          compact_classroom?: string | null
-          compact_days?: string | null
-          compact_teacher?: never
-          compact_time?: string | null
-          created_at?: string | null
-          group_URL?: never
-          id?: string | null
-          is_active?: boolean | null
-          level?: string | null
-          name?: string | null
-          office_name?: string | null
-          updated_at?: string | null
-          vacancies?: number | null
-          Возраст?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       binary_quantize: {
         Args: { "": string } | { "": unknown }
         Returns: unknown
+      }
+      get_public_schedule: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          compact_classroom: string
+          compact_days: string
+          compact_teacher: string
+          compact_time: string
+          created_at: string
+          group_URL: string
+          id: string
+          is_active: boolean
+          level: string
+          name: string
+          office_name: string
+          updated_at: string
+          vacancies: number
+          Возраст: string
+        }[]
       }
       halfvec_avg: {
         Args: { "": number[] }
