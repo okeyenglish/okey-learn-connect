@@ -89,9 +89,9 @@ export default function Contacts() {
         age: ""
       });
 
-      // Redirect to thank you page
+      // Redirect to contact method selection page
       setTimeout(() => {
-        window.location.href = "/thank-you";
+        window.location.href = "/contact-method";
       }, 2000);
     } catch (error) {
       console.error("Error submitting form:", error);

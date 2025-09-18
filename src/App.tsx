@@ -28,6 +28,7 @@ import LocationLyubertsy1 from "./pages/branches/Lyubertsy1";
 import LocationLyubertsy2 from "./pages/branches/Lyubertsy2";
 import LocationOnline from "./pages/branches/Online";
 import Contacts from "./pages/Contacts";
+import ContactMethod from "./pages/ContactMethod";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -65,6 +66,7 @@ const App = () => (
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/faq" element={<FAQ />} />
               <Route path="/contacts" element={<Contacts />} />
+              <Route path="/contact-method" element={<ContactMethod />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
