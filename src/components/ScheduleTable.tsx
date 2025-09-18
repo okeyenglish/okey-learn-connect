@@ -31,8 +31,8 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [filteredSchedule, setFilteredSchedule] = useState<ScheduleItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchLevel, setSearchLevel] = useState<string>("");
-  const [searchDays, setSearchDays] = useState<string>("");
+  const [searchLevel, setSearchLevel] = useState<string>("all");
+  const [searchDays, setSearchDays] = useState<string>("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<ScheduleItem | null>(null);
   const [formData, setFormData] = useState({
@@ -119,13 +119,13 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
   useEffect(() => {
     let filtered = schedule;
 
-    if (searchLevel) {
+    if (searchLevel && searchLevel !== "all") {
       filtered = filtered.filter(item => 
         item.level.toLowerCase().includes(searchLevel.toLowerCase())
       );
     }
 
-    if (searchDays) {
+    if (searchDays && searchDays !== "all") {
       filtered = filtered.filter(item =>
         item.compactDays.toLowerCase().includes(searchDays.toLowerCase())
       );
@@ -239,7 +239,7 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
               <SelectValue placeholder="Фильтр по уровню" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Все уровни</SelectItem>
+              <SelectItem value="all">Все уровни</SelectItem>
               <SelectItem value="A1">A1 (Начальный)</SelectItem>
               <SelectItem value="A2">A2 (Элементарный)</SelectItem>
               <SelectItem value="B1">B1 (Средний)</SelectItem>
@@ -253,7 +253,7 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
               <SelectValue placeholder="Фильтр по дням" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Все дни</SelectItem>
+              <SelectItem value="all">Все дни</SelectItem>
               <SelectItem value="пн">Понедельник</SelectItem>
               <SelectItem value="вт">Вторник</SelectItem>
               <SelectItem value="ср">Среда</SelectItem>
