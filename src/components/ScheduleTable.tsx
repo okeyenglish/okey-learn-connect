@@ -23,6 +23,73 @@ interface ScheduleItem {
   groupLink?: string;
 }
 
+// Функция для определения программы из названия курса
+const getProgramName = (courseName: string): string => {
+  const lowerName = courseName.toLowerCase();
+  if (lowerName.includes('safari') || lowerName.includes('ss')) return 'Super Safari';
+  if (lowerName.includes("kid's box") || lowerName.includes('kb')) return "Kid's Box";
+  if (lowerName.includes('prepare') || lowerName.includes('pr')) return 'Prepare';
+  if (lowerName.includes('empower') || lowerName.includes('em')) return 'Empower';
+  return courseName;
+};
+
+// Функция для сопоставления уровней
+const mapToEuropeanLevel = (courseName: string, originalLevel: string): string => {
+  const lowerName = courseName.toLowerCase();
+  const lowerLevel = originalLevel.toLowerCase();
+  
+  // Super Safari - все уровни pre-A1
+  if (lowerName.includes('safari') || lowerName.includes('ss')) {
+    return 'pre-A1';
+  }
+  
+  // Kid's Box - KB2 = A1, остальные по оригиналу
+  if (lowerName.includes("kid's box") || lowerName.includes('kb')) {
+    if (lowerLevel.includes('2') || lowerLevel.includes('a1')) return 'A1';
+  }
+  
+  // Empower 1 = A1
+  if (lowerName.includes('empower') || lowerName.includes('em')) {
+    if (lowerLevel.includes('1') || lowerLevel.includes('a1')) return 'A1';
+  }
+  
+  return originalLevel;
+};
+
+// Функция для определения возраста по программе
+const getAgeRange = (courseName: string): string => {
+  const lowerName = courseName.toLowerCase();
+  if (lowerName.includes('safari') || lowerName.includes('ss')) return '3-6 лет';
+  if (lowerName.includes("kid's box") || lowerName.includes('kb')) return '7-10 лет';
+  if (lowerName.includes('prepare') || lowerName.includes('pr')) return '11-13 лет';
+  if (lowerName.includes('empower') || lowerName.includes('em')) return '14-17 лет';
+  return 'Уточняйте';
+};
+
+// Функция для сортировки курсов
+const sortCoursesByProgram = (courses: ScheduleItem[]): ScheduleItem[] => {
+  return courses.sort((a, b) => {
+    const programA = getProgramName(a.name);
+    const programB = getProgramName(b.name);
+    
+    const programOrder = ['Super Safari', "Kid's Box", 'Prepare', 'Empower'];
+    const indexA = programOrder.indexOf(programA);
+    const indexB = programOrder.indexOf(programB);
+    
+    // Если обе программы в списке - сортируем по порядку
+    if (indexA !== -1 && indexB !== -1) {
+      return indexA - indexB;
+    }
+    
+    // Если только одна в списке - она идет первой
+    if (indexA !== -1) return -1;
+    if (indexB !== -1) return 1;
+    
+    // Если обе не в списке - сортируем по алфавиту
+    return programA.localeCompare(programB);
+  });
+};
+
 interface ScheduleTableProps {
   branchName: string;
 }
@@ -76,8 +143,11 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
             groupLink: item.group_link
           }));
           
-          setSchedule(convertedData);
-          setFilteredSchedule(convertedData);
+          // Сортируем курсы по программам
+          const sortedData = sortCoursesByProgram(convertedData);
+          
+          setSchedule(sortedData);
+          setFilteredSchedule(sortedData);
         } else {
           // Fallback: Try n8n webhook if no data in Supabase
           try {
@@ -88,8 +158,12 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
               const branchSchedule = data.filter((item: ScheduleItem) => 
                 item.officeName === branchName
               );
-              setSchedule(branchSchedule);
-              setFilteredSchedule(branchSchedule);
+              
+              // Сортируем курсы по программам
+              const sortedSchedule = sortCoursesByProgram(branchSchedule);
+              
+              setSchedule(sortedSchedule);
+              setFilteredSchedule(sortedSchedule);
             } else {
               throw new Error("No schedule data available");
             }
@@ -120,9 +194,10 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
     let filtered = schedule;
 
     if (searchLevel && searchLevel !== "all") {
-      filtered = filtered.filter(item => 
-        item.level.toLowerCase().includes(searchLevel.toLowerCase())
-      );
+      filtered = filtered.filter(item => {
+        const mappedLevel = mapToEuropeanLevel(item.name, item.level);
+        return mappedLevel.toLowerCase().includes(searchLevel.toLowerCase());
+      });
     }
 
     if (searchDays && searchDays !== "all") {
@@ -240,6 +315,7 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Все уровни</SelectItem>
+              <SelectItem value="pre-A1">pre-A1 (Дошкольный)</SelectItem>
               <SelectItem value="A1">A1 (Начальный)</SelectItem>
               <SelectItem value="A2">A2 (Элементарный)</SelectItem>
               <SelectItem value="B1">B1 (Средний)</SelectItem>
@@ -270,8 +346,9 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Курс</TableHead>
+                <TableHead>Программа</TableHead>
                 <TableHead>Уровень</TableHead>
+                <TableHead>Возраст</TableHead>
                 <TableHead className="hidden sm:table-cell">Дни</TableHead>
                 <TableHead className="hidden md:table-cell">Время</TableHead>
                 <TableHead className="hidden lg:table-cell">Преподаватель</TableHead>
@@ -282,16 +359,19 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
             <TableBody>
               {filteredSchedule.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     Нет доступных групп по выбранным фильтрам
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredSchedule.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.name}</TableCell>
+                    <TableCell className="font-medium">{getProgramName(item.name)}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{item.level}</Badge>
+                      <Badge variant="outline">{mapToEuropeanLevel(item.name, item.level)}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{getAgeRange(item.name)}</Badge>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">{item.compactDays}</TableCell>
                     <TableCell className="hidden md:table-cell">
@@ -326,8 +406,9 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
                             <div className="bg-muted/50 rounded-lg p-4 mb-4">
                               <h4 className="font-semibold mb-2">Выбранная группа:</h4>
                               <div className="text-sm space-y-1">
-                                <p><strong>Курс:</strong> {selectedCourse.name}</p>
-                                <p><strong>Уровень:</strong> {selectedCourse.level}</p>
+                                <p><strong>Программа:</strong> {getProgramName(selectedCourse.name)}</p>
+                                <p><strong>Уровень:</strong> {mapToEuropeanLevel(selectedCourse.name, selectedCourse.level)}</p>
+                                <p><strong>Возраст:</strong> {getAgeRange(selectedCourse.name)}</p>
                                 <p><strong>Расписание:</strong> {selectedCourse.compactDays} {selectedCourse.compactTime}</p>
                                 <p><strong>Преподаватель:</strong> {selectedCourse.compactTeacher}</p>
                                 <p><strong>Кабинет:</strong> {selectedCourse.compactClassroom}</p>
