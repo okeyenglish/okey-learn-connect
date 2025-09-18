@@ -98,7 +98,7 @@ export default function Index() {
                   <CheckCircle className="w-7 h-7 text-white" />
                 </div>
                 <div>
-                  <div className="text-lg font-black text-primary drop-shadow-lg">Лицензия</div>
+                  <div className="text-3xl font-black text-primary drop-shadow-lg">Лицензия</div>
                   <div className="text-sm text-primary/80 font-medium">на образование</div>
                 </div>
               </div>
