@@ -131,9 +131,13 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
       try {
         setLoading(true);
         
+        console.log("Fetching schedule for branch:", branchName);
+        
         // Fetch from secure Supabase function with branch filter
         const { data: scheduleData, error } = await supabase
           .rpc('get_public_schedule', { branch_name: branchName });
+
+        console.log("Supabase response:", { scheduleData, error });
 
         if (error) {
           console.error("Supabase error:", error);
@@ -141,6 +145,7 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
         }
 
         if (scheduleData && scheduleData.length > 0) {
+          console.log("Converting schedule data:", scheduleData);
           // Convert database format to component format
           const convertedData: ScheduleItem[] = scheduleData.map(item => ({
             id: item.id,
@@ -155,12 +160,15 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
             groupLink: item.group_URL
           }));
           
+          console.log("Converted data:", convertedData);
+          
           // Сортируем курсы по программам
           const sortedData = sortCoursesByProgram(convertedData);
           
           setSchedule(sortedData);
           setFilteredSchedule(sortedData);
         } else {
+          console.log("No data from Supabase, trying n8n webhook fallback");
           // Fallback: Try n8n webhook if no data in Supabase
           try {
             const webhookUrl = "https://n8n.okey-english.ru/webhook/public/schedule";
