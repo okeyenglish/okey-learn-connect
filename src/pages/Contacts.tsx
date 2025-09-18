@@ -21,26 +21,26 @@ const branches = [
   { value: "kosino", label: "Новокосино", address: "{{ADDRESS_KOSINO}}" },
   { value: "okskaya", label: "Окская", address: "ул. Окская, д. 3, корп. 1" },
   { value: "stakhanovskaya", label: "Стахановская", address: "2-й Грайвороновский проезд, д. 42, корп. 1" },
+  { value: "lyubertsy1", label: "Люберцы 1", address: "ул. Юбилейная, д. 6А" },
+  { value: "lyubertsy2", label: "Люберцы 2", address: "ул. Красная, д. 15" },
+  { value: "mytishchi", label: "Мытищи", address: "ул. Мира, д. 32" },
+  { value: "solntsevo", label: "Солнцево", address: "Боровское шоссе, д. 45" },
+  { value: "online", label: "Онлайн школа", address: "Платформа Cambridge One" },
 ];
 
 const courses = [
-  "Kids 4–6",
-  "Kids 7–9", 
-  "Teens",
-  "Adults General",
-  "IELTS Preparation",
-  "Cambridge Exams",
-  "Corporate"
+  "Super Safari (3-6 лет)",
+  "Kid's Box (5-9 лет)",
+  "Prepare (10-17 лет)",
+  "Empower (18+ лет)"
 ];
 
 export default function Contacts() {
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
-    email: "",
     branch: "",
-    course: "",
-    message: ""
+    age: ""
   });
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -62,10 +62,8 @@ export default function Contacts() {
           utm: new URLSearchParams(window.location.search).toString(),
           name: formData.name,
           phone: formData.phone,
-          email: formData.email || undefined,
           branch: formData.branch,
-          course: formData.course,
-          message: formData.message || undefined
+          age: formData.age
         }),
       });
 
@@ -79,10 +77,8 @@ export default function Contacts() {
         setFormData({
           name: "",
           phone: "",
-          email: "",
           branch: "",
-          course: "",
-          message: ""
+          age: ""
         });
 
         // Redirect to thank you page
@@ -157,21 +153,10 @@ export default function Contacts() {
                     </div>
                   </div>
 
-                  <div>
-                    <Label htmlFor="email">Email (необязательно)</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      placeholder="your@email.com"
-                    />
-                  </div>
-
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="branch">Филиал</Label>
-                      <Select onValueChange={(value) => setFormData({...formData, branch: value})}>
+                      <Label htmlFor="branch">Филиал *</Label>
+                      <Select onValueChange={(value) => setFormData({...formData, branch: value})} required>
                         <SelectTrigger>
                           <SelectValue placeholder="Выберите филиал" />
                         </SelectTrigger>
@@ -185,31 +170,18 @@ export default function Contacts() {
                       </Select>
                     </div>
                     <div>
-                      <Label htmlFor="course">Курс</Label>
-                      <Select onValueChange={(value) => setFormData({...formData, course: value})}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Выберите курс" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {courses.map((course) => (
-                            <SelectItem key={course} value={course}>
-                              {course}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="age">Возраст *</Label>
+                      <Input
+                        id="age"
+                        type="number"
+                        value={formData.age}
+                        onChange={(e) => setFormData({...formData, age: e.target.value})}
+                        placeholder="Укажите возраст"
+                        min="3"
+                        max="99"
+                        required
+                      />
                     </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="message">Сообщение (необязательно)</Label>
-                    <Textarea
-                      id="message"
-                      value={formData.message}
-                      onChange={(e) => setFormData({...formData, message: e.target.value})}
-                      placeholder="Расскажите о ваших целях изучения английского..."
-                      rows={4}
-                    />
                   </div>
 
                   <Button 
@@ -270,14 +242,14 @@ export default function Contacts() {
                 </a>
 
                 <a
-                  href="mailto:info@okey-english.ru"
+                  href="mailto:hello@okeyenglish.ru"
                   className="flex items-center gap-3 p-4 rounded-lg border hover:bg-muted/50 transition-colors"
                 >
                   <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
                     <Mail className="w-5 h-5 text-primary" />
                   </div>
                   <div>
-                    <div className="font-medium">info@okey-english.ru</div>
+                    <div className="font-medium">hello@okeyenglish.ru</div>
                     <div className="text-sm text-muted-foreground">Ответим в течение часа</div>
                   </div>
                 </a>
@@ -299,7 +271,7 @@ export default function Contacts() {
               <CardHeader>
                 <CardTitle>Наши филиалы</CardTitle>
                 <CardDescription>
-                  4 удобные локации в Москве
+                  9 филиалов в Москве и онлайн
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
