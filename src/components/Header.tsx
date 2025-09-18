@@ -31,12 +31,15 @@ export default function Header() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-18 min-h-[72px]">
             {/* Logo */}
-            <Link to="/" className="flex items-center flex-shrink-0 min-w-0">
+            <Link to="/" className="relative flex items-center flex-shrink-0 min-w-0 z-50">
               <img 
                 src={logoImage} 
                 alt="O'KEY ENGLISH" 
-                className="h-14 w-auto object-contain"
+                className="h-[280px] w-auto object-contain absolute left-0 top-1/2 -translate-y-1/2"
+                style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
               />
+              {/* Invisible spacer to maintain original layout space */}
+              <div className="h-14 w-[200px]"></div>
             </Link>
 
             {/* Desktop Navigation */}
