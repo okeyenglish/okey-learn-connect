@@ -99,9 +99,10 @@ export default function Programs() {
                   />
                 </div>
                 <div className="p-6">
+                  <h3 className="text-xl font-bold mb-2">{program.name}</h3>
                   <div className="flex items-center gap-2 mb-3">
                     <Target className="w-5 h-5 text-primary" />
-                    <span className="font-semibold text-primary">{program.level}</span>
+                    <span className="font-semibold text-primary">{program.name} ({program.level})</span>
                   </div>
                   
                   <p className="text-muted-foreground mb-4">{program.description}</p>
