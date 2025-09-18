@@ -18,10 +18,10 @@ export type Database = {
         Row: {
           compact_classroom: string
           compact_days: string
-          compact_teacher: string
+          compact_teacher: string | null
           compact_time: string
           created_at: string
-          group_link: string | null
+          group_URL: string | null
           id: string
           is_active: boolean
           level: string
@@ -29,29 +29,31 @@ export type Database = {
           office_name: string
           updated_at: string
           vacancies: number
+          Возраст: string | null
         }
         Insert: {
           compact_classroom: string
           compact_days: string
-          compact_teacher: string
+          compact_teacher?: string | null
           compact_time: string
           created_at?: string
-          group_link?: string | null
-          id?: string
+          group_URL?: string | null
+          id: string
           is_active?: boolean
           level: string
           name: string
           office_name: string
           updated_at?: string
           vacancies?: number
+          Возраст?: string | null
         }
         Update: {
           compact_classroom?: string
           compact_days?: string
-          compact_teacher?: string
+          compact_teacher?: string | null
           compact_time?: string
           created_at?: string
-          group_link?: string | null
+          group_URL?: string | null
           id?: string
           is_active?: boolean
           level?: string
@@ -59,6 +61,7 @@ export type Database = {
           office_name?: string
           updated_at?: string
           vacancies?: number
+          Возраст?: string | null
         }
         Relationships: []
       }
