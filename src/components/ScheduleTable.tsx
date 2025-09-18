@@ -131,12 +131,11 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
       try {
         setLoading(true);
         
-        // First try to fetch from Supabase database
+        // First try to fetch from secure Supabase view
         const { data: scheduleData, error } = await supabase
-          .from('schedule')
+          .from('schedule_public')
           .select('*')
           .eq('office_name', branchName)
-          .eq('is_active', true)
           .order('created_at', { ascending: true });
 
         if (error) {
