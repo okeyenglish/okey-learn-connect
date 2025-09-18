@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MapPin, Phone, MessageCircle, UserCheck, Clock, Star } from "lucide-react";
+import { MapPin, Phone, MessageCircle, Send, Clock, Star } from "lucide-react";
 import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import classroomImage from "@/assets/kotelniki-classroom.png";
@@ -19,6 +19,11 @@ export default function LocationKotelniki() {
     window.open('tel:+74997073535', '_self');
   };
 
+  const handleTelegram = () => {
+    const message = encodeURIComponent("Здравствуйте! Хочу узнать подробнее об обучении в филиале Котельники");
+    window.open(`https://t.me/79937073553?text=${message}`, '_blank');
+  };
+
   return (
     <div className="min-h-screen py-20">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -31,11 +36,6 @@ export default function LocationKotelniki() {
             <MapPin className="w-5 h-5 text-primary" />
             <span>2-й Покровский проезд, 14к2</span>
           </div>
-          
-          <Button variant="hero" className="flex items-center gap-2">
-            <UserCheck className="w-4 h-4" />
-            Пробный урок
-          </Button>
         </div>
 
         {/* Branch Info */}
@@ -52,7 +52,7 @@ export default function LocationKotelniki() {
                 <p className="text-lg font-medium">2-й Покровский проезд, 14к2</p>
                 <p className="text-muted-foreground">г. Котельники, Московская область</p>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 flex-wrap">
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -66,10 +66,19 @@ export default function LocationKotelniki() {
                   variant="outline" 
                   size="sm" 
                   onClick={handleWhatsApp}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 text-green-600 border-green-600 hover:bg-green-50"
                 >
                   <MessageCircle className="w-4 h-4" />
                   WhatsApp
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleTelegram}
+                  className="flex items-center gap-2 text-blue-500 border-blue-500 hover:bg-blue-50"
+                >
+                  <Send className="w-4 h-4" />
+                  Telegram
                 </Button>
               </div>
             </CardContent>
