@@ -26,13 +26,23 @@ serve(async (req) => {
     const n8nWebhookUrl = Deno.env.get('N8N_WEBHOOK_URL');
     const n8nProxyToken = Deno.env.get('N8N_PROXY_TOKEN');
 
+    console.log('Environment check:', {
+      n8nWebhookUrl: n8nWebhookUrl ? 'SET' : 'MISSING',
+      n8nProxyToken: n8nProxyToken ? 'SET' : 'MISSING'
+    });
+
     if (!n8nWebhookUrl || !n8nProxyToken) {
       console.error('Missing environment variables:', {
         n8nWebhookUrl: !!n8nWebhookUrl,
-        n8nProxyToken: !!n8nProxyToken
+        n8nProxyToken: !!n8nProxyToken,
+        allEnvVars: Object.keys(Deno.env.toObject())
       });
       return new Response(
-        JSON.stringify({ ok: false, error: 'Server configuration error' }),
+        JSON.stringify({ 
+          ok: false, 
+          error: 'Server configuration error',
+          details: 'Missing N8N_WEBHOOK_URL or N8N_PROXY_TOKEN environment variables'
+        }),
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
