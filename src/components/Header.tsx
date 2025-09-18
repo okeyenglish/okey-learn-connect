@@ -35,7 +35,7 @@ export default function Header() {
               <img 
                 src={logoImage} 
                 alt="O'KEY ENGLISH" 
-                className="h-[150px] w-[150px] rounded-full object-cover border-2 border-white shadow-lg absolute left-0 top-1/2 -translate-y-1/2"
+                className="h-[150px] w-[150px] rounded-full object-cover border-2 border-white shadow-lg absolute left-0 top-0"
               />
               {/* Invisible spacer to maintain layout space */}
               <div className="h-16 w-[150px]"></div>
