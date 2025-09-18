@@ -26,9 +26,9 @@ const branches = [
     nextGroup: "Завтра 18:00"
   },
   { 
-    id: "kosino",
+    id: "novokosino",
     name: "Новокосино", 
-    address: "Юбилейный проспект, 60",
+    address: "Реутов, Юбилейный проспект, 60",
     metro: "Новокосино",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
     image: "/placeholder-branch-2.jpg",

@@ -4,7 +4,7 @@ import okeyLogo from "@/assets/okey-english-logo.jpg";
 
 const branches = [
   { name: "Котельники", address: "2-й Покровский проезд, 14к2", slug: "kotelniki" },
-  { name: "Новокосино", address: "Юбилейный проспект, 60", slug: "kosino" },
+  { name: "Новокосино", address: "Реутов, Юбилейный проспект, 60", slug: "novokosino" },
   { name: "Окская", address: "ул. Окская, д. 3, корп. 1", slug: "okskaya" },
   { name: "Стахановская", address: "2-й Грайвороновский проезд, д. 42, корп. 1", slug: "stakhanovskaya" },
   { name: "Солнцево", address: "Богданова, 6к1", slug: "solntsevo" },

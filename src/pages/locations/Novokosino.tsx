@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { MapPin, Phone, MessageCircle, UserCheck } from "lucide-react";
 
-export default function LocationKosino() {
+export default function LocationNovokosino() {
   return (
     <div className="min-h-screen py-20">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -11,7 +11,7 @@ export default function LocationKosino() {
           </h1>
           <div className="flex items-center justify-center gap-2 text-lg text-muted-foreground mb-6">
             <MapPin className="w-5 h-5 text-primary" />
-            <span>Юбилейный проспект, 60</span>
+            <span>Реутов, Юбилейный проспект, 60</span>
           </div>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">

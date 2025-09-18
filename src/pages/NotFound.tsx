@@ -85,7 +85,7 @@ const NotFound = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="kotelniki">Котельники</SelectItem>
-                  <SelectItem value="kosino">Новокосино</SelectItem>
+                  <SelectItem value="novokosino">Новокосино</SelectItem>
                   <SelectItem value="okskaya">Окская</SelectItem>
                   <SelectItem value="stakhanovskaya">Стахановская</SelectItem>
                   <SelectItem value="solntsevo">Солнцево</SelectItem>

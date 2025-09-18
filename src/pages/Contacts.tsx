@@ -18,7 +18,7 @@ import {
 
 const branches = [
   { value: "kotelniki", label: "Котельники", address: "2-й Покровский проезд, 14к2" },
-  { value: "kosino", label: "Новокосино", address: "{{ADDRESS_KOSINO}}" },
+  { value: "novokosino", label: "Новокосино", address: "Реутов, Юбилейный проспект, 60" },
   { value: "okskaya", label: "Окская", address: "ул. Окская, д. 3, корп. 1" },
   { value: "stakhanovskaya", label: "Стахановская", address: "2-й Грайвороновский проезд, д. 42, корп. 1" },
   { value: "lyubertsy1", label: "Люберцы 1", address: "ул. Юбилейная, д. 6А" },

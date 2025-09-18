@@ -12,7 +12,7 @@ import Prepare from "./pages/courses/Prepare";
 import Empower from "./pages/courses/Empower";
 import Locations from "./pages/Locations";
 import LocationKotelniki from "./pages/locations/Kotelniki";
-import LocationKosino from "./pages/locations/Kosino";
+import LocationNovokosino from "./pages/locations/Novokosino";
 import LocationOkskaya from "./pages/locations/Okskaya";
 import LocationStakhanovskaya from "./pages/locations/Stakhanovskaya";
 import PlacementTest from "./pages/PlacementTest";
@@ -48,7 +48,7 @@ const App = () => (
               <Route path="/courses/empower" element={<Empower />} />
               <Route path="/locations" element={<Locations />} />
               <Route path="/locations/kotelniki" element={<LocationKotelniki />} />
-              <Route path="/locations/kosino" element={<LocationKosino />} />
+              <Route path="/locations/novokosino" element={<LocationNovokosino />} />
               <Route path="/locations/okskaya" element={<LocationOkskaya />} />
               <Route path="/locations/stakhanovskaya" element={<LocationStakhanovskaya />} />
               <Route path="/locations/solntsevo" element={<LocationSolntsevo />} />
