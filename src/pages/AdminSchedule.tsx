@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Calendar, Plus, Edit, Trash2, Save, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { ContentIndexer } from "@/components/ContentIndexer";
 
 interface ScheduleItem {
   id: string;
@@ -233,7 +234,11 @@ export default function AdminSchedule() {
 
   return (
     <div className="min-h-screen py-20">
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-4 space-y-8">
+        {/* Content Indexer for Chat Bot */}
+        <ContentIndexer />
+
+        {/* Schedule Management */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
