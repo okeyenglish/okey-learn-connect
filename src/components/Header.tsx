@@ -29,14 +29,16 @@ export default function Header() {
       {/* Desktop Header */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-64 min-h-[256px]">
+          <div className="flex justify-between items-center h-18 min-h-[72px]">
             {/* Logo */}
             <Link to="/" className="relative flex items-center flex-shrink-0 min-w-0 z-50">
               <img 
                 src={logoImage} 
                 alt="O'KEY ENGLISH" 
-                className="h-60 w-60 rounded-full object-cover border-2 border-white shadow-lg"
+                className="h-[150px] w-[150px] rounded-full object-cover border-2 border-white shadow-lg absolute left-0 top-1/2 -translate-y-1/2"
               />
+              {/* Invisible spacer to maintain layout space */}
+              <div className="h-16 w-[150px]"></div>
             </Link>
 
             {/* Desktop Navigation */}
