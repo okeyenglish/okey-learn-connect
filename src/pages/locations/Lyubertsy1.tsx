@@ -25,11 +25,11 @@ export default function LocationLyubertsy1() {
   useEffect(() => {
     // Demo schedule data - replace with real API call
     const demoData = [
-      {"branch":"Люберцы-1","course":"Kids 4-6","level":"Beginner","days_mask":"Пн/Ср","time":"16:00–17:00","is_online":false,"vacancies":10},
-      {"branch":"Люберцы-1","course":"Kids 7-9","level":"A1","days_mask":"Вт/Чт","time":"17:10–18:30","is_online":false,"vacancies":7},
-      {"branch":"Люберцы-1","course":"Teens","level":"A2","days_mask":"Пн/Ср","time":"18:40–20:00","is_online":false,"vacancies":5},
-      {"branch":"Люберцы-1","course":"Adults General","level":"B1","days_mask":"Вт/Чт","time":"19:00–20:20","is_online":false,"vacancies":3},
-      {"branch":"Люберцы-1","course":"Adults General","level":"A2","days_mask":"Сб","time":"10:00–12:30","is_online":false,"vacancies":6},
+      {"branch":"Люберцы","course":"Kids 4-6","level":"Beginner","days_mask":"Пн/Ср","time":"16:00–17:00","is_online":false,"vacancies":10},
+      {"branch":"Люберцы","course":"Kids 7-9","level":"A1","days_mask":"Вт/Чт","time":"17:10–18:30","is_online":false,"vacancies":7},
+      {"branch":"Люберцы","course":"Teens","level":"A2","days_mask":"Пн/Ср","time":"18:40–20:00","is_online":false,"vacancies":5},
+      {"branch":"Люберцы","course":"Adults General","level":"B1","days_mask":"Вт/Чт","time":"19:00–20:20","is_online":false,"vacancies":3},
+      {"branch":"Люберцы","course":"Adults General","level":"A2","days_mask":"Сб","time":"10:00–12:30","is_online":false,"vacancies":6},
     ];
     
     setScheduleData(demoData);
@@ -37,7 +37,7 @@ export default function LocationLyubertsy1() {
   }, []);
 
   useEffect(() => {
-    let filtered = scheduleData.filter(item => item.branch === "Люберцы-1");
+    let filtered = scheduleData.filter(item => item.branch === "Люберцы");
     
     if (searchLevel !== "all") {
       filtered = filtered.filter(item => item.level === searchLevel);

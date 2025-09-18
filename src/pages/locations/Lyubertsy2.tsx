@@ -13,23 +13,23 @@ export default function LocationLyubertsy2() {
   const [searchDays, setSearchDays] = useState("all");
 
   const handleWhatsApp = () => {
-    const message = "Здравствуйте! Интересует обучение в филиале Люберцы (пр. Гагарина).";
+    const message = "Здравствуйте! Интересует обучение в филиале Красная горка (пр. Гагарина).";
     window.open(`https://wa.me/74997073535?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   const handleBooking = (course: string, time: string) => {
-    const message = `Здравствуйте! Хочу записаться на курс "${course}" в ${time} в филиале Люберцы (пр. Гагарина).`;
+    const message = `Здравствуйте! Хочу записаться на курс "${course}" в ${time} в филиале Красная горка (пр. Гагарина).`;
     window.open(`https://wa.me/74997073535?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   useEffect(() => {
     // Demo schedule data - replace with real API call
     const demoData = [
-      {"branch":"Люберцы-2","course":"Kids 4-6","level":"Beginner","days_mask":"Пн/Ср/Пт","time":"15:00–16:00","is_online":false,"vacancies":8},
-      {"branch":"Люберцы-2","course":"Kids 7-9","level":"A1","days_mask":"Вт/Чт","time":"16:10–17:30","is_online":false,"vacancies":4},
-      {"branch":"Люберцы-2","course":"Teens","level":"B1","days_mask":"Пн/Ср","time":"17:40–19:00","is_online":false,"vacancies":6},
-      {"branch":"Люберцы-2","course":"Adults General","level":"A2","days_mask":"Вт/Чт","time":"19:10–20:30","is_online":false,"vacancies":2},
-      {"branch":"Люберцы-2","course":"Cambridge FCE","level":"B2","days_mask":"Сб","time":"14:00–16:30","is_online":false,"vacancies":5},
+      {"branch":"Красная горка","course":"Kids 4-6","level":"Beginner","days_mask":"Пн/Ср/Пт","time":"15:00–16:00","is_online":false,"vacancies":8},
+      {"branch":"Красная горка","course":"Kids 7-9","level":"A1","days_mask":"Вт/Чт","time":"16:10–17:30","is_online":false,"vacancies":4},
+      {"branch":"Красная горка","course":"Teens","level":"B1","days_mask":"Пн/Ср","time":"17:40–19:00","is_online":false,"vacancies":6},
+      {"branch":"Красная горка","course":"Adults General","level":"A2","days_mask":"Вт/Чт","time":"19:10–20:30","is_online":false,"vacancies":2},
+      {"branch":"Красная горка","course":"Cambridge FCE","level":"B2","days_mask":"Сб","time":"14:00–16:30","is_online":false,"vacancies":5},
     ];
     
     setScheduleData(demoData);
@@ -37,7 +37,7 @@ export default function LocationLyubertsy2() {
   }, []);
 
   useEffect(() => {
-    let filtered = scheduleData.filter(item => item.branch === "Люберцы-2");
+    let filtered = scheduleData.filter(item => item.branch === "Красная горка");
     
     if (searchLevel !== "all") {
       filtered = filtered.filter(item => item.level === searchLevel);
@@ -70,7 +70,7 @@ export default function LocationLyubertsy2() {
     <div className="min-h-screen py-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-4">Филиал Люберцы</h1>
+          <h1 className="text-4xl font-bold mb-4">Филиал Красная горка</h1>
           <p className="text-xl text-muted-foreground mb-2">проспект Гагарина, 3/8</p>
           <p className="text-lg text-muted-foreground mb-6">Ежедневно с 9:00 до 21:00</p>
           
@@ -91,7 +91,7 @@ export default function LocationLyubertsy2() {
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold mb-4">Расписание групп</h2>
             <p className="text-lg text-muted-foreground">
-              Актуальное расписание занятий в филиале Люберцы
+              Актуальное расписание занятий в филиале Красная горка
             </p>
           </div>
 
@@ -175,7 +175,7 @@ export default function LocationLyubertsy2() {
             <CardContent className="space-y-4">
               <div>
                 <h4 className="font-semibold mb-2">Адрес:</h4>
-                <p className="text-muted-foreground">проспект Гагарина, 3/8, Люберцы</p>
+                <p className="text-muted-foreground">проспект Гагарина, 3/8, Красная горка</p>
               </div>
               <div>
                 <h4 className="font-semibold mb-2">Телефон:</h4>

@@ -90,8 +90,8 @@ const NotFound = () => {
                   <SelectItem value="stakhanovskaya">Стахановская</SelectItem>
                   <SelectItem value="solntsevo">Солнцево</SelectItem>
                   <SelectItem value="mytishchi">Мытищи</SelectItem>
-                  <SelectItem value="lyubertsy-1">Люберцы-1</SelectItem>
-                  <SelectItem value="lyubertsy-2">Люберцы-2</SelectItem>
+                  <SelectItem value="lyubertsy-1">Люберцы</SelectItem>
+                  <SelectItem value="lyubertsy-2">Красная горка</SelectItem>
                 </SelectContent>
               </Select>
             </div>

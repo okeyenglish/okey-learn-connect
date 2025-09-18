@@ -26,8 +26,8 @@ const branches = [
   { name: "Стахановская", address: "2-й Грайвороновский проезд, д. 42, корп. 1", slug: "stakhanovskaya" },
   { name: "Солнцево", address: "ул. Богданова, 6к1", slug: "solntsevo" },
   { name: "Мытищи", address: "ул. Борисовка, 16А", slug: "mytishchi" },
-  { name: "Люберцы-1", address: "3 Почтовое отделение, 65к1", slug: "lyubertsy-1" },
-  { name: "Люберцы-2", address: "проспект Гагарина, 3/8", slug: "lyubertsy-2" },
+  { name: "Люберцы", address: "3 Почтовое отделение, 65к1", slug: "lyubertsy-1" },
+  { name: "Красная горка", address: "проспект Гагарина, 3/8", slug: "lyubertsy-2" },
   { name: "Онлайн школа", address: "Cambridge One платформа", slug: "online" },
 ];
 
