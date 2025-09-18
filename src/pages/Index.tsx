@@ -23,7 +23,7 @@ const branches = [
   { name: "Котельники", address: "2-й Покровский проезд, 14к2", slug: "kotelniki" },
   { name: "Новокосино", address: "Реутов, Юбилейный проспект, 60", slug: "novokosino" },
   { name: "Окская", address: "ул. Окская, д. 3, корп. 1", slug: "okskaya" },
-  { name: "Стахановская", address: "2-й Грайвороновский проезд, д. 42, корп. 1", slug: "stakhanovskaya" },
+  { name: "Стахановская", address: "2-й Грайвороновский пр-д, 42к1", slug: "stakhanovskaya" },
   { name: "Солнцево", address: "ул. Богданова, 6к1", slug: "solntsevo" },
   { name: "Мытищи", address: "ул. Борисовка, 16А", slug: "mytishchi" },
   { name: "Люберцы", address: "3 Почтовое отделение, 65к1", slug: "lyubertsy-1" },
@@ -75,21 +75,21 @@ export default function Index() {
             </div>
 
             <div className="flex flex-wrap justify-center items-center gap-8 text-center">
-              <div className="flex items-center gap-2">
-                <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center">
-                  <Award className="w-6 h-6 text-white" />
+              <div className="flex items-center gap-3 p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 hover-scale">
+                <div className="w-14 h-14 bg-gradient-primary rounded-full flex items-center justify-center shadow-lg">
+                  <Award className="w-7 h-7 text-white" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-primary">10 лет</div>
-                  <div className="text-sm text-muted-foreground">на рынке</div>
+                  <div className="text-3xl font-black text-white drop-shadow-lg animate-pulse">10 лет</div>
+                  <div className="text-sm text-white/80 font-medium">на рынке</div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center">
-                  <GraduationCap className="w-6 h-6 text-white" />
+              <div className="flex items-center gap-3 p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 hover-scale">
+                <div className="w-14 h-14 bg-gradient-primary rounded-full flex items-center justify-center shadow-lg">
+                  <GraduationCap className="w-7 h-7 text-white" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-primary">5000+</div>
+                  <div className="text-3xl font-black text-white drop-shadow-lg animate-pulse">5000+</div>
                   <div className="text-sm text-muted-foreground">выпускников</div>
                 </div>
               </div>

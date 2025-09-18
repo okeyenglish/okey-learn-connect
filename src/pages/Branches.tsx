@@ -50,7 +50,7 @@ const branches = [
   { 
     id: "stakhanovskaya",
     name: "Стахановская", 
-    address: "2-й Грайвороновский проезд, д. 42, корп. 1",
+    address: "2-й Грайвороновский пр-д, 42к1",
     metro: "Стахановская",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
     image: "/placeholder-branch-4.jpg",

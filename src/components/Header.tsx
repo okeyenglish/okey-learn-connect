@@ -35,7 +35,7 @@ export default function Header() {
               <img 
                 src={logoImage} 
                 alt="O'KEY ENGLISH Logo" 
-                className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
               />
               <span className="font-heading font-bold text-lg sm:text-xl text-secondary whitespace-nowrap">
                 O'KEY ENGLISH

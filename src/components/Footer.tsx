@@ -6,7 +6,7 @@ const branches = [
   { name: "Котельники", address: "2-й Покровский проезд, 14к2", slug: "kotelniki" },
   { name: "Новокосино", address: "Реутов, Юбилейный проспект, 60", slug: "novokosino" },
   { name: "Окская", address: "ул. Окская, д. 3, корп. 1", slug: "okskaya" },
-  { name: "Стахановская", address: "2-й Грайвороновский проезд, д. 42, корп. 1", slug: "stakhanovskaya" },
+  { name: "Стахановская", address: "2-й Грайвороновский пр-д, 42к1", slug: "stakhanovskaya" },
   { name: "Солнцево", address: "Богданова, 6к1", slug: "solntsevo" },
   { name: "Мытищи", address: "Борисовка, 16А", slug: "mytishchi" },
   { name: "Люберцы", address: "3 Почтовое отделение, 65к1", slug: "lyubertsy-1" },
@@ -27,7 +27,7 @@ export default function Footer() {
               <img 
                 src={okeyLogo} 
                 alt="O'KEY ENGLISH" 
-                className="w-12 h-12 object-contain"
+                className="w-12 h-12 object-contain rounded-lg"
               />
               <span className="font-heading font-bold text-lg text-white">
                 O'KEY ENGLISH
@@ -36,14 +36,14 @@ export default function Footer() {
             <p className="text-sm text-secondary-foreground/80">
               Сильный английский для детей, подростков и взрослых с гарантией прогресса
             </p>
-            <div className="flex items-center space-x-4">
-              <div className="text-sm">
-                <div className="text-accent font-semibold">10 лет</div>
-                <div className="text-xs">на рынке</div>
+            <div className="flex items-center space-x-6">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-white bg-gradient-to-r from-accent to-primary bg-clip-text text-transparent animate-pulse">10 лет</div>
+                <div className="text-xs text-secondary-foreground/80">на рынке</div>
               </div>
-              <div className="text-sm">
-                <div className="text-accent font-semibold">5000+</div>
-                <div className="text-xs">выпускников</div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-white bg-gradient-to-r from-accent to-primary bg-clip-text text-transparent animate-pulse">5000+</div>
+                <div className="text-xs text-secondary-foreground/80">выпускников</div>
               </div>
             </div>
           </div>

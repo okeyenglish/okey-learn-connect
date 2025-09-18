@@ -13,7 +13,7 @@ export default function LocationStakhanovskaya() {
           </h1>
           <div className="flex items-center justify-center gap-2 text-lg text-muted-foreground mb-6">
             <MapPin className="w-5 h-5 text-primary" />
-            <span>2-й Грайвороновский проезд, д. 42, корп. 1</span>
+            <span>2-й Грайвороновский пр-д, 42к1</span>
           </div>
           
           <Button variant="hero" className="flex items-center gap-2">
