@@ -69,7 +69,7 @@ const App = () => (
               <Route path="/faq" element={<FAQ />} />
               <Route path="/contacts" element={<Contacts />} />
               <Route path="/contact-method" element={<ContactMethod />} />
-              <Route path="/admin/schedule" element={<AdminSchedule />} />
+              <Route path="/admin-schedule" element={<AdminSchedule />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
