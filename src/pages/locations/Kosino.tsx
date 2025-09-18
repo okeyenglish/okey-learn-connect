@@ -11,7 +11,7 @@ export default function LocationKosino() {
           </h1>
           <div className="flex items-center justify-center gap-2 text-lg text-muted-foreground mb-6">
             <MapPin className="w-5 h-5 text-primary" />
-            <span>Адрес уточняется</span>
+            <span>Юбилейный проспект, 60</span>
           </div>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">

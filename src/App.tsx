@@ -18,6 +18,10 @@ import Teachers from "./pages/Teachers";
 import Reviews from "./pages/Reviews";
 import Pricing from "./pages/Pricing";
 import FAQ from "./pages/FAQ";
+import LocationSolntsevo from "./pages/locations/Solntsevo";
+import LocationMytishchi from "./pages/locations/Mytishchi";
+import LocationLyubertsy1 from "./pages/locations/Lyubertsy1";
+import LocationLyubertsy2 from "./pages/locations/Lyubertsy2";
 import Contacts from "./pages/Contacts";
 import NotFound from "./pages/NotFound";
 
@@ -40,6 +44,10 @@ const App = () => (
               <Route path="/locations/kosino" element={<LocationKosino />} />
               <Route path="/locations/okskaya" element={<LocationOkskaya />} />
               <Route path="/locations/stakhanovskaya" element={<LocationStakhanovskaya />} />
+              <Route path="/locations/solntsevo" element={<LocationSolntsevo />} />
+              <Route path="/locations/mytishchi" element={<LocationMytishchi />} />
+              <Route path="/locations/lyubertsy-1" element={<LocationLyubertsy1 />} />
+              <Route path="/locations/lyubertsy-2" element={<LocationLyubertsy2 />} />
               <Route path="/placement-test" element={<PlacementTest />} />
               <Route path="/about" element={<About />} />
               <Route path="/teachers" element={<Teachers />} />

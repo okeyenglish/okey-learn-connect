@@ -21,9 +21,13 @@ import {
 
 const branches = [
   { name: "Котельники", address: "2-й Покровский проезд, 14к2", slug: "kotelniki" },
-  { name: "Новокосино", address: "{{ADDRESS_KOSINO}}", slug: "kosino" },
+  { name: "Новокосино", address: "Юбилейный проспект, 60", slug: "kosino" },
   { name: "Окская", address: "ул. Окская, д. 3, корп. 1", slug: "okskaya" },
   { name: "Стахановская", address: "2-й Грайвороновский проезд, д. 42, корп. 1", slug: "stakhanovskaya" },
+  { name: "Солнцево", address: "ул. Богданова, 6к1", slug: "solntsevo" },
+  { name: "Мытищи", address: "ул. Борисовка, 16А", slug: "mytishchi" },
+  { name: "Люберцы-1", address: "3 Почтовое отделение, 65к1", slug: "lyubertsy-1" },
+  { name: "Люберцы-2", address: "проспект Гагарина, 3/8", slug: "lyubertsy-2" },
 ];
 
 export default function Index() {
@@ -100,11 +104,11 @@ export default function Index() {
               Филиалы и расписание
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              4 филиала в удобных локациях. Гибкое расписание, есть группы каждый день
+              8 филиалов в удобных локациях. Гибкое расписание, есть группы каждый день
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {branches.map((branch) => (
               <Card key={branch.slug} className="card-elevated hover:border-primary/50 transition-all">
                 <CardContent className="p-6 space-y-4">

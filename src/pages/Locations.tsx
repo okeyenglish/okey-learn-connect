@@ -28,7 +28,7 @@ const branches = [
   { 
     id: "kosino",
     name: "Новокосино", 
-    address: "{{ADDRESS_KOSINO}}",
+    address: "Юбилейный проспект, 60",
     metro: "Новокосино",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
     image: "/placeholder-branch-2.jpg",
@@ -57,6 +57,50 @@ const branches = [
     features: ["Новый ремонт", "Мультимедиа", "Удобный подъезд"],
     activeGroups: 15,
     nextGroup: "Сегодня 18:30"
+  },
+  { 
+    id: "solntsevo",
+    name: "Солнцево", 
+    address: "ул. Богданова, 6к1",
+    metro: "Солнцево",
+    workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
+    image: "/placeholder-branch-5.jpg",
+    features: ["Новые классы", "Удобная парковка", "Детская площадка"],
+    activeGroups: 9,
+    nextGroup: "Завтра 16:00"
+  },
+  { 
+    id: "mytishchi",
+    name: "Мытищи", 
+    address: "ул. Борисовка, 16А",
+    metro: "Мытищи (МЦД-1)",
+    workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
+    image: "/placeholder-branch-6.jpg",
+    features: ["Просторные аудитории", "Техническое оснащение", "Буфет"],
+    activeGroups: 11,
+    nextGroup: "Сегодня 17:30"
+  },
+  { 
+    id: "lyubertsy-1",
+    name: "Люберцы-1", 
+    address: "3 Почтовое отделение, 65к1",
+    metro: "Люберцы (МЦД-1)",
+    workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
+    image: "/placeholder-branch-7.jpg",
+    features: ["Комфортная обстановка", "Методические материалы", "Зона отдыха"],
+    activeGroups: 7,
+    nextGroup: "Завтра 19:00"
+  },
+  { 
+    id: "lyubertsy-2",
+    name: "Люберцы-2", 
+    address: "проспект Гагарина, 3/8",
+    metro: "Люберцы (МЦД-1)",
+    workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
+    image: "/placeholder-branch-8.jpg",
+    features: ["Центральное расположение", "Современное оборудование", "Библиотека"],
+    activeGroups: 13,
+    nextGroup: "Сегодня 20:00"
   }
 ];
 
@@ -75,17 +119,17 @@ export default function Locations() {
             Наши <span className="text-gradient">филиалы</span>
           </h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
-            4 удобные локации в Москве с современными классами и опытными преподавателями
+            8 удобных локаций в Москве и Подмосковье с современными классами и опытными преподавателями
           </p>
           
           <div className="flex flex-wrap justify-center gap-4">
             <Badge variant="outline" className="px-4 py-2">
               <MapPin className="w-4 h-4 mr-2" />
-              4 филиала
+              8 филиалов
             </Badge>
             <Badge variant="outline" className="px-4 py-2">
               <Users className="w-4 h-4 mr-2" />
-              45+ активных групп
+              85+ активных групп
             </Badge>
             <Badge variant="outline" className="px-4 py-2">
               <Clock className="w-4 h-4 mr-2" />
@@ -95,7 +139,7 @@ export default function Locations() {
         </div>
 
         {/* Quick Navigation */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-16">
+        <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4 mb-16">
           {branches.map((branch) => (
             <Link 
               key={branch.id}
@@ -255,7 +299,7 @@ export default function Locations() {
                 <div className="text-center">
                   <MapPin className="w-16 h-16 text-primary mx-auto mb-4" />
                   <p className="text-lg font-semibold">Интерактивная карта</p>
-                  <p className="text-sm text-muted-foreground">4 филиала O'KEY ENGLISH в Москве</p>
+                  <p className="text-sm text-muted-foreground">8 филиалов O'KEY ENGLISH в Москве и Подмосковье</p>
                 </div>
               </div>
             </CardContent>
