@@ -157,25 +157,36 @@ serve(async (req) => {
       },
     ];
 
-    // 3) Generate response using OpenAI
+    // 3) Generate response using OpenAI (GPT-4.1 mini by default)
+    const primaryModel = "gpt-4.1-mini-2025-04-14";
+    const fallbackModel = "gpt-4.1-2025-04-14";
+    
     console.log('OpenAI request:', {
-      model: "gpt-5-mini-2025-08-07",
+      model: primaryModel,
       hasContexts,
       contextLength: contextText.length,
       questionLength: question.length
     });
-    const chatRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-5-mini-2025-08-07",
-        messages,
-        max_completion_tokens: 800,
-      }),
-    });
+
+    const makeOpenAIRequest = async (model: string, isRetry = false) => {
+      console.log(`Making request to ${model}${isRetry ? ' (retry with stronger model)' : ''}`);
+      
+      return await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          max_completion_tokens: isRetry ? 1000 : 600,
+          temperature: 0.3
+        }),
+      });
+    };
+
+    let chatRes = await makeOpenAIRequest(primaryModel);
 
     const chatJson = await chatRes.json();
     
@@ -227,6 +238,50 @@ serve(async (req) => {
     };
 
     let answer = (chatJson.choices?.[0]?.message?.content || '').trim();
+    let modelUsed = primaryModel;
+    let wasRetried = false;
+    
+    // Check confidence level and retry with stronger model if needed
+    const checkConfidence = (text: string): boolean => {
+      const lowConfidenceIndicators = [
+        "возможно", "может быть", "вероятно", "скорее всего", "думаю", "полагаю",
+        "не уверен", "не совсем понятно", "сложно сказать", "трудно определить",
+        "точно не знаю", "информация неполная"
+      ];
+      const lowerText = text.toLowerCase();
+      const indicatorCount = lowConfidenceIndicators.filter(indicator => 
+        lowerText.includes(indicator)
+      ).length;
+      
+      return indicatorCount <= 1; // High confidence if <= 1 uncertainty indicator
+    };
+
+    // If low confidence detected and we haven't retried yet, try with stronger model
+    if (answer && !checkConfidence(answer) && !wasRetried) {
+      console.log('Low confidence detected, retrying with stronger model...');
+      console.log('Original answer indicators detected:', answer.match(/(возможно|может быть|вероятно|не уверен|сложно сказать)/gi));
+      
+      try {
+        const retryRes = await makeOpenAIRequest(fallbackModel, true);
+        const retryJson = await retryRes.json();
+        
+        if (retryRes.ok && retryJson.choices?.[0]?.message?.content) {
+          const retryAnswer = retryJson.choices[0].message.content.trim();
+          
+          // Use retry answer if it seems more confident
+          if (checkConfidence(retryAnswer) || retryAnswer.length > answer.length * 1.1) {
+            answer = retryAnswer;
+            modelUsed = fallbackModel;
+            wasRetried = true;
+            console.log('Using stronger model answer due to better confidence');
+          } else {
+            console.log('Keeping original answer as retry didn\'t improve confidence significantly');
+          }
+        }
+      } catch (retryError) {
+        console.warn('Retry with stronger model failed:', retryError);
+      }
+    }
     
     if (!answer) {
       console.warn('OpenAI returned empty content, constructing answer from contexts.');
@@ -242,8 +297,9 @@ serve(async (req) => {
 
     answer = sanitizeOutdatedContacts(answer);
 
-    console.log('AI response:', answer);
+    console.log(`AI response from ${modelUsed}${wasRetried ? ' (after retry)' : ''}:`, answer);
     console.log('Response length:', answer.length);
+    console.log('Confidence level:', checkConfidence(answer) ? 'HIGH' : 'LOW');
     
     // Check if the AI indicates it doesn't know the answer or we used fallback
     const unknownIndicators = [
