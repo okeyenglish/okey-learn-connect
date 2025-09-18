@@ -1,0 +1,163 @@
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Globe, Monitor, Headphones, Clock, Users, Award } from "lucide-react";
+
+const LocationOnline = () => {
+  return (
+    <div className="min-h-screen bg-gradient-subtle">
+      <div className="container mx-auto px-4 py-8">
+        {/* Hero Section */}
+        <div className="text-center mb-12">
+          <div className="flex justify-center mb-6">
+            <div className="bg-primary/10 p-4 rounded-full">
+              <Globe className="w-12 h-12 text-primary" />
+            </div>
+          </div>
+          <h1 className="text-4xl md:text-5xl font-bold text-primary mb-4">
+            Онлайн школа O'KEY ENGLISH
+          </h1>
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            Изучайте английский язык из любой точки планеты на современной платформе Cambridge One
+          </p>
+        </div>
+
+        {/* Features Grid */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+          <Card className="shadow-elegant">
+            <CardHeader>
+              <Monitor className="w-8 h-8 text-primary mb-2" />
+              <CardTitle>Платформа Cambridge One</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                Современная интерактивная платформа с мультимедийными материалами и адаптивным обучением
+              </CardDescription>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-elegant">
+            <CardHeader>
+              <Users className="w-8 h-8 text-primary mb-2" />
+              <CardTitle>Персональный подход</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                Индивидуальные и групповые занятия с квалифицированными преподавателями
+              </CardDescription>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-elegant">
+            <CardHeader>
+              <Clock className="w-8 h-8 text-primary mb-2" />
+              <CardTitle>Гибкое расписание</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                Занимайтесь в удобное время в любой точке мира, где есть интернет
+              </CardDescription>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-elegant">
+            <CardHeader>
+              <Headphones className="w-8 h-8 text-primary mb-2" />
+              <CardTitle>Качественная связь</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                HD-видео и кристально чистый звук для максимально эффективного обучения
+              </CardDescription>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-elegant">
+            <CardHeader>
+              <Award className="w-8 h-8 text-primary mb-2" />
+              <CardTitle>Сертификация</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                Подготовка к международным экзаменам и получение сертификатов Cambridge
+              </CardDescription>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-elegant">
+            <CardHeader>
+              <Globe className="w-8 h-8 text-primary mb-2" />
+              <CardTitle>Мировое сообщество</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                Общайтесь с учениками и преподавателями со всего мира в нашем онлайн-сообществе
+              </CardDescription>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Platform Details */}
+        <Card className="shadow-elevated mb-12">
+          <CardHeader>
+            <CardTitle className="text-2xl text-center">Платформа Cambridge One</CardTitle>
+            <CardDescription className="text-center text-lg">
+              Передовые технологии для изучения английского языка
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <h4 className="font-semibold text-primary mb-2">Интерактивные уроки</h4>
+                <p className="text-muted-foreground">
+                  Современные мультимедийные материалы, видео, аудио и интерактивные упражнения
+                </p>
+              </div>
+              <div>
+                <h4 className="font-semibold text-primary mb-2">Прогресс в реальном времени</h4>
+                <p className="text-muted-foreground">
+                  Отслеживайте свои достижения и получайте персональные рекомендации
+                </p>
+              </div>
+              <div>
+                <h4 className="font-semibold text-primary mb-2">Мобильное приложение</h4>
+                <p className="text-muted-foreground">
+                  Продолжайте обучение на смартфоне или планшете в любое время
+                </p>
+              </div>
+              <div>
+                <h4 className="font-semibold text-primary mb-2">Виртуальная классная комната</h4>
+                <p className="text-muted-foreground">
+                  Полноценные онлайн-уроки с интерактивной доской и групповыми активностями
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* CTA Section */}
+        <div className="text-center">
+          <Card className="bg-gradient-primary text-white shadow-elevated max-w-2xl mx-auto">
+            <CardContent className="p-8">
+              <h3 className="text-2xl font-bold mb-4">
+                Начните изучать английский уже сегодня!
+              </h3>
+              <p className="mb-6 opacity-90">
+                Присоединяйтесь к тысячам студентов по всему миру и достигните своих целей в изучении английского языка
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button variant="secondary" size="lg" className="bg-white text-primary hover:bg-white/90">
+                  Записаться на пробный урок
+                </Button>
+                <Button variant="outline" size="lg" className="border-white text-white hover:bg-white/10">
+                  Узнать больше
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default LocationOnline;

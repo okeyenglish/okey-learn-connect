@@ -1,11 +1,17 @@
 import { Link } from "react-router-dom";
-import { Phone, Mail, MapPin, MessageCircle } from "lucide-react";
+import { Phone, Mail, MapPin, MessageCircle, Send } from "lucide-react";
+import okeyLogo from "@/assets/okey-english-logo.jpg";
 
 const branches = [
   { name: "Котельники", address: "2-й Покровский проезд, 14к2", slug: "kotelniki" },
-  { name: "Новокосино", address: "{{ADDRESS_KOSINO}}", slug: "kosino" },
+  { name: "Новокосино", address: "Юбилейный проспект, 60", slug: "kosino" },
   { name: "Окская", address: "ул. Окская, д. 3, корп. 1", slug: "okskaya" },
   { name: "Стахановская", address: "2-й Грайвороновский проезд, д. 42, корп. 1", slug: "stakhanovskaya" },
+  { name: "Солнцево", address: "Богданова, 6к1", slug: "solntsevo" },
+  { name: "Мытищи", address: "Борисовка, 16А", slug: "mytishchi" },
+  { name: "Люберцы-1", address: "3 Почтовое отделение, 65к1", slug: "lyubertsy-1" },
+  { name: "Люберцы-2", address: "проспект Гагарина, 3/8", slug: "lyubertsy-2" },
+  { name: "Онлайн школа", address: "По всей планете", slug: "online" },
 ];
 
 export default function Footer() {
@@ -17,10 +23,12 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Company Info */}
           <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold">O</span>
-              </div>
+            <div className="flex items-center space-x-3">
+              <img 
+                src={okeyLogo} 
+                alt="O'KEY ENGLISH" 
+                className="w-12 h-12 object-contain"
+              />
               <span className="font-heading font-bold text-lg text-white">
                 O'KEY ENGLISH
               </span>
@@ -52,11 +60,11 @@ export default function Footer() {
                 <span>+7 (499) 707-35-35</span>
               </a>
               <a
-                href="mailto:info@okey-english.ru"
+                href="mailto:hello@okeyenglish.ru"
                 className="flex items-center space-x-2 text-sm hover:text-accent transition-colors"
               >
                 <Mail className="w-4 h-4" />
-                <span>info@okey-english.ru</span>
+                <span>hello@okeyenglish.ru</span>
               </a>
               <a
                 href="https://wa.me/74997073535"
@@ -66,6 +74,15 @@ export default function Footer() {
               >
                 <MessageCircle className="w-4 h-4" />
                 <span>WhatsApp</span>
+              </a>
+              <a
+                href="https://t.me/englishmanager"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center space-x-2 text-sm hover:text-accent transition-colors"
+              >
+                <Send className="w-4 h-4" />
+                <span>@englishmanager</span>
               </a>
             </div>
           </div>

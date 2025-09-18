@@ -28,6 +28,7 @@ const branches = [
   { name: "Мытищи", address: "ул. Борисовка, 16А", slug: "mytishchi" },
   { name: "Люберцы-1", address: "3 Почтовое отделение, 65к1", slug: "lyubertsy-1" },
   { name: "Люберцы-2", address: "проспект Гагарина, 3/8", slug: "lyubertsy-2" },
+  { name: "Онлайн школа", address: "Cambridge One платформа", slug: "online" },
 ];
 
 export default function Index() {
@@ -104,7 +105,7 @@ export default function Index() {
               Филиалы и расписание
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              8 филиалов в удобных локациях. Гибкое расписание, есть группы каждый день
+              9 филиалов в удобных локациях + онлайн школа. Гибкое расписание, есть группы каждый день
             </p>
           </div>
 

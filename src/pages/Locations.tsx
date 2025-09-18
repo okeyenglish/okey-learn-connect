@@ -101,6 +101,17 @@ const branches = [
     features: ["Центральное расположение", "Современное оборудование", "Библиотека"],
     activeGroups: 13,
     nextGroup: "Сегодня 20:00"
+  },
+  { 
+    id: "online",
+    name: "Онлайн школа", 
+    address: "Cambridge One платформа",
+    metro: "По всей планете",
+    workingHours: "24/7 доступ к материалам",
+    image: "/placeholder-online.jpg",
+    features: ["Cambridge One", "Интерактивные уроки", "Гибкое расписание"],
+    activeGroups: 25,
+    nextGroup: "Каждый час"
   }
 ];
 
@@ -119,17 +130,17 @@ export default function Locations() {
             Наши <span className="text-gradient">филиалы</span>
           </h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
-            8 удобных локаций в Москве и Подмосковье с современными классами и опытными преподавателями
+            9 удобных локаций в Москве и Подмосковье + онлайн школа с современными классами и опытными преподавателями
           </p>
           
           <div className="flex flex-wrap justify-center gap-4">
             <Badge variant="outline" className="px-4 py-2">
               <MapPin className="w-4 h-4 mr-2" />
-              8 филиалов
+              9 филиалов
             </Badge>
             <Badge variant="outline" className="px-4 py-2">
               <Users className="w-4 h-4 mr-2" />
-              85+ активных групп
+              110+ активных групп
             </Badge>
             <Badge variant="outline" className="px-4 py-2">
               <Clock className="w-4 h-4 mr-2" />
@@ -139,7 +150,7 @@ export default function Locations() {
         </div>
 
         {/* Quick Navigation */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4 mb-16">
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-9 gap-4 mb-16">
           {branches.map((branch) => (
             <Link 
               key={branch.id}
@@ -299,7 +310,7 @@ export default function Locations() {
                 <div className="text-center">
                   <MapPin className="w-16 h-16 text-primary mx-auto mb-4" />
                   <p className="text-lg font-semibold">Интерактивная карта</p>
-                  <p className="text-sm text-muted-foreground">8 филиалов O'KEY ENGLISH в Москве и Подмосковье</p>
+                  <p className="text-sm text-muted-foreground">9 филиалов O'KEY ENGLISH в Москве и Подмосковье + онлайн</p>
                 </div>
               </div>
             </CardContent>
