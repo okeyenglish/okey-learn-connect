@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 const languages = [
   "английский",
@@ -14,34 +14,32 @@ export default function AnimatedLanguage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
 
+  const longest = useMemo(() => Math.max(...languages.map((w) => w.length)), []);
+  const nextIndex = (currentIndex + 1) % languages.length;
+
   useEffect(() => {
     const interval = setInterval(() => {
       setIsAnimating(true);
       setTimeout(() => {
         setCurrentIndex((prev) => (prev + 1) % languages.length);
         setIsAnimating(false);
-      }, 300);
+      }, 450); // slide duration
     }, 2000);
-
     return () => clearInterval(interval);
   }, []);
 
   return (
     <span 
-      className="inline-block relative overflow-hidden align-baseline"
-      style={{ 
-        minWidth: '12ch',
-        height: '1em'
-      }}
+      className="inline-block align-baseline overflow-hidden"
+      style={{ height: '1em', lineHeight: '1em', minWidth: `${longest}ch` }}
     >
       <span
-        className={`absolute inset-0 w-full transition-all duration-500 ease-out ${
-          isAnimating 
-            ? '-translate-y-full opacity-0' 
-            : 'translate-y-0 opacity-100'
-        } text-gradient`}
+        className={`block transition-transform duration-500 ease-out will-change-transform ${
+          isAnimating ? '-translate-y-full' : 'translate-y-0'
+        }`}
       >
-        {languages[currentIndex]}
+        <span className="block text-gradient whitespace-nowrap">{languages[currentIndex]}</span>
+        <span className="block text-gradient whitespace-nowrap">{languages[nextIndex]}</span>
       </span>
     </span>
   );
