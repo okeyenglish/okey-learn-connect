@@ -67,13 +67,13 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
       const offerInterval = setInterval(() => {
         offerIndex = (offerIndex + 1) % offers.length;
         setCurrentOffer(offers[offerIndex]);
-      }, 800);
+      }, 1500); // Increased from 800ms to 1500ms for slower animation
 
-      // After 3 seconds, always show the discount offer
+      // After 6 seconds, always show the discount offer
       const finalTimeout = setTimeout(() => {
         clearInterval(offerInterval);
         setCurrentOffer("разовую скидку 5000₽");
-      }, 3000);
+      }, 6000); // Increased from 3s to 6s
 
       return () => {
         clearInterval(offerInterval);
@@ -265,7 +265,7 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
               <Gift className="w-12 h-12 text-primary mx-auto mb-4" />
               <h3 className="text-2xl font-bold mb-2">
                 Добавим{" "}
-                <span className="inline-block animate-fade-in text-primary">
+                <span className="inline-block animate-[flip_0.5s_ease-in-out] text-primary transform-gpu">
                   {currentOffer}
                 </span>
               </h3>
@@ -414,27 +414,6 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
       <CardContent className="p-8">
         {renderStep()}
 
-
-        {currentStep > 1 && currentStep < 4 && (
-          <div className="flex justify-between mt-8">
-            <Button
-              variant="outline"
-              onClick={handleBack}
-            >
-              Назад
-            </Button>
-            
-            <Button
-              onClick={handleNext}
-              disabled={
-                (currentStep === 2 && !formData.hasStudied) ||
-                (currentStep === 3 && !formData.branch)
-              }
-            >
-              Далее
-            </Button>
-          </div>
-        )}
 
         {currentStep === 4 && (
           <div className="flex justify-center mt-8">

@@ -99,10 +99,22 @@ export default {
             height: "0",
           },
         },
+        "flip": {
+          "0%": {
+            transform: "rotateX(0deg) scale(1)",
+          },
+          "50%": {
+            transform: "rotateX(90deg) scale(0.8)",
+          },
+          "100%": {
+            transform: "rotateX(0deg) scale(1)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "flip": "flip 0.5s ease-in-out",
       },
     },
   },
