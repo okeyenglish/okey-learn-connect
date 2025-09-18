@@ -6,7 +6,10 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Index from "./pages/Index";
-import Courses from "./pages/Courses";
+import SuperSafari from "./pages/courses/SuperSafari";
+import KidsBox from "./pages/courses/KidsBox";
+import Prepare from "./pages/courses/Prepare";
+import Empower from "./pages/courses/Empower";
 import Locations from "./pages/Locations";
 import LocationKotelniki from "./pages/locations/Kotelniki";
 import LocationKosino from "./pages/locations/Kosino";
@@ -39,7 +42,10 @@ const App = () => (
           <main className="flex-1 pb-16 lg:pb-0">
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/courses" element={<Courses />} />
+              <Route path="/courses/super-safari" element={<SuperSafari />} />
+              <Route path="/courses/kids-box" element={<KidsBox />} />
+              <Route path="/courses/prepare" element={<Prepare />} />
+              <Route path="/courses/empower" element={<Empower />} />
               <Route path="/locations" element={<Locations />} />
               <Route path="/locations/kotelniki" element={<LocationKotelniki />} />
               <Route path="/locations/kosino" element={<LocationKosino />} />
