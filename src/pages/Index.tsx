@@ -245,8 +245,25 @@ export default function Index() {
           matchNames.includes(normalize(schedule.office_name))
         );
 
+        if (branch.name === 'Окская/Кузьминки/Текстильщики') {
+          console.log('=== OKSKAYA FILTERING ===');
+          console.log('Filtered schedules:', branchSchedules.length);
+          console.log('Detailed filter check:');
+          (allScheduleData || []).forEach(schedule => {
+            const normalized = normalize(schedule.office_name);
+            const isMatch = matchNames.includes(normalized);
+            console.log(`  ${schedule.office_name} -> ${normalized} -> match: ${isMatch}`);
+          });
+        }
+
         console.log(`\n=== Processing branch: ${branch.name} ===`);
         console.log('Match names:', matchNames);
+        
+        if (branch.name === 'Окская/Кузьминки/Текстильщики') {
+          console.log('=== DEBUGGING OKSKAYA ===');
+          console.log('All schedule data:', allScheduleData?.map(s => s.office_name));
+          console.log('Looking for matches with:', matchNames);
+        }
         console.log('Found schedules:', branchSchedules.length);
         console.log('Schedule details:', branchSchedules.map(s => ({
           name: s.name,
