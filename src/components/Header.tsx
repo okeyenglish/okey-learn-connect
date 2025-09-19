@@ -141,7 +141,36 @@ export default function Header() {
                     >
                       {item.name}
                     </Link>
-                  ))}
+                   ))}
+                   
+                   {/* Mobile Branch Selector */}
+                   <div className="pt-4 border-t">
+                     <div className="mb-4">
+                       <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                         Выберите филиал
+                       </label>
+                       <Select onValueChange={(value) => {
+                         handleBranchSelect(value);
+                         setIsOpen(false);
+                       }}>
+                         <SelectTrigger className="w-full">
+                           <MapPin className="w-4 h-4 mr-2" />
+                           <SelectValue placeholder="Все филиалы" />
+                         </SelectTrigger>
+                         <SelectContent>
+                           {branchesForSelect.map((branch) => (
+                             <SelectItem key={branch.value} value={branch.value}>
+                               <div className="flex flex-col">
+                                 <span className="font-medium">{branch.label}</span>
+                                 <span className="text-xs text-muted-foreground">{branch.address}</span>
+                               </div>
+                             </SelectItem>
+                           ))}
+                         </SelectContent>
+                       </Select>
+                     </div>
+                   </div>
+                   
                    <div className="pt-4 space-y-4">
                      {/* Contact buttons - more compact and neat layout */}
                      <div className="grid grid-cols-3 gap-2">
