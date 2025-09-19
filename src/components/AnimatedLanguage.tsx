@@ -17,6 +17,7 @@ export default function AnimatedLanguage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [width, setWidth] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   const containerRef = useRef<HTMLSpanElement>(null);
 
   const nextIndex = (currentIndex + 1) % languageCombinations.length;
@@ -32,11 +33,15 @@ export default function AnimatedLanguage() {
     return () => clearInterval(tick);
   }, []);
 
-  // Precise width measuring to avoid jitter
+  // Responsive width measuring to avoid overflow on mobile
   useEffect(() => {
     const measure = () => {
       const el = containerRef.current;
       if (!el) return;
+      
+      const windowWidth = window.innerWidth;
+      setIsMobile(windowWidth <= 768);
+      
       const computed = getComputedStyle(el);
       const m = document.createElement('span');
       m.style.position = 'absolute';
@@ -52,7 +57,10 @@ export default function AnimatedLanguage() {
         max = Math.max(max, m.getBoundingClientRect().width);
       }
       document.body.removeChild(m);
-      setWidth(Math.ceil(max));
+      
+      // Limit width to viewport width minus padding on mobile
+      const maxWidth = windowWidth <= 768 ? windowWidth - 64 : max;
+      setWidth(Math.ceil(Math.min(max, maxWidth)));
     };
     measure();
     window.addEventListener('resize', measure);
@@ -62,10 +70,11 @@ export default function AnimatedLanguage() {
   return (
     <span
       ref={containerRef}
-      className="inline-block align-baseline overflow-hidden"
+      className="inline-block align-baseline overflow-hidden text-center mx-auto"
       style={{ 
         height: '1em', 
         width: width ?? undefined,
+        maxWidth: '100%',
         verticalAlign: 'baseline',
         lineHeight: 'inherit'
       }}
@@ -76,8 +85,24 @@ export default function AnimatedLanguage() {
         }`}
         style={{ lineHeight: 'inherit' }}
       >
-        <span className="block text-gradient whitespace-nowrap" style={{ lineHeight: 'inherit' }}>{languageCombinations[currentIndex]}</span>
-        <span className="block text-gradient whitespace-nowrap" style={{ lineHeight: 'inherit' }}>{languageCombinations[nextIndex]}</span>
+        <span 
+          className={`block text-gradient text-center overflow-hidden ${isMobile ? '' : 'whitespace-nowrap'}`} 
+          style={{ 
+            lineHeight: 'inherit',
+            textOverflow: 'ellipsis'
+          }}
+        >
+          {languageCombinations[currentIndex]}
+        </span>
+        <span 
+          className={`block text-gradient text-center overflow-hidden ${isMobile ? '' : 'whitespace-nowrap'}`} 
+          style={{ 
+            lineHeight: 'inherit',
+            textOverflow: 'ellipsis'
+          }}
+        >
+          {languageCombinations[nextIndex]}
+        </span>
       </span>
     </span>
   );
