@@ -241,6 +241,48 @@ export default function Index() {
 
         console.log(`Branch ${branch.name}: ${activeGroups} groups, ${totalVacancies} total vacancies`);
 
+        // Helper function to format schedule display
+        const formatScheduleDisplay = (schedule: ScheduleItem): string => {
+          const days = schedule.compact_days.toLowerCase();
+          const timeStart = schedule.compact_time.split('-')[0]; // Get start time only
+          
+          const currentDate = new Date();
+          const currentDay = currentDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+          
+          // Map Russian day abbreviations to day numbers
+          const dayMap: { [key: string]: number[] } = {
+            'пн': [1], // Monday
+            'вт': [2], // Tuesday  
+            'ср': [3], // Wednesday
+            'чт': [4], // Thursday
+            'пт': [5], // Friday
+            'сб': [6], // Saturday
+            'вс': [0], // Sunday
+            'пн/ср': [1, 3],
+            'вт/чт': [2, 4],
+            'пн/пт': [1, 5],
+            'ср/пт': [3, 5],
+            'сб/вс': [6, 0]
+          };
+
+          const scheduleDays = dayMap[days] || [];
+          
+          // Find next occurrence
+          for (let i = 0; i < 7; i++) {
+            const checkDay = (currentDay + i) % 7;
+            if (scheduleDays.includes(checkDay)) {
+              if (i === 0) return `Сегодня в ${timeStart}`;
+              if (i === 1) return `Завтра в ${timeStart}`;
+              
+              // For other days, show day name
+              const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+              return `${dayNames[checkDay]} в ${timeStart}`;
+            }
+          }
+          
+          return `${schedule.compact_days} ${timeStart}`;
+        };
+
         // Find next available group with vacancies > 0
         const nextAvailableGroup = branchSchedules.find((schedule: ScheduleItem) => 
           schedule.vacancies > 0
@@ -250,9 +292,9 @@ export default function Index() {
         const anyGroup = branchSchedules.length > 0 ? branchSchedules[0] : null;
 
         const nextGroup = nextAvailableGroup 
-          ? `${nextAvailableGroup.compact_days} ${nextAvailableGroup.compact_time}`
+          ? formatScheduleDisplay(nextAvailableGroup)
           : anyGroup 
-            ? `${anyGroup.compact_days} ${anyGroup.compact_time}` 
+            ? formatScheduleDisplay(anyGroup) 
             : branch.nextGroup; // Fallback to hardcoded
 
         // Show at least 1 spot available if there are active groups but database shows 0
