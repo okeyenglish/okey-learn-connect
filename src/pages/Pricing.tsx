@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import PriceCalculator from "@/components/PriceCalculator";
 import { 
   Users, 
   UserCheck, 
@@ -171,6 +172,24 @@ export default function Pricing() {
                 Telegram
               </Button>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Price Calculator Section */}
+      <section className="py-20">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              Рассчитайте стоимость обучения
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Ответьте на несколько вопросов и получите персональное предложение за 2 минуты
+            </p>
+          </div>
+          
+          <div className="max-w-4xl mx-auto">
+            <PriceCalculator />
           </div>
         </div>
       </section>
