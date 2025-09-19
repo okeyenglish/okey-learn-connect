@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef } from "react";
 
-const languages = [
-  "английский",
-  "китайский", 
-  "испанский",
-  "немецкий",
-  "итальянский",
-  "греческий",
-  "французский"
+const languageCombinations = [
+  "сильный английский",
+  "свободный китайский", 
+  "беглый испанский",
+  "уверенный немецкий",
+  "продвинутый итальянский",
+  "разговорный греческий",
+  "сильный французский",
+  "свободный английский",
+  "беглый китайский",
+  "уверенный испанский"
 ];
 
 export default function AnimatedLanguage() {
@@ -16,13 +19,13 @@ export default function AnimatedLanguage() {
   const [width, setWidth] = useState<number | null>(null);
   const containerRef = useRef<HTMLSpanElement>(null);
 
-  const nextIndex = (currentIndex + 1) % languages.length;
+  const nextIndex = (currentIndex + 1) % languageCombinations.length;
 
   useEffect(() => {
     const tick = setInterval(() => {
       setIsAnimating(true);
       setTimeout(() => {
-        setCurrentIndex((prev) => (prev + 1) % languages.length);
+        setCurrentIndex((prev) => (prev + 1) % languageCombinations.length);
         setIsAnimating(false);
       }, 500);
     }, 2000);
@@ -44,7 +47,7 @@ export default function AnimatedLanguage() {
       m.style.fontWeight = computed.fontWeight as any;
       document.body.appendChild(m);
       let max = 0;
-      for (const w of languages) {
+      for (const w of languageCombinations) {
         m.textContent = w;
         max = Math.max(max, m.getBoundingClientRect().width);
       }
@@ -73,8 +76,8 @@ export default function AnimatedLanguage() {
         }`}
         style={{ lineHeight: 'inherit' }}
       >
-        <span className="block text-gradient whitespace-nowrap" style={{ lineHeight: 'inherit' }}>{languages[currentIndex]}</span>
-        <span className="block text-gradient whitespace-nowrap" style={{ lineHeight: 'inherit' }}>{languages[nextIndex]}</span>
+        <span className="block text-gradient whitespace-nowrap" style={{ lineHeight: 'inherit' }}>{languageCombinations[currentIndex]}</span>
+        <span className="block text-gradient whitespace-nowrap" style={{ lineHeight: 'inherit' }}>{languageCombinations[nextIndex]}</span>
       </span>
     </span>
   );
