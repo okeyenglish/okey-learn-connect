@@ -175,6 +175,7 @@ interface ScheduleItem {
   compact_time: string;
   compact_classroom: string;
   compact_teacher: string;
+  group_URL?: string | null;
   "Возраст": string;
   vacancies: number;
   is_active: boolean;
@@ -372,17 +373,19 @@ export default function Index() {
           return `${dayName} в ${occ.timeStart}`;
         };
 
-        // Compute earliest upcoming time strictly within this branch
-        const occurrences = branchSchedules
-          .map(getNextOccurrence)
-          .filter((o): o is { date: Date; daysDiff: number; timeStart: string } => !!o)
-          .sort((a, b) => a.date.getTime() - b.date.getTime());
-        const bestOcc = occurrences[0] ?? null;
+        // Compute earliest upcoming time strictly within this branch and keep schedule
+        const occurrences = (branchSchedules
+          .map((s) => ({ schedule: s, occ: getNextOccurrence(s) }))
+          .filter((x) => !!x.occ) as { schedule: ScheduleItem; occ: { date: Date; daysDiff: number; timeStart: string } }[])
+          .sort((a, b) => a.occ.date.getTime() - b.occ.date.getTime());
+
+        const best = occurrences[0] ?? null;
+        const bestOcc = best?.occ ?? null;
 
         const nextGroup = formatFromOccurrence(bestOcc);
 
-        // Use real vacancy count from database
-        const availableSpots = totalVacancies;
+        // Show vacancies for the nearest group; if undefined, fallback to 0
+        const availableSpots = best ? (best.schedule.vacancies ?? 0) : 0;
 
         return {
           ...branch,
@@ -566,7 +569,7 @@ export default function Index() {
                       <div>
                         <div className="flex items-center gap-2">
                           <MapPin className="w-5 h-5 text-primary" />
-                          <h3 className="font-semibold text-xl">Окская</h3>
+                          <h3 className="font-semibold text-xl">{branch.name}</h3>
                         </div>
                         <p className="text-sm text-muted-foreground mt-2">{branch.address}</p>
                       </div>
