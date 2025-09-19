@@ -254,8 +254,26 @@ export default function Index() {
           
           // Add 30 minutes to current time
           const futureTime = new Date(now.getTime() + 30 * 60 * 1000);
-          const futureHour = futureTime.getHours();
-          const futureMinute = futureTime.getMinutes();
+          let futureHour = futureTime.getHours();
+          let futureMinute = futureTime.getMinutes();
+          
+          // Round to nearest :00 or :50
+          if (futureMinute >= 0 && futureMinute <= 24) {
+            // Round to :00 of same hour
+            futureMinute = 0;
+          } else if (futureMinute >= 25 && futureMinute <= 49) {
+            // Round to :50 of same hour
+            futureMinute = 50;
+          } else {
+            // Round to :00 of next hour
+            futureHour = futureHour + 1;
+            futureMinute = 0;
+            
+            // Handle hour overflow
+            if (futureHour >= 24) {
+              futureHour = 0;
+            }
+          }
           
           // Format time as HH:MM
           const timeString = `${futureHour.toString().padStart(2, "0")}:${futureMinute.toString().padStart(2, "0")}`;
