@@ -206,7 +206,7 @@ export default function Header() {
                   </div>
                       
                   {/* Main action buttons */}
-                  <div className="mt-4 pt-3 border-t space-y-2">
+                  <div className="mt-4 pt-3 border-t space-y-3">
                     <Link to="/test" onClick={() => setIsOpen(false)}>
                       <Button variant="outline" className="w-full justify-center gap-2 h-10">
                         <BookOpen className="w-4 h-4" />
