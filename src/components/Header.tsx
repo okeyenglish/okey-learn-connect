@@ -115,30 +115,36 @@ export default function Header() {
                     </Link>
                   ))}
                    <div className="pt-4 space-y-3">
-                     <Button
-                       variant="outline"
-                       className="w-full justify-center gap-2"
-                       onClick={handleWhatsApp}
-                     >
-                       <MessageCircle className="w-4 h-4" />
-                       WhatsApp
-                     </Button>
-                     <Button
-                       variant="outline"
-                       className="w-full justify-center gap-2"
-                       onClick={handleTelegram}
-                     >
-                       <Send className="w-4 h-4" />
-                       Telegram
-                     </Button>
-                     <Button
-                       variant="outline"
-                       className="w-full justify-center gap-2"
-                       onClick={handleCall}
-                     >
-                       <Phone className="w-4 h-4" />
-                       Позвонить
-                     </Button>
+                     {/* Contact buttons - more compact and neat layout */}
+                     <div className="grid grid-cols-3 gap-2">
+                       <Button
+                         variant="ghost"
+                         size="sm"
+                         className="flex flex-col items-center gap-1 py-3 h-auto bg-muted/30 hover:bg-muted/50"
+                         onClick={handleWhatsApp}
+                       >
+                         <MessageCircle className="w-5 h-5 text-green-600" />
+                         <span className="text-xs">WhatsApp</span>
+                       </Button>
+                       <Button
+                         variant="ghost"
+                         size="sm"
+                         className="flex flex-col items-center gap-1 py-3 h-auto bg-muted/30 hover:bg-muted/50"
+                         onClick={handleTelegram}
+                       >
+                         <Send className="w-5 h-5 text-blue-500" />
+                         <span className="text-xs">Telegram</span>
+                       </Button>
+                       <Button
+                         variant="ghost"
+                         size="sm"
+                         className="flex flex-col items-center gap-1 py-3 h-auto bg-muted/30 hover:bg-muted/50"
+                         onClick={handleCall}
+                       >
+                         <Phone className="w-5 h-5 text-orange-500" />
+                         <span className="text-xs">Позвонить</span>
+                       </Button>
+                     </div>
                      <Link to="/test" onClick={() => setIsOpen(false)}>
                        <Button variant="outline" className="w-full justify-center gap-2">
                          <BookOpen className="w-4 h-4" />
@@ -156,9 +162,8 @@ export default function Header() {
                      <div className="mt-6 p-4 bg-gradient-to-r from-primary to-primary/80 rounded-lg text-white text-center">
                        <div className="flex items-center justify-center gap-2 mb-2">
                          <Gift className="w-5 h-5" />
-                         <span className="font-semibold text-lg">Активировать купон</span>
+                         <span className="font-semibold text-lg">Купон 5000₽</span>
                        </div>
-                       <div className="text-2xl font-bold">5000₽</div>
                        <div className="text-sm opacity-90 mt-1">на первый месяц обучения</div>
                      </div>
                    </div>
