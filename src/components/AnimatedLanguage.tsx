@@ -13,6 +13,19 @@ const languageCombinations = [
   "Разговорный испанский"
 ];
 
+const mobileLanguages = [
+  "английский",
+  "китайский", 
+  "испанский",
+  "немецкий",
+  "итальянский",
+  "греческий",
+  "французский",
+  "английский",
+  "китайский",
+  "испанский"
+];
+
 export default function AnimatedLanguage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -21,6 +34,7 @@ export default function AnimatedLanguage() {
   const containerRef = useRef<HTMLSpanElement>(null);
 
   const nextIndex = (currentIndex + 1) % languageCombinations.length;
+  const currentLanguages = isMobile ? mobileLanguages : languageCombinations;
 
   useEffect(() => {
     const tick = setInterval(() => {
@@ -51,16 +65,16 @@ export default function AnimatedLanguage() {
       m.style.letterSpacing = computed.letterSpacing;
       m.style.fontWeight = computed.fontWeight as any;
       document.body.appendChild(m);
+      
+      const languagesToMeasure = windowWidth <= 768 ? mobileLanguages : languageCombinations;
       let max = 0;
-      for (const w of languageCombinations) {
+      for (const w of languagesToMeasure) {
         m.textContent = w;
         max = Math.max(max, m.getBoundingClientRect().width);
       }
       document.body.removeChild(m);
       
-      // Limit width to viewport width minus padding on mobile
-      const maxWidth = windowWidth <= 768 ? windowWidth - 64 : max;
-      setWidth(Math.ceil(Math.min(max, maxWidth)));
+      setWidth(Math.ceil(max));
     };
     measure();
     window.addEventListener('resize', measure);
@@ -86,22 +100,22 @@ export default function AnimatedLanguage() {
         style={{ lineHeight: 'inherit' }}
       >
         <span 
-          className={`block text-gradient text-center overflow-hidden ${isMobile ? '' : 'whitespace-nowrap'}`} 
+          className="block text-gradient text-center overflow-hidden whitespace-nowrap" 
           style={{ 
             lineHeight: 'inherit',
             textOverflow: 'ellipsis'
           }}
         >
-          {languageCombinations[currentIndex]}
+          {currentLanguages[currentIndex]}
         </span>
         <span 
-          className={`block text-gradient text-center overflow-hidden ${isMobile ? '' : 'whitespace-nowrap'}`} 
+          className="block text-gradient text-center overflow-hidden whitespace-nowrap" 
           style={{ 
             lineHeight: 'inherit',
             textOverflow: 'ellipsis'
           }}
         >
-          {languageCombinations[nextIndex]}
+          {currentLanguages[nextIndex]}
         </span>
       </span>
     </span>
