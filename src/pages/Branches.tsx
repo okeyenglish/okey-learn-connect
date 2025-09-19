@@ -46,6 +46,17 @@ interface BranchWithSchedule {
   availableSpots: number;
 }
 
+const languages = [
+  { name: "Английский", icon: "🇬🇧" },
+  { name: "Французский", icon: "🇫🇷" },
+  { name: "Испанский", icon: "🇪🇸" },
+  { name: "Русский", icon: "🇷🇺" },
+  { name: "Итальянский", icon: "🇮🇹" },
+  { name: "Греческий", icon: "🇬🇷" },
+  { name: "Иврит", icon: "🇮🇱" },
+  { name: "10+", icon: "🌍" }
+];
+
 const branches = [
   { 
     id: "kotelniki",
@@ -361,14 +372,15 @@ export default function Locations() {
                   <span>{branch.workingHours}</span>
                 </div>
 
-                {/* Features */}
+                {/* Available Languages */}
                 <div>
-                  <h4 className="font-semibold mb-3">Особенности филиала:</h4>
+                  <h4 className="font-semibold mb-3">Доступные языки:</h4>
                   <div className="flex flex-wrap gap-2">
-                    {branch.features.map((feature, index) => (
-                      <Badge key={index} variant="outline" className="text-xs">
-                        {feature}
-                      </Badge>
+                    {languages.map((language, index) => (
+                      <div key={index} className="flex items-center gap-1 bg-muted px-2 py-1 rounded-full text-xs">
+                        <span className="text-sm">{language.icon}</span>
+                        <span>{language.name}</span>
+                      </div>
                     ))}
                   </div>
                 </div>
