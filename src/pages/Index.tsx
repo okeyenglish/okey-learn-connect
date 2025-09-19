@@ -227,11 +227,11 @@ export default function Index() {
       const getMatchingNames = (displayName: string): string[] => {
         switch (displayName) {
           case 'Люберцы':
-            return ['Люберцы', 'Люберцы/Жулебино'];
+            return ['Люберцы', 'Люберцы/Жулебино', 'Жулебино'];
           case 'Красная Горка':
-            return ['Красная Горка', 'Красная горка', 'Красная горка/Некрасовка'];
+            return ['Красная Горка', 'Красная горка', 'Красная горка/Некрасовка', 'Некрасовка'];
           case 'Окская/Кузьминки/Текстильщики':
-            return ['Окская/Кузьминки/Текстильщики', 'Окская'];
+            return ['Окская/Кузьминки/Текстильщики', 'Окская', 'Кузьминки', 'Текстильщики'];
           case 'Онлайн школа':
             return ['Онлайн школа', 'Онлайн', 'Online'];
           default:
@@ -241,9 +241,12 @@ export default function Index() {
 
       const processedBranches = branches.map(branch => {
         const matchNames = getMatchingNames(branch.name).map(normalize);
-        const branchSchedules = (allScheduleData || []).filter((schedule: ScheduleItem) => 
-          matchNames.includes(normalize(schedule.office_name))
-        );
+        const branchSchedules = (allScheduleData || []).filter((schedule: ScheduleItem) => {
+          const officeNorm = normalize(schedule.office_name);
+          if (matchNames.includes(officeNorm)) return true;
+          const officeTokens = officeNorm.split('/').map(t => t.trim()).filter(Boolean);
+          return officeTokens.some(tok => matchNames.includes(tok));
+        });
 
         console.log(`\n=== Processing branch: ${branch.name} ===`);
         console.log('Match names:', matchNames);
