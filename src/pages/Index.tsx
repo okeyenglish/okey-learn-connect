@@ -221,6 +221,13 @@ export default function Index() {
       }
 
       console.log('Fetched schedule data:', allScheduleData);
+      console.log('All group IDs:', allScheduleData?.map(s => s.id));
+      console.log('Okskaya groups:', allScheduleData?.filter(s => s.office_name === 'Окская').map(s => ({
+        id: s.id,
+        name: s.name,
+        days: s.compact_days,
+        time: s.compact_time
+      })));
 
       // Process schedule data and merge with branch info
       const normalize = (s: string) => s?.toLowerCase().trim();
@@ -263,6 +270,9 @@ export default function Index() {
           console.log('=== DEBUGGING OKSKAYA ===');
           console.log('All schedule data:', allScheduleData?.map(s => s.office_name));
           console.log('Looking for matches with:', matchNames);
+          console.log('Searching for group 20744:', allScheduleData?.find(s => s.id === '20744'));
+          const today = new Date().getDay(); // 0=Sunday, 1=Monday, ..., 5=Friday
+          console.log('Today is day:', today, ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'][today]);
         }
         console.log('Found schedules:', branchSchedules.length);
         console.log('Schedule details:', branchSchedules.map(s => ({
