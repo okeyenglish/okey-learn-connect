@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import novokosinoImage from "@/assets/novokosino-branch.jpg";
 import kotelnikiImage from "@/assets/kotelniki-branch.jpg";
 import okskayaImage from "@/assets/okskaya-branch.jpg";
+import lyubertsyImage from "@/assets/lyubertsy-branch.jpg";
 import { 
   MapPin, 
   Clock, 
@@ -122,7 +123,7 @@ const branches = [
     address: "3 Почтовое отделение, 65к1",
     metro: "Люберцы (МЦД-1)",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
-    image: "/placeholder-branch-7.jpg",
+    image: lyubertsyImage,
     features: ["Комфортная обстановка", "Методические материалы", "Зона отдыха"]
   },
   { 

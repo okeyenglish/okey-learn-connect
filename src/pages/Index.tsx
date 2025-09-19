@@ -8,6 +8,7 @@ import AnimatedLanguage from "@/components/AnimatedLanguage";
 import novokosinoImage from "@/assets/novokosino-branch.jpg";
 import kotelnikiImage from "@/assets/kotelniki-branch.jpg";
 import okskayaImage from "@/assets/okskaya-branch.jpg";
+import lyubertsyImage from "@/assets/lyubertsy-branch.jpg";
 import { 
   GraduationCap, 
   Users, 
@@ -92,7 +93,8 @@ const branches = [
     slug: "lyubertsy-1",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
     activeGroups: 7,
-    nextGroup: "Завтра 19:00"
+    nextGroup: "Завтра 19:00",
+    image: lyubertsyImage
   },
   { 
     name: "Красная Горка", 
