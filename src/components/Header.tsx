@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Phone, MessageCircle, BookOpen, UserCheck } from "lucide-react";
+import { Menu, Phone, MessageCircle, BookOpen, UserCheck, Send, Gift } from "lucide-react";
 import logoImage from "@/assets/okey-english-logo.jpg";
 
 const navigation = [
@@ -22,6 +22,14 @@ export default function Header() {
 
   const handleWhatsApp = () => {
     window.open("https://wa.me/79937073553", "_blank");
+  };
+
+  const handleTelegram = () => {
+    window.open("https://t.me/okeyenglish", "_blank");
+  };
+
+  const handleCall = () => {
+    window.open("tel:+74997073535", "_blank");
   };
 
   return (
@@ -114,28 +122,54 @@ export default function Header() {
                       {item.name}
                     </Link>
                   ))}
-                  <div className="pt-4 space-y-3">
-                    <Button
-                      variant="outline"
-                      className="w-full justify-center gap-2"
-                      onClick={handleWhatsApp}
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      WhatsApp
-                    </Button>
-                    <Link to="/test" onClick={() => setIsOpen(false)}>
-                      <Button variant="outline" className="w-full justify-center gap-2">
-                        <BookOpen className="w-4 h-4" />
-                        Тест уровня (5 мин)
-                      </Button>
-                    </Link>
-                    <Link to="/contacts" onClick={() => setIsOpen(false)}>
-                      <Button className="btn-hero w-full justify-center gap-2">
-                        <UserCheck className="w-4 h-4" />
-                        Пробный урок
-                      </Button>
-                    </Link>
-                  </div>
+                   <div className="pt-4 space-y-3">
+                     <Button
+                       variant="outline"
+                       className="w-full justify-center gap-2"
+                       onClick={handleWhatsApp}
+                     >
+                       <MessageCircle className="w-4 h-4" />
+                       WhatsApp
+                     </Button>
+                     <Button
+                       variant="outline"
+                       className="w-full justify-center gap-2"
+                       onClick={handleTelegram}
+                     >
+                       <Send className="w-4 h-4" />
+                       Telegram
+                     </Button>
+                     <Button
+                       variant="outline"
+                       className="w-full justify-center gap-2"
+                       onClick={handleCall}
+                     >
+                       <Phone className="w-4 h-4" />
+                       Позвонить
+                     </Button>
+                     <Link to="/test" onClick={() => setIsOpen(false)}>
+                       <Button variant="outline" className="w-full justify-center gap-2">
+                         <BookOpen className="w-4 h-4" />
+                         Тест уровня (5 мин)
+                       </Button>
+                     </Link>
+                     <Link to="/contacts" onClick={() => setIsOpen(false)}>
+                       <Button className="btn-hero w-full justify-center gap-2">
+                         <UserCheck className="w-4 h-4" />
+                         Пробный урок
+                       </Button>
+                     </Link>
+                     
+                     {/* Coupon Banner */}
+                     <div className="mt-6 p-4 bg-gradient-to-r from-primary to-primary/80 rounded-lg text-white text-center">
+                       <div className="flex items-center justify-center gap-2 mb-2">
+                         <Gift className="w-5 h-5" />
+                         <span className="font-semibold text-lg">Активировать купон</span>
+                       </div>
+                       <div className="text-2xl font-bold">5000₽</div>
+                       <div className="text-sm opacity-90 mt-1">на первый месяц обучения</div>
+                     </div>
+                   </div>
                 </div>
               </SheetContent>
             </Sheet>
