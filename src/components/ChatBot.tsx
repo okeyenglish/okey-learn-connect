@@ -77,7 +77,7 @@ export default function ChatBot() {
     return (
       <Button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 sm:bottom-20 right-4 sm:right-6 z-50 w-12 h-12 sm:w-14 sm:h-14 rounded-full shadow-lg"
+        className="fixed bottom-24 sm:bottom-20 right-4 sm:right-6 z-50 w-12 h-12 sm:w-14 sm:h-14 rounded-full shadow-lg"
         size="icon"
       >
         <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -86,7 +86,7 @@ export default function ChatBot() {
   }
 
   return (
-    <Card className="fixed bottom-4 sm:bottom-20 left-4 right-4 sm:left-auto sm:right-6 z-50 w-auto sm:w-full sm:max-w-md shadow-2xl">
+    <Card className="fixed bottom-24 sm:bottom-20 left-4 right-4 sm:left-auto sm:right-6 z-50 w-auto sm:w-full sm:max-w-md shadow-2xl">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
