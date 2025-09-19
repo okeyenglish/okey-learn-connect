@@ -160,7 +160,7 @@ export default function Pricing() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
             <Button asChild size="lg" className="btn-hero">
-              <Link to="/contacts">Рассчитать мою стоимость</Link>
+              <a href="#calculator">Рассчитать мою стоимость</a>
             </Button>
             <div className="flex gap-3">
               <Button variant="outline" size="lg" className="bg-white/10 border-white/30 text-white hover:bg-white/20">
@@ -177,7 +177,7 @@ export default function Pricing() {
       </section>
 
       {/* Price Calculator Section */}
-      <section className="py-20">
+      <section id="calculator" className="py-20">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
@@ -370,7 +370,7 @@ export default function Pricing() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild size="lg" variant="secondary">
-              <Link to="/contacts?from=prices">Рассчитать стоимость</Link>
+              <a href="#calculator">Рассчитать стоимость</a>
             </Button>
             <div className="flex gap-3">
               <Button variant="outline" size="lg" className="bg-white/10 border-white/30 text-white hover:bg-white/20">
