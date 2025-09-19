@@ -372,16 +372,12 @@ export default function Index() {
           return `${dayName} в ${occ.timeStart}`;
         };
 
-        // Compute earliest upcoming time across all groups (ignore vacancies)
-        const candidates = branchSchedules;
-        let bestOcc: { date: Date; daysDiff: number; timeStart: string } | null = null;
-        for (const s of candidates) {
-          const occ = getNextOccurrence(s);
-          if (!occ) continue;
-          if (!bestOcc || occ.date.getTime() < bestOcc.date.getTime()) {
-            bestOcc = occ;
-          }
-        }
+        // Compute earliest upcoming time strictly within this branch
+        const occurrences = branchSchedules
+          .map(getNextOccurrence)
+          .filter((o): o is { date: Date; daysDiff: number; timeStart: string } => !!o)
+          .sort((a, b) => a.date.getTime() - b.date.getTime());
+        const bestOcc = occurrences[0] ?? null;
 
         const nextGroup = formatFromOccurrence(bestOcc);
 
