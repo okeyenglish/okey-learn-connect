@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import AnimatedLanguage from "@/components/AnimatedLanguage";
+import novokosinoImage from "@/assets/novokosino-branch.jpg";
 import { 
   GraduationCap, 
   Users, 
@@ -46,7 +47,8 @@ const branches = [
     slug: "novokosino",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
     activeGroups: 8,
-    nextGroup: "Сегодня 19:30"
+    nextGroup: "Сегодня 19:30",
+    image: novokosinoImage
   },
   { 
     name: "Окская/Кузьминки/Текстильщики", 
@@ -192,6 +194,7 @@ interface BranchWithSchedule {
   activeGroups: number;
   nextGroup: string;
   availableSpots: number;
+  image?: string;
 }
 
 export default function Index() {
@@ -561,8 +564,16 @@ export default function Index() {
             ) : (
               branchesWithSchedule.map((branch) => (
                 <Card key={branch.slug} className="card-elevated hover:border-primary/50 transition-all overflow-hidden">
-                  <div className="aspect-[16/9] bg-gradient-subtle flex items-center justify-center">
-                    <span className="text-muted-foreground">Фото филиала {branch.name}</span>
+                  <div className="aspect-[16/9] bg-gradient-subtle flex items-center justify-center overflow-hidden">
+                    {branch.image ? (
+                      <img 
+                        src={branch.image} 
+                        alt={`Интерьер филиала O'KEY English ${branch.name}`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-muted-foreground">Фото филиала {branch.name}</span>
+                    )}
                   </div>
                   
                   <CardContent className="p-6 space-y-4">

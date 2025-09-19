@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import novokosinoImage from "@/assets/novokosino-branch.jpg";
 import { 
   MapPin, 
   Clock, 
@@ -74,7 +75,7 @@ const branches = [
     address: "Реутов, Юбилейный проспект, 60",
     metro: "Новокосино",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
-    image: "/placeholder-branch-2.jpg",
+    image: novokosinoImage,
     features: ["Просторные классы", "Парковка", "Кафе рядом"]
   },
   { 
@@ -345,8 +346,16 @@ export default function Locations() {
           ) : (
             branchesWithSchedule.map((branch) => (
             <Card key={branch.id} className="card-elevated hover:border-primary/50 transition-all overflow-hidden">
-              <div className="aspect-[16/9] bg-gradient-subtle flex items-center justify-center">
-                <span className="text-muted-foreground">Фото филиала {branch.name}</span>
+              <div className="aspect-[16/9] bg-gradient-subtle flex items-center justify-center overflow-hidden">
+                {branch.image && typeof branch.image === 'string' && branch.image.startsWith('/') ? (
+                  <span className="text-muted-foreground">Фото филиала {branch.name}</span>
+                ) : (
+                  <img 
+                    src={branch.image} 
+                    alt={`Интерьер филиала O'KEY English ${branch.name}`}
+                    className="w-full h-full object-cover"
+                  />
+                )}
               </div>
               
               <CardHeader>
