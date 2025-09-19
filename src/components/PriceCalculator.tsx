@@ -167,9 +167,7 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
   const renderStep = () => {
     switch (currentStep) {
       case 1:
-  const branches = getBranchesForSelect();
-
-  return (
+        return (
           <div className="space-y-6">
             <div className="text-center">
               <Calendar className="w-12 h-12 text-primary mx-auto mb-4" />
@@ -261,7 +259,7 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
                   }}
                 >
                   <CardContent className="p-4 text-center">
-                    <div className="font-medium">{branch.label}</div>
+                    <div className="font-medium">{branch.name}</div>
                   </CardContent>
                 </Card>
               ))}
