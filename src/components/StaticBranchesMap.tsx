@@ -21,6 +21,10 @@ const branchPositions = {
 
 export default function StaticBranchesMap() {
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  console.log('StaticBranchesMap rendered', { moscowMapImage });
 
   const handleMarkerClick = (branchId: string) => {
     setSelectedBranch(selectedBranch === branchId ? null : branchId);
@@ -39,10 +43,38 @@ export default function StaticBranchesMap() {
         <CardContent className="p-0">
           {/* Реальная карта Москвы и Подмосковья */}
           <div className="relative aspect-[4/3] overflow-hidden">
+            {/* Отладочная информация */}
+            {imageError && (
+              <div className="absolute inset-0 bg-red-100 flex items-center justify-center z-50">
+                <div className="text-center p-4">
+                  <p className="text-red-600 font-semibold">Ошибка загрузки изображения</p>
+                  <p className="text-sm text-red-500">Путь: {moscowMapImage}</p>
+                </div>
+              </div>
+            )}
+            
+            {!imageLoaded && !imageError && (
+              <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
+                  <p className="text-gray-600">Загрузка карты...</p>
+                </div>
+              </div>
+            )}
+
             <img 
               src={moscowMapImage} 
               alt="Карта Москвы и Подмосковья с филиалами O'KEY English"
               className="w-full h-full object-cover"
+              onLoad={() => {
+                console.log('Image loaded successfully');
+                setImageLoaded(true);
+              }}
+              onError={(e) => {
+                console.error('Image failed to load:', e);
+                setImageError(true);
+              }}
+              style={{ opacity: imageLoaded ? 1 : 0 }}
             />
 
             {/* Маркеры филиалов */}
