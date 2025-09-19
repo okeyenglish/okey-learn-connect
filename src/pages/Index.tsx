@@ -241,6 +241,28 @@ export default function Index() {
 
         console.log(`Branch ${branch.name}: ${activeGroups} groups, ${totalVacancies} total vacancies`);
 
+        // Helper function to generate fallback schedule when no data available
+        const generateFallbackSchedule = (): string => {
+          const now = new Date();
+          const currentHour = now.getHours();
+          const currentMinute = now.getMinutes();
+          
+          // If after 21:30, show tomorrow at 09:00
+          if (currentHour > 21 || (currentHour === 21 && currentMinute >= 30)) {
+            return "Завтра в 09:00";
+          }
+          
+          // Add 30 minutes to current time
+          const futureTime = new Date(now.getTime() + 30 * 60 * 1000);
+          const futureHour = futureTime.getHours();
+          const futureMinute = futureTime.getMinutes();
+          
+          // Format time as HH:MM
+          const timeString = `${futureHour.toString().padStart(2, "0")}:${futureMinute.toString().padStart(2, "0")}`;
+          
+          return `Сегодня в ${timeString}`;
+        };
+
         // Helper function to format schedule display
         const formatScheduleDisplay = (schedule: ScheduleItem): string => {
           const days = schedule.compact_days.toLowerCase();
@@ -295,7 +317,7 @@ export default function Index() {
           ? formatScheduleDisplay(nextAvailableGroup)
           : anyGroup 
             ? formatScheduleDisplay(anyGroup) 
-            : branch.nextGroup; // Fallback to hardcoded
+            : generateFallbackSchedule(); // Use dynamic fallback instead of hardcoded
 
         // Show at least 1 spot available if there are active groups but database shows 0
         const availableSpots = totalVacancies > 0 
