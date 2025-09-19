@@ -314,13 +314,17 @@ serve(async (req) => {
       answer = constructed || fallbackText;
     }
 
-    // Sanitize outdated contact handles in the generated text
-    const sanitizeOutdatedContacts = (text: string) => text
+    // Sanitize outdated contact handles and remove source references
+    const sanitizeResponse = (text: string) => text
       .replace(/t\.me\/okeyenglish_support/gi, 't.me/englishmanager')
       .replace(/@okeyenglish_support/gi, '@englishmanager')
-      .replace(/okeyenglish_support/gi, 'englishmanager');
+      .replace(/okeyenglish_support/gi, 'englishmanager')
+      // Remove source references like [1], [2], [3], etc.
+      .replace(/\s*\[\d+\](?:\s*,\s*\[\d+\])*\s*/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
 
-    answer = sanitizeOutdatedContacts(answer);
+    answer = sanitizeResponse(answer);
 
     console.log(`AI response from ${modelUsed}${wasRetried ? ' (after retry)' : ''}:`, answer);
     console.log('Response length:', answer.length);

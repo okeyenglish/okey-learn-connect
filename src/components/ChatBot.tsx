@@ -371,39 +371,34 @@ export default function ChatBot() {
             </Button>
           </div>
         ) : (
-          <div className="text-center">
-            <div className="text-sm text-muted-foreground mb-3 p-3 bg-muted/30 rounded-lg">
-              Лимит сообщений исчерпан. Для продолжения общения обратитесь к менеджерам:
-            </div>
-            <div className="flex gap-2 justify-center">
-              <Button
-                size="sm"
-                variant="outline"
-                className="flex items-center gap-2 px-4"
-                onClick={() => window.open('https://wa.me/79937073553', '_blank')}
-              >
-                <MessageCircle className="w-4 h-4 text-green-600" />
-                WhatsApp
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="flex items-center gap-2 px-4"
-                onClick={() => window.open('https://t.me/okeyenglish', '_blank')}
-              >
-                <Send className="w-4 h-4 text-blue-500" />
-                Telegram
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="flex items-center gap-2 px-4"
-                onClick={() => window.open('tel:+74997073535', '_blank')}
-              >
-                <Phone className="w-4 h-4 text-orange-500" />
-                Позвонить
-              </Button>
-            </div>
+          <div className="flex gap-2 justify-center">
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex items-center gap-2 px-4"
+              onClick={() => window.open('https://wa.me/79937073553', '_blank')}
+            >
+              <MessageCircle className="w-4 h-4 text-green-600" />
+              WhatsApp
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex items-center gap-2 px-4"
+              onClick={() => window.open('https://t.me/okeyenglish', '_blank')}
+            >
+              <Send className="w-4 h-4 text-blue-500" />
+              Telegram
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex items-center gap-2 px-4"
+              onClick={() => window.open('tel:+74997073535', '_blank')}
+            >
+              <Phone className="w-4 h-4 text-orange-500" />
+              Позвонить
+            </Button>
           </div>
         )}
       </CardContent>
