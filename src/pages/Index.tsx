@@ -570,7 +570,7 @@ export default function Index() {
                       <div>
                         <div className="flex items-center gap-2">
                           <MapPin className="w-5 h-5 text-primary" />
-                          <h3 className="font-semibold text-xl">{branch.name}</h3>
+                          <h3 className="font-semibold text-xl">Окская</h3>
                         </div>
                         <p className="text-sm text-muted-foreground mt-2">{branch.address}</p>
                       </div>
