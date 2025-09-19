@@ -11,6 +11,7 @@ import lyubertsyImage from "@/assets/lyubertsy-branch.jpg";
 import stakhanovskayaImage from "@/assets/stakhanovskaya-branch.jpg";
 import mytishchiImage from "@/assets/mytishchi-branch.jpg";
 import krasnayaGorkaImage from "@/assets/krasnaya-gorka-branch.jpg";
+import solntsevoImage from "@/assets/solntsevo-branch.jpg";
 import { 
   MapPin, 
   Clock, 
@@ -108,7 +109,7 @@ const branches = [
     address: "ул. Богданова, 6к1",
     metro: "Солнцево",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
-    image: "/placeholder-branch-5.jpg",
+    image: solntsevoImage,
     features: ["Новые классы", "Удобная парковка", "Детская площадка"]
   },
   { 

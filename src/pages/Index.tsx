@@ -12,6 +12,7 @@ import lyubertsyImage from "@/assets/lyubertsy-branch.jpg";
 import stakhanovskayaImage from "@/assets/stakhanovskaya-branch.jpg";
 import mytishchiImage from "@/assets/mytishchi-branch.jpg";
 import krasnayaGorkaImage from "@/assets/krasnaya-gorka-branch.jpg";
+import solntsevoImage from "@/assets/solntsevo-branch.jpg";
 import { 
   GraduationCap, 
   Users, 
@@ -81,7 +82,8 @@ const branches = [
     slug: "solntsevo",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
     activeGroups: 9,
-    nextGroup: "Завтра 16:00"
+    nextGroup: "Завтра 16:00",
+    image: solntsevoImage
   },
   { 
     name: "Мытищи", 
