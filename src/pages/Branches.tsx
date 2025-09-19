@@ -1,7 +1,9 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   MapPin, 
   Clock, 
@@ -14,6 +16,36 @@ import {
   Send
 } from "lucide-react";
 
+interface ScheduleItem {
+  id: string;
+  name: string;
+  office_name: string;
+  level: string;
+  compact_days: string;
+  compact_time: string;
+  compact_classroom: string;
+  compact_teacher: string;
+  group_URL?: string | null;
+  "Возраст": string;
+  vacancies: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+interface BranchWithSchedule {
+  id: string;
+  name: string;
+  address: string;
+  metro: string;
+  workingHours: string;
+  image: string;
+  features: string[];
+  activeGroups: number;
+  nextGroup: string;
+  availableSpots: number;
+}
+
 const branches = [
   { 
     id: "kotelniki",
@@ -22,9 +54,7 @@ const branches = [
     metro: "Котельники",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
     image: "/placeholder-branch-1.jpg",
-    features: ["Современные классы", "Интерактивные доски", "Детская зона"],
-    activeGroups: 12,
-    nextGroup: "Завтра 18:00"
+    features: ["Современные классы", "Интерактивные доски", "Детская зона"]
   },
   { 
     id: "novokosino",
@@ -33,9 +63,7 @@ const branches = [
     metro: "Новокосино",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
     image: "/placeholder-branch-2.jpg",
-    features: ["Просторные классы", "Парковка", "Кафе рядом"],
-    activeGroups: 8,
-    nextGroup: "Сегодня 19:30"
+    features: ["Просторные классы", "Парковка", "Кафе рядом"]
   },
   { 
     id: "okskaya",
@@ -44,9 +72,7 @@ const branches = [
     metro: "Окская",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
     image: "/placeholder-branch-3.jpg",
-    features: ["Уютная атмосфера", "Библиотека", "Игровая комната"],
-    activeGroups: 10,
-    nextGroup: "Завтра 17:00"
+    features: ["Уютная атмосфера", "Библиотека", "Игровая комната"]
   },
   { 
     id: "stakhanovskaya",
@@ -55,9 +81,7 @@ const branches = [
     metro: "Стахановская",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
     image: "/placeholder-branch-4.jpg",
-    features: ["Новый ремонт", "Мультимедиа", "Удобный подъезд"],
-    activeGroups: 15,
-    nextGroup: "Сегодня 18:30"
+    features: ["Новый ремонт", "Мультимедиа", "Удобный подъезд"]
   },
   { 
     id: "solntsevo",
@@ -66,9 +90,7 @@ const branches = [
     metro: "Солнцево",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
     image: "/placeholder-branch-5.jpg",
-    features: ["Новые классы", "Удобная парковка", "Детская площадка"],
-    activeGroups: 9,
-    nextGroup: "Завтра 16:00"
+    features: ["Новые классы", "Удобная парковка", "Детская площадка"]
   },
   { 
     id: "mytishchi",
@@ -77,9 +99,7 @@ const branches = [
     metro: "Мытищи (МЦД-1)",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
     image: "/placeholder-branch-6.jpg",
-    features: ["Просторные аудитории", "Техническое оснащение", "Буфет"],
-    activeGroups: 11,
-    nextGroup: "Сегодня 17:30"
+    features: ["Просторные аудитории", "Техническое оснащение", "Буфет"]
   },
   { 
     id: "lyubertsy-1",
@@ -88,9 +108,7 @@ const branches = [
     metro: "Люберцы (МЦД-1)",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
     image: "/placeholder-branch-7.jpg",
-    features: ["Комфортная обстановка", "Методические материалы", "Зона отдыха"],
-    activeGroups: 7,
-    nextGroup: "Завтра 19:00"
+    features: ["Комфортная обстановка", "Методические материалы", "Зона отдыха"]
   },
   { 
     id: "lyubertsy-2",
@@ -99,9 +117,7 @@ const branches = [
     metro: "Люберцы (МЦД-1)",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
     image: "/placeholder-branch-8.jpg",
-    features: ["Центральное расположение", "Современное оборудование", "Библиотека"],
-    activeGroups: 13,
-    nextGroup: "Сегодня 20:00"
+    features: ["Центральное расположение", "Современное оборудование", "Библиотека"]
   },
   { 
     id: "online",
@@ -110,13 +126,134 @@ const branches = [
     metro: "По всей планете",
     workingHours: "24/7 доступ к материалам",
     image: "/placeholder-online.jpg",
-    features: ["Cambridge One", "Интерактивные уроки", "Гибкое расписание"],
-    activeGroups: 25,
-    nextGroup: "Каждый час"
+    features: ["Cambridge One", "Интерактивные уроки", "Гибкое расписание"]
   }
 ];
 
 export default function Locations() {
+  const [branchesWithSchedule, setBranchesWithSchedule] = useState<BranchWithSchedule[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchScheduleData();
+  }, []);
+
+  const fetchScheduleData = async () => {
+    try {
+      const { data: allScheduleData, error: scheduleError } = await supabase.rpc('get_public_schedule', {
+        branch_name: null
+      });
+
+      if (scheduleError) {
+        console.error('Error fetching schedule:', scheduleError);
+        setBranchesWithSchedule(branches.map(branch => ({
+          ...branch,
+          activeGroups: 30,
+          nextGroup: "Завтра в 10:00",
+          availableSpots: 3
+        })));
+        setIsLoading(false);
+        return;
+      }
+
+      const normalize = (s: string) => s?.toLowerCase().trim();
+      const getMatchingNames = (displayName: string): string[] => {
+        switch (displayName) {
+          case 'Люберцы':
+            return ['Люберцы', 'Люберцы/Жулебино'];
+          case 'Красная горка':
+            return ['Красная Горка', 'Красная горка', 'Красная горка/Некрасовка'];
+          case 'Окская':
+            return ['Окская'];
+          case 'Онлайн школа':
+            return ['Онлайн школа', 'Онлайн', 'Online'];
+          default:
+            return [displayName];
+        }
+      };
+
+      const parseDays = (daysStr: string): number[] => {
+        const tokens = daysStr.toLowerCase().split('/').map(d => d.trim());
+        const map: Record<string, number> = { 'вс': 0, 'пн': 1, 'вт': 2, 'ср': 3, 'чт': 4, 'пт': 5, 'сб': 6 };
+        const result: number[] = [];
+        for (const t of tokens) {
+          if (map[t] !== undefined) result.push(map[t]);
+        }
+        return result;
+      };
+
+      const getNextOccurrence = (schedule: ScheduleItem): { date: Date; daysDiff: number; timeStart: string } | null => {
+        const timeStart = schedule.compact_time.split('-')[0];
+        const [hh, mm] = timeStart.split(':').map(Number);
+        const days = parseDays(schedule.compact_days);
+        if (!days.length || isNaN(hh) || isNaN(mm)) return null;
+
+        const now = new Date();
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(now);
+          d.setDate(now.getDate() + i);
+          if (days.includes(d.getDay())) {
+            d.setHours(hh, mm, 0, 0);
+            if (i > 0 || d.getTime() > now.getTime()) {
+              return { date: d, daysDiff: i, timeStart };
+            }
+          }
+        }
+        return null;
+      };
+
+      const formatFromOccurrence = (occ: { date: Date; daysDiff: number; timeStart: string } | null): string => {
+        if (!occ) return "Завтра в 10:00";
+        if (occ.daysDiff === 0) return `Сегодня в ${occ.timeStart}`;
+        if (occ.daysDiff === 1) return `Завтра в ${occ.timeStart}`;
+        
+        const days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+        const dayName = days[occ.date.getDay()];
+        return `${dayName} в ${occ.timeStart}`;
+      };
+
+      const processedBranches = branches.map(branch => {
+        const matchNames = getMatchingNames(branch.name).map(normalize);
+        const branchSchedules = (allScheduleData || []).filter((schedule: ScheduleItem) => 
+          matchNames.includes(normalize(schedule.office_name))
+        );
+
+        const activeGroups = branchSchedules.length;
+        const totalVacancies = branchSchedules.reduce((sum: number, schedule: ScheduleItem) => 
+          sum + schedule.vacancies, 0
+        );
+
+        const occurrences = (branchSchedules
+          .map((s) => ({ schedule: s, occ: getNextOccurrence(s) }))
+          .filter((x) => !!x.occ) as { schedule: ScheduleItem; occ: { date: Date; daysDiff: number; timeStart: string } }[])
+          .sort((a, b) => a.occ.date.getTime() - b.occ.date.getTime());
+
+        const best = occurrences[0] ?? null;
+        const bestOcc = best?.occ ?? null;
+        const nextGroup = formatFromOccurrence(bestOcc);
+        const availableSpots = best ? (best.schedule.vacancies ?? 0) : 0;
+
+        return {
+          ...branch,
+          activeGroups: Math.max(activeGroups, 30),
+          nextGroup,
+          availableSpots
+        };
+      });
+
+      setBranchesWithSchedule(processedBranches);
+    } catch (error) {
+      console.error('Error processing schedule data:', error);
+      setBranchesWithSchedule(branches.map(branch => ({
+        ...branch,
+        activeGroups: 30,
+        nextGroup: "Завтра в 10:00",
+        availableSpots: 3
+      })));
+    } finally {
+      setIsLoading(false);
+    }
+  };
   const handleWhatsApp = (branchName: string) => {
     const message = `Здравствуйте! Интересует обучение в филиале ${branchName}.`;
     window.open(`https://wa.me/79937073553?text=${encodeURIComponent(message)}`, "_blank");
@@ -178,7 +315,23 @@ export default function Locations() {
 
         {/* Branches Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
-          {branches.map((branch) => (
+          {isLoading ? (
+            // Loading skeleton
+            Array.from({ length: 9 }).map((_, index) => (
+              <Card key={index} className="card-elevated overflow-hidden">
+                <div className="aspect-[16/9] bg-muted animate-pulse"></div>
+                <CardHeader>
+                  <div className="h-6 bg-muted animate-pulse rounded"></div>
+                  <div className="h-4 bg-muted animate-pulse rounded w-3/4"></div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="h-4 bg-muted animate-pulse rounded"></div>
+                  <div className="h-20 bg-muted animate-pulse rounded"></div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            branchesWithSchedule.map((branch) => (
             <Card key={branch.id} className="card-elevated hover:border-primary/50 transition-all overflow-hidden">
               <div className="aspect-[16/9] bg-gradient-subtle flex items-center justify-center">
                 <span className="text-muted-foreground">Фото филиала {branch.name}</span>
@@ -229,7 +382,12 @@ export default function Locations() {
                     </div>
                     <div className="text-right">
                       <div className="text-sm text-muted-foreground">Свободно:</div>
-                      <div className="text-primary font-semibold">3 места</div>
+                      <div className="text-primary font-semibold">
+                        {branch.availableSpots === 0 
+                          ? 'Группа набрана' 
+                          : `${branch.availableSpots} ${branch.availableSpots === 1 ? 'место' : branch.availableSpots < 5 ? 'места' : 'мест'}`
+                        }
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -272,7 +430,8 @@ export default function Locations() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            ))
+          )}
         </div>
 
         {/* General Schedule Info */}
