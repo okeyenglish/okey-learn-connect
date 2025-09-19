@@ -245,6 +245,17 @@ export default function Index() {
           matchNames.includes(normalize(schedule.office_name))
         );
 
+        console.log(`\n=== Processing branch: ${branch.name} ===`);
+        console.log('Match names:', matchNames);
+        console.log('Found schedules:', branchSchedules.length);
+        console.log('Schedule details:', branchSchedules.map(s => ({
+          name: s.name,
+          office: s.office_name,
+          days: s.compact_days,
+          time: s.compact_time,
+          vacancies: s.vacancies
+        })));
+
         const activeGroups = branchSchedules.length;
         const totalVacancies = branchSchedules.reduce((sum: number, schedule: ScheduleItem) => 
           sum + schedule.vacancies, 0
@@ -297,8 +308,12 @@ export default function Index() {
           const days = schedule.compact_days.toLowerCase();
           const timeStart = schedule.compact_time.split('-')[0]; // Get start time only
           
+          console.log(`\n--- Formatting schedule for ${schedule.name} ---`);
+          console.log('Days:', days, 'Time:', timeStart);
+          
           const currentDate = new Date();
           const currentDay = currentDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+          console.log('Current day of week:', currentDay, '(0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat)');
           
           // Map Russian day abbreviations to day numbers
           const dayMap: { [key: string]: number[] } = {
@@ -317,19 +332,29 @@ export default function Index() {
           };
 
           const scheduleDays = dayMap[days] || [];
+          console.log('Schedule days:', scheduleDays);
           
           // Find next occurrence
           for (let i = 0; i < 7; i++) {
             const checkDay = (currentDay + i) % 7;
+            console.log(`Checking day ${i}: ${checkDay}, includes: ${scheduleDays.includes(checkDay)}`);
             if (scheduleDays.includes(checkDay)) {
-              if (i === 0) return `Сегодня в ${timeStart}`;
-              if (i === 1) return `Завтра в ${timeStart}`;
+              if (i === 0) {
+                console.log('Found today!');
+                return `Сегодня в ${timeStart}`;
+              }
+              if (i === 1) {
+                console.log('Found tomorrow!');
+                return `Завтра в ${timeStart}`;
+              }
               
               // For days after tomorrow, show fallback
+              console.log('Found later day, using fallback');
               return "Завтра в 10:00";
             }
           }
           
+          console.log('No matching day found, using default');
           return `${schedule.compact_days} ${timeStart}`;
         };
 
