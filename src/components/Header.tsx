@@ -114,7 +114,7 @@ export default function Header() {
                       {item.name}
                     </Link>
                   ))}
-                   <div className="pt-4 space-y-3">
+                   <div className="pt-4 space-y-4">
                      {/* Contact buttons - more compact and neat layout */}
                      <div className="grid grid-cols-3 gap-2">
                        <Button
@@ -145,26 +145,27 @@ export default function Header() {
                          <span className="text-xs">Позвонить</span>
                        </Button>
                      </div>
-                     <Link to="/test" onClick={() => setIsOpen(false)}>
-                       <Button variant="outline" className="w-full justify-center gap-2">
-                         <BookOpen className="w-4 h-4" />
-                         Тест уровня (5 мин)
-                       </Button>
-                     </Link>
-                     <Link to="/contacts" onClick={() => setIsOpen(false)}>
-                       <Button className="btn-hero w-full justify-center gap-2">
-                         <UserCheck className="w-4 h-4" />
-                         Пробный урок
-                       </Button>
-                     </Link>
                      
-                     {/* Coupon Banner */}
-                     <div className="mt-6 p-4 bg-gradient-to-r from-primary to-primary/80 rounded-lg text-white text-center">
-                       <div className="flex items-center justify-center gap-2 mb-2">
-                         <Gift className="w-5 h-5" />
-                         <span className="font-semibold text-lg">Купон 5000₽</span>
-                       </div>
-                       <div className="text-sm opacity-90 mt-1">на первый месяц обучения</div>
+                     {/* Main action buttons with consistent styling and spacing */}
+                     <div className="mt-6 space-y-3">
+                       <Link to="/test" onClick={() => setIsOpen(false)}>
+                         <Button variant="outline" className="w-full justify-center gap-2 h-12">
+                           <BookOpen className="w-4 h-4" />
+                           Тест уровня (5 мин)
+                         </Button>
+                       </Link>
+                       <Link to="/contacts" onClick={() => setIsOpen(false)}>
+                         <Button className="btn-hero w-full justify-center gap-2 h-12">
+                           <UserCheck className="w-4 h-4" />
+                           Пробный урок
+                         </Button>
+                       </Link>
+                       
+                       {/* Coupon Button */}
+                       <Button className="w-full justify-center gap-2 h-12 bg-gradient-to-r from-primary to-primary/80 text-white">
+                         <Gift className="w-4 h-4" />
+                         Купон 5000₽
+                       </Button>
                      </div>
                    </div>
                 </div>
