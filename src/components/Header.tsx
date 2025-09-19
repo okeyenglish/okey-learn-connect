@@ -127,104 +127,103 @@ export default function Header() {
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-80">
-                <div className="flex flex-col space-y-4 mt-8">
-                  {navigation.map((item) => (
-                    <Link
-                      key={item.name}
-                      to={item.href}
-                      onClick={() => setIsOpen(false)}
-                      className={`text-lg font-medium transition-colors hover:text-primary ${
-                        location.pathname === item.href
-                          ? "text-primary"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      {item.name}
+                <div className="flex flex-col h-full">
+                  {/* Navigation Links */}
+                  <div className="flex flex-col space-y-3 mt-6">
+                    {navigation.map((item) => (
+                      <Link
+                        key={item.name}
+                        to={item.href}
+                        onClick={() => setIsOpen(false)}
+                        className={`text-base font-medium transition-colors hover:text-primary py-1 ${
+                          location.pathname === item.href
+                            ? "text-primary"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {item.name}
+                      </Link>
+                    ))}
+                  </div>
+                   
+                  {/* Branch Selector */}
+                  <div className="mt-4 pt-4 border-t">
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                      Выберите филиал
+                    </label>
+                    <Select onValueChange={(value) => {
+                      handleBranchSelect(value);
+                      setIsOpen(false);
+                    }}>
+                      <SelectTrigger className="w-full h-10">
+                        <MapPin className="w-4 h-4 mr-2" />
+                        <SelectValue placeholder="Все филиалы" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branchesForSelect.map((branch) => (
+                          <SelectItem key={branch.value} value={branch.value}>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{branch.label}</span>
+                              <span className="text-xs text-muted-foreground">{branch.address}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  {/* Contact buttons */}
+                  <div className="mt-4 pt-3 border-t">
+                    <div className="grid grid-cols-3 gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="flex flex-col items-center gap-1 py-2 h-auto bg-muted/30 hover:bg-muted/50"
+                        onClick={handleWhatsApp}
+                      >
+                        <MessageCircle className="w-4 h-4 text-green-600" />
+                        <span className="text-xs">WhatsApp</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="flex flex-col items-center gap-1 py-2 h-auto bg-muted/30 hover:bg-muted/50"
+                        onClick={handleTelegram}
+                      >
+                        <Send className="w-4 h-4 text-blue-500" />
+                        <span className="text-xs">Telegram</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="flex flex-col items-center gap-1 py-2 h-auto bg-muted/30 hover:bg-muted/50"
+                        onClick={handleCall}
+                      >
+                        <Phone className="w-4 h-4 text-orange-500" />
+                        <span className="text-xs">Позвонить</span>
+                      </Button>
+                    </div>
+                  </div>
+                      
+                  {/* Main action buttons */}
+                  <div className="mt-4 pt-3 border-t space-y-2">
+                    <Link to="/test" onClick={() => setIsOpen(false)}>
+                      <Button variant="outline" className="w-full justify-center gap-2 h-10">
+                        <BookOpen className="w-4 h-4" />
+                        Тест уровня (5 мин)
+                      </Button>
                     </Link>
-                   ))}
-                   
-                   {/* Mobile Branch Selector */}
-                   <div className="pt-4 border-t">
-                     <div className="mb-4">
-                       <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                         Выберите филиал
-                       </label>
-                       <Select onValueChange={(value) => {
-                         handleBranchSelect(value);
-                         setIsOpen(false);
-                       }}>
-                         <SelectTrigger className="w-full">
-                           <MapPin className="w-4 h-4 mr-2" />
-                           <SelectValue placeholder="Все филиалы" />
-                         </SelectTrigger>
-                         <SelectContent>
-                           {branchesForSelect.map((branch) => (
-                             <SelectItem key={branch.value} value={branch.value}>
-                               <div className="flex flex-col">
-                                 <span className="font-medium">{branch.label}</span>
-                                 <span className="text-xs text-muted-foreground">{branch.address}</span>
-                               </div>
-                             </SelectItem>
-                           ))}
-                         </SelectContent>
-                       </Select>
-                     </div>
-                   </div>
-                   
-                   <div className="pt-4 space-y-4">
-                     {/* Contact buttons - more compact and neat layout */}
-                     <div className="grid grid-cols-3 gap-2">
-                       <Button
-                         variant="ghost"
-                         size="sm"
-                         className="flex flex-col items-center gap-1 py-3 h-auto bg-muted/30 hover:bg-muted/50"
-                         onClick={handleWhatsApp}
-                       >
-                         <MessageCircle className="w-5 h-5 text-green-600" />
-                         <span className="text-xs">WhatsApp</span>
-                       </Button>
-                       <Button
-                         variant="ghost"
-                         size="sm"
-                         className="flex flex-col items-center gap-1 py-3 h-auto bg-muted/30 hover:bg-muted/50"
-                         onClick={handleTelegram}
-                       >
-                         <Send className="w-5 h-5 text-blue-500" />
-                         <span className="text-xs">Telegram</span>
-                       </Button>
-                       <Button
-                         variant="ghost"
-                         size="sm"
-                         className="flex flex-col items-center gap-1 py-3 h-auto bg-muted/30 hover:bg-muted/50"
-                         onClick={handleCall}
-                       >
-                         <Phone className="w-5 h-5 text-orange-500" />
-                         <span className="text-xs">Позвонить</span>
-                       </Button>
-                     </div>
-                     
-                     {/* Main action buttons with consistent styling and spacing */}
-                     <div className="mt-4 space-y-2">
-                       <Link to="/test" onClick={() => setIsOpen(false)}>
-                         <Button variant="outline" className="w-full justify-center gap-2 h-12">
-                           <BookOpen className="w-4 h-4" />
-                           Тест уровня (5 мин)
-                         </Button>
-                       </Link>
-                       <Link to="/contacts" onClick={() => setIsOpen(false)}>
-                         <Button className="btn-hero w-full justify-center gap-2 h-12">
-                           <UserCheck className="w-4 h-4" />
-                           Пробный урок
-                         </Button>
-                       </Link>
-                       
-                       {/* Coupon Button */}
-                       <Button className="w-full justify-center gap-2 h-12 bg-gradient-to-r from-primary to-primary/80 text-white">
-                         <Gift className="w-4 h-4" />
-                         Купон 5000₽
-                       </Button>
-                     </div>
-                   </div>
+                    <Link to="/contacts" onClick={() => setIsOpen(false)}>
+                      <Button className="btn-hero w-full justify-center gap-2 h-10">
+                        <UserCheck className="w-4 h-4" />
+                        Пробный урок
+                      </Button>
+                    </Link>
+                    <Button className="w-full justify-center gap-2 h-10 bg-gradient-to-r from-primary to-primary/80 text-white">
+                      <Gift className="w-4 h-4" />
+                      Купон 5000₽
+                    </Button>
+                  </div>
                 </div>
               </SheetContent>
             </Sheet>
