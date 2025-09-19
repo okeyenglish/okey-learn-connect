@@ -325,9 +325,8 @@ export default function Index() {
               if (i === 0) return `Сегодня в ${timeStart}`;
               if (i === 1) return `Завтра в ${timeStart}`;
               
-              // For other days, show day name
-              const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-              return `${dayNames[checkDay]} в ${timeStart}`;
+              // For days after tomorrow, show fallback
+              return "Завтра в 10:00";
             }
           }
           
