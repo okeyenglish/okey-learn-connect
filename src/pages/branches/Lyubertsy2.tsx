@@ -4,6 +4,7 @@ import { MapPin, Phone, MessageCircle, Send, Clock, UserCheck } from "lucide-rea
 import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
+import krasnayaGorkaImage from "@/assets/krasnaya-gorka-branch.jpg";
 
 export default function LocationLyubertsy2() {
   const handleWhatsApp = () => {
@@ -37,6 +38,19 @@ export default function LocationLyubertsy2() {
             <UserCheck className="w-4 h-4" />
             Пробный урок
           </Button>
+        </div>
+
+        {/* Branch Photo */}
+        <div className="mb-16">
+          <Card className="overflow-hidden">
+            <CardContent className="p-0">
+              <img 
+                src={krasnayaGorkaImage} 
+                alt="Коридор филиала O'KEY English в Красной горке с брендингом Cambridge и зоной ожидания"
+                className="w-full h-[400px] object-cover"
+              />
+            </CardContent>
+          </Card>
         </div>
 
         {/* Branch Info */}

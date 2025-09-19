@@ -10,6 +10,7 @@ import okskayaImage from "@/assets/okskaya-branch.jpg";
 import lyubertsyImage from "@/assets/lyubertsy-branch.jpg";
 import stakhanovskayaImage from "@/assets/stakhanovskaya-branch.jpg";
 import mytishchiImage from "@/assets/mytishchi-branch.jpg";
+import krasnayaGorkaImage from "@/assets/krasnaya-gorka-branch.jpg";
 import { 
   MapPin, 
   Clock, 
@@ -134,7 +135,7 @@ const branches = [
     address: "проспект Гагарина, 3/8",
     metro: "Люберцы (МЦД-1)",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
-    image: "/placeholder-branch-8.jpg",
+    image: krasnayaGorkaImage,
     features: ["Центральное расположение", "Современное оборудование", "Библиотека"]
   },
   { 
