@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import AnimatedLanguage from "@/components/AnimatedLanguage";
 import novokosinoImage from "@/assets/novokosino-branch.jpg";
+import kotelnikiImage from "@/assets/kotelniki-branch.jpg";
 import { 
   GraduationCap, 
   Users, 
@@ -39,7 +40,8 @@ const branches = [
     slug: "kotelniki",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
     activeGroups: 12,
-    nextGroup: "Завтра 18:00"
+    nextGroup: "Завтра 18:00",
+    image: kotelnikiImage
   },
   { 
     name: "Новокосино", 

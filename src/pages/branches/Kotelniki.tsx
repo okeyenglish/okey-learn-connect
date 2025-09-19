@@ -5,6 +5,7 @@ import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
 import classroomImage from "@/assets/kotelniki-classroom.png";
+import kotelnikiImage from "@/assets/kotelniki-branch.jpg";
 import teacherMale1 from "@/assets/teacher-male-1.png";
 import teacherMale2 from "@/assets/teacher-male-2.png";
 import teacherFemale1 from "@/assets/teacher-female-1.png";
@@ -114,7 +115,16 @@ export default function LocationKotelniki() {
         {/* Photo Gallery */}
         <div className="mb-16">
           <h2 className="text-3xl font-bold text-center mb-8">Наш филиал</h2>
-          <div className="grid md:grid-cols-1 gap-6">
+          <div className="grid md:grid-cols-2 gap-6">
+            <Card>
+              <CardContent className="p-0">
+                <img 
+                  src={kotelnikiImage} 
+                  alt="Интерьер филиала O'KEY English в Котельниках - зона ресепшн с брендингом" 
+                  className="w-full h-96 object-cover rounded-lg"
+                />
+              </CardContent>
+            </Card>
             <Card>
               <CardContent className="p-0">
                 <img 

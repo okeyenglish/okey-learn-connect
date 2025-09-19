@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import novokosinoImage from "@/assets/novokosino-branch.jpg";
+import kotelnikiImage from "@/assets/kotelniki-branch.jpg";
 import { 
   MapPin, 
   Clock, 
@@ -66,7 +67,7 @@ const branches = [
     address: "2-й Покровский проезд, 14к2",
     metro: "Котельники",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
-    image: "/placeholder-branch-1.jpg",
+    image: kotelnikiImage,
     features: ["Современные классы", "Интерактивные доски", "Детская зона"]
   },
   { 
