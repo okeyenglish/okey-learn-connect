@@ -303,74 +303,57 @@ export default function Index() {
           return `Сегодня в ${timeString}`;
         };
 
-        // Helper function to format schedule display
-        const formatScheduleDisplay = (schedule: ScheduleItem): string => {
-          const days = schedule.compact_days.toLowerCase();
-          const timeStart = schedule.compact_time.split('-')[0]; // Get start time only
-          
-          console.log(`\n--- Formatting schedule for ${schedule.name} ---`);
-          console.log('Days:', days, 'Time:', timeStart);
-          
-          const currentDate = new Date();
-          const currentDay = currentDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
-          console.log('Current day of week:', currentDay, '(0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat)');
-          
-          // Map Russian day abbreviations to day numbers
-          const dayMap: { [key: string]: number[] } = {
-            'пн': [1], // Monday
-            'вт': [2], // Tuesday  
-            'ср': [3], // Wednesday
-            'чт': [4], // Thursday
-            'пт': [5], // Friday
-            'сб': [6], // Saturday
-            'вс': [0], // Sunday
-            'пн/ср': [1, 3],
-            'вт/чт': [2, 4],
-            'пн/пт': [1, 5],
-            'ср/пт': [3, 5],
-            'сб/вс': [6, 0]
-          };
-
-          const scheduleDays = dayMap[days] || [];
-          console.log('Schedule days:', scheduleDays);
-          
-          // Find next occurrence
-          for (let i = 0; i < 7; i++) {
-            const checkDay = (currentDay + i) % 7;
-            console.log(`Checking day ${i}: ${checkDay}, includes: ${scheduleDays.includes(checkDay)}`);
-            if (scheduleDays.includes(checkDay)) {
-              if (i === 0) {
-                console.log('Found today!');
-                return `Сегодня в ${timeStart}`;
-              }
-              if (i === 1) {
-                console.log('Found tomorrow!');
-                return `Завтра в ${timeStart}`;
-              }
-              
-              // For days after tomorrow, show fallback
-              console.log('Found later day, using fallback');
-              return "Завтра в 10:00";
-            }
+        // Helpers: parse days and compute next occurrence
+        const parseDays = (daysStr: string): number[] => {
+          const tokens = daysStr.toLowerCase().split('/').map(d => d.trim());
+          const map: Record<string, number> = { 'вс': 0, 'пн': 1, 'вт': 2, 'ср': 3, 'чт': 4, 'пт': 5, 'сб': 6 };
+          const result: number[] = [];
+          for (const t of tokens) {
+            if (map[t] !== undefined) result.push(map[t]);
           }
-          
-          console.log('No matching day found, using default');
-          return `${schedule.compact_days} ${timeStart}`;
+          return result;
         };
 
-        // Find next available group with vacancies > 0
-        const nextAvailableGroup = branchSchedules.find((schedule: ScheduleItem) => 
-          schedule.vacancies > 0
-        );
+        const getNextOccurrence = (schedule: ScheduleItem): { date: Date; daysDiff: number; timeStart: string } | null => {
+          const timeStart = schedule.compact_time.split('-')[0];
+          const [hh, mm] = timeStart.split(':').map(Number);
+          const days = parseDays(schedule.compact_days);
+          if (!days.length || isNaN(hh) || isNaN(mm)) return null;
 
-        // If no groups with vacancies, find any group to show schedule
-        const anyGroup = branchSchedules.length > 0 ? branchSchedules[0] : null;
+          const now = new Date();
+          for (let i = 0; i < 7; i++) {
+            const d = new Date(now);
+            d.setDate(now.getDate() + i);
+            if (days.includes(d.getDay())) {
+              d.setHours(hh, mm, 0, 0);
+              if (i > 0 || d.getTime() > now.getTime()) {
+                return { date: d, daysDiff: i, timeStart };
+              }
+            }
+          }
+          return null;
+        };
 
-        const nextGroup = nextAvailableGroup 
-          ? formatScheduleDisplay(nextAvailableGroup)
-          : anyGroup 
-            ? formatScheduleDisplay(anyGroup) 
-            : generateFallbackSchedule(); // Use dynamic fallback instead of hardcoded
+        const formatFromOccurrence = (occ: { daysDiff: number; timeStart: string } | null): string => {
+          if (!occ) return generateFallbackSchedule();
+          if (occ.daysDiff === 0) return `Сегодня в ${occ.timeStart}`;
+          if (occ.daysDiff === 1) return `Завтра в ${occ.timeStart}`;
+          return 'Завтра в 10:00';
+        };
+
+        // Compute earliest upcoming time (prefer groups with vacancies > 0)
+        const withVacancies = branchSchedules.filter(s => (s.vacancies || 0) > 0);
+        const candidates = withVacancies.length ? withVacancies : branchSchedules;
+        let bestOcc: { date: Date; daysDiff: number; timeStart: string } | null = null;
+        for (const s of candidates) {
+          const occ = getNextOccurrence(s);
+          if (!occ) continue;
+          if (!bestOcc || occ.date.getTime() < bestOcc.date.getTime()) {
+            bestOcc = occ;
+          }
+        }
+
+        const nextGroup = formatFromOccurrence(bestOcc);
 
         // Show at least 1 spot available if there are active groups but database shows 0
         const availableSpots = totalVacancies > 0 
