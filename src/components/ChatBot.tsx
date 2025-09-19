@@ -256,7 +256,7 @@ export default function ChatBot() {
                           target="_blank"
                           rel="noreferrer"
                         >
-                          {m.sources[0].url}
+                          {m.sources[0].title}
                         </a>
                       )}
                     </div>
