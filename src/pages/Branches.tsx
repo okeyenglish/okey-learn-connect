@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import novokosinoImage from "@/assets/novokosino-branch.jpg";
 import kotelnikiImage from "@/assets/kotelniki-branch.jpg";
+import okskayaImage from "@/assets/okskaya-branch.jpg";
 import { 
   MapPin, 
   Clock, 
@@ -85,7 +86,7 @@ const branches = [
     address: "ул. Окская, д. 3, корп. 1",
     metro: "Окская",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
-    image: "/placeholder-branch-3.jpg",
+    image: okskayaImage,
     features: ["Уютная атмосфера", "Библиотека", "Игровая комната"]
   },
   { 

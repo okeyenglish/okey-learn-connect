@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import AnimatedLanguage from "@/components/AnimatedLanguage";
 import novokosinoImage from "@/assets/novokosino-branch.jpg";
 import kotelnikiImage from "@/assets/kotelniki-branch.jpg";
+import okskayaImage from "@/assets/okskaya-branch.jpg";
 import { 
   GraduationCap, 
   Users, 
@@ -58,7 +59,8 @@ const branches = [
     slug: "okskaya",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
     activeGroups: 10,
-    nextGroup: "Завтра 17:00"
+    nextGroup: "Завтра 17:00",
+    image: okskayaImage
   },
   { 
     name: "Стахановская", 

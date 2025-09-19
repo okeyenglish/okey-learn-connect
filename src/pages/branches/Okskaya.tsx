@@ -4,6 +4,7 @@ import { MapPin, Phone, MessageCircle, Send, Clock, UserCheck } from "lucide-rea
 import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
+import okskayaImage from "@/assets/okskaya-branch.jpg";
 
 export default function LocationOkskaya() {
   const handleWhatsApp = () => {
@@ -37,6 +38,19 @@ export default function LocationOkskaya() {
             <UserCheck className="w-4 h-4" />
             Пробный урок
           </Button>
+        </div>
+
+        {/* Branch Photo */}
+        <div className="mb-16">
+          <Card className="overflow-hidden">
+            <CardContent className="p-0">
+              <img 
+                src={okskayaImage} 
+                alt="Интерьер филиала O'KEY English на Окской - ресепшн с современным дизайном и брендингом"
+                className="w-full h-[400px] object-cover"
+              />
+            </CardContent>
+          </Card>
         </div>
 
         {/* Branch Info */}
