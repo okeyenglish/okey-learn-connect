@@ -10,7 +10,8 @@ import {
   Users,
   Star,
   UserCheck,
-  ArrowRight
+  ArrowRight,
+  Send
 } from "lucide-react";
 
 const branches = [
@@ -119,6 +120,15 @@ export default function Locations() {
   const handleWhatsApp = (branchName: string) => {
     const message = `Здравствуйте! Интересует обучение в филиале ${branchName}.`;
     window.open(`https://wa.me/79937073553?text=${encodeURIComponent(message)}`, "_blank");
+  };
+
+  const handleTelegram = (branchName: string) => {
+    const message = `Здравствуйте! Интересует обучение в филиале ${branchName}.`;
+    window.open(`https://t.me/okeyenglish_bot?start=${encodeURIComponent(message)}`, "_blank");
+  };
+
+  const handleCall = () => {
+    window.open("tel:+74997073535", "_blank");
   };
 
   return (
@@ -233,22 +243,30 @@ export default function Locations() {
                     </Button>
                   </Link>
                   
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="flex justify-center gap-3">
                     <Button 
                       variant="outline" 
-                      size="sm"
-                      onClick={() => window.open("tel:+74997073535")}
+                      size="icon"
+                      onClick={handleCall}
+                      className="rounded-full"
                     >
-                      <Phone className="w-4 h-4 mr-2" />
-                      Позвонить
+                      <Phone className="w-4 h-4" />
                     </Button>
                     <Button 
                       variant="outline" 
-                      size="sm"
+                      size="icon"
                       onClick={() => handleWhatsApp(branch.name)}
+                      className="rounded-full"
                     >
-                      <MessageCircle className="w-4 h-4 mr-2" />
-                      WhatsApp
+                      <MessageCircle className="w-4 h-4" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      onClick={() => handleTelegram(branch.name)}
+                      className="rounded-full"
+                    >
+                      <Send className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
