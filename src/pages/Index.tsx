@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import AnimatedLanguage from "@/components/AnimatedLanguage";
@@ -165,9 +166,96 @@ const languages = [
   { name: "10+", icon: "🌍" }
 ];
 
+interface ScheduleItem {
+  id: string;
+  name: string;
+  office_name: string;
+  level: string;
+  compact_days: string;
+  compact_time: string;
+  compact_classroom: string;
+  compact_teacher: string;
+  "Возраст": string;
+  vacancies: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+interface BranchWithSchedule {
+  name: string;
+  address: string;
+  slug: string;
+  workingHours: string;
+  activeGroups: number;
+  nextGroup: string;
+  availableSpots: number;
+}
+
 export default function Index() {
   const [quizStep] = useState(0);
   const [showQuizResult] = useState(false);
+  const [branchesWithSchedule, setBranchesWithSchedule] = useState<BranchWithSchedule[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchScheduleData();
+  }, []);
+
+  const fetchScheduleData = async () => {
+    try {
+      const { data: scheduleData, error } = await supabase.rpc('get_public_schedule');
+      
+      if (error) {
+        console.error('Error fetching schedule:', error);
+        // Fallback to original hardcoded data
+        setBranchesWithSchedule(branches.map(branch => ({
+          ...branch,
+          availableSpots: 3
+        })));
+        return;
+      }
+
+      // Process schedule data and merge with branch info
+      const processedBranches = branches.map(branch => {
+        const branchSchedules = scheduleData?.filter((schedule: ScheduleItem) => 
+          schedule.office_name === branch.name
+        ) || [];
+
+        const activeGroups = branchSchedules.length;
+        const totalVacancies = branchSchedules.reduce((sum: number, schedule: ScheduleItem) => 
+          sum + schedule.vacancies, 0
+        );
+
+        // Find next available group (simplified - you might want more complex logic)
+        const nextAvailableGroup = branchSchedules.find((schedule: ScheduleItem) => 
+          schedule.vacancies > 0
+        );
+
+        const nextGroup = nextAvailableGroup 
+          ? `${nextAvailableGroup.compact_days} ${nextAvailableGroup.compact_time}`
+          : "Уточняйте расписание";
+
+        return {
+          ...branch,
+          activeGroups: activeGroups || branch.activeGroups,
+          nextGroup: nextGroup || branch.nextGroup,
+          availableSpots: totalVacancies || 3
+        };
+      });
+
+      setBranchesWithSchedule(processedBranches);
+    } catch (error) {
+      console.error('Error processing schedule data:', error);
+      // Fallback to original data
+      setBranchesWithSchedule(branches.map(branch => ({
+        ...branch,
+        availableSpots: 3
+      })));
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleWhatsApp = (branch?: string) => {
     const message = branch 
@@ -306,101 +394,117 @@ export default function Index() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {branches.map((branch) => (
-              <Card key={branch.slug} className="card-elevated hover:border-primary/50 transition-all overflow-hidden">
-                <div className="aspect-[16/9] bg-gradient-subtle flex items-center justify-center">
-                  <span className="text-muted-foreground">Фото филиала {branch.name}</span>
-                </div>
-                
-                <CardContent className="p-6 space-y-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-5 h-5 text-primary" />
-                        <h3 className="font-semibold text-xl">{branch.name}</h3>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-2">{branch.address}</p>
-                    </div>
-                    <Badge className="bg-gradient-primary text-white">
-                      {branch.activeGroups} групп
-                    </Badge>
+            {isLoading ? (
+              // Loading skeleton
+              Array.from({ length: 8 }).map((_, index) => (
+                <Card key={index} className="card-elevated overflow-hidden">
+                  <div className="aspect-[16/9] bg-muted animate-pulse"></div>
+                  <CardContent className="p-6 space-y-4">
+                    <div className="h-6 bg-muted animate-pulse rounded"></div>
+                    <div className="h-4 bg-muted animate-pulse rounded w-3/4"></div>
+                    <div className="h-20 bg-muted animate-pulse rounded"></div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              branchesWithSchedule.map((branch) => (
+                <Card key={branch.slug} className="card-elevated hover:border-primary/50 transition-all overflow-hidden">
+                  <div className="aspect-[16/9] bg-gradient-subtle flex items-center justify-center">
+                    <span className="text-muted-foreground">Фото филиала {branch.name}</span>
                   </div>
-
-                  {/* Working Hours */}
-                  <div className="flex items-center gap-2 text-sm">
-                    <Clock className="w-4 h-4 text-primary" />
-                    <span>{branch.workingHours}</span>
-                  </div>
-
-                  {/* Available Languages */}
-                  <div>
-                    <h4 className="font-semibold mb-3">Доступные языки:</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {languages.map((language, index) => (
-                        <div key={index} className="flex items-center gap-1 bg-muted px-2 py-1 rounded-full text-xs">
-                          <span className="text-sm">{language.icon}</span>
-                          <span>{language.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Next Group */}
-                  <div className="bg-gradient-subtle p-4 rounded-lg">
-                    <div className="flex justify-between items-center">
+                  
+                  <CardContent className="p-6 space-y-4">
+                    <div className="flex justify-between items-start">
                       <div>
-                        <div className="text-sm text-muted-foreground">Ближайшая группа:</div>
-                        <div className="font-medium">{branch.nextGroup}</div>
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-5 h-5 text-primary" />
+                          <h3 className="font-semibold text-xl">{branch.name}</h3>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-2">{branch.address}</p>
                       </div>
-                      <div className="text-right">
-                        <div className="text-sm text-muted-foreground">Свободно:</div>
-                        <div className="text-primary font-semibold">3 места</div>
-                      </div>
+                      <Badge className="bg-gradient-primary text-white">
+                        {branch.activeGroups} групп
+                      </Badge>
                     </div>
-                  </div>
 
-                  {/* Actions */}
-                  <div className="flex flex-col gap-3">
-                    <Link to={`/branches/${branch.slug}`}>
-                      <Button variant="hero" className="w-full">
-                        <ArrowRight className="w-4 h-4 mr-2" />
-                        Подробнее о филиале
-                      </Button>
-                    </Link>
-                    
-                    <div className="flex justify-center gap-3">
-                      <Button 
-                        variant="outline" 
-                        size="icon"
-                        onClick={() => window.open("tel:+74997073535", "_blank")}
-                        className="rounded-full"
-                      >
-                        <Phone className="w-4 h-4" />
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="icon"
-                        onClick={() => handleWhatsApp(branch.name)}
-                        className="rounded-full"
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="icon"
-                        onClick={() => {
-                          const message = `Здравствуйте! Интересует обучение в филиале ${branch.name}.`;
-                          window.open(`https://t.me/okeyenglish_bot?start=${encodeURIComponent(message)}`, "_blank");
-                        }}
-                        className="rounded-full"
-                      >
-                        <Send className="w-4 h-4" />
-                      </Button>
+                    {/* Working Hours */}
+                    <div className="flex items-center gap-2 text-sm">
+                      <Clock className="w-4 h-4 text-primary" />
+                      <span>{branch.workingHours}</span>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+
+                    {/* Available Languages */}
+                    <div>
+                      <h4 className="font-semibold mb-3">Доступные языки:</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {languages.map((language, index) => (
+                          <div key={index} className="flex items-center gap-1 bg-muted px-2 py-1 rounded-full text-xs">
+                            <span className="text-sm">{language.icon}</span>
+                            <span>{language.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Next Group */}
+                    <div className="bg-gradient-subtle p-4 rounded-lg">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <div className="text-sm text-muted-foreground">Ближайшая группа:</div>
+                          <div className="font-medium">{branch.nextGroup}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm text-muted-foreground">Свободно:</div>
+                          <div className="text-primary font-semibold">
+                            {branch.availableSpots} {branch.availableSpots === 1 ? 'место' : branch.availableSpots < 5 ? 'места' : 'мест'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex flex-col gap-3">
+                      <Link to={`/branches/${branch.slug}`}>
+                        <Button variant="hero" className="w-full">
+                          <ArrowRight className="w-4 h-4 mr-2" />
+                          Подробнее о филиале
+                        </Button>
+                      </Link>
+                      
+                      <div className="flex justify-center gap-3">
+                        <Button 
+                          variant="outline" 
+                          size="icon"
+                          onClick={() => window.open("tel:+74997073535", "_blank")}
+                          className="rounded-full"
+                        >
+                          <Phone className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="icon"
+                          onClick={() => handleWhatsApp(branch.name)}
+                          className="rounded-full"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="icon"
+                          onClick={() => {
+                            const message = `Здравствуйте! Интересует обучение в филиале ${branch.name}.`;
+                            window.open(`https://t.me/okeyenglish_bot?start=${encodeURIComponent(message)}`, "_blank");
+                          }}
+                          className="rounded-full"
+                        >
+                          <Send className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
         </div>
       </section>
