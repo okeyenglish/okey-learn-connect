@@ -204,35 +204,46 @@ export default function Index() {
 
   const fetchScheduleData = async () => {
     try {
-      // Fetch schedule data for all branches by calling the function for each branch
-      const allScheduleData: ScheduleItem[] = [];
-      
-      for (const branch of branches) {
-        try {
-          const { data: branchData, error } = await supabase.rpc('get_public_schedule', {
-            branch_name: branch.name
-          });
-          
-          if (error) {
-            console.error(`Error fetching schedule for ${branch.name}:`, error);
-            continue;
-          }
-          
-          if (branchData) {
-            allScheduleData.push(...branchData);
-          }
-        } catch (branchError) {
-          console.error(`Error processing ${branch.name}:`, branchError);
-        }
+      // Fetch all schedules in one call using nullable parameter to avoid overloading ambiguity
+      const { data: allScheduleData, error: scheduleError } = await supabase.rpc('get_public_schedule', {
+        branch_name: null
+      });
+
+      if (scheduleError) {
+        console.error('Error fetching schedule:', scheduleError);
+        // Fallback to original hardcoded data
+        setBranchesWithSchedule(branches.map(branch => ({
+          ...branch,
+          availableSpots: 3
+        })));
+        setIsLoading(false);
+        return;
       }
 
       console.log('Fetched schedule data:', allScheduleData);
 
       // Process schedule data and merge with branch info
+      const normalize = (s: string) => s?.toLowerCase().trim();
+      const getMatchingNames = (displayName: string): string[] => {
+        switch (displayName) {
+          case 'Люберцы':
+            return ['Люберцы', 'Люберцы/Жулебино'];
+          case 'Красная Горка':
+            return ['Красная Горка', 'Красная горка', 'Красная горка/Некрасовка'];
+          case 'Окская/Кузьминки/Текстильщики':
+            return ['Окская/Кузьминки/Текстильщики', 'Окская'];
+          case 'Онлайн школа':
+            return ['Онлайн школа', 'Онлайн', 'Online'];
+          default:
+            return [displayName];
+        }
+      };
+
       const processedBranches = branches.map(branch => {
-        const branchSchedules = allScheduleData.filter((schedule: ScheduleItem) => 
-          schedule.office_name === branch.name
-        ) || [];
+        const matchNames = getMatchingNames(branch.name).map(normalize);
+        const branchSchedules = (allScheduleData || []).filter((schedule: ScheduleItem) => 
+          matchNames.includes(normalize(schedule.office_name))
+        );
 
         const activeGroups = branchSchedules.length;
         const totalVacancies = branchSchedules.reduce((sum: number, schedule: ScheduleItem) => 
