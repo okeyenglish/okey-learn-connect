@@ -204,22 +204,33 @@ export default function Index() {
 
   const fetchScheduleData = async () => {
     try {
-      // Call without parameters to avoid ambiguity
-      const { data: scheduleData, error } = await supabase.rpc('get_public_schedule', {});
+      // Fetch schedule data for all branches by calling the function for each branch
+      const allScheduleData: ScheduleItem[] = [];
       
-      if (error) {
-        console.error('Error fetching schedule:', error);
-        // Fallback to original hardcoded data
-        setBranchesWithSchedule(branches.map(branch => ({
-          ...branch,
-          availableSpots: 3
-        })));
-        return;
+      for (const branch of branches) {
+        try {
+          const { data: branchData, error } = await supabase.rpc('get_public_schedule', {
+            branch_name: branch.name
+          });
+          
+          if (error) {
+            console.error(`Error fetching schedule for ${branch.name}:`, error);
+            continue;
+          }
+          
+          if (branchData) {
+            allScheduleData.push(...branchData);
+          }
+        } catch (branchError) {
+          console.error(`Error processing ${branch.name}:`, branchError);
+        }
       }
+
+      console.log('Fetched schedule data:', allScheduleData);
 
       // Process schedule data and merge with branch info
       const processedBranches = branches.map(branch => {
-        const branchSchedules = scheduleData?.filter((schedule: ScheduleItem) => 
+        const branchSchedules = allScheduleData.filter((schedule: ScheduleItem) => 
           schedule.office_name === branch.name
         ) || [];
 
@@ -228,20 +239,34 @@ export default function Index() {
           sum + schedule.vacancies, 0
         );
 
-        // Find next available group (simplified - you might want more complex logic)
+        console.log(`Branch ${branch.name}: ${activeGroups} groups, ${totalVacancies} total vacancies`);
+
+        // Find next available group with vacancies > 0
         const nextAvailableGroup = branchSchedules.find((schedule: ScheduleItem) => 
           schedule.vacancies > 0
         );
 
+        // If no groups with vacancies, find any group to show schedule
+        const anyGroup = branchSchedules.length > 0 ? branchSchedules[0] : null;
+
         const nextGroup = nextAvailableGroup 
           ? `${nextAvailableGroup.compact_days} ${nextAvailableGroup.compact_time}`
-          : "Уточняйте расписание";
+          : anyGroup 
+            ? `${anyGroup.compact_days} ${anyGroup.compact_time}` 
+            : branch.nextGroup; // Fallback to hardcoded
+
+        // Show at least 1 spot available if there are active groups but database shows 0
+        const availableSpots = totalVacancies > 0 
+          ? totalVacancies 
+          : activeGroups > 0 
+            ? 1 // Show minimum 1 spot if groups exist but database shows 0
+            : 3; // Default fallback
 
         return {
           ...branch,
           activeGroups: activeGroups || branch.activeGroups,
-          nextGroup: nextGroup || branch.nextGroup,
-          availableSpots: totalVacancies || 3
+          nextGroup,
+          availableSpots
         };
       });
 
