@@ -361,11 +361,15 @@ export default function Index() {
           return null;
         };
 
-        const formatFromOccurrence = (occ: { daysDiff: number; timeStart: string } | null): string => {
+        const formatFromOccurrence = (occ: { date: Date; daysDiff: number; timeStart: string } | null): string => {
           if (!occ) return generateFallbackSchedule();
           if (occ.daysDiff === 0) return `Сегодня в ${occ.timeStart}`;
           if (occ.daysDiff === 1) return `Завтра в ${occ.timeStart}`;
-          return 'Завтра в 10:00';
+          
+          // For dates beyond tomorrow, show specific day and time
+          const days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+          const dayName = days[occ.date.getDay()];
+          return `${dayName} в ${occ.timeStart}`;
         };
 
         // Compute earliest upcoming time (prefer groups with vacancies > 0)
