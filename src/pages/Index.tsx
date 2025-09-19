@@ -10,6 +10,7 @@ import kotelnikiImage from "@/assets/kotelniki-branch.jpg";
 import okskayaImage from "@/assets/okskaya-branch.jpg";
 import lyubertsyImage from "@/assets/lyubertsy-branch.jpg";
 import stakhanovskayaImage from "@/assets/stakhanovskaya-branch.jpg";
+import mytishchiImage from "@/assets/mytishchi-branch.jpg";
 import { 
   GraduationCap, 
   Users, 
@@ -87,7 +88,8 @@ const branches = [
     slug: "mytishchi",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
     activeGroups: 11,
-    nextGroup: "Сегодня 17:30"
+    nextGroup: "Сегодня 17:30",
+    image: mytishchiImage
   },
   { 
     name: "Люберцы", 

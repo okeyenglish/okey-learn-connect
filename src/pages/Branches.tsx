@@ -9,6 +9,7 @@ import kotelnikiImage from "@/assets/kotelniki-branch.jpg";
 import okskayaImage from "@/assets/okskaya-branch.jpg";
 import lyubertsyImage from "@/assets/lyubertsy-branch.jpg";
 import stakhanovskayaImage from "@/assets/stakhanovskaya-branch.jpg";
+import mytishchiImage from "@/assets/mytishchi-branch.jpg";
 import { 
   MapPin, 
   Clock, 
@@ -115,7 +116,7 @@ const branches = [
     address: "ул. Борисовка, 16А",
     metro: "Мытищи (МЦД-1)",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
-    image: "/placeholder-branch-6.jpg",
+    image: mytishchiImage,
     features: ["Просторные аудитории", "Техническое оснащение", "Буфет"]
   },
   { 

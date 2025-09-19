@@ -4,6 +4,7 @@ import { MapPin, Phone, MessageCircle, Send, Clock, UserCheck } from "lucide-rea
 import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
+import mytishchiImage from "@/assets/mytishchi-branch.jpg";
 
 export default function LocationMytishchi() {
   const handleWhatsApp = () => {
@@ -37,6 +38,19 @@ export default function LocationMytishchi() {
             <UserCheck className="w-4 h-4" />
             Пробный урок
           </Button>
+        </div>
+
+        {/* Branch Photo */}
+        <div className="mb-16">
+          <Card className="overflow-hidden">
+            <CardContent className="p-0">
+              <img 
+                src={mytishchiImage} 
+                alt="Детский класс в филиале O'KEY English в Мытищах с яркими стенами и игровой зоной"
+                className="w-full h-[400px] object-cover"
+              />
+            </CardContent>
+          </Card>
         </div>
 
         {/* Branch Info */}
