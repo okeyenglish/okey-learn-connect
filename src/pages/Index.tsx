@@ -62,15 +62,15 @@ export default function Index() {
               Подберём программу и расписание за 2 минуты. Пробный урок — бесплатно.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-              <Link to="/test">
-                <Button variant="hero" size="lg" className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16 px-4">
+              <Link to="/test" className="w-full sm:w-auto">
+                <Button variant="hero" size="lg" className="flex items-center justify-center gap-2 w-full sm:w-auto">
                   <BookOpen className="w-5 h-5" />
                   Пройти онлайн-тест уровня
                 </Button>
               </Link>
-              <Link to="/contacts">
-                <Button variant="outline" size="lg" className="flex items-center gap-2">
+              <Link to="/contacts" className="w-full sm:w-auto">
+                <Button variant="outline" size="lg" className="flex items-center justify-center gap-2 w-full sm:w-auto">
                   <UserCheck className="w-5 h-5" />
                   Записаться на пробный урок
                 </Button>
