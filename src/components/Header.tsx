@@ -86,7 +86,7 @@ export default function Header() {
                     <SelectItem key={branch.value} value={branch.value}>
                       <div className="flex flex-col">
                         <span className="font-medium">{branch.label}</span>
-                        <span className="text-xs text-muted-foreground">{branch.address}</span>
+                        <span className="text-xs opacity-70">{branch.address}</span>
                       </div>
                     </SelectItem>
                   ))}
@@ -128,12 +128,12 @@ export default function Header() {
                 </SelectTrigger>
                 <SelectContent>
                   {branchesForSelect.map((branch) => (
-                    <SelectItem key={branch.value} value={branch.value}>
-                      <div className="flex flex-col">
-                        <span className="font-medium text-sm">{branch.label}</span>
-                        <span className="text-xs text-muted-foreground">{branch.address}</span>
-                      </div>
-                    </SelectItem>
+                        <SelectItem key={branch.value} value={branch.value}>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-sm">{branch.label}</span>
+                            <span className="text-xs opacity-70">{branch.address}</span>
+                          </div>
+                        </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -199,7 +199,7 @@ export default function Header() {
                         
                     {/* Main action buttons */}
                     <div className="mt-6 pt-4 border-t">
-                      <div className="space-y-3">
+                      <div className="flex flex-col gap-3">
                         <Link to="/test" onClick={() => setIsOpen(false)}>
                           <Button variant="outline" className="w-full justify-center gap-2 h-10">
                             <BookOpen className="w-4 h-4" />
