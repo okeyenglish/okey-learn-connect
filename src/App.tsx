@@ -31,6 +31,7 @@ import LocationOnline from "./pages/branches/Online";
 import Contacts from "./pages/Contacts";
 import ContactMethod from "./pages/ContactMethod";
 import AdminSchedule from "./pages/AdminSchedule";
+import AdminFAQ from "./pages/AdminFAQ";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -70,6 +71,7 @@ const App = () => (
               <Route path="/contacts" element={<Contacts />} />
               <Route path="/contact-method" element={<ContactMethod />} />
               <Route path="/admin-schedule" element={<AdminSchedule />} />
+              <Route path="/admin-faq" element={<AdminFAQ />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
