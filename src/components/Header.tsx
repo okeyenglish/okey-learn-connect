@@ -38,24 +38,16 @@ export default function Header() {
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-18 min-h-[72px]">
-            {/* Logo and Phone */}
-            <div className="flex items-center gap-4 flex-shrink-0 min-w-0 z-50">
-              <Link to="/" className="relative flex items-center">
-                <img 
-                  src={logoImage} 
-                  alt="O'KEY ENGLISH" 
-                  className="h-[105px] w-[105px] rounded-full object-cover border-2 border-white shadow-lg absolute left-0 top-0"
-                />
-                {/* Invisible spacer to maintain layout space */}
-                <div className="h-16 w-[105px]"></div>
-              </Link>
-              <div className="hidden sm:flex flex-col text-sm">
-                <span className="text-muted-foreground text-xs">Звоните:</span>
-                <a href="tel:+74997073535" className="font-semibold text-primary hover:underline">
-                  +7 (499) 707-35-35
-                </a>
-              </div>
-            </div>
+            {/* Logo */}
+            <Link to="/" className="relative flex items-center flex-shrink-0 min-w-0 z-50">
+              <img 
+                src={logoImage} 
+                alt="O'KEY ENGLISH" 
+                className="h-[105px] w-[105px] rounded-full object-cover border-2 border-white shadow-lg absolute left-0 top-0"
+              />
+              {/* Invisible spacer to maintain layout space */}
+              <div className="h-16 w-[105px]"></div>
+            </Link>
 
             {/* Desktop Navigation */}
             <nav className="hidden xl:flex items-center space-x-6 flex-1 justify-center mx-8">
