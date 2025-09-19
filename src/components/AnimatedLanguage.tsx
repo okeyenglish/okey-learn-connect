@@ -70,7 +70,7 @@ export default function AnimatedLanguage() {
   return (
     <span
       ref={containerRef}
-      className="inline-block align-baseline overflow-hidden text-center mx-auto"
+      className="inline-block align-baseline overflow-hidden"
       style={{ 
         height: '1em', 
         width: width ?? undefined,

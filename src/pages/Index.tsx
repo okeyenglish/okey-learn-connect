@@ -49,7 +49,7 @@ export default function Index() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="text-center max-w-4xl mx-auto">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
-              <span className="flex items-baseline justify-center gap-2 text-center">
+              <span className="inline-flex items-baseline justify-center gap-2">
                 <AnimatedLanguage />
               </span>
               <br />
