@@ -4,18 +4,19 @@ import { MapPin, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { branches } from '@/lib/branches';
+import moscowMapImage from '@/assets/moscow-map.png';
 
-// Примерные координаты филиалов на карте (в пикселях относительно изображения)
+// Координаты филиалов на реальной карте (в процентах относительно изображения)
 const branchPositions = {
-  'kotelniki': { x: 65, y: 75, yandexQuery: 'Котельники, 2-й Покровский проезд, 14к2' },
-  'novokosino': { x: 75, y: 65, yandexQuery: 'Реутов, Юбилейный проспект, 60' },
-  'okskaya': { x: 45, y: 85, yandexQuery: 'Москва, ул. Окская, д. 3, корп. 1' },
-  'stakhanovskaya': { x: 40, y: 70, yandexQuery: 'Москва, 2-й Грайвороновский пр-д, 42к1' },
-  'solntsevo': { x: 20, y: 60, yandexQuery: 'Москва, ул. Богданова, 6к1' },
-  'mytishchi': { x: 50, y: 25, yandexQuery: 'Мытищи, ул. Борисовка, 16А' },
-  'lyubertsy-1': { x: 70, y: 80, yandexQuery: 'Люберцы, 3 Почтовое отделение, 65к1' },
-  'lyubertsy-2': { x: 72, y: 82, yandexQuery: 'Люберцы, проспект Гагарина, 3/8' },
-  'online': { x: 50, y: 50, yandexQuery: null } // Онлайн в центре карты
+  'kotelniki': { x: 75, y: 78, yandexQuery: 'Котельники, 2-й Покровский проезд, 14к2' },
+  'novokosino': { x: 85, y: 65, yandexQuery: 'Реутов, Юбилейный проспект, 60' },
+  'okskaya': { x: 70, y: 85, yandexQuery: 'Москва, ул. Окская, д. 3, корп. 1' },
+  'stakhanovskaya': { x: 45, y: 72, yandexQuery: 'Москва, 2-й Грайвороновский пр-д, 42к1' },
+  'solntsevo': { x: 12, y: 60, yandexQuery: 'Москва, ул. Богданова, 6к1' },
+  'mytishchi': { x: 60, y: 15, yandexQuery: 'Мытищи, ул. Борисовка, 16А' },
+  'lyubertsy-1': { x: 85, y: 82, yandexQuery: 'Люберцы, 3 Почтовое отделение, 65к1' },
+  'lyubertsy-2': { x: 85, y: 88, yandexQuery: 'Люберцы, проспект Гагарина, 3/8' },
+  'online': { x: 50, y: 47, yandexQuery: null } // Онлайн в центре карты
 };
 
 export default function StaticBranchesMap() {
@@ -36,38 +37,13 @@ export default function StaticBranchesMap() {
     <div className="relative">
       <Card className="overflow-hidden">
         <CardContent className="p-0">
-          {/* Статическая карта как фон */}
-          <div className="relative aspect-[4/3] bg-gradient-to-br from-blue-50 to-green-50 overflow-hidden">
-            {/* SVG карта Москвы и области (упрощенная) */}
-            <svg 
-              viewBox="0 0 100 100" 
-              className="w-full h-full"
-              style={{ background: 'linear-gradient(135deg, #e3f2fd 0%, #f1f8e9 100%)' }}
-            >
-              {/* МКАД */}
-              <circle 
-                cx="50" 
-                cy="50" 
-                r="25" 
-                fill="none" 
-                stroke="#666" 
-                strokeWidth="0.5"
-                strokeDasharray="2,1"
-              />
-              
-              {/* Основные районы */}
-              <rect x="40" y="40" width="20" height="20" fill="#f5f5f5" stroke="#ddd" strokeWidth="0.2" rx="2" />
-              
-              {/* Подмосковье */}
-              <rect x="10" y="10" width="80" height="80" fill="none" stroke="#aaa" strokeWidth="0.3" strokeDasharray="3,2" rx="5" />
-              
-              {/* Реки (упрощенно) */}
-              <path d="M20,60 Q50,45 80,55" stroke="#4fc3f7" strokeWidth="1" fill="none" />
-              
-              {/* Районы текстом */}
-              <text x="50" y="35" textAnchor="middle" fontSize="3" fill="#666">Москва</text>
-              <text x="25" y="25" textAnchor="middle" fontSize="2.5" fill="#888">Подмосковье</text>
-            </svg>
+          {/* Реальная карта Москвы и Подмосковья */}
+          <div className="relative aspect-[4/3] overflow-hidden">
+            <img 
+              src={moscowMapImage} 
+              alt="Карта Москвы и Подмосковья с филиалами O'KEY English"
+              className="w-full h-full object-cover"
+            />
 
             {/* Маркеры филиалов */}
             {branches.map((branch) => {
