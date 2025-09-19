@@ -24,6 +24,11 @@ export default function ChatBot() {
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Count user messages to limit chat usage
+  const userMessageCount = messages.filter(m => m.role === 'user').length;
+  const maxMessages = 5;
+  const isLimitReached = userMessageCount >= maxMessages;
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -107,6 +112,9 @@ export default function ChatBot() {
     const q = input.trim();
     if (!q) return;
     
+    // Check if limit will be reached with this message
+    const willReachLimit = (userMessageCount + 1) >= maxMessages;
+    
     const userMessage: Message = { role: "user", content: q };
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
@@ -134,14 +142,25 @@ export default function ChatBot() {
         throw new Error(error.message);
       }
 
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: data.showContacts 
-          ? "Лучше такой вопрос уточнить у менеджера поддержки. Они сейчас онлайн в мессенджерах:"
-          : data.answer,
-        showContacts: data.showContacts,
-        sources: data.sources
-      };
+      let assistantMessage: Message;
+
+      // Show limit message if this is the 5th user message
+      if (willReachLimit) {
+        assistantMessage = {
+          role: "assistant",
+          content: "Для более детального обсуждения и записи на курсы рекомендую обратиться напрямую к нашим менеджерам:",
+          showContacts: true
+        };
+      } else {
+        assistantMessage = {
+          role: "assistant",
+          content: data.showContacts 
+            ? "Лучше такой вопрос уточнить у менеджера поддержки. Они сейчас онлайн в мессенджерах:"
+            : data.answer,
+          showContacts: data.showContacts,
+          sources: data.sources
+        };
+      }
       
       setMessages(prev => [...prev, assistantMessage]);
     } catch (e: any) {
@@ -180,11 +199,18 @@ export default function ChatBot() {
     <Card className="fixed bottom-24 sm:bottom-20 left-4 right-4 sm:left-auto sm:right-6 z-50 w-auto sm:w-full sm:max-w-md shadow-2xl">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-            <span className="hidden sm:inline">Помощник O'KEY ENGLISH</span>
-            <span className="sm:hidden">Помощник</span>
-          </CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+              <span className="hidden sm:inline">Помощник O'KEY ENGLISH</span>
+              <span className="sm:hidden">Помощник</span>
+            </CardTitle>
+            {!isLimitReached && userMessageCount > 0 && (
+              <span className="text-xs bg-muted px-2 py-1 rounded-full">
+                {maxMessages - userMessageCount} осталось
+              </span>
+            )}
+          </div>
           <Button
             variant="ghost"
             size="sm"
@@ -333,23 +359,60 @@ export default function ChatBot() {
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <Input
-            className="flex-1"
-            placeholder="Напишите вопрос…"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={loading}
-          />
-          <Button
-            onClick={ask}
-            disabled={loading || !input.trim()}
-            size="icon"
-          >
-            <Send className="w-4 h-4" />
-          </Button>
-        </div>
+        {!isLimitReached ? (
+          <div className="flex gap-2">
+            <Input
+              className="flex-1"
+              placeholder="Напишите вопрос…"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={loading}
+            />
+            <Button
+              onClick={ask}
+              disabled={loading || !input.trim()}
+              size="icon"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
+        ) : (
+          <div className="text-center">
+            <div className="text-sm text-muted-foreground mb-3 p-3 bg-muted/30 rounded-lg">
+              Лимит сообщений исчерпан. Для продолжения общения обратитесь к менеджерам:
+            </div>
+            <div className="flex gap-2 justify-center">
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex items-center gap-2 px-4"
+                onClick={() => window.open('https://wa.me/79937073553', '_blank')}
+              >
+                <MessageCircle className="w-4 h-4 text-green-600" />
+                WhatsApp
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex items-center gap-2 px-4"
+                onClick={() => window.open('https://t.me/okeyenglish', '_blank')}
+              >
+                <Send className="w-4 h-4 text-blue-500" />
+                Telegram
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex items-center gap-2 px-4"
+                onClick={() => window.open('tel:+74997073535', '_blank')}
+              >
+                <Phone className="w-4 h-4 text-orange-500" />
+                Позвонить
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
