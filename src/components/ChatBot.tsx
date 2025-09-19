@@ -108,14 +108,25 @@ export default function ChatBot() {
     if (!q) return;
     
     const userMessage: Message = { role: "user", content: q };
-    setMessages(prev => [...prev, userMessage]);
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInput("");
     setLoading(true);
     
     try {
       console.log('Sending question to edge function...');
+      
+      // Send last 10 messages as conversation history
+      const conversationHistory = updatedMessages.slice(-10).map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+      
       const { data, error } = await supabase.functions.invoke('ask', {
-        body: { question: q }
+        body: { 
+          question: q,
+          history: conversationHistory
+        }
       });
 
       if (error) {

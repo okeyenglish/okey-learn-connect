@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { question } = await req.json();
+    const { question, history } = await req.json();
     
     if (!question || typeof question !== "string") {
       return new Response(
@@ -24,6 +24,7 @@ serve(async (req) => {
     }
 
     console.log('Processing question:', question);
+    console.log('Conversation history length:', history?.length || 0);
 
     // Quick handling for greetings and small talk to save tokens and avoid empty answers
     const normalized = (question || '').trim().toLowerCase().replace(/[!.,?]+$/g, '');
@@ -108,6 +109,11 @@ serve(async (req) => {
 
 КРИТИЧЕСКИ ВАЖНО: отвечай ТОЛЬКО на основе предоставленных источников.
 
+КОНТЕКСТ РАЗГОВОРА:
+- У тебя есть доступ к предыдущим сообщениям в этом диалоге
+- Используй контекст для понимания местоимений ("там", "он", "эта школа") и уточняющих вопросов
+- Если пользователь спрашивает "А расписание там какое?" после вопроса про филиал — отвечай про расписание этого филиала
+
 ЗАПРЕЩЕНО:
 - Выдумывать факты, адреса, цены, скидки
 - Перенаправлять к менеджерам, если ответ явно есть в источниках
@@ -147,15 +153,34 @@ serve(async (req) => {
       return new Response(JSON.stringify(response), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // Build conversation messages including history
     const messages = [
-      { role: "system", content: instruction },
-      { 
-        role: "user", 
-        content: hasContexts 
-          ? `ВОПРОС: ${question}\n\nИСТОЧНИКИ:\n${contextText}\n\nОТВЕЧАЙ КОНКРЕТНО ИЗ ИСТОЧНИКОВ! Если вопрос про цены и в источниках нет чисел с валютой — скажи, что цены уточняются у менеджера. Укажи номера источников в конце.`
-          : `ВОПРОС: ${question}\n\nИсточников нет. Скажи что нужно уточнить у менеджеров.`
-      },
+      { role: "system", content: instruction }
     ];
+
+    // Add conversation history (excluding the current question)
+    if (history && Array.isArray(history) && history.length > 1) {
+      const historyMessages = history.slice(0, -1); // Exclude the current user message
+      console.log('Adding history messages:', historyMessages.length);
+      
+      // Add each message from history
+      for (const msg of historyMessages) {
+        if (msg.role === 'user' || msg.role === 'assistant') {
+          messages.push({
+            role: msg.role,
+            content: msg.content
+          });
+        }
+      }
+    }
+
+    // Add the current question with context
+    messages.push({ 
+      role: "user", 
+      content: hasContexts 
+        ? `ВОПРОС: ${question}\n\nИСТОЧНИКИ:\n${contextText}\n\nОТВЕЧАЙ КОНКРЕТНО ИЗ ИСТОЧНИКОВ! Если вопрос про цены и в источниках нет чисел с валютой — скажи, что цены уточняются у менеджера. Укажи номера источников в конце.`
+        : `ВОПРОС: ${question}\n\nИсточников нет. Скажи что нужно уточнить у менеджеров.`
+    });
 
     // 3) Generate response using OpenAI (GPT-4.1 mini by default)
     const primaryModel = "gpt-4.1-mini-2025-04-14";
