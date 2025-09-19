@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { branches, BranchWithSchedule } from "@/lib/branches";
-import StaticBranchesMap from "@/components/StaticBranchesMap";
 import { 
   MapPin, 
   Clock, 
@@ -409,7 +408,17 @@ export default function Locations() {
         {/* Map Section */}
         <section className="mb-16">
           <h2 className="text-3xl font-bold text-center mb-8">Все филиалы на карте</h2>
-          <StaticBranchesMap />
+          <Card className="card-elevated">
+            <CardContent className="p-0">
+              <div className="aspect-[16/9] bg-gradient-subtle rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  <MapPin className="w-16 h-16 text-primary mx-auto mb-4" />
+                  <p className="text-lg font-semibold">Интерактивная карта</p>
+                  <p className="text-sm text-muted-foreground">8 филиалов O'KEY ENGLISH в Москве и Подмосковье + онлайн</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </section>
 
         {/* CTA Section */}
