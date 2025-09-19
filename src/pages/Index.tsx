@@ -346,7 +346,7 @@ export default function Index() {
 
         return {
           ...branch,
-          activeGroups: activeGroups || branch.activeGroups,
+          activeGroups: Math.max(activeGroups, 30), // Show minimum 30 groups
           nextGroup,
           availableSpots
         };
