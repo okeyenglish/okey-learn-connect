@@ -147,7 +147,7 @@ export default function Header() {
                      </div>
                      
                      {/* Main action buttons with consistent styling and spacing */}
-                     <div className="mt-6 space-y-3">
+                     <div className="mt-4 space-y-2">
                        <Link to="/test" onClick={() => setIsOpen(false)}>
                          <Button variant="outline" className="w-full justify-center gap-2 h-12">
                            <BookOpen className="w-4 h-4" />
