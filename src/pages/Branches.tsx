@@ -12,6 +12,7 @@ import stakhanovskayaImage from "@/assets/stakhanovskaya-branch.jpg";
 import mytishchiImage from "@/assets/mytishchi-branch.jpg";
 import krasnayaGorkaImage from "@/assets/krasnaya-gorka-branch.jpg";
 import solntsevoImage from "@/assets/solntsevo-branch.jpg";
+import onlineSchoolImage from "@/assets/online-school-branch.jpg";
 import { 
   MapPin, 
   Clock, 
@@ -145,7 +146,7 @@ const branches = [
     address: "Cambridge One платформа",
     metro: "По всей планете",
     workingHours: "24/7 доступ к материалам",
-    image: "/placeholder-online.jpg",
+    image: onlineSchoolImage,
     features: ["Cambridge One", "Интерактивные уроки", "Гибкое расписание"]
   }
 ];

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Globe, Monitor, Headphones, Clock, Users, Award } from "lucide-react";
 import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
+import onlineSchoolImage from "@/assets/online-school-branch.jpg";
 
 const LocationOnline = () => {
   return (
@@ -21,6 +22,19 @@ const LocationOnline = () => {
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Изучайте английский язык из любой точки планеты на современной платформе Cambridge One
           </p>
+        </div>
+
+        {/* Hero Image */}
+        <div className="mb-16">
+          <Card className="overflow-hidden">
+            <CardContent className="p-0">
+              <img 
+                src={onlineSchoolImage} 
+                alt="Онлайн обучение английскому языку - студенты занимаются дома за компьютерами"
+                className="w-full h-[400px] object-cover"
+              />
+            </CardContent>
+          </Card>
         </div>
 
         {/* Features Grid */}
