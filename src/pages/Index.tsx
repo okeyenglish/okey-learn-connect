@@ -204,7 +204,8 @@ export default function Index() {
 
   const fetchScheduleData = async () => {
     try {
-      const { data: scheduleData, error } = await supabase.rpc('get_public_schedule');
+      // Call without parameters to avoid ambiguity
+      const { data: scheduleData, error } = await supabase.rpc('get_public_schedule', {});
       
       if (error) {
         console.error('Error fetching schedule:', error);
