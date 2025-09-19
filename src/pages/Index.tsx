@@ -372,9 +372,8 @@ export default function Index() {
           return `${dayName} в ${occ.timeStart}`;
         };
 
-        // Compute earliest upcoming time (prefer groups with vacancies > 0)
-        const withVacancies = branchSchedules.filter(s => (s.vacancies || 0) > 0);
-        const candidates = withVacancies.length ? withVacancies : branchSchedules;
+        // Compute earliest upcoming time across all groups (ignore vacancies)
+        const candidates = branchSchedules;
         let bestOcc: { date: Date; daysDiff: number; timeStart: string } | null = null;
         for (const s of candidates) {
           const occ = getNextOccurrence(s);
