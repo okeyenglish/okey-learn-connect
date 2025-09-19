@@ -286,13 +286,13 @@ export default function Index() {
               Филиалы и расписание
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-              9 филиалов в удобных локациях + онлайн школа. Гибкое расписание, есть группы каждый день
+              8 филиалов в удобных локациях + онлайн школа. Гибкое расписание, есть группы каждый день
             </p>
             
             <div className="flex flex-wrap justify-center gap-4">
               <Badge variant="outline" className="px-4 py-2">
                 <MapPin className="w-4 h-4 mr-2" />
-                9 филиалов
+                8 филиалов
               </Badge>
               <Badge variant="outline" className="px-4 py-2">
                 <Users className="w-4 h-4 mr-2" />

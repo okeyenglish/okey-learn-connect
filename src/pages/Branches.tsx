@@ -140,13 +140,13 @@ export default function Locations() {
             Наши <span className="text-gradient">филиалы</span>
           </h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
-            9 удобных локаций в Москве и Подмосковье + онлайн школа с современными классами и опытными преподавателями
+            8 удобных локаций в Москве и Подмосковье + онлайн школа с современными классами и опытными преподавателями
           </p>
           
           <div className="flex flex-wrap justify-center gap-4">
             <Badge variant="outline" className="px-4 py-2">
               <MapPin className="w-4 h-4 mr-2" />
-              9 филиалов
+              8 филиалов
             </Badge>
             <Badge variant="outline" className="px-4 py-2">
               <Users className="w-4 h-4 mr-2" />
@@ -328,7 +328,7 @@ export default function Locations() {
                 <div className="text-center">
                   <MapPin className="w-16 h-16 text-primary mx-auto mb-4" />
                   <p className="text-lg font-semibold">Интерактивная карта</p>
-                  <p className="text-sm text-muted-foreground">9 филиалов O'KEY ENGLISH в Москве и Подмосковье + онлайн</p>
+                  <p className="text-sm text-muted-foreground">8 филиалов O'KEY ENGLISH в Москве и Подмосковье + онлайн</p>
                 </div>
               </div>
             </CardContent>

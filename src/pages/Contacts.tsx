@@ -277,7 +277,7 @@ export default function Contacts() {
               <CardHeader>
                 <CardTitle>Наши филиалы</CardTitle>
                 <CardDescription>
-                  9 филиалов в Москве и онлайн
+                  8 филиалов в Москве и онлайн
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
