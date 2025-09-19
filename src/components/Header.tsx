@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Phone, MessageCircle, BookOpen, UserCheck, Send, Gift } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Menu, Phone, MessageCircle, BookOpen, UserCheck, Send, Gift, MapPin } from "lucide-react";
 import logoImage from "@/assets/okey-english-logo.jpg";
+import { getBranchesForSelect } from "@/lib/branches";
 
 const navigation = [
   { name: "Главная", href: "/" },
@@ -19,6 +21,8 @@ const navigation = [
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const branchesForSelect = getBranchesForSelect();
 
   const handleWhatsApp = () => {
     window.open("https://wa.me/79937073553", "_blank");
@@ -30,6 +34,10 @@ export default function Header() {
 
   const handleCall = () => {
     window.open("tel:+74997073535", "_blank");
+  };
+
+  const handleBranchSelect = (branchId: string) => {
+    navigate(`/branches/${branchId}`);
   };
 
   return (
@@ -65,6 +73,26 @@ export default function Header() {
                 </Link>
               ))}
             </nav>
+
+            {/* Branch Selector */}
+            <div className="hidden md:flex items-center mr-4">
+              <Select onValueChange={handleBranchSelect}>
+                <SelectTrigger className="w-[180px] h-9">
+                  <MapPin className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="Выберите филиал" />
+                </SelectTrigger>
+                <SelectContent>
+                  {branchesForSelect.map((branch) => (
+                    <SelectItem key={branch.value} value={branch.value}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{branch.label}</span>
+                        <span className="text-xs text-muted-foreground">{branch.address}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Desktop CTA Buttons */}
             <div className="hidden lg:flex items-center space-x-2 flex-shrink-0">
