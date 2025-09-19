@@ -7,22 +7,11 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Gift, Phone, User, MapPin, BookOpen, Calendar, Check, Sparkles, MessageCircle, Clock } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
+import { getBranchesForSelect } from "@/lib/branches";
 
 interface PriceCalculatorProps {
   preSelectedBranch?: string;
 }
-
-const branches = [
-  { name: "Котельники", value: "kotelniki" },
-  { name: "Новокосино", value: "novokosino" },
-  { name: "Окская", value: "okskaya" },
-  { name: "Стахановская", value: "stakhanovskaya" },
-  { name: "Солнцево", value: "solntsevo" },
-  { name: "Мытищи", value: "mytishchi" },
-  { name: "Люберцы", value: "lyubertsy-1" },
-  { name: "Красная горка", value: "lyubertsy-2" },
-  { name: "Онлайн школа", value: "online" },
-];
 
 const ageRanges = [
   { label: "3-6 лет", value: "3-6", basePrice: 6000 },
@@ -32,6 +21,7 @@ const ageRanges = [
 ];
 
 export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorProps) {
+  const branches = getBranchesForSelect().map(b => ({ name: b.label, value: b.value }));
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     age: "",
@@ -177,7 +167,9 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
   const renderStep = () => {
     switch (currentStep) {
       case 1:
-        return (
+  const branches = getBranchesForSelect();
+
+  return (
           <div className="space-y-6">
             <div className="text-center">
               <Calendar className="w-12 h-12 text-primary mx-auto mb-4" />
@@ -269,7 +261,7 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
                   }}
                 >
                   <CardContent className="p-4 text-center">
-                    <div className="font-medium">{branch.name}</div>
+                    <div className="font-medium">{branch.label}</div>
                   </CardContent>
                 </Card>
               ))}

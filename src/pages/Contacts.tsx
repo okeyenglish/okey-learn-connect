@@ -15,18 +15,7 @@ import {
   Send,
   CheckCircle
 } from "lucide-react";
-
-const branches = [
-  { value: "kotelniki", label: "Котельники", address: "2-й Покровский проезд, 14к2" },
-  { value: "novokosino", label: "Новокосино", address: "Реутов, Юбилейный проспект, 60" },
-  { value: "okskaya", label: "Окская", address: "ул. Окская, д. 3, корп. 1" },
-  { value: "stakhanovskaya", label: "Стахановская", address: "2-й Грайвороновский пр-д, 42к1" },
-  { value: "lyubertsy1", label: "Люберцы", address: "ул. Юбилейная, д. 6А" },
-  { value: "lyubertsy2", label: "Красная горка", address: "ул. Красная, д. 15" },
-  { value: "mytishchi", label: "Мытищи", address: "ул. Мира, д. 32" },
-  { value: "solntsevo", label: "Солнцево", address: "Боровское шоссе, д. 45" },
-  { value: "online", label: "Онлайн школа", address: "Платформа Cambridge One" },
-];
+import { getBranchesForSelect } from "@/lib/branches";
 
 const courses = [
   "Super Safari (3-6 лет)",
@@ -36,6 +25,7 @@ const courses = [
 ];
 
 export default function Contacts() {
+  const branches = getBranchesForSelect();
   const [formData, setFormData] = useState({
     name: "",
     phone: "",

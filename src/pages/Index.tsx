@@ -5,15 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import AnimatedLanguage from "@/components/AnimatedLanguage";
-import novokosinoImage from "@/assets/novokosino-branch.jpg";
-import kotelnikiImage from "@/assets/kotelniki-branch.jpg";
-import okskayaImage from "@/assets/okskaya-branch.jpg";
-import lyubertsyImage from "@/assets/lyubertsy-branch.jpg";
-import stakhanovskayaImage from "@/assets/stakhanovskaya-branch.jpg";
-import mytishchiImage from "@/assets/mytishchi-branch.jpg";
-import krasnayaGorkaImage from "@/assets/krasnaya-gorka-branch.jpg";
-import solntsevoImage from "@/assets/solntsevo-branch.jpg";
-import onlineSchoolImage from "@/assets/online-school-branch.jpg";
+import { getBranchesForIndex, BranchForIndex } from "@/lib/branches";
 import { 
   GraduationCap, 
   Users, 
@@ -40,89 +32,7 @@ import {
   Languages
 } from "lucide-react";
 
-const branches = [
-  { 
-    name: "Котельники", 
-    address: "2-й Покровский проезд, 14к2", 
-    slug: "kotelniki",
-    workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
-    activeGroups: 12,
-    nextGroup: "Завтра 18:00",
-    image: kotelnikiImage
-  },
-  { 
-    name: "Новокосино", 
-    address: "Реутов, Юбилейный проспект, 60", 
-    slug: "novokosino",
-    workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
-    activeGroups: 8,
-    nextGroup: "Сегодня 19:30",
-    image: novokosinoImage
-  },
-  { 
-    name: "Окская/Кузьминки/Текстильщики", 
-    address: "ул. Окская, д. 3, корп. 1", 
-    slug: "okskaya",
-    workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
-    activeGroups: 10,
-    nextGroup: "Завтра 17:00",
-    image: okskayaImage
-  },
-  { 
-    name: "Стахановская", 
-    address: "2-й Грайвороновский пр-д, 42к1", 
-    slug: "stakhanovskaya",
-    workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
-    activeGroups: 15,
-    nextGroup: "Сегодня 18:30",
-    image: stakhanovskayaImage
-  },
-  { 
-    name: "Солнцево", 
-    address: "ул. Богданова, 6к1", 
-    slug: "solntsevo",
-    workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
-    activeGroups: 9,
-    nextGroup: "Завтра 16:00",
-    image: solntsevoImage
-  },
-  { 
-    name: "Мытищи", 
-    address: "ул. Борисовка, 16А", 
-    slug: "mytishchi",
-    workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
-    activeGroups: 11,
-    nextGroup: "Сегодня 17:30",
-    image: mytishchiImage
-  },
-  { 
-    name: "Люберцы", 
-    address: "3 Почтовое отделение, 65к1", 
-    slug: "lyubertsy-1",
-    workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
-    activeGroups: 7,
-    nextGroup: "Завтра 19:00",
-    image: lyubertsyImage
-  },
-  { 
-    name: "Красная Горка", 
-    address: "проспект Гагарина, 3/8", 
-    slug: "lyubertsy-2",
-    workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
-    activeGroups: 13,
-    nextGroup: "Сегодня 20:00",
-    image: krasnayaGorkaImage
-  },
-  { 
-    name: "Онлайн школа", 
-    address: "Cambridge One платформа", 
-    slug: "online",
-    workingHours: "24/7 доступ к материалам",
-    activeGroups: 25,
-    nextGroup: "Каждый час",
-    image: onlineSchoolImage
-  },
-];
+const branches = getBranchesForIndex();
 
 const advantages = [
   {

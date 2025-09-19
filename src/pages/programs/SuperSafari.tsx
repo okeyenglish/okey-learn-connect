@@ -21,15 +21,13 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const branches = [
-  "Котельники", "Новокосино", "Окская", "Стахановская", 
-  "Солнцево", "Мытищи", "Люберцы", "Красная горка", "Онлайн школа"
-];
+import { getBranchNamesForPrograms } from "@/lib/branches";
 
 export default function SuperSafari() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [branch, setBranch] = useState("");
+  const branches = getBranchNamesForPrograms();
   const { toast } = useToast();
 
   const handleSubmit = (e: React.FormEvent) => {

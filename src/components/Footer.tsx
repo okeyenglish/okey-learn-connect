@@ -1,18 +1,9 @@
 import { Link } from "react-router-dom";
 import { Phone, Mail, MapPin, MessageCircle, Send } from "lucide-react";
 import okeyLogo from "@/assets/okey-english-logo.jpg";
+import { getBranchesForFooter } from "@/lib/branches";
 
-const branches = [
-  { name: "Котельники", address: "2-й Покровский проезд, 14к2", slug: "kotelniki" },
-  { name: "Новокосино", address: "Реутов, Юбилейный проспект, 60", slug: "novokosino" },
-  { name: "Окская", address: "ул. Окская, д. 3, корп. 1", slug: "okskaya" },
-  { name: "Стахановская", address: "2-й Грайвороновский пр-д, 42к1", slug: "stakhanovskaya" },
-  { name: "Солнцево", address: "Богданова, 6к1", slug: "solntsevo" },
-  { name: "Мытищи", address: "Борисовка, 16А", slug: "mytishchi" },
-  { name: "Люберцы", address: "3 Почтовое отделение, 65к1", slug: "lyubertsy-1" },
-  { name: "Красная горка", address: "проспект Гагарина, 3/8", slug: "lyubertsy-2" },
-  { name: "Онлайн школа", address: "По всей планете", slug: "online" },
-];
+const branches = getBranchesForFooter();
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
