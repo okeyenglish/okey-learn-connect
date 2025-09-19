@@ -8,6 +8,7 @@ import novokosinoImage from "@/assets/novokosino-branch.jpg";
 import kotelnikiImage from "@/assets/kotelniki-branch.jpg";
 import okskayaImage from "@/assets/okskaya-branch.jpg";
 import lyubertsyImage from "@/assets/lyubertsy-branch.jpg";
+import stakhanovskayaImage from "@/assets/stakhanovskaya-branch.jpg";
 import { 
   MapPin, 
   Clock, 
@@ -96,7 +97,7 @@ const branches = [
     address: "2-й Грайвороновский пр-д, 42к1",
     metro: "Стахановская",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
-    image: "/placeholder-branch-4.jpg",
+    image: stakhanovskayaImage,
     features: ["Новый ремонт", "Мультимедиа", "Удобный подъезд"]
   },
   { 

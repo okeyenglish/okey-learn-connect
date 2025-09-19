@@ -9,6 +9,7 @@ import novokosinoImage from "@/assets/novokosino-branch.jpg";
 import kotelnikiImage from "@/assets/kotelniki-branch.jpg";
 import okskayaImage from "@/assets/okskaya-branch.jpg";
 import lyubertsyImage from "@/assets/lyubertsy-branch.jpg";
+import stakhanovskayaImage from "@/assets/stakhanovskaya-branch.jpg";
 import { 
   GraduationCap, 
   Users, 
@@ -69,7 +70,8 @@ const branches = [
     slug: "stakhanovskaya",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
     activeGroups: 15,
-    nextGroup: "Сегодня 18:30"
+    nextGroup: "Сегодня 18:30",
+    image: stakhanovskayaImage
   },
   { 
     name: "Солнцево", 

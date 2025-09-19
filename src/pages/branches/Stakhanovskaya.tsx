@@ -4,6 +4,7 @@ import { MapPin, Phone, MessageCircle, Send, Clock, UserCheck } from "lucide-rea
 import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
+import stakhanovskayaImage from "@/assets/stakhanovskaya-branch.jpg";
 
 export default function LocationStakhanovskaya() {
   const handleWhatsApp = () => {
@@ -37,6 +38,19 @@ export default function LocationStakhanovskaya() {
             <UserCheck className="w-4 h-4" />
             Пробный урок
           </Button>
+        </div>
+
+        {/* Branch Photo */}
+        <div className="mb-16">
+          <Card className="overflow-hidden">
+            <CardContent className="p-0">
+              <img 
+                src={stakhanovskayaImage} 
+                alt="Интерактивный урок английского в филиале O'KEY English на Стахановской - дети играют в образовательные игры"
+                className="w-full h-[400px] object-cover"
+              />
+            </CardContent>
+          </Card>
         </div>
 
         {/* Branch Info */}
