@@ -199,18 +199,11 @@ export default function ChatBot() {
     <Card className="fixed bottom-24 sm:bottom-20 left-4 right-4 sm:left-auto sm:right-6 z-50 w-auto sm:w-full sm:max-w-md shadow-2xl">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-              <span className="hidden sm:inline">Помощник O'KEY ENGLISH</span>
-              <span className="sm:hidden">Помощник</span>
-            </CardTitle>
-            {!isLimitReached && userMessageCount > 0 && (
-              <span className="text-xs bg-muted px-2 py-1 rounded-full">
-                {maxMessages - userMessageCount} осталось
-              </span>
-            )}
-          </div>
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+            <span className="hidden sm:inline">Помощник O'KEY ENGLISH</span>
+            <span className="sm:hidden">Помощник</span>
+          </CardTitle>
           <Button
             variant="ghost"
             size="sm"
