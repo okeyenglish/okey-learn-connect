@@ -381,12 +381,8 @@ export default function Index() {
 
         const nextGroup = formatFromOccurrence(bestOcc);
 
-        // Show at least 1 spot available if there are active groups but database shows 0
-        const availableSpots = totalVacancies > 0 
-          ? totalVacancies 
-          : activeGroups > 0 
-            ? 1 // Show minimum 1 spot if groups exist but database shows 0
-            : 3; // Default fallback
+        // Use real vacancy count from database
+        const availableSpots = totalVacancies;
 
         return {
           ...branch,
@@ -608,7 +604,10 @@ export default function Index() {
                         <div className="text-right">
                           <div className="text-sm text-muted-foreground">Свободно:</div>
                           <div className="text-primary font-semibold">
-                            {branch.availableSpots} {branch.availableSpots === 1 ? 'место' : branch.availableSpots < 5 ? 'места' : 'мест'}
+                            {branch.availableSpots === 0 
+                              ? 'Группа набрана' 
+                              : `${branch.availableSpots} ${branch.availableSpots === 1 ? 'место' : branch.availableSpots < 5 ? 'места' : 'мест'}`
+                            }
                           </div>
                         </div>
                       </div>
