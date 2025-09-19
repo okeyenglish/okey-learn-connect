@@ -252,14 +252,14 @@ export default function Locations() {
             branchesWithSchedule.map((branch) => (
             <Card key={branch.id} className="card-elevated hover:border-primary/50 transition-all overflow-hidden">
               <div className="aspect-[16/9] bg-gradient-subtle flex items-center justify-center overflow-hidden">
-                {branch.image && typeof branch.image === 'string' && branch.image.startsWith('/') ? (
-                  <span className="text-muted-foreground">Фото филиала {branch.name}</span>
-                ) : (
+                {branch.image ? (
                   <img 
                     src={branch.image} 
                     alt={`Интерьер филиала O'KEY English ${branch.name}`}
                     className="w-full h-full object-cover"
                   />
+                ) : (
+                  <span className="text-muted-foreground">Фото филиала {branch.name}</span>
                 )}
               </div>
               
