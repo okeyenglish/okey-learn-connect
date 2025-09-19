@@ -74,25 +74,6 @@ export default function Header() {
               ))}
             </nav>
 
-            {/* Branch Selector */}
-            <div className="hidden md:flex items-center mr-4">
-              <Select onValueChange={handleBranchSelect}>
-                <SelectTrigger className="w-[180px] h-9">
-                  <MapPin className="w-4 h-4 mr-2" />
-                  <SelectValue placeholder="Выберите филиал" />
-                </SelectTrigger>
-                <SelectContent>
-                  {branchesForSelect.map((branch) => (
-                    <SelectItem key={branch.value} value={branch.value}>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{branch.label}</span>
-                        <span className="text-xs opacity-70">{branch.address}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
             {/* Desktop CTA Buttons */}
             <div className="hidden lg:flex items-center space-x-2 flex-shrink-0">
