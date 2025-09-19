@@ -28,9 +28,80 @@ export default function ChatBot() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, loading]);
+  // Helper function to make links and phones clickable
+  const renderTextWithLinks = (text: string): React.ReactNode[] => {
+    // Regex patterns for URLs, emails and phone numbers
+    const urlRegex = /(https?:\/\/[^\s]+)/gi;
+    const phoneRegex = /(\+?[7-8][\s-]?\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{2}[\s-]?\d{2})/gi;
+    const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi;
+    
+    let parts: (string | React.ReactElement)[] = [text];
+    
+    // Process URLs
+    parts = parts.flatMap((part, partIndex) => 
+      typeof part === 'string' 
+        ? part.split(urlRegex).map((segment, index) => {
+            if (urlRegex.test(segment)) {
+              return (
+                <a 
+                  key={`url-${partIndex}-${index}`} 
+                  href={segment} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-primary underline hover:text-primary/80"
+                >
+                  {segment}
+                </a>
+              );
+            }
+            return segment;
+          })
+        : [part]
+    );
+    
+    // Process phone numbers
+    parts = parts.flatMap((part, partIndex) => 
+      typeof part === 'string' 
+        ? part.split(phoneRegex).map((segment, index) => {
+            if (phoneRegex.test(segment)) {
+              const cleanPhone = segment.replace(/[\s-()]/g, '');
+              return (
+                <a 
+                  key={`phone-${partIndex}-${index}`} 
+                  href={`tel:${cleanPhone}`}
+                  className="text-primary underline hover:text-primary/80"
+                >
+                  {segment}
+                </a>
+              );
+            }
+            return segment;
+          })
+        : [part]
+    );
+    
+    // Process emails
+    parts = parts.flatMap((part, partIndex) => 
+      typeof part === 'string' 
+        ? part.split(emailRegex).map((segment, index) => {
+            if (emailRegex.test(segment)) {
+              return (
+                <a 
+                  key={`email-${partIndex}-${index}`} 
+                  href={`mailto:${segment}`}
+                  className="text-primary underline hover:text-primary/80"
+                >
+                  {segment}
+                </a>
+              );
+            }
+            return segment;
+          })
+        : [part]
+    );
+    
+    return parts;
+  };
 
   async function ask() {
     const q = input.trim();
@@ -137,7 +208,7 @@ export default function ChatBot() {
                       ? "bg-primary text-primary-foreground" 
                       : "bg-background border"
                   }`}>
-                    {m.content}
+                    {m.role === "assistant" ? renderTextWithLinks(m.content) : m.content}
                   </div>
                   
                   {m.role === "assistant" && m.showContacts ? (
@@ -176,19 +247,18 @@ export default function ChatBot() {
                   ) : null}
                   
                   {m.role === "assistant" && m.sources?.length ? (
-                    <div className="text-xs text-muted-foreground space-x-2">
-                      <span>Источники:</span>
-                      {m.sources.map((s) => (
+                    <div className="text-xs text-muted-foreground">
+                      <span>Источник: </span>
+                      {m.sources.length > 0 && (
                         <a
-                          key={s.idx}
-                          href={s.url}
+                          href={m.sources[0].url}
                           className="underline hover:text-foreground"
                           target="_blank"
                           rel="noreferrer"
                         >
-                          [{s.idx}] {s.title}
+                          {m.sources[0].url}
                         </a>
-                      ))}
+                      )}
                     </div>
                   ) : null}
                 </div>
