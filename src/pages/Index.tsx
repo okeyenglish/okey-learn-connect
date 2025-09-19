@@ -80,7 +80,7 @@ const branches = [
     nextGroup: "Сегодня 17:30"
   },
   { 
-    name: "Люберцы/Жулебино", 
+    name: "Люберцы", 
     address: "3 Почтовое отделение, 65к1", 
     slug: "lyubertsy-1",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
