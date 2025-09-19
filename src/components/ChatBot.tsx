@@ -77,21 +77,22 @@ export default function ChatBot() {
     return (
       <Button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-20 right-6 z-50 w-14 h-14 rounded-full shadow-lg"
+        className="fixed bottom-4 sm:bottom-20 right-4 sm:right-6 z-50 w-12 h-12 sm:w-14 sm:h-14 rounded-full shadow-lg"
         size="icon"
       >
-        <MessageCircle className="w-6 h-6" />
+        <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
       </Button>
     );
   }
 
   return (
-    <Card className="fixed bottom-20 right-6 z-50 w-full max-w-md shadow-2xl">
+    <Card className="fixed bottom-4 sm:bottom-20 left-4 right-4 sm:left-auto sm:right-6 z-50 w-auto sm:w-full sm:max-w-md shadow-2xl">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Bot className="w-5 h-5 text-primary" />
-            Помощник O'KEY ENGLISH
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+            <span className="hidden sm:inline">Помощник O'KEY ENGLISH</span>
+            <span className="sm:hidden">Помощник</span>
           </CardTitle>
           <Button
             variant="ghost"
@@ -105,9 +106,9 @@ export default function ChatBot() {
       </CardHeader>
       
       <CardContent className="space-y-4">
-        <div className="max-h-96 overflow-y-auto space-y-3 p-2 border rounded-lg bg-muted/50">
+        <div className="max-h-64 sm:max-h-96 overflow-y-auto space-y-3 p-2 border rounded-lg bg-muted/50">
           {messages.length === 0 && (
-            <div className="text-sm text-muted-foreground text-center py-4">
+            <div className="text-xs sm:text-sm text-muted-foreground text-center py-4">
               Задайте вопрос о расписании, уровнях, стоимости, пробном уроке, филиалах…
             </div>
           )}
@@ -131,33 +132,36 @@ export default function ChatBot() {
                   </div>
                   
                   {m.role === "assistant" && m.showContacts ? (
-                    <div className="flex gap-2 mt-2 flex-wrap">
+                    <div className="flex gap-1 sm:gap-2 mt-2 flex-wrap">
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-xs flex items-center gap-1"
+                        className="text-xs flex items-center gap-1 px-2 py-1"
                         onClick={() => window.open('https://wa.me/79000000000', '_blank')}
                       >
                         <MessageCircle className="w-3 h-3 text-green-600" />
-                        WhatsApp
+                        <span className="hidden sm:inline">WhatsApp</span>
+                        <span className="sm:hidden">WA</span>
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-xs flex items-center gap-1"
+                        className="text-xs flex items-center gap-1 px-2 py-1"
                         onClick={() => window.open('https://t.me/englishmanager', '_blank')}
                       >
                         <Send className="w-3 h-3 text-blue-500" />
-                        Telegram
+                        <span className="hidden sm:inline">Telegram</span>
+                        <span className="sm:hidden">TG</span>
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-xs flex items-center gap-1"
+                        className="text-xs flex items-center gap-1 px-2 py-1"
                         onClick={() => window.open('tel:+79000000000', '_blank')}
                       >
                         <Phone className="w-3 h-3 text-orange-500" />
-                        Позвонить
+                        <span className="hidden sm:inline">Позвонить</span>
+                        <span className="sm:hidden">Тел</span>
                       </Button>
                     </div>
                   ) : null}
@@ -204,33 +208,36 @@ export default function ChatBot() {
           <div className="text-xs text-muted-foreground text-center mb-2">
             Нужна помощь? Свяжитесь с нами:
           </div>
-          <div className="flex gap-2 justify-center">
+          <div className="flex gap-1 sm:gap-2 justify-center">
             <Button
               size="sm"
               variant="outline"
-              className="text-xs flex items-center gap-1 flex-1"
+              className="text-xs flex items-center gap-1 flex-1 px-2 py-1"
               onClick={() => window.open('https://wa.me/79000000000', '_blank')}
             >
               <MessageCircle className="w-3 h-3 text-green-600" />
-              WhatsApp
+              <span className="hidden sm:inline">WhatsApp</span>
+              <span className="sm:hidden">WA</span>
             </Button>
             <Button
               size="sm"
               variant="outline"
-              className="text-xs flex items-center gap-1 flex-1"
+              className="text-xs flex items-center gap-1 flex-1 px-2 py-1"
               onClick={() => window.open('https://t.me/englishmanager', '_blank')}
             >
               <Send className="w-3 h-3 text-blue-500" />
-              Telegram
+              <span className="hidden sm:inline">Telegram</span>
+              <span className="sm:hidden">TG</span>
             </Button>
             <Button
               size="sm"
               variant="outline"
-              className="text-xs flex items-center gap-1 flex-1"
+              className="text-xs flex items-center gap-1 flex-1 px-2 py-1"
               onClick={() => window.open('tel:+79000000000', '_blank')}
             >
               <Phone className="w-3 h-3 text-orange-500" />
-              Звонок
+              <span className="hidden sm:inline">Звонок</span>
+              <span className="sm:hidden">Тел</span>
             </Button>
           </div>
         </div>
