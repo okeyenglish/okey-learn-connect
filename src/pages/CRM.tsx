@@ -622,7 +622,11 @@ const CRMContent = () => {
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    className="px-3 h-12 font-medium text-sm border-l"
+                    className={`px-4 h-12 font-medium rounded-none transition-colors border-l ${
+                      rightSidebarOpen 
+                        ? 'bg-muted text-foreground' 
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                    }`}
                   >
                     О клиенте
                   </Button>
@@ -630,7 +634,7 @@ const CRMContent = () => {
               </Sheet>
             )}
             {/* Только аватарка менеджера на мобильной версии */}
-            <div className="flex items-center px-3 border-l">
+            <div className="flex items-center px-4 h-12 border-l bg-background">
               <ManagerMenu
                 managerName={profile && profile.first_name && profile.last_name 
                   ? `${profile.first_name} ${profile.last_name}` 
