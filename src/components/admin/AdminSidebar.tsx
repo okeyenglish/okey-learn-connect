@@ -6,7 +6,8 @@ import {
   RefreshCw, 
   Users, 
   BarChart3,
-  Menu
+  Menu,
+  MessageSquare
 } from "lucide-react";
 import {
   Sidebar,
@@ -25,6 +26,7 @@ const adminItems = [
   { title: "Dashboard", id: "dashboard", icon: BarChart3 },
   { title: "FAQ", id: "faq", icon: HelpCircle },
   { title: "Schedule", id: "schedule", icon: Calendar },
+  { title: "WhatsApp", id: "whatsapp", icon: MessageSquare },
   { title: "Sync", id: "sync", icon: RefreshCw },
   { title: "Users", id: "users", icon: Users },
   { title: "Settings", id: "settings", icon: Settings },

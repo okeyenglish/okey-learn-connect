@@ -2,6 +2,7 @@ import { useState } from "react";
 import * as React from "react";
 import { AdminFAQManager } from "./AdminFAQManager";
 import { AdminScheduleManager } from "./AdminScheduleManager";
+import { WhatsAppSettings } from "./WhatsAppSettings";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -22,6 +23,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <AdminFAQManager />;
       case "schedule":
         return <AdminScheduleManager />;
+      case "whatsapp":
+        return <WhatsAppSettings />;
       case "sync":
         return (
           <Card>
@@ -78,6 +81,13 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 <CardHeader>
                   <CardTitle>Schedule Management</CardTitle>
                   <CardDescription>Manage class schedules and timetables</CardDescription>
+                </CardHeader>
+              </Card>
+              
+              <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("whatsapp")}>
+                <CardHeader>
+                  <CardTitle>WhatsApp Integration</CardTitle>
+                  <CardDescription>Configure WhatsApp messaging settings</CardDescription>
                 </CardHeader>
               </Card>
               
