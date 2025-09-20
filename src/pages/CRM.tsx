@@ -532,7 +532,7 @@ const CRMContent = () => {
         </div>
       </div>
 
-      <div className="flex flex-1 max-w-7xl mx-auto w-full min-h-0">
+      <div className="flex flex-1 max-w-7xl mx-auto w-full overflow-hidden">
         {/* Left Unified Sidebar */}
         <div className="w-80 bg-background border-r flex flex-col h-full">
           <Tabs defaultValue="chats" className="flex flex-col h-full">
