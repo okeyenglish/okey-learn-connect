@@ -108,6 +108,47 @@ const CRM = () => {
           ))}
         </div>
 
+        {/* Chat List */}
+        <div className="w-80 bg-background border-r flex flex-col">
+          <div className="p-4 border-b">
+            <h3 className="font-semibold">Чаты</h3>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-2 space-y-1">
+              <button className="w-full p-3 text-left rounded-lg bg-muted hover:bg-muted/80 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">Мария Петрова</p>
+                    <p className="text-xs text-muted-foreground">+7 (985) 261-50-56</p>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-xs text-muted-foreground">10:32</span>
+                    <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">2</span>
+                  </div>
+                </div>
+              </button>
+              <button className="w-full p-3 text-left rounded-lg hover:bg-muted/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">Анна Смирнова</p>
+                    <p className="text-xs text-muted-foreground">+7 (916) 123-45-67</p>
+                  </div>
+                  <span className="text-xs text-muted-foreground">09:15</span>
+                </div>
+              </button>
+              <button className="w-full p-3 text-left rounded-lg hover:bg-muted/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">Игорь Волков</p>
+                    <p className="text-xs text-muted-foreground">+7 (903) 987-65-43</p>
+                  </div>
+                  <span className="text-xs text-muted-foreground">Вчера</span>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Center - Chat */}
         <div className="flex-1 bg-background border-r flex flex-col min-w-0">
           {/* Chat Header */}
@@ -239,8 +280,8 @@ const CRM = () => {
               {/* Tabs */}
               <Tabs defaultValue="students" className="w-full">
                 <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="students">Дети/Студенты</TabsTrigger>
-                  <TabsTrigger value="courses">Курсы</TabsTrigger>
+                  <TabsTrigger value="students">Учатся</TabsTrigger>
+                  <TabsTrigger value="courses">Не учатся</TabsTrigger>
                   <TabsTrigger value="payments">Платежи</TabsTrigger>
                 </TabsList>
                 
@@ -249,17 +290,26 @@ const CRM = () => {
                     <AccordionItem value="pavel">
                       <AccordionTrigger className="text-sm">Павел</AccordionTrigger>
                       <AccordionContent className="space-y-2">
-                        <p className="text-sm">
-                          <a href="#" className="text-primary hover:underline">
-                            Ближайшее занятие сегодня в 17:20
-                          </a>
-                        </p>
-                        <p className="text-sm">
-                          <a href="#" className="text-primary hover:underline">
-                            Ближайшая оплата 25.09.2025
-                          </a>
-                        </p>
-                        <p className="text-sm text-muted-foreground">Курс: Kids Box 2</p>
+                        <div className="text-sm space-y-1">
+                          <p className="font-medium">Вт/Чт с 19:20 до 20:40</p>
+                          <p className="text-muted-foreground">с 26.08 по 28.05.26</p>
+                          <p className="text-muted-foreground">Ауд. WASHINGTON</p>
+                        </div>
+                        <div className="grid grid-cols-4 gap-1 text-xs mt-2">
+                          <div className="p-1 bg-muted rounded text-center">26.08</div>
+                          <div className="p-1 bg-muted rounded text-center">28.08</div>
+                          <div className="p-1 bg-muted rounded text-center">2.09</div>
+                          <div className="p-1 bg-muted rounded text-center">4.09</div>
+                          <div className="p-1 bg-muted rounded text-center">9.09</div>
+                          <div className="p-1 bg-muted rounded text-center">11.09</div>
+                          <div className="p-1 bg-muted rounded text-center">16.09</div>
+                          <div className="p-1 bg-muted rounded text-center">18.09</div>
+                          <div className="p-1 bg-green-100 text-green-800 rounded text-center">23.09</div>
+                          <div className="p-1 bg-green-100 text-green-800 rounded text-center">25.09</div>
+                          <div className="p-1 bg-muted rounded text-center">30.09</div>
+                          <div className="p-1 bg-muted rounded text-center">2.10</div>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-2">Курс: Kids Box 2</p>
                       </AccordionContent>
                     </AccordionItem>
                     <AccordionItem value="masha">
@@ -272,14 +322,23 @@ const CRM = () => {
                 </TabsContent>
                 
                 <TabsContent value="courses">
-                  <div className="text-sm text-muted-foreground">
-                    Информация о курсах
+                  <div className="space-y-2">
+                    <div className="p-2 bg-muted/50 rounded">
+                      <p className="text-sm font-medium">Мария Петрова</p>
+                      <p className="text-xs text-muted-foreground">Не обучается</p>
+                    </div>
                   </div>
                 </TabsContent>
                 
                 <TabsContent value="payments">
-                  <div className="text-sm text-muted-foreground">
-                    История платежей
+                  <div className="space-y-2">
+                    <div className="p-2 bg-orange-50 border border-orange-200 rounded">
+                      <p className="text-sm font-medium text-orange-800">Ближайшая оплата 25.09.2025</p>
+                      <p className="text-sm text-orange-600">Выставить счёт на сумму 11490₽ за Марию</p>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      История платежей
+                    </div>
                   </div>
                 </TabsContent>
               </Tabs>
