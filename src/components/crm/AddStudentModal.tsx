@@ -11,14 +11,16 @@ import { useToast } from "@/hooks/use-toast";
 
 interface AddStudentModalProps {
   familyGroupId: string;
+  parentLastName?: string;
   onStudentAdded?: () => void;
 }
 
-export const AddStudentModal = ({ familyGroupId, onStudentAdded }: AddStudentModalProps) => {
+export const AddStudentModal = ({ familyGroupId, parentLastName, onStudentAdded }: AddStudentModalProps) => {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
+    lastName: parentLastName || "",
     age: "",
     dateOfBirth: "",
     status: "trial" as "active" | "inactive" | "trial" | "graduated",
@@ -40,7 +42,7 @@ export const AddStudentModal = ({ familyGroupId, onStudentAdded }: AddStudentMod
         .from('students')
         .insert({
           family_group_id: familyGroupId,
-          name: formData.name,
+          name: `${formData.name} ${formData.lastName}`.trim(),
           age: parseInt(formData.age),
           date_of_birth: formData.dateOfBirth || null,
           status: formData.status,
@@ -74,6 +76,7 @@ export const AddStudentModal = ({ familyGroupId, onStudentAdded }: AddStudentMod
       // Reset form
       setFormData({
         name: "",
+        lastName: parentLastName || "",
         age: "",
         dateOfBirth: "",
         status: "trial",
@@ -129,15 +132,27 @@ export const AddStudentModal = ({ familyGroupId, onStudentAdded }: AddStudentMod
           <DialogTitle>Добавить ученика</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="student-name">Имя ученика *</Label>
-            <Input
-              id="student-name"
-              value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="Введите имя ученика"
-              required
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="student-name">Имя ученика *</Label>
+              <Input
+                id="student-name"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Введите имя ученика"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="student-lastname">Фамилия ученика *</Label>
+              <Input
+                id="student-lastname"
+                value={formData.lastName}
+                onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                placeholder="Введите фамилию ученика"
+                required
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

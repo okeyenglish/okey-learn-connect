@@ -37,6 +37,9 @@ export const FamilyCard = ({
   onCall 
 }: FamilyCardProps) => {
   const [activeTab, setActiveTab] = useState("children");
+  const [autoMessagesEnabled, setAutoMessagesEnabled] = useState(true);
+  const [selectedBranch, setSelectedBranch] = useState("Окская");
+  const [isChangingBranch, setIsChangingBranch] = useState(false);
   const { familyData, loading, error, refetch } = useFamilyData(familyGroupId);
   
   if (loading) {
@@ -140,9 +143,13 @@ export const FamilyCard = ({
               </Button>
               <Button
                 size="sm"
-                variant="outline"
-                onClick={() => onOpenChat?.(activeMember.id)}
-                className="h-8 w-8 p-0 text-green-600"
+                variant={autoMessagesEnabled ? "default" : "outline"}
+                onClick={() => {
+                  setAutoMessagesEnabled(!autoMessagesEnabled);
+                  onOpenChat?.(activeMember.id);
+                }}
+                className={`h-8 w-8 p-0 ${autoMessagesEnabled ? 'text-white bg-green-600 hover:bg-green-700' : 'text-green-600'}`}
+                title={autoMessagesEnabled ? "Автосообщения включены (нажмите чтобы отключить)" : "Автосообщения отключены (нажмите чтобы включить)"}
               >
                 <MessageCircle className="h-3 w-3" />
               </Button>
@@ -167,17 +174,35 @@ export const FamilyCard = ({
             </div>
             <div className="flex items-center gap-2">
               <Home className="h-3 w-3 text-muted-foreground" />
-              <select className="text-sm bg-white border border-slate-200 rounded px-2 py-1 text-slate-700 min-w-0 flex-1" defaultValue="okskaya">
-                <option value="kotelniki">Котельники</option>
-                <option value="novokosino">Новокосино</option>
-                <option value="okskaya">Окская</option>
-                <option value="stakhanovskaya">Стахановская</option>
-                <option value="solntsevo">Солнцево</option>
-                <option value="mytishchi">Мытищи</option>
-                <option value="lyubertsy-1">Люберцы</option>
-                <option value="lyubertsy-2">Красная горка</option>
-                <option value="online">Онлайн школа</option>
-              </select>
+              {isChangingBranch ? (
+                <select 
+                  className="text-sm bg-white border border-slate-200 rounded px-2 py-1 text-slate-700 min-w-0 flex-1" 
+                  value={selectedBranch}
+                  onChange={(e) => {
+                    setSelectedBranch(e.target.value);
+                    setIsChangingBranch(false);
+                  }}
+                  onBlur={() => setIsChangingBranch(false)}
+                  autoFocus
+                >
+                  <option value="Котельники">Котельники</option>
+                  <option value="Новокосино">Новокосино</option>
+                  <option value="Окская">Окская</option>
+                  <option value="Стахановская">Стахановская</option>
+                  <option value="Солнцево">Солнцево</option>
+                  <option value="Мытищи">Мытищи</option>
+                  <option value="Люберцы">Люберцы</option>
+                  <option value="Красная горка">Красная горка</option>
+                  <option value="Онлайн школа">Онлайн школа</option>
+                </select>
+              ) : (
+                <span 
+                  className="text-sm text-primary cursor-pointer border-b border-primary border-dashed hover:border-solid transition-all"
+                  onClick={() => setIsChangingBranch(true)}
+                >
+                  Филиал {selectedBranch}
+                </span>
+              )}
             </div>
           </div>
         </CardContent>
@@ -203,6 +228,7 @@ export const FamilyCard = ({
               </p>
               <AddStudentModal 
                 familyGroupId={familyGroupId}
+                parentLastName={activeMember.name.split(' ').pop()}
                 onStudentAdded={refetch}
               />
             </div>
@@ -211,6 +237,7 @@ export const FamilyCard = ({
               <div className="flex justify-end">
                 <AddStudentModal 
                   familyGroupId={familyGroupId}
+                  parentLastName={activeMember.name.split(' ').pop()}
                   onStudentAdded={refetch}
                 />
               </div>
