@@ -596,7 +596,13 @@ const CRMContent = () => {
             <Button
               variant={activeTab === 'chats' ? 'default' : 'ghost'}
               size="sm"
-              onClick={() => handleTabChange('chats')}
+              onClick={() => {
+                handleTabChange('chats');
+                // При нажатии на "Чаты" сбрасываем активный чат и возвращаемся к списку
+                if (isMobile && activeChatId) {
+                  setActiveChatId('');
+                }
+              }}
               className="flex-1 rounded-none h-12 font-medium"
             >
               Чаты
