@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Phone, MessageCircle, Mail, Video, Calendar, Users, Clock, ChevronRight, Send } from 'lucide-react';
+import { Search, Phone, MessageCircle, Video, Calendar, Users, Clock, ChevronRight, Send, Link, Copy } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { ChatMessage } from './ChatMessage';
+import { toast } from "sonner";
 
 interface TeacherGroup {
   id: string;
@@ -148,6 +149,19 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const handleLessonClick = (groupId: string) => {
     // Navigate to lesson page
     console.log('Navigate to lesson:', groupId);
+    // Here you would navigate to the lesson page
+    // For example: navigate(`/lesson/${groupId}`);
+  };
+
+  const handleCopyZoomLink = async (zoomLink?: string) => {
+    if (!zoomLink) return;
+    
+    try {
+      await navigator.clipboard.writeText(zoomLink);
+      toast.success("Ссылка скопирована в буфер обмена");
+    } catch (err) {
+      toast.error("Не удалось скопировать ссылку");
+    }
   };
 
   // Mock chat messages for individual teacher
@@ -338,7 +352,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                 <p className="text-xs text-muted-foreground">
                   {isGroupChat 
                     ? 'Общий чат всех преподавателей' 
-                    : `${currentTeacher?.branch} • ${currentTeacher?.lastSeen}`
+                    : `${currentTeacher?.branch} • ${currentTeacher?.phone}`
                   }
                 </p>
               </div>
@@ -349,11 +363,14 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                 <Button size="sm" variant="outline" className="h-7 w-7 p-0">
                   <Phone className="h-3 w-3" />
                 </Button>
-                <Button size="sm" variant="outline" className="h-7 w-7 p-0">
-                  <Video className="h-3 w-3" />
-                </Button>
-                <Button size="sm" variant="outline" className="h-7 w-7 p-0">
-                  <Mail className="h-3 w-3" />
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="h-7 w-7 p-0"
+                  onClick={() => handleCopyZoomLink(currentTeacher?.zoomLink)}
+                  title="Скопировать ссылку на занятие"
+                >
+                  <Link className="h-3 w-3" />
                 </Button>
               </div>
             )}
@@ -362,9 +379,10 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
         {/* Compact Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-          <TabsList className="grid w-full grid-cols-2 mx-3 mt-2 h-8">
+          <TabsList className="grid w-full grid-cols-3 mx-3 mt-2 h-8">
             <TabsTrigger value="диалог" className="text-xs">Диалог</TabsTrigger>
-            <TabsTrigger value="запланированные" className="text-xs">Запланированные сообщения</TabsTrigger>
+            <TabsTrigger value="расписание" className="text-xs">Расписание</TabsTrigger>
+            <TabsTrigger value="запланированные" className="text-xs">Запланированные</TabsTrigger>
           </TabsList>
 
           <div className="flex-1 overflow-hidden">
@@ -402,6 +420,114 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                 </div>
               </div>
             </TabsContent>
+
+            {/* Schedule tab - only for individual teachers */}
+            {!isGroupChat && (
+              <TabsContent value="расписание" className="h-full m-0">
+                <ScrollArea className="h-full p-3">
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      {currentTeacher?.groups.map((group) => (
+                        <div 
+                          key={group.id}
+                          onClick={() => handleLessonClick(group.id)}
+                          className="p-3 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2 mb-2">
+                                <h4 className="font-medium text-sm text-foreground">{group.name}</h4>
+                                <Badge variant="outline" className="text-xs">
+                                  {group.level}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center space-x-4">
+                                <div className="flex items-center space-x-1">
+                                  <Clock className="h-3 w-3 text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground">{group.nextLesson}</span>
+                                </div>
+                                <div className="flex items-center space-x-1">
+                                  <Users className="h-3 w-3 text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground">{group.studentsCount} учеников</span>
+                                </div>
+                              </div>
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Mock additional lessons */}
+                      <div 
+                        onClick={() => handleLessonClick('lesson-extra-1')}
+                        className="p-3 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <h4 className="font-medium text-sm text-foreground">Группа Elementary A2</h4>
+                              <Badge variant="outline" className="text-xs">
+                                Elementary
+                              </Badge>
+                            </div>
+                            <div className="flex items-center space-x-4">
+                              <div className="flex items-center space-x-1">
+                                <Clock className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-xs text-muted-foreground">24.09, 16:00-17:30</span>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <Users className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-xs text-muted-foreground">6 учеников</span>
+                              </div>
+                            </div>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      </div>
+
+                      <div 
+                        onClick={() => handleLessonClick('lesson-extra-2')}
+                        className="p-3 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <h4 className="font-medium text-sm text-foreground">Взрослые B1</h4>
+                              <Badge variant="outline" className="text-xs">
+                                Intermediate
+                              </Badge>
+                            </div>
+                            <div className="flex items-center space-x-4">
+                              <div className="flex items-center space-x-1">
+                                <Clock className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-xs text-muted-foreground">25.09, 19:00-20:30</span>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <Users className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-xs text-muted-foreground">8 учеников</span>
+                              </div>
+                            </div>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </ScrollArea>
+              </TabsContent>
+            )}
+
+            {/* Group chat schedule */}
+            {isGroupChat && (
+              <TabsContent value="расписание" className="h-full m-0">
+                <ScrollArea className="h-full p-3">
+                  <div className="text-center py-8">
+                    <Calendar className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-sm text-muted-foreground">Общее расписание всех преподавателей</p>
+                  </div>
+                </ScrollArea>
+              </TabsContent>
+            )}
 
             {/* Scheduled Messages tab */}
             <TabsContent value="запланированные" className="h-full m-0">
