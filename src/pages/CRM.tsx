@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -108,6 +108,25 @@ const CRMContent = () => {
   
   // Enable real-time updates for the active chat
   useRealtimeMessages(activeChatId);
+
+  // Автоматическое восстановление открытых модальных окон после загрузки
+  useEffect(() => {
+    if (!pinnedLoading && pinnedModals.length > 0) {
+      pinnedModals.forEach(modal => {
+        if (modal.isOpen) {
+          if (modal.type === 'task') {
+            setPinnedTaskClientId(modal.id);
+            setShowAddTaskModal(true);
+          } else if (modal.type === 'invoice') {
+            setPinnedInvoiceClientId(modal.id);
+            setShowInvoiceModal(true);
+          } else {
+            setOpenModal(modal.type);
+          }
+        }
+      });
+    }
+  }, [pinnedLoading, pinnedModals]);
 
   // Menu counters
   const tasksCount = allTasks?.length ?? 0;

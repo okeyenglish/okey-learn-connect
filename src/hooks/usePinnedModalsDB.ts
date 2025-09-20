@@ -40,7 +40,7 @@ export const usePinnedModalsDB = () => {
         type: modal.modal_type,
         title: modal.title,
         props: modal.props || {},
-        isOpen: false
+        isOpen: modal.is_open || false
       }));
 
       setPinnedModals(formattedModals);
@@ -112,26 +112,66 @@ export const usePinnedModalsDB = () => {
   }, [user]);
 
   // Открытие закрепленного модального окна
-  const openPinnedModal = useCallback((id: string, type: string) => {
-    setPinnedModals(prev => 
-      prev.map(m => 
-        m.id === id && m.type === type 
-          ? { ...m, isOpen: true }
-          : m
-      )
-    );
-  }, []);
+  const openPinnedModal = useCallback(async (id: string, type: string) => {
+    if (!user) return;
+
+    try {
+      // Обновляем в базе данных
+      const { error } = await supabase
+        .from('pinned_modals')
+        .update({ is_open: true })
+        .eq('user_id', user.id)
+        .eq('modal_id', id)
+        .eq('modal_type', type);
+
+      if (error) {
+        console.error('Error updating modal state:', error);
+        return;
+      }
+
+      // Обновляем локальное состояние
+      setPinnedModals(prev => 
+        prev.map(m => 
+          m.id === id && m.type === type 
+            ? { ...m, isOpen: true }
+            : m
+        )
+      );
+    } catch (error) {
+      console.error('Error opening pinned modal:', error);
+    }
+  }, [user]);
 
   // Закрытие закрепленного модального окна
-  const closePinnedModal = useCallback((id: string, type: string) => {
-    setPinnedModals(prev => 
-      prev.map(m => 
-        m.id === id && m.type === type 
-          ? { ...m, isOpen: false }
-          : m
-      )
-    );
-  }, []);
+  const closePinnedModal = useCallback(async (id: string, type: string) => {
+    if (!user) return;
+
+    try {
+      // Обновляем в базе данных
+      const { error } = await supabase
+        .from('pinned_modals')
+        .update({ is_open: false })
+        .eq('user_id', user.id)
+        .eq('modal_id', id)
+        .eq('modal_type', type);
+
+      if (error) {
+        console.error('Error updating modal state:', error);
+        return;
+      }
+
+      // Обновляем локальное состояние
+      setPinnedModals(prev => 
+        prev.map(m => 
+          m.id === id && m.type === type 
+            ? { ...m, isOpen: false }
+            : m
+        )
+      );
+    } catch (error) {
+      console.error('Error closing pinned modal:', error);
+    }
+  }, [user]);
 
   // Проверка, закреплено ли модальное окно
   const isPinned = useCallback((id: string, type: string) => {
