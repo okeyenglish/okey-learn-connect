@@ -37,7 +37,24 @@ serve(async (req) => {
   }
 
   try {
-    const { clientId, message, phoneNumber, fileUrl, fileName }: SendMessageRequest = await req.json()
+    const payload = await req.json().catch(() => ({} as any));
+
+    // Support connection test without requiring client/message params
+    if (payload?.action === 'test_connection') {
+      try {
+        const state = await getInstanceState();
+        return new Response(JSON.stringify({ success: true, state }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ success: false, error: e?.message || 'Failed to reach Green-API' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    const { clientId, message, phoneNumber, fileUrl, fileName } = payload as SendMessageRequest
     
     console.log('Sending message:', { clientId, message, phoneNumber, fileUrl, fileName })
 
