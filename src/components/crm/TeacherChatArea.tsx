@@ -85,6 +85,30 @@ const mockTeachers: Teacher[] = [
         nextLesson: '21.09, 15:00-15:45',
         studentsCount: 3,
         branch: 'Окская'
+      },
+      {
+        id: 'group-3',
+        name: 'Группа ОКС38_INT1',
+        level: 'Intermediate',
+        nextLesson: '22.09, 17:00-18:30',
+        studentsCount: 6,
+        branch: 'Окская'
+      },
+      {
+        id: 'group-4',
+        name: 'Kids Box 4',
+        level: 'Elementary',
+        nextLesson: '23.09, 16:00-17:00',
+        studentsCount: 5,
+        branch: 'Окская'
+      },
+      {
+        id: 'group-5',
+        name: 'Взрослые разговорный',
+        level: 'Upper-Intermediate',
+        nextLesson: '24.09, 20:00-21:30',
+        studentsCount: 7,
+        branch: 'Окская'
       }
     ]
   },
@@ -109,11 +133,35 @@ const mockTeachers: Teacher[] = [
     education: 'МПГУ, педагогический факультет',
     groups: [
       {
-        id: 'group-3',
+        id: 'group-6',
         name: 'Super Safari 2',
         level: 'Beginner',
         nextLesson: '22.09, 10:00-10:45',
         studentsCount: 6,
+        branch: 'Новокосино'
+      },
+      {
+        id: 'group-7',
+        name: 'Малыши 4-5 лет',
+        level: 'Starter',
+        nextLesson: '23.09, 11:00-11:45',
+        studentsCount: 4,
+        branch: 'Новокосино'
+      },
+      {
+        id: 'group-8',
+        name: 'Kids Box 1',
+        level: 'Beginner',
+        nextLesson: '24.09, 15:30-16:30',
+        studentsCount: 8,
+        branch: 'Новокосино'
+      },
+      {
+        id: 'group-9',
+        name: 'Дошкольники',
+        level: 'Pre-A1',
+        nextLesson: '25.09, 17:00-17:45',
+        studentsCount: 5,
         branch: 'Новокосино'
       }
     ]
@@ -139,11 +187,43 @@ const mockTeachers: Teacher[] = [
     education: 'Cambridge University, сертификат CELTA',
     groups: [
       {
-        id: 'group-4',
+        id: 'group-10',
         name: 'Empower B2',
         level: 'Upper-Intermediate',
         nextLesson: '23.09, 18:00-19:30',
         studentsCount: 8,
+        branch: 'Котельники'
+      },
+      {
+        id: 'group-11',
+        name: 'IELTS подготовка',
+        level: 'Advanced',
+        nextLesson: '24.09, 19:30-21:00',
+        studentsCount: 4,
+        branch: 'Котельники'
+      },
+      {
+        id: 'group-12',
+        name: 'Бизнес английский',
+        level: 'Upper-Intermediate',
+        nextLesson: '25.09, 10:00-11:30',
+        studentsCount: 6,
+        branch: 'Котельники'
+      },
+      {
+        id: 'group-13',
+        name: 'Взрослые Elementary',
+        level: 'Elementary',
+        nextLesson: '26.09, 18:30-20:00',
+        studentsCount: 7,
+        branch: 'Котельники'
+      },
+      {
+        id: 'group-14',
+        name: 'Cambridge FCE',
+        level: 'Upper-Intermediate',
+        nextLesson: '27.09, 17:00-18:30',
+        studentsCount: 5,
         branch: 'Котельники'
       }
     ]
@@ -356,11 +436,11 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
       {/* Chat Area with Header */}
       <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <div className="p-3 border-b border-border bg-background">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="relative">
+        {/* Header - Fixed height */}
+        <div className="p-3 border-b border-border bg-background shrink-0 h-16 flex items-center">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center space-x-3 flex-1 min-w-0">
+              <div className="relative shrink-0">
                 <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
                   <span className="text-primary font-medium text-xs">
                     {isGroupChat ? 'ЧП' : `${currentTeacher?.firstName[0]}${currentTeacher?.lastName[0]}`}
@@ -370,11 +450,11 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                   <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border border-background"></div>
                 )}
               </div>
-              <div>
-                <h3 className="font-medium text-sm text-foreground">
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-sm text-foreground truncate">
                   {isGroupChat ? 'Чат педагогов' : currentTeacher?.fullName}
                 </h3>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground truncate">
                   {isGroupChat 
                     ? 'Общий чат всех преподавателей' 
                     : `${currentTeacher?.branch} • ${currentTeacher?.phone}`
@@ -384,7 +464,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             </div>
             
             {!isGroupChat && (
-              <div className="flex items-center space-x-1">
+              <div className="flex items-center space-x-1 shrink-0">
                 <Button size="sm" variant="outline" className="h-7 w-7 p-0">
                   <Phone className="h-3 w-3" />
                 </Button>
@@ -402,33 +482,37 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
           </div>
         </div>
 
-        {/* Compact Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-          <TabsList className="grid w-full grid-cols-3 mx-3 mt-2 h-8">
-            <TabsTrigger value="диалог" className="text-xs">Диалог</TabsTrigger>
-            <TabsTrigger value="расписание" className="text-xs">Расписание</TabsTrigger>
-            <TabsTrigger value="профиль" className="text-xs">О преподавателе</TabsTrigger>
-          </TabsList>
+        {/* Compact Tabs - Fixed height */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+          <div className="shrink-0">
+            <TabsList className="grid w-full grid-cols-3 mx-3 mt-2 h-8">
+              <TabsTrigger value="диалог" className="text-xs">Диалог</TabsTrigger>
+              <TabsTrigger value="расписание" className="text-xs">Расписание</TabsTrigger>
+              <TabsTrigger value="профиль" className="text-xs">О преподавателе</TabsTrigger>
+            </TabsList>
+          </div>
 
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden">
             {/* Chat tab - Диалог */}
             <TabsContent value="диалог" className="h-full m-0 flex flex-col">
-              {/* Chat Messages Area */}
-              <ScrollArea className="flex-1 p-3">
-                <div className="space-y-1">
-                  {currentMessages.map((msg, index) => (
-                    <ChatMessage
-                      key={index}
-                      type={msg.type}
-                      message={msg.message}
-                      time={msg.time}
-                    />
-                  ))}
-                </div>
-              </ScrollArea>
+              {/* Chat Messages Area - Fixed height */}
+              <div className="flex-1 min-h-0">
+                <ScrollArea className="h-full">
+                  <div className="p-3 space-y-1">
+                    {currentMessages.map((msg, index) => (
+                      <ChatMessage
+                        key={index}
+                        type={msg.type}
+                        message={msg.message}
+                        time={msg.time}
+                      />
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
               
-              {/* Message Input */}
-              <div className="border-t p-3">
+              {/* Message Input - Fixed height */}
+              <div className="border-t p-3 shrink-0">
                 <div className="flex items-end gap-2">
                   <div className="flex-1">
                     <Textarea
@@ -439,7 +523,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                       rows={1}
                     />
                   </div>
-                  <Button size="icon" className="rounded-full h-10 w-10">
+                  <Button size="icon" className="rounded-full h-10 w-10 shrink-0">
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
@@ -449,94 +533,37 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             {/* Schedule tab - only for individual teachers */}
             {!isGroupChat && (
               <TabsContent value="расписание" className="h-full m-0">
-                <ScrollArea className="h-full p-3">
-                  <div className="space-y-3">
-                    <div className="space-y-2">
-                      {currentTeacher?.groups.map((group) => (
-                        <div 
-                          key={group.id}
-                          onClick={() => handleLessonClick(group.id)}
-                          className="p-3 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-2 mb-2">
-                                <h4 className="font-medium text-sm text-foreground">{group.name}</h4>
-                                <Badge variant="outline" className="text-xs">
-                                  {group.level}
-                                </Badge>
-                              </div>
-                              <div className="flex items-center space-x-4">
-                                <div className="flex items-center space-x-1">
-                                  <Clock className="h-3 w-3 text-muted-foreground" />
-                                  <span className="text-xs text-muted-foreground">{group.nextLesson}</span>
-                                </div>
-                                <div className="flex items-center space-x-1">
-                                  <Users className="h-3 w-3 text-muted-foreground" />
-                                  <span className="text-xs text-muted-foreground">{group.studentsCount} учеников</span>
-                                </div>
-                              </div>
-                            </div>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        </div>
-                      ))}
-
-                      {/* Mock additional lessons */}
+                <ScrollArea className="flex-1 p-3">
+                  <div className="space-y-2">
+                    {currentTeacher?.groups.map((group) => (
                       <div 
-                        onClick={() => handleLessonClick('lesson-extra-1')}
-                        className="p-3 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                        key={group.id}
+                        onClick={() => handleLessonClick(group.id)}
+                        className="p-3 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors min-h-[80px] flex items-center"
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex-1 min-w-0">
                             <div className="flex items-center space-x-2 mb-2">
-                              <h4 className="font-medium text-sm text-foreground">Группа Elementary A2</h4>
-                              <Badge variant="outline" className="text-xs">
-                                Elementary
+                              <h4 className="font-medium text-sm text-foreground truncate">{group.name}</h4>
+                              <Badge variant="outline" className="text-xs shrink-0 h-5">
+                                {group.level}
                               </Badge>
                             </div>
                             <div className="flex items-center space-x-4">
                               <div className="flex items-center space-x-1">
-                                <Clock className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-xs text-muted-foreground">24.09, 16:00-17:30</span>
+                                <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
+                                <span className="text-xs text-muted-foreground">{group.nextLesson}</span>
                               </div>
                               <div className="flex items-center space-x-1">
-                                <Users className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-xs text-muted-foreground">6 учеников</span>
+                                <Users className="h-3 w-3 text-muted-foreground shrink-0" />
+                                <span className="text-xs text-muted-foreground">{group.studentsCount} уч.</span>
                               </div>
                             </div>
                           </div>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 ml-2" />
                         </div>
                       </div>
-
-                      <div 
-                        onClick={() => handleLessonClick('lesson-extra-2')}
-                        className="p-3 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2 mb-2">
-                              <h4 className="font-medium text-sm text-foreground">Взрослые B1</h4>
-                              <Badge variant="outline" className="text-xs">
-                                Intermediate
-                              </Badge>
-                            </div>
-                            <div className="flex items-center space-x-4">
-                              <div className="flex items-center space-x-1">
-                                <Clock className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-xs text-muted-foreground">25.09, 19:00-20:30</span>
-                              </div>
-                              <div className="flex items-center space-x-1">
-                                <Users className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-xs text-muted-foreground">8 учеников</span>
-                              </div>
-                            </div>
-                          </div>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </ScrollArea>
               </TabsContent>
