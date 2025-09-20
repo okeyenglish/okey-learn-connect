@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients, useSearchClients, useCreateClient } from "@/hooks/useClients";
-import { useChatThreads, useRealtimeMessages } from "@/hooks/useChatMessages";
+import { useChatThreads, useRealtimeMessages, useSendMessage } from "@/hooks/useChatMessages";
 import { useStudents } from "@/hooks/useStudents";
 import { ChatArea } from "@/components/crm/ChatArea";
 import { CorporateChatArea } from "@/components/crm/CorporateChatArea";
@@ -58,6 +58,7 @@ const CRMContent = () => {
     clearSearch 
   } = useSearchClients();
   const createClient = useCreateClient();
+  const sendMessage = useSendMessage();
   const [openModal, setOpenModal] = useState<string | null>(null);
   const [hasUnsavedChat, setHasUnsavedChat] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -256,6 +257,13 @@ const CRMContent = () => {
         name: contactInfo.name,
         phone: contactInfo.phone,
         is_active: true
+      });
+      
+      // Create initial system message
+      await sendMessage.mutateAsync({
+        clientId: newClient.id,
+        messageText: `Создан чат с ${contactInfo.name}`,
+        messageType: 'system'
       });
       
       // Switch to the new client's chat
