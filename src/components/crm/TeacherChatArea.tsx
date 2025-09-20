@@ -134,7 +134,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   onSelectTeacher
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('общение');
+  const [activeTab, setActiveTab] = useState('диалог');
   const [message, setMessage] = useState('');
 
   const filteredTeachers = mockTeachers.filter(teacher =>
@@ -362,112 +362,14 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
         {/* Compact Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-          <TabsList className="grid w-full grid-cols-4 mx-3 mt-2 h-8">
-            <TabsTrigger value="основной" className="text-xs">Основной</TabsTrigger>
-            <TabsTrigger value="расписание" className="text-xs">Расписание</TabsTrigger>
-            <TabsTrigger value="задания" className="text-xs">Задания</TabsTrigger>
-            <TabsTrigger value="общение" className="text-xs">Общение</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 mx-3 mt-2 h-8">
+            <TabsTrigger value="диалог" className="text-xs">Диалог</TabsTrigger>
+            <TabsTrigger value="запланированные" className="text-xs">Запланированные сообщения</TabsTrigger>
           </TabsList>
 
           <div className="flex-1 overflow-hidden">
-            {/* Show individual teacher info only for individual teachers, not group chat */}
-            {!isGroupChat && (
-              <>
-                <TabsContent value="основной" className="h-full m-0">
-                  <ScrollArea className="h-full p-3">
-                    <div className="space-y-3">
-                      {/* Contact Info */}
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm">Контактные данные</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2 pt-0">
-                          <div className="flex items-center space-x-2">
-                            <Phone className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-xs">{currentTeacher?.phone}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Mail className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-xs">{currentTeacher?.email}</span>
-                          </div>
-                          {currentTeacher?.telegram && (
-                            <div className="flex items-center space-x-2">
-                              <MessageCircle className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-xs">{currentTeacher.telegram}</span>
-                            </div>
-                          )}
-                          {currentTeacher?.zoomLink && (
-                            <div className="flex items-center space-x-2">
-                              <Video className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-xs text-blue-600">{currentTeacher.zoomLink}</span>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-
-                      {/* Groups and Schedule */}
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm">Группы и занятия</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2 pt-0">
-                          {currentTeacher?.groups.map((group) => (
-                            <div 
-                              key={group.id}
-                              onClick={() => handleLessonClick(group.id)}
-                              className="p-2 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                  <div className="flex items-center space-x-2">
-                                    <h4 className="font-medium text-xs text-foreground">{group.name}</h4>
-                                    <Badge variant="outline" className="text-xs h-4">
-                                      {group.level}
-                                    </Badge>
-                                  </div>
-                                  <div className="flex items-center space-x-3 mt-1">
-                                    <div className="flex items-center space-x-1">
-                                      <Clock className="h-3 w-3 text-muted-foreground" />
-                                      <span className="text-xs text-muted-foreground">{group.nextLesson}</span>
-                                    </div>
-                                    <div className="flex items-center space-x-1">
-                                      <Users className="h-3 w-3 text-muted-foreground" />
-                                      <span className="text-xs text-muted-foreground">{group.studentsCount} уч.</span>
-                                    </div>
-                                  </div>
-                                </div>
-                                <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                              </div>
-                            </div>
-                          ))}
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </ScrollArea>
-                </TabsContent>
-
-                <TabsContent value="расписание" className="h-full m-0">
-                  <ScrollArea className="h-full p-3">
-                    <div className="text-center py-8">
-                      <Calendar className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-sm text-muted-foreground">Расписание преподавателя</p>
-                    </div>
-                  </ScrollArea>
-                </TabsContent>
-
-                <TabsContent value="задания" className="h-full m-0">
-                  <ScrollArea className="h-full p-3">
-                    <div className="text-center py-8">
-                      <MessageCircle className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-sm text-muted-foreground">Домашние задания</p>
-                    </div>
-                  </ScrollArea>
-                </TabsContent>
-              </>
-            )}
-
-            {/* Chat tab - always available */}
-            <TabsContent value="общение" className="h-full m-0 flex flex-col">
+            {/* Chat tab - Диалог */}
+            <TabsContent value="диалог" className="h-full m-0 flex flex-col">
               {/* Chat Messages Area */}
               <ScrollArea className="flex-1 p-3">
                 <div className="space-y-1">
@@ -501,58 +403,18 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
               </div>
             </TabsContent>
 
-            {/* Group chat specific tabs */}
-            {isGroupChat && (
-              <>
-                <TabsContent value="основной" className="h-full m-0">
-                  <ScrollArea className="h-full p-3">
-                    <div className="space-y-3">
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm">Участники чата</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2 pt-0">
-                          {mockTeachers.map((teacher) => (
-                            <div key={teacher.id} className="flex items-center space-x-2 p-2 rounded hover:bg-muted/50">
-                              <div className="relative">
-                                <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-xs font-medium text-primary">
-                                  {teacher.firstName[0]}{teacher.lastName[0]}
-                                </div>
-                                {teacher.isOnline && (
-                                  <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-background"></div>
-                                )}
-                              </div>
-                              <div className="flex-1">
-                                <p className="text-xs font-medium">{teacher.fullName}</p>
-                                <p className="text-xs text-muted-foreground">{teacher.branch}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </ScrollArea>
-                </TabsContent>
-
-                <TabsContent value="расписание" className="h-full m-0">
-                  <ScrollArea className="h-full p-3">
-                    <div className="text-center py-8">
-                      <Calendar className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-sm text-muted-foreground">Общее расписание</p>
-                    </div>
-                  </ScrollArea>
-                </TabsContent>
-
-                <TabsContent value="задания" className="h-full m-0">
-                  <ScrollArea className="h-full p-3">
-                    <div className="text-center py-8">
-                      <MessageCircle className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-sm text-muted-foreground">Общие задания</p>
-                    </div>
-                  </ScrollArea>
-                </TabsContent>
-              </>
-            )}
+            {/* Scheduled Messages tab */}
+            <TabsContent value="запланированные" className="h-full m-0">
+              <ScrollArea className="h-full p-3">
+                <div className="space-y-3">
+                  <div className="text-center py-8">
+                    <Calendar className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-sm text-muted-foreground">Запланированные сообщения</p>
+                    <p className="text-xs text-muted-foreground mt-2">Здесь будут отображаться сообщения, запланированные к отправке</p>
+                  </div>
+                </div>
+              </ScrollArea>
+            </TabsContent>
           </div>
         </Tabs>
       </div>
