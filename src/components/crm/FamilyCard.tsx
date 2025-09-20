@@ -298,11 +298,11 @@ export const FamilyCard = ({
 
       {/* Family Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="flex items-center justify-between bg-muted rounded-lg p-1">
-          <div className="flex w-full">
+        <div className="flex items-center bg-muted rounded-lg p-1">
+          <div className="flex items-center">
             <button
               onClick={() => setActiveTab("children")}
-              className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-all ${
+              className={`py-2 px-3 text-sm font-medium rounded-md transition-all ${
                 activeTab === "children"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -310,9 +310,22 @@ export const FamilyCard = ({
             >
               Дети ({familyData.students.length})
             </button>
+            {activeTab === "children" && (
+              <AddStudentModal 
+                familyGroupId={familyGroupId}
+                parentLastName={activeMember.name.split(' ').pop()}
+                onStudentAdded={refetch}
+              >
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 ml-2 text-muted-foreground hover:text-foreground">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </AddStudentModal>
+            )}
+          </div>
+          <div className="flex items-center">
             <button
               onClick={() => setActiveTab("contacts")}
-              className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-all ${
+              className={`py-2 px-3 text-sm font-medium rounded-md transition-all ${
                 activeTab === "contacts"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -320,24 +333,12 @@ export const FamilyCard = ({
             >
               Семья ({familyData.members.length})
             </button>
-          </div>
-          <div className="ml-2">
-            {activeTab === "children" ? (
-              <AddStudentModal 
-                familyGroupId={familyGroupId}
-                parentLastName={activeMember.name.split(' ').pop()}
-                onStudentAdded={refetch}
-              >
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </AddStudentModal>
-            ) : (
+            {activeTab === "contacts" && (
               <AddFamilyMemberModal 
                 familyGroupId={familyGroupId}
                 onMemberAdded={refetch}
               >
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 ml-2 text-muted-foreground hover:text-foreground">
                   <Plus className="h-4 w-4" />
                 </Button>
               </AddFamilyMemberModal>
