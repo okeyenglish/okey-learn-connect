@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients, useSearchClients, useCreateClient } from "@/hooks/useClients";
@@ -34,6 +35,7 @@ import { ManagerMenu } from "@/components/crm/ManagerMenu";
 import { usePinnedModalsDB, PinnedModal } from "@/hooks/usePinnedModalsDB";
 import { useChatStatesDB } from "@/hooks/useChatStatesDB";
 import { useAllTasks } from "@/hooks/useTasks";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { 
   Search, 
   CheckSquare, 
@@ -55,7 +57,11 @@ import {
   ChevronDown,
   ChevronRight,
   LogOut,
-  Users
+  Users,
+  Menu,
+  X,
+  PanelLeft,
+  PanelRight
 } from "lucide-react";
 
 const CRMContent = () => {
@@ -113,6 +119,11 @@ const CRMContent = () => {
   const [pinnedTaskClientId, setPinnedTaskClientId] = useState<string>('');
   const [pinnedInvoiceClientId, setPinnedInvoiceClientId] = useState<string>('');
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  
+  // Мобильные состояния для адаптивности
+  const isMobile = useIsMobile();
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   
   // Enable real-time updates for the active chat
   useRealtimeMessages(activeChatId);
@@ -569,18 +580,29 @@ const CRMContent = () => {
 
 
   return (
-    <div className="h-screen bg-muted/30 flex flex-col">
+    <div className="h-screen bg-muted/30 flex flex-col overflow-hidden">
       {/* User Header */}
       <div className="bg-background border-b p-4 shrink-0">
-        <div className="flex items-center justify-between max-w-7xl mx-auto">
+        <div className="flex items-center justify-between w-full mx-auto px-2 sm:px-4">
           <div className="flex items-center gap-3 flex-1">
-            <Building2 className="h-6 w-6 text-primary" />
-            <div>
-              <h1 className="text-xl font-bold">O'KEY ENGLISH CRM</h1>
+            {/* Кнопка левого сайдбара для мобильных */}
+            {isMobile && (
+              <Sheet open={leftSidebarOpen} onOpenChange={setLeftSidebarOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="md:hidden">
+                    <PanelLeft className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+              </Sheet>
+            )}
+            
+            <Building2 className="h-6 w-6 text-primary flex-shrink-0" />
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold truncate">O'KEY ENGLISH CRM</h1>
             </div>
             
             {pinnedModals && pinnedModals.length > 0 && (
-              <div className="ml-8">
+              <div className="ml-4 flex">
                 <PinnedModalTabs 
                   pinnedModals={pinnedModals}
                   onOpenModal={handleOpenPinnedModal}
@@ -590,10 +612,21 @@ const CRMContent = () => {
             )}
           </div>
           <div className="flex items-center gap-2">
+            {/* Кнопка правого сайдбара для мобильных */}
+            {isMobile && activeChatType === 'client' && activeChatId && (
+              <Sheet open={rightSidebarOpen} onOpenChange={setRightSidebarOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="md:hidden">
+                    <PanelRight className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+              </Sheet>
+            )}
+            
             {(clientsLoading || threadsLoading || studentsLoading || pinnedLoading || chatStatesLoading) && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
-                Загрузка данных...
+                <span className="hidden sm:inline">Загрузка данных...</span>
               </div>
             )}
             <ManagerMenu
@@ -607,9 +640,12 @@ const CRMContent = () => {
         </div>
       </div>
 
-      <div className="relative z-30 isolate flex flex-1 max-w-7xl mx-auto w-full overflow-hidden">
-        {/* Left Unified Sidebar */}
-        <div className="w-80 bg-background border-r flex flex-col h-full min-h-0">
+      {/* Основная область */}
+      <div className="relative z-30 isolate flex flex-1 w-full overflow-hidden">
+        {/* Left Unified Sidebar - Desktop */}
+        <div className={`${
+          isMobile ? 'hidden' : 'flex'
+        } w-80 lg:w-96 bg-background border-r flex-col h-full min-h-0 transition-all duration-300`}>
           <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-full min-h-0">
             <TabsList className="grid w-full grid-cols-2 m-2 shrink-0">
               <TabsTrigger value="menu">Меню</TabsTrigger>
@@ -989,41 +1025,151 @@ const CRMContent = () => {
           </Tabs>
         </div>
 
-        {/* Center - Chat */}
-        {activeChatType === 'corporate' ? (
-          <CorporateChatArea onMessageChange={setHasUnsavedChat} />
-        ) : activeChatType === 'teachers' ? (
-          <TeacherChatArea 
-            selectedTeacherId={selectedTeacherId}
-            onSelectTeacher={setSelectedTeacherId}
-          />
-        ) : activeChatId ? (
-          <ChatArea 
-            clientId={activeChatId}
-            clientName={getActiveClientInfo().name}
-            clientPhone={getActiveClientInfo().phone}
-            clientComment={getActiveClientInfo().comment}
-            onMessageChange={setHasUnsavedChat}
-            activePhoneId={activePhoneId}
-            onOpenTaskModal={() => setShowAddTaskModal(true)}
-            onOpenInvoiceModal={() => setShowInvoiceModal(true)}
-          />
-        ) : (
-          <div className="flex-1 bg-background flex items-center justify-center">
-            <div className="text-center text-muted-foreground">
-              <MessageCircle className="h-16 w-16 mx-auto mb-4 opacity-50" />
-              <h3 className="text-lg font-semibold mb-2">Выберите чат</h3>
-              <p className="text-sm">Выберите клиента из списка слева, чтобы начать переписку</p>
-            </div>
-          </div>
-        )}
+        {/* Left Sidebar - Mobile */}
+        <Sheet open={leftSidebarOpen} onOpenChange={setLeftSidebarOpen}>
+          <SheetContent side="left" className="w-80 p-0 flex flex-col">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-full">
+              <TabsList className="grid w-full grid-cols-2 m-2 shrink-0">
+                <TabsTrigger value="menu">Меню</TabsTrigger>
+                <TabsTrigger value="chats">Чаты</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="menu" className="flex-1 mt-0 overflow-y-auto data-[state=active]:block">
+                <div className="p-2 space-y-1">
+                  {menuItems.map((item, index) => (
+                    <button
+                      key={index}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left"
+                      onClick={() => {
+                        handleMenuClick(item.label);
+                        setLeftSidebarOpen(false);
+                      }}
+                    >
+                      <item.icon className="h-5 w-5 shrink-0" />
+                      <span className="text-sm flex-1">
+                        {item.label}
+                        {getMenuCount(item.label) > 0 && (
+                          <span className="text-muted-foreground"> ({getMenuCount(item.label)})</span>
+                        )}
+                      </span>
+                      <ExternalLink className="h-3 w-3 ml-auto opacity-50" />
+                    </button>
+                  ))}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="chats" className="flex-1 mt-0 overflow-y-auto data-[state=active]:block">
+                <div className="p-2">
+                  <SearchInput
+                    placeholder="Поиск в чатах..."
+                    onSearch={handleChatSearch}
+                    className="mb-3"
+                  />
+                  
+                  <ScrollArea className="h-full">
+                    <div className="space-y-1">
+                      {filteredChats.map((chat) => (
+                        <ChatContextMenu
+                          key={chat.id}
+                          onMarkUnread={() => markAsUnread(chat.id)}
+                          onPinDialog={() => togglePin(chat.id)}
+                          onArchive={() => toggleArchive(chat.id)}
+                          isPinned={getChatState(chat.id).isPinned}
+                          isArchived={getChatState(chat.id).isArchived}
+                        >
+                          <div
+                            className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                              activeChatId === chat.id && activeChatType === chat.type
+                                ? 'bg-primary/10 border-l-2 border-l-primary'
+                                : 'hover:bg-muted/50'
+                            }`}
+                            onClick={() => {
+                              setActiveChatId(chat.id);
+                              setActiveChatType(chat.type);
+                              setLeftSidebarOpen(false);
+                            }}
+                          >
+                            <div className="flex items-start gap-2">
+                              {getChatState(chat.id).isPinned && (
+                                <Pin className="h-3 w-3 text-muted-foreground mt-1 flex-shrink-0" />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-sm font-medium truncate">{chat.name}</p>
+                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                    <span className="text-xs text-muted-foreground">{chat.time}</span>
+                                    {chat.unread > 0 && (
+                                      <Badge variant="destructive" className="h-5 min-w-5 text-xs px-1">
+                                        {chat.unread > 99 ? '99+' : chat.unread}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                                <p className="text-xs text-muted-foreground truncate mt-1">{chat.phone}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </ChatContextMenu>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </SheetContent>
+        </Sheet>
 
-        {/* Right Sidebar - Family Card (только для клиентских чатов) */}
-        {activeChatType === 'client' && activeChatId && (
-          <div className="w-80 bg-background p-4 overflow-y-auto h-full">
+        {/* Center - Chat Area */}
+        <div className="flex-1 min-w-0 flex flex-col bg-background">
+          {activeChatType === 'corporate' ? (
+            <CorporateChatArea onMessageChange={setHasUnsavedChat} />
+          ) : activeChatType === 'teachers' ? (
+            <TeacherChatArea 
+              selectedTeacherId={selectedTeacherId}
+              onSelectTeacher={setSelectedTeacherId}
+            />
+          ) : activeChatId ? (
+            <ChatArea 
+              clientId={activeChatId}
+              clientName={getActiveClientInfo().name}
+              clientPhone={getActiveClientInfo().phone}
+              clientComment={getActiveClientInfo().comment}
+              onMessageChange={setHasUnsavedChat}
+              activePhoneId={activePhoneId}
+              onOpenTaskModal={() => setShowAddTaskModal(true)}
+              onOpenInvoiceModal={() => setShowInvoiceModal(true)}
+            />
+          ) : (
+            <div className="flex-1 bg-background flex items-center justify-center p-4">
+              <div className="text-center text-muted-foreground max-w-sm mx-auto">
+                <MessageCircle className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 opacity-50" />
+                <h3 className="text-base sm:text-lg font-semibold mb-2">Выберите чат</h3>
+                <p className="text-xs sm:text-sm">
+                  {isMobile 
+                    ? "Нажмите на кнопку меню в левом верхнем углу для выбора чата" 
+                    : "Выберите клиента из списка слева, чтобы начать переписку"
+                  }
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Sidebar - Desktop */}
+        {!isMobile && activeChatType === 'client' && activeChatId && (
+          <div className="w-80 lg:w-96 bg-background border-l p-4 overflow-y-auto h-full transition-all duration-300">
             <FamilyCardWrapper clientId={activeChatId} />
           </div>
         )}
+
+        {/* Right Sidebar - Mobile */}
+        <Sheet open={rightSidebarOpen} onOpenChange={setRightSidebarOpen}>
+          <SheetContent side="right" className="w-80 p-4">
+            {activeChatType === 'client' && activeChatId && (
+              <FamilyCardWrapper clientId={activeChatId} />
+            )}
+          </SheetContent>
+        </Sheet>
       </div>
 
       {/* Search Results Modal */}
