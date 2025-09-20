@@ -109,6 +109,17 @@ const CRMContent = () => {
   // Enable real-time updates for the active chat
   useRealtimeMessages(activeChatId);
 
+  // Menu counters
+  const tasksCount = allTasks?.length ?? 0;
+  const unreadTotal = (threads || []).reduce((sum, t) => sum + (t.unread_count || 0), 0);
+  const leadsCount = clients?.length ?? 0;
+  const getMenuCount = (label: string) => {
+    if (label === "Мои задачи") return tasksCount;
+    if (label === "Заявки") return unreadTotal;
+    if (label === "Лиды") return leadsCount;
+    return 0;
+  };
+
   const handleSignOut = async () => {
     await signOut();
   };
@@ -534,8 +545,8 @@ const CRMContent = () => {
 
       <div className="flex flex-1 max-w-7xl mx-auto w-full overflow-hidden">
         {/* Left Unified Sidebar */}
-        <div className="w-80 bg-background border-r flex flex-col h-full">
-          <Tabs defaultValue="chats" className="flex flex-col h-full">
+        <div className="w-80 bg-background border-r flex flex-col h-full min-h-0">
+          <Tabs defaultValue="chats" className="flex flex-col h-full min-h-0">
             <TabsList className="grid w-full grid-cols-2 m-2 shrink-0">
               <TabsTrigger value="menu">Меню</TabsTrigger>
               <TabsTrigger value="chats">Чаты</TabsTrigger>
@@ -551,7 +562,12 @@ const CRMContent = () => {
                         onClick={() => handleMenuClick(item.label)}
                       >
                         <item.icon className="h-5 w-5 shrink-0" />
-                        <span className="text-sm">{item.label}</span>
+                        <span className="text-sm flex-1">
+                          {item.label}
+                          {getMenuCount(item.label) > 0 && (
+                            <span className="text-muted-foreground"> ({getMenuCount(item.label)})</span>
+                          )}
+                        </span>
                         <ExternalLink className="h-3 w-3 ml-auto opacity-50" />
                       </button>
                     </DialogTrigger>
