@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { 
   Search, 
   CheckSquare, 
@@ -24,7 +25,8 @@ import {
   Mic,
   PhoneCall,
   Play,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ExternalLink
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -32,6 +34,8 @@ const CRM = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [openModal, setOpenModal] = useState<string | null>(null);
+  const [hasUnsavedChat, setHasUnsavedChat] = useState(false);
   
   const handleAuth = () => {
     if (password === "12345") {
@@ -39,6 +43,19 @@ const CRM = () => {
     } else {
       alert("Неверный пароль");
     }
+  };
+
+  const handleMenuClick = (action: string) => {
+    if (hasUnsavedChat && message.trim()) {
+      const confirm = window.confirm("У вас есть несохраненное сообщение. Продолжить?");
+      if (!confirm) return;
+    }
+    setOpenModal(action);
+  };
+
+  const handleMessageChange = (value: string) => {
+    setMessage(value);
+    setHasUnsavedChat(value.trim().length > 0);
   };
 
   const menuItems = [
@@ -103,14 +120,94 @@ const CRM = () => {
             <TabsContent value="menu" className="flex-1 mt-0">
               <div className="p-2 space-y-1">
                 {menuItems.map((item, index) => (
-                  <button
-                    key={index}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left"
-                    title={item.label}
-                  >
-                    <item.icon className="h-5 w-5 shrink-0" />
-                    <span className="text-sm">{item.label}</span>
-                  </button>
+                  <Dialog key={index} open={openModal === item.label} onOpenChange={(open) => !open && setOpenModal(null)}>
+                    <DialogTrigger asChild>
+                      <button
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left"
+                        onClick={() => handleMenuClick(item.label)}
+                      >
+                        <item.icon className="h-5 w-5 shrink-0" />
+                        <span className="text-sm">{item.label}</span>
+                        <ExternalLink className="h-3 w-3 ml-auto opacity-50" />
+                      </button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                          <item.icon className="h-5 w-5" />
+                          {item.label}
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="py-4">
+                        {item.label === "Расписание" && (
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <Card>
+                                <CardHeader>
+                                  <CardTitle>Сегодня</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                  <div className="space-y-2">
+                                    <div className="p-2 bg-green-50 rounded border-l-4 border-green-500">
+                                      <p className="font-medium">17:20-20:40 Павел</p>
+                                      <p className="text-sm text-muted-foreground">Kids Box 2, Ауд. WASHINGTON</p>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                              <Card>
+                                <CardHeader>
+                                  <CardTitle>Завтра</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                  <p className="text-muted-foreground">Занятий нет</p>
+                                </CardContent>
+                              </Card>
+                            </div>
+                          </div>
+                        )}
+                        {item.label === "Финансы" && (
+                          <div className="space-y-4">
+                            <Card>
+                              <CardHeader>
+                                <CardTitle>Ближайшие платежи</CardTitle>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="space-y-2">
+                                  <div className="p-3 bg-orange-50 border border-orange-200 rounded">
+                                    <p className="font-medium">Мария Петрова - 11490₽</p>
+                                    <p className="text-sm text-muted-foreground">Срок: 25.09.2025</p>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </div>
+                        )}
+                        {item.label === "Мои задачи" && (
+                          <div className="space-y-4">
+                            <Card>
+                              <CardHeader>
+                                <CardTitle>Активные задачи</CardTitle>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="space-y-2">
+                                  <div className="p-2 border-l-4 border-blue-500 bg-blue-50">
+                                    <p className="font-medium">Связаться с Марией Петровой</p>
+                                    <p className="text-sm text-muted-foreground">Обсудить расписание Павла</p>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </div>
+                        )}
+                        {!["Расписание", "Финансы", "Мои задачи"].includes(item.label) && (
+                          <div className="text-center py-8">
+                            <p className="text-muted-foreground">Функция "{item.label}" в разработке</p>
+                          </div>
+                        )}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 ))}
               </div>
             </TabsContent>
@@ -226,7 +323,7 @@ const CRM = () => {
                 <Textarea
                   placeholder="Введите сообщение..."
                   value={message}
-                  onChange={(e) => setMessage(e.target.value)}
+                  onChange={(e) => handleMessageChange(e.target.value)}
                   className="min-h-[60px] resize-none"
                 />
                 <div className="flex items-center gap-2">
