@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,9 +43,15 @@ export const ChatArea = ({
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { sendTextMessage, loading } = useWhatsApp();
   const { toast } = useToast();
+
+  // Функция для прокрутки к концу чата
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   // Load messages from database
   const loadMessages = async () => {
@@ -85,6 +91,8 @@ export const ChatArea = ({
 
       console.log('Formatted messages:', formattedMessages);
       setMessages(formattedMessages);
+      // Прокрутка к концу после загрузки сообщений
+      setTimeout(scrollToBottom, 100);
     } catch (error) {
       console.error('Error loading messages:', error);
     } finally {
@@ -96,6 +104,13 @@ export const ChatArea = ({
   useEffect(() => {
     loadMessages();
   }, [clientId]);
+
+  // Auto-scroll when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(scrollToBottom, 100);
+    }
+  }, [messages]);
 
   // Real-time subscription for new messages
   useEffect(() => {
@@ -126,7 +141,12 @@ export const ChatArea = ({
             callDuration: payload.new.call_duration
           };
           console.log('Adding message to chat:', newMessage);
-          setMessages(prev => [...prev, newMessage]);
+          setMessages(prev => {
+            const updated = [...prev, newMessage];
+            // Прокрутка к концу после добавления нового сообщения
+            setTimeout(scrollToBottom, 100);
+            return updated;
+          });
         }
       )
       .subscribe((status) => {
@@ -157,8 +177,8 @@ export const ChatArea = ({
           title: "Сообщение отправлено",
           description: "Сообщение успешно отправлено в WhatsApp",
         });
-        // Reload messages to show the sent message
-        loadMessages();
+        // Прокрутка к концу после отправки сообщения
+        setTimeout(scrollToBottom, 300);
       } else {
         toast({
           title: "Ошибка отправки",
@@ -309,12 +329,14 @@ export const ChatArea = ({
                   />
                 ))
               ) : (
-                <div className="text-center text-muted-foreground text-sm py-4">
-                  {searchQuery ? 'Сообщения не найдены' : 'Нет сообщений'}
-                </div>
-              )}
-            </div>
-          </TabsContent>
+                  <div className="text-center text-muted-foreground text-sm py-4">
+                    {searchQuery ? 'Сообщения не найдены' : 'Нет сообщений'}
+                  </div>
+                )}
+              </div>
+              {/* Элемент для прокрутки к концу */}
+              <div ref={messagesEndRef} />
+            </TabsContent>
           
           <TabsContent value="telegram" className="flex-1 p-3 overflow-y-auto mt-0">
             <div className="space-y-1">
