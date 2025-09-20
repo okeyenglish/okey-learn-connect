@@ -133,6 +133,11 @@ export default function SpeakingClub() {
                   <CardTitle className="text-lg">A1 — суббота 10:00</CardTitle>
                   <CardDescription>Для начинающих: простые фразы, базовые темы и уверенность в диалоге.</CardDescription>
                 </CardHeader>
+                <CardContent>
+                  <SpeakingClubSignupModal level="A1">
+                    <Button className="w-full">Записаться</Button>
+                  </SpeakingClubSignupModal>
+                </CardContent>
               </Card>
               <Card className="card-elevated">
                 <CardHeader className="text-center">
@@ -142,6 +147,11 @@ export default function SpeakingClub() {
                   <CardTitle className="text-lg">A2 — суббота 11:10</CardTitle>
                   <CardDescription>Ежедневные ситуации, расширение словаря и устойчивых выражений.</CardDescription>
                 </CardHeader>
+                <CardContent>
+                  <SpeakingClubSignupModal level="A2">
+                    <Button className="w-full">Записаться</Button>
+                  </SpeakingClubSignupModal>
+                </CardContent>
               </Card>
               <Card className="card-elevated">
                 <CardHeader className="text-center">
@@ -151,6 +161,11 @@ export default function SpeakingClub() {
                   <CardTitle className="text-lg">B1 — суббота 12:20</CardTitle>
                   <CardDescription>Дискуссии и аргументы, более сложные темы и фразовые глаголы.</CardDescription>
                 </CardHeader>
+                <CardContent>
+                  <SpeakingClubSignupModal level="B1">
+                    <Button className="w-full">Записаться</Button>
+                  </SpeakingClubSignupModal>
+                </CardContent>
               </Card>
               <Card className="card-elevated">
                 <CardHeader className="text-center">
@@ -160,80 +175,13 @@ export default function SpeakingClub() {
                   <CardTitle className="text-lg">B2+ — суббота 13:30</CardTitle>
                   <CardDescription>Глубокие обсуждения, нюансы речи, идиомы и спонтанная речь.</CardDescription>
                 </CardHeader>
+                <CardContent>
+                  <SpeakingClubSignupModal level="B2+">
+                    <Button className="w-full">Записаться</Button>
+                  </SpeakingClubSignupModal>
+                </CardContent>
               </Card>
             </div>
-            <div className="mt-8">
-              <SpeakingClubSignupModal>
-                <Button variant="hero" size="lg">
-                  <UserCheck className="w-5 h-5 mr-2" />
-                  Выбрать уровень и записаться
-                </Button>
-              </SpeakingClubSignupModal>
-            </div>
-          </div>
-        </section>
-
-        {/* Level Cards */}
-        <section className="mb-20">
-          <h2 className="text-3xl font-bold text-center mb-8">Выберите свой уровень</h2>
-          <p className="text-center text-muted-foreground mb-12">
-            Не уверены в уровне? Пройдите быстрый тест и запишитесь на пробное.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <Card className="card-elevated">
-              <CardHeader>
-                <CardTitle>A1 — Beginner</CardTitle>
-                <CardDescription>Старт для тех, кто начинает с нуля или почти с нуля.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <SpeakingClubSignupModal level="A1">
-                  <Button className="w-full">Записаться (A1)</Button>
-                </SpeakingClubSignupModal>
-              </CardContent>
-            </Card>
-            <Card className="card-elevated">
-              <CardHeader>
-                <CardTitle>A2 — Elementary</CardTitle>
-                <CardDescription>Бытовые темы, уверенность в простых диалогах.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <SpeakingClubSignupModal level="A2">
-                  <Button className="w-full">Записаться (A2)</Button>
-                </SpeakingClubSignupModal>
-              </CardContent>
-            </Card>
-            <Card className="card-elevated">
-              <CardHeader>
-                <CardTitle>B1 — Intermediate</CardTitle>
-                <CardDescription>Свободнее говорим, учимся аргументировать и спорить.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <SpeakingClubSignupModal level="B1">
-                  <Button className="w-full">Записаться (B1)</Button>
-                </SpeakingClubSignupModal>
-              </CardContent>
-            </Card>
-            <Card className="card-elevated">
-              <CardHeader>
-                <CardTitle>B2+ — Upper-Intermediate</CardTitle>
-                <CardDescription>Глубокие дискуссии, идиомы, естественная речь.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <SpeakingClubSignupModal level="B2+">
-                  <Button className="w-full">Записаться (B2+)</Button>
-                </SpeakingClubSignupModal>
-              </CardContent>
-            </Card>
-          </div>
-          <div className="flex justify-center gap-4">
-            <Button variant="outline">
-              <BookOpen className="w-4 h-4 mr-2" />
-              Определить уровень
-            </Button>
-            <Button variant="outline">
-              <MessageCircle className="w-4 h-4 mr-2" />
-              Спросить в WhatsApp
-            </Button>
           </div>
         </section>
 
