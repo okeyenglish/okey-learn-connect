@@ -119,12 +119,12 @@ export const useSendMessage = () => {
     mutationFn: async ({
       clientId,
       messageText,
-      messageType = 'outgoing',
+      messageType = 'manager',
       phoneNumberId
     }: {
       clientId: string;
       messageText: string;
-      messageType?: 'incoming' | 'outgoing' | 'system';
+      messageType?: 'client' | 'manager' | 'system';
       phoneNumberId?: string;
     }) => {
       const { data, error } = await supabase
@@ -134,7 +134,7 @@ export const useSendMessage = () => {
           phone_number_id: phoneNumberId,
           message_text: messageText,
           message_type: messageType,
-          is_read: true, // Outgoing messages are always marked as read
+          is_read: messageType === 'manager', // Manager messages are marked as read
         }])
         .select()
         .single();
