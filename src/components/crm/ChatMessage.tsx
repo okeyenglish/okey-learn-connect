@@ -47,7 +47,7 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration }: C
     <div className={`flex ${type === 'manager' ? 'justify-end' : 'justify-start'} mb-3`}>
       <div className={`max-w-xs lg:max-w-md xl:max-w-lg rounded-lg p-3 ${
         type === 'manager' 
-          ? 'bg-primary text-primary-foreground' 
+          ? 'bg-green-600 text-white' 
           : 'bg-muted'
       }`}>
         <p className="text-sm leading-relaxed">{message}</p>

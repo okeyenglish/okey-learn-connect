@@ -1,18 +1,20 @@
 import { useState } from "react";
-import { Phone, Send, Paperclip, Zap, MessageCircle, Mic } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChatMessage } from "./ChatMessage";
 import { ClientTasks } from "./ClientTasks";
 
 interface ChatAreaProps {
   clientName: string;
   clientPhone: string;
+  clientComment?: string;
   onMessageChange?: (hasUnsaved: boolean) => void;
 }
 
 // ChatArea component for CRM chat functionality
-export const ChatArea = ({ clientName, clientPhone, onMessageChange }: ChatAreaProps) => {
+export const ChatArea = ({ clientName, clientPhone, clientComment = "Базовый комментарий", onMessageChange }: ChatAreaProps) => {
   const [message, setMessage] = useState("");
 
   const handleMessageChange = (value: string) => {
@@ -45,7 +47,7 @@ export const ChatArea = ({ clientName, clientPhone, onMessageChange }: ChatAreaP
     },
     {
       type: 'manager' as const,
-      message: 'Добрый день! Конечно, сейчас проверю расписание Павла.',
+      message: 'Добрый день! Конечно, сейчас проверю расписание Павла. - Оксана Ветрова',
       time: '10:32'
     },
     {
@@ -66,19 +68,14 @@ export const ChatArea = ({ clientName, clientPhone, onMessageChange }: ChatAreaP
   return (
     <div className="flex-1 bg-background flex flex-col min-w-0">
       {/* Chat Header */}
-      <div className="border-b p-3 flex items-center justify-between shrink-0">
-        <div>
-          <h2 className="font-semibold text-base">{clientName}</h2>
-          <p className="text-sm text-muted-foreground">{clientPhone}</p>
+      <div className="border-b p-3 shrink-0">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h2 className="font-semibold text-base">{clientName}</h2>
+            <p className="text-sm text-muted-foreground">{clientPhone}</p>
+          </div>
         </div>
-        <div className="flex items-center gap-1">
-          <Button size="sm" variant="outline" className="h-8 w-8 p-0">
-            <Phone className="h-4 w-4" />
-          </Button>
-          <Button size="sm" variant="outline" className="text-green-600 h-8 w-8 p-0">
-            <MessageCircle className="h-4 w-4" />
-          </Button>
-        </div>
+        <p className="text-sm text-muted-foreground">{clientComment}</p>
       </div>
 
       {/* Client Tasks */}
@@ -86,20 +83,46 @@ export const ChatArea = ({ clientName, clientPhone, onMessageChange }: ChatAreaP
         <ClientTasks clientName={clientName} tasks={clientTasks} />
       </div>
 
-      {/* Chat Messages */}
-      <div className="flex-1 p-3 overflow-y-auto">
-        <div className="space-y-1">
-          {messages.map((msg, index) => (
-            <ChatMessage
-              key={index}
-              type={msg.type}
-              message={msg.message}
-              time={msg.time}
-              systemType={msg.systemType}
-              callDuration={msg.callDuration}
-            />
-          ))}
-        </div>
+      {/* Chat Messages with Tabs */}
+      <div className="flex-1 overflow-hidden">
+        <Tabs defaultValue="whatsapp" className="h-full flex flex-col">
+          <TabsList className="mx-3 mt-3 grid w-full grid-cols-3">
+            <TabsTrigger value="whatsapp" className="text-xs">WhatsApp</TabsTrigger>
+            <TabsTrigger value="telegram" className="text-xs">Telegram</TabsTrigger>
+            <TabsTrigger value="email" className="text-xs">Email</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="whatsapp" className="flex-1 p-3 overflow-y-auto mt-0">
+            <div className="space-y-1">
+              {messages.map((msg, index) => (
+                <ChatMessage
+                  key={index}
+                  type={msg.type}
+                  message={msg.message}
+                  time={msg.time}
+                  systemType={msg.systemType}
+                  callDuration={msg.callDuration}
+                />
+              ))}
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="telegram" className="flex-1 p-3 overflow-y-auto mt-0">
+            <div className="space-y-1">
+              <div className="text-center text-muted-foreground text-sm py-4">
+                История переписки в Telegram
+              </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="email" className="flex-1 p-3 overflow-y-auto mt-0">
+            <div className="space-y-1">
+              <div className="text-center text-muted-foreground text-sm py-4">
+                История переписки Email
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Message Input */}

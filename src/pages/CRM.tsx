@@ -346,6 +346,7 @@ const CRM = () => {
         <ChatArea 
           clientName="Мария Петрова"
           clientPhone="+7 (985) 261-50-56"
+          clientComment="Мама Павла, активная, всегда интересуется успехами"
           onMessageChange={setHasUnsavedChat}
         />
 
