@@ -48,31 +48,35 @@ export const PinnedModalTabs = ({ pinnedModals, onOpenModal, onUnpinModal }: Pin
   if (pinnedModals.length === 0) return null;
 
   return (
-    <div className="mb-4">
-      <h3 className="text-sm font-medium text-muted-foreground mb-2">Закрепленные окна</h3>
-      <div className="flex flex-wrap gap-2">
+    <div className="mb-3">
+      <h3 className="text-xs font-medium text-muted-foreground mb-2">Закрепленные окна</h3>
+      <div className="flex flex-wrap gap-1.5">
         {pinnedModals.map((modal) => (
-          <Card key={`${modal.type}-${modal.id}`} className={`p-0 border ${getModalColor(modal.type)}`}>
+          <Card
+            key={`${modal.type}-${modal.id}`}
+            className={`p-0 border rounded-full shadow-none ${getModalColor(modal.type)}`}
+          >
             <div className="flex items-center">
               <Button
                 variant="ghost"
                 size="sm"
-                className="flex items-center gap-2 px-3 py-2 h-auto hover:bg-transparent"
+                className="flex items-center gap-1 px-2 py-1 h-6 leading-none hover:bg-transparent"
                 onClick={() => onOpenModal(modal.id, modal.type)}
               >
                 {getModalIcon(modal.type)}
-                <span className="text-xs font-medium truncate max-w-[120px]">
+                <span className="text-[11px] font-medium truncate max-w-[90px]">
                   {modal.title}
                 </span>
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-auto p-1 hover:bg-red-200/50"
+                className="h-6 w-6 p-1 hover:bg-muted rounded-full"
                 onClick={(e) => {
                   e.stopPropagation();
                   onUnpinModal(modal.id, modal.type);
                 }}
+                aria-label="Открепить"
               >
                 <X className="h-3 w-3" />
               </Button>

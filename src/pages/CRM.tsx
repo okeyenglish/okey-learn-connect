@@ -446,8 +446,8 @@ const CRMContent = () => {
       setShowInvoiceModal(true);
       openPinnedModal(id, type);
     } else {
-      // Для модальных окон из меню
-      setOpenModal(type);
+      // Для модальных окон из меню - закрываем обычное меню-диалог и открываем только закрепленную версию
+      setOpenModal(null);
       openPinnedModal(id, type);
     }
   };
