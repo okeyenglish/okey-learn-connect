@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Phone, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Phone, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -33,6 +34,7 @@ interface ChatAreaProps {
   onOpenInvoiceModal?: () => void;
   managerName?: string; // Add manager name for comments
   onBackToList?: () => void; // Function to go back to chat list on mobile
+  onChatAction?: (chatId: string, action: 'unread' | 'pin' | 'archive' | 'block') => void; // Chat actions
 }
 
 interface ScheduledMessage {
@@ -53,7 +55,8 @@ export const ChatArea = ({
   onOpenTaskModal, 
   onOpenInvoiceModal,
   managerName = "Менеджер",
-  onBackToList
+  onBackToList,
+  onChatAction
 }: ChatAreaProps) => {
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -902,6 +905,41 @@ export const ChatArea = ({
             >
               <Forward className="h-4 w-4" />
             </Button>
+            
+            {/* Mobile Settings Menu */}
+            {isMobile && onChatAction && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="h-8 w-8 p-0"
+                    title="Настройки чата"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={() => onChatAction(clientId, 'unread')}>
+                    <BellOff className="mr-2 h-4 w-4" />
+                    <span>Отметить непрочитанным</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onChatAction(clientId, 'pin')}>
+                    <Pin className="mr-2 h-4 w-4 text-purple-600" />
+                    <span>Закрепить диалог</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onChatAction(clientId, 'block')}>
+                    <Lock className="mr-2 h-4 w-4" />
+                    <span>Заблокировать клиента</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onChatAction(clientId, 'archive')}>
+                    <Archive className="mr-2 h-4 w-4 text-orange-600" />
+                    <span>Архивировать</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            
             {showSearchInput && (
               <Input
                 placeholder="Поиск в чате..."

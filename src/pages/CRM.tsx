@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients, useSearchClients, useCreateClient } from "@/hooks/useClients";
 import { useChatThreads, useRealtimeMessages, useMarkAsRead } from "@/hooks/useChatMessages";
@@ -61,7 +62,11 @@ import {
   Menu,
   X,
   PanelLeft,
-  PanelRight
+  PanelRight,
+  MoreVertical,
+  Archive,
+  BellOff,
+  Lock
 } from "lucide-react";
 
 const CRMContent = () => {
@@ -1166,17 +1171,19 @@ const CRMContent = () => {
                               const chatState = getChatState(chat.id);
                               const displayUnread = chatState.isUnread || chat.unread > 0;
                               return (
-                                <button 
+                                <div 
                                   key={chat.id}
-                                  className="w-full p-4 text-left rounded-lg transition-colors bg-card border hover:bg-muted/50 shadow-sm"
-                                  onClick={() => {
-                                    setActiveChatId(chat.id);
-                                    setActiveChatType('client');
-                                    handleChatClick(chat.id, chat.type);
-                                  }}
+                                  className="w-full p-3 text-left rounded-lg transition-colors bg-card border hover:bg-muted/50 shadow-sm"
                                 >
                                   <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
+                                    <div 
+                                      className="flex items-center gap-3 flex-1 cursor-pointer"
+                                      onClick={() => {
+                                        setActiveChatId(chat.id);
+                                        setActiveChatType('client');
+                                        handleChatClick(chat.id, chat.type);
+                                      }}
+                                    >
                                       <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                                         <User className="h-6 w-6 text-green-600" />
                                       </div>
@@ -1192,17 +1199,52 @@ const CRMContent = () => {
                                         <p className="text-xs text-muted-foreground mt-1">{chat.phone}</p>
                                       </div>
                                     </div>
-                                   <div className="flex flex-col items-end">
-                                     <Pin className="h-4 w-4 text-orange-600 mb-1" />
-                                     <span className="text-xs text-muted-foreground">{chat.time}</span>
-                                     {displayUnread && (
-                                       <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded-full mt-1">
-                                           {chatState.isUnread ? '1' : chat.unread}
-                                       </span>
-                                     )}
-                                   </div>
-                                 </div>
-                                </button>
+                                    <div className="flex flex-col items-end gap-2">
+                                      <div className="flex items-center gap-2">
+                                        <Pin className="h-4 w-4 text-orange-600" />
+                                        <span className="text-xs text-muted-foreground">{chat.time}</span>
+                                        
+                                        {/* Mobile Settings Menu */}
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger asChild>
+                                            <Button 
+                                              size="sm" 
+                                              variant="ghost" 
+                                              className="h-8 w-8 p-0 opacity-60 hover:opacity-100"
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              <MoreVertical className="h-4 w-4" />
+                                            </Button>
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent align="end" className="w-56">
+                                            <DropdownMenuItem onClick={() => handleChatAction(chat.id, 'unread')}>
+                                              <BellOff className="mr-2 h-4 w-4" />
+                                              <span>Отметить непрочитанным</span>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleChatAction(chat.id, 'pin')}>
+                                              <Pin className="mr-2 h-4 w-4 text-purple-600" />
+                                              <span>Открепить диалог</span>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleChatAction(chat.id, 'block')}>
+                                              <Lock className="mr-2 h-4 w-4" />
+                                              <span>Заблокировать клиента</span>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleChatAction(chat.id, 'archive')}>
+                                              <Archive className="mr-2 h-4 w-4 text-orange-600" />
+                                              <span>Архивировать</span>
+                                            </DropdownMenuItem>
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
+                                      </div>
+                                      
+                                      {displayUnread && (
+                                        <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded-full">
+                                          {chatState.isUnread ? '1' : chat.unread}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
                               );
                             })}
                         </div>
@@ -1227,37 +1269,74 @@ const CRMContent = () => {
                           const chatState = getChatState(chat.id);
                           const displayUnread = chatState.isUnread || chat.unread > 0;
                           return (
-                            <button 
+                            <div 
                               key={chat.id}
-                              className="w-full p-4 text-left rounded-lg transition-colors bg-card border hover:bg-muted/50 shadow-sm"
-                              onClick={() => {
-                                setActiveChatId(chat.id);
-                                setActiveChatType('client');
-                                handleChatClick(chat.id, chat.type);
-                              }}
+                              className="w-full p-3 text-left rounded-lg transition-colors bg-card border hover:bg-muted/50 shadow-sm"
                             >
                                <div className="flex items-center justify-between">
-                                 <div className="flex items-center gap-3">
+                                 <div 
+                                   className="flex items-center gap-3 flex-1 cursor-pointer"
+                                   onClick={() => {
+                                     setActiveChatId(chat.id);
+                                     setActiveChatType('client');
+                                     handleChatClick(chat.id, chat.type);
+                                   }}
+                                 >
                                    <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                                      <User className="h-6 w-6 text-green-600" />
                                    </div>
-                                   <div>
+                                   <div className="flex-1">
                                      <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
                                        {chat.name}
                                      </p>
                                      <p className="text-xs text-muted-foreground mt-1">{chat.phone}</p>
                                    </div>
                                  </div>
-                                <div className="flex flex-col items-end">
-                                  <span className="text-xs text-muted-foreground">{chat.time}</span>
-                                  {displayUnread && (
-                                    <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full mt-1">
-                                      {chatState.isUnread ? '1' : chat.unread}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </button>
+                                 <div className="flex flex-col items-end gap-2">
+                                   <div className="flex items-center gap-2">
+                                     <span className="text-xs text-muted-foreground">{chat.time}</span>
+                                     
+                                     {/* Mobile Settings Menu */}
+                                     <DropdownMenu>
+                                       <DropdownMenuTrigger asChild>
+                                         <Button 
+                                           size="sm" 
+                                           variant="ghost" 
+                                           className="h-8 w-8 p-0 opacity-60 hover:opacity-100"
+                                           onClick={(e) => e.stopPropagation()}
+                                         >
+                                           <MoreVertical className="h-4 w-4" />
+                                         </Button>
+                                       </DropdownMenuTrigger>
+                                       <DropdownMenuContent align="end" className="w-56">
+                                         <DropdownMenuItem onClick={() => handleChatAction(chat.id, 'unread')}>
+                                           <BellOff className="mr-2 h-4 w-4" />
+                                           <span>Отметить непрочитанным</span>
+                                         </DropdownMenuItem>
+                                         <DropdownMenuItem onClick={() => handleChatAction(chat.id, 'pin')}>
+                                           <Pin className="mr-2 h-4 w-4 text-purple-600" />
+                                           <span>Закрепить диалог</span>
+                                         </DropdownMenuItem>
+                                         <DropdownMenuItem onClick={() => handleChatAction(chat.id, 'block')}>
+                                           <Lock className="mr-2 h-4 w-4" />
+                                           <span>Заблокировать клиента</span>
+                                         </DropdownMenuItem>
+                                         <DropdownMenuItem onClick={() => handleChatAction(chat.id, 'archive')}>
+                                           <Archive className="mr-2 h-4 w-4 text-orange-600" />
+                                           <span>Архивировать</span>
+                                         </DropdownMenuItem>
+                                       </DropdownMenuContent>
+                                     </DropdownMenu>
+                                   </div>
+                                   
+                                   {displayUnread && (
+                                     <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full">
+                                       {chatState.isUnread ? '1' : chat.unread}
+                                     </span>
+                                   )}
+                                 </div>
+                               </div>
+                            </div>
                           );
                         })}
                     </div>
@@ -1279,6 +1358,7 @@ const CRMContent = () => {
                 setActiveChatId('');
                 setActiveTab('chats');
               } : undefined}
+              onChatAction={handleChatAction}
             />
           ) : activeChatType === 'corporate' ? (
             <CorporateChatArea onMessageChange={setHasUnsavedChat} />
