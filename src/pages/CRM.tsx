@@ -581,68 +581,91 @@ const CRMContent = () => {
 
   return (
     <div className="h-screen bg-muted/30 flex flex-col overflow-hidden">
-      {/* User Header */}
-      <div className="bg-background border-b p-4 shrink-0">
-        <div className="flex items-center justify-between w-full mx-auto px-2 sm:px-4">
-          <div className="flex items-center gap-3 flex-1">
-            {/* Кнопка левого сайдбара для мобильных */}
-            {isMobile && (
-              <Sheet open={leftSidebarOpen} onOpenChange={setLeftSidebarOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="md:hidden">
-                    <PanelLeft className="h-5 w-5" />
-                  </Button>
-                </SheetTrigger>
-              </Sheet>
-            )}
-            
-            <Building2 className="h-6 w-6 text-primary flex-shrink-0" />
-            {/* Hide title on mobile */}
-            <div className="min-w-0 hidden sm:block">
-              <h1 className="text-lg sm:text-xl font-bold truncate">O'KEY ENGLISH CRM</h1>
-            </div>
-            
-            {pinnedModals && pinnedModals.length > 0 && (
-              <div className="ml-4 flex">
-                <PinnedModalTabs 
-                  pinnedModals={pinnedModals}
-                  onOpenModal={handleOpenPinnedModal}
-                  onUnpinModal={unpinModal}
-                />
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
+      {/* Фиксированные вкладки сверху на мобильной версии */}
+      {isMobile && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b">
+          <div className="flex">
+            <Button
+              variant={activeTab === 'menu' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => handleTabChange('menu')}
+              className="flex-1 rounded-none"
+            >
+              Меню
+            </Button>
+            <Button
+              variant={activeTab === 'chats' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => handleTabChange('chats')}
+              className="flex-1 rounded-none"
+            >
+              Чаты
+            </Button>
             {/* Кнопка О клиенте для мобильных */}
-            {isMobile && activeChatType === 'client' && activeChatId && (
+            {activeChatType === 'client' && activeChatId && (
               <Sheet open={rightSidebarOpen} onOpenChange={setRightSidebarOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="ghost" size="sm" className="md:hidden text-xs px-2 py-1">
+                  <Button variant="ghost" size="sm" className="text-xs px-2 py-1">
                     О клиенте
                   </Button>
                 </SheetTrigger>
               </Sheet>
             )}
-            
-            {(clientsLoading || threadsLoading || studentsLoading || pinnedLoading || chatStatesLoading) && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
-                <span className="hidden sm:inline">Загрузка данных...</span>
-              </div>
-            )}
-            <ManagerMenu
-              managerName={profile && profile.first_name && profile.last_name 
-                ? `${profile.first_name} ${profile.last_name}` 
-                : 'Менеджер'}
-              managerEmail={user?.email}
-              onSignOut={handleSignOut}
-            />
+            {/* Только аватарка менеджера на мобильной версии */}
+            <div className="flex items-center px-2">
+              <ManagerMenu
+                managerName={profile && profile.first_name && profile.last_name 
+                  ? `${profile.first_name} ${profile.last_name}` 
+                  : 'Менеджер'}
+                managerEmail={user?.email}
+                onSignOut={handleSignOut}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
+      
+      {/* User Header - скрыт на мобильной версии */}
+      {!isMobile && (
+        <div className="bg-background border-b p-4 shrink-0">
+          <div className="flex items-center justify-between w-full mx-auto px-2 sm:px-4">
+            <div className="flex items-center gap-3 flex-1">
+              <Building2 className="h-6 w-6 text-primary flex-shrink-0" />
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold truncate">O'KEY ENGLISH CRM</h1>
+              </div>
+              
+              {pinnedModals && pinnedModals.length > 0 && (
+                <div className="ml-4 flex">
+                  <PinnedModalTabs 
+                    pinnedModals={pinnedModals}
+                    onOpenModal={handleOpenPinnedModal}
+                    onUnpinModal={unpinModal}
+                  />
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {(clientsLoading || threadsLoading || studentsLoading || pinnedLoading || chatStatesLoading) && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
+                  <span className="hidden sm:inline">Загрузка данных...</span>
+                </div>
+              )}
+              <ManagerMenu
+                managerName={profile && profile.first_name && profile.last_name 
+                  ? `${profile.first_name} ${profile.last_name}` 
+                  : 'Менеджер'}
+                managerEmail={user?.email}
+                onSignOut={handleSignOut}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Основная область */}
-      <div className="relative z-0 isolate flex flex-1 w-full overflow-hidden">
+      <div className={`relative z-0 isolate flex flex-1 w-full overflow-hidden ${isMobile ? 'pt-12' : ''}`}>
         {/* Left Unified Sidebar - Desktop */}
         <div className={`${
           isMobile ? 'hidden' : 'flex'
@@ -1026,25 +1049,17 @@ const CRMContent = () => {
           </Tabs>
         </div>
 
-        {/* Left Sidebar - Mobile */}
-        <Sheet open={leftSidebarOpen} onOpenChange={setLeftSidebarOpen}>
-          <SheetContent side="left" className="w-80 p-0 flex flex-col">
-            <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-full">
-              <TabsList className="grid w-full grid-cols-2 m-2 shrink-0">
-                <TabsTrigger value="menu">Меню</TabsTrigger>
-                <TabsTrigger value="chats">Чаты</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="menu" className="flex-1 mt-0 overflow-y-auto data-[state=active]:block">
-                <div className="p-2 space-y-1">
-                  {menuItems.map((item, index) => (
+        {/* Center - Chat Area или Мобильный контент */}
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-background">
+          {/* Показываем меню на мобильной версии когда активна вкладка menu */}
+          {isMobile && activeTab === 'menu' ? (
+            <div className="p-4 space-y-2 overflow-y-auto">
+              {menuItems.map((item, index) => (
+                <Dialog key={index} open={openModal === item.label} onOpenChange={(open) => !open && handleMenuModalClose()}>
+                  <DialogTrigger asChild>
                     <button
-                      key={index}
                       className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left"
-                      onClick={() => {
-                        handleMenuClick(item.label);
-                        setLeftSidebarOpen(false);
-                      }}
+                      onClick={() => handleMenuClick(item.label)}
                     >
                       <item.icon className="h-5 w-5 shrink-0" />
                       <span className="text-sm flex-1">
@@ -1055,81 +1070,208 @@ const CRMContent = () => {
                       </span>
                       <ExternalLink className="h-3 w-3 ml-auto opacity-50" />
                     </button>
-                  ))}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="chats" className="flex-1 mt-0 overflow-y-auto data-[state=active]:block">
-                <div className="p-2">
-                  <SearchInput
-                    placeholder="Поиск в чатах..."
-                    onSearch={handleChatSearch}
-                    className="mb-3"
-                  />
-                  
-                  <ScrollArea className="h-full">
-                    <div className="space-y-1">
-                      {filteredChats.map((chat) => (
-                        <ChatContextMenu
-                          key={chat.id}
-                          onMarkUnread={() => markAsUnread(chat.id)}
-                          onPinDialog={() => togglePin(chat.id)}
-                          onArchive={() => toggleArchive(chat.id)}
-                          isPinned={getChatState(chat.id).isPinned}
-                          isArchived={getChatState(chat.id).isArchived}
-                        >
-                          <div
-                            className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                              activeChatId === chat.id && activeChatType === chat.type
-                                ? 'bg-primary/10 border-l-2 border-l-primary'
-                                : 'hover:bg-muted/50'
-                            }`}
-                            onClick={() => {
-                              setActiveChatId(chat.id);
-                              setActiveChatType(chat.type);
-                              setLeftSidebarOpen(false);
-                            }}
-                          >
-                            <div className="flex items-start gap-2">
-                              {getChatState(chat.id).isPinned && (
-                                <Pin className="h-3 w-3 text-muted-foreground mt-1 flex-shrink-0" />
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between">
-                                  <p className="text-sm font-medium truncate">{chat.name}</p>
-                                  <div className="flex items-center gap-1 flex-shrink-0">
-                                    <span className="text-xs text-muted-foreground">{chat.time}</span>
-                                    {chat.unread > 0 && (
-                                      <Badge variant="destructive" className="h-5 min-w-5 text-xs px-1">
-                                        {chat.unread > 99 ? '99+' : chat.unread}
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </div>
-                                <p className="text-xs text-muted-foreground truncate mt-1">{chat.phone}</p>
-                              </div>
-                            </div>
+                  </DialogTrigger>
+                  <PinnableDialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                    <PinnableModalHeader
+                      title={item.label}
+                      isPinned={isPinned(`menu-${item.label}`, item.label)}
+                      onPin={() => handlePinMenuModal(item.label)}
+                      onUnpin={() => handleUnpinMenuModal(item.label)}
+                      onClose={handleMenuModalClose}
+                    >
+                      <item.icon className="h-5 w-5 ml-2" />
+                    </PinnableModalHeader>
+                    <div className="py-4">
+                      {item.label === "Лиды" && (
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center">
+                            <h3 className="font-medium">Клиенты</h3>
+                            <AddClientModal>
+                              <Button size="sm">
+                                <User className="h-4 w-4 mr-2" />
+                                Добавить клиента
+                              </Button>
+                            </AddClientModal>
                           </div>
-                        </ChatContextMenu>
-                      ))}
+                          <ClientsList 
+                            onSelectClient={(clientId) => {
+                              setActiveChatId(clientId);
+                              setActiveChatType('client');
+                            }}
+                            selectedClientId={activeChatId}
+                          />
+                        </div>
+                      )}
+                      {!["Лиды"].includes(item.label) && (
+                        <div className="text-center py-8">
+                          <p className="text-muted-foreground">Функция "{item.label}" в разработке</p>
+                        </div>
+                      )}
                     </div>
-                  </ScrollArea>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </SheetContent>
-        </Sheet>
+                  </PinnableDialogContent>
+                </Dialog>
+              ))}
+            </div>
+          ) : isMobile && activeTab === 'chats' ? (
+            <div className="flex flex-col h-full">
+              <div className="p-2 border-b space-y-2 shrink-0">
+                <SearchInput
+                  placeholder="Поиск по чатам..."
+                  onSearch={handleChatSearch}
+                  onClear={() => setChatSearchQuery("")}
+                  size="sm"
+                />
+                <NewChatModal 
+                  onCreateChat={handleCreateNewChat}
+                  onExistingClientFound={handleExistingClientFound}
+                >
+                  <Button size="sm" className="w-full gap-2" variant="outline">
+                    <MessageCirclePlus className="h-4 w-4" />
+                    Новый чат
+                  </Button>
+                </NewChatModal>
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="p-2">
+                  {/* Закрепленные чаты */}
+                  {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
+                    <div className="mb-4">
+                      <button 
+                        className="w-full flex items-center justify-between px-2 py-1 mb-2 hover:bg-muted/50 rounded transition-colors"
+                        onClick={() => setIsPinnedSectionOpen(!isPinnedSectionOpen)}
+                      >
+                        <div className="flex items-center gap-2">
+                          {isPinnedSectionOpen ? (
+                            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                          )}
+                          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                            Закрепленные (в работе)
+                          </h3>
+                        </div>
+                        <Badge variant="secondary" className="text-xs h-4">
+                          {filteredChats.filter(chat => getChatState(chat.id).isPinned).length}
+                        </Badge>
+                      </button>
+                      {isPinnedSectionOpen && (
+                        <div className="space-y-1 mb-4">
+                          {filteredChats
+                            .filter(chat => getChatState(chat.id).isPinned)
+                            .map((chat) => {
+                              const chatState = getChatState(chat.id);
+                              const displayUnread = chatState.isUnread || chat.unread > 0;
+                              return (
+                                <button 
+                                  key={chat.id}
+                                  className={`w-full p-3 text-left rounded-lg transition-colors ${
+                                    chat.id === activeChatId ? 'bg-muted hover:bg-muted/80' : 'hover:bg-muted/50'
+                                  }`}
+                              onClick={() => {
+                                handleChatClick(chat.id, chat.type);
+                                // На мобильной версии после выбора чата активируем вид чата
+                                if (isMobile) {
+                                  setActiveChatType('client');
+                                  setActiveChatId(chat.id);
+                                }
+                              }}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                                        <User className="h-5 w-5 text-green-600" />
+                                      </div>
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                          <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
+                                            {chat.name}
+                                          </p>
+                                          <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300">
+                                            В работе
+                                          </Badge>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">{chat.phone}</p>
+                                      </div>
+                                    </div>
+                                   <div className="flex flex-col items-end">
+                                     <Pin className="h-3 w-3 text-orange-600 mb-1" />
+                                     <span className="text-xs text-muted-foreground">{chat.time}</span>
+                                     {displayUnread && (
+                                       <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full mt-1">
+                                           {chatState.isUnread ? '1' : chat.unread}
+                                       </span>
+                                     )}
+                                   </div>
+                                 </div>
+                                </button>
+                              );
+                            })}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-        {/* Center - Chat Area */}
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-background">
-          {activeChatType === 'corporate' ? (
-            <CorporateChatArea onMessageChange={setHasUnsavedChat} />
-          ) : activeChatType === 'teachers' ? (
-            <TeacherChatArea 
-              selectedTeacherId={selectedTeacherId}
-              onSelectTeacher={setSelectedTeacherId}
-            />
-          ) : activeChatId ? (
+                  {/* Активные чаты */}
+                  <div>
+                    <div className="flex items-center justify-between px-2 py-1 mb-2">
+                      <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Активные чаты
+                      </h3>
+                      <Badge variant="secondary" className="text-xs h-4">
+                        {filteredChats.filter(chat => !getChatState(chat.id).isPinned).length}
+                      </Badge>
+                    </div>
+                    <div className="space-y-1">
+                      {filteredChats
+                        .filter(chat => !getChatState(chat.id).isPinned)
+                        .map((chat) => {
+                          const chatState = getChatState(chat.id);
+                          const displayUnread = chatState.isUnread || chat.unread > 0;
+                          return (
+                            <button 
+                              key={chat.id}
+                              className={`w-full p-3 text-left rounded-lg transition-colors relative ${
+                                chat.id === activeChatId ? 'bg-muted hover:bg-muted/80' : 'hover:bg-muted/50'
+                              }`}
+                              onClick={() => {
+                                handleChatClick(chat.id, chat.type);
+                                // На мобильной версии после выбора чата активируем вид чата
+                                if (isMobile) {
+                                  setActiveChatType('client');
+                                  setActiveChatId(chat.id);
+                                }
+                              }}
+                            >
+                               <div className="flex items-center justify-between">
+                                 <div className="flex items-center gap-3">
+                                   <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                                     <User className="h-5 w-5 text-green-600" />
+                                   </div>
+                                   <div>
+                                     <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
+                                       {chat.name}
+                                     </p>
+                                     <p className="text-xs text-muted-foreground">{chat.phone}</p>
+                                   </div>
+                                 </div>
+                                <div className="flex flex-col items-end">
+                                  <span className="text-xs text-muted-foreground">{chat.time}</span>
+                                  {displayUnread && (
+                                    <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+                                      {chatState.isUnread ? '1' : chat.unread}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                </div>
+              </ScrollArea>
+            </div>
+          ) : activeChatId && activeChatType === 'client' ? (
             <ChatArea 
               clientId={activeChatId}
               clientName={getActiveClientInfo().name}
@@ -1140,6 +1282,13 @@ const CRMContent = () => {
               onOpenTaskModal={() => setShowAddTaskModal(true)}
               onOpenInvoiceModal={() => setShowInvoiceModal(true)}
             />
+          ) : activeChatType === 'corporate' ? (
+            <CorporateChatArea onMessageChange={setHasUnsavedChat} />
+          ) : activeChatType === 'teachers' ? (
+            <TeacherChatArea 
+              selectedTeacherId={selectedTeacherId}
+              onSelectTeacher={setSelectedTeacherId}
+            />
           ) : (
             <div className="flex-1 bg-background flex items-center justify-center p-4">
               <div className="text-center text-muted-foreground max-w-sm mx-auto">
@@ -1147,7 +1296,7 @@ const CRMContent = () => {
                 <h3 className="text-base sm:text-lg font-semibold mb-2">Выберите чат</h3>
                 <p className="text-xs sm:text-sm">
                   {isMobile 
-                    ? "Нажмите на кнопку меню в левом верхнем углу для выбора чата" 
+                    ? "Выберите клиента из вкладки 'Чаты' для начала переписки" 
                     : "Выберите клиента из списка слева, чтобы начать переписку"
                   }
                 </p>
