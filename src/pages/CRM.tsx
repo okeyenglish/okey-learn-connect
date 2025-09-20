@@ -47,6 +47,7 @@ const CRM = () => {
   const [activePhoneId, setActivePhoneId] = useState<string>('1');
   const [activeChatId, setActiveChatId] = useState<string>('1');
   const [activeChatType, setActiveChatType] = useState<'client' | 'corporate' | 'teachers'>('client');
+  const [selectedTeacherId, setSelectedTeacherId] = useState<string>('teachers-group');
   
   
   const handleAuth = () => {
@@ -447,8 +448,8 @@ const CRM = () => {
           <CorporateChatArea onMessageChange={setHasUnsavedChat} />
         ) : activeChatType === 'teachers' ? (
           <TeacherChatArea 
-            selectedTeacherId="teachers-group"
-            onSelectTeacher={(teacherId) => console.log('Selected teacher:', teacherId)}
+            selectedTeacherId={selectedTeacherId}
+            onSelectTeacher={setSelectedTeacherId}
           />
         ) : (
           <ChatArea 
