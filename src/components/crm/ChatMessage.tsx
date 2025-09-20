@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 
 interface ChatMessageProps {
@@ -20,16 +21,44 @@ interface ChatMessageProps {
   isForwarded?: boolean;
   forwardedFrom?: string;
   forwardedFromType?: 'client' | 'teacher' | 'corporate';
+  onMessageEdit?: (newMessage: string) => Promise<void>;
 }
 
-export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType }: ChatMessageProps) => {
+export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit }: ChatMessageProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message);
 
-  const handleSaveEdit = () => {
-    setIsEditing(false);
-    // Here you would save the edited message to your backend
-    console.log('Saving edited message:', editedMessage);
+  const handleSaveEdit = async () => {
+    if (editedMessage.trim() === message.trim()) {
+      setIsEditing(false);
+      return;
+    }
+
+    try {
+      // Обновляем сообщение в базе данных
+      const { error } = await supabase
+        .from('chat_messages')
+        .update({ 
+          message_text: editedMessage.trim(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', messageId);
+
+      if (error) {
+        console.error('Error updating message:', error);
+        return;
+      }
+
+      // Если это исходящее сообщение менеджера, отправляем исправление клиенту
+      if (type === 'manager' && onMessageEdit) {
+        await onMessageEdit(editedMessage.trim());
+      }
+
+      setIsEditing(false);
+      console.log('Message updated successfully');
+    } catch (error) {
+      console.error('Error saving edited message:', error);
+    }
   };
 
   const handleCancelEdit = () => {

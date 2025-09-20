@@ -326,6 +326,42 @@ export const ChatArea = ({
       }));
   };
 
+  // Функция для редактирования сообщения
+  const handleEditMessage = async (newMessage: string) => {
+    try {
+      // Отправляем исправленное сообщение клиенту
+      const result = await sendTextMessage(clientId, `*Исправление:*\n${newMessage}`);
+      
+      if (result.success) {
+        toast({
+          title: "Сообщение отредактировано",
+          description: "Исправленное сообщение отправлено клиенту",
+        });
+        
+        // Обновляем локальное состояние сообщений
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.id === messages.find(m => m.message === newMessage)?.id 
+              ? { ...msg, message: newMessage, isEdited: true, editedTime: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) }
+              : msg
+          )
+        );
+      } else {
+        toast({
+          title: "Ошибка редактирования",
+          description: result.error || "Не удалось отправить исправленное сообщение",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Ошибка редактирования", 
+        description: error.message || "Не удалось отредактировать сообщение",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Mock tasks data - in real app this would come from props or API
   const clientTasks = [
     {
@@ -487,6 +523,7 @@ export const ChatArea = ({
                     isForwarded={msg.isForwarded}
                     forwardedFrom={msg.forwardedFrom}
                     forwardedFromType={msg.forwardedFromType}
+                    onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
                   />
                 ))
               ) : (
