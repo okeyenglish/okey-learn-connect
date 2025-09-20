@@ -100,6 +100,10 @@ const CRMContent = () => {
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [activeClientName, setActiveClientName] = useState('');
   
+  // Состояния для закрепленных модальных окон
+  const [pinnedTaskClientId, setPinnedTaskClientId] = useState<string>('');
+  const [pinnedInvoiceClientId, setPinnedInvoiceClientId] = useState<string>('');
+  
   // Enable real-time updates for the active chat
   useRealtimeMessages(activeChatId);
 
@@ -276,9 +280,10 @@ const CRMContent = () => {
   const activeThread = threads.find(thread => thread.client_id === activeChatId);
   
   // Get current client info for ChatArea
-  const getFamilyGroupId = () => {
+  const getFamilyGroupId = (clientId?: string | null) => {
     // Get the family group ID for the active client
-    if (!activeChatId) return undefined;
+    const targetClientId = clientId || activeChatId;
+    if (!targetClientId) return undefined;
     
     // Map client IDs to their family group IDs (in real app this would come from DB query)
     const clientFamilyGroupMap: Record<string, string> = {
@@ -292,21 +297,25 @@ const CRMContent = () => {
       '3': '550e8400-e29b-41d4-a716-446655440003'
     };
     
-    return clientFamilyGroupMap[activeChatId];
+    return clientFamilyGroupMap[targetClientId];
   };
 
-  const getActiveClientInfo = () => {
-    if (activeClient) {
+  const getActiveClientInfo = (clientId?: string | null) => {
+    const targetClientId = clientId || activeChatId;
+    const targetClient = clients.find(client => client.id === targetClientId);
+    const targetThread = threads.find(thread => thread.client_id === targetClientId);
+    
+    if (targetClient) {
       return {
-        name: activeClient.name,
-        phone: activeClient.phone,
-        comment: activeClient.notes || 'Клиент'
+        name: targetClient.name,
+        phone: targetClient.phone,
+        comment: targetClient.notes || 'Клиент'
       };
     }
-    if (activeThread) {
+    if (targetThread) {
       return {
-        name: activeThread.client_name,
-        phone: activeThread.client_phone,
+        name: targetThread.client_name,
+        phone: targetThread.client_phone,
         comment: 'Клиент'
       };
     }
@@ -427,11 +436,11 @@ const CRMContent = () => {
   // Обработчик открытия закрепленных модальных окон
   const handleOpenPinnedModal = (id: string, type: string) => {
     if (type === 'task') {
-      setActiveChatId(id);
+      setPinnedTaskClientId(id);
       setShowAddTaskModal(true);
       openPinnedModal(id, type);
     } else if (type === 'invoice') {
-      setActiveChatId(id);
+      setPinnedInvoiceClientId(id);
       setShowInvoiceModal(true);
       openPinnedModal(id, type);
     } else {
@@ -444,12 +453,16 @@ const CRMContent = () => {
   // Обработчики для модальных окон
   const handleTaskModalClose = () => {
     setShowAddTaskModal(false);
-    closePinnedModal(activeChatId, 'task');
+    const clientId = pinnedTaskClientId || activeChatId;
+    closePinnedModal(clientId, 'task');
+    setPinnedTaskClientId('');
   };
 
   const handleInvoiceModalClose = () => {
     setShowInvoiceModal(false);
-    closePinnedModal(activeChatId, 'invoice');
+    const clientId = pinnedInvoiceClientId || activeChatId;
+    closePinnedModal(clientId, 'invoice');
+    setPinnedInvoiceClientId('');
   };
 
   // Обработчик закрытия модальных окон из меню
@@ -917,21 +930,21 @@ const CRMContent = () => {
         <AddTaskModal 
           open={showAddTaskModal}
           onOpenChange={handleTaskModalClose}
-          clientName={getActiveClientInfo().name}
-          clientId={activeChatId || ''}
-          familyGroupId={getFamilyGroupId()}
-          isPinned={isPinned(activeChatId, 'task')}
+          clientName={getActiveClientInfo(pinnedTaskClientId || activeChatId).name}
+          clientId={pinnedTaskClientId || activeChatId || ''}
+          familyGroupId={getFamilyGroupId(pinnedTaskClientId || activeChatId)}
+          isPinned={isPinned(pinnedTaskClientId || activeChatId, 'task')}
           onPin={handlePinTaskModal}
-          onUnpin={() => unpinModal(activeChatId || '', 'task')}
+          onUnpin={() => unpinModal(pinnedTaskClientId || activeChatId || '', 'task')}
         />
 
       <CreateInvoiceModal 
         open={showInvoiceModal}
         onOpenChange={handleInvoiceModalClose}
-        clientName={getActiveClientInfo().name}
-        isPinned={isPinned(activeChatId || '', 'invoice')}
+        clientName={getActiveClientInfo(pinnedInvoiceClientId || activeChatId).name}
+        isPinned={isPinned(pinnedInvoiceClientId || activeChatId || '', 'invoice')}
         onPin={handlePinInvoiceModal}
-        onUnpin={() => unpinModal(activeChatId || '', 'invoice')}
+        onUnpin={() => unpinModal(pinnedInvoiceClientId || activeChatId || '', 'invoice')}
       />
 
       {/* Закрепленные модальные окна */}
