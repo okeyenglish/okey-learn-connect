@@ -7,7 +7,7 @@ export interface ChatMessage {
   client_id: string;
   phone_number_id?: string;
   message_text: string;
-  message_type: 'incoming' | 'outgoing' | 'system';
+  message_type: 'client' | 'manager' | 'system';
   system_type?: string;
   is_read: boolean;
   call_duration?: string;
