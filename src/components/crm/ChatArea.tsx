@@ -301,7 +301,10 @@ export const ChatArea = ({
 
       {/* Client Tasks */}
       <div className="shrink-0">
-        <ClientTasks clientName={clientName} tasks={clientTasks} />
+        <ClientTasks 
+          clientName={clientName}
+          clientId={clientId}
+        />
       </div>
 
       {/* Chat Messages with Tabs */}
@@ -412,6 +415,7 @@ export const ChatArea = ({
           open={showAddTaskModal}
           onOpenChange={setShowAddTaskModal}
           clientName={clientName}
+          clientId={clientId}
         />
       )}
 

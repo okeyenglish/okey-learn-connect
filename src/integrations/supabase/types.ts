@@ -521,6 +521,54 @@ export type Database = {
           },
         ]
       }
+      tasks: {
+        Row: {
+          client_id: string
+          created_at: string
+          description: string | null
+          direction: string | null
+          due_date: string | null
+          goal: string | null
+          id: string
+          method: string | null
+          priority: string
+          responsible: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          description?: string | null
+          direction?: string | null
+          due_date?: string | null
+          goal?: string | null
+          id?: string
+          method?: string | null
+          priority?: string
+          responsible?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          description?: string | null
+          direction?: string | null
+          due_date?: string | null
+          goal?: string | null
+          id?: string
+          method?: string | null
+          priority?: string
+          responsible?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

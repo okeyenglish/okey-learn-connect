@@ -3,34 +3,45 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-
-interface Task {
-  id: string;
-  title: string;
-  student?: string;
-  priority: 'high' | 'medium' | 'low';
-  dueDate?: string;
-  description?: string;
-}
+import { useTasks, useUpdateTask, useDeleteTask, Task } from "@/hooks/useTasks";
+import { toast } from "sonner";
 
 interface ClientTasksProps {
   clientName: string;
-  tasks: Task[];
+  clientId: string;
 }
 
-export const ClientTasks = ({ clientName, tasks }: ClientTasksProps) => {
+export const ClientTasks = ({ clientName, clientId }: ClientTasksProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { tasks, isLoading } = useTasks(clientId);
+  const updateTask = useUpdateTask();
+  const deleteTask = useDeleteTask();
+
+  // Только активные задачи
+  const activeTasks = tasks.filter(task => task.status === 'active');
   
-  if (tasks.length === 0) {
+  if (isLoading || activeTasks.length === 0) {
     return null;
   }
 
-  const handleCompleteTask = (taskId: string) => {
-    console.log('Complete task:', taskId);
+  const handleCompleteTask = async (taskId: string) => {
+    try {
+      await updateTask.mutateAsync({ id: taskId, status: 'completed' });
+      toast.success('Задача выполнена');
+    } catch (error) {
+      console.error('Error completing task:', error);  
+      toast.error('Ошибка при выполнении задачи');
+    }
   };
 
-  const handleCloseTask = (taskId: string) => {
-    console.log('Close task:', taskId);
+  const handleCloseTask = async (taskId: string) => {
+    try {
+      await deleteTask.mutateAsync(taskId);
+      toast.success('Задача удалена');
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      toast.error('Ошибка при удалении задачи');
+    }
   };
 
   const getPriorityColor = (priority: string) => {
@@ -55,28 +66,28 @@ export const ClientTasks = ({ clientName, tasks }: ClientTasksProps) => {
             <ChevronRight className="h-4 w-4 text-orange-600" />
           )}
           <AlertCircle className="h-4 w-4 text-orange-600" />
-          Активные задачи ({tasks.length})
+          Активные задачи ({activeTasks.length})
         </CardTitle>
       </CardHeader>
       {isExpanded && (
         <CardContent className="pt-1 pb-3">
           <div className="space-y-2">
-            {tasks.map((task) => (
+            {activeTasks.map((task) => (
               <div key={task.id} className="bg-white rounded-md p-2 border border-orange-200/60">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate leading-tight">{task.title}</p>
                     <div className="flex items-center gap-3 mt-1">
-                      {task.student && (
+                      {task.responsible && (
                         <div className="flex items-center gap-1">
                           <User className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground">{task.student}</span>
+                          <span className="text-xs text-muted-foreground">{task.responsible}</span>
                         </div>
                       )}
-                      {task.dueDate && (
+                      {task.due_date && (
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground">{task.dueDate}</span>
+                          <span className="text-xs text-muted-foreground">{new Date(task.due_date).toLocaleDateString('ru-RU')}</span>
                         </div>
                       )}
                     </div>

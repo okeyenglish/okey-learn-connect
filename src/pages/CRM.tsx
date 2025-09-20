@@ -836,6 +836,7 @@ const CRMContent = () => {
         open={showAddTaskModal}
         onOpenChange={handleTaskModalClose}
         clientName={getActiveClientInfo().name}
+        clientId={activeChatId || ''}
         isPinned={isPinned(activeChatId, 'task')}
         onPin={handlePinTaskModal}
         onUnpin={() => unpinModal(activeChatId || '', 'task')}
@@ -859,6 +860,7 @@ const CRMContent = () => {
               open={true}
               onOpenChange={() => closePinnedModal(modal.id, modal.type)}
               clientName={modal.props.clientName}
+              clientId={modal.id}
               isPinned={true}
               onUnpin={() => unpinModal(modal.id, modal.type)}
             />
