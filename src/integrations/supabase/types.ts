@@ -19,34 +19,58 @@ export type Database = {
           call_duration: string | null
           client_id: string
           created_at: string
+          file_name: string | null
+          file_type: string | null
+          file_url: string | null
+          green_api_message_id: string | null
           id: string
+          is_outgoing: boolean | null
           is_read: boolean
+          message_status: Database["public"]["Enums"]["message_status"] | null
           message_text: string
           message_type: string
+          messenger_type: Database["public"]["Enums"]["messenger_type"] | null
           phone_number_id: string | null
           system_type: string | null
+          webhook_id: string | null
         }
         Insert: {
           call_duration?: string | null
           client_id: string
           created_at?: string
+          file_name?: string | null
+          file_type?: string | null
+          file_url?: string | null
+          green_api_message_id?: string | null
           id?: string
+          is_outgoing?: boolean | null
           is_read?: boolean
+          message_status?: Database["public"]["Enums"]["message_status"] | null
           message_text: string
           message_type: string
+          messenger_type?: Database["public"]["Enums"]["messenger_type"] | null
           phone_number_id?: string | null
           system_type?: string | null
+          webhook_id?: string | null
         }
         Update: {
           call_duration?: string | null
           client_id?: string
           created_at?: string
+          file_name?: string | null
+          file_type?: string | null
+          file_url?: string | null
+          green_api_message_id?: string | null
           id?: string
+          is_outgoing?: boolean | null
           is_read?: boolean
+          message_status?: Database["public"]["Enums"]["message_status"] | null
           message_text?: string
           message_type?: string
+          messenger_type?: Database["public"]["Enums"]["messenger_type"] | null
           phone_number_id?: string | null
           system_type?: string | null
+          webhook_id?: string | null
         }
         Relationships: [
           {
@@ -115,30 +139,39 @@ export type Database = {
           email: string | null
           id: string
           is_active: boolean
+          last_message_at: string | null
           name: string
           notes: string | null
           phone: string
+          telegram_chat_id: string | null
           updated_at: string
+          whatsapp_chat_id: string | null
         }
         Insert: {
           created_at?: string
           email?: string | null
           id?: string
           is_active?: boolean
+          last_message_at?: string | null
           name: string
           notes?: string | null
           phone: string
+          telegram_chat_id?: string | null
           updated_at?: string
+          whatsapp_chat_id?: string | null
         }
         Update: {
           created_at?: string
           email?: string | null
           id?: string
           is_active?: boolean
+          last_message_at?: string | null
           name?: string
           notes?: string | null
           phone?: string
+          telegram_chat_id?: string | null
           updated_at?: string
+          whatsapp_chat_id?: string | null
         }
         Relationships: []
       }
@@ -262,6 +295,39 @@ export type Database = {
           question?: string
           sort_order?: number | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      messenger_settings: {
+        Row: {
+          created_at: string
+          id: string
+          is_enabled: boolean
+          last_sync_at: string | null
+          messenger_type: Database["public"]["Enums"]["messenger_type"]
+          settings: Json | null
+          updated_at: string
+          webhook_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          last_sync_at?: string | null
+          messenger_type: Database["public"]["Enums"]["messenger_type"]
+          settings?: Json | null
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          last_sync_at?: string | null
+          messenger_type?: Database["public"]["Enums"]["messenger_type"]
+          settings?: Json | null
+          updated_at?: string
+          webhook_url?: string | null
         }
         Relationships: []
       }
@@ -476,6 +542,36 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          event_type: string
+          id: string
+          messenger_type: Database["public"]["Enums"]["messenger_type"]
+          processed: boolean | null
+          webhook_data: Json
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          event_type: string
+          id?: string
+          messenger_type: Database["public"]["Enums"]["messenger_type"]
+          processed?: boolean | null
+          webhook_data: Json
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          messenger_type?: Database["public"]["Enums"]["messenger_type"]
+          processed?: boolean | null
+          webhook_data?: Json
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -616,6 +712,14 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "manager" | "teacher"
+      message_status:
+        | "queued"
+        | "sent"
+        | "delivered"
+        | "read"
+        | "failed"
+        | "noAccount"
+      messenger_type: "whatsapp" | "telegram" | "system"
       relationship_type: "main" | "spouse" | "parent" | "guardian" | "other"
       student_status: "active" | "inactive" | "trial" | "graduated"
     }
@@ -746,6 +850,15 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "manager", "teacher"],
+      message_status: [
+        "queued",
+        "sent",
+        "delivered",
+        "read",
+        "failed",
+        "noAccount",
+      ],
+      messenger_type: ["whatsapp", "telegram", "system"],
       relationship_type: ["main", "spouse", "parent", "guardian", "other"],
       student_status: ["active", "inactive", "trial", "graduated"],
     },
