@@ -9,6 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
+import { useClients, useSearchClients } from "@/hooks/useClients";
+import { useChatThreads, useRealtimeMessages } from "@/hooks/useChatMessages";
+import { useStudents } from "@/hooks/useStudents";
 import { ChatArea } from "@/components/crm/ChatArea";
 import { CorporateChatArea } from "@/components/crm/CorporateChatArea";
 import { TeacherChatArea } from "@/components/crm/TeacherChatArea";
@@ -17,6 +20,8 @@ import { SearchResults } from "@/components/crm/SearchResults";
 import { LinkedContacts } from "@/components/crm/LinkedContacts";
 import { FamilyCard } from "@/components/crm/FamilyCard";
 import { ChatContextMenu } from "@/components/crm/ChatContextMenu";
+import { AddClientModal } from "@/components/crm/AddClientModal";
+import { ClientsList } from "@/components/crm/ClientsList";
 import { NewChatModal } from "@/components/crm/NewChatModal";
 import { 
   Search, 
@@ -43,12 +48,21 @@ import {
 
 const CRMContent = () => {
   const { user, profile, role, signOut } = useAuth();
+  const { clients, isLoading: clientsLoading } = useClients();
+  const { threads, isLoading: threadsLoading } = useChatThreads();
+  const { students, isLoading: studentsLoading } = useStudents();
+  const { 
+    searchResults: clientSearchResults, 
+    isSearching, 
+    searchClients,
+    clearSearch 
+  } = useSearchClients();
   const [openModal, setOpenModal] = useState<string | null>(null);
   const [hasUnsavedChat, setHasUnsavedChat] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [showSearchResults, setShowSearchResults] = useState(false);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [globalSearchResults, setGlobalSearchResults] = useState<any[]>([]);
   // Добавим несколько чатов в закрепленные для демонстрации
   const [chatStates, setChatStates] = useState<Record<string, { pinned: boolean; archived: boolean; unread: boolean }>>({
     '1': { pinned: true, archived: false, unread: true }, // Мария Петрова - закреплена
@@ -61,7 +75,9 @@ const CRMContent = () => {
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>('teachers-group');
   const [isPinnedSectionOpen, setIsPinnedSectionOpen] = useState(false);
   
-  
+  // Enable real-time updates for the active chat
+  useRealtimeMessages(activeChatId);
+
   const handleSignOut = async () => {
     await signOut();
   };
@@ -104,15 +120,34 @@ const CRMContent = () => {
   const handleGlobalSearch = (query: string) => {
     setSearchQuery(query);
     if (query.trim().length > 0) {
+      // Search clients using the hook
+      searchClients(query);
+      
+      // Also search mock data for other types
       const filtered = mockSearchData.filter(item => 
         item.title.toLowerCase().includes(query.toLowerCase()) ||
         item.subtitle?.toLowerCase().includes(query.toLowerCase()) ||
         item.description?.toLowerCase().includes(query.toLowerCase())
       );
-      setSearchResults(filtered);
+      
+      // Combine results (clients from real data + other mock data)
+      const combinedResults = [
+        ...clientSearchResults.map(client => ({
+          id: client.id,
+          type: 'client',
+          title: client.name,
+          subtitle: client.phone,
+          description: client.email || 'Клиент',
+          metadata: { phone: client.phone, email: client.email }
+        })),
+        ...filtered
+      ];
+      
+      setGlobalSearchResults(combinedResults);
       setShowSearchResults(true);
     } else {
-      setSearchResults([]);
+      clearSearch();
+      setGlobalSearchResults([]);
       setShowSearchResults(false);
     }
   };
@@ -133,31 +168,37 @@ const CRMContent = () => {
     setShowSearchResults(false);
   };
 
-  // Фильтрация чатов на основе поиска - добавляем больше чатов для демонстрации прокрутки
+  // Используем реальные чаты из базы данных + системные чаты
   const allChats = [
+    // Системные чаты
     { id: 'corporate', name: 'Корпоративный чат', phone: 'Команда OKEY ENGLISH', time: '11:45', unread: 3, type: 'corporate' as const, timestamp: Date.now() - 1000 * 60 * 60 },
     { id: 'teachers', name: 'Преподаватели', phone: 'Чаты с преподавателями', time: '10:15', unread: 2, type: 'teachers' as const, timestamp: Date.now() - 1000 * 60 * 90 },
-    { id: '1', name: 'Мария Петрова', phone: '+7 (985) 261-50-56', time: '10:32', unread: 2, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 88 },
-    { id: '2', name: 'Анна Смирнова', phone: '+7 (916) 123-45-67', time: '09:15', unread: 0, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 105 },
-    { id: '3', name: 'Игорь Волков', phone: '+7 (903) 987-65-43', time: 'Вчера', unread: 0, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 60 * 24 },
-    { id: '4', name: 'Елена Кузнецова', phone: '+7 (925) 555-12-34', time: '08:45', unread: 1, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 135 },
-    { id: '5', name: 'Дмитрий Иванов', phone: '+7 (916) 777-88-99', time: '08:20', unread: 0, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 160 },
-    { id: '6', name: 'Светлана Морозова', phone: '+7 (985) 333-44-55', time: '07:55', unread: 3, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 185 },
-    { id: '7', name: 'Александр Попов', phone: '+7 (903) 666-77-88', time: '07:30', unread: 0, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 210 },
-    { id: '8', name: 'Наталья Федорова', phone: '+7 (916) 999-00-11', time: '07:10', unread: 1, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 230 },
-    { id: '9', name: 'Михаил Сидоров', phone: '+7 (925) 222-33-44', time: '06:45', unread: 0, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 255 },
-    { id: '10', name: 'Ольга Романова', phone: '+7 (985) 111-22-33', time: '06:20', unread: 2, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 280 },
-    { id: '11', name: 'Владимир Козлов', phone: '+7 (903) 444-55-66', time: '05:55', unread: 0, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 305 },
-    { id: '12', name: 'Татьяна Новикова', phone: '+7 (916) 777-88-00', time: '05:30', unread: 1, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 330 },
-    { id: '13', name: 'Артем Лебедев', phone: '+7 (925) 999-11-22', time: '05:05', unread: 0, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 355 },
-    { id: '14', name: 'Юлия Васильева', phone: '+7 (985) 333-44-66', time: '04:40', unread: 4, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 380 },
-    { id: '15', name: 'Сергей Орлов', phone: '+7 (903) 666-77-99', time: '04:15', unread: 0, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 405 },
-    { id: '16', name: 'Екатерина Зайцева', phone: '+7 (916) 555-66-77', time: '03:50', unread: 1, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 430 },
-    { id: '17', name: 'Андрей Соколов', phone: '+7 (925) 111-22-44', time: '03:25', unread: 0, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 455 },
-    { id: '18', name: 'Марина Белова', phone: '+7 (985) 888-99-00', time: '03:00', unread: 2, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 480 },
-    { id: '19', name: 'Николай Крылов', phone: '+7 (903) 222-33-55', time: '02:35', unread: 0, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 505 },
-    { id: '20', name: 'Вера Медведева', phone: '+7 (916) 444-55-77', time: '02:10', unread: 3, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 530 },
+    // Реальные чаты с клиентами
+    ...threads.map(thread => ({
+      id: thread.client_id,
+      name: thread.client_name,
+      phone: thread.client_phone,
+      time: formatTime(thread.last_message_time),
+      unread: thread.unread_count,
+      type: 'client' as const,
+      timestamp: new Date(thread.last_message_time).getTime()
+    }))
   ];
+
+  // Функция для форматирования времени
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+    
+    if (diffInHours < 24) {
+      return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    } else if (diffInHours < 48) {
+      return 'Вчера';
+    } else {
+      return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+    }
+  };
 
   const filteredChats = allChats
     .filter(chat => 
@@ -258,10 +299,18 @@ const CRMContent = () => {
               )}
             </div>
           </div>
-          <Button variant="outline" onClick={handleSignOut}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Выйти
-          </Button>
+          <div className="flex items-center gap-2">
+            {(clientsLoading || threadsLoading || studentsLoading) && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
+                Загрузка данных...
+              </div>
+            )}
+            <Button variant="outline" onClick={handleSignOut}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Выйти
+            </Button>
+          </div>
         </div>
       </div>
       
@@ -274,7 +323,7 @@ const CRMContent = () => {
             onClear={() => {
               setSearchQuery("");
               setShowSearchResults(false);
-              setSearchResults([]);
+              setGlobalSearchResults([]);
             }}
             size="lg"
           />
@@ -312,6 +361,26 @@ const CRMContent = () => {
                         </DialogTitle>
                       </DialogHeader>
                       <div className="py-4">
+                        {item.label === "Лиды" && (
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                              <h3 className="font-medium">Клиенты</h3>
+                              <AddClientModal>
+                                <Button size="sm">
+                                  <User className="h-4 w-4 mr-2" />
+                                  Добавить клиента
+                                </Button>
+                              </AddClientModal>
+                            </div>
+                            <ClientsList 
+                              onSelectClient={(clientId) => {
+                                setActiveChatId(clientId);
+                                setActiveChatType('client');
+                              }}
+                              selectedClientId={activeChatId}
+                            />
+                          </div>
+                        )}
                         {item.label === "Расписание" && (
                           <div className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -605,7 +674,7 @@ const CRMContent = () => {
         isOpen={showSearchResults}
         onClose={() => setShowSearchResults(false)}
         query={searchQuery}
-        results={searchResults}
+        results={globalSearchResults}
         onSelectResult={handleSelectSearchResult}
       />
     </div>
