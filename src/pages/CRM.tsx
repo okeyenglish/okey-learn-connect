@@ -33,7 +33,9 @@ import {
   MessageCircle,
   MessageCirclePlus,
   Pin,
-  Building2
+  Building2,
+  ChevronDown,
+  ChevronRight
 } from "lucide-react";
 
 const CRM = () => {
@@ -55,6 +57,7 @@ const CRM = () => {
   const [activeChatId, setActiveChatId] = useState<string>('1');
   const [activeChatType, setActiveChatType] = useState<'client' | 'corporate' | 'teachers'>('client');
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>('teachers-group');
+  const [isPinnedSectionOpen, setIsPinnedSectionOpen] = useState(false);
   
   
   const handleAuth = () => {
@@ -409,15 +412,26 @@ const CRM = () => {
                   {/* Закрепленные чаты */}
                   {filteredChats.some(chat => chatStates[chat.id]?.pinned) && (
                     <div className="mb-4">
-                      <div className="flex items-center justify-between px-2 py-1 mb-2">
-                        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                          Закрепленные (в работе)
-                        </h3>
+                      <button 
+                        className="w-full flex items-center justify-between px-2 py-1 mb-2 hover:bg-muted/50 rounded transition-colors"
+                        onClick={() => setIsPinnedSectionOpen(!isPinnedSectionOpen)}
+                      >
+                        <div className="flex items-center gap-2">
+                          {isPinnedSectionOpen ? (
+                            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                          )}
+                          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                            Закрепленные (в работе)
+                          </h3>
+                        </div>
                         <Badge variant="secondary" className="text-xs h-4">
                           {filteredChats.filter(chat => chatStates[chat.id]?.pinned).length}
                         </Badge>
-                      </div>
-                      <div className="space-y-1">
+                      </button>
+                      {isPinnedSectionOpen && (
+                        <div className="space-y-1">
                         {filteredChats
                           .filter(chat => chatStates[chat.id]?.pinned)
                           .map((chat) => {
@@ -475,7 +489,8 @@ const CRM = () => {
                               </ChatContextMenu>
                             );
                           })}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
