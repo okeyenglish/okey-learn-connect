@@ -79,9 +79,9 @@ const CRM = () => {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="h-screen bg-muted/30 flex flex-col">
       {/* Search Bar */}
-      <div className="bg-background border-b p-4">
+      <div className="bg-background border-b p-4 shrink-0">
         <div className="relative max-w-7xl mx-auto">
           <Input
             placeholder="Поиск клиентов по ФИО, телефону, email..."
@@ -91,9 +91,9 @@ const CRM = () => {
         </div>
       </div>
 
-      <div className="flex max-w-7xl mx-auto">
+      <div className="flex flex-1 max-w-7xl mx-auto w-full">
         {/* Left Sidebar - Menu */}
-        <div className="w-16 bg-background border-r flex flex-col py-4">
+        <div className="w-16 bg-background border-r flex flex-col py-4 shrink-0">
           {menuItems.map((item, index) => (
             <button
               key={index}
@@ -106,7 +106,7 @@ const CRM = () => {
         </div>
 
         {/* Center - Chat */}
-        <div className="flex-1 bg-background border-r flex flex-col">
+        <div className="flex-1 bg-background border-r flex flex-col min-w-0">
           {/* Chat Header */}
           <div className="border-b p-4 flex items-center justify-between">
             <div>
