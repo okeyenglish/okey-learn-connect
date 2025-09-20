@@ -309,37 +309,37 @@ export const FamilyCard = ({
             </TabsTrigger>
           </TabsList>
           
-          {/* Add buttons positioned outside TabsTrigger */}
-          {activeTab === "children" && (
-            <AddStudentModal 
-              familyGroupId={familyGroupId}
-              parentLastName={activeMember.name.split(' ').pop()}
-              onStudentAdded={refetch}
-            >
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0 bg-slate-600 text-white hover:bg-slate-700 rounded-full z-10"
+          {/* Add button for active tab */}
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
+            {activeTab === "children" ? (
+              <AddStudentModal 
+                familyGroupId={familyGroupId}
+                parentLastName={activeMember.name.split(' ').pop()}
+                onStudentAdded={refetch}
               >
-                <Plus className="h-3 w-3" />
-              </Button>
-            </AddStudentModal>
-          )}
-          
-          {activeTab === "contacts" && (
-            <AddFamilyMemberModal 
-              familyGroupId={familyGroupId}
-              onMemberAdded={refetch}
-            >
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0 bg-slate-600 text-white hover:bg-slate-700 rounded-full z-10"
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-6 w-6 p-0 bg-slate-600 text-white hover:bg-slate-700 rounded-full"
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </AddStudentModal>
+            ) : (
+              <AddFamilyMemberModal 
+                familyGroupId={familyGroupId}
+                onMemberAdded={refetch}
               >
-                <Plus className="h-3 w-3" />
-              </Button>
-            </AddFamilyMemberModal>
-          )}
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-6 w-6 p-0 bg-slate-600 text-white hover:bg-slate-700 rounded-full"
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </AddFamilyMemberModal>
+            )}
+          </div>
         </div>
         
         <TabsContent value="children" className="space-y-2 mt-4">
