@@ -92,61 +92,66 @@ const CRM = () => {
       </div>
 
       <div className="flex flex-1 max-w-7xl mx-auto w-full">
-        {/* Left Sidebar - Menu */}
-        <div className="w-16 hover:w-48 bg-background border-r flex flex-col py-4 shrink-0 transition-all duration-300 ease-out group overflow-hidden">
-          {menuItems.map((item, index) => (
-            <button
-              key={index}
-              className="flex items-center gap-3 px-4 h-12 hover:bg-muted transition-colors relative"
-              title={item.label}
-            >
-              <item.icon className="h-5 w-5 shrink-0" />
-              <span className="text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                {item.label}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {/* Chat List */}
+        {/* Left Unified Sidebar */}
         <div className="w-80 bg-background border-r flex flex-col">
-          <div className="p-4 border-b">
-            <h3 className="font-semibold">Чаты</h3>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-2 space-y-1">
-              <button className="w-full p-3 text-left rounded-lg bg-muted hover:bg-muted/80 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-sm">Мария Петрова</p>
-                    <p className="text-xs text-muted-foreground">+7 (985) 261-50-56</p>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <span className="text-xs text-muted-foreground">10:32</span>
-                    <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">2</span>
-                  </div>
+          <Tabs defaultValue="chats" className="flex flex-col h-full">
+            <TabsList className="grid w-full grid-cols-2 m-2">
+              <TabsTrigger value="menu">Меню</TabsTrigger>
+              <TabsTrigger value="chats">Чаты</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="menu" className="flex-1 mt-0">
+              <div className="p-2 space-y-1">
+                {menuItems.map((item, index) => (
+                  <button
+                    key={index}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left"
+                    title={item.label}
+                  >
+                    <item.icon className="h-5 w-5 shrink-0" />
+                    <span className="text-sm">{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="chats" className="flex-1 mt-0 flex flex-col">
+              <div className="flex-1 overflow-y-auto">
+                <div className="p-2 space-y-1">
+                  <button className="w-full p-3 text-left rounded-lg bg-muted hover:bg-muted/80 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm">Мария Петрова</p>
+                        <p className="text-xs text-muted-foreground">+7 (985) 261-50-56</p>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className="text-xs text-muted-foreground">10:32</span>
+                        <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">2</span>
+                      </div>
+                    </div>
+                  </button>
+                  <button className="w-full p-3 text-left rounded-lg hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm">Анна Смирнова</p>
+                        <p className="text-xs text-muted-foreground">+7 (916) 123-45-67</p>
+                      </div>
+                      <span className="text-xs text-muted-foreground">09:15</span>
+                    </div>
+                  </button>
+                  <button className="w-full p-3 text-left rounded-lg hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm">Игорь Волков</p>
+                        <p className="text-xs text-muted-foreground">+7 (903) 987-65-43</p>
+                      </div>
+                      <span className="text-xs text-muted-foreground">Вчера</span>
+                    </div>
+                  </button>
                 </div>
-              </button>
-              <button className="w-full p-3 text-left rounded-lg hover:bg-muted/50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-sm">Анна Смирнова</p>
-                    <p className="text-xs text-muted-foreground">+7 (916) 123-45-67</p>
-                  </div>
-                  <span className="text-xs text-muted-foreground">09:15</span>
-                </div>
-              </button>
-              <button className="w-full p-3 text-left rounded-lg hover:bg-muted/50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-sm">Игорь Волков</p>
-                    <p className="text-xs text-muted-foreground">+7 (903) 987-65-43</p>
-                  </div>
-                  <span className="text-xs text-muted-foreground">Вчера</span>
-                </div>
-              </button>
-            </div>
-          </div>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
 
         {/* Center - Chat */}
