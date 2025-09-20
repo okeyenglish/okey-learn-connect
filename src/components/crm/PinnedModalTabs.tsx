@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { X, CheckSquare, FileText, User, Users } from "lucide-react";
-import { PinnedModal } from "@/hooks/usePinnedModals";
+import { PinnedModal } from "@/hooks/usePinnedModalsDB";
 
 interface PinnedModalTabsProps {
   pinnedModals: PinnedModal[];

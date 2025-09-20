@@ -30,7 +30,7 @@ import { PinnedModalTabs } from "@/components/crm/PinnedModalTabs";
 import { AddTaskModal } from "@/components/crm/AddTaskModal";
 import { CreateInvoiceModal } from "@/components/crm/CreateInvoiceModal";
 import { PinnableModalHeader, PinnableDialogContent } from "@/components/crm/PinnableModal";
-import { usePinnedModals } from "@/hooks/usePinnedModals";
+import { usePinnedModalsDB, PinnedModal } from "@/hooks/usePinnedModalsDB";
 import { useAllTasks } from "@/hooks/useTasks";
 import { 
   Search, 
@@ -71,12 +71,13 @@ const CRMContent = () => {
   const queryClient = useQueryClient();
   const { 
     pinnedModals, 
+    loading: pinnedLoading,
     pinModal, 
     unpinModal, 
     openPinnedModal, 
     closePinnedModal, 
     isPinned 
-  } = usePinnedModals();
+  } = usePinnedModalsDB();
   const { tasks: allTasks, isLoading: tasksLoading } = useAllTasks();
   const [openModal, setOpenModal] = useState<string | null>(null);
   const [hasUnsavedChat, setHasUnsavedChat] = useState(false);
@@ -436,7 +437,6 @@ const CRMContent = () => {
 
   // Обработчик открытия закрепленных модальных окон
   const handleOpenPinnedModal = (id: string, type: string) => {
-    console.log('Opening pinned modal:', { id, type, pinnedModals });
     if (type === 'task') {
       setPinnedTaskClientId(id);
       setShowAddTaskModal(true);
@@ -506,7 +506,7 @@ const CRMContent = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {(clientsLoading || threadsLoading || studentsLoading) && (
+            {(clientsLoading || threadsLoading || studentsLoading || pinnedLoading) && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
                 Загрузка данных...

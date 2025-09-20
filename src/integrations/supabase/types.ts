@@ -331,6 +331,39 @@ export type Database = {
         }
         Relationships: []
       }
+      pinned_modals: {
+        Row: {
+          created_at: string
+          id: string
+          modal_id: string
+          modal_type: string
+          props: Json | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          modal_id: string
+          modal_type: string
+          props?: Json | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          modal_id?: string
+          modal_type?: string
+          props?: Json | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
