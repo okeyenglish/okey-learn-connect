@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -43,7 +44,12 @@ const CRM = () => {
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [chatStates, setChatStates] = useState<Record<string, { pinned: boolean; archived: boolean; unread: boolean }>>({});
+  // Добавим несколько чатов в закрепленные для демонстрации
+  const [chatStates, setChatStates] = useState<Record<string, { pinned: boolean; archived: boolean; unread: boolean }>>({
+    '1': { pinned: true, archived: false, unread: true }, // Мария Петрова - закреплена
+    '2': { pinned: false, archived: false, unread: false },
+    '3': { pinned: true, archived: false, unread: false }, // Игорь Волков - закреплен
+  });
   const [activePhoneId, setActivePhoneId] = useState<string>('1');
   const [activeChatId, setActiveChatId] = useState<string>('1');
   const [activeChatType, setActiveChatType] = useState<'client' | 'corporate' | 'teachers'>('client');
@@ -379,57 +385,143 @@ const CRM = () => {
                 </NewChatModal>
               </div>
               <div className="flex-1 overflow-y-auto">
-                <div className="p-2 space-y-1">
-                  {filteredChats.map((chat, index) => {
-                    const chatState = chatStates[chat.id] || { pinned: false, archived: false, unread: false };
-                    const displayUnread = chatState.unread || chat.unread > 0;
-                    return (
-                      <ChatContextMenu
-                        key={chat.id}
-                        onMarkUnread={() => handleChatAction(chat.id, 'unread')}
-                        onPinDialog={() => handleChatAction(chat.id, 'pin')}
-                        onArchive={() => handleChatAction(chat.id, 'archive')}
-                        onBlock={() => handleChatAction(chat.id, 'block')}
-                        isPinned={chatState.pinned}
-                        isArchived={chatState.archived}
-                      >
-                        <button 
-                          className={`w-full p-3 text-left rounded-lg transition-colors relative ${
-                            chat.id === activeChatId ? 'bg-muted hover:bg-muted/80' : 'hover:bg-muted/50'
-                          }`}
-                          onClick={() => handleChatClick(chat.id, chat.type)}
-                        >
-                          {chatState.pinned && (
-                            <Pin className="absolute top-2 right-2 h-3 w-3 text-muted-foreground" />
-                          )}
-                          <div className="flex items-center justify-between">
-                             <div className="flex items-center gap-2">
-                               {chat.type === 'corporate' && (
-                                 <Building2 className="h-4 w-4 text-slate-600" />
-                               )}
-                               {chat.type === 'teachers' && (
-                                 <GraduationCap className="h-4 w-4 text-slate-600" />
-                               )}
-                               <div>
-                                <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
-                                  {chat.name}
-                                </p>
-                                <p className="text-xs text-muted-foreground">{chat.phone}</p>
-                              </div>
-                            </div>
-                            <div className="flex flex-col items-end">
-                              <span className="text-xs text-muted-foreground">{chat.time}</span>
-                              {displayUnread && (
-                                <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
-                                  {chatState.unread ? '1' : chat.unread}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </button>
-                      </ChatContextMenu>
-                    );
-                  })}
+                <div className="p-2">
+                  {/* Закрепленные чаты */}
+                  {filteredChats.some(chat => chatStates[chat.id]?.pinned) && (
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between px-2 py-1 mb-2">
+                        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Закрепленные (в работе)
+                        </h3>
+                        <Badge variant="secondary" className="text-xs h-4">
+                          {filteredChats.filter(chat => chatStates[chat.id]?.pinned).length}
+                        </Badge>
+                      </div>
+                      <div className="space-y-1">
+                        {filteredChats
+                          .filter(chat => chatStates[chat.id]?.pinned)
+                          .map((chat) => {
+                            const chatState = chatStates[chat.id] || { pinned: false, archived: false, unread: false };
+                            const displayUnread = chatState.unread || chat.unread > 0;
+                            return (
+                              <ChatContextMenu
+                                key={chat.id}
+                                onMarkUnread={() => handleChatAction(chat.id, 'unread')}
+                                onPinDialog={() => handleChatAction(chat.id, 'pin')}
+                                onArchive={() => handleChatAction(chat.id, 'archive')}
+                                onBlock={() => handleChatAction(chat.id, 'block')}
+                                isPinned={chatState.pinned}
+                                isArchived={chatState.archived}
+                              >
+                                <button 
+                                  className={`w-full p-3 text-left rounded-lg transition-colors relative border-l-2 border-orange-400 ${
+                                    chat.id === activeChatId 
+                                      ? 'bg-orange-50 hover:bg-orange-100 dark:bg-orange-950 dark:hover:bg-orange-900' 
+                                      : 'bg-orange-25 hover:bg-orange-50 dark:bg-orange-975 dark:hover:bg-orange-950'
+                                  }`}
+                                  onClick={() => handleChatClick(chat.id, chat.type)}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      {chat.type === 'corporate' && (
+                                        <Building2 className="h-4 w-4 text-slate-600" />
+                                      )}
+                                      {chat.type === 'teachers' && (
+                                        <GraduationCap className="h-4 w-4 text-slate-600" />
+                                      )}
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                          <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
+                                            {chat.name}
+                                          </p>
+                                          <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300">
+                                            В работе
+                                          </Badge>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">{chat.phone}</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-col items-end">
+                                      <Pin className="h-3 w-3 text-orange-600 mb-1" />
+                                      <span className="text-xs text-muted-foreground">{chat.time}</span>
+                                      {displayUnread && (
+                                        <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full mt-1">
+                                          {chatState.unread ? '1' : chat.unread}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </button>
+                              </ChatContextMenu>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Активные чаты */}
+                  <div>
+                    <div className="flex items-center justify-between px-2 py-1 mb-2">
+                      <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Активные чаты
+                      </h3>
+                      <Badge variant="secondary" className="text-xs h-4">
+                        {filteredChats.filter(chat => !chatStates[chat.id]?.pinned).length}
+                      </Badge>
+                    </div>
+                    <div className="space-y-1">
+                      {filteredChats
+                        .filter(chat => !chatStates[chat.id]?.pinned)
+                        .map((chat) => {
+                          const chatState = chatStates[chat.id] || { pinned: false, archived: false, unread: false };
+                          const displayUnread = chatState.unread || chat.unread > 0;
+                          return (
+                            <ChatContextMenu
+                              key={chat.id}
+                              onMarkUnread={() => handleChatAction(chat.id, 'unread')}
+                              onPinDialog={() => handleChatAction(chat.id, 'pin')}
+                              onArchive={() => handleChatAction(chat.id, 'archive')}
+                              onBlock={() => handleChatAction(chat.id, 'block')}
+                              isPinned={chatState.pinned}
+                              isArchived={chatState.archived}
+                            >
+                              <button 
+                                className={`w-full p-3 text-left rounded-lg transition-colors relative ${
+                                  chat.id === activeChatId ? 'bg-muted hover:bg-muted/80' : 'hover:bg-muted/50'
+                                }`}
+                                onClick={() => handleChatClick(chat.id, chat.type)}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    {chat.type === 'corporate' && (
+                                      <Building2 className="h-4 w-4 text-slate-600" />
+                                    )}
+                                    {chat.type === 'teachers' && (
+                                      <GraduationCap className="h-4 w-4 text-slate-600" />
+                                    )}
+                                    <div>
+                                      <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
+                                        {chat.name}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">{chat.phone}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col items-end">
+                                    <span className="text-xs text-muted-foreground">{chat.time}</span>
+                                    {displayUnread && (
+                                      <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+                                        {chatState.unread ? '1' : chat.unread}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </button>
+                            </ChatContextMenu>
+                          );
+                        })}
+                    </div>
+                  </div>
+
                   {filteredChats.length === 0 && chatSearchQuery && (
                     <div className="text-center py-8">
                       <p className="text-sm text-muted-foreground">
