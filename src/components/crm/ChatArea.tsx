@@ -234,11 +234,11 @@ export const ChatArea = ({
     };
   }, [clientId]);
 
-  // Cleanup pending message timeout and scheduled messages on unmount
+  // Cleanup pending message interval and scheduled messages on unmount
   useEffect(() => {
     return () => {
       if (pendingTimeoutRef.current) {
-        clearTimeout(pendingTimeoutRef.current);
+        clearInterval(pendingTimeoutRef.current);
       }
       // Cancel all scheduled messages on unmount
       scheduledMessages.forEach(msg => clearTimeout(msg.timeoutId));
@@ -285,6 +285,11 @@ export const ChatArea = ({
         if (prev.countdown <= 1) {
           // Time's up - send the message
           sendMessageNow(messageText);
+          // Clear the interval when countdown finishes
+          if (pendingTimeoutRef.current) {
+            clearInterval(pendingTimeoutRef.current);
+            pendingTimeoutRef.current = null;
+          }
           return null;
         }
         
@@ -292,13 +297,9 @@ export const ChatArea = ({
       });
     };
 
-    // Update countdown every second
+    // Update countdown every second and store interval ID for cleanup
     const intervalId = setInterval(countdown, 1000);
-    
-    // Store timeout reference for cleanup
-    pendingTimeoutRef.current = setTimeout(() => {
-      clearInterval(intervalId);
-    }, 5000);
+    pendingTimeoutRef.current = intervalId;
   };
 
   const sendMessageNow = async (messageText: string) => {
@@ -419,7 +420,7 @@ export const ChatArea = ({
 
   const cancelMessage = () => {
     if (pendingTimeoutRef.current) {
-      clearTimeout(pendingTimeoutRef.current);
+      clearInterval(pendingTimeoutRef.current);
       pendingTimeoutRef.current = null;
     }
     
