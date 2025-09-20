@@ -10,6 +10,8 @@ import { SearchInput } from "@/components/crm/SearchInput";
 import { SearchResults } from "@/components/crm/SearchResults";
 import { LinkedContacts } from "@/components/crm/LinkedContacts";
 import { FamilyCard } from "@/components/crm/FamilyCard";
+import { ChatContextMenu } from "@/components/crm/ChatContextMenu";
+import { NewChatModal } from "@/components/crm/NewChatModal";
 import { 
   Search, 
   CheckSquare, 
@@ -24,7 +26,9 @@ import {
   Settings,
   ExternalLink,
   Phone,
-  MessageCircle
+  MessageCircle,
+  MessageCirclePlus,
+  Pin
 } from "lucide-react";
 
 const CRM = () => {
@@ -36,6 +40,7 @@ const CRM = () => {
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [chatStates, setChatStates] = useState<Record<string, { pinned: boolean; archived: boolean; unread: boolean }>>({});
   
   const handleAuth = () => {
     if (password === "12345") {
@@ -110,15 +115,27 @@ const CRM = () => {
   };
 
   // Фильтрация чатов на основе поиска
-  const filteredChats = [
-    { name: 'Мария Петрова', phone: '+7 (985) 261-50-56', time: '10:32', unread: 2 },
-    { name: 'Анна Смирнова', phone: '+7 (916) 123-45-67', time: '09:15', unread: 0 },
-    { name: 'Игорь Волков', phone: '+7 (903) 987-65-43', time: 'Вчера', unread: 0 },
-  ].filter(chat => 
-    chatSearchQuery.length === 0 || 
-    chat.name.toLowerCase().includes(chatSearchQuery.toLowerCase()) ||
-    chat.phone.includes(chatSearchQuery)
-  );
+  const allChats = [
+    { id: '1', name: 'Мария Петрова', phone: '+7 (985) 261-50-56', time: '10:32', unread: 2 },
+    { id: '2', name: 'Анна Смирнова', phone: '+7 (916) 123-45-67', time: '09:15', unread: 0 },
+    { id: '3', name: 'Игорь Волков', phone: '+7 (903) 987-65-43', time: 'Вчера', unread: 0 },
+  ];
+
+  const filteredChats = allChats
+    .filter(chat => 
+      chatSearchQuery.length === 0 || 
+      chat.name.toLowerCase().includes(chatSearchQuery.toLowerCase()) ||
+      chat.phone.includes(chatSearchQuery)
+    )
+    .filter(chat => !chatStates[chat.id]?.archived) // Скрываем архивированные чаты
+    .sort((a, b) => {
+      // Сначала закрепленные чаты
+      const aPinned = chatStates[a.id]?.pinned || false;
+      const bPinned = chatStates[b.id]?.pinned || false;
+      if (aPinned && !bPinned) return -1;
+      if (!aPinned && bPinned) return 1;
+      return 0;
+    });
 
   // Mock данные для семейных связей
   const [activeFamilyMemberId, setActiveFamilyMemberId] = useState('550e8400-e29b-41d4-a716-446655440001');
@@ -134,6 +151,24 @@ const CRM = () => {
 
   const handleCallFamilyMember = (memberId: string) => {
     console.log('Звонок члену семьи:', memberId);
+  };
+
+  const handleCreateNewChat = (contactInfo: any) => {
+    console.log('Создание нового чата с:', contactInfo);
+    // Здесь будет логика создания нового чата
+  };
+
+  const handleChatAction = (chatId: string, action: 'unread' | 'pin' | 'archive' | 'block') => {
+    setChatStates(prev => ({
+      ...prev,
+      [chatId]: {
+        ...prev[chatId],
+        ...(action === 'unread' && { unread: true }),
+        ...(action === 'pin' && { pinned: !prev[chatId]?.pinned }),
+        ...(action === 'archive' && { archived: !prev[chatId]?.archived }),
+      }
+    }));
+    console.log(`${action} для чата:`, chatId);
   };
 
   const menuItems = [
@@ -296,39 +331,63 @@ const CRM = () => {
             </TabsContent>
             
             <TabsContent value="chats" className="flex-1 mt-0 flex flex-col">
-              <div className="p-2 border-b">
+              <div className="p-2 border-b space-y-2">
                 <SearchInput
                   placeholder="Поиск по чатам..."
                   onSearch={handleChatSearch}
                   onClear={() => setChatSearchQuery("")}
                   size="sm"
                 />
+                <NewChatModal onCreateChat={handleCreateNewChat}>
+                  <Button size="sm" className="w-full gap-2" variant="outline">
+                    <MessageCirclePlus className="h-4 w-4" />
+                    Новый чат
+                  </Button>
+                </NewChatModal>
               </div>
               <div className="flex-1 overflow-y-auto">
                 <div className="p-2 space-y-1">
-                  {filteredChats.map((chat, index) => (
-                    <button 
-                      key={index}
-                      className={`w-full p-3 text-left rounded-lg transition-colors ${
-                        index === 0 ? 'bg-muted hover:bg-muted/80' : 'hover:bg-muted/50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-sm">{chat.name}</p>
-                          <p className="text-xs text-muted-foreground">{chat.phone}</p>
-                        </div>
-                        <div className="flex flex-col items-end">
-                          <span className="text-xs text-muted-foreground">{chat.time}</span>
-                          {chat.unread > 0 && (
-                            <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
-                              {chat.unread}
-                            </span>
+                  {filteredChats.map((chat, index) => {
+                    const chatState = chatStates[chat.id] || { pinned: false, archived: false, unread: false };
+                    const displayUnread = chatState.unread || chat.unread > 0;
+                    return (
+                      <ChatContextMenu
+                        key={chat.id}
+                        onMarkUnread={() => handleChatAction(chat.id, 'unread')}
+                        onPinDialog={() => handleChatAction(chat.id, 'pin')}
+                        onArchive={() => handleChatAction(chat.id, 'archive')}
+                        onBlock={() => handleChatAction(chat.id, 'block')}
+                        isPinned={chatState.pinned}
+                        isArchived={chatState.archived}
+                      >
+                        <button 
+                          className={`w-full p-3 text-left rounded-lg transition-colors relative ${
+                            index === 0 ? 'bg-muted hover:bg-muted/80' : 'hover:bg-muted/50'
+                          }`}
+                        >
+                          {chatState.pinned && (
+                            <Pin className="absolute top-2 right-2 h-3 w-3 text-muted-foreground" />
                           )}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
+                                {chat.name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">{chat.phone}</p>
+                            </div>
+                            <div className="flex flex-col items-end">
+                              <span className="text-xs text-muted-foreground">{chat.time}</span>
+                              {displayUnread && (
+                                <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+                                  {chatState.unread ? '1' : chat.unread}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      </ChatContextMenu>
+                    );
+                  })}
                   {filteredChats.length === 0 && chatSearchQuery && (
                     <div className="text-center py-8">
                       <p className="text-sm text-muted-foreground">
