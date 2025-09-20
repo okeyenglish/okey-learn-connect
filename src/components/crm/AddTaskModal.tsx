@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Star, Calendar as CalendarIcon, Plus, X, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PinnableModalHeader } from "./PinnableModal";
+import { PinnableModalHeader, PinnableDialogContent } from "./PinnableModal";
 import { useCreateTask } from "@/hooks/useTasks";
 import { useFamilyData } from "@/hooks/useFamilyData";
 import { format } from "date-fns";
@@ -124,7 +124,7 @@ export const AddTaskModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <PinnableDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <PinnableModalHeader
           title="Назначение задачи"
           isPinned={isPinned}
@@ -336,7 +336,7 @@ export const AddTaskModal = ({
             {createTask.isPending ? "Сохранение..." : "Сохранить"}
           </Button>
         </div>
-      </DialogContent>
+      </PinnableDialogContent>
     </Dialog>
   );
 };
