@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -123,21 +123,30 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
             <p className="text-sm text-muted-foreground">{clientPhone}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline">
-              Добавить задачу
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="h-8 w-8 p-0"
+              title="Добавить задачу"
+            >
+              <Plus className="h-4 w-4" />
             </Button>
-            <Button size="sm" variant="outline">
-              <Search className="h-4 w-4 mr-1" />
-              Поиск
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="h-8 w-8 p-0"
+              title="Выставить счёт"
+            >
+              <FileText className="h-4 w-4" />
             </Button>
-            <Input
-              placeholder="Поиск в чате..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-48"
-            />
-            <Button size="sm" variant="outline">
-              Выставить счёт
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="h-8 w-8 p-0"
+              title="Поиск в чате"
+              onClick={() => setSearchQuery(searchQuery ? "" : "поиск")}
+            >
+              <Search className="h-4 w-4" />
             </Button>
           </div>
         </div>
