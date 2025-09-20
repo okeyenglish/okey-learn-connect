@@ -111,13 +111,14 @@ const CRMContent = () => {
   // Состояния для закрепленных модальных окон
   const [pinnedTaskClientId, setPinnedTaskClientId] = useState<string>('');
   const [pinnedInvoiceClientId, setPinnedInvoiceClientId] = useState<string>('');
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   
   // Enable real-time updates for the active chat
   useRealtimeMessages(activeChatId);
 
   // Автоматическое восстановление открытых модальных окон после загрузки
   useEffect(() => {
-    if (!pinnedLoading && pinnedModals.length > 0) {
+    if (!pinnedLoading && pinnedModals.length > 0 && !isManualModalOpen) {
       pinnedModals.forEach(modal => {
         if (modal.isOpen) {
           if (modal.type === 'task') {
@@ -127,12 +128,13 @@ const CRMContent = () => {
             setPinnedInvoiceClientId(modal.id);
             setShowInvoiceModal(true);
           } else {
+            setActiveTab("menu");
             setOpenModal(modal.type);
           }
         }
       });
     }
-  }, [pinnedLoading, pinnedModals]);
+  }, [pinnedLoading, pinnedModals, isManualModalOpen]);
 
   // Menu counters
   const tasksCount = allTasks?.length ?? 0;
@@ -493,6 +495,8 @@ const CRMContent = () => {
 
   // Обработчик открытия закрепленных модальных окон
   const handleOpenPinnedModal = (id: string, type: string) => {
+    setIsManualModalOpen(true);
+    
     // Проверяем контекст - если это модальное окно из меню, переключаемся на вкладку меню
     if (type === 'Мои задачи' || type === 'Заявки' || type === 'Лиды' || 
         type === 'Компания' || type === 'Обучение' || type === 'Занятия онлайн' || 
@@ -515,6 +519,9 @@ const CRMContent = () => {
       setOpenModal(null);
       openPinnedModal(id, type);
     }
+    
+    // Сбрасываем флаг через небольшую задержку
+    setTimeout(() => setIsManualModalOpen(false), 100);
   };
 
   // Обработчики для модальных окон
@@ -538,6 +545,7 @@ const CRMContent = () => {
       closePinnedModal(`menu-${openModal}`, openModal);
     }
     setOpenModal(null);
+    setIsManualModalOpen(false);
   };
 
   const menuItems = [
