@@ -53,8 +53,13 @@ serve(async (req) => {
         const state = await getInstanceState();
         const stateValue = state?.stateInstance || state?.state || state?.status;
         const authorized = String(stateValue || '').toLowerCase() === 'authorized';
-        const message = authorized ? 'Instance authorized' : `State: ${stateValue ?? 'unknown'}`;
-        return new Response(JSON.stringify({ success: authorized, state, message }), {
+        const debug = state?.raw ? { rawSnippet: String(state.raw).slice(0, 200) } : undefined;
+        const message = authorized
+          ? 'Instance authorized'
+          : (state?.error === 'NON_JSON_RESPONSE'
+              ? 'Green-API returned non-JSON (check GREEN_API_URL)'
+              : `State: ${stateValue ?? 'unknown'}`);
+        return new Response(JSON.stringify({ success: authorized, state, message, ...debug }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       } catch (e: any) {

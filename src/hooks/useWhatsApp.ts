@@ -172,9 +172,10 @@ export const useWhatsApp = () => {
 
       const ok = data?.success;
       const stateValue = data?.state?.stateInstance || data?.state?.state || data?.state?.status;
+      const rawSnippet = data?.rawSnippet ? `\nRaw: ${data.rawSnippet}` : '';
       const desc = ok
         ? (data?.message || (stateValue ? `Состояние: ${stateValue}` : 'WhatsApp инстанс работает корректно'))
-        : (data?.error || data?.message || (stateValue ? `Состояние: ${stateValue}` : 'Ошибка подключения к WhatsApp'));
+        : (data?.error || data?.message || (stateValue ? `Состояние: ${stateValue}` : 'Ошибка подключения к WhatsApp')) + rawSnippet;
 
       toast({
         title: ok ? 'Подключение проверено' : 'Ошибка проверки',
