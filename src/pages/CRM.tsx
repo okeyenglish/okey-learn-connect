@@ -582,7 +582,6 @@ const CRMContent = () => {
             {/* Закрепленные модальные окна на одной линии с заголовком */}
             {pinnedModals && pinnedModals.length > 0 && (
               <div className="ml-8 flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Закрепленные окна:</span>
                 <PinnedModalTabs 
                   pinnedModals={pinnedModals}
                   onOpenModal={handleOpenPinnedModal}
