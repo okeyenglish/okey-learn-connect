@@ -43,8 +43,7 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
       const { error } = await supabase
         .from('chat_messages')
         .update({ 
-          message_text: editedMessage.trim(),
-          updated_at: new Date().toISOString()
+          message_text: editedMessage.trim()
         })
         .eq('id', messageId);
 
