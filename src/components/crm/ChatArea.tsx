@@ -52,6 +52,8 @@ export const ChatArea = ({
     if (!clientId) return;
     
     setLoadingMessages(true);
+    console.log('Loading messages for client:', clientId);
+    
     try {
       const { data, error } = await supabase
         .from('chat_messages')
@@ -64,6 +66,8 @@ export const ChatArea = ({
         return;
       }
 
+      console.log('Loaded messages from database:', data);
+
       const formattedMessages = (data || []).map(msg => ({
         type: msg.is_outgoing ? 'manager' : 'client',
         message: msg.message_text || '',
@@ -75,6 +79,7 @@ export const ChatArea = ({
         callDuration: msg.call_duration
       }));
 
+      console.log('Formatted messages:', formattedMessages);
       setMessages(formattedMessages);
     } catch (error) {
       console.error('Error loading messages:', error);
@@ -92,6 +97,8 @@ export const ChatArea = ({
   useEffect(() => {
     if (!clientId) return;
 
+    console.log('Setting up real-time subscription for client:', clientId);
+
     const channel = supabase
       .channel(`chat_messages_${clientId}`)
       .on(
@@ -103,6 +110,7 @@ export const ChatArea = ({
           filter: `client_id=eq.${clientId}`
         },
         (payload) => {
+          console.log('Received new message via real-time:', payload);
           const newMessage = {
             type: payload.new.is_outgoing ? 'manager' : 'client',
             message: payload.new.message_text || '',
@@ -113,12 +121,16 @@ export const ChatArea = ({
             systemType: payload.new.system_type,
             callDuration: payload.new.call_duration
           };
+          console.log('Adding message to chat:', newMessage);
           setMessages(prev => [...prev, newMessage]);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Real-time subscription status:', status);
+      });
 
     return () => {
+      console.log('Cleaning up real-time subscription');
       supabase.removeChannel(channel);
     };
   }, [clientId]);
