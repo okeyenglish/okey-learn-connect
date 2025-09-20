@@ -6,9 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { UserPlus, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { PhoneNumbersEditor } from "./PhoneNumbersEditor";
+import type { PhoneNumber } from "@/types/phone";
 
 interface AddFamilyMemberModalProps {
   familyGroupId: string;
@@ -21,12 +24,21 @@ export const AddFamilyMemberModal = ({ familyGroupId, onMemberAdded, children }:
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    phone: "",
     email: "",
     relationship: "parent" as "main" | "spouse" | "parent" | "guardian" | "other",
     isPrimaryContact: false,
     notes: ""
   });
+  const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>([
+    {
+      id: '1',
+      phone: '',
+      phoneType: 'mobile',
+      isPrimary: true,
+      isWhatsappEnabled: true,
+      isTelegramEnabled: false,
+    }
+  ]);
   
   const { toast } = useToast();
 
@@ -35,12 +47,23 @@ export const AddFamilyMemberModal = ({ familyGroupId, onMemberAdded, children }:
     setIsLoading(true);
 
     try {
+      // Get primary phone for main client record
+      const primaryPhone = phoneNumbers.find(p => p.isPrimary) || phoneNumbers[0];
+      if (!primaryPhone?.phone) {
+        toast({
+          title: "Ошибка",
+          description: "Необходимо указать хотя бы один телефон",
+          variant: "destructive"
+        });
+        return;
+      }
+
       // First, create the client
       const { data: clientData, error: clientError } = await supabase
         .from('clients')
         .insert({
           name: formData.name,
-          phone: formData.phone,
+          phone: primaryPhone.phone,
           email: formData.email || null,
           notes: formData.notes || null
         })
@@ -57,6 +80,31 @@ export const AddFamilyMemberModal = ({ familyGroupId, onMemberAdded, children }:
           return;
         }
         throw clientError;
+      }
+
+      // Add all phone numbers to client_phone_numbers table
+      if (phoneNumbers.length > 0) {
+        const phoneRecords = phoneNumbers
+          .filter(p => p.phone.trim())
+          .map(phone => ({
+            client_id: clientData.id,
+            phone: phone.phone,
+            phone_type: phone.phoneType,
+            is_primary: phone.isPrimary,
+            is_whatsapp_enabled: phone.isWhatsappEnabled,
+            is_telegram_enabled: phone.isTelegramEnabled,
+          }));
+
+        if (phoneRecords.length > 0) {
+          const { error: phoneError } = await supabase
+            .from('client_phone_numbers')
+            .insert(phoneRecords);
+
+          if (phoneError) {
+            console.error('Error adding phone numbers:', phoneError);
+            // Continue even if phone numbers fail - main client is created
+          }
+        }
       }
 
       // If setting as primary contact, first remove primary from others
@@ -87,12 +135,21 @@ export const AddFamilyMemberModal = ({ familyGroupId, onMemberAdded, children }:
       // Reset form
       setFormData({
         name: "",
-        phone: "",
         email: "",
         relationship: "parent",
         isPrimaryContact: false,
         notes: ""
       });
+      setPhoneNumbers([
+        {
+          id: '1',
+          phone: '',
+          phoneType: 'mobile',
+          isPrimary: true,
+          isWhatsappEnabled: true,
+          isTelegramEnabled: false,
+        }
+      ]);
       
       setOpen(false);
       onMemberAdded?.();
@@ -130,93 +187,89 @@ export const AddFamilyMemberModal = ({ familyGroupId, onMemberAdded, children }:
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Добавить члена семьи</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Имя и фамилия *</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="Введите имя и фамилию"
-              required
+        
+        <ScrollArea className="max-h-[70vh] pr-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="name">Имя и фамилия *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Введите имя и фамилию"
+                required
+              />
+            </div>
+
+            <PhoneNumbersEditor 
+              phoneNumbers={phoneNumbers}
+              onPhoneNumbersChange={setPhoneNumbers}
             />
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="phone">Телефон *</Label>
-            <Input
-              id="phone"
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-              placeholder="+7 (999) 123-45-67"
-              required
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="email@example.com"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-              placeholder="email@example.com"
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="relationship">Родственная связь</Label>
+              <Select
+                value={formData.relationship}
+                onValueChange={(value: any) => setFormData(prev => ({ ...prev, relationship: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="spouse">Супруг(а)</SelectItem>
+                  <SelectItem value="parent">Родитель</SelectItem>
+                  <SelectItem value="guardian">Опекун</SelectItem>
+                  <SelectItem value="other">Другое</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="relationship">Родственная связь</Label>
-            <Select
-              value={formData.relationship}
-              onValueChange={(value: any) => setFormData(prev => ({ ...prev, relationship: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="spouse">Супруг(а)</SelectItem>
-                <SelectItem value="parent">Родитель</SelectItem>
-                <SelectItem value="guardian">Опекун</SelectItem>
-                <SelectItem value="other">Другое</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="primary-contact"
+                checked={formData.isPrimaryContact}
+                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isPrimaryContact: checked }))}
+              />
+              <Label htmlFor="primary-contact">Основной контакт</Label>
+            </div>
 
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="primary-contact"
-              checked={formData.isPrimaryContact}
-              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isPrimaryContact: checked }))}
-            />
-            <Label htmlFor="primary-contact">Основной контакт</Label>
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="notes">Заметки</Label>
+              <Textarea
+                id="notes"
+                value={formData.notes}
+                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Дополнительная информация..."
+                rows={3}
+              />
+            </div>
+          </form>
+        </ScrollArea>
 
-          <div className="space-y-2">
-            <Label htmlFor="notes">Заметки</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              placeholder="Дополнительная информация..."
-              rows={3}
-            />
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Отмена
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Добавить
-            </Button>
-          </div>
-        </form>
+        <div className="flex justify-end gap-2 pt-4 border-t">
+          <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            Отмена
+          </Button>
+          <Button type="submit" disabled={isLoading} onClick={handleSubmit}>
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Добавить
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

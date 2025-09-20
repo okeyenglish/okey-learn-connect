@@ -9,6 +9,7 @@ import { StudentProfileModal } from "./StudentProfileModal";
 import { PhoneNumberManager } from "./PhoneNumberManager";
 import { EditContactModal } from "./EditContactModal";
 import { useFamilyData, FamilyMember, Student } from "@/hooks/useFamilyData";
+import type { PhoneNumber } from "@/types/phone";
 import { 
   Users, 
   Phone, 
@@ -51,13 +52,13 @@ export const FamilyCard = ({
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [activePhoneId, setActivePhoneId] = useState<string>(propActivePhoneId);
-  const [memberPhoneNumbers, setMemberPhoneNumbers] = useState<Record<string, any[]>>({
+  const [memberPhoneNumbers, setMemberPhoneNumbers] = useState<Record<string, PhoneNumber[]>>({
     // Mock data for demonstration
     'main-member': [
       {
         id: '1',
         phone: '+7 (985) 261-50-56',
-        phoneType: 'mobile',
+        phoneType: 'mobile' as const,
         isPrimary: true,
         isWhatsappEnabled: true,
         isTelegramEnabled: false
@@ -65,7 +66,7 @@ export const FamilyCard = ({
       {
         id: '2',
         phone: '+7 (916) 185-33-85',
-        phoneType: 'mobile',
+        phoneType: 'mobile' as const,
         isPrimary: false,
         isWhatsappEnabled: true,
         isTelegramEnabled: true
@@ -144,7 +145,7 @@ export const FamilyCard = ({
     setIsStudentModalOpen(true);
   };
 
-  const handlePhoneNumbersUpdate = (memberId: string, phoneNumbers: any[]) => {
+  const handlePhoneNumbersUpdate = (memberId: string, phoneNumbers: PhoneNumber[]) => {
     setMemberPhoneNumbers(prev => ({
       ...prev,
       [memberId]: phoneNumbers
@@ -200,9 +201,15 @@ export const FamilyCard = ({
                   email: activeMember.email || "",
                   dateOfBirth: "1993-12-25",
                   branch: selectedBranch,
-                  notes: ""
+                  notes: "",
+                  phoneNumbers: memberPhoneNumbers[activeMember.id] || memberPhoneNumbers['main-member'] || []
                 }}
-                onSave={handleContactSave}
+                onSave={(data) => {
+                  console.log('Saving contact data:', data);
+                  // Update member phone numbers
+                  handlePhoneNumbersUpdate(activeMember.id, data.phoneNumbers);
+                  // Here you would update the contact data in your backend
+                }}
               />
             </div>
           </div>
