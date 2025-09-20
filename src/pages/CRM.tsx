@@ -579,9 +579,8 @@ const CRMContent = () => {
               <h1 className="text-xl font-bold">O'KEY ENGLISH CRM</h1>
             </div>
             
-            {/* Закрепленные модальные окна на одной линии с заголовком */}
             {pinnedModals && pinnedModals.length > 0 && (
-              <div className="ml-8 flex items-center gap-2">
+              <div className="ml-8">
                 <PinnedModalTabs 
                   pinnedModals={pinnedModals}
                   onOpenModal={handleOpenPinnedModal}
@@ -597,18 +596,13 @@ const CRMContent = () => {
                 Загрузка данных...
               </div>
             )}
-            {profile && (
-              <span className="text-sm text-muted-foreground mr-2">
-                {profile.first_name} {profile.last_name}
-              </span>
-            )}
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={handleSignOut}
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
+            <ManagerMenu
+              managerName={profile && profile.first_name && profile.last_name 
+                ? `${profile.first_name} ${profile.last_name}` 
+                : 'Менеджер'}
+              managerEmail={user?.email}
+              onSignOut={handleSignOut}
+            />
           </div>
         </div>
       </div>
