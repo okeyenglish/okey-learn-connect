@@ -11,6 +11,7 @@ interface ChatAreaProps {
   onMessageChange?: (hasUnsaved: boolean) => void;
 }
 
+// ChatArea component for CRM chat functionality
 export const ChatArea = ({ clientName, clientPhone, onMessageChange }: ChatAreaProps) => {
   const [message, setMessage] = useState("");
 
