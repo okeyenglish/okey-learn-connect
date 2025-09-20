@@ -6,6 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ChatArea } from "@/components/crm/ChatArea";
+import { SearchInput } from "@/components/crm/SearchInput";
+import { SearchResults } from "@/components/crm/SearchResults";
 import { 
   Search, 
   CheckSquare, 
@@ -28,6 +30,10 @@ const CRM = () => {
   const [password, setPassword] = useState("");
   const [openModal, setOpenModal] = useState<string | null>(null);
   const [hasUnsavedChat, setHasUnsavedChat] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [chatSearchQuery, setChatSearchQuery] = useState("");
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
   
   const handleAuth = () => {
     if (password === "12345") {
@@ -44,6 +50,73 @@ const CRM = () => {
     }
     setOpenModal(action);
   };
+
+  // Mock data для демонстрации поиска
+  const mockSearchData = [
+    // Клиенты
+    { id: '1', type: 'client', title: 'Мария Петрова', subtitle: '+7 (985) 261-50-56', description: 'Родитель Павла и Маши', metadata: { phone: '+7 (985) 261-50-56', branch: 'Котельники' } },
+    { id: '2', type: 'client', title: 'Анна Смирнова', subtitle: '+7 (916) 123-45-67', description: 'Родитель Алексея', metadata: { phone: '+7 (916) 123-45-67', branch: 'Люберцы' } },
+    { id: '3', type: 'client', title: 'Игорь Волков', subtitle: '+7 (903) 987-65-43', description: 'Родитель Дианы', metadata: { phone: '+7 (903) 987-65-43', branch: 'Мытищи' } },
+    
+    // Ученики
+    { id: '4', type: 'student', title: 'Павел Петров', subtitle: '8 лет', description: 'Kids Box 2, группа вечерняя', metadata: { course: 'Kids Box 2', branch: 'Котельники' } },
+    { id: '5', type: 'student', title: 'Маша Петрова', subtitle: '6 лет', description: 'Super Safari 1, утренняя группа', metadata: { course: 'Super Safari 1', branch: 'Котельники' } },
+    { id: '6', type: 'student', title: 'Алексей Смирнов', subtitle: '10 лет', description: 'Empower B1, подготовка к экзаменам', metadata: { course: 'Empower B1', branch: 'Люберцы' } },
+    
+    // Чаты
+    { id: '7', type: 'chat', title: 'Чат с Марией Петровой', subtitle: 'Последнее сообщение: 10:32', description: 'Обсуждение расписания Павла' },
+    { id: '8', type: 'chat', title: 'Чат с Анной Смирновой', subtitle: 'Последнее сообщение: 09:15', description: 'Вопрос по домашнему заданию' },
+    
+    // Платежи
+    { id: '9', type: 'payment', title: 'Платеж от Марии Петровой', subtitle: '11490₽', description: 'Срок: 25.09.2025', metadata: { amount: '11490₽' } },
+    { id: '10', type: 'payment', title: 'Платеж от Анны Смирновой', subtitle: '8900₽', description: 'Просрочен на 3 дня', metadata: { amount: '8900₽' } },
+    
+    // Расписание
+    { id: '11', type: 'schedule', title: 'Занятие Павла', subtitle: 'Сегодня 17:20-20:40', description: 'Kids Box 2, Ауд. WASHINGTON', metadata: { time: '17:20-20:40', course: 'Kids Box 2' } }
+  ];
+
+  const handleGlobalSearch = (query: string) => {
+    setSearchQuery(query);
+    if (query.trim().length > 0) {
+      const filtered = mockSearchData.filter(item => 
+        item.title.toLowerCase().includes(query.toLowerCase()) ||
+        item.subtitle?.toLowerCase().includes(query.toLowerCase()) ||
+        item.description?.toLowerCase().includes(query.toLowerCase())
+      );
+      setSearchResults(filtered);
+      setShowSearchResults(true);
+    } else {
+      setSearchResults([]);
+      setShowSearchResults(false);
+    }
+  };
+
+  const handleChatSearch = (query: string) => {
+    setChatSearchQuery(query);
+  };
+
+  const handleSelectSearchResult = (result: any) => {
+    // Логика обработки выбранного результата
+    if (result.type === 'client' || result.type === 'chat') {
+      // Переключиться на чат с клиентом
+      console.log('Открыть чат с:', result.title);
+    } else if (result.type === 'student') {
+      // Открыть карточку ученика
+      console.log('Открыть карточку ученика:', result.title);
+    }
+    setShowSearchResults(false);
+  };
+
+  // Фильтрация чатов на основе поиска
+  const filteredChats = [
+    { name: 'Мария Петрова', phone: '+7 (985) 261-50-56', time: '10:32', unread: 2 },
+    { name: 'Анна Смирнова', phone: '+7 (916) 123-45-67', time: '09:15', unread: 0 },
+    { name: 'Игорь Волков', phone: '+7 (903) 987-65-43', time: 'Вчера', unread: 0 },
+  ].filter(chat => 
+    chatSearchQuery.length === 0 || 
+    chat.name.toLowerCase().includes(chatSearchQuery.toLowerCase()) ||
+    chat.phone.includes(chatSearchQuery)
+  );
 
   const menuItems = [
     { icon: CheckSquare, label: "Мои задачи" },
@@ -87,11 +160,16 @@ const CRM = () => {
       {/* Search Bar */}
       <div className="bg-background border-b p-4 shrink-0">
         <div className="relative max-w-7xl mx-auto">
-          <Input
-            placeholder="Поиск клиентов по ФИО, телефону, email..."
-            className="pr-10"
+          <SearchInput
+            placeholder="Поиск клиентов, учеников, чатов, платежей..."
+            onSearch={handleGlobalSearch}
+            onClear={() => {
+              setSearchQuery("");
+              setShowSearchResults(false);
+              setSearchResults([]);
+            }}
+            size="lg"
           />
-          <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         </div>
       </div>
 
@@ -200,38 +278,46 @@ const CRM = () => {
             </TabsContent>
             
             <TabsContent value="chats" className="flex-1 mt-0 flex flex-col">
+              <div className="p-2 border-b">
+                <SearchInput
+                  placeholder="Поиск по чатам..."
+                  onSearch={handleChatSearch}
+                  onClear={() => setChatSearchQuery("")}
+                  size="sm"
+                />
+              </div>
               <div className="flex-1 overflow-y-auto">
                 <div className="p-2 space-y-1">
-                  <button className="w-full p-3 text-left rounded-lg bg-muted hover:bg-muted/80 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-sm">Мария Петрова</p>
-                        <p className="text-xs text-muted-foreground">+7 (985) 261-50-56</p>
+                  {filteredChats.map((chat, index) => (
+                    <button 
+                      key={index}
+                      className={`w-full p-3 text-left rounded-lg transition-colors ${
+                        index === 0 ? 'bg-muted hover:bg-muted/80' : 'hover:bg-muted/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-sm">{chat.name}</p>
+                          <p className="text-xs text-muted-foreground">{chat.phone}</p>
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <span className="text-xs text-muted-foreground">{chat.time}</span>
+                          {chat.unread > 0 && (
+                            <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+                              {chat.unread}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex flex-col items-end">
-                        <span className="text-xs text-muted-foreground">10:32</span>
-                        <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">2</span>
-                      </div>
+                    </button>
+                  ))}
+                  {filteredChats.length === 0 && chatSearchQuery && (
+                    <div className="text-center py-8">
+                      <p className="text-sm text-muted-foreground">
+                        Чаты не найдены
+                      </p>
                     </div>
-                  </button>
-                  <button className="w-full p-3 text-left rounded-lg hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-sm">Анна Смирнова</p>
-                        <p className="text-xs text-muted-foreground">+7 (916) 123-45-67</p>
-                      </div>
-                      <span className="text-xs text-muted-foreground">09:15</span>
-                    </div>
-                  </button>
-                  <button className="w-full p-3 text-left rounded-lg hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-sm">Игорь Волков</p>
-                        <p className="text-xs text-muted-foreground">+7 (903) 987-65-43</p>
-                      </div>
-                      <span className="text-xs text-muted-foreground">Вчера</span>
-                    </div>
-                  </button>
+                  )}
                 </div>
               </div>
             </TabsContent>
@@ -345,6 +431,15 @@ const CRM = () => {
           </Card>
         </div>
       </div>
+
+      {/* Search Results Modal */}
+      <SearchResults
+        isOpen={showSearchResults}
+        onClose={() => setShowSearchResults(false)}
+        query={searchQuery}
+        results={searchResults}
+        onSelectResult={handleSelectSearchResult}
+      />
     </div>
   );
 };
