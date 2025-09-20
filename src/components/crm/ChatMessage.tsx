@@ -21,7 +21,7 @@ interface ChatMessageProps {
   isForwarded?: boolean;
   forwardedFrom?: string;
   forwardedFromType?: 'client' | 'teacher' | 'corporate';
-  onMessageEdit?: (newMessage: string) => Promise<void>;
+  onMessageEdit?: (messageId: string, newMessage: string) => Promise<void>;
 }
 
 export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit }: ChatMessageProps) => {
@@ -35,6 +35,10 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
     }
 
     try {
+      if (!messageId) {
+        setIsEditing(false);
+        return;
+      }
       // Обновляем сообщение в базе данных
       const { error } = await supabase
         .from('chat_messages')
@@ -49,9 +53,9 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
         return;
       }
 
-      // Если это исходящее сообщение менеджера, отправляем исправление клиенту
-      if (type === 'manager' && onMessageEdit) {
-        await onMessageEdit(editedMessage.trim());
+      // Если это исходящее сообщение менеджера, отправляем исправление клиенту и обновляем список
+      if (type === 'manager' && onMessageEdit && messageId) {
+        await onMessageEdit(messageId, editedMessage.trim());
       }
 
       setIsEditing(false);

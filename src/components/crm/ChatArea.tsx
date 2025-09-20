@@ -94,29 +94,10 @@ export const ChatArea = ({
           minute: '2-digit' 
         }),
         systemType: msg.system_type,
-        callDuration: msg.call_duration,
-        isForwarded: msg.message_text?.includes('Тестовое пересланное сообщение'), // Для демонстрации
-        forwardedFrom: msg.message_text?.includes('Тестовое пересланное сообщение') ? 'Анна Петрова' : undefined,
-        forwardedFromType: msg.message_text?.includes('Тестовое пересланное сообщение') ? 'teacher' : undefined
+        callDuration: msg.call_duration
       }));
 
-      // Добавим тестовое пересланное сообщение для демонстрации
-      if (formattedMessages.length > 0) {
-        formattedMessages.push({
-          id: 'demo-forwarded',
-          type: 'manager',
-          message: 'Тестовое пересланное сообщение для демонстрации визуального оформления',
-          time: new Date().toLocaleTimeString('ru-RU', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          }),
-          systemType: undefined,
-          callDuration: undefined,
-          isForwarded: true,
-          forwardedFrom: 'Анна Петрова',
-          forwardedFromType: 'teacher'
-        });
-      }
+      // 
 
       console.log('Formatted messages:', formattedMessages);
       setMessages(formattedMessages);
@@ -327,9 +308,9 @@ export const ChatArea = ({
   };
 
   // Функция для редактирования сообщения
-  const handleEditMessage = async (newMessage: string) => {
+  const handleEditMessage = async (messageId: string, newMessage: string) => {
     try {
-      // Отправляем исправленное сообщение клиенту
+      // Отправляем исправленное сообщение клиенту (как отдельное сообщение)
       const result = await sendTextMessage(clientId, `*Исправление:*\n${newMessage}`);
       
       if (result.success) {
@@ -341,7 +322,7 @@ export const ChatArea = ({
         // Обновляем локальное состояние сообщений
         setMessages(prev => 
           prev.map(msg => 
-            msg.id === messages.find(m => m.message === newMessage)?.id 
+            msg.id === messageId
               ? { ...msg, message: newMessage, isEdited: true, editedTime: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) }
               : msg
           )
