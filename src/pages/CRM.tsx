@@ -435,6 +435,7 @@ const CRMContent = () => {
 
   // Обработчик открытия закрепленных модальных окон
   const handleOpenPinnedModal = (id: string, type: string) => {
+    console.log('Opening pinned modal:', { id, type, pinnedModals });
     if (type === 'task') {
       setPinnedTaskClientId(id);
       setShowAddTaskModal(true);
