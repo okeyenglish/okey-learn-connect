@@ -139,12 +139,12 @@ export default function WorkshopSignupModal({ branchId, branchName, children }: 
               </Button>
               <Button
                 type="button"
-                variant={formData.parentType === "другой" ? "default" : "outline"}
+                variant={formData.parentType === "мой" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setFormData({...formData, parentType: "другой"})}
+                onClick={() => setFormData({...formData, parentType: "мой"})}
                 className="flex-1"
               >
-                Другой
+                Мой
               </Button>
             </div>
           </div>

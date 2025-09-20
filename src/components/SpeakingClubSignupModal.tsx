@@ -25,10 +25,10 @@ export default function SpeakingClubSignupModal({ level, children }: SpeakingClu
   const { toast } = useToast();
 
   const timeSlots = [
-    { value: "10:00", label: "10:00 - A1 (Beginner)" },
-    { value: "11:10", label: "11:10 - A2 (Elementary)" },
-    { value: "12:20", label: "12:20 - B1 (Intermediate)" },
-    { value: "13:30", label: "13:30 - B2+ (Upper-Intermediate)" }
+    { value: "10:00", label: "10:00 - A1 (Beginner)", level: "A1" },
+    { value: "11:10", label: "11:10 - A2 (Elementary)", level: "A2" },
+    { value: "12:20", label: "12:20 - B1 (Intermediate)", level: "B1" },
+    { value: "13:30", label: "13:30 - B2+ (Upper-Intermediate)", level: "B2+" }
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,7 +46,7 @@ export default function SpeakingClubSignupModal({ level, children }: SpeakingClu
           page: window.location.pathname,
           utm: new URLSearchParams(window.location.search).toString(),
           course: "Speaking Club Online",
-          level: formData.level || "Не указан",
+          level: formData.timeSlot ? timeSlots.find(slot => slot.value === formData.timeSlot)?.level || formData.level || "Не указан" : formData.level || "Не указан",
           timeSlot: formData.timeSlot || "Не выбрано",
           phone: formData.phone,
           name: formData.name || "Не указано",
@@ -150,18 +150,18 @@ export default function SpeakingClubSignupModal({ level, children }: SpeakingClu
               </Button>
               <Button
                 type="button"
-                variant={formData.parentType === "другой" ? "default" : "outline"}
+                variant={formData.parentType === "мой" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setFormData({...formData, parentType: "другой"})}
+                onClick={() => setFormData({...formData, parentType: "мой"})}
                 className="flex-1"
               >
-                Другой
+                Мой
               </Button>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="timeSlot">Удобное время *</Label>
+            <Label htmlFor="timeSlot">Удобное время</Label>
             <Select value={formData.timeSlot} onValueChange={(value) => setFormData({...formData, timeSlot: value})}>
               <SelectTrigger>
                 <Clock className="w-4 h-4 mr-2" />
@@ -189,7 +189,7 @@ export default function SpeakingClubSignupModal({ level, children }: SpeakingClu
           <Button 
             type="submit" 
             className="w-full" 
-            disabled={isLoading || !formData.phone || !formData.timeSlot}
+            disabled={isLoading || !formData.phone}
           >
             {isLoading ? (
               "Отправляем..."
