@@ -251,7 +251,13 @@ export async function getInstanceState(): Promise<any> {
   const url = `${greenApiUrl}/waInstance${greenApiIdInstance}/getStateInstance/${greenApiToken}`
   
   const response = await fetch(url)
-  return await response.json()
+  const text = await response.text()
+  try {
+    return JSON.parse(text)
+  } catch {
+    // Возвращаем "сырое" тело, чтобы увидеть, что именно прислал Green-API
+    return { raw: text, error: 'NON_JSON_RESPONSE' }
+  }
 }
 
 export async function getSettings(): Promise<any> {
