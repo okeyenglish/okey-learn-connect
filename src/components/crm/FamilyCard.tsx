@@ -7,6 +7,7 @@ import { AddFamilyMemberModal } from "./AddFamilyMemberModal";
 import { AddStudentModal } from "./AddStudentModal";
 import { StudentProfileModal } from "./StudentProfileModal";
 import { PhoneNumberManager } from "./PhoneNumberManager";
+import { EditContactModal } from "./EditContactModal";
 import { useFamilyData, FamilyMember, Student } from "@/hooks/useFamilyData";
 import { 
   Users, 
@@ -147,10 +148,9 @@ export const FamilyCard = ({
     // Here you would typically update the database
   };
 
-  const handleMessageClick = (phoneNumber: any, platform: 'whatsapp' | 'telegram') => {
-    setActivePhoneId(phoneNumber.id);
-    console.log(`Opening ${platform} chat with ${phoneNumber.phone}`);
-    // Here you would open the appropriate messaging platform
+  const handleContactSave = (contactData: any) => {
+    console.log('Saving contact data:', contactData);
+    // Here you would update the contact data in your backend
   };
 
   const handlePhoneClick = (phoneId: string) => {
@@ -202,18 +202,16 @@ export const FamilyCard = ({
               >
                 <Phone className="h-3 w-3" />
               </Button>
-              <Button
-                size="sm"
-                variant={autoMessagesEnabled ? "default" : "outline"}
-                onClick={() => {
-                  setAutoMessagesEnabled(!autoMessagesEnabled);
-                  onOpenChat?.(activeMember.id);
+              <EditContactModal
+                contactData={{
+                  name: activeMember.name,
+                  email: activeMember.email || "",
+                  dateOfBirth: "1993-12-25",
+                  branch: selectedBranch,
+                  notes: ""
                 }}
-                className={`h-8 w-8 p-0 ${autoMessagesEnabled ? 'text-white bg-green-600 hover:bg-green-700' : 'text-green-600'}`}
-                title={autoMessagesEnabled ? "Автосообщения включены (нажмите чтобы отключить)" : "Автосообщения отключены (нажмите чтобы включить)"}
-              >
-                <MessageCircle className="h-3 w-3" />
-              </Button>
+                onSave={handleContactSave}
+              />
             </div>
           </div>
         </CardHeader>
@@ -233,23 +231,6 @@ export const FamilyCard = ({
                 </Badge>
               )}
             </div>
-            <div className="flex items-center justify-between">
-              {activeMember.email && (
-                <div className="flex items-center gap-2">
-                  <Mail className="h-3 w-3 text-muted-foreground" />
-                  <span>{activeMember.email}</span>
-                </div>
-              )}
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {/* Open edit contact modal */}}
-                className="h-6 w-6 p-0"
-                title="Редактировать контакт"
-              >
-                <Edit2 className="h-3 w-3" />
-              </Button>
-            </div>
             {/* Additional Phone Numbers */}
             {memberPhoneNumbers['main-member'] && 
              memberPhoneNumbers['main-member'].filter(phone => phone.id !== getActivePhone()?.id).map((phone) => (
@@ -268,6 +249,12 @@ export const FamilyCard = ({
                 )}
               </div>
             ))}
+            {activeMember.email && (
+              <div className="flex items-center gap-2">
+                <Mail className="h-3 w-3 text-muted-foreground" />
+                <span>{activeMember.email}</span>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <Clock className="h-3 w-3 text-muted-foreground" />
               <span>День рождения: 25.12.1993</span>
