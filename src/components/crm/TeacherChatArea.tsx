@@ -37,6 +37,13 @@ interface Teacher {
   lastSeen: string;
   groups: TeacherGroup[];
   zoomLink?: string;
+  // Additional profile fields
+  resume: string;
+  languages: string[];
+  levels: string[];
+  comments: string;
+  experience: string;
+  education: string;
 }
 
 const mockTeachers: Teacher[] = [
@@ -56,6 +63,12 @@ const mockTeachers: Teacher[] = [
     isOnline: true,
     lastSeen: 'в сети',
     zoomLink: 'okeyclass.ktalk.ru/qt43k5...',
+    resume: 'Опытный преподаватель английского языка с 8-летним стажем работы. Специализируется на подготовке школьников к экзаменам и развитии разговорных навыков.',
+    languages: ['Английский', 'Немецкий'],
+    levels: ['Beginner', 'Elementary', 'Pre-Intermediate', 'Intermediate', 'Upper-Intermediate'],
+    comments: 'Очень ответственный преподаватель, всегда находит подход к детям. Отличные результаты по подготовке к ЕГЭ.',
+    experience: '8 лет',
+    education: 'МГУ, факультет иностранных языков',
     groups: [
       {
         id: 'group-1',
@@ -88,6 +101,12 @@ const mockTeachers: Teacher[] = [
     unreadMessages: 0,
     isOnline: false,
     lastSeen: '2 часа назад',
+    resume: 'Специалист по работе с детьми дошкольного и младшего школьного возраста. Использует игровые методики и современные подходы в обучении.',
+    languages: ['Английский'],
+    levels: ['Beginner', 'Elementary', 'Pre-Intermediate'],
+    comments: 'Замечательно работает с маленькими детьми, очень терпеливая и креативная.',
+    experience: '5 лет',
+    education: 'МПГУ, педагогический факультет',
     groups: [
       {
         id: 'group-3',
@@ -112,6 +131,12 @@ const mockTeachers: Teacher[] = [
     unreadMessages: 1,
     isOnline: true,
     lastSeen: 'в сети',
+    resume: 'Преподаватель с международной сертификацией CELTA. Специализируется на обучении взрослых и подготовке к международным экзаменам.',
+    languages: ['Английский', 'Французский'],
+    levels: ['Intermediate', 'Upper-Intermediate', 'Advanced'],
+    comments: 'Высокопрофессиональный преподаватель, отличные результаты подготовки к IELTS и TOEFL.',
+    experience: '12 лет',
+    education: 'Cambridge University, сертификат CELTA',
     groups: [
       {
         id: 'group-4',
@@ -382,7 +407,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
           <TabsList className="grid w-full grid-cols-3 mx-3 mt-2 h-8">
             <TabsTrigger value="диалог" className="text-xs">Диалог</TabsTrigger>
             <TabsTrigger value="расписание" className="text-xs">Расписание</TabsTrigger>
-            <TabsTrigger value="запланированные" className="text-xs">Запланированные</TabsTrigger>
+            <TabsTrigger value="профиль" className="text-xs">О преподавателе</TabsTrigger>
           </TabsList>
 
           <div className="flex-1 overflow-hidden">
@@ -517,30 +542,121 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
               </TabsContent>
             )}
 
-            {/* Group chat schedule */}
-            {isGroupChat && (
-              <TabsContent value="расписание" className="h-full m-0">
+            {/* Teacher Profile tab - only for individual teachers */}
+            {!isGroupChat && (
+              <TabsContent value="профиль" className="h-full m-0">
                 <ScrollArea className="h-full p-3">
-                  <div className="text-center py-8">
-                    <Calendar className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-sm text-muted-foreground">Общее расписание всех преподавателей</p>
+                  <div className="space-y-4">
+                    {/* Basic Info */}
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Контактная информация</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2 pt-0">
+                        <div className="flex items-center space-x-2">
+                          <Phone className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs">{currentTeacher?.phone}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <MessageCircle className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs">{currentTeacher?.email}</span>
+                        </div>
+                        {currentTeacher?.telegram && (
+                          <div className="flex items-center space-x-2">
+                            <MessageCircle className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-xs">{currentTeacher.telegram}</span>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Professional Info */}
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Профессиональная информация</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3 pt-0">
+                        <div>
+                          <h4 className="text-xs font-medium text-muted-foreground mb-1">Опыт работы</h4>
+                          <p className="text-xs">{currentTeacher?.experience}</p>
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-medium text-muted-foreground mb-1">Образование</h4>
+                          <p className="text-xs">{currentTeacher?.education}</p>
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-medium text-muted-foreground mb-1">Языки</h4>
+                          <div className="flex flex-wrap gap-1">
+                            {currentTeacher?.languages.map((language, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs h-5">
+                                {language}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-medium text-muted-foreground mb-1">Уровни</h4>
+                          <div className="flex flex-wrap gap-1">
+                            {currentTeacher?.levels.map((level, index) => (
+                              <Badge key={index} variant="outline" className="text-xs h-5">
+                                {level}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Resume */}
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">О преподавателе</CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          {currentTeacher?.resume}
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    {/* Comments */}
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Комментарии</CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          {currentTeacher?.comments}
+                        </p>
+                      </CardContent>
+                    </Card>
                   </div>
                 </ScrollArea>
               </TabsContent>
             )}
 
-            {/* Scheduled Messages tab */}
-            <TabsContent value="запланированные" className="h-full m-0">
-              <ScrollArea className="h-full p-3">
-                <div className="space-y-3">
-                  <div className="text-center py-8">
-                    <Calendar className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-sm text-muted-foreground">Запланированные сообщения</p>
-                    <p className="text-xs text-muted-foreground mt-2">Здесь будут отображаться сообщения, запланированные к отправке</p>
-                  </div>
-                </div>
-              </ScrollArea>
-            </TabsContent>
+            {/* Group chat schedule */}
+            {isGroupChat && (
+              <>
+                <TabsContent value="расписание" className="h-full m-0">
+                  <ScrollArea className="h-full p-3">
+                    <div className="text-center py-8">
+                      <Calendar className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-sm text-muted-foreground">Общее расписание всех преподавателей</p>
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+
+                <TabsContent value="профиль" className="h-full m-0">
+                  <ScrollArea className="h-full p-3">
+                    <div className="text-center py-8">
+                      <Users className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-sm text-muted-foreground">Информация о группе педагогов</p>
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+              </>
+            )}
           </div>
         </Tabs>
       </div>
