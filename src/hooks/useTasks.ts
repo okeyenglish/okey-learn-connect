@@ -71,6 +71,7 @@ export const useCreateTask = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
       toast.success("Задача создана");
     },
     onError: (error) => {
@@ -78,6 +79,49 @@ export const useCreateTask = () => {
       toast.error("Ошибка при создании задачи");
     },
   });
+};
+
+// Новый хук для получения всех активных задач с информацией о клиентах
+export const useAllTasks = () => {
+  const { data: tasks, isLoading, error } = useQuery({
+    queryKey: ['all-tasks'],
+    queryFn: async () => {
+      // Сначала получаем задачи
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+      
+      if (tasksError) throw tasksError;
+      if (!tasksData || tasksData.length === 0) return [];
+
+      // Получаем уникальные client_id
+      const clientIds = [...new Set(tasksData.map(task => task.client_id))];
+      
+      // Получаем информацию о клиентах
+      const { data: clientsData, error: clientsError } = await supabase
+        .from('clients')
+        .select('id, name, phone')
+        .in('id', clientIds);
+      
+      if (clientsError) throw clientsError;
+      
+      // Соединяем данные
+      const tasksWithClients = tasksData.map(task => ({
+        ...task,
+        clients: clientsData?.find(client => client.id === task.client_id) || null
+      }));
+      
+      return tasksWithClients;
+    },
+  });
+
+  return {
+    tasks: tasks || [],
+    isLoading,
+    error,
+  };
 };
 
 export const useUpdateTask = () => {

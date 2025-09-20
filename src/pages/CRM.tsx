@@ -31,6 +31,7 @@ import { AddTaskModal } from "@/components/crm/AddTaskModal";
 import { CreateInvoiceModal } from "@/components/crm/CreateInvoiceModal";
 import { PinnableModalHeader, PinnableDialogContent } from "@/components/crm/PinnableModal";
 import { usePinnedModals } from "@/hooks/usePinnedModals";
+import { useAllTasks } from "@/hooks/useTasks";
 import { 
   Search, 
   CheckSquare, 
@@ -75,6 +76,7 @@ const CRMContent = () => {
     closePinnedModal, 
     isPinned 
   } = usePinnedModals();
+  const { tasks: allTasks, isLoading: tasksLoading } = useAllTasks();
   const [openModal, setOpenModal] = useState<string | null>(null);
   const [hasUnsavedChat, setHasUnsavedChat] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -622,12 +624,40 @@ const CRMContent = () => {
                                 </CardTitle>
                               </CardHeader>
                               <CardContent>
-                                <div className="space-y-2">
-                                  <div className="p-2 border-l-4 border-blue-500 bg-blue-50">
-                                    <p className="font-medium">Связаться с Марией Петровой</p>
-                                    <p className="text-sm text-muted-foreground">Обсудить расписание Павла</p>
+                                {tasksLoading ? (
+                                  <div className="text-center py-4 text-muted-foreground">
+                                    Загрузка задач...
                                   </div>
-                                </div>
+                                ) : allTasks.length > 0 ? (
+                                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                                    {allTasks.map((task) => (
+                                      <div key={task.id} className={`p-2 border-l-4 ${
+                                        task.priority === 'high' ? 'border-red-500 bg-red-50' :
+                                        task.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
+                                        'border-blue-500 bg-blue-50'
+                                      }`}>
+                                        <p className="font-medium">{task.title}</p>
+                                        <p className="text-sm text-muted-foreground">
+                                           Клиент: {task.clients?.name || 'Неизвестен'}
+                                        </p>
+                                        {task.due_date && (
+                                          <p className="text-xs text-muted-foreground">
+                                            Срок: {new Date(task.due_date).toLocaleDateString('ru-RU')}
+                                          </p>
+                                        )}
+                                        {task.responsible && (
+                                          <p className="text-xs text-muted-foreground">
+                                            Ответственный: {task.responsible}
+                                          </p>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-center py-4 text-muted-foreground">
+                                    Нет активных задач
+                                  </div>
+                                )}
                               </CardContent>
                             </Card>
                           </div>
