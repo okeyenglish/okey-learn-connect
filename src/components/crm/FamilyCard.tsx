@@ -176,7 +176,7 @@ export const FamilyCard = ({
   return (
     <div className="space-y-4">
       {/* Active Contact Header */}
-      <Card className="border-primary/20 bg-primary/5">
+      <Card className="border-slate-200 bg-slate-50">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
