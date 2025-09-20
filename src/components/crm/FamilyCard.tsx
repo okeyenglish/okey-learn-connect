@@ -314,8 +314,12 @@ export const FamilyCard = ({
             </TabsTrigger>
           </TabsList>
           
-          {activeTab === "children" && (
-            <div key="children-plus" className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
+          {/* Add button aligned to active tab */}
+          <div
+            className="absolute top-1/2 -translate-y-1/2 z-10"
+            style={activeTab === 'children' ? { left: 'calc(50% - 0.75rem)' } : { right: '0.5rem' }}
+          >
+            {activeTab === 'children' ? (
               <AddStudentModal 
                 familyGroupId={familyGroupId}
                 parentLastName={activeMember.name.split(' ').pop()}
@@ -329,11 +333,7 @@ export const FamilyCard = ({
                   <Plus className="h-3 w-3" />
                 </Button>
               </AddStudentModal>
-            </div>
-          )}
-          
-          {activeTab === "contacts" && (
-            <div key="contacts-plus" className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
+            ) : (
               <AddFamilyMemberModal 
                 familyGroupId={familyGroupId}
                 onMemberAdded={refetch}
@@ -346,8 +346,8 @@ export const FamilyCard = ({
                   <Plus className="h-3 w-3" />
                 </Button>
               </AddFamilyMemberModal>
-            </div>
-          )}
+            )}
+          </div>
         </div>
         
         <TabsContent value="children" className="space-y-2 mt-4">
