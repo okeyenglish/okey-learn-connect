@@ -134,6 +134,19 @@ const CRMContent = () => {
   // Enable real-time updates for the active chat
   useRealtimeMessages(activeChatId);
 
+  // Also refresh chat thread list in real-time for any chat changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('chat-threads-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
   // Автоматическое восстановление открытых модальных окон после загрузки
   useEffect(() => {
     if (!pinnedLoading && pinnedModals.length > 0 && !isManualModalOpen) {
@@ -321,17 +334,17 @@ const CRMContent = () => {
     ...threads.map(thread => {
       // Find client data to get avatar
       const clientData = clients.find(c => c.id === thread.client_id);
-      return {
-        id: thread.client_id,
-        name: thread.client_name,
-        phone: thread.client_phone,
-        lastMessage: "Нет сообщений", // TODO: Add last_message_text to ChatThread interface
-        time: formatTime(thread.last_message_time),
-        unread: thread.unread_count,
-        type: 'client' as const,
-        timestamp: new Date(thread.last_message_time).getTime(),
-        avatar_url: clientData?.avatar_url || null
-      };
+        return {
+          id: thread.client_id,
+          name: thread.client_name,
+          phone: thread.client_phone,
+          lastMessage: (thread.last_message?.trim?.() || 'Нет сообщений'),
+          time: formatTime(thread.last_message_time),
+          unread: thread.unread_count,
+          type: 'client' as const,
+          timestamp: new Date(thread.last_message_time).getTime(),
+          avatar_url: clientData?.avatar_url || null
+        };
     })
   ];
 
