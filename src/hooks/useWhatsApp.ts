@@ -128,6 +128,8 @@ export const useWhatsApp = () => {
           },
           webhook_url: settings.webhookUrl,
           updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'messenger_type'
         });
 
       if (error) {
