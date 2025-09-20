@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,12 +24,14 @@ export default function SpeakingClubSignupModal({ level, children }: SpeakingClu
   });
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const timeSlots = [
     { value: "10:00", label: "10:00 - A1 (Beginner)", level: "A1" },
     { value: "11:10", label: "11:10 - A2 (Elementary)", level: "A2" },
     { value: "12:20", label: "12:20 - B1 (Intermediate)", level: "B1" },
-    { value: "13:30", label: "13:30 - B2+ (Upper-Intermediate)", level: "B2+" }
+    { value: "13:30", label: "13:30 - B2+ (Upper-Intermediate)", level: "B2+" },
+    { value: "unknown", label: "Не знаю уровень", level: "Не знаю" }
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -66,7 +69,9 @@ export default function SpeakingClubSignupModal({ level, children }: SpeakingClu
       
       toast({
         title: "Заявка отправлена!",
-        description: "Мы свяжемся с вами в течение 15 минут для подтверждения места в Speaking Club",
+        description: formData.timeSlot === "unknown" 
+          ? "Переходим к тестированию для определения уровня" 
+          : "Мы свяжемся с вами в течение 15 минут для подтверждения места в Speaking Club",
       });
 
       // Reset form and close modal
@@ -78,6 +83,13 @@ export default function SpeakingClubSignupModal({ level, children }: SpeakingClu
         level: level || ""
       });
       setOpen(false);
+
+      // Redirect to test page if "unknown level" was selected
+      if (formData.timeSlot === "unknown") {
+        setTimeout(() => {
+          navigate("/test");
+        }, 1500);
+      }
 
     } catch (error) {
       console.error("Error submitting speaking club signup:", error);
