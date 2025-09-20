@@ -16,8 +16,10 @@ export interface FamilyMember {
 export interface Student {
   id: string;
   name: string;
+  firstName: string;
   lastName: string;
   middleName: string;
+  phone?: string;
   age: number;
   dateOfBirth?: string;
   status: 'active' | 'inactive' | 'trial' | 'graduated';
@@ -112,15 +114,18 @@ export const useFamilyData = (familyGroupId?: string) => {
       }));
 
       const students: Student[] = studentsData.map(student => {
-        // Parse full name from existing name field or use defaults
-        const fullName = student.name || 'Петров Павел Александрович';
-        const nameParts = fullName.split(' ');
+        // Use the new separate name fields if available, fallback to parsing name
+        const firstName = student.first_name || (student.name ? student.name.split(' ')[1] : 'Павел');
+        const lastName = student.last_name || (student.name ? student.name.split(' ')[0] : 'Петров');
+        const middleName = student.middle_name || (student.name ? student.name.split(' ')[2] : 'Александрович');
         
         return {
           id: student.id,
-          name: nameParts[1] || 'Павел', // first name
-          lastName: nameParts[0] || 'Петров', // last name  
-          middleName: nameParts[2] || 'Александрович', // middle name
+          name: firstName, // Keep for backward compatibility
+          firstName,
+          lastName,
+          middleName,
+          phone: student.phone || undefined,
           age: student.age,
           dateOfBirth: student.date_of_birth || undefined,
           status: student.status,

@@ -318,9 +318,13 @@ export type Database = {
           created_at: string
           date_of_birth: string | null
           family_group_id: string
+          first_name: string | null
           id: string
+          last_name: string | null
+          middle_name: string | null
           name: string
           notes: string | null
+          phone: string | null
           status: Database["public"]["Enums"]["student_status"]
           updated_at: string
         }
@@ -329,9 +333,13 @@ export type Database = {
           created_at?: string
           date_of_birth?: string | null
           family_group_id: string
+          first_name?: string | null
           id?: string
+          last_name?: string | null
+          middle_name?: string | null
           name: string
           notes?: string | null
+          phone?: string | null
           status?: Database["public"]["Enums"]["student_status"]
           updated_at?: string
         }
@@ -340,9 +348,13 @@ export type Database = {
           created_at?: string
           date_of_birth?: string | null
           family_group_id?: string
+          first_name?: string | null
           id?: string
+          last_name?: string | null
+          middle_name?: string | null
           name?: string
           notes?: string | null
+          phone?: string | null
           status?: Database["public"]["Enums"]["student_status"]
           updated_at?: string
         }

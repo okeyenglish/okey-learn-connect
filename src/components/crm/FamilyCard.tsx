@@ -260,7 +260,7 @@ export const FamilyCard = ({
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <User className="h-4 w-4 text-muted-foreground" />
-                          <p className="font-medium text-sm">{student.lastName} {student.name} {student.middleName}</p>
+                          <p className="font-medium text-sm">{student.lastName} {student.firstName} {student.middleName}</p>
                           <Badge variant="secondary" className="text-xs">{student.age} лет</Badge>
                         </div>
                         <Badge variant={getChildStatusColor(student.status)} className="text-xs">
