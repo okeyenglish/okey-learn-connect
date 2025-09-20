@@ -161,12 +161,25 @@ export const FamilyCard = ({
                 <span>{activeMember.email}</span>
               </div>
             )}
-            {activeMember.lastContact && (
-              <div className="flex items-center gap-2">
-                <Clock className="h-3 w-3 text-muted-foreground" />
-                <span>Последний контакт: {activeMember.lastContact}</span>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <Clock className="h-3 w-3 text-muted-foreground" />
+              <span>День рождения: 25.12.1993</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Home className="h-3 w-3 text-muted-foreground" />
+              <select className="text-sm bg-transparent border-none outline-none text-muted-foreground">
+                <option value="">Выберите филиал</option>
+                <option value="kotelniki">Котельники</option>
+                <option value="novokosino">Новокосино</option>
+                <option value="okskaya">Окская</option>
+                <option value="stakhanovskaya">Стахановская</option>
+                <option value="solntsevo">Солнцево</option>
+                <option value="mytishchi">Мытищи</option>
+                <option value="lyubertsy-1">Люберцы</option>
+                <option value="lyubertsy-2">Красная горка</option>
+                <option value="online">Онлайн школа</option>
+              </select>
+            </div>
           </div>
         </CardContent>
       </Card>

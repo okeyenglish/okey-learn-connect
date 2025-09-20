@@ -59,7 +59,7 @@ export const ClientTasks = ({ clientName, tasks }: ClientTasksProps) => {
         </CardTitle>
       </CardHeader>
       {isExpanded && (
-        <CardContent className="pt-0">
+        <CardContent className="pt-2">
           <div className="space-y-2">
             {tasks.map((task) => (
               <div key={task.id} className="bg-white rounded-md p-2 border border-orange-200">

@@ -83,32 +83,13 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
             <h2 className="font-semibold text-base">{clientName}</h2>
             <p className="text-sm text-muted-foreground">{clientPhone}</p>
           </div>
-          <div className="flex-1 max-w-sm">
-            {isEditingComment ? (
-              <div className="flex items-center gap-2">
-                <Input
-                  value={editableComment}
-                  onChange={(e) => setEditableComment(e.target.value)}
-                  className="text-sm"
-                  onKeyPress={(e) => e.key === 'Enter' && handleSaveComment()}
-                />
-                <Button size="sm" onClick={handleSaveComment}>
-                  Сохранить
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <p className="text-sm text-muted-foreground flex-1">{editableComment}</p>
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  className="h-6 w-6 p-0"
-                  onClick={() => setIsEditingComment(true)}
-                >
-                  <Edit2 className="h-3 w-3" />
-                </Button>
-              </div>
-            )}
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline">
+              Добавить задачу
+            </Button>
+            <Button size="sm" variant="outline">
+              Выставить счёт
+            </Button>
           </div>
         </div>
       </div>
