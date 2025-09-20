@@ -53,8 +53,10 @@ export const ChatArea = ({
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
+  const [pendingMessage, setPendingMessage] = useState<{text: string, countdown: number} | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const pendingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const MAX_MESSAGE_LENGTH = 4000;
 
@@ -180,6 +182,15 @@ export const ChatArea = ({
     };
   }, [clientId]);
 
+  // Cleanup pending message timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (pendingTimeoutRef.current) {
+        clearTimeout(pendingTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleMessageChange = (value: string) => {
     setMessage(value);
     onMessageChange?.(value.trim().length > 0);
@@ -194,16 +205,47 @@ export const ChatArea = ({
   const handleSendMessage = async () => {
     if (!message.trim() || loading || message.length > MAX_MESSAGE_LENGTH) return;
 
+    // Start 5-second countdown
+    const messageText = message.trim();
+    setMessage(""); // Clear input immediately
+    onMessageChange?.(false);
+    
+    // Reset textarea height
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+
+    // Start countdown
+    setPendingMessage({ text: messageText, countdown: 5 });
+    
+    const countdown = () => {
+      setPendingMessage(prev => {
+        if (!prev) return null;
+        
+        if (prev.countdown <= 1) {
+          // Time's up - send the message
+          sendMessageNow(messageText);
+          return null;
+        }
+        
+        return { ...prev, countdown: prev.countdown - 1 };
+      });
+    };
+
+    // Update countdown every second
+    const intervalId = setInterval(countdown, 1000);
+    
+    // Store timeout reference for cleanup
+    pendingTimeoutRef.current = setTimeout(() => {
+      clearInterval(intervalId);
+    }, 5000);
+  };
+
+  const sendMessageNow = async (messageText: string) => {
     try {
-      const result = await sendTextMessage(clientId, message.trim());
+      const result = await sendTextMessage(clientId, messageText);
       
       if (result.success) {
-        setMessage(""); // Clear input after successful send
-        onMessageChange?.(false);
-        // Reset textarea height
-        if (textareaRef.current) {
-          textareaRef.current.style.height = 'auto';
-        }
         // Плавная прокрутка к концу после отправки сообщения
         setTimeout(() => scrollToBottom(true), 300);
       } else {
@@ -220,6 +262,21 @@ export const ChatArea = ({
         variant: "destructive",
       });
     }
+  };
+
+  const cancelMessage = () => {
+    if (pendingTimeoutRef.current) {
+      clearTimeout(pendingTimeoutRef.current);
+      pendingTimeoutRef.current = null;
+    }
+    
+    if (pendingMessage) {
+      // Restore message to input
+      setMessage(pendingMessage.text);
+      onMessageChange?.(true);
+    }
+    
+    setPendingMessage(null);
   };
 
   const handleScheduleMessage = async () => {
@@ -646,6 +703,26 @@ export const ChatArea = ({
 
       {/* Message Input */}
       <div className="border-t p-3 shrink-0">
+        {/* Pending message with countdown */}
+        {pendingMessage && (
+          <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+              <span className="text-sm text-yellow-800">
+                Отправка через {pendingMessage.countdown} сек...
+              </span>
+            </div>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={cancelMessage}
+              className="text-yellow-800 border-yellow-300 hover:bg-yellow-100"
+            >
+              Отменить
+            </Button>
+          </div>
+        )}
+        
         <div className="space-y-2">
           {/* Character counter and warning */}
           {message.length > 0 && (
@@ -668,19 +745,19 @@ export const ChatArea = ({
                 onChange={(e) => handleMessageChange(e.target.value)}
                 onKeyPress={handleKeyPress}
                 className="min-h-[48px] max-h-[120px] resize-none text-base"
-                disabled={loading}
+                disabled={loading || !!pendingMessage}
               />
               <div className="flex items-center gap-1 mt-2">
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!!pendingMessage}>
                   <Paperclip className="h-4 w-4" />
                 </Button>
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!!pendingMessage}>
                   <Zap className="h-4 w-4" />
                 </Button>
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!!pendingMessage}>
                   <MessageCircle className="h-4 w-4" />
                 </Button>
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!!pendingMessage}>
                   <Mic className="h-4 w-4" />
                 </Button>
                 
@@ -691,7 +768,7 @@ export const ChatArea = ({
                       size="sm" 
                       variant="ghost" 
                       className="h-8 w-8 p-0"
-                      disabled={loading || !message.trim() || message.length > MAX_MESSAGE_LENGTH}
+                      disabled={loading || !message.trim() || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
                     >
                       <Clock className="h-4 w-4" />
                     </Button>
@@ -741,9 +818,9 @@ export const ChatArea = ({
             {/* Send button */}
             <Button 
               size="icon" 
-              className="rounded-full h-12 w-12" 
+              className="rounded-full h-12 w-12 mb-10" 
               onClick={handleSendMessage}
-              disabled={loading || !message.trim() || message.length > MAX_MESSAGE_LENGTH}
+              disabled={loading || !message.trim() || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
             >
               <Send className="h-4 w-4" />
             </Button>
