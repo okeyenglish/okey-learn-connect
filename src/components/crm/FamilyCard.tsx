@@ -310,13 +310,12 @@ export const FamilyCard = ({
               Дети ({familyData.students.length})
             </TabsTrigger>
             <TabsTrigger value="contacts">
-              Семья ({familyData.members.length})
+              Семья ({otherMembers.length})
             </TabsTrigger>
           </TabsList>
           
-          {/* Add buttons - always show both but position them over respective tabs */}
           {activeTab === "children" && (
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
+            <div key="children-plus" className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
               <AddStudentModal 
                 familyGroupId={familyGroupId}
                 parentLastName={activeMember.name.split(' ').pop()}
@@ -334,7 +333,7 @@ export const FamilyCard = ({
           )}
           
           {activeTab === "contacts" && (
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
+            <div key="contacts-plus" className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
               <AddFamilyMemberModal 
                 familyGroupId={familyGroupId}
                 onMemberAdded={refetch}
