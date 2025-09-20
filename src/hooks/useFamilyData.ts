@@ -16,6 +16,8 @@ export interface FamilyMember {
 export interface Student {
   id: string;
   name: string;
+  lastName: string;
+  middleName: string;
   age: number;
   dateOfBirth?: string;
   status: 'active' | 'inactive' | 'trial' | 'graduated';
@@ -109,29 +111,37 @@ export const useFamilyData = (familyGroupId?: string) => {
         lastContact: member.relationship_type === 'main' ? 'Сейчас в чате' : '2 дня назад' // Mock data
       }));
 
-      const students: Student[] = studentsData.map(student => ({
-        id: student.id,
-        name: student.name,
-        age: student.age,
-        dateOfBirth: student.date_of_birth || undefined,
-        status: student.status,
-        notes: student.notes || undefined,
-        courses: student.student_courses.map((course: any) => ({
-          id: course.id,
-          name: course.course_name,
-          nextLesson: course.next_lesson_date ? 
-            new Date(course.next_lesson_date).toLocaleDateString('ru-RU', {
-              day: '2-digit',
-              month: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit'
-            }) : undefined,
-          nextPayment: course.next_payment_date ? 
-            `${new Date(course.next_payment_date).toLocaleDateString('ru-RU')} - ${course.payment_amount}₽` : undefined,
-          paymentAmount: course.payment_amount,
-          isActive: course.is_active
-        }))
-      }));
+      const students: Student[] = studentsData.map(student => {
+        // Parse full name from existing name field or use defaults
+        const fullName = student.name || 'Петров Павел Александрович';
+        const nameParts = fullName.split(' ');
+        
+        return {
+          id: student.id,
+          name: nameParts[1] || 'Павел', // first name
+          lastName: nameParts[0] || 'Петров', // last name  
+          middleName: nameParts[2] || 'Александрович', // middle name
+          age: student.age,
+          dateOfBirth: student.date_of_birth || undefined,
+          status: student.status,
+          notes: student.notes || undefined,
+          courses: student.student_courses.map((course: any) => ({
+            id: course.id,
+            name: course.course_name,
+            nextLesson: course.next_lesson_date ? 
+              new Date(course.next_lesson_date).toLocaleDateString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+              }) : undefined,
+            nextPayment: course.next_payment_date ? 
+              `${new Date(course.next_payment_date).toLocaleDateString('ru-RU')} - ${course.payment_amount}₽` : undefined,
+            paymentAmount: course.payment_amount,
+            isActive: course.is_active
+          }))
+        };
+      });
 
       setFamilyData({
         id: familyGroup.id,

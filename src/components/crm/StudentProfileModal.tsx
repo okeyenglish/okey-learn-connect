@@ -24,6 +24,8 @@ import {
 interface Student {
   id: string;
   name: string;
+  lastName: string;
+  middleName: string;
   age: number;
   status: string;
   courses: Array<{
@@ -52,6 +54,13 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
       case 'trial': return 'outline';
       default: return 'default';
     }
+  };
+
+  const getStatusBadgeClass = (status: string) => {
+    if (status === 'active') {
+      return 'bg-green-100 text-green-800 hover:bg-green-100 border-green-200';
+    }
+    return '';
   };
 
   const getStatusLabel = (status: string) => {
@@ -117,7 +126,9 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pb-4">
-          <DialogTitle className="text-xl font-semibold">{student.name}</DialogTitle>
+          <DialogTitle className="text-xl font-semibold">
+            {student.lastName} {student.name} {student.middleName}
+          </DialogTitle>
           <p className="text-sm text-muted-foreground">Ученик (ID: {student.id})</p>
         </DialogHeader>
 
@@ -136,7 +147,10 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
               <CardContent className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Статус</span>
-                  <Badge variant={getStatusColor(student.status)} className="text-xs">
+                  <Badge 
+                    variant={getStatusColor(student.status)} 
+                    className={`text-xs ${getStatusBadgeClass(student.status)}`}
+                  >
                     {getStatusLabel(student.status)}
                   </Badge>
                 </div>
@@ -153,6 +167,48 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
                     <Calendar className="w-3 h-3 mr-1" />
                     Заниматься индивидуально
                   </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* Parent Contacts Block */}
+          <div className="flex-1">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Контакты родителей</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="border rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                    <span className="font-medium text-sm">Мария Петрова</span>
+                    <Badge variant="outline" className="text-xs">Мама</Badge>
+                  </div>
+                  <div className="space-y-1 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <span>📱</span>
+                      <span>+7 (985) 261-50-56</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>✉️</span>
+                      <span>maria.petrova@email.com</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="border rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                    <span className="font-medium text-sm">Александр Петров</span>
+                    <Badge variant="outline" className="text-xs">Папа</Badge>
+                  </div>
+                  <div className="space-y-1 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <span>📱</span>
+                      <span>+7 (903) 444-55-66</span>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
