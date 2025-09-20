@@ -90,6 +90,7 @@ const CRMContent = () => {
   } = useChatStatesDB();
   const { tasks: allTasks, isLoading: tasksLoading } = useAllTasks();
   const [openModal, setOpenModal] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("chats");
   const [hasUnsavedChat, setHasUnsavedChat] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [chatSearchQuery, setChatSearchQuery] = useState("");
@@ -148,7 +149,29 @@ const CRMContent = () => {
     await signOut();
   };
 
+  // Обработчик переключения вкладок
+  const handleTabChange = (newTab: string) => {
+    // Закрываем все модальные окна при переключении вкладок
+    setOpenModal(null);
+    setShowAddTaskModal(false);
+    setShowInvoiceModal(false);
+    
+    // Закрываем все закрепленные модальные окна
+    pinnedModals.forEach(modal => {
+      if (modal.isOpen) {
+        closePinnedModal(modal.id, modal.type);
+      }
+    });
+    
+    setActiveTab(newTab);
+  };
+
   const handleMenuClick = (action: string) => {
+    // Проверяем, что мы на правильной вкладке
+    if (activeTab !== "menu") {
+      setActiveTab("menu");
+    }
+    
     if (hasUnsavedChat) {
       const confirm = window.confirm("У вас есть несохраненное сообщение. Продолжить?");
       if (!confirm) return;
@@ -470,7 +493,16 @@ const CRMContent = () => {
 
   // Обработчик открытия закрепленных модальных окон
   const handleOpenPinnedModal = (id: string, type: string) => {
-    if (type === 'task') {
+    // Проверяем контекст - если это модальное окно из меню, переключаемся на вкладку меню
+    if (type === 'Мои задачи' || type === 'Заявки' || type === 'Лиды' || 
+        type === 'Компания' || type === 'Обучение' || type === 'Занятия онлайн' || 
+        type === 'Расписание' || type === 'Финансы') {
+      if (activeTab !== "menu") {
+        setActiveTab("menu");
+      }
+      setOpenModal(type);
+      openPinnedModal(id, type);
+    } else if (type === 'task') {
       setPinnedTaskClientId(id);
       setShowAddTaskModal(true);
       openPinnedModal(id, type);
@@ -479,7 +511,7 @@ const CRMContent = () => {
       setShowInvoiceModal(true);
       openPinnedModal(id, type);
     } else {
-      // Для модальных окон из меню - закрываем обычное меню-диалог и открываем только закрепленную версию
+      // Для других модальных окон - закрываем обычное меню-диалог и открываем только закрепленную версию
       setOpenModal(null);
       openPinnedModal(id, type);
     }
@@ -568,7 +600,7 @@ const CRMContent = () => {
       <div className="flex flex-1 max-w-7xl mx-auto w-full overflow-hidden">
         {/* Left Unified Sidebar */}
         <div className="w-80 bg-background border-r flex flex-col h-full min-h-0">
-          <Tabs defaultValue="chats" className="flex flex-col h-full min-h-0">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-full min-h-0">
             <TabsList className="grid w-full grid-cols-2 m-2 shrink-0">
               <TabsTrigger value="menu">Меню</TabsTrigger>
               <TabsTrigger value="chats">Чаты</TabsTrigger>
