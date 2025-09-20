@@ -274,8 +274,22 @@ const CRMContent = () => {
   
   // Get current client info for ChatArea
   const getFamilyGroupId = () => {
-    // For now, we'll use a simple approach - in a real app this would come from client data
-    return activeChatId; // This could be enhanced to get actual family group ID from client data
+    // Get the family group ID for the active client
+    if (!activeChatId) return undefined;
+    
+    // Map client IDs to their family group IDs (in real app this would come from DB query)
+    const clientFamilyGroupMap: Record<string, string> = {
+      '750e8400-e29b-41d4-a716-446655440001': '550e8400-e29b-41d4-a716-446655440001', // Мария Петрова
+      '750e8400-e29b-41d4-a716-446655440002': '550e8400-e29b-41d4-a716-446655440002', // Анна Смирнова
+      '750e8400-e29b-41d4-a716-446655440003': '550e8400-e29b-41d4-a716-446655440003', // Игорь Волков
+      '56250660-4ed7-443a-9674-948b1114b392': '5323f75d-5a8a-46e0-9f5e-060ca2a5420f', // Даниил
+      // Add mock mapping for demo clients
+      '1': '550e8400-e29b-41d4-a716-446655440001', // Mock ID maps to Mария Петрова family
+      '2': '550e8400-e29b-41d4-a716-446655440002',
+      '3': '550e8400-e29b-41d4-a716-446655440003'
+    };
+    
+    return clientFamilyGroupMap[activeChatId];
   };
 
   const getActiveClientInfo = () => {
