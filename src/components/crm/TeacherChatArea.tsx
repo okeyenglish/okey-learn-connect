@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Search, Phone, MessageCircle, Mail, Video, Calendar, Users, Clock, ChevronRight } from 'lucide-react';
+import { Search, Phone, MessageCircle, Mail, Video, Calendar, Users, Clock, ChevronRight, Send } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea';
+import { ChatMessage } from './ChatMessage';
 
 interface TeacherGroup {
   id: string;
@@ -133,6 +135,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('общение');
+  const [message, setMessage] = useState('');
 
   const filteredTeachers = mockTeachers.filter(teacher =>
     teacher.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -146,6 +149,30 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     // Navigate to lesson page
     console.log('Navigate to lesson:', groupId);
   };
+
+  // Mock chat messages for teacher
+  const teacherMessages = [
+    {
+      type: 'client' as const,
+      message: 'Добрый день! Как дела с домашним заданием у Павла?',
+      time: '10:15'
+    },
+    {
+      type: 'manager' as const,
+      message: 'Здравствуйте! Все отлично, Павел очень старается',
+      time: '10:18'
+    },
+    {
+      type: 'client' as const,
+      message: 'Замечательно! Завтра на уроке будем проходить новую тему',
+      time: '10:20'
+    },
+    {
+      type: 'manager' as const,
+      message: 'Отлично! Павел готов к новому материалу. Есть ли что-то особенное, на что стоит обратить внимание?',
+      time: '10:22'
+    }
+  ];
 
   return (
     <div className="h-full flex">
@@ -343,40 +370,32 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             <TabsContent value="общение" className="h-full m-0 flex flex-col">
               {/* Chat Messages Area */}
               <ScrollArea className="flex-1 p-3">
-                <div className="space-y-3">
-                  {/* Sample Messages */}
-                  <div className="flex justify-start">
-                    <div className="max-w-xs bg-muted rounded-lg p-2">
-                      <p className="text-sm">Добрый день! Как дела с домашним заданием у Павла?</p>
-                      <span className="text-xs text-muted-foreground">10:15</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex justify-end">
-                    <div className="max-w-xs bg-primary text-primary-foreground rounded-lg p-2">
-                      <p className="text-sm">Здравствуйте! Все отлично, Павел очень старается</p>
-                      <span className="text-xs opacity-70">10:18</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex justify-start">
-                    <div className="max-w-xs bg-muted rounded-lg p-2">
-                      <p className="text-sm">Замечательно! Завтра на уроке будем проходить новую тему</p>
-                      <span className="text-xs text-muted-foreground">10:20</span>
-                    </div>
-                  </div>
+                <div className="space-y-1">
+                  {teacherMessages.map((msg, index) => (
+                    <ChatMessage
+                      key={index}
+                      type={msg.type}
+                      message={msg.message}
+                      time={msg.time}
+                    />
+                  ))}
                 </div>
               </ScrollArea>
               
               {/* Message Input */}
-              <div className="p-3 border-t border-border">
-                <div className="flex space-x-2">
-                  <Input 
-                    placeholder="Написать сообщение..." 
-                    className="flex-1 text-sm"
-                  />
-                  <Button size="sm">
-                    <MessageCircle className="h-4 w-4" />
+              <div className="border-t p-3">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <Textarea
+                      placeholder="Написать сообщение..."
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      className="min-h-[40px] max-h-[120px] resize-none text-sm"
+                      rows={1}
+                    />
+                  </div>
+                  <Button size="icon" className="rounded-full h-10 w-10">
+                    <Send className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
