@@ -552,7 +552,7 @@ const CRMContent = () => {
               <TabsTrigger value="chats">Чаты</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="menu" forceMount className="flex-1 mt-0 overflow-y-auto">
+            <TabsContent value="menu" className="flex-1 mt-0 overflow-y-auto data-[state=active]:block">
               <div className="p-2 space-y-1">
                 {menuItems.map((item, index) => (
                   <Dialog key={index} open={openModal === item.label} onOpenChange={(open) => !open && handleMenuModalClose()}>
