@@ -273,6 +273,11 @@ const CRMContent = () => {
   const activeThread = threads.find(thread => thread.client_id === activeChatId);
   
   // Get current client info for ChatArea
+  const getFamilyGroupId = () => {
+    // For now, we'll use a simple approach - in a real app this would come from client data
+    return activeChatId; // This could be enhanced to get actual family group ID from client data
+  };
+
   const getActiveClientInfo = () => {
     if (activeClient) {
       return {
@@ -832,15 +837,15 @@ const CRMContent = () => {
       />
 
       {/* Модальные окна с поддержкой закрепления */}
-      <AddTaskModal 
-        open={showAddTaskModal}
-        onOpenChange={handleTaskModalClose}
-        clientName={getActiveClientInfo().name}
-        clientId={activeChatId || ''}
-        isPinned={isPinned(activeChatId, 'task')}
-        onPin={handlePinTaskModal}
-        onUnpin={() => unpinModal(activeChatId || '', 'task')}
-      />
+        <AddTaskModal 
+          open={showAddTaskModal}
+          onOpenChange={handleTaskModalClose}
+          clientName={getActiveClientInfo().name}
+          clientId={activeChatId || ''}
+          isPinned={isPinned(activeChatId, 'task')}
+          onPin={handlePinTaskModal}
+          onUnpin={() => unpinModal(activeChatId || '', 'task')}
+        />
 
       <CreateInvoiceModal 
         open={showInvoiceModal}
