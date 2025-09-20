@@ -376,7 +376,10 @@ const CRMContent = () => {
       id: activeChatId,
       type: 'task',
       title: `Задача: ${clientInfo.name}`,
-      props: { clientName: clientInfo.name }
+      props: { 
+        clientName: clientInfo.name,
+        familyGroupId: getFamilyGroupId()
+      }
     });
   };
 
@@ -842,6 +845,7 @@ const CRMContent = () => {
           onOpenChange={handleTaskModalClose}
           clientName={getActiveClientInfo().name}
           clientId={activeChatId || ''}
+          familyGroupId={getFamilyGroupId()}
           isPinned={isPinned(activeChatId, 'task')}
           onPin={handlePinTaskModal}
           onUnpin={() => unpinModal(activeChatId || '', 'task')}
@@ -866,6 +870,7 @@ const CRMContent = () => {
               onOpenChange={() => closePinnedModal(modal.id, modal.type)}
               clientName={modal.props.clientName}
               clientId={modal.id}
+              familyGroupId={modal.props.familyGroupId}
               isPinned={true}
               onUnpin={() => unpinModal(modal.id, modal.type)}
             />
