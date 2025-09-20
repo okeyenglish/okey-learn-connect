@@ -250,8 +250,34 @@ const CRMContent = () => {
     return phoneNumbers[activePhoneId as keyof typeof phoneNumbers] || '+7 (985) 261-50-56';
   };
 
+  // Find active client data
+  const activeClient = clients.find(client => client.id === activeChatId);
+  const activeThread = threads.find(thread => thread.client_id === activeChatId);
+  
+  // Get current client info for ChatArea
+  const getActiveClientInfo = () => {
+    if (activeClient) {
+      return {
+        name: activeClient.name,
+        phone: activeClient.phone,
+        comment: activeClient.notes || 'Клиент'
+      };
+    }
+    if (activeThread) {
+      return {
+        name: activeThread.client_name,
+        phone: activeThread.client_phone,
+        comment: 'Клиент'
+      };
+    }
+    return {
+      name: 'Выберите чат',
+      phone: '',
+      comment: ''
+    };
+  };
+
   const handleCreateNewChat = async (contactInfo: any) => {
-    console.log('Создание нового чата с:', contactInfo);
     
     try {
       // Create new client in database
@@ -299,6 +325,7 @@ const CRMContent = () => {
   };
 
   const handleChatClick = (chatId: string, chatType: 'client' | 'corporate' | 'teachers') => {
+    console.log('Переключение на чат:', { chatId, chatType });
     setActiveChatId(chatId);
     setActiveChatType(chatType);
   };
@@ -679,9 +706,9 @@ const CRMContent = () => {
           />
         ) : (
           <ChatArea 
-            clientName="Мария Петрова"
-            clientPhone={getCurrentPhoneNumber()}
-            clientComment="Мама Павла, активная, всегда интересуется успехами"
+            clientName={getActiveClientInfo().name}
+            clientPhone={getActiveClientInfo().phone}
+            clientComment={getActiveClientInfo().comment}
             onMessageChange={setHasUnsavedChat}
             activePhoneId={activePhoneId}
           />
