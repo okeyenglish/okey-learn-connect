@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { FamilyCard } from "./FamilyCard";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface FamilyCardWrapperProps {
   clientId: string;
@@ -11,6 +13,7 @@ export const FamilyCardWrapper = ({ clientId }: FamilyCardWrapperProps) => {
   const [familyGroupId, setFamilyGroupId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchFamilyGroupId = async () => {
@@ -28,15 +31,11 @@ export const FamilyCardWrapper = ({ clientId }: FamilyCardWrapperProps) => {
           .from('family_members')
           .select('family_group_id')
           .eq('client_id', clientId)
-          .single();
+          .maybeSingle();
 
-        if (error) {
-          console.error('Error finding family group:', error);
-          setError('Семейная группа не найдена');
-          return;
-        }
+        if (error) throw error;
 
-        setFamilyGroupId(data.family_group_id);
+        setFamilyGroupId(data?.family_group_id ?? null);
       } catch (err) {
         console.error('Error fetching family group ID:', err);
         setError('Ошибка загрузки данных семьи');
@@ -48,6 +47,55 @@ export const FamilyCardWrapper = ({ clientId }: FamilyCardWrapperProps) => {
     fetchFamilyGroupId();
   }, [clientId]);
 
+  const createFamilyGroupForClient = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Get client info
+      const { data: client, error: clientError } = await supabase
+        .from('clients')
+        .select('name')
+        .eq('id', clientId)
+        .single();
+
+      if (clientError) throw clientError;
+
+      const lastName = client?.name?.split(' ').slice(-1)[0] || 'клиента';
+      const groupName = `Семья ${lastName}`;
+
+      // Create family group
+      const { data: group, error: groupError } = await supabase
+        .from('family_groups')
+        .insert({ name: groupName })
+        .select()
+        .single();
+
+      if (groupError) throw groupError;
+
+      // Link client as primary contact
+      const { error: linkError } = await supabase
+        .from('family_members')
+        .insert({
+          family_group_id: group.id,
+          client_id: clientId,
+          relationship_type: 'main',
+          is_primary_contact: true,
+        });
+
+      if (linkError) throw linkError;
+
+      setFamilyGroupId(group.id);
+      toast({ title: 'Семейная группа создана', description: 'Клиент назначен основным контактом' });
+    } catch (err: any) {
+      console.error('Error creating family group:', err);
+      setError('Не удалось создать семейную группу');
+      toast({ title: 'Ошибка', description: 'Не удалось создать семейную группу', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -58,13 +106,28 @@ export const FamilyCardWrapper = ({ clientId }: FamilyCardWrapperProps) => {
     );
   }
 
-  if (error || !familyGroupId) {
+  if (!familyGroupId) {
+    return (
+      <Card>
+        <CardContent className="p-6 space-y-3">
+          <p className="text-center text-muted-foreground">
+            Семейная группа не найдена
+          </p>
+          <div className="flex justify-center">
+            <Button onClick={createFamilyGroupForClient}>
+              Создать семейную группу
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
     return (
       <Card>
         <CardContent className="p-6">
-          <p className="text-center text-muted-foreground">
-            {error || "Семейная группа не найдена"}
-          </p>
+          <p className="text-center text-muted-foreground">{error}</p>
         </CardContent>
       </Card>
     );
