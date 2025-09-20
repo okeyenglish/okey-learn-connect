@@ -15,13 +15,29 @@ interface PinnableModalHeaderProps {
   children?: ReactNode;
 }
 
+// DialogOverlay с менее интенсивным затемнением для закрепленных модальных окон
+const PinnableDialogOverlay = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Overlay>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Overlay
+    ref={ref}
+    className={cn(
+      "fixed inset-0 z-50 bg-black/30 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      className,
+    )}
+    {...props}
+  />
+));
+PinnableDialogOverlay.displayName = "PinnableDialogOverlay";
+
 // DialogContent без встроенного крестика для использования с PinnableModalHeader
 export const PinnableDialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => (
   <DialogPortal>
-    <DialogOverlay />
+    <PinnableDialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
