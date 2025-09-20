@@ -340,10 +340,13 @@ export const FamilyCard = ({
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <User className="h-4 w-4 text-muted-foreground" />
-                          <p className="font-medium text-sm">{student.lastName} {student.firstName} {student.middleName}</p>
-                          <Badge variant="secondary" className="text-xs">{student.age}</Badge>
+                          <p className="font-medium text-sm">{student.firstName}</p>
+                          <Badge variant="secondary" className="text-xs">{student.age} {student.age === 1 ? 'год' : 'лет'}</Badge>
                         </div>
-                        <Badge variant={getChildStatusColor(student.status)} className="text-xs">
+                        <Badge 
+                          variant={getChildStatusColor(student.status)} 
+                          className={`text-xs ${student.status === 'active' ? 'bg-green-500 text-white hover:bg-green-600' : ''}`}
+                        >
                           {getChildStatusLabel(student.status)}
                         </Badge>
                       </div>

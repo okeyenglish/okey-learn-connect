@@ -187,6 +187,9 @@ export const useFamilyData = (familyGroupId?: string) => {
               {
                 id: 'course-3',
                 name: 'Super Safari 1',
+                nextLesson: '21.09, 13:00',
+                nextPayment: '15.10.2025 - 9500₽',
+                paymentAmount: 9500,
                 isActive: true
               },
               {
