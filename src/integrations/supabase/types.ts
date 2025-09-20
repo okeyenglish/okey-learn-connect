@@ -14,6 +14,80 @@ export type Database = {
   }
   public: {
     Tables: {
+      chat_messages: {
+        Row: {
+          call_duration: string | null
+          client_id: string
+          created_at: string
+          id: string
+          is_read: boolean
+          message_text: string
+          message_type: string
+          system_type: string | null
+        }
+        Insert: {
+          call_duration?: string | null
+          client_id: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message_text: string
+          message_type: string
+          system_type?: string | null
+        }
+        Update: {
+          call_duration?: string | null
+          client_id?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message_text?: string
+          message_type?: string
+          system_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clients: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          phone: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          phone: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          phone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       docs: {
         Row: {
           content: string
@@ -43,6 +117,69 @@ export type Database = {
           url?: string
         }
         Relationships: []
+      }
+      family_groups: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      family_members: {
+        Row: {
+          client_id: string
+          created_at: string
+          family_group_id: string
+          id: string
+          is_primary_contact: boolean
+          relationship_type: Database["public"]["Enums"]["relationship_type"]
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          family_group_id: string
+          id?: string
+          is_primary_contact?: boolean
+          relationship_type?: Database["public"]["Enums"]["relationship_type"]
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          family_group_id?: string
+          id?: string
+          is_primary_contact?: boolean
+          relationship_type?: Database["public"]["Enums"]["relationship_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_members_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "family_members_family_group_id_fkey"
+            columns: ["family_group_id"]
+            isOneToOne: false
+            referencedRelation: "family_groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       faq: {
         Row: {
@@ -124,6 +261,100 @@ export type Database = {
           Возраст?: string | null
         }
         Relationships: []
+      }
+      student_courses: {
+        Row: {
+          course_name: string
+          created_at: string
+          end_date: string | null
+          id: string
+          is_active: boolean
+          next_lesson_date: string | null
+          next_payment_date: string | null
+          payment_amount: number | null
+          start_date: string | null
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          course_name: string
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          next_lesson_date?: string | null
+          next_payment_date?: string | null
+          payment_amount?: number | null
+          start_date?: string | null
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          course_name?: string
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          next_lesson_date?: string | null
+          next_payment_date?: string | null
+          payment_amount?: number | null
+          start_date?: string | null
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_courses_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      students: {
+        Row: {
+          age: number
+          created_at: string
+          date_of_birth: string | null
+          family_group_id: string
+          id: string
+          name: string
+          notes: string | null
+          status: Database["public"]["Enums"]["student_status"]
+          updated_at: string
+        }
+        Insert: {
+          age: number
+          created_at?: string
+          date_of_birth?: string | null
+          family_group_id: string
+          id?: string
+          name: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["student_status"]
+          updated_at?: string
+        }
+        Update: {
+          age?: number
+          created_at?: string
+          date_of_birth?: string | null
+          family_group_id?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["student_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "students_family_group_id_fkey"
+            columns: ["family_group_id"]
+            isOneToOne: false
+            referencedRelation: "family_groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -253,7 +484,8 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      relationship_type: "main" | "spouse" | "parent" | "guardian" | "other"
+      student_status: "active" | "inactive" | "trial" | "graduated"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -380,6 +612,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      relationship_type: ["main", "spouse", "parent", "guardian", "other"],
+      student_status: ["active", "inactive", "trial", "graduated"],
+    },
   },
 } as const

@@ -121,77 +121,11 @@ const CRM = () => {
   );
 
   // Mock данные для семейных связей
-  const [activeFamilyMemberId, setActiveFamilyMemberId] = useState('main_contact');
-  
-  const familyMembers = [
-    {
-      id: 'main_contact',
-      name: 'Мария Петрова',
-      phone: '+7 (985) 261-50-56',
-      email: 'maria.petrova@email.com',
-      relationship: 'main' as const,
-      lastContact: 'Сейчас в чате',
-      unreadMessages: 2,
-      isOnline: true
-    },
-    {
-      id: 'husband_1',
-      name: 'Сергей Петров',
-      phone: '+7 (985) 123-45-67',
-      email: 'sergey.petrov@email.com',
-      relationship: 'spouse' as const,
-      lastContact: '2 дня назад',
-      unreadMessages: 1,
-      isOnline: false
-    }
-  ];
-
-  const familyChildren = [
-    {
-      name: 'Павел',
-      age: 8,
-      courses: ['Kids Box 2'],
-      nextLesson: 'Сегодня в 17:20',
-      nextPayment: '25.09.2025 - 11490₽',
-      status: 'active' as const
-    },
-    {
-      name: 'Маша',
-      age: 6,
-      courses: ['Super Safari 1'],
-      nextLesson: 'Завтра в 10:00',
-      nextPayment: 'Оплачено до 15.10.2025',
-      status: 'active' as const
-    }
-  ];
-
-  const currentContact = familyMembers.find(m => m.id === activeFamilyMemberId) || familyMembers[0];
-  const linkedContacts = familyMembers.filter(m => m.id !== activeFamilyMemberId).map(member => ({
-    id: member.id,
-    name: member.name,
-    phone: member.phone,
-    email: member.email,
-    relationship: (member.relationship === 'main' ? 'parent' : member.relationship) as 'spouse' | 'parent' | 'guardian',
-    lastContact: member.lastContact,
-    unreadMessages: member.unreadMessages
-  }));
-
-  const sharedChildren = familyChildren.map(child => ({
-    name: child.name,
-    age: child.age,
-    courses: child.courses,
-    nextLesson: child.nextLesson,
-    nextPayment: child.nextPayment
-  }));
+  const [activeFamilyMemberId, setActiveFamilyMemberId] = useState('550e8400-e29b-41d4-a716-446655440001');
 
   const handleSwitchFamilyMember = (memberId: string) => {
     setActiveFamilyMemberId(memberId);
     console.log('Переключение на члена семьи:', memberId);
-  };
-
-  const handleSwitchContact = (contactId: string) => {
-    setActiveFamilyMemberId(contactId);
-    console.log('Переключение на контакт:', contactId);
   };
 
   const handleOpenLinkedChat = (contactId: string) => {
@@ -418,8 +352,7 @@ const CRM = () => {
         {/* Right Sidebar - Family Card */}
         <div className="w-80 bg-background p-4 overflow-y-auto">
           <FamilyCard
-            familyMembers={familyMembers}
-            children={familyChildren}
+            familyGroupId="550e8400-e29b-41d4-a716-446655440000"
             activeMemberId={activeFamilyMemberId}
             onSwitchMember={handleSwitchFamilyMember}
             onOpenChat={handleOpenLinkedChat}

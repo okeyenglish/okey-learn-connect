@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AddFamilyMemberModal } from "./AddFamilyMemberModal";
+import { AddStudentModal } from "./AddStudentModal";
+import { useFamilyData, FamilyMember, Student } from "@/hooks/useFamilyData";
 import { 
   Users, 
   Phone, 
@@ -13,50 +16,54 @@ import {
   Home,
   Mail,
   Clock,
-  Bell
+  Bell,
+  Plus
 } from "lucide-react";
 
-interface FamilyMember {
-  id: string;
-  name: string;
-  phone: string;
-  email?: string;
-  relationship: 'main' | 'spouse' | 'parent' | 'guardian';
-  lastContact?: string;
-  unreadMessages?: number;
-  isOnline?: boolean;
-}
-
-interface Child {
-  name: string;
-  age: number;
-  courses: string[];
-  nextLesson?: string;
-  nextPayment?: string;
-  status: 'active' | 'inactive' | 'trial';
-}
-
 interface FamilyCardProps {
-  familyMembers: FamilyMember[];
-  children: Child[];
-  activeMemberId: string;
+  familyGroupId: string;
+  activeMemberId?: string;
   onSwitchMember?: (memberId: string) => void;
   onOpenChat?: (memberId: string) => void;
   onCall?: (memberId: string) => void;
 }
 
 export const FamilyCard = ({ 
-  familyMembers, 
-  children, 
+  familyGroupId,
   activeMemberId,
   onSwitchMember,
   onOpenChat,
   onCall 
 }: FamilyCardProps) => {
   const [activeTab, setActiveTab] = useState("contacts");
+  const { familyData, loading, error, refetch } = useFamilyData(familyGroupId);
   
-  const activeMember = familyMembers.find(m => m.id === activeMemberId) || familyMembers[0];
-  const otherMembers = familyMembers.filter(m => m.id !== activeMemberId);
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <p className="text-center text-muted-foreground">Загрузка...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error || !familyData) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <p className="text-center text-muted-foreground">
+            {error || "Данные семьи не найдены"}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const activeMember = familyData.members.find(m => m.id === activeMemberId) || 
+                       familyData.members.find(m => m.isPrimaryContact) || 
+                       familyData.members[0];
+  const otherMembers = familyData.members.filter(m => m.id !== activeMember?.id);
 
   const getRelationshipLabel = (relationship: string) => {
     switch (relationship) {
@@ -166,16 +173,32 @@ export const FamilyCard = ({
       {/* Family Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="contacts">Семья ({familyMembers.length})</TabsTrigger>
-          <TabsTrigger value="children">Дети ({children.length})</TabsTrigger>
+          <TabsTrigger value="contacts">
+            Семья ({familyData.members.length})
+          </TabsTrigger>
+          <TabsTrigger value="children">
+            Дети ({familyData.students.length})
+          </TabsTrigger>
         </TabsList>
         
         <TabsContent value="contacts" className="space-y-2 mt-4">
+          <div className="flex justify-between items-center mb-3">
+            <h4 className="font-medium text-sm">Члены семьи</h4>
+            <AddFamilyMemberModal 
+              familyGroupId={familyGroupId}
+              onMemberAdded={refetch}
+            />
+          </div>
+          
           {otherMembers.length === 0 ? (
             <div className="text-center py-4">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground mb-2">
                 Нет связанных контактов
               </p>
+              <AddFamilyMemberModal 
+                familyGroupId={familyGroupId}
+                onMemberAdded={refetch}
+              />
             </div>
           ) : (
             <div className="space-y-2">
@@ -242,50 +265,62 @@ export const FamilyCard = ({
         </TabsContent>
         
         <TabsContent value="children" className="space-y-2 mt-4">
-          {children.length === 0 ? (
+          <div className="flex justify-between items-center mb-3">
+            <h4 className="font-medium text-sm">Ученики</h4>
+            <AddStudentModal 
+              familyGroupId={familyGroupId}
+              onStudentAdded={refetch}
+            />
+          </div>
+          
+          {familyData.students.length === 0 ? (
             <div className="text-center py-4">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground mb-2">
                 Нет детей в системе
               </p>
+              <AddStudentModal 
+                familyGroupId={familyGroupId}
+                onStudentAdded={refetch}
+              />
             </div>
           ) : (
             <div className="space-y-2">
-              {children.map((child, index) => (
-                <Card key={index} className="hover:bg-muted/20 transition-colors">
+              {familyData.students.map((student) => (
+                <Card key={student.id} className="hover:bg-muted/20 transition-colors">
                   <CardContent className="p-3">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-muted-foreground" />
-                        <p className="font-medium text-sm">{child.name}</p>
-                        <Badge variant="secondary" className="text-xs">{child.age} лет</Badge>
+                        <p className="font-medium text-sm">{student.name}</p>
+                        <Badge variant="secondary" className="text-xs">{student.age} лет</Badge>
                       </div>
-                      <Badge variant={getChildStatusColor(child.status)} className="text-xs">
-                        {getChildStatusLabel(child.status)}
+                      <Badge variant={getChildStatusColor(student.status)} className="text-xs">
+                        {getChildStatusLabel(student.status)}
                       </Badge>
                     </div>
                     
                     <div className="space-y-1">
                       <div className="flex flex-wrap gap-1">
-                        {child.courses.map((course, courseIndex) => (
+                        {student.courses.map((course, courseIndex) => (
                           <Badge key={courseIndex} variant="outline" className="text-xs">
-                            {course}
+                            {course.name}
                           </Badge>
                         ))}
                       </div>
                       
-                      {child.nextLesson && (
-                        <div className="flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded">
+                      {student.courses.map(course => course.nextLesson && (
+                        <div key={course.id} className="flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded">
                           <Bell className="h-3 w-3" />
-                          {child.nextLesson}
+                          {course.nextLesson}
                         </div>
-                      )}
+                      ))}
                       
-                      {child.nextPayment && (
-                        <div className="flex items-center gap-1 text-xs text-orange-700 bg-orange-100 px-2 py-1 rounded">
+                      {student.courses.map(course => course.nextPayment && (
+                        <div key={course.id} className="flex items-center gap-1 text-xs text-orange-700 bg-orange-100 px-2 py-1 rounded">
                           <Clock className="h-3 w-3" />
-                          {child.nextPayment}
+                          {course.nextPayment}
                         </div>
-                      )}
+                      ))}
                     </div>
                   </CardContent>
                 </Card>
