@@ -580,7 +580,7 @@ const CRMContent = () => {
 
 
   return (
-    <div className="min-h-screen bg-muted/30 flex flex-col">
+    <div className="h-screen bg-muted/30 flex flex-col overflow-hidden">
       {/* User Header */}
       <div className="bg-background border-b p-4 shrink-0">
         <div className="flex items-center justify-between w-full mx-auto px-2 sm:px-4">
@@ -641,11 +641,11 @@ const CRMContent = () => {
       </div>
 
       {/* Основная область */}
-      <div className="relative z-10 flex flex-1 w-full">
+      <div className="relative z-0 isolate flex flex-1 w-full overflow-hidden">
         {/* Left Unified Sidebar - Desktop */}
         <div className={`${
           isMobile ? 'hidden' : 'flex'
-        } w-80 lg:w-96 bg-background border-r flex-col transition-all duration-300`}>
+        } w-80 lg:w-96 bg-background border-r flex-col h-full min-h-0 overflow-y-auto transition-all duration-300`}>
           <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col">
             <TabsList className="grid w-full grid-cols-2 m-2 shrink-0">
               <TabsTrigger value="menu">Меню</TabsTrigger>
