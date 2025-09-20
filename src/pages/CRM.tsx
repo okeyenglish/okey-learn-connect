@@ -614,7 +614,7 @@ const CRMContent = () => {
         </div>
       </div>
 
-      <div className="relative z-10 flex flex-1 max-w-7xl mx-auto w-full overflow-hidden">
+      <div className="relative z-20 isolate flex flex-1 max-w-7xl mx-auto w-full overflow-hidden">
         {/* Left Unified Sidebar */}
         <div className="w-80 bg-background border-r flex flex-col h-full min-h-0">
           <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-full min-h-0">
