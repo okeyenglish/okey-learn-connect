@@ -601,7 +601,7 @@ const CRMContent = () => {
       </div>
       
       {/* Search Bar */}
-      <div className="bg-background border-b p-2 pb-4 shrink-0">
+      <div className="relative z-0 bg-background border-b p-2 pb-4 shrink-0">
         <div className="relative max-w-7xl mx-auto">
           {/* Закрепленные модальные окна как вкладки */}
           <PinnedModalTabs 
@@ -612,7 +612,7 @@ const CRMContent = () => {
         </div>
       </div>
 
-      <div className="flex flex-1 max-w-7xl mx-auto w-full overflow-hidden">
+      <div className="relative z-10 flex flex-1 max-w-7xl mx-auto w-full overflow-hidden">
         {/* Left Unified Sidebar */}
         <div className="w-80 bg-background border-r flex flex-col h-full min-h-0">
           <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-full min-h-0">
