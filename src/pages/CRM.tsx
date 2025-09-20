@@ -86,7 +86,7 @@ const CRMContent = () => {
     '3': { pinned: true, archived: false, unread: false }, // Игорь Волков - закреплен
   });
   const [activePhoneId, setActivePhoneId] = useState<string>('1');
-  const [activeChatId, setActiveChatId] = useState<string>('1');
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [activeChatType, setActiveChatType] = useState<'client' | 'corporate' | 'teachers'>('client');
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>('teachers-group');
   const [isPinnedSectionOpen, setIsPinnedSectionOpen] = useState(false);
@@ -779,9 +779,9 @@ const CRMContent = () => {
             selectedTeacherId={selectedTeacherId}
             onSelectTeacher={setSelectedTeacherId}
           />
-        ) : (
+        ) : activeChatId ? (
           <ChatArea 
-            clientId={activeChatId || ''}
+            clientId={activeChatId}
             clientName={getActiveClientInfo().name}
             clientPhone={getActiveClientInfo().phone}
             clientComment={getActiveClientInfo().comment}
@@ -790,6 +790,14 @@ const CRMContent = () => {
             onOpenTaskModal={() => setShowAddTaskModal(true)}
             onOpenInvoiceModal={() => setShowInvoiceModal(true)}
           />
+        ) : (
+          <div className="flex-1 bg-background flex items-center justify-center">
+            <div className="text-center text-muted-foreground">
+              <MessageCircle className="h-16 w-16 mx-auto mb-4 opacity-50" />
+              <h3 className="text-lg font-semibold mb-2">Выберите чат</h3>
+              <p className="text-sm">Выберите клиента из списка слева, чтобы начать переписку</p>
+            </div>
+          </div>
         )}
 
         {/* Right Sidebar - Family Card (только для клиентских чатов) */}
@@ -824,16 +832,16 @@ const CRMContent = () => {
         clientName={getActiveClientInfo().name}
         isPinned={isPinned(activeChatId, 'task')}
         onPin={handlePinTaskModal}
-        onUnpin={() => unpinModal(activeChatId, 'task')}
+        onUnpin={() => unpinModal(activeChatId || '', 'task')}
       />
 
       <CreateInvoiceModal 
         open={showInvoiceModal}
         onOpenChange={handleInvoiceModalClose}
         clientName={getActiveClientInfo().name}
-        isPinned={isPinned(activeChatId, 'invoice')}
+        isPinned={isPinned(activeChatId || '', 'invoice')}
         onPin={handlePinInvoiceModal}
-        onUnpin={() => unpinModal(activeChatId, 'invoice')}
+        onUnpin={() => unpinModal(activeChatId || '', 'invoice')}
       />
 
       {/* Закрепленные модальные окна */}

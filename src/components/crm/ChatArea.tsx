@@ -49,7 +49,11 @@ export const ChatArea = ({
 
   // Load messages from database
   const loadMessages = async () => {
-    if (!clientId) return;
+    if (!clientId || clientId === '1') {
+      console.log('Invalid clientId:', clientId);
+      setLoadingMessages(false);
+      return;
+    }
     
     setLoadingMessages(true);
     console.log('Loading messages for client:', clientId);
@@ -95,7 +99,7 @@ export const ChatArea = ({
 
   // Real-time subscription for new messages
   useEffect(() => {
-    if (!clientId) return;
+    if (!clientId || clientId === '1') return;
 
     console.log('Setting up real-time subscription for client:', clientId);
 
