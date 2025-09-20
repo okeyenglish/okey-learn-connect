@@ -64,6 +64,17 @@ const programs = [
     color: "bg-gradient-to-r from-orange-400 to-pink-500",
     image: superSafariImg, // Используем временно изображение Super Safari
     href: "/programs/minisadik"
+  },
+  {
+    name: "Workshop",
+    ageCategory: "Детям 7+, подросткам и взрослым",
+    age: "7+ лет",
+    level: "A1–B2+",
+    description: "Живые мастер-классы по английскому. Разговорная практика через темы, задания и ролевые игры.",
+    features: ["Оффлайн формат", "60 минут", "Тематические встречи", "Мини-группы"],
+    color: "bg-gradient-to-r from-violet-500 to-purple-500",
+    image: empowerImg, // Используем временно изображение Empower
+    href: "/programs/workshop"
   }
 ];
 
@@ -85,7 +96,7 @@ export default function Programs() {
                 <Users className="w-6 h-6 text-white" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-primary">5</div>
+                <div className="text-2xl font-bold text-primary">6</div>
                 <div className="text-sm text-muted-foreground">программы</div>
               </div>
             </div>
