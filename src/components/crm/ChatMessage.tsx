@@ -1,7 +1,8 @@
-import { Phone, PhoneCall, Play, FileSpreadsheet, Edit2, Check, X } from "lucide-react";
+import { Phone, PhoneCall, Play, FileSpreadsheet, Edit2, Check, X, Forward } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 
 interface ChatMessageProps {
@@ -16,9 +17,12 @@ interface ChatMessageProps {
   onSelectionChange?: (selected: boolean) => void;
   isSelectionMode?: boolean;
   messageId?: string;
+  isForwarded?: boolean;
+  forwardedFrom?: string;
+  forwardedFromType?: 'client' | 'teacher' | 'corporate';
 }
 
-export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId }: ChatMessageProps) => {
+export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType }: ChatMessageProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message);
 
@@ -89,12 +93,29 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
           </div>
         )}
         <div className={`relative group ${type === 'manager' ? 'order-1' : ''}`}>
+          {/* Индикатор пересланного сообщения */}
+          {isForwarded && (
+            <div className="flex items-center gap-1 mb-2 text-xs text-muted-foreground">
+              <Forward className="h-3 w-3" />
+              <span>
+                Переслано из: 
+                <Badge variant="secondary" className="ml-1 text-xs">
+                  {forwardedFromType === 'client' ? 'Клиент' : 
+                   forwardedFromType === 'teacher' ? 'Преподаватель' : 
+                   forwardedFromType === 'corporate' ? 'Корп. чат' : 'Чат'}: {forwardedFrom}
+                </Badge>
+              </span>
+            </div>
+          )}
+          
           {type === 'manager' && !isEditing && (
             <div className="text-xs text-muted-foreground mb-1 text-right">
               Менеджер поддержки
             </div>
           )}
           <div className={`rounded-2xl p-3 relative ${
+            isForwarded ? 'border-l-4 border-l-blue-300 bg-blue-50/50' : ''
+          } ${
             type === 'manager' 
               ? 'bg-blue-100 text-slate-800 rounded-tr-md' 
               : 'bg-muted rounded-tl-md'

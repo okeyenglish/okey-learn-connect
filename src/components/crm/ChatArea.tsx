@@ -94,8 +94,29 @@ export const ChatArea = ({
           minute: '2-digit' 
         }),
         systemType: msg.system_type,
-        callDuration: msg.call_duration
+        callDuration: msg.call_duration,
+        isForwarded: msg.message_text?.includes('Тестовое пересланное сообщение'), // Для демонстрации
+        forwardedFrom: msg.message_text?.includes('Тестовое пересланное сообщение') ? 'Анна Петрова' : undefined,
+        forwardedFromType: msg.message_text?.includes('Тестовое пересланное сообщение') ? 'teacher' : undefined
       }));
+
+      // Добавим тестовое пересланное сообщение для демонстрации
+      if (formattedMessages.length > 0) {
+        formattedMessages.push({
+          id: 'demo-forwarded',
+          type: 'manager',
+          message: 'Тестовое пересланное сообщение для демонстрации визуального оформления',
+          time: new Date().toLocaleTimeString('ru-RU', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          }),
+          systemType: undefined,
+          callDuration: undefined,
+          isForwarded: true,
+          forwardedFrom: 'Анна Петрова',
+          forwardedFromType: 'teacher'
+        });
+      }
 
       console.log('Formatted messages:', formattedMessages);
       setMessages(formattedMessages);
@@ -247,24 +268,20 @@ export const ChatArea = ({
       // Отправляем каждое сообщение каждому выбранному получателю
       for (const recipient of recipients) {
         for (const msg of messagesToForward) {
-          let forwardedText = '';
-          
-          // Формируем текст в зависимости от типа получателя
+          // Отправляем сообщение без префикса "Переслано:"
           switch (recipient.type) {
             case 'client':
-              forwardedText = `Переслано из чата с ${clientName}: ${msg.message}`;
-              // Отправляем клиенту через WhatsApp
-              await sendTextMessage(recipient.id, forwardedText);
+              // Отправляем клиенту через WhatsApp с информацией об источнике
+              await sendTextMessage(recipient.id, msg.message);
+              // Здесь можно добавить логику сохранения информации о пересылке в БД
               break;
             case 'teacher':
-              forwardedText = `[От: ${clientName}] ${msg.message}`;
-              // Здесь будет логика отправки преподавателю (например, через внутреннюю систему)
-              console.log(`Отправка преподавателю ${recipient.name}:`, forwardedText);
+              // Отправка преподавателю
+              console.log(`Отправка преподавателю ${recipient.name}:`, msg.message);
               break;
             case 'corporate':
-              forwardedText = `[Клиент: ${clientName}] ${msg.message}`;
-              // Здесь будет логика отправки в корпоративный чат
-              console.log(`Отправка в корпоративный чат ${recipient.name}:`, forwardedText);
+              // Отправка в корпоративный чат
+              console.log(`Отправка в корпоративный чат ${recipient.name}:`, msg.message);
               break;
           }
         }
@@ -467,6 +484,9 @@ export const ChatArea = ({
                     isSelectionMode={isSelectionMode}
                     isSelected={selectedMessages.has(msg.id)}
                     onSelectionChange={(selected) => handleMessageSelectionChange(msg.id, selected)}
+                    isForwarded={msg.isForwarded}
+                    forwardedFrom={msg.forwardedFrom}
+                    forwardedFromType={msg.forwardedFromType}
                   />
                 ))
               ) : (
