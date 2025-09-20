@@ -7,6 +7,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ChatArea } from "@/components/crm/ChatArea";
 import { CorporateChatArea } from "@/components/crm/CorporateChatArea";
+import { TeacherChatArea } from "@/components/crm/TeacherChatArea";
 import { SearchInput } from "@/components/crm/SearchInput";
 import { SearchResults } from "@/components/crm/SearchResults";
 import { LinkedContacts } from "@/components/crm/LinkedContacts";
@@ -45,7 +46,7 @@ const CRM = () => {
   const [chatStates, setChatStates] = useState<Record<string, { pinned: boolean; archived: boolean; unread: boolean }>>({});
   const [activePhoneId, setActivePhoneId] = useState<string>('1');
   const [activeChatId, setActiveChatId] = useState<string>('1');
-  const [activeChatType, setActiveChatType] = useState<'client' | 'corporate'>('client');
+  const [activeChatType, setActiveChatType] = useState<'client' | 'corporate' | 'teachers'>('client');
   
   
   const handleAuth = () => {
@@ -126,6 +127,7 @@ const CRM = () => {
   // Фильтрация чатов на основе поиска
   const allChats = [
     { id: 'corporate', name: 'Корпоративный чат', phone: 'Команда OKEY ENGLISH', time: '11:45', unread: 3, type: 'corporate' as const },
+    { id: 'teachers', name: 'Преподаватели', phone: 'Чаты с преподавателями', time: '10:15', unread: 2, type: 'teachers' as const },
     { id: '1', name: 'Мария Петрова', phone: '+7 (985) 261-50-56', time: '10:32', unread: 2, type: 'client' as const },
     { id: '2', name: 'Анна Смирнова', phone: '+7 (916) 123-45-67', time: '09:15', unread: 0, type: 'client' as const },
     { id: '3', name: 'Игорь Волков', phone: '+7 (903) 987-65-43', time: 'Вчера', unread: 0, type: 'client' as const },
@@ -193,7 +195,7 @@ const CRM = () => {
     console.log(`${action} для чата:`, chatId);
   };
 
-  const handleChatClick = (chatId: string, chatType: 'client' | 'corporate') => {
+  const handleChatClick = (chatId: string, chatType: 'client' | 'corporate' | 'teachers') => {
     setActiveChatId(chatId);
     setActiveChatType(chatType);
   };
@@ -400,11 +402,14 @@ const CRM = () => {
                             <Pin className="absolute top-2 right-2 h-3 w-3 text-muted-foreground" />
                           )}
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              {chat.type === 'corporate' && (
-                                <Building2 className="h-4 w-4 text-slate-600" />
-                              )}
-                              <div>
+                             <div className="flex items-center gap-2">
+                               {chat.type === 'corporate' && (
+                                 <Building2 className="h-4 w-4 text-slate-600" />
+                               )}
+                               {chat.type === 'teachers' && (
+                                 <GraduationCap className="h-4 w-4 text-slate-600" />
+                               )}
+                               <div>
                                 <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
                                   {chat.name}
                                 </p>
@@ -440,6 +445,11 @@ const CRM = () => {
         {/* Center - Chat */}
         {activeChatType === 'corporate' ? (
           <CorporateChatArea onMessageChange={setHasUnsavedChat} />
+        ) : activeChatType === 'teachers' ? (
+          <TeacherChatArea 
+            selectedTeacherId="teacher-1"
+            onSelectTeacher={(teacherId) => console.log('Selected teacher:', teacherId)}
+          />
         ) : (
           <ChatArea 
             clientName="Мария Петрова"
