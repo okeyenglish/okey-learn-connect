@@ -1240,6 +1240,10 @@ const CRMContent = () => {
               activePhoneId={activePhoneId}
               onOpenTaskModal={() => setShowAddTaskModal(true)}
               onOpenInvoiceModal={() => setShowInvoiceModal(true)}
+              onBackToList={isMobile ? () => {
+                setActiveChatId('');
+                setActiveTab('chats');
+              } : undefined}
             />
           ) : activeChatType === 'corporate' ? (
             <CorporateChatArea onMessageChange={setHasUnsavedChat} />

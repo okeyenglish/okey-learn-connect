@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Phone, Forward, X, Clock, Calendar, Trash2, Bot } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Phone, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { ChatMessage } from "./ChatMessage";
 import { ClientTasks } from "./ClientTasks";
 import { AddTaskModal } from "./AddTaskModal";
@@ -31,6 +32,7 @@ interface ChatAreaProps {
   onOpenTaskModal?: () => void;
   onOpenInvoiceModal?: () => void;
   managerName?: string; // Add manager name for comments
+  onBackToList?: () => void; // Function to go back to chat list on mobile
 }
 
 interface ScheduledMessage {
@@ -50,7 +52,8 @@ export const ChatArea = ({
   activePhoneId = '1', 
   onOpenTaskModal, 
   onOpenInvoiceModal,
-  managerName = "Менеджер"
+  managerName = "Менеджер",
+  onBackToList
 }: ChatAreaProps) => {
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -88,6 +91,7 @@ export const ChatArea = ({
 
   const { sendTextMessage, loading } = useWhatsApp();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   // Функция для прокрутки к концу чата
   const scrollToBottom = (smooth = true) => {
@@ -835,9 +839,22 @@ export const ChatArea = ({
       {/* Chat Header */}
       <div className="border-b p-3 shrink-0">
         <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="font-semibold text-base">{clientName}</h2>
-            <p className="text-sm text-muted-foreground">{clientPhone}</p>
+          <div className="flex items-center gap-3">
+            {/* Back button for mobile */}
+            {isMobile && onBackToList && (
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                className="h-8 w-8 p-0"
+                onClick={onBackToList}
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
+            <div>
+              <h2 className="font-semibold text-base">{clientName}</h2>
+              <p className="text-sm text-muted-foreground">{clientPhone}</p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button 
