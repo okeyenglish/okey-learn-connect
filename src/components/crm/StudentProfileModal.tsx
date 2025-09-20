@@ -171,8 +171,8 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
         <div className="bg-gradient-to-r from-primary/5 to-primary/10 px-6 py-4 border-b">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-primary/20 to-primary/30 rounded-full flex items-center justify-center border-2 border-primary/20">
-                <User className="w-8 h-8 text-primary" />
+              <div className="w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center border-2 border-slate-200">
+                <User className="w-8 h-8 text-slate-600" />
               </div>
               <div>
                 {isEditing && editedStudent ? (
@@ -273,11 +273,11 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
                   </div>
                 </div>
                 <div className="flex gap-2 mt-4">
-                  <Button size="sm" variant="outline" className="text-xs flex-1">
+                  <Button size="sm" variant="outline" className="text-xs flex-1 border-slate-300 text-slate-600 hover:bg-slate-50">
                     <Users className="w-3 h-3 mr-1" />
                     В группу
                   </Button>
-                  <Button size="sm" variant="outline" className="text-xs flex-1">
+                  <Button size="sm" variant="outline" className="text-xs flex-1 border-slate-300 text-slate-600 hover:bg-slate-50">
                     <Calendar className="w-3 h-3 mr-1" />
                     Индивидуально
                   </Button>
@@ -384,7 +384,7 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
                         <div className="space-y-4">
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Филиал:</span>
-                            <span className="text-primary font-medium">OKEY ENGLISH Окская</span>
+                            <span className="text-slate-600 font-medium">OKEY ENGLISH Окская</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Категория:</span>
@@ -406,7 +406,7 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
                         <div className="space-y-4">
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Ответственные:</span>
-                            <span className="text-primary font-medium">Пышнов Даниил Александрович</span>
+                            <span className="text-slate-600 font-medium">Пышнов Даниил Александрович</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Тип:</span>
@@ -418,7 +418,7 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Оплаты занятий:</span>
-                            <span className="text-primary font-medium">125 810,00 руб.</span>
+                            <span className="text-slate-600 font-medium">125 810,00 руб.</span>
                           </div>
                         </div>
                       </div>
@@ -436,7 +436,7 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
                         </div>
                         <div className="flex gap-2 text-sm">
                           <Badge variant="outline">Актуальные (1)</Badge>
-                          <Badge variant="secondary" className="text-primary">Закончившие (10)</Badge>
+                          <Badge variant="secondary" className="text-slate-600">Закончившие (10)</Badge>
                         </div>
                       </CardTitle>
                     </CardHeader>
@@ -476,7 +476,7 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
                                 <Badge className="bg-green-100 text-green-800 text-xs">
                                   Оплачено: {lesson.paid} а.ч. / 13 010,00 руб.
                                 </Badge>
-                                <Badge variant="destructive" className="text-xs">
+                                <Badge variant="outline" className="text-xs text-slate-600 border-slate-300">
                                   Осталось: {lesson.remaining} а.ч. / 112 410,00 руб.
                                 </Badge>
                               </div>
@@ -515,7 +515,7 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
                                 <td className="p-3">{test.date}</td>
                                 <td className="p-3">{test.type}</td>
                                 <td className="p-3">{test.subject}</td>
-                                <td className="p-3 text-primary">{test.teacher}</td>
+                                <td className="p-3 text-slate-600">{test.teacher}</td>
                                 <td className="p-3">{test.test}</td>
                                 <td className="p-3">
                                   <div className="space-y-1">
@@ -550,7 +550,7 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
                             <span className="ml-2">130 810,00 руб.</span>
                           </div>
                           <div>
-                            <span className="text-red-600 font-medium">Расход:</span>
+                            <span className="text-slate-600 font-medium">Расход:</span>
                             <span className="ml-2">125 810,00 руб.</span>
                           </div>
                         </div>
@@ -601,7 +601,7 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
                         <div className="p-4 border-l-4 border-blue-500 bg-blue-50">
                           <div className="flex justify-between items-center mb-2">
                             <span className="font-medium text-sm">18.09.2025 19:46</span>
-                            <span className="text-primary text-xs">Пышнов Даниил Александрович</span>
+                            <span className="text-slate-600 text-xs">Пышнов Даниил Александрович</span>
                           </div>
                           <p className="text-sm text-muted-foreground">
                             Удалён платёж от Юрганов Н. А. (Учебные материалы): 
@@ -613,7 +613,7 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
                         <div className="p-4 border-l-4 border-green-500 bg-green-50">
                           <div className="flex justify-between items-center mb-2">
                             <span className="font-medium text-sm">18.09.2025 19:46</span>
-                            <span className="text-primary text-xs">Пышнов Даниил Александрович</span>
+                            <span className="text-slate-600 text-xs">Пышнов Даниил Александрович</span>
                           </div>
                           <p className="text-sm text-muted-foreground">
                             Добавлен платёж от Юрганов Н. А. (Учебные материалы): 
