@@ -15,6 +15,8 @@ import { AddTaskModal } from "./AddTaskModal";
 import { CreateInvoiceModal } from "./CreateInvoiceModal";
 import { ForwardMessageModal } from "./ForwardMessageModal";
 import { QuickResponsesModal } from "./QuickResponsesModal";
+import { FileUpload } from "./FileUpload";
+import { AttachedFile } from "./AttachedFile";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,6 +68,13 @@ export const ChatArea = ({
   const [scheduleTime, setScheduleTime] = useState("");
   const [pendingMessage, setPendingMessage] = useState<{text: string, countdown: number} | null>(null);
   const [scheduledMessages, setScheduledMessages] = useState<ScheduledMessage[]>([]);
+  const [attachedFiles, setAttachedFiles] = useState<Array<{
+    url: string;
+    name: string;
+    type: string;
+    size: number;
+  }>>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
   const [showScheduledMessagesDialog, setShowScheduledMessagesDialog] = useState(false);
   const [editingScheduledMessage, setEditingScheduledMessage] = useState<ScheduledMessage | null>(null);
   const [showQuickResponsesModal, setShowQuickResponsesModal] = useState(false);
@@ -796,7 +805,32 @@ export const ChatArea = ({
   );
 
   return (
-    <div className="flex-1 bg-background flex flex-col min-w-0">
+    <div 
+      className="flex-1 bg-background flex flex-col min-w-0"
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(true);
+      }}
+      onDragLeave={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+          setIsDragOver(false);
+        }
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(false);
+        
+        const files = Array.from(e.dataTransfer.files);
+        files.forEach(file => {
+          // Handle dropped files through FileUpload component
+          console.log('File dropped:', file);
+        });
+      }}
+    >
       {/* Chat Header */}
       <div className="border-b p-3 shrink-0">
         <div className="flex items-start justify-between gap-4">
@@ -859,8 +893,18 @@ export const ChatArea = ({
                 autoFocus
               />
             )}
+        </div>
+      </div>
+
+      {/* Drag overlay */}
+      {isDragOver && (
+        <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary flex items-center justify-center z-50">
+          <div className="text-center">
+            <Paperclip className="h-12 w-12 text-primary mx-auto mb-2" />
+            <p className="text-lg font-medium text-primary">Отпустите файлы для загрузки</p>
           </div>
         </div>
+      )}
         
         {/* Панель действий для режима выделения */}
         {isSelectionMode && (
@@ -939,6 +983,9 @@ export const ChatArea = ({
                     messageStatus={msg.messageStatus}
                     clientAvatar={msg.clientAvatar}
                     managerName={msg.managerName}
+                    fileUrl={msg.fileUrl}
+                    fileName={msg.fileName}
+                    fileType={msg.fileType}
                   />
                 ))
               ) : (
@@ -999,18 +1046,37 @@ export const ChatArea = ({
           </div>
         )}
         
-        <div className="space-y-2">
-          {/* Character counter and warning */}
-          {message.length > 0 && (
-            <div className="flex justify-between items-center text-xs text-muted-foreground px-1">
-              <span className={message.length > MAX_MESSAGE_LENGTH ? "text-red-500" : ""}>
-                {message.length}/{MAX_MESSAGE_LENGTH} символов
-              </span>
-              {message.length > MAX_MESSAGE_LENGTH && (
-                <span className="text-red-500">Превышен лимит символов</span>
-              )}
-            </div>
-          )}
+          <div className="space-y-2">
+            {/* Character counter and warning */}
+            {message.length > 0 && (
+              <div className="flex justify-between items-center text-xs text-muted-foreground px-1">
+                <span className={message.length > MAX_MESSAGE_LENGTH ? "text-red-500" : ""}>
+                  {message.length}/{MAX_MESSAGE_LENGTH} символов
+                </span>
+                {message.length > MAX_MESSAGE_LENGTH && (
+                  <span className="text-red-500">Превышен лимит символов</span>
+                )}
+              </div>
+            )}
+
+            {/* Attached files preview */}
+            {attachedFiles.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">Прикрепленные файлы:</p>
+                <div className="flex flex-wrap gap-2">
+                  {attachedFiles.map((file, index) => (
+                    <AttachedFile
+                      key={index}
+                      url={file.url}
+                      name={file.name}
+                      type={file.type}
+                      size={file.size}
+                      className="max-w-xs"
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           
           <div className="flex items-end gap-2">
             <div className="flex-1">
@@ -1026,9 +1092,14 @@ export const ChatArea = ({
                 disabled={loading || !!pendingMessage}
               />
               <div className="flex items-center gap-1 mt-2">
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!!pendingMessage}>
-                  <Paperclip className="h-4 w-4" />
-                </Button>
+                <FileUpload
+                  onFileUpload={(fileInfo) => {
+                    setAttachedFiles(prev => [...prev, fileInfo]);
+                  }}
+                  disabled={!!pendingMessage}
+                  maxFiles={5}
+                  maxSize={10}
+                />
                 <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!!pendingMessage} onClick={() => setShowQuickResponsesModal(true)}>
                   <Zap className="h-4 w-4" />
                 </Button>
@@ -1184,7 +1255,7 @@ export const ChatArea = ({
                 commentMode ? "bg-yellow-500 hover:bg-yellow-600" : ""
               }`}
               onClick={handleSendMessage}
-              disabled={loading || !message.trim() || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
+              disabled={loading || (!message.trim() && attachedFiles.length === 0) || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
             >
               <Send className="h-4 w-4" />
             </Button>

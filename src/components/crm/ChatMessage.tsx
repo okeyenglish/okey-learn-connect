@@ -5,12 +5,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
+import { AttachedFile } from "./AttachedFile";
 
 interface ChatMessageProps {
   type: 'client' | 'manager' | 'system' | 'comment';
   message: string;
   time: string;
-  systemType?: 'missed-call' | 'call-record';
+  systemType?: 'missed-call' | 'call-record' | 'comment';
   callDuration?: string;
   isEdited?: boolean;
   editedTime?: string;
@@ -26,9 +27,12 @@ interface ChatMessageProps {
   messageStatus?: 'sent' | 'delivered' | 'read' | 'queued';
   clientAvatar?: string;
   managerName?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
 }
 
-export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, messageStatus, clientAvatar, managerName }: ChatMessageProps) => {
+export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType }: ChatMessageProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message);
 
@@ -240,8 +244,29 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
                 {message === '[Сообщение удалено]' ? (
                   <p className="text-sm leading-relaxed italic text-muted-foreground">*Данное сообщение удалено*</p>
                 ) : (
-                  <p className="text-sm leading-relaxed">{editedMessage}</p>
+                  <div>
+                    <p className="text-sm leading-relaxed">{editedMessage}</p>
+                    {systemType === 'comment' && managerName && (
+                      <div className="text-xs text-amber-700 mt-1 flex items-center gap-1">
+                        <MessageCircle className="h-3 w-3" />
+                        Комментарий от {managerName}
+                      </div>
+                    )}
+                  </div>
                 )}
+                
+                {/* Attached file */}
+                {fileUrl && fileName && fileType && (
+                  <div className="mt-2">
+                    <AttachedFile
+                      url={fileUrl}
+                      name={fileName}
+                      type={fileType}
+                      className="max-w-xs"
+                    />
+                  </div>
+                )}
+                
                 {type === 'manager' && message !== '[Сообщение удалено]' && (
                   <div className="absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button 
