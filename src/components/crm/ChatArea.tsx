@@ -357,12 +357,22 @@ export const ChatArea = ({
   const generateGPTResponse = async () => {
     if (gptGenerating) return;
 
+    // Don't generate if there's no message
+    if (!message.trim()) {
+      toast({
+        title: "Введите сообщение",
+        description: "Для генерации ответа необходимо ввести текст сообщения",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setGptGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-gpt-response', {
         body: { 
           clientId: clientId,
-          currentMessage: message.trim() || "" // Send empty string if no message
+          currentMessage: message.trim()
         }
       });
 
