@@ -15,6 +15,7 @@ import Empower from "./pages/programs/Empower";
 import Programs from "./pages/Programs";
 import MiniSadik from "./pages/programs/MiniSadik";
 import Workshop from "./pages/programs/Workshop";
+import SpeakingClub from "./pages/programs/SpeakingClub";
 import Branches from "./pages/Branches";
 import LocationKotelniki from "./pages/branches/Kotelniki";
 import LocationNovokosino from "./pages/branches/Novokosino";
@@ -57,6 +58,7 @@ const App = () => (
           <Route path="/programs/empower" element={<Empower />} />
           <Route path="/programs/minisadik" element={<MiniSadik />} />
           <Route path="/programs/workshop" element={<Workshop />} />
+          <Route path="/programs/speaking-club" element={<SpeakingClub />} />
               <Route path="/branches" element={<Branches />} />
               <Route path="/branches/kotelniki" element={<LocationKotelniki />} />
               <Route path="/branches/novokosino" element={<LocationNovokosino />} />

@@ -75,6 +75,17 @@ const programs = [
     color: "bg-gradient-to-r from-violet-500 to-purple-500",
     image: empowerImg, // Используем временно изображение Empower
     href: "/programs/workshop"
+  },
+  {
+    name: "Speaking Club Online",
+    ageCategory: "Детям 7+ и взрослым",
+    age: "7+ лет",
+    level: "A1–B2+",
+    description: "Онлайн разговорный клуб с носителем языка. Живые дискуссии и темы Cambridge по субботам.",
+    features: ["Онлайн формат", "Носитель языка", "Суббота 10:00-13:30 МСК", "Темы Cambridge"],
+    color: "bg-gradient-to-r from-blue-500 to-indigo-500",
+    image: empowerImg, // Используем временно изображение Empower
+    href: "/programs/speaking-club"
   }
 ];
 
@@ -96,7 +107,7 @@ export default function Programs() {
                 <Users className="w-6 h-6 text-white" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-primary">6</div>
+                <div className="text-2xl font-bold text-primary">7</div>
                 <div className="text-sm text-muted-foreground">программы</div>
               </div>
             </div>

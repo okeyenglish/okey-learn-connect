@@ -140,6 +140,22 @@ const courses = [
       "Максимум практики",
       "Быстрый рост"
     ]
+  },
+  {
+    id: "speaking-club",
+    title: "Speaking Club Online",
+    description: "Разговорный английский с носителем языка онлайн",
+    age: "7+ лет",
+    duration: "60 мин",
+    groupSize: "мини-группа",
+    level: "A1-B2+",
+    price: "уточняйте",
+    features: [
+      "Носитель языка",
+      "Онлайн формат",
+      "Живые дискуссии",
+      "Темы Cambridge"
+    ]
   }
 ];
 
