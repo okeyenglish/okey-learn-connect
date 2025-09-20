@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatArea } from "@/components/crm/ChatArea";
 import { CorporateChatArea } from "@/components/crm/CorporateChatArea";
 import { TeacherChatArea } from "@/components/crm/TeacherChatArea";
@@ -131,13 +132,30 @@ const CRM = () => {
     setShowSearchResults(false);
   };
 
-  // Фильтрация чатов на основе поиска
+  // Фильтрация чатов на основе поиска - добавляем больше чатов для демонстрации прокрутки
   const allChats = [
-    { id: 'corporate', name: 'Корпоративный чат', phone: 'Команда OKEY ENGLISH', time: '11:45', unread: 3, type: 'corporate' as const },
-    { id: 'teachers', name: 'Преподаватели', phone: 'Чаты с преподавателями', time: '10:15', unread: 2, type: 'teachers' as const },
-    { id: '1', name: 'Мария Петрова', phone: '+7 (985) 261-50-56', time: '10:32', unread: 2, type: 'client' as const },
-    { id: '2', name: 'Анна Смирнова', phone: '+7 (916) 123-45-67', time: '09:15', unread: 0, type: 'client' as const },
-    { id: '3', name: 'Игорь Волков', phone: '+7 (903) 987-65-43', time: 'Вчера', unread: 0, type: 'client' as const },
+    { id: 'corporate', name: 'Корпоративный чат', phone: 'Команда OKEY ENGLISH', time: '11:45', unread: 3, type: 'corporate' as const, timestamp: Date.now() - 1000 * 60 * 60 },
+    { id: 'teachers', name: 'Преподаватели', phone: 'Чаты с преподавателями', time: '10:15', unread: 2, type: 'teachers' as const, timestamp: Date.now() - 1000 * 60 * 90 },
+    { id: '1', name: 'Мария Петрова', phone: '+7 (985) 261-50-56', time: '10:32', unread: 2, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 88 },
+    { id: '2', name: 'Анна Смирнова', phone: '+7 (916) 123-45-67', time: '09:15', unread: 0, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 105 },
+    { id: '3', name: 'Игорь Волков', phone: '+7 (903) 987-65-43', time: 'Вчера', unread: 0, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 60 * 24 },
+    { id: '4', name: 'Елена Кузнецова', phone: '+7 (925) 555-12-34', time: '08:45', unread: 1, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 135 },
+    { id: '5', name: 'Дмитрий Иванов', phone: '+7 (916) 777-88-99', time: '08:20', unread: 0, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 160 },
+    { id: '6', name: 'Светлана Морозова', phone: '+7 (985) 333-44-55', time: '07:55', unread: 3, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 185 },
+    { id: '7', name: 'Александр Попов', phone: '+7 (903) 666-77-88', time: '07:30', unread: 0, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 210 },
+    { id: '8', name: 'Наталья Федорова', phone: '+7 (916) 999-00-11', time: '07:10', unread: 1, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 230 },
+    { id: '9', name: 'Михаил Сидоров', phone: '+7 (925) 222-33-44', time: '06:45', unread: 0, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 255 },
+    { id: '10', name: 'Ольга Романова', phone: '+7 (985) 111-22-33', time: '06:20', unread: 2, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 280 },
+    { id: '11', name: 'Владимир Козлов', phone: '+7 (903) 444-55-66', time: '05:55', unread: 0, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 305 },
+    { id: '12', name: 'Татьяна Новикова', phone: '+7 (916) 777-88-00', time: '05:30', unread: 1, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 330 },
+    { id: '13', name: 'Артем Лебедев', phone: '+7 (925) 999-11-22', time: '05:05', unread: 0, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 355 },
+    { id: '14', name: 'Юлия Васильева', phone: '+7 (985) 333-44-66', time: '04:40', unread: 4, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 380 },
+    { id: '15', name: 'Сергей Орлов', phone: '+7 (903) 666-77-99', time: '04:15', unread: 0, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 405 },
+    { id: '16', name: 'Екатерина Зайцева', phone: '+7 (916) 555-66-77', time: '03:50', unread: 1, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 430 },
+    { id: '17', name: 'Андрей Соколов', phone: '+7 (925) 111-22-44', time: '03:25', unread: 0, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 455 },
+    { id: '18', name: 'Марина Белова', phone: '+7 (985) 888-99-00', time: '03:00', unread: 2, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 480 },
+    { id: '19', name: 'Николай Крылов', phone: '+7 (903) 222-33-55', time: '02:35', unread: 0, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 505 },
+    { id: '20', name: 'Вера Медведева', phone: '+7 (916) 444-55-77', time: '02:10', unread: 3, type: 'client' as const, timestamp: Date.now() - 1000 * 60 * 530 },
   ];
 
   const filteredChats = allChats
@@ -153,7 +171,9 @@ const CRM = () => {
       const bPinned = chatStates[b.id]?.pinned || false;
       if (aPinned && !bPinned) return -1;
       if (!aPinned && bPinned) return 1;
-      return 0;
+      
+      // Внутри каждой группы сортируем по времени (новые сверху)
+      return (b.timestamp || 0) - (a.timestamp || 0);
     });
 
   const [activeFamilyMemberId, setActiveFamilyMemberId] = useState('550e8400-e29b-41d4-a716-446655440001');
@@ -384,7 +404,7 @@ const CRM = () => {
                   </Button>
                 </NewChatModal>
               </div>
-              <div className="flex-1 overflow-y-auto">
+              <ScrollArea className="flex-1">
                 <div className="p-2">
                   {/* Закрепленные чаты */}
                   {filteredChats.some(chat => chatStates[chat.id]?.pinned) && (
@@ -530,7 +550,7 @@ const CRM = () => {
                     </div>
                   )}
                 </div>
-              </div>
+              </ScrollArea>
             </TabsContent>
           </Tabs>
         </div>
