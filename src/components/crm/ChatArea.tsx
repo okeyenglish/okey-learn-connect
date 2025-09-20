@@ -105,7 +105,7 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
           <TabsList className="grid w-full grid-cols-3 rounded-none bg-orange-50/30 border-orange-200 border-t rounded-t-none">
             <TabsTrigger value="whatsapp" className="text-xs">WhatsApp</TabsTrigger>
             <TabsTrigger value="telegram" className="text-xs">Telegram</TabsTrigger>
-            <TabsTrigger value="email" className="text-xs">Email</TabsTrigger>
+            <TabsTrigger value="email" className="text-xs">Max Email</TabsTrigger>
           </TabsList>
           
           <TabsContent value="whatsapp" className="flex-1 p-3 overflow-y-auto mt-0">

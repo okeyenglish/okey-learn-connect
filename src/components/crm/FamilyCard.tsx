@@ -20,7 +20,8 @@ import {
   Clock,
   Bell,
   Plus,
-  GraduationCap
+  GraduationCap,
+  Edit2
 } from "lucide-react";
 
 interface FamilyCardProps {
@@ -44,6 +45,7 @@ export const FamilyCard = ({
   const [isChangingBranch, setIsChangingBranch] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
+  const [activePhoneId, setActivePhoneId] = useState<string>('1');
   const [memberPhoneNumbers, setMemberPhoneNumbers] = useState<Record<string, any[]>>({
     // Mock data for demonstration
     'main-member': [
@@ -54,6 +56,14 @@ export const FamilyCard = ({
         isPrimary: true,
         isWhatsappEnabled: true,
         isTelegramEnabled: false
+      },
+      {
+        id: '2',
+        phone: '+7 (916) 185-33-85',
+        phoneType: 'mobile',
+        isPrimary: false,
+        isWhatsappEnabled: true,
+        isTelegramEnabled: true
       }
     ]
   });
@@ -138,8 +148,24 @@ export const FamilyCard = ({
   };
 
   const handleMessageClick = (phoneNumber: any, platform: 'whatsapp' | 'telegram') => {
+    setActivePhoneId(phoneNumber.id);
     console.log(`Opening ${platform} chat with ${phoneNumber.phone}`);
     // Here you would open the appropriate messaging platform
+  };
+
+  const handlePhoneClick = (phoneId: string) => {
+    setActivePhoneId(phoneId);
+    // Switch to chats for this phone number
+  };
+
+  const getActivePhone = () => {
+    const phones = memberPhoneNumbers['main-member'] || [];
+    return phones.find(p => p.id === activePhoneId) || phones.find(p => p.isPrimary) || phones[0];
+  };
+
+  const getDisplayPhone = () => {
+    const activePhone = getActivePhone();
+    return activePhone ? activePhone.phone : activeMember.phone;
   };
 
   return (
@@ -195,14 +221,30 @@ export const FamilyCard = ({
           <div className="space-y-2 text-sm">
             <div className="flex items-center gap-2">
               <Phone className="h-3 w-3 text-muted-foreground" />
-              <span>{activeMember.phone}</span>
+              <span>{getDisplayPhone()}</span>
+              {getActivePhone()?.isPrimary && (
+                <Badge variant="outline" className="text-xs text-primary">
+                  (основной)
+                </Badge>
+              )}
             </div>
-            {activeMember.email && (
-              <div className="flex items-center gap-2">
-                <Mail className="h-3 w-3 text-muted-foreground" />
-                <span>{activeMember.email}</span>
-              </div>
-            )}
+            <div className="flex items-center justify-between">
+              {activeMember.email && (
+                <div className="flex items-center gap-2">
+                  <Mail className="h-3 w-3 text-muted-foreground" />
+                  <span>{activeMember.email}</span>
+                </div>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {/* Open edit contact modal */}}
+                className="h-6 w-6 p-0"
+                title="Редактировать контакт"
+              >
+                <Edit2 className="h-3 w-3" />
+              </Button>
+            </div>
             <div className="flex items-center gap-2">
               <Clock className="h-3 w-3 text-muted-foreground" />
               <span>День рождения: 25.12.1993</span>
@@ -240,11 +282,49 @@ export const FamilyCard = ({
               )}
             </div>
 
+            {/* Alternative Phone Numbers */}
+            {memberPhoneNumbers['main-member'] && memberPhoneNumbers['main-member'].length > 1 && (
+              <div className="mt-2 pt-2 border-t">
+                <h4 className="text-xs font-medium mb-2 text-muted-foreground">
+                  Другие номера:
+                </h4>
+                <div className="space-y-1">
+                  {memberPhoneNumbers['main-member']
+                    .filter(phone => phone.id !== getActivePhone()?.id)
+                    .map((phone) => (
+                      <div 
+                        key={phone.id} 
+                        className="flex items-center justify-between p-2 rounded border hover:bg-muted/20 cursor-pointer transition-colors"
+                        onClick={() => handlePhoneClick(phone.id)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-sm">{phone.phone}</span>
+                          {phone.isPrimary && (
+                            <Badge variant="outline" className="text-xs">
+                              (основной)
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {phone.isWhatsappEnabled && (
+                            <div className="w-2 h-2 rounded-full bg-green-500" title="WhatsApp" />
+                          )}
+                          {phone.isTelegramEnabled && (
+                            <div className="w-2 h-2 rounded-full bg-blue-500" title="Telegram" />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
             {/* Phone Numbers Management Section */}
             <div className="mt-4 pt-3 border-t">
               <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
                 <Phone className="h-4 w-4" />
-                Номера телефонов
+                Управление номерами
               </h4>
               <PhoneNumberManager
                 clientId="main-member"
