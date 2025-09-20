@@ -582,7 +582,7 @@ const CRMContent = () => {
   return (
     <div className="h-screen bg-muted/30 flex flex-col overflow-hidden">
       {/* User Header */}
-      <div className="bg-background border-b p-4 shrink-0 sticky top-0 z-40">
+      <div className="bg-background border-b p-4 shrink-0">
         <div className="flex items-center justify-between w-full mx-auto px-2 sm:px-4">
           <div className="flex items-center gap-3 flex-1">
             {/* Кнопка левого сайдбара для мобильных */}
@@ -641,7 +641,7 @@ const CRMContent = () => {
       </div>
 
       {/* Основная область */}
-      <div className="relative z-0 isolate flex flex-1 w-full overflow-hidden">
+      <div className="flex flex-1 w-full overflow-hidden">
         {/* Left Unified Sidebar - Desktop */}
         <div className={`${
           isMobile ? 'hidden' : 'flex'
