@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 import { ChatMessage } from "./ChatMessage";
 import { ClientTasks } from "./ClientTasks";
 
@@ -16,10 +17,18 @@ interface ChatAreaProps {
 // ChatArea component for CRM chat functionality
 export const ChatArea = ({ clientName, clientPhone, clientComment = "Базовый комментарий", onMessageChange }: ChatAreaProps) => {
   const [message, setMessage] = useState("");
+  const [isEditingComment, setIsEditingComment] = useState(false);
+  const [editableComment, setEditableComment] = useState(clientComment);
 
   const handleMessageChange = (value: string) => {
     setMessage(value);
     onMessageChange?.(value.trim().length > 0);
+  };
+
+  const handleSaveComment = () => {
+    setIsEditingComment(false);
+    // Here you would save the comment to your backend
+    console.log('Saving comment:', editableComment);
   };
 
   // Mock tasks data - in real app this would come from props or API
@@ -47,7 +56,7 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
     },
     {
       type: 'manager' as const,
-      message: 'Добрый день! Конечно, сейчас проверю расписание Павла. - Оксана Ветрова',
+      message: 'Добрый день! Конечно, сейчас проверю расписание Павла.',
       time: '10:32'
     },
     {
@@ -69,13 +78,39 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
     <div className="flex-1 bg-background flex flex-col min-w-0">
       {/* Chat Header */}
       <div className="border-b p-3 shrink-0">
-        <div className="flex items-center justify-between mb-2">
-          <div>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
             <h2 className="font-semibold text-base">{clientName}</h2>
             <p className="text-sm text-muted-foreground">{clientPhone}</p>
           </div>
+          <div className="flex-1 max-w-sm">
+            {isEditingComment ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={editableComment}
+                  onChange={(e) => setEditableComment(e.target.value)}
+                  className="text-sm"
+                  onKeyPress={(e) => e.key === 'Enter' && handleSaveComment()}
+                />
+                <Button size="sm" onClick={handleSaveComment}>
+                  Сохранить
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <p className="text-sm text-muted-foreground flex-1">{editableComment}</p>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-6 w-6 p-0"
+                  onClick={() => setIsEditingComment(true)}
+                >
+                  <Edit2 className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
-        <p className="text-sm text-muted-foreground">{clientComment}</p>
       </div>
 
       {/* Client Tasks */}

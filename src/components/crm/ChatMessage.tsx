@@ -47,15 +47,20 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration }: C
     <div className={`flex ${type === 'manager' ? 'justify-end' : 'justify-start'} mb-3`}>
       <div className={`max-w-xs lg:max-w-md xl:max-w-lg rounded-lg p-3 ${
         type === 'manager' 
-          ? 'bg-green-600 text-white' 
+          ? 'bg-green-500 text-white' 
           : 'bg-muted'
       }`}>
         <p className="text-sm leading-relaxed">{message}</p>
-        <span className={`text-xs mt-1 block ${
-          type === 'manager' ? 'opacity-70' : 'text-muted-foreground'
-        }`}>
-          {time}
-        </span>
+        <div className="flex items-center justify-between mt-1">
+          <span className={`text-xs ${
+            type === 'manager' ? 'opacity-70' : 'text-muted-foreground'
+          }`}>
+            {time}
+          </span>
+          {type === 'manager' && (
+            <span className="text-xs opacity-70">Оксана Ветрова</span>
+          )}
+        </div>
       </div>
     </div>
   );
