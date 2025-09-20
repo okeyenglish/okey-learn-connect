@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +10,7 @@ import { AddTaskModal } from "./AddTaskModal";
 import { CreateInvoiceModal } from "./CreateInvoiceModal";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ChatAreaProps {
   clientId: string;
@@ -21,62 +22,6 @@ interface ChatAreaProps {
   onOpenTaskModal?: () => void;
   onOpenInvoiceModal?: () => void;
 }
-
-// Mock chat history for different phone numbers
-const mockChatHistory: Record<string, any[]> = {
-  '1': [ // +7 (985) 261-50-56
-    {
-      type: 'client' as const,
-      message: 'Здравствуйте! Можно узнать расписание занятий для Павла на следующую неделю?',
-      time: '10:30'
-    },
-    {
-      type: 'manager' as const,
-      message: 'Добрый день! Конечно, сейчас проверю расписание Павла.',
-      time: '10:32'
-    },
-    {
-      type: 'system' as const,
-      message: '',
-      time: '10:35',
-      systemType: 'missed-call' as const
-    },
-    {
-      type: 'system' as const,
-      message: '',
-      time: '10:40',
-      systemType: 'call-record' as const,
-      callDuration: '3:45'
-    }
-  ],
-  '2': [ // +7 (916) 185-33-85
-    {
-      type: 'client' as const,
-      message: 'Добрый день! Хотела уточнить по оплате за октябрь.',
-      time: '09:15'
-    },
-    {
-      type: 'manager' as const,
-      message: 'Здравствуйте! Сейчас посмотрю информацию по оплате.',
-      time: '09:17'
-    },
-    {
-      type: 'manager' as const,
-      message: 'Вижу что оплата за октябрь поступила 15 числа. Всё в порядке.',
-      time: '09:19'
-    },
-    {
-      type: 'client' as const,
-      message: 'Отлично, спасибо! А когда следующий платеж?',
-      time: '09:21'
-    },
-    {
-      type: 'manager' as const,
-      message: 'Следующий платеж по расписанию 15 ноября.',
-      time: '09:22'
-    }
-  ]
-};
 
 // ChatArea component for CRM chat functionality
 export const ChatArea = ({ 
@@ -96,9 +41,87 @@ export const ChatArea = ({
   const [editableComment, setEditableComment] = useState(clientComment);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(true);
 
   const { sendTextMessage, loading } = useWhatsApp();
   const { toast } = useToast();
+
+  // Load messages from database
+  const loadMessages = async () => {
+    if (!clientId) return;
+    
+    setLoadingMessages(true);
+    try {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('client_id', clientId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error loading messages:', error);
+        return;
+      }
+
+      const formattedMessages = (data || []).map(msg => ({
+        type: msg.is_outgoing ? 'manager' : 'client',
+        message: msg.message_text || '',
+        time: new Date(msg.created_at).toLocaleTimeString('ru-RU', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }),
+        systemType: msg.system_type,
+        callDuration: msg.call_duration
+      }));
+
+      setMessages(formattedMessages);
+    } catch (error) {
+      console.error('Error loading messages:', error);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  // Load messages on component mount and when clientId changes
+  useEffect(() => {
+    loadMessages();
+  }, [clientId]);
+
+  // Real-time subscription for new messages
+  useEffect(() => {
+    if (!clientId) return;
+
+    const channel = supabase
+      .channel(`chat_messages_${clientId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `client_id=eq.${clientId}`
+        },
+        (payload) => {
+          const newMessage = {
+            type: payload.new.is_outgoing ? 'manager' : 'client',
+            message: payload.new.message_text || '',
+            time: new Date(payload.new.created_at).toLocaleTimeString('ru-RU', { 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            }),
+            systemType: payload.new.system_type,
+            callDuration: payload.new.call_duration
+          };
+          setMessages(prev => [...prev, newMessage]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [clientId]);
 
   const handleMessageChange = (value: string) => {
     setMessage(value);
@@ -118,6 +141,8 @@ export const ChatArea = ({
           title: "Сообщение отправлено",
           description: "Сообщение успешно отправлено в WhatsApp",
         });
+        // Reload messages to show the sent message
+        loadMessages();
       } else {
         toast({
           title: "Ошибка отправки",
@@ -170,8 +195,6 @@ export const ChatArea = ({
       dueDate: '25.09.2025',
     }
   ];
-
-  const messages = mockChatHistory[activePhoneId] || [];
 
   // Filter messages based on search query
   const filteredMessages = messages.filter(msg => 
@@ -254,19 +277,24 @@ export const ChatArea = ({
           
           <TabsContent value="whatsapp" className="flex-1 p-3 overflow-y-auto mt-0">
             <div className="space-y-1">
-              {filteredMessages.map((msg, index) => (
-                <ChatMessage
-                  key={index}
-                  type={msg.type}
-                  message={msg.message}
-                  time={msg.time}
-                  systemType={msg.systemType}
-                  callDuration={msg.callDuration}
-                />
-              ))}
-              {searchQuery && filteredMessages.length === 0 && (
+              {loadingMessages ? (
                 <div className="text-center text-muted-foreground text-sm py-4">
-                  Сообщения не найдены
+                  Загрузка сообщений...
+                </div>
+              ) : filteredMessages.length > 0 ? (
+                filteredMessages.map((msg, index) => (
+                  <ChatMessage
+                    key={index}
+                    type={msg.type}
+                    message={msg.message}
+                    time={msg.time}
+                    systemType={msg.systemType}
+                    callDuration={msg.callDuration}
+                  />
+                ))
+              ) : (
+                <div className="text-center text-muted-foreground text-sm py-4">
+                  {searchQuery ? 'Сообщения не найдены' : 'Нет сообщений'}
                 </div>
               )}
             </div>
