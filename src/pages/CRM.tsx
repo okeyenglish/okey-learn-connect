@@ -13,7 +13,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients, useSearchClients, useCreateClient } from "@/hooks/useClients";
-import { useChatThreads, useRealtimeMessages } from "@/hooks/useChatMessages";
+import { useChatThreads, useRealtimeMessages, useMarkAsRead } from "@/hooks/useChatMessages";
 import { useStudents } from "@/hooks/useStudents";
 import { ChatArea } from "@/components/crm/ChatArea";
 import { CorporateChatArea } from "@/components/crm/CorporateChatArea";
@@ -76,6 +76,7 @@ const CRMContent = () => {
     clearSearch 
   } = useSearchClients();
   const createClient = useCreateClient();
+  const markAsReadMutation = useMarkAsRead();
   const queryClient = useQueryClient();
   const { 
     pinnedModals, 
@@ -430,8 +431,7 @@ const CRMContent = () => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages', newClient.id] });
       
       // Switch to the new client's chat
-      setActiveChatId(newClient.id);
-      setActiveChatType('client');
+      handleChatClick(newClient.id, 'client');
       
       console.log('Новый клиент создан:', newClient);
     } catch (error) {
@@ -441,8 +441,7 @@ const CRMContent = () => {
 
   const handleExistingClientFound = (clientId: string) => {
     // Switch to the existing client's chat
-    setActiveChatId(clientId);
-    setActiveChatType('client');
+    handleChatClick(clientId, 'client');
     
     // Refresh threads and messages to ensure data is current
     queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
@@ -464,6 +463,15 @@ const CRMContent = () => {
     console.log('Переключение на чат:', { chatId, chatType });
     setActiveChatId(chatId);
     setActiveChatType(chatType);
+    
+    // Если это клиентский чат, помечаем сообщения как прочитанные
+    if (chatType === 'client') {
+      // Помечаем сообщения как прочитанные в базе данных
+      markAsReadMutation.mutate(chatId);
+      
+      // Помечаем чат как прочитанный в состоянии чата
+      markAsRead(chatId);
+    }
     
     // Обновляем имя активного клиента для модальных окон
     const activeClient = clients.find(client => client.id === chatId);
@@ -748,8 +756,7 @@ const CRMContent = () => {
                             </div>
                             <ClientsList 
                               onSelectClient={(clientId) => {
-                                setActiveChatId(clientId);
-                                setActiveChatType('client');
+                                handleChatClick(clientId, 'client');
                               }}
                               selectedClientId={activeChatId}
                             />
