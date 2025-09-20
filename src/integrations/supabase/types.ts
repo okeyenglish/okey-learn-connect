@@ -23,6 +23,7 @@ export type Database = {
           is_read: boolean
           message_text: string
           message_type: string
+          phone_number_id: string | null
           system_type: string | null
         }
         Insert: {
@@ -33,6 +34,7 @@ export type Database = {
           is_read?: boolean
           message_text: string
           message_type: string
+          phone_number_id?: string | null
           system_type?: string | null
         }
         Update: {
@@ -43,11 +45,63 @@ export type Database = {
           is_read?: boolean
           message_text?: string
           message_type?: string
+          phone_number_id?: string | null
           system_type?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "chat_messages_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_phone_number_id_fkey"
+            columns: ["phone_number_id"]
+            isOneToOne: false
+            referencedRelation: "client_phone_numbers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_phone_numbers: {
+        Row: {
+          client_id: string
+          created_at: string | null
+          id: string
+          is_primary: boolean | null
+          is_telegram_enabled: boolean | null
+          is_whatsapp_enabled: boolean | null
+          phone: string
+          phone_type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+          is_telegram_enabled?: boolean | null
+          is_whatsapp_enabled?: boolean | null
+          phone: string
+          phone_type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+          is_telegram_enabled?: boolean | null
+          is_whatsapp_enabled?: boolean | null
+          phone?: string
+          phone_type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_phone_numbers_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"

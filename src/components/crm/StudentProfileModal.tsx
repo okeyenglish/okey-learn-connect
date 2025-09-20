@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AddFamilyMemberModal } from "./AddFamilyMemberModal";
+import { PhoneNumberManager } from "./PhoneNumberManager";
 import { 
   User, 
   GraduationCap, 
@@ -288,25 +289,23 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
                       <span className="font-medium text-sm">Мария Петрова</span>
                       <Badge variant="outline" className="text-xs">Мама</Badge>
                     </div>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="text-xs"
-                      onClick={() => handleMessageParent('Мария Петрова', '+7 (985) 261-50-56')}
-                    >
-                      <MessageCircle className="w-3 h-3 mr-1" />
-                      Написать
-                    </Button>
                   </div>
-                  <div className="space-y-1 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <span>📱</span>
-                      <span>+7 (985) 261-50-56</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span>✉️</span>
-                      <span>maria.petrova@email.com</span>
-                    </div>
+                  <div className="mt-2">
+                    <PhoneNumberManager
+                      clientId="maria-petrova"
+                      phoneNumbers={[
+                        {
+                          id: '1',
+                          phone: '+7 (985) 261-50-56',
+                          phoneType: 'mobile',
+                          isPrimary: true,
+                          isWhatsappEnabled: true,
+                          isTelegramEnabled: false
+                        }
+                      ]}
+                      onUpdate={(phoneNumbers) => console.log('Updated phone numbers:', phoneNumbers)}
+                      onMessageClick={(phoneNumber, platform) => console.log(`Opening ${platform} chat with ${phoneNumber.phone}`)}
+                    />
                   </div>
                 </div>
                 
@@ -317,21 +316,23 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
                       <span className="font-medium text-sm">Александр Петров</span>
                       <Badge variant="outline" className="text-xs">Папа</Badge>
                     </div>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="text-xs"
-                      onClick={() => handleMessageParent('Александр Петров', '+7 (903) 444-55-66')}
-                    >
-                      <MessageCircle className="w-3 h-3 mr-1" />
-                      Написать
-                    </Button>
                   </div>
-                  <div className="space-y-1 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <span>📱</span>
-                      <span>+7 (903) 444-55-66</span>
-                    </div>
+                  <div className="mt-2">
+                    <PhoneNumberManager
+                      clientId="alexander-petrov"
+                      phoneNumbers={[
+                        {
+                          id: '2',
+                          phone: '+7 (903) 444-55-66',
+                          phoneType: 'mobile',
+                          isPrimary: true,
+                          isWhatsappEnabled: true,
+                          isTelegramEnabled: true
+                        }
+                      ]}
+                      onUpdate={(phoneNumbers) => console.log('Updated phone numbers:', phoneNumbers)}
+                      onMessageClick={(phoneNumber, platform) => console.log(`Opening ${platform} chat with ${phoneNumber.phone}`)}
+                    />
                   </div>
                 </div>
               </CardContent>

@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AddFamilyMemberModal } from "./AddFamilyMemberModal";
 import { AddStudentModal } from "./AddStudentModal";
 import { StudentProfileModal } from "./StudentProfileModal";
+import { PhoneNumberManager } from "./PhoneNumberManager";
 import { useFamilyData, FamilyMember, Student } from "@/hooks/useFamilyData";
 import { 
   Users, 
@@ -43,6 +44,19 @@ export const FamilyCard = ({
   const [isChangingBranch, setIsChangingBranch] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
+  const [memberPhoneNumbers, setMemberPhoneNumbers] = useState<Record<string, any[]>>({
+    // Mock data for demonstration
+    'main-member': [
+      {
+        id: '1',
+        phone: '+7 (985) 261-50-56',
+        phoneType: 'mobile',
+        isPrimary: true,
+        isWhatsappEnabled: true,
+        isTelegramEnabled: false
+      }
+    ]
+  });
   const { familyData, loading, error, refetch } = useFamilyData(familyGroupId);
   
   if (loading) {
@@ -113,6 +127,19 @@ export const FamilyCard = ({
   const handleStudentClick = (student: Student) => {
     setSelectedStudent(student);
     setIsStudentModalOpen(true);
+  };
+
+  const handlePhoneNumbersUpdate = (memberId: string, phoneNumbers: any[]) => {
+    setMemberPhoneNumbers(prev => ({
+      ...prev,
+      [memberId]: phoneNumbers
+    }));
+    // Here you would typically update the database
+  };
+
+  const handleMessageClick = (phoneNumber: any, platform: 'whatsapp' | 'telegram') => {
+    console.log(`Opening ${platform} chat with ${phoneNumber.phone}`);
+    // Here you would open the appropriate messaging platform
   };
 
   return (
@@ -211,6 +238,20 @@ export const FamilyCard = ({
                   Филиал {selectedBranch}
                 </span>
               )}
+            </div>
+
+            {/* Phone Numbers Management Section */}
+            <div className="mt-4 pt-3 border-t">
+              <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                <Phone className="h-4 w-4" />
+                Номера телефонов
+              </h4>
+              <PhoneNumberManager
+                clientId="main-member"
+                phoneNumbers={memberPhoneNumbers['main-member'] || []}
+                onUpdate={(phoneNumbers) => handlePhoneNumbersUpdate('main-member', phoneNumbers)}
+                onMessageClick={handleMessageClick}
+              />
             </div>
           </div>
         </CardContent>
