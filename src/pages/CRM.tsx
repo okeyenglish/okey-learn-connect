@@ -597,7 +597,8 @@ const CRMContent = () => {
             )}
             
             <Building2 className="h-6 w-6 text-primary flex-shrink-0" />
-            <div className="min-w-0">
+            {/* Hide title on mobile */}
+            <div className="min-w-0 hidden sm:block">
               <h1 className="text-lg sm:text-xl font-bold truncate">O'KEY ENGLISH CRM</h1>
             </div>
             
@@ -612,12 +613,12 @@ const CRMContent = () => {
             )}
           </div>
           <div className="flex items-center gap-2">
-            {/* Кнопка правого сайдбара для мобильных */}
+            {/* Кнопка О клиенте для мобильных */}
             {isMobile && activeChatType === 'client' && activeChatId && (
               <Sheet open={rightSidebarOpen} onOpenChange={setRightSidebarOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="md:hidden">
-                    <PanelRight className="h-5 w-5" />
+                  <Button variant="ghost" size="sm" className="md:hidden text-xs px-2 py-1">
+                    О клиенте
                   </Button>
                 </SheetTrigger>
               </Sheet>

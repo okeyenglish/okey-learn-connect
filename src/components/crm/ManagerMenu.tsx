@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ProfileModal } from "./ProfileModal";
 import { ChangePasswordModal } from "./ChangePasswordModal";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ManagerMenuProps {
   managerName: string;
@@ -28,6 +29,7 @@ export const ManagerMenu = ({
   const [isOpen, setIsOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const isMobile = useIsMobile();
 
   const handleProfileClick = () => {
     setShowProfileModal(true);
@@ -62,7 +64,7 @@ export const ManagerMenu = ({
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            className="flex items-center gap-2 px-3 py-2 h-auto hover:bg-muted/50"
+            className={`flex items-center gap-2 px-3 py-2 h-auto hover:bg-muted/50 ${isMobile ? 'px-1' : ''}`}
           >
             <Avatar className="h-8 w-8">
               <AvatarImage src={avatarUrl} alt={displayName} />
@@ -70,17 +72,22 @@ export const ManagerMenu = ({
                 {initials}
               </AvatarFallback>
             </Avatar>
-            <div className="flex flex-col items-start text-left">
-              <span className="text-sm font-medium text-foreground">
-                {displayName}
-              </span>
-              {managerEmail && (
-                <span className="text-xs text-muted-foreground">
-                  {managerEmail}
-                </span>
-              )}
-            </div>
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            {/* Hide text on mobile */}
+            {!isMobile && (
+              <>
+                <div className="flex flex-col items-start text-left">
+                  <span className="text-sm font-medium text-foreground">
+                    {displayName}
+                  </span>
+                  {managerEmail && (
+                    <span className="text-xs text-muted-foreground">
+                      {managerEmail}
+                    </span>
+                  )}
+                </div>
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              </>
+            )}
           </Button>
         </DropdownMenuTrigger>
           <DropdownMenuContent
