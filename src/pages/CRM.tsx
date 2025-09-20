@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients, useSearchClients, useCreateClient } from "@/hooks/useClients";
-import { useChatThreads, useRealtimeMessages, useSendMessage } from "@/hooks/useChatMessages";
+import { useChatThreads, useRealtimeMessages } from "@/hooks/useChatMessages";
 import { useStudents } from "@/hooks/useStudents";
 import { ChatArea } from "@/components/crm/ChatArea";
 import { CorporateChatArea } from "@/components/crm/CorporateChatArea";
@@ -58,7 +60,7 @@ const CRMContent = () => {
     clearSearch 
   } = useSearchClients();
   const createClient = useCreateClient();
-  const sendMessage = useSendMessage();
+  const queryClient = useQueryClient();
   const [openModal, setOpenModal] = useState<string | null>(null);
   const [hasUnsavedChat, setHasUnsavedChat] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -259,12 +261,19 @@ const CRMContent = () => {
         is_active: true
       });
       
-      // Create initial system message
-      await sendMessage.mutateAsync({
-        clientId: newClient.id,
-        messageText: `Создан чат с ${contactInfo.name}`,
-        messageType: 'system'
-      });
+      // Create initial system message directly
+      await supabase.from('chat_messages').insert([
+        {
+          client_id: newClient.id,
+          message_text: `Создан чат с ${contactInfo.name}`,
+          message_type: 'system',
+          is_read: false,
+        }
+      ]);
+
+      // Refresh threads and messages
+      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-messages', newClient.id] });
       
       // Switch to the new client's chat
       setActiveChatId(newClient.id);
