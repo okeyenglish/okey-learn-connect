@@ -583,13 +583,13 @@ const CRMContent = () => {
     <div className="h-screen bg-muted/30 flex flex-col overflow-hidden">
       {/* Фиксированные вкладки сверху на мобильной версии */}
       {isMobile && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b">
-          <div className="flex">
+        <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b shadow-sm">
+          <div className="flex items-center">
             <Button
               variant={activeTab === 'menu' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => handleTabChange('menu')}
-              className="flex-1 rounded-none"
+              className="flex-1 rounded-none h-12 font-medium"
             >
               Меню
             </Button>
@@ -597,22 +597,26 @@ const CRMContent = () => {
               variant={activeTab === 'chats' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => handleTabChange('chats')}
-              className="flex-1 rounded-none"
+              className="flex-1 rounded-none h-12 font-medium"
             >
               Чаты
             </Button>
-            {/* Кнопка О клиенте для мобильных */}
-            {activeChatType === 'client' && activeChatId && (
+            {/* Кнопка О клиенте - показывается только при активном чате с клиентом */}
+            {activeChatId && activeChatType === 'client' && (
               <Sheet open={rightSidebarOpen} onOpenChange={setRightSidebarOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-xs px-2 py-1">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="px-3 h-12 font-medium text-sm border-l"
+                  >
                     О клиенте
                   </Button>
                 </SheetTrigger>
               </Sheet>
             )}
             {/* Только аватарка менеджера на мобильной версии */}
-            <div className="flex items-center px-2">
+            <div className="flex items-center px-3 border-l">
               <ManagerMenu
                 managerName={profile && profile.first_name && profile.last_name 
                   ? `${profile.first_name} ${profile.last_name}` 
@@ -1058,17 +1062,17 @@ const CRMContent = () => {
                 <Dialog key={index} open={openModal === item.label} onOpenChange={(open) => !open && handleMenuModalClose()}>
                   <DialogTrigger asChild>
                     <button
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors text-left border bg-card"
                       onClick={() => handleMenuClick(item.label)}
                     >
-                      <item.icon className="h-5 w-5 shrink-0" />
-                      <span className="text-sm flex-1">
+                      <item.icon className="h-5 w-5 shrink-0 text-primary" />
+                      <span className="text-sm flex-1 font-medium">
                         {item.label}
                         {getMenuCount(item.label) > 0 && (
                           <span className="text-muted-foreground"> ({getMenuCount(item.label)})</span>
                         )}
                       </span>
-                      <ExternalLink className="h-3 w-3 ml-auto opacity-50" />
+                      <ExternalLink className="h-4 w-4 ml-auto opacity-50" />
                     </button>
                   </DialogTrigger>
                   <PinnableDialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
@@ -1097,6 +1101,7 @@ const CRMContent = () => {
                             onSelectClient={(clientId) => {
                               setActiveChatId(clientId);
                               setActiveChatType('client');
+                              setActiveTab('chats'); // Переключаемся на чаты
                             }}
                             selectedClientId={activeChatId}
                           />
@@ -1112,9 +1117,9 @@ const CRMContent = () => {
                 </Dialog>
               ))}
             </div>
-          ) : isMobile && activeTab === 'chats' ? (
+          ) : isMobile && activeTab === 'chats' && !activeChatId ? (
             <div className="flex flex-col h-full">
-              <div className="p-2 border-b space-y-2 shrink-0">
+              <div className="p-3 border-b space-y-3 shrink-0 bg-card">
                 <SearchInput
                   placeholder="Поиск по чатам..."
                   onSearch={handleChatSearch}
@@ -1132,30 +1137,30 @@ const CRMContent = () => {
                 </NewChatModal>
               </div>
               <ScrollArea className="flex-1">
-                <div className="p-2">
+                <div className="p-3">
                   {/* Закрепленные чаты */}
                   {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
-                    <div className="mb-4">
+                    <div className="mb-6">
                       <button 
-                        className="w-full flex items-center justify-between px-2 py-1 mb-2 hover:bg-muted/50 rounded transition-colors"
+                        className="w-full flex items-center justify-between px-2 py-2 mb-3 hover:bg-muted/50 rounded transition-colors"
                         onClick={() => setIsPinnedSectionOpen(!isPinnedSectionOpen)}
                       >
                         <div className="flex items-center gap-2">
                           {isPinnedSectionOpen ? (
-                            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
                           ) : (
-                            <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           )}
-                          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
                             Закрепленные (в работе)
                           </h3>
                         </div>
-                        <Badge variant="secondary" className="text-xs h-4">
+                        <Badge variant="secondary" className="text-xs h-5">
                           {filteredChats.filter(chat => getChatState(chat.id).isPinned).length}
                         </Badge>
                       </button>
                       {isPinnedSectionOpen && (
-                        <div className="space-y-1 mb-4">
+                        <div className="space-y-2 mb-6">
                           {filteredChats
                             .filter(chat => getChatState(chat.id).isPinned)
                             .map((chat) => {
@@ -1164,40 +1169,35 @@ const CRMContent = () => {
                               return (
                                 <button 
                                   key={chat.id}
-                                  className={`w-full p-3 text-left rounded-lg transition-colors ${
-                                    chat.id === activeChatId ? 'bg-muted hover:bg-muted/80' : 'hover:bg-muted/50'
-                                  }`}
-                              onClick={() => {
-                                handleChatClick(chat.id, chat.type);
-                                // На мобильной версии после выбора чата активируем вид чата
-                                if (isMobile) {
-                                  setActiveChatType('client');
-                                  setActiveChatId(chat.id);
-                                }
-                              }}
+                                  className="w-full p-4 text-left rounded-lg transition-colors bg-card border hover:bg-muted/50 shadow-sm"
+                                  onClick={() => {
+                                    setActiveChatId(chat.id);
+                                    setActiveChatType('client');
+                                    handleChatClick(chat.id, chat.type);
+                                  }}
                                 >
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
-                                      <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                                        <User className="h-5 w-5 text-green-600" />
+                                      <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                                        <User className="h-6 w-6 text-green-600" />
                                       </div>
                                       <div className="flex-1">
                                         <div className="flex items-center gap-2">
                                           <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
                                             {chat.name}
                                           </p>
-                                          <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300">
+                                          <Badge variant="outline" className="text-xs h-5 bg-orange-100 text-orange-700 border-orange-300">
                                             В работе
                                           </Badge>
                                         </div>
-                                        <p className="text-xs text-muted-foreground">{chat.phone}</p>
+                                        <p className="text-xs text-muted-foreground mt-1">{chat.phone}</p>
                                       </div>
                                     </div>
                                    <div className="flex flex-col items-end">
-                                     <Pin className="h-3 w-3 text-orange-600 mb-1" />
+                                     <Pin className="h-4 w-4 text-orange-600 mb-1" />
                                      <span className="text-xs text-muted-foreground">{chat.time}</span>
                                      {displayUnread && (
-                                       <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full mt-1">
+                                       <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded-full mt-1">
                                            {chatState.isUnread ? '1' : chat.unread}
                                        </span>
                                      )}
@@ -1213,15 +1213,15 @@ const CRMContent = () => {
 
                   {/* Активные чаты */}
                   <div>
-                    <div className="flex items-center justify-between px-2 py-1 mb-2">
-                      <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    <div className="flex items-center justify-between px-2 py-2 mb-3">
+                      <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
                         Активные чаты
                       </h3>
-                      <Badge variant="secondary" className="text-xs h-4">
+                      <Badge variant="secondary" className="text-xs h-5">
                         {filteredChats.filter(chat => !getChatState(chat.id).isPinned).length}
                       </Badge>
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       {filteredChats
                         .filter(chat => !getChatState(chat.id).isPinned)
                         .map((chat) => {
@@ -1230,34 +1230,29 @@ const CRMContent = () => {
                           return (
                             <button 
                               key={chat.id}
-                              className={`w-full p-3 text-left rounded-lg transition-colors relative ${
-                                chat.id === activeChatId ? 'bg-muted hover:bg-muted/80' : 'hover:bg-muted/50'
-                              }`}
+                              className="w-full p-4 text-left rounded-lg transition-colors bg-card border hover:bg-muted/50 shadow-sm"
                               onClick={() => {
+                                setActiveChatId(chat.id);
+                                setActiveChatType('client');
                                 handleChatClick(chat.id, chat.type);
-                                // На мобильной версии после выбора чата активируем вид чата
-                                if (isMobile) {
-                                  setActiveChatType('client');
-                                  setActiveChatId(chat.id);
-                                }
                               }}
                             >
                                <div className="flex items-center justify-between">
                                  <div className="flex items-center gap-3">
-                                   <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                                     <User className="h-5 w-5 text-green-600" />
+                                   <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                                     <User className="h-6 w-6 text-green-600" />
                                    </div>
                                    <div>
                                      <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
                                        {chat.name}
                                      </p>
-                                     <p className="text-xs text-muted-foreground">{chat.phone}</p>
+                                     <p className="text-xs text-muted-foreground mt-1">{chat.phone}</p>
                                    </div>
                                  </div>
                                 <div className="flex flex-col items-end">
                                   <span className="text-xs text-muted-foreground">{chat.time}</span>
                                   {displayUnread && (
-                                    <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+                                    <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full mt-1">
                                       {chatState.isUnread ? '1' : chat.unread}
                                     </span>
                                   )}
