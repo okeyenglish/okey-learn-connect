@@ -282,16 +282,16 @@ const CRM = () => {
         </div>
       </div>
 
-      <div className="flex flex-1 max-w-7xl mx-auto w-full">
+      <div className="flex flex-1 max-w-7xl mx-auto w-full h-0">
         {/* Left Unified Sidebar */}
-        <div className="w-80 bg-background border-r flex flex-col">
+        <div className="w-80 bg-background border-r flex flex-col h-full">
           <Tabs defaultValue="chats" className="flex flex-col h-full">
-            <TabsList className="grid w-full grid-cols-2 m-2">
+            <TabsList className="grid w-full grid-cols-2 m-2 shrink-0">
               <TabsTrigger value="menu">Меню</TabsTrigger>
               <TabsTrigger value="chats">Чаты</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="menu" className="flex-1 mt-0">
+            <TabsContent value="menu" className="flex-1 mt-0 overflow-y-auto">
               <div className="p-2 space-y-1">
                 {menuItems.map((item, index) => (
                   <Dialog key={index} open={openModal === item.label} onOpenChange={(open) => !open && setOpenModal(null)}>
@@ -389,8 +389,8 @@ const CRM = () => {
               </div>
             </TabsContent>
             
-            <TabsContent value="chats" className="flex-1 mt-0 flex flex-col">
-              <div className="p-2 border-b space-y-2">
+            <TabsContent value="chats" className="flex-1 mt-0 flex flex-col h-0">
+              <div className="p-2 border-b space-y-2 shrink-0">
                 <SearchInput
                   placeholder="Поиск по чатам..."
                   onSearch={handleChatSearch}
@@ -575,7 +575,7 @@ const CRM = () => {
 
         {/* Right Sidebar - Family Card (только для клиентских чатов) */}
         {activeChatType === 'client' && (
-          <div className="w-80 bg-background p-4 overflow-y-auto">
+          <div className="w-80 bg-background p-4 overflow-y-auto h-full">
             <FamilyCard
               familyGroupId="550e8400-e29b-41d4-a716-446655440000"
               activeMemberId={activeFamilyMemberId}
