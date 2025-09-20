@@ -52,7 +52,8 @@ import {
   Building2,
   ChevronDown,
   ChevronRight,
-  LogOut
+  LogOut,
+  Users
 } from "lucide-react";
 
 const CRMContent = () => {
@@ -974,6 +975,45 @@ const CRMContent = () => {
               isPinned={true}
               onUnpin={() => unpinModal(modal.id, modal.type)}
             />
+          );
+        }
+        // Закрепленные модальные окна из меню
+        if (modal.isOpen && menuItems.find(item => item.label === modal.type)) {
+          const menuItem = menuItems.find(item => item.label === modal.type);
+          if (!menuItem) return null;
+          
+          return (
+            <Dialog key={`pinned-menu-${modal.id}`} open={true} onOpenChange={() => closePinnedModal(modal.id, modal.type)}>
+              <PinnableDialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                <PinnableModalHeader
+                  title={menuItem.label}
+                  isPinned={true}
+                  onPin={() => {}} // Уже закреплено
+                  onUnpin={() => unpinModal(modal.id, modal.type)}
+                  onClose={() => closePinnedModal(modal.id, modal.type)}
+                >
+                  <menuItem.icon className="h-5 w-5 ml-2" />
+                </PinnableModalHeader>
+                <div className="py-4">
+                  {menuItem.label === "Лиды" && (
+                    <div className="space-y-4">
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <h3 className="text-lg font-semibold mb-2">Управление лидами</h3>
+                        <p>Здесь будет интерфейс для работы с потенциальными клиентами</p>
+                      </div>
+                    </div>
+                  )}
+                  {menuItem.label !== "Лиды" && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <menuItem.icon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <h3 className="text-lg font-semibold mb-2">{menuItem.label}</h3>
+                      <p>Раздел находится в разработке</p>
+                    </div>
+                  )}
+                </div>
+              </PinnableDialogContent>
+            </Dialog>
           );
         }
         return null;
