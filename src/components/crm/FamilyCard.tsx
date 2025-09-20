@@ -31,6 +31,8 @@ interface FamilyCardProps {
   onSwitchMember?: (memberId: string) => void;
   onOpenChat?: (memberId: string) => void;
   onCall?: (memberId: string) => void;
+  onPhoneSwitch?: (phoneId: string) => void;
+  activePhoneId?: string;
 }
 
 export const FamilyCard = ({ 
@@ -38,7 +40,9 @@ export const FamilyCard = ({
   activeMemberId,
   onSwitchMember,
   onOpenChat,
-  onCall 
+  onCall,
+  onPhoneSwitch,
+  activePhoneId: propActivePhoneId = '1'
 }: FamilyCardProps) => {
   const [activeTab, setActiveTab] = useState("children");
   const [autoMessagesEnabled, setAutoMessagesEnabled] = useState(true);
@@ -46,7 +50,7 @@ export const FamilyCard = ({
   const [isChangingBranch, setIsChangingBranch] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
-  const [activePhoneId, setActivePhoneId] = useState<string>('1');
+  const [activePhoneId, setActivePhoneId] = useState<string>(propActivePhoneId);
   const [memberPhoneNumbers, setMemberPhoneNumbers] = useState<Record<string, any[]>>({
     // Mock data for demonstration
     'main-member': [
@@ -155,6 +159,7 @@ export const FamilyCard = ({
 
   const handlePhoneClick = (phoneId: string) => {
     setActivePhoneId(phoneId);
+    onPhoneSwitch?.(phoneId);
     // Switch to chats for this phone number
   };
 
@@ -194,14 +199,6 @@ export const FamilyCard = ({
                   {activeMember.unreadMessages}
                 </Badge>
               )}
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onCall?.(activeMember.id)}
-                className="h-8 w-8 p-0"
-              >
-                <Phone className="h-3 w-3" />
-              </Button>
               <EditContactModal
                 contactData={{
                   name: activeMember.name,
@@ -217,19 +214,30 @@ export const FamilyCard = ({
         </CardHeader>
         <CardContent className="pt-0">
           <div className="space-y-2 text-sm">
-            <div className="flex items-center gap-2">
-              <Phone className="h-3 w-3 text-muted-foreground" />
-              <span 
-                className="cursor-pointer hover:text-primary transition-colors"
-                onClick={() => handlePhoneClick(getActivePhone()?.id || '1')}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Phone className="h-3 w-3 text-muted-foreground" />
+                <span 
+                  className="cursor-pointer hover:text-primary transition-colors"
+                  onClick={() => handlePhoneClick(getActivePhone()?.id || '1')}
+                >
+                  {getDisplayPhone()}
+                </span>
+                {getActivePhone()?.isPrimary && (
+                  <Badge variant="outline" className="text-xs text-primary">
+                    (основной)
+                  </Badge>
+                )}
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onCall?.(activeMember.id)}
+                className="h-6 w-6 p-0"
+                title="Позвонить"
               >
-                {getDisplayPhone()}
-              </span>
-              {getActivePhone()?.isPrimary && (
-                <Badge variant="outline" className="text-xs text-primary">
-                  (основной)
-                </Badge>
-              )}
+                <Phone className="h-3 w-3" />
+              </Button>
             </div>
             {/* Additional Phone Numbers */}
             {memberPhoneNumbers['main-member'] && 

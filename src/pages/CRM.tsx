@@ -41,6 +41,8 @@ const CRM = () => {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [chatStates, setChatStates] = useState<Record<string, { pinned: boolean; archived: boolean; unread: boolean }>>({});
+  const [activePhoneId, setActivePhoneId] = useState<string>('1');
+  
   
   const handleAuth = () => {
     if (password === "12345") {
@@ -137,7 +139,6 @@ const CRM = () => {
       return 0;
     });
 
-  // Mock данные для семейных связей
   const [activeFamilyMemberId, setActiveFamilyMemberId] = useState('550e8400-e29b-41d4-a716-446655440001');
 
   const handleSwitchFamilyMember = (memberId: string) => {
@@ -151,6 +152,19 @@ const CRM = () => {
 
   const handleCallFamilyMember = (memberId: string) => {
     console.log('Звонок члену семьи:', memberId);
+  };
+
+  const handlePhoneSwitch = (phoneId: string) => {
+    setActivePhoneId(phoneId);
+  };
+
+  // Get current phone number for display
+  const getCurrentPhoneNumber = () => {
+    const phoneNumbers = {
+      '1': '+7 (985) 261-50-56',
+      '2': '+7 (916) 185-33-85'
+    };
+    return phoneNumbers[activePhoneId as keyof typeof phoneNumbers] || '+7 (985) 261-50-56';
   };
 
   const handleCreateNewChat = (contactInfo: any) => {
@@ -407,9 +421,10 @@ const CRM = () => {
         {/* Center - Chat */}
         <ChatArea 
           clientName="Мария Петрова"
-          clientPhone="+7 (985) 261-50-56"
+          clientPhone={getCurrentPhoneNumber()}
           clientComment="Мама Павла, активная, всегда интересуется успехами"
           onMessageChange={setHasUnsavedChat}
+          activePhoneId={activePhoneId}
         />
 
         {/* Right Sidebar - Family Card */}
@@ -420,6 +435,8 @@ const CRM = () => {
             onSwitchMember={handleSwitchFamilyMember}
             onOpenChat={handleOpenLinkedChat}
             onCall={handleCallFamilyMember}
+            onPhoneSwitch={handlePhoneSwitch}
+            activePhoneId={activePhoneId}
           />
         </div>
       </div>

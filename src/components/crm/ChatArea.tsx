@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2 } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,11 +12,69 @@ interface ChatAreaProps {
   clientPhone: string;
   clientComment?: string;
   onMessageChange?: (hasUnsaved: boolean) => void;
+  activePhoneId?: string; // Add this prop to track which phone number is active
 }
 
+// Mock chat history for different phone numbers
+const mockChatHistory: Record<string, any[]> = {
+  '1': [ // +7 (985) 261-50-56
+    {
+      type: 'client' as const,
+      message: 'Здравствуйте! Можно узнать расписание занятий для Павла на следующую неделю?',
+      time: '10:30'
+    },
+    {
+      type: 'manager' as const,
+      message: 'Добрый день! Конечно, сейчас проверю расписание Павла.',
+      time: '10:32'
+    },
+    {
+      type: 'system' as const,
+      message: '',
+      time: '10:35',
+      systemType: 'missed-call' as const
+    },
+    {
+      type: 'system' as const,
+      message: '',
+      time: '10:40',
+      systemType: 'call-record' as const,
+      callDuration: '3:45'
+    }
+  ],
+  '2': [ // +7 (916) 185-33-85
+    {
+      type: 'client' as const,
+      message: 'Добрый день! Хотела уточнить по оплате за октябрь.',
+      time: '09:15'
+    },
+    {
+      type: 'manager' as const,
+      message: 'Здравствуйте! Сейчас посмотрю информацию по оплате.',
+      time: '09:17'
+    },
+    {
+      type: 'manager' as const,
+      message: 'Вижу что оплата за октябрь поступила 15 числа. Всё в порядке.',
+      time: '09:19'
+    },
+    {
+      type: 'client' as const,
+      message: 'Отлично, спасибо! А когда следующий платеж?',
+      time: '09:21'
+    },
+    {
+      type: 'manager' as const,
+      message: 'Следующий платеж по расписанию 15 ноября.',
+      time: '09:22'
+    }
+  ]
+};
+
 // ChatArea component for CRM chat functionality
-export const ChatArea = ({ clientName, clientPhone, clientComment = "Базовый комментарий", onMessageChange }: ChatAreaProps) => {
+export const ChatArea = ({ clientName, clientPhone, clientComment = "Базовый комментарий", onMessageChange, activePhoneId = '1' }: ChatAreaProps) => {
   const [message, setMessage] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [isEditingComment, setIsEditingComment] = useState(false);
   const [editableComment, setEditableComment] = useState(clientComment);
 
@@ -48,31 +106,12 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
     }
   ];
 
-  const messages = [
-    {
-      type: 'client' as const,
-      message: 'Здравствуйте! Можно узнать расписание занятий для Павла на следующую неделю?',
-      time: '10:30'
-    },
-    {
-      type: 'manager' as const,
-      message: 'Добрый день! Конечно, сейчас проверю расписание Павла.',
-      time: '10:32'
-    },
-    {
-      type: 'system' as const,
-      message: '',
-      time: '10:35',
-      systemType: 'missed-call' as const
-    },
-    {
-      type: 'system' as const,
-      message: '',
-      time: '10:40',
-      systemType: 'call-record' as const,
-      callDuration: '3:45'
-    }
-  ];
+  const messages = mockChatHistory[activePhoneId] || [];
+
+  // Filter messages based on search query
+  const filteredMessages = messages.filter(msg => 
+    msg.message.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="flex-1 bg-background flex flex-col min-w-0">
@@ -87,6 +126,16 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
             <Button size="sm" variant="outline">
               Добавить задачу
             </Button>
+            <Button size="sm" variant="outline">
+              <Search className="h-4 w-4 mr-1" />
+              Поиск
+            </Button>
+            <Input
+              placeholder="Поиск в чате..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-48"
+            />
             <Button size="sm" variant="outline">
               Выставить счёт
             </Button>
@@ -111,7 +160,7 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
           
           <TabsContent value="whatsapp" className="flex-1 p-3 overflow-y-auto mt-0">
             <div className="space-y-1">
-              {messages.map((msg, index) => (
+              {filteredMessages.map((msg, index) => (
                 <ChatMessage
                   key={index}
                   type={msg.type}
@@ -121,6 +170,11 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
                   callDuration={msg.callDuration}
                 />
               ))}
+              {searchQuery && filteredMessages.length === 0 && (
+                <div className="text-center text-muted-foreground text-sm py-4">
+                  Сообщения не найдены
+                </div>
+              )}
             </div>
           </TabsContent>
           
