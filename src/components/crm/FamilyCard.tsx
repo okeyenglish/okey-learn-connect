@@ -167,8 +167,7 @@ export const FamilyCard = ({
             </div>
             <div className="flex items-center gap-2">
               <Home className="h-3 w-3 text-muted-foreground" />
-              <select className="text-sm bg-transparent border-none outline-none text-muted-foreground">
-                <option value="">Выберите филиал</option>
+              <select className="text-sm bg-white border border-slate-200 rounded px-2 py-1 text-slate-700 min-w-0 flex-1" defaultValue="okskaya">
                 <option value="kotelniki">Котельники</option>
                 <option value="novokosino">Новокосино</option>
                 <option value="okskaya">Окская</option>
