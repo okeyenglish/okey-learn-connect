@@ -44,7 +44,7 @@ serve(async (req) => {
     // Get client info for additional context
     const { data: client, error: clientError } = await supabase
       .from('clients')
-      .select('name, comment')
+      .select('name, notes')
       .eq('id', clientId)
       .single();
 
@@ -65,7 +65,7 @@ serve(async (req) => {
 Твоя задача - сгенерировать подходящий ответ клиенту на основе контекста диалога.
 
 Информация о клиенте: ${client?.name || 'Не указано'}
-Комментарий о клиенте: ${client?.comment || 'Нет комментариев'}
+Заметки о клиенте: ${client?.notes || 'Нет заметок'}
 
 Контекст предыдущих сообщений:
 ${conversationContext}

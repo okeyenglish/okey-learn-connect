@@ -291,11 +291,11 @@ export const ChatArea = ({
 
   const saveComment = async (commentText: string) => {
     try {
-      // Save comment to client - update the client's comment field
+      // Save comment to client - update the client's notes field
       const { error } = await supabase
         .from('clients')
         .update({
-          comment: commentText,
+          notes: commentText,
           updated_at: new Date().toISOString(),
         })
         .eq('id', clientId);
