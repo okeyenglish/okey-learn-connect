@@ -39,11 +39,6 @@ export const useWhatsApp = () => {
         throw new Error(data.error || 'Failed to send message');
       }
 
-      toast({
-        title: "Сообщение отправлено",
-        description: `Сообщение отправлено в WhatsApp`,
-      });
-
       return { success: true, messageId: data.messageId };
 
     } catch (error: any) {

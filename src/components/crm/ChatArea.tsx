@@ -94,7 +94,8 @@ export const ChatArea = ({
           minute: '2-digit' 
         }),
         systemType: msg.system_type,
-        callDuration: msg.call_duration
+        callDuration: msg.call_duration,
+        messageStatus: msg.message_status
       }));
 
       // 
@@ -147,7 +148,8 @@ export const ChatArea = ({
               minute: '2-digit' 
             }),
             systemType: payload.new.system_type,
-            callDuration: payload.new.call_duration
+            callDuration: payload.new.call_duration,
+            messageStatus: payload.new.message_status
           };
           console.log('Adding message to chat:', newMessage);
           setMessages(prev => {
@@ -371,11 +373,6 @@ export const ChatArea = ({
       }
 
       if (data.success) {
-        toast({
-          title: "Сообщение удалено",
-          description: "Сообщение удалено из WhatsApp",
-        });
-        
         // Обновляем локальное состояние сообщений
         setMessages(prev => 
           prev.map(msg => 
@@ -388,11 +385,7 @@ export const ChatArea = ({
         throw new Error(data.error || "Не удалось удалить сообщение")
       }
     } catch (error: any) {
-      toast({
-        title: "Ошибка удаления", 
-        description: error.message || "Не удалось удалить сообщение",
-        variant: "destructive",
-      });
+      console.error('Error deleting message:', error);
     }
   };
 
@@ -559,6 +552,7 @@ export const ChatArea = ({
                     forwardedFromType={msg.forwardedFromType}
                     onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
                     onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
+                    messageStatus={msg.messageStatus}
                   />
                 ))
               ) : (

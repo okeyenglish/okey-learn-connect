@@ -1,4 +1,4 @@
-import { Phone, PhoneCall, Play, FileSpreadsheet, Edit2, Check, X, Forward, Trash2 } from "lucide-react";
+import { Phone, PhoneCall, Play, FileSpreadsheet, Edit2, Check, X, Forward, Trash2, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -23,9 +23,10 @@ interface ChatMessageProps {
   forwardedFromType?: 'client' | 'teacher' | 'corporate';
   onMessageEdit?: (messageId: string, newMessage: string) => Promise<void>;
   onMessageDelete?: (messageId: string) => Promise<void>;
+  messageStatus?: 'sent' | 'delivered' | 'read' | 'queued';
 }
 
-export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete }: ChatMessageProps) => {
+export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, messageStatus }: ChatMessageProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message);
 
@@ -172,8 +173,12 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
               </div>
             ) : (
               <>
-                <p className="text-sm leading-relaxed">{editedMessage}</p>
-                {type === 'manager' && (
+                {message === '[Сообщение удалено]' ? (
+                  <p className="text-sm leading-relaxed italic text-muted-foreground">*Данное сообщение удалено*</p>
+                ) : (
+                  <p className="text-sm leading-relaxed">{editedMessage}</p>
+                )}
+                {type === 'manager' && message !== '[Сообщение удалено]' && (
                   <div className="absolute top-1 right-1 flex items-center gap-1">
                     <Button 
                       size="sm" 
@@ -209,6 +214,13 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
                 <span className="ml-2">отредактировано {editedTime}</span>
               )}
             </span>
+            {type === 'manager' && messageStatus && message !== '[Сообщение удалено]' && (
+              <div className="ml-2 flex items-center">
+                {messageStatus === 'sent' && <Check className="h-3 w-3 text-muted-foreground" />}
+                {messageStatus === 'delivered' && <CheckCheck className="h-3 w-3 text-muted-foreground" />}
+                {messageStatus === 'read' && <CheckCheck className="h-3 w-3 text-blue-500" />}
+              </div>
+            )}
           </div>
         </div>
       </div>
