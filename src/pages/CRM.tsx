@@ -31,6 +31,7 @@ import { AddTaskModal } from "@/components/crm/AddTaskModal";
 import { CreateInvoiceModal } from "@/components/crm/CreateInvoiceModal";
 import { PinnableModalHeader, PinnableDialogContent } from "@/components/crm/PinnableModal";
 import { usePinnedModalsDB, PinnedModal } from "@/hooks/usePinnedModalsDB";
+import { useChatStatesDB } from "@/hooks/useChatStatesDB";
 import { useAllTasks } from "@/hooks/useTasks";
 import { 
   Search, 
@@ -78,6 +79,15 @@ const CRMContent = () => {
     closePinnedModal, 
     isPinned 
   } = usePinnedModalsDB();
+  const { 
+    chatStates, 
+    loading: chatStatesLoading,
+    togglePin,
+    toggleArchive,
+    markAsRead,
+    markAsUnread,
+    getChatState
+  } = useChatStatesDB();
   const { tasks: allTasks, isLoading: tasksLoading } = useAllTasks();
   const [openModal, setOpenModal] = useState<string | null>(null);
   const [hasUnsavedChat, setHasUnsavedChat] = useState(false);
@@ -86,11 +96,6 @@ const CRMContent = () => {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [globalSearchResults, setGlobalSearchResults] = useState<any[]>([]);
   // Добавим несколько чатов в закрепленные для демонстрации
-  const [chatStates, setChatStates] = useState<Record<string, { pinned: boolean; archived: boolean; unread: boolean }>>({
-    '1': { pinned: true, archived: false, unread: true }, // Мария Петрова - закреплена
-    '2': { pinned: false, archived: false, unread: false },
-    '3': { pinned: true, archived: false, unread: false }, // Игорь Волков - закреплен
-  });
   const [activePhoneId, setActivePhoneId] = useState<string>('1');
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [activeChatType, setActiveChatType] = useState<'client' | 'corporate' | 'teachers'>('client');
@@ -267,11 +272,11 @@ const CRMContent = () => {
       chat.name.toLowerCase().includes(chatSearchQuery.toLowerCase()) ||
       chat.phone.includes(chatSearchQuery)
     )
-    .filter(chat => !chatStates[chat.id]?.archived) // Скрываем архивированные чаты
+    .filter(chat => !getChatState(chat.id).isArchived) // Скрываем архивированные чаты
     .sort((a, b) => {
       // Сначала закрепленные чаты
-      const aPinned = chatStates[a.id]?.pinned || false;
-      const bPinned = chatStates[b.id]?.pinned || false;
+      const aPinned = getChatState(a.id).isPinned || false;
+      const bPinned = getChatState(b.id).isPinned || false;
       if (aPinned && !bPinned) return -1;
       if (!aPinned && bPinned) return 1;
       
@@ -403,15 +408,13 @@ const CRMContent = () => {
   };
 
   const handleChatAction = (chatId: string, action: 'unread' | 'pin' | 'archive' | 'block') => {
-    setChatStates(prev => ({
-      ...prev,
-      [chatId]: {
-        ...prev[chatId],
-        ...(action === 'unread' && { unread: true }),
-        ...(action === 'pin' && { pinned: !prev[chatId]?.pinned }),
-        ...(action === 'archive' && { archived: !prev[chatId]?.archived }),
-      }
-    }));
+    if (action === 'unread') {
+      markAsUnread(chatId);
+    } else if (action === 'pin') {
+      togglePin(chatId);
+    } else if (action === 'archive') {
+      toggleArchive(chatId);
+    }
     console.log(`${action} для чата:`, chatId);
   };
 
@@ -536,7 +539,7 @@ const CRMContent = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {(clientsLoading || threadsLoading || studentsLoading || pinnedLoading) && (
+            {(clientsLoading || threadsLoading || studentsLoading || pinnedLoading || chatStatesLoading) && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
                 Загрузка данных...
@@ -746,7 +749,7 @@ const CRMContent = () => {
               <ScrollArea className="flex-1">
                 <div className="p-2">
                   {/* Закрепленные чаты */}
-                  {filteredChats.some(chat => chatStates[chat.id]?.pinned) && (
+                  {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
                     <div className="mb-4">
                       <button 
                         className="w-full flex items-center justify-between px-2 py-1 mb-2 hover:bg-muted/50 rounded transition-colors"
@@ -763,16 +766,16 @@ const CRMContent = () => {
                           </h3>
                         </div>
                         <Badge variant="secondary" className="text-xs h-4">
-                          {filteredChats.filter(chat => chatStates[chat.id]?.pinned).length}
+                          {filteredChats.filter(chat => getChatState(chat.id).isPinned).length}
                         </Badge>
                       </button>
                       {isPinnedSectionOpen && (
                         <div className="space-y-1">
                         {filteredChats
-                          .filter(chat => chatStates[chat.id]?.pinned)
+                          .filter(chat => getChatState(chat.id).isPinned)
                           .map((chat) => {
-                            const chatState = chatStates[chat.id] || { pinned: false, archived: false, unread: false };
-                            const displayUnread = chatState.unread || chat.unread > 0;
+                            const chatState = getChatState(chat.id);
+                            const displayUnread = chatState.isUnread || chat.unread > 0;
                             return (
                               <ChatContextMenu
                                 key={chat.id}
@@ -780,8 +783,8 @@ const CRMContent = () => {
                                 onPinDialog={() => handleChatAction(chat.id, 'pin')}
                                 onArchive={() => handleChatAction(chat.id, 'archive')}
                                 onBlock={() => handleChatAction(chat.id, 'block')}
-                                isPinned={chatState.pinned}
-                                isArchived={chatState.archived}
+                                isPinned={chatState.isPinned}
+                                isArchived={chatState.isArchived}
                               >
                                 <button 
                                   className={`w-full p-3 text-left rounded-lg transition-colors relative border-l-2 border-orange-400 ${
@@ -816,7 +819,7 @@ const CRMContent = () => {
                                       <span className="text-xs text-muted-foreground">{chat.time}</span>
                                       {displayUnread && (
                                         <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full mt-1">
-                                          {chatState.unread ? '1' : chat.unread}
+                                            {chatState.isUnread ? '1' : chat.unread}
                                         </span>
                                       )}
                                     </div>
@@ -837,15 +840,15 @@ const CRMContent = () => {
                         Активные чаты
                       </h3>
                       <Badge variant="secondary" className="text-xs h-4">
-                        {filteredChats.filter(chat => !chatStates[chat.id]?.pinned).length}
+                        {filteredChats.filter(chat => !getChatState(chat.id).isPinned).length}
                       </Badge>
                     </div>
                     <div className="space-y-1">
                       {filteredChats
-                        .filter(chat => !chatStates[chat.id]?.pinned)
+                        .filter(chat => !getChatState(chat.id).isPinned)
                         .map((chat) => {
-                          const chatState = chatStates[chat.id] || { pinned: false, archived: false, unread: false };
-                          const displayUnread = chatState.unread || chat.unread > 0;
+                          const chatState = getChatState(chat.id);
+                          const displayUnread = chatState.isUnread || chat.unread > 0;
                           return (
                             <ChatContextMenu
                               key={chat.id}
@@ -853,8 +856,8 @@ const CRMContent = () => {
                               onPinDialog={() => handleChatAction(chat.id, 'pin')}
                               onArchive={() => handleChatAction(chat.id, 'archive')}
                               onBlock={() => handleChatAction(chat.id, 'block')}
-                              isPinned={chatState.pinned}
-                              isArchived={chatState.archived}
+                              isPinned={chatState.isPinned}
+                              isArchived={chatState.isArchived}
                             >
                               <button 
                                 className={`w-full p-3 text-left rounded-lg transition-colors relative ${
@@ -881,7 +884,7 @@ const CRMContent = () => {
                                     <span className="text-xs text-muted-foreground">{chat.time}</span>
                                     {displayUnread && (
                                       <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
-                                        {chatState.unread ? '1' : chat.unread}
+                                        {chatState.isUnread ? '1' : chat.unread}
                                       </span>
                                     )}
                                   </div>
