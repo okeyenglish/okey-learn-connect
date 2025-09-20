@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ChatMessage } from "./ChatMessage";
 import { ClientTasks } from "./ClientTasks";
 import { AddTaskModal } from "./AddTaskModal";
+import { CreateInvoiceModal } from "./CreateInvoiceModal";
 
 interface ChatAreaProps {
   clientName: string;
@@ -80,6 +81,7 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
   const [isEditingComment, setIsEditingComment] = useState(false);
   const [editableComment, setEditableComment] = useState(clientComment);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
 
   const handleMessageChange = (value: string) => {
     setMessage(value);
@@ -147,6 +149,7 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
               variant="outline" 
               className="h-8 w-8 p-0"
               title="Выставить счёт"
+              onClick={() => setShowInvoiceModal(true)}
             >
               <FileText className="h-4 w-4" />
             </Button>
@@ -269,6 +272,13 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
       <AddTaskModal 
         open={showAddTaskModal}
         onOpenChange={setShowAddTaskModal}
+        clientName={clientName}
+      />
+
+      {/* Create Invoice Modal */}
+      <CreateInvoiceModal 
+        open={showInvoiceModal}
+        onOpenChange={setShowInvoiceModal}
         clientName={clientName}
       />
     </div>
