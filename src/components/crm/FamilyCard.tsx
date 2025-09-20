@@ -46,6 +46,11 @@ export const FamilyCard = ({
   activePhoneId: propActivePhoneId = '1'
 }: FamilyCardProps) => {
   const [activeTab, setActiveTab] = useState("children");
+  
+  // Force re-render when familyGroupId changes
+  useEffect(() => {
+    setActiveTab("children");
+  }, [familyGroupId]);
   const [autoMessagesEnabled, setAutoMessagesEnabled] = useState(true);
   const [selectedBranch, setSelectedBranch] = useState("Окская");
   const [isChangingBranch, setIsChangingBranch] = useState(false);
@@ -309,9 +314,9 @@ export const FamilyCard = ({
             </TabsTrigger>
           </TabsList>
           
-          {/* Add button for active tab */}
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
-            {activeTab === "children" ? (
+          {/* Add buttons - always show both but position them over respective tabs */}
+          {activeTab === "children" && (
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
               <AddStudentModal 
                 familyGroupId={familyGroupId}
                 parentLastName={activeMember.name.split(' ').pop()}
@@ -325,7 +330,11 @@ export const FamilyCard = ({
                   <Plus className="h-3 w-3" />
                 </Button>
               </AddStudentModal>
-            ) : (
+            </div>
+          )}
+          
+          {activeTab === "contacts" && (
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
               <AddFamilyMemberModal 
                 familyGroupId={familyGroupId}
                 onMemberAdded={refetch}
@@ -338,8 +347,8 @@ export const FamilyCard = ({
                   <Plus className="h-3 w-3" />
                 </Button>
               </AddFamilyMemberModal>
-            )}
-          </div>
+            </div>
+          )}
         </div>
         
         <TabsContent value="children" className="space-y-2 mt-4">
