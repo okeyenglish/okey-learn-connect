@@ -645,11 +645,11 @@ export const ChatArea = ({
       </div>
 
       {/* Message Input */}
-      <div className="border-t p-4 shrink-0">
-        <div className="space-y-3">
+      <div className="border-t p-3 shrink-0">
+        <div className="space-y-2">
           {/* Character counter and warning */}
           {message.length > 0 && (
-            <div className="flex justify-between items-center text-xs text-muted-foreground">
+            <div className="flex justify-between items-center text-xs text-muted-foreground px-1">
               <span className={message.length > MAX_MESSAGE_LENGTH ? "text-red-500" : ""}>
                 {message.length}/{MAX_MESSAGE_LENGTH} символов
               </span>
@@ -659,8 +659,8 @@ export const ChatArea = ({
             </div>
           )}
           
-          <div className="flex items-end gap-3">
-            <div className="flex-1 space-y-2">
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
               <Textarea
                 ref={textareaRef}
                 placeholder="Введите сообщение..."
@@ -670,87 +670,83 @@ export const ChatArea = ({
                 className="min-h-[48px] max-h-[120px] resize-none text-base"
                 disabled={loading}
               />
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1">
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                    <Paperclip className="h-4 w-4" />
-                  </Button>
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                    <Zap className="h-4 w-4" />
-                  </Button>
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                    <MessageCircle className="h-4 w-4" />
-                  </Button>
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                    <Mic className="h-4 w-4" />
-                  </Button>
-                </div>
+              <div className="flex items-center gap-1 mt-2">
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                  <Zap className="h-4 w-4" />
+                </Button>
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                  <MessageCircle className="h-4 w-4" />
+                </Button>
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                  <Mic className="h-4 w-4" />
+                </Button>
+                
+                {/* Schedule message button */}
+                <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-8 w-8 p-0"
+                      disabled={loading || !message.trim() || message.length > MAX_MESSAGE_LENGTH}
+                    >
+                      <Clock className="h-4 w-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Запланировать сообщение</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Дата</label>
+                        <Input
+                          type="date"
+                          value={scheduleDate}
+                          onChange={(e) => setScheduleDate(e.target.value)}
+                          min={new Date().toISOString().split('T')[0]}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Время</label>
+                        <Input
+                          type="time"
+                          value={scheduleTime}
+                          onChange={(e) => setScheduleTime(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Сообщение</label>
+                        <div className="p-3 bg-muted rounded-md text-sm">
+                          {message || "Сообщение не введено"}
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => setShowScheduleDialog(false)}>
+                          Отмена
+                        </Button>
+                        <Button onClick={handleScheduleMessage}>
+                          Запланировать
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
             
-            <div className="flex items-center gap-2">
-              {/* Schedule message button */}
-              <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
-                <DialogTrigger asChild>
-                  <Button 
-                    size="icon" 
-                    variant="outline"
-                    className="rounded-full h-12 w-12"
-                    disabled={loading || !message.trim() || message.length > MAX_MESSAGE_LENGTH}
-                  >
-                    <Clock className="h-4 w-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Запланировать сообщение</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Дата</label>
-                      <Input
-                        type="date"
-                        value={scheduleDate}
-                        onChange={(e) => setScheduleDate(e.target.value)}
-                        min={new Date().toISOString().split('T')[0]}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Время</label>
-                      <Input
-                        type="time"
-                        value={scheduleTime}
-                        onChange={(e) => setScheduleTime(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Сообщение</label>
-                      <div className="p-3 bg-muted rounded-md text-sm">
-                        {message || "Сообщение не введено"}
-                      </div>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => setShowScheduleDialog(false)}>
-                        Отмена
-                      </Button>
-                      <Button onClick={handleScheduleMessage}>
-                        Запланировать
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-              
-              {/* Send button */}
-              <Button 
-                size="icon" 
-                className="rounded-full h-12 w-12" 
-                onClick={handleSendMessage}
-                disabled={loading || !message.trim() || message.length > MAX_MESSAGE_LENGTH}
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
+            {/* Send button */}
+            <Button 
+              size="icon" 
+              className="rounded-full h-12 w-12" 
+              onClick={handleSendMessage}
+              disabled={loading || !message.trim() || message.length > MAX_MESSAGE_LENGTH}
+            >
+              <Send className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </div>
