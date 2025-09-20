@@ -13,9 +13,10 @@ import { useToast } from "@/hooks/use-toast";
 interface AddFamilyMemberModalProps {
   familyGroupId: string;
   onMemberAdded?: () => void;
+  children?: React.ReactNode;
 }
 
-export const AddFamilyMemberModal = ({ familyGroupId, onMemberAdded }: AddFamilyMemberModalProps) => {
+export const AddFamilyMemberModal = ({ familyGroupId, onMemberAdded, children }: AddFamilyMemberModalProps) => {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -122,10 +123,12 @@ export const AddFamilyMemberModal = ({ familyGroupId, onMemberAdded }: AddFamily
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="gap-2">
-          <UserPlus className="h-4 w-4" />
-          Добавить члена семьи
-        </Button>
+        {children || (
+          <Button size="sm" className="gap-2">
+            <UserPlus className="h-4 w-4" />
+            Добавить члена семьи
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

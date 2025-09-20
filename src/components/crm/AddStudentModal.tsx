@@ -13,9 +13,10 @@ interface AddStudentModalProps {
   familyGroupId: string;
   parentLastName?: string;
   onStudentAdded?: () => void;
+  children?: React.ReactNode;
 }
 
-export const AddStudentModal = ({ familyGroupId, parentLastName, onStudentAdded }: AddStudentModalProps) => {
+export const AddStudentModal = ({ familyGroupId, parentLastName, onStudentAdded, children }: AddStudentModalProps) => {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -122,10 +123,12 @@ export const AddStudentModal = ({ familyGroupId, parentLastName, onStudentAdded 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="gap-2" variant="outline">
-          <GraduationCap className="h-4 w-4" />
-          Добавить ученика
-        </Button>
+        {children || (
+          <Button size="sm" className="gap-2" variant="outline">
+            <GraduationCap className="h-4 w-4" />
+            Добавить ученика
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
         <DialogHeader>

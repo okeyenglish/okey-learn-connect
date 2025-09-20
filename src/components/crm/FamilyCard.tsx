@@ -298,14 +298,52 @@ export const FamilyCard = ({
 
       {/* Family Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="children">
-            Дети ({familyData.students.length})
-          </TabsTrigger>
-          <TabsTrigger value="contacts">
-            Семья ({familyData.members.length})
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between bg-muted rounded-lg p-1">
+          <div className="flex w-full">
+            <button
+              onClick={() => setActiveTab("children")}
+              className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-all ${
+                activeTab === "children"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Дети ({familyData.students.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("contacts")}
+              className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-all ${
+                activeTab === "contacts"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Семья ({familyData.members.length})
+            </button>
+          </div>
+          <div className="ml-2">
+            {activeTab === "children" ? (
+              <AddStudentModal 
+                familyGroupId={familyGroupId}
+                parentLastName={activeMember.name.split(' ').pop()}
+                onStudentAdded={refetch}
+              >
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </AddStudentModal>
+            ) : (
+              <AddFamilyMemberModal 
+                familyGroupId={familyGroupId}
+                onMemberAdded={refetch}
+              >
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </AddFamilyMemberModal>
+            )}
+          </div>
+        </div>
         
         <TabsContent value="children" className="space-y-2 mt-4">
           {familyData.students.length === 0 ? (
@@ -314,23 +352,10 @@ export const FamilyCard = ({
               <p className="text-sm text-muted-foreground mb-3">
                 Пока нет учеников в системе
               </p>
-              <AddStudentModal 
-                familyGroupId={familyGroupId}
-                parentLastName={activeMember.name.split(' ').pop()}
-                onStudentAdded={refetch}
-              />
             </div>
           ) : (
-            <div className="space-y-3">
-              <div className="flex justify-end">
-                <AddStudentModal 
-                  familyGroupId={familyGroupId}
-                  parentLastName={activeMember.name.split(' ').pop()}
-                  onStudentAdded={refetch}
-                />
-              </div>
-              <div className="space-y-2">
-                {familyData.students.map((student) => (
+            <div className="space-y-2">
+              {familyData.students.map((student) => (
                   <Card 
                     key={student.id} 
                     className="hover:bg-muted/20 transition-colors cursor-pointer"
@@ -376,8 +401,7 @@ export const FamilyCard = ({
                       </div>
                     </CardContent>
                   </Card>
-                ))}
-              </div>
+              ))}
             </div>
           )}
         </TabsContent>
@@ -389,21 +413,10 @@ export const FamilyCard = ({
               <p className="text-sm text-muted-foreground mb-3">
                 Пока нет связанных контактов
               </p>
-              <AddFamilyMemberModal 
-                familyGroupId={familyGroupId}
-                onMemberAdded={refetch}
-              />
             </div>
           ) : (
-            <div className="space-y-3">
-              <div className="flex justify-end">
-                <AddFamilyMemberModal 
-                  familyGroupId={familyGroupId}
-                  onMemberAdded={refetch}
-                />
-              </div>
-              <div className="space-y-2">
-                {otherMembers.map((member) => {
+            <div className="space-y-2">
+              {otherMembers.map((member) => {
                 const RelationIcon = getRelationshipIcon(member.relationship);
                 return (
                   <Card key={member.id} className="hover:bg-muted/30 transition-colors cursor-pointer">
@@ -462,10 +475,9 @@ export const FamilyCard = ({
                 );
                })}
              </div>
-           </div>
-          )}
-        </TabsContent>
-      </Tabs>
+           )}
+         </TabsContent>
+       </Tabs>
 
       <StudentProfileModal
         student={selectedStudent}
