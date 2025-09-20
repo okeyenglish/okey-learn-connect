@@ -10,7 +10,6 @@ import { Calendar, Bold, Italic, Link, Type, Undo, Redo, Plus, X } from "lucide-
 import { cn } from "@/lib/utils";
 import { PinnableModalHeader } from "./PinnableModal";
 import { useCreateTask } from "@/hooks/useTasks";
-import { toast } from "sonner";
 
 interface AddTaskModalProps {
   open: boolean;
@@ -26,14 +25,14 @@ export const AddTaskModal = ({
   open, 
   onOpenChange, 
   clientName,
-  clientId, 
+  clientId,
   isPinned = false, 
   onPin, 
   onUnpin 
 }: AddTaskModalProps) => {
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
-    priority: "medium" as 'low' | 'medium' | 'high',
+    priority: "medium" as "low" | "medium" | "high",
     responsible: "",
     client: clientName,
     direction: "",
@@ -50,27 +49,23 @@ export const AddTaskModal = ({
 
   const handleSave = async () => {
     if (!formData.description.trim()) {
-      toast.error("Описание задачи обязательно для заполнения");
       return;
     }
 
     try {
       await createTask.mutateAsync({
         client_id: clientId,
-        title: formData.description.slice(0, 100), // Используем первые 100 символов как заголовок
+        title: formData.description.substring(0, 100) || "Новая задача",
         description: formData.description,
         priority: formData.priority,
-        status: 'active',
-        due_date: formData.date || undefined,
-        responsible: formData.responsible || undefined,
-        goal: formData.goal || undefined,
-        method: formData.method || undefined,
-        direction: formData.direction || undefined,
+        due_date: formData.date,
+        responsible: formData.responsible,
+        goal: formData.goal,
+        method: formData.method,
+        direction: formData.direction,
       });
 
-      toast.success("Задача успешно создана");
-      
-      // Сбросить форму
+      // Reset form
       setFormData({
         date: new Date().toISOString().split('T')[0],
         priority: "medium",
@@ -87,8 +82,7 @@ export const AddTaskModal = ({
       
       onOpenChange(false);
     } catch (error) {
-      console.error('Error creating task:', error);
-      toast.error("Ошибка при создании задачи");
+      console.error('Error saving task:', error);
     }
   };
 
@@ -122,7 +116,7 @@ export const AddTaskModal = ({
             </div>
             <div className="space-y-2">
               <Label htmlFor="priority">Приоритет:</Label>
-              <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value as 'low' | 'medium' | 'high' })}>
+              <Select value={formData.priority} onValueChange={(value: "low" | "medium" | "high") => setFormData({ ...formData, priority: value })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Средний" />
                 </SelectTrigger>
@@ -315,9 +309,9 @@ export const AddTaskModal = ({
           <Button 
             onClick={handleSave} 
             className="bg-blue-600 hover:bg-blue-700"
-            disabled={createTask.isPending || !formData.description.trim()}
+            disabled={!formData.description.trim() || createTask.isPending}
           >
-            {createTask.isPending ? 'Сохранение...' : 'Сохранить'}
+            {createTask.isPending ? "Сохранение..." : "Сохранить"}
           </Button>
         </div>
       </DialogContent>

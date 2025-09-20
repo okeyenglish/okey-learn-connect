@@ -3,21 +3,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { useTasks, useUpdateTask, useDeleteTask, Task } from "@/hooks/useTasks";
-import { toast } from "sonner";
+import { useTasks, useCompleteTask, useCancelTask } from "@/hooks/useTasks";
 
 interface ClientTasksProps {
-  clientName: string;
   clientId: string;
+  clientName: string;
 }
 
-export const ClientTasks = ({ clientName, clientId }: ClientTasksProps) => {
+export const ClientTasks = ({ clientId, clientName }: ClientTasksProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const { tasks, isLoading } = useTasks(clientId);
-  const updateTask = useUpdateTask();
-  const deleteTask = useDeleteTask();
-
-  // Только активные задачи
+  const completeTask = useCompleteTask();
+  const cancelTask = useCancelTask();
+  
+  // Filter only active tasks
   const activeTasks = tasks.filter(task => task.status === 'active');
   
   if (isLoading || activeTasks.length === 0) {
@@ -26,21 +25,17 @@ export const ClientTasks = ({ clientName, clientId }: ClientTasksProps) => {
 
   const handleCompleteTask = async (taskId: string) => {
     try {
-      await updateTask.mutateAsync({ id: taskId, status: 'completed' });
-      toast.success('Задача выполнена');
+      await completeTask.mutateAsync(taskId);
     } catch (error) {
-      console.error('Error completing task:', error);  
-      toast.error('Ошибка при выполнении задачи');
+      console.error('Error completing task:', error);
     }
   };
 
   const handleCloseTask = async (taskId: string) => {
     try {
-      await deleteTask.mutateAsync(taskId);
-      toast.success('Задача удалена');
+      await cancelTask.mutateAsync(taskId);
     } catch (error) {
-      console.error('Error deleting task:', error);
-      toast.error('Ошибка при удалении задачи');
+      console.error('Error cancelling task:', error);
     }
   };
 
@@ -87,7 +82,9 @@ export const ClientTasks = ({ clientName, clientId }: ClientTasksProps) => {
                       {task.due_date && (
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground">{new Date(task.due_date).toLocaleDateString('ru-RU')}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(task.due_date).toLocaleDateString('ru-RU')}
+                          </span>
                         </div>
                       )}
                     </div>
