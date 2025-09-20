@@ -49,7 +49,6 @@ export const PinnedModalTabs = ({ pinnedModals, onOpenModal, onUnpinModal }: Pin
 
   return (
     <div className="mb-2">
-      <h3 className="text-xs font-medium text-muted-foreground mb-2">Закрепленные окна</h3>
       <div className="flex flex-wrap gap-1.5">
         {pinnedModals.map((modal) => (
           <Card
