@@ -273,28 +273,6 @@ export const AddTaskModal = ({
             </div>
           </div>
 
-          {/* Student Selection */}
-          {familyData && familyData.students.length > 0 && (
-            <div className="space-y-2">
-              <Label>Студент:</Label>
-              <Select 
-                value={formData.selectedStudent} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, selectedStudent: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите студента" />
-                </SelectTrigger>
-                <SelectContent>
-                  {familyData.students.map((student) => (
-                    <SelectItem key={student.id} value={student.id}>
-                      {student.firstName} {student.lastName} ({student.age} лет)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
           {/* Description with Templates */}
           <div className="space-y-2">
             <Label htmlFor="description">Описание*:</Label>
