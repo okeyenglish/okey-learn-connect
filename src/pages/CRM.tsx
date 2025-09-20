@@ -586,15 +586,19 @@ const CRMContent = () => {
         <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b shadow-sm">
           <div className="flex items-center">
             <Button
-              variant={activeTab === 'menu' ? 'default' : 'ghost'}
+              variant="ghost"
               size="sm"
               onClick={() => handleTabChange('menu')}
-              className="flex-1 rounded-none h-12 font-medium"
+              className={`flex-1 rounded-none h-12 font-medium transition-colors ${
+                activeTab === 'menu' 
+                  ? 'bg-muted text-foreground' 
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              }`}
             >
               Меню
             </Button>
             <Button
-              variant={activeTab === 'chats' ? 'default' : 'ghost'}
+              variant="ghost"
               size="sm"
               onClick={() => {
                 handleTabChange('chats');
@@ -603,7 +607,11 @@ const CRMContent = () => {
                   setActiveChatId('');
                 }
               }}
-              className="flex-1 rounded-none h-12 font-medium"
+              className={`flex-1 rounded-none h-12 font-medium transition-colors ${
+                activeTab === 'chats' 
+                  ? 'bg-muted text-foreground' 
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              }`}
             >
               Чаты
             </Button>
