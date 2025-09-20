@@ -521,8 +521,8 @@ const CRMContent = () => {
       </div>
       
       {/* Search Bar */}
-      <div className="bg-background border-b p-4 shrink-0">
-        <div className="relative max-w-7xl mx-auto space-y-4">
+      <div className="bg-background border-b p-2 shrink-0">
+        <div className="relative max-w-7xl mx-auto">
           {/* Закрепленные модальные окна как вкладки */}
           <PinnedModalTabs 
             pinnedModals={pinnedModals}
