@@ -592,7 +592,9 @@ const CRMContent = () => {
               </div>
             )}
             <ManagerMenu
-              managerName={profile ? `${profile.first_name} ${profile.last_name}` : 'Менеджер'}
+              managerName={profile && profile.first_name && profile.last_name 
+                ? `${profile.first_name} ${profile.last_name}` 
+                : 'Менеджер'}
               managerEmail={user?.email}
               onSignOut={handleSignOut}
             />

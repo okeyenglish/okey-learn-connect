@@ -11,6 +11,7 @@ interface Profile {
   email: string | null;
   phone: string | null;
   department: string | null;
+  avatar_url: string | null;
 }
 
 interface AuthContextType {
@@ -64,7 +65,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       if (roleError) throw roleError;
 
-      setProfile(profileData);
+      // Ensure avatar_url exists in the profile data
+      const profileWithAvatar = {
+        ...profileData,
+        avatar_url: null  // For now, set to null since it's not in the DB
+      };
+
+      setProfile(profileWithAvatar);
       setRole(roleData.role);
     } catch (error) {
       console.error('Error fetching profile:', error);
