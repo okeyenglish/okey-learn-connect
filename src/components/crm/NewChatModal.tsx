@@ -30,13 +30,11 @@ interface Contact {
 
 export const NewChatModal = ({ children, onCreateChat }: NewChatModalProps) => {
   const [open, setOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("search");
   const [newContactData, setNewContactData] = useState({
     name: "",
-    phone: "",
-    email: ""
+    phone: ""
   });
+  const [phoneSuggestions, setPhoneSuggestions] = useState<Contact[]>([]);
 
   // Mock existing contacts/leads
   const mockContacts: Contact[] = [
@@ -65,16 +63,6 @@ export const NewChatModal = ({ children, onCreateChat }: NewChatModalProps) => {
     }
   ];
 
-  const filteredContacts = mockContacts.filter(contact =>
-    contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    contact.phone.includes(searchQuery)
-  );
-
-  const handleCreateNewChat = (contact: Contact) => {
-    onCreateChat?.(contact);
-    setOpen(false);
-  };
-
   const handleCreateFromNewContact = () => {
     if (newContactData.name && newContactData.phone) {
       const newContact = {
@@ -83,8 +71,26 @@ export const NewChatModal = ({ children, onCreateChat }: NewChatModalProps) => {
         type: 'new' as const
       };
       onCreateChat?.(newContact);
-      setNewContactData({ name: "", phone: "", email: "" });
+      setNewContactData({ name: "", phone: "" });
       setOpen(false);
+    }
+  };
+
+  const handleCreateFromExisting = (contact: Contact) => {
+    onCreateChat?.(contact);
+    setOpen(false);
+  };
+
+  const handlePhoneChange = (value: string) => {
+    setNewContactData(prev => ({ ...prev, phone: value }));
+    
+    if (value.length >= 3) {
+      const suggestions = mockContacts.filter(contact =>
+        contact.phone.includes(value) || contact.name.toLowerCase().includes(value.toLowerCase())
+      );
+      setPhoneSuggestions(suggestions);
+    } else {
+      setPhoneSuggestions([]);
     }
   };
 
@@ -119,123 +125,64 @@ export const NewChatModal = ({ children, onCreateChat }: NewChatModalProps) => {
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="search">Поиск контактов</TabsTrigger>
-            <TabsTrigger value="new">Новый контакт</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="search" className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Поиск по имени или телефону..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="new-name">Имя *</Label>
+            <Input
+              id="new-name"
+              placeholder="Введите имя контакта"
+              value={newContactData.name}
+              onChange={(e) => setNewContactData(prev => ({ ...prev, name: e.target.value }))}
+            />
+          </div>
 
-            <div className="max-h-96 overflow-y-auto space-y-2">
-              {filteredContacts.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">
-                    {searchQuery ? 'Контакты не найдены' : 'Начните вводить для поиска'}
-                  </p>
-                </div>
-              ) : (
-                filteredContacts.map((contact) => (
-                  <div
-                    key={contact.id}
-                    className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                    onClick={() => handleCreateNewChat(contact)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <User className="h-8 w-8 p-2 bg-muted rounded-full" />
+          <div className="space-y-2">
+            <Label htmlFor="new-phone">Телефон *</Label>
+            <div className="relative">
+              <Input
+                id="new-phone"
+                placeholder="+7 (___) ___-__-__"
+                value={newContactData.phone}
+                onChange={(e) => handlePhoneChange(e.target.value)}
+              />
+              {phoneSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-50 bg-background border border-border rounded-md shadow-md max-h-48 overflow-y-auto">
+                  {phoneSuggestions.map((contact) => (
+                    <div
+                      key={contact.id}
+                      className="p-2 hover:bg-muted cursor-pointer border-b last:border-b-0"
+                      onClick={() => handleCreateFromExisting(contact)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
                         <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium">{contact.name}</p>
-                            <Badge variant={getContactTypeColor(contact.type)} className="text-xs">
-                              {getContactTypeLabel(contact.type)}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Phone className="h-3 w-3" />
-                            {contact.phone}
-                          </div>
-                          {contact.email && (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Mail className="h-3 w-3" />
-                              {contact.email}
-                            </div>
-                          )}
-                          {contact.lastContact && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Последний контакт: {contact.lastContact}
-                            </p>
-                          )}
+                          <p className="text-sm font-medium">{contact.name}</p>
+                          <p className="text-xs text-muted-foreground">{contact.phone}</p>
                         </div>
+                        <Badge variant={getContactTypeColor(contact.type)} className="text-xs ml-auto">
+                          {getContactTypeLabel(contact.type)}
+                        </Badge>
                       </div>
-                      <Button size="sm" variant="outline">
-                        <MessageCircle className="h-4 w-4 mr-2" />
-                        Начать чат
-                      </Button>
                     </div>
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
             </div>
-          </TabsContent>
+          </div>
 
-          <TabsContent value="new" className="space-y-4">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="new-name">Имя *</Label>
-                <Input
-                  id="new-name"
-                  placeholder="Введите имя контакта"
-                  value={newContactData.name}
-                  onChange={(e) => setNewContactData(prev => ({ ...prev, name: e.target.value }))}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="new-phone">Телефон *</Label>
-                <Input
-                  id="new-phone"
-                  placeholder="+7 (___) ___-__-__"
-                  value={newContactData.phone}
-                  onChange={(e) => setNewContactData(prev => ({ ...prev, phone: e.target.value }))}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="new-email">Email (опционально)</Label>
-                <Input
-                  id="new-email"
-                  type="email"
-                  placeholder="email@example.com"
-                  value={newContactData.email}
-                  onChange={(e) => setNewContactData(prev => ({ ...prev, email: e.target.value }))}
-                />
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setOpen(false)}>
-                  Отмена
-                </Button>
-                <Button 
-                  onClick={handleCreateFromNewContact}
-                  disabled={!newContactData.name || !newContactData.phone}
-                >
-                  <MessageCirclePlus className="h-4 w-4 mr-2" />
-                  Создать чат
-                </Button>
-              </div>
-            </div>
-          </TabsContent>
-        </Tabs>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Отмена
+            </Button>
+            <Button 
+              onClick={handleCreateFromNewContact}
+              disabled={!newContactData.name || !newContactData.phone}
+            >
+              <MessageCirclePlus className="h-4 w-4 mr-2" />
+              Создать чат
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );

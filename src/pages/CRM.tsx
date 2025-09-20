@@ -305,7 +305,10 @@ const CRM = () => {
                           <div className="space-y-4">
                             <Card>
                               <CardHeader>
-                                <CardTitle>Активные задачи</CardTitle>
+                                <CardTitle className="flex items-center justify-between">
+                                  Активные задачи
+                                  <Search className="h-4 w-4 text-muted-foreground" />
+                                </CardTitle>
                               </CardHeader>
                               <CardContent>
                                 <div className="space-y-2">
