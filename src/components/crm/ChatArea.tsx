@@ -240,21 +240,50 @@ export const ChatArea = ({
     setSelectedMessages(newSelected);
   };
 
-  const handleForwardMessages = async (clientIds: string[]) => {
+  const handleForwardMessages = async (recipients: Array<{id: string, type: 'client' | 'teacher' | 'corporate', name: string}>) => {
     const messagesToForward = messages.filter(msg => selectedMessages.has(msg.id));
     
     try {
-      // Отправляем каждое сообщение каждому выбранному клиенту
-      for (const clientId of clientIds) {
+      // Отправляем каждое сообщение каждому выбранному получателю
+      for (const recipient of recipients) {
         for (const msg of messagesToForward) {
-          const forwardedText = `Переслано: ${msg.message}`;
-          await sendTextMessage(clientId, forwardedText);
+          let forwardedText = '';
+          
+          // Формируем текст в зависимости от типа получателя
+          switch (recipient.type) {
+            case 'client':
+              forwardedText = `Переслано из чата с ${clientName}: ${msg.message}`;
+              // Отправляем клиенту через WhatsApp
+              await sendTextMessage(recipient.id, forwardedText);
+              break;
+            case 'teacher':
+              forwardedText = `[От: ${clientName}] ${msg.message}`;
+              // Здесь будет логика отправки преподавателю (например, через внутреннюю систему)
+              console.log(`Отправка преподавателю ${recipient.name}:`, forwardedText);
+              break;
+            case 'corporate':
+              forwardedText = `[Клиент: ${clientName}] ${msg.message}`;
+              // Здесь будет логика отправки в корпоративный чат
+              console.log(`Отправка в корпоративный чат ${recipient.name}:`, forwardedText);
+              break;
+          }
         }
       }
       
+      const clientCount = recipients.filter(r => r.type === 'client').length;
+      const teacherCount = recipients.filter(r => r.type === 'teacher').length;
+      const corporateCount = recipients.filter(r => r.type === 'corporate').length;
+      
+      let description = `${messagesToForward.length} сообщений переслано: `;
+      const parts = [];
+      if (clientCount > 0) parts.push(`${clientCount} клиентам`);
+      if (teacherCount > 0) parts.push(`${teacherCount} преподавателям`);
+      if (corporateCount > 0) parts.push(`${corporateCount} корпоративным чатам`);
+      description += parts.join(', ');
+      
       toast({
         title: "Сообщения переслаты",
-        description: `${messagesToForward.length} сообщений переслано ${clientIds.length} получателям`,
+        description,
       });
       
       // Сбрасываем режим выделения
