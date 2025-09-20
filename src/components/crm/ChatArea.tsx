@@ -356,6 +356,46 @@ export const ChatArea = ({
     }
   };
 
+  // Функция для удаления сообщения
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-whatsapp-message', {
+        body: { 
+          messageId, 
+          clientId 
+        }
+      })
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      if (data.success) {
+        toast({
+          title: "Сообщение удалено",
+          description: "Сообщение удалено из WhatsApp",
+        });
+        
+        // Обновляем локальное состояние сообщений
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.id === messageId
+              ? { ...msg, message: '[Сообщение удалено]', isDeleted: true }
+              : msg
+          )
+        );
+      } else {
+        throw new Error(data.error || "Не удалось удалить сообщение")
+      }
+    } catch (error: any) {
+      toast({
+        title: "Ошибка удаления", 
+        description: error.message || "Не удалось удалить сообщение",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Mock tasks data - in real app this would come from props or API
   const clientTasks = [
     {
@@ -518,6 +558,7 @@ export const ChatArea = ({
                     forwardedFrom={msg.forwardedFrom}
                     forwardedFromType={msg.forwardedFromType}
                     onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
+                    onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
                   />
                 ))
               ) : (

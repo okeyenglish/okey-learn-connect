@@ -1,4 +1,4 @@
-import { Phone, PhoneCall, Play, FileSpreadsheet, Edit2, Check, X, Forward } from "lucide-react";
+import { Phone, PhoneCall, Play, FileSpreadsheet, Edit2, Check, X, Forward, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -22,9 +22,10 @@ interface ChatMessageProps {
   forwardedFrom?: string;
   forwardedFromType?: 'client' | 'teacher' | 'corporate';
   onMessageEdit?: (messageId: string, newMessage: string) => Promise<void>;
+  onMessageDelete?: (messageId: string) => Promise<void>;
 }
 
-export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit }: ChatMessageProps) => {
+export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete }: ChatMessageProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message);
 
@@ -173,15 +174,28 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
               <>
                 <p className="text-sm leading-relaxed">{editedMessage}</p>
                 {type === 'manager' && (
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    className="absolute top-1 right-1 h-6 w-6 p-0 opacity-60 hover:opacity-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800"
-                    onClick={() => setIsEditing(true)}
-                    title="Редактировать сообщение"
-                  >
-                    <Edit2 className="h-3 w-3" />
-                  </Button>
+                  <div className="absolute top-1 right-1 flex items-center gap-1">
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-6 w-6 p-0 opacity-60 hover:opacity-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800"
+                      onClick={() => setIsEditing(true)}
+                      title="Редактировать сообщение"
+                    >
+                      <Edit2 className="h-3 w-3" />
+                    </Button>
+                    {onMessageDelete && messageId && (
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-6 w-6 p-0 opacity-60 hover:opacity-100 text-red-600 hover:bg-red-100 hover:text-red-800"
+                        onClick={() => onMessageDelete(messageId)}
+                        title="Удалить сообщение"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
                 )}
               </>
             )}
