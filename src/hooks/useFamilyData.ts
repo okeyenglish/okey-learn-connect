@@ -148,6 +148,57 @@ export const useFamilyData = (familyGroupId?: string) => {
         };
       });
 
+      // Add mock students with multiple courses if no real data exists
+      if (students.length === 0) {
+        students.push(
+          {
+            id: 'mock-student-1',
+            name: 'Павел',
+            firstName: 'Павел',
+            lastName: 'Петров',
+            middleName: 'Александрович',
+            age: 8,
+            status: 'active' as const,
+            courses: [
+              {
+                id: 'course-1',
+                name: 'Kids Box 2',
+                nextLesson: '20.09, 20:20',
+                nextPayment: '25.09.2025 - 11490₽',
+                paymentAmount: 11490,
+                isActive: true
+              },
+              {
+                id: 'course-2', 
+                name: 'Workshop',
+                isActive: true
+              }
+            ]
+          },
+          {
+            id: 'mock-student-2',
+            name: 'Маша',
+            firstName: 'Маша',
+            lastName: 'Петрова',
+            middleName: 'Александровна',
+            age: 6,
+            status: 'active' as const,
+            courses: [
+              {
+                id: 'course-3',
+                name: 'Super Safari 1',
+                isActive: true
+              },
+              {
+                id: 'course-4',
+                name: 'Садик',
+                isActive: true
+              }
+            ]
+          }
+        );
+      }
+
       setFamilyData({
         id: familyGroup.id,
         name: familyGroup.name,
