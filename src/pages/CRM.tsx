@@ -1065,62 +1065,20 @@ const CRMContent = () => {
           {isMobile && activeTab === 'menu' ? (
             <div className="p-4 space-y-2 overflow-y-auto">
               {menuItems.map((item, index) => (
-                <Dialog key={index} open={openModal === item.label} onOpenChange={(open) => !open && handleMenuModalClose()}>
-                  <DialogTrigger asChild>
-                    <button
-                      className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors text-left border bg-card"
-                      onClick={() => handleMenuClick(item.label)}
-                    >
-                      <item.icon className="h-5 w-5 shrink-0 text-primary" />
-                      <span className="text-sm flex-1 font-medium">
-                        {item.label}
-                        {getMenuCount(item.label) > 0 && (
-                          <span className="text-muted-foreground"> ({getMenuCount(item.label)})</span>
-                        )}
-                      </span>
-                      <ExternalLink className="h-4 w-4 ml-auto opacity-50" />
-                    </button>
-                  </DialogTrigger>
-                  <PinnableDialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                    <PinnableModalHeader
-                      title={item.label}
-                      isPinned={isPinned(`menu-${item.label}`, item.label)}
-                      onPin={() => handlePinMenuModal(item.label)}
-                      onUnpin={() => handleUnpinMenuModal(item.label)}
-                      onClose={handleMenuModalClose}
-                    >
-                      <item.icon className="h-5 w-5 ml-2" />
-                    </PinnableModalHeader>
-                    <div className="py-4">
-                      {item.label === "Лиды" && (
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-center">
-                            <h3 className="font-medium">Клиенты</h3>
-                            <AddClientModal>
-                              <Button size="sm">
-                                <User className="h-4 w-4 mr-2" />
-                                Добавить клиента
-                              </Button>
-                            </AddClientModal>
-                          </div>
-                          <ClientsList 
-                            onSelectClient={(clientId) => {
-                              setActiveChatId(clientId);
-                              setActiveChatType('client');
-                              setActiveTab('chats'); // Переключаемся на чаты
-                            }}
-                            selectedClientId={activeChatId}
-                          />
-                        </div>
-                      )}
-                      {!["Лиды"].includes(item.label) && (
-                        <div className="text-center py-8">
-                          <p className="text-muted-foreground">Функция "{item.label}" в разработке</p>
-                        </div>
-                      )}
-                    </div>
-                  </PinnableDialogContent>
-                </Dialog>
+                <button
+                  key={index}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors text-left border bg-card"
+                  onClick={() => handleMenuClick(item.label)}
+                >
+                  <item.icon className="h-5 w-5 shrink-0 text-primary" />
+                  <span className="text-sm flex-1 font-medium">
+                    {item.label}
+                    {getMenuCount(item.label) > 0 && (
+                      <span className="text-muted-foreground"> ({getMenuCount(item.label)})</span>
+                    )}
+                  </span>
+                  <ExternalLink className="h-4 w-4 ml-auto opacity-50" />
+                </button>
               ))}
             </div>
           ) : isMobile && activeTab === 'chats' && !activeChatId ? (
