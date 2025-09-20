@@ -579,6 +579,13 @@ const CRMContent = () => {
   ];
 
 
+  // Calculate total unread messages
+  const totalUnreadCount = filteredChats.reduce((total, chat) => {
+    const chatState = getChatState(chat.id);
+    const unreadCount = chatState.isUnread ? 1 : chat.unread;
+    return total + unreadCount;
+  }, 0);
+
   return (
     <div className="h-screen bg-muted/30 flex flex-col overflow-hidden">
       {/* Фиксированные вкладки сверху на мобильной версии */}
@@ -613,7 +620,7 @@ const CRMContent = () => {
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
               }`}
             >
-              Чаты
+              Чаты{totalUnreadCount > 0 && ` (${totalUnreadCount})`}
             </Button>
             {/* Кнопка О клиенте - показывается только при активном чате с клиентом */}
             {activeChatId && activeChatType === 'client' && (
