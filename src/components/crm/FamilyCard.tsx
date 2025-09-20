@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AddFamilyMemberModal } from "./AddFamilyMemberModal";
 import { AddStudentModal } from "./AddStudentModal";
+import { StudentProfileModal } from "./StudentProfileModal";
 import { useFamilyData, FamilyMember, Student } from "@/hooks/useFamilyData";
 import { 
   Users, 
@@ -40,6 +41,8 @@ export const FamilyCard = ({
   const [autoMessagesEnabled, setAutoMessagesEnabled] = useState(true);
   const [selectedBranch, setSelectedBranch] = useState("Окская");
   const [isChangingBranch, setIsChangingBranch] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const { familyData, loading, error, refetch } = useFamilyData(familyGroupId);
   
   if (loading) {
@@ -105,6 +108,11 @@ export const FamilyCard = ({
       case 'trial': return 'Пробный';
       default: return status;
     }
+  };
+
+  const handleStudentClick = (student: Student) => {
+    setSelectedStudent(student);
+    setIsStudentModalOpen(true);
   };
 
   return (
@@ -243,7 +251,11 @@ export const FamilyCard = ({
               </div>
               <div className="space-y-2">
                 {familyData.students.map((student) => (
-                  <Card key={student.id} className="hover:bg-muted/20 transition-colors">
+                  <Card 
+                    key={student.id} 
+                    className="hover:bg-muted/20 transition-colors cursor-pointer"
+                    onClick={() => handleStudentClick(student)}
+                  >
                     <CardContent className="p-3">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
@@ -371,6 +383,12 @@ export const FamilyCard = ({
           )}
         </TabsContent>
       </Tabs>
+
+      <StudentProfileModal
+        student={selectedStudent}
+        open={isStudentModalOpen}
+        onOpenChange={setIsStudentModalOpen}
+      />
     </div>
   );
 };
