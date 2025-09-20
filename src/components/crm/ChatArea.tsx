@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useTypingStatus } from "@/hooks/useTypingStatus";
 import { ChatMessage } from "./ChatMessage";
 import { ClientTasks } from "./ClientTasks";
 import { AddTaskModal } from "./AddTaskModal";
@@ -95,6 +96,7 @@ export const ChatArea = ({
   const { sendTextMessage, loading } = useWhatsApp();
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
 
   // Функция для прокрутки к концу чата
   const scrollToBottom = (smooth = true) => {
@@ -255,6 +257,13 @@ export const ChatArea = ({
   const handleMessageChange = (value: string) => {
     setMessage(value);
     onMessageChange?.(value.trim().length > 0);
+    
+    // Update typing status
+    if (value.trim().length > 0) {
+      updateTypingStatus(true);
+    } else {
+      updateTypingStatus(false);
+    }
     
     // Auto-resize textarea
     if (textareaRef.current) {
@@ -843,21 +852,26 @@ export const ChatArea = ({
       <div className={`border-b p-3 shrink-0 ${isMobile ? 'bg-background' : ''}`}>
         {/* Mobile: User info section - displayed prominently */}
         {isMobile && (
-          <div className="mb-3 pb-3 border-b">
+          <div className="mb-4 p-4 bg-muted/30 rounded-lg border">
             <div className="flex items-center gap-3">
               {onBackToList && (
                 <Button 
                   size="sm" 
                   variant="ghost" 
-                  className="h-8 w-8 p-0"
+                  className="h-10 w-10 p-0 rounded-full"
                   onClick={onBackToList}
                 >
-                  <ArrowLeft className="h-4 w-4" />
+                  <ArrowLeft className="h-5 w-5" />
                 </Button>
               )}
-              <div className="flex-1">
-                <h2 className="font-semibold text-lg">{clientName}</h2>
-                <p className="text-sm text-muted-foreground">{clientPhone}</p>
+              <div className="flex-1 min-w-0">
+                <h2 className="font-bold text-lg text-foreground truncate">{clientName}</h2>
+                <p className="text-base text-muted-foreground font-medium">{clientPhone}</p>
+                {getTypingMessage() && (
+                  <p className="text-sm text-orange-600 italic animate-pulse mt-1">
+                    {getTypingMessage()}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -1152,14 +1166,20 @@ export const ChatArea = ({
             <div className="flex-1">
               <Textarea
                 ref={textareaRef}
-                placeholder={commentMode ? "Введите комментарий..." : "Введите сообщение..."}
+                placeholder={
+                  isOtherUserTyping 
+                    ? getTypingMessage() || "Менеджер печатает..." 
+                    : commentMode 
+                      ? "Введите комментарий..." 
+                      : "Введите сообщение..."
+                }
                 value={message}
                 onChange={(e) => handleMessageChange(e.target.value)}
                 onKeyPress={handleKeyPress}
                 className={`min-h-[48px] max-h-[120px] resize-none text-base ${
                   commentMode ? "bg-yellow-50 border-yellow-300" : ""
-                }`}
-                disabled={loading || !!pendingMessage}
+                } ${isOtherUserTyping ? "bg-orange-50 border-orange-200" : ""}`}
+                disabled={loading || !!pendingMessage || isOtherUserTyping}
               />
               <div className="flex items-center gap-1 mt-2">
                 <FileUpload

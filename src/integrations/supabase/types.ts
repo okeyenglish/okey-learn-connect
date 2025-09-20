@@ -169,6 +169,7 @@ export type Database = {
       clients: {
         Row: {
           avatar_url: string | null
+          branch: string | null
           created_at: string
           email: string | null
           id: string
@@ -183,6 +184,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          branch?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -197,6 +199,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          branch?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -243,18 +246,21 @@ export type Database = {
       }
       family_groups: {
         Row: {
+          branch: string | null
           created_at: string
           id: string
           name: string
           updated_at: string
         }
         Insert: {
+          branch?: string | null
           created_at?: string
           id?: string
           name: string
           updated_at?: string
         }
         Update: {
+          branch?: string | null
           created_at?: string
           id?: string
           name?: string
@@ -334,6 +340,35 @@ export type Database = {
         }
         Relationships: []
       }
+      manager_branches: {
+        Row: {
+          branch: string
+          created_at: string | null
+          id: string
+          manager_id: string
+        }
+        Insert: {
+          branch: string
+          created_at?: string | null
+          id?: string
+          manager_id: string
+        }
+        Update: {
+          branch?: string
+          created_at?: string | null
+          id?: string
+          manager_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manager_branches_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messenger_settings: {
         Row: {
           created_at: string
@@ -405,6 +440,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          branch: string | null
           created_at: string
           department: string | null
           email: string | null
@@ -415,6 +451,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          branch?: string | null
           created_at?: string
           department?: string | null
           email?: string | null
@@ -425,6 +462,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          branch?: string | null
           created_at?: string
           department?: string | null
           email?: string | null
@@ -595,6 +633,7 @@ export type Database = {
       }
       tasks: {
         Row: {
+          branch: string | null
           client_id: string
           created_at: string
           description: string | null
@@ -610,6 +649,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          branch?: string | null
           client_id: string
           created_at?: string
           description?: string | null
@@ -625,6 +665,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          branch?: string | null
           client_id?: string
           created_at?: string
           description?: string | null
@@ -638,6 +679,39 @@ export type Database = {
           status?: string
           title?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      typing_status: {
+        Row: {
+          client_id: string
+          created_at: string | null
+          id: string
+          is_typing: boolean | null
+          last_activity: string | null
+          manager_name: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string | null
+          id?: string
+          is_typing?: boolean | null
+          last_activity?: string | null
+          manager_name?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string | null
+          id?: string
+          is_typing?: boolean | null
+          last_activity?: string | null
+          manager_name?: string | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -701,6 +775,10 @@ export type Database = {
         Args: { "": string } | { "": unknown }
         Returns: unknown
       }
+      cleanup_old_typing_status: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       get_public_schedule: {
         Args: Record<PropertyKey, never> | { branch_name?: string }
         Returns: {
@@ -719,6 +797,10 @@ export type Database = {
           vacancies: number
           Возраст: string
         }[]
+      }
+      get_user_branches: {
+        Args: { _user_id: string }
+        Returns: string[]
       }
       get_user_role: {
         Args: { _user_id: string }

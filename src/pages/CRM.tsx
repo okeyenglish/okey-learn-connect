@@ -295,8 +295,28 @@ const CRMContent = () => {
 
   const allChats = [
     // Системные чаты
-    { id: 'corporate', name: 'Корпоративный чат', phone: 'Команда OKEY ENGLISH', time: '11:45', unread: 3, type: 'corporate' as const, timestamp: Date.now() - 1000 * 60 * 60, avatar_url: null },
-    { id: 'teachers', name: 'Преподаватели', phone: 'Чаты с преподавателями', time: '10:15', unread: 2, type: 'teachers' as const, timestamp: Date.now() - 1000 * 60 * 90, avatar_url: null },
+    { 
+      id: 'corporate', 
+      name: 'Корпоративный чат', 
+      phone: 'Команда OKEY ENGLISH', 
+      lastMessage: 'Всем привет! Обсуждаем новые материалы',
+      time: '11:45', 
+      unread: 3, 
+      type: 'corporate' as const, 
+      timestamp: Date.now() - 1000 * 60 * 60, 
+      avatar_url: null 
+    },
+    { 
+      id: 'teachers', 
+      name: 'Преподаватели', 
+      phone: 'Чаты с преподавателями', 
+      lastMessage: 'Обновили расписание на следующую неделю',
+      time: '10:15', 
+      unread: 2, 
+      type: 'teachers' as const, 
+      timestamp: Date.now() - 1000 * 60 * 90, 
+      avatar_url: null 
+    },
     // Реальные чаты с клиентами
     ...threads.map(thread => {
       // Find client data to get avatar
@@ -305,6 +325,7 @@ const CRMContent = () => {
         id: thread.client_id,
         name: thread.client_name,
         phone: thread.client_phone,
+        lastMessage: "Нет сообщений", // TODO: Add last_message_text to ChatThread interface
         time: formatTime(thread.last_message_time),
         unread: thread.unread_count,
         type: 'client' as const,
@@ -973,17 +994,19 @@ const CRMContent = () => {
                                          </div>
                                        )}
                                        
-                                       <div className="flex-1">
-                                         <div className="flex items-center gap-2">
-                                           <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
-                                             {chat.name}
-                                           </p>
-                                           <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300">
-                                             В работе
-                                           </Badge>
-                                         </div>
-                                         <p className="text-xs text-muted-foreground">{chat.phone}</p>
-                                       </div>
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2">
+                                            <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
+                                              {chat.name}
+                                            </p>
+                                            <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300">
+                                              В работе
+                                            </Badge>
+                                          </div>
+                                          <p className="text-xs text-muted-foreground truncate max-w-40">
+                                            {chat.lastMessage || "Привет! Как дела?"}
+                                          </p>
+                                        </div>
                                      </div>
                                     <div className="flex flex-col items-end">
                                       <Pin className="h-3 w-3 text-orange-600 mb-1" />
@@ -1063,12 +1086,14 @@ const CRMContent = () => {
                                        </div>
                                      )}
                                      
-                                     <div>
-                                       <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
-                                         {chat.name}
-                                       </p>
-                                       <p className="text-xs text-muted-foreground">{chat.phone}</p>
-                                     </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
+                                          {chat.name}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground truncate">
+                                          {chat.lastMessage || "Последнее сообщение"}
+                                        </p>
+                                      </div>
                                    </div>
                                   <div className="flex flex-col items-end">
                                     <span className="text-xs text-muted-foreground">{chat.time}</span>
@@ -1285,12 +1310,14 @@ const CRMContent = () => {
                                    <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                                      <User className="h-6 w-6 text-green-600" />
                                    </div>
-                                   <div className="flex-1">
-                                     <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
-                                       {chat.name}
-                                     </p>
-                                     <p className="text-xs text-muted-foreground mt-1">{chat.phone}</p>
-                                   </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
+                                            {chat.name}
+                                          </p>
+                                          <p className="text-xs text-muted-foreground truncate">
+                                            {chat.lastMessage || "Последнее сообщение"}
+                                          </p>
+                                        </div>
                                  </div>
                                  <div className="flex flex-col items-end gap-2">
                                    <div className="flex items-center gap-2">
