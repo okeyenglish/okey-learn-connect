@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { useAuth } from "@/hooks/useAuth";
 import { ChatArea } from "@/components/crm/ChatArea";
 import { CorporateChatArea } from "@/components/crm/CorporateChatArea";
 import { TeacherChatArea } from "@/components/crm/TeacherChatArea";
@@ -35,12 +37,12 @@ import {
   Pin,
   Building2,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  LogOut
 } from "lucide-react";
 
-const CRM = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState("");
+const CRMContent = () => {
+  const { user, profile, role, signOut } = useAuth();
   const [openModal, setOpenModal] = useState<string | null>(null);
   const [hasUnsavedChat, setHasUnsavedChat] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -60,12 +62,8 @@ const CRM = () => {
   const [isPinnedSectionOpen, setIsPinnedSectionOpen] = useState(false);
   
   
-  const handleAuth = () => {
-    if (password === "12345") {
-      setIsAuthenticated(true);
-    } else {
-      alert("Неверный пароль");
-    }
+  const handleSignOut = async () => {
+    await signOut();
   };
 
   const handleMenuClick = (action: string) => {
@@ -243,32 +241,30 @@ const CRM = () => {
     { icon: Settings, label: "Настройки" },
   ];
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-center">Вход в CRM</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Input
-              type="password"
-              placeholder="Введите пароль"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAuth()}
-            />
-            <Button onClick={handleAuth} className="w-full">
-              Войти
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="h-screen bg-muted/30 flex flex-col">
+      {/* User Header */}
+      <div className="bg-background border-b p-4 shrink-0">
+        <div className="flex items-center justify-between max-w-7xl mx-auto">
+          <div className="flex items-center gap-3">
+            <Building2 className="h-6 w-6 text-primary" />
+            <div>
+              <h1 className="text-xl font-bold">O'KEY ENGLISH CRM</h1>
+              {profile && (
+                <p className="text-sm text-muted-foreground">
+                  {profile.first_name} {profile.last_name} ({role})
+                </p>
+              )}
+            </div>
+          </div>
+          <Button variant="outline" onClick={handleSignOut}>
+            <LogOut className="h-4 w-4 mr-2" />
+            Выйти
+          </Button>
+        </div>
+      </div>
+      
       {/* Search Bar */}
       <div className="bg-background border-b p-4 shrink-0">
         <div className="relative max-w-7xl mx-auto">
@@ -613,6 +609,14 @@ const CRM = () => {
         onSelectResult={handleSelectSearchResult}
       />
     </div>
+  );
+};
+
+const CRM = () => {
+  return (
+    <ProtectedRoute allowedRoles={['admin', 'manager']}>
+      <CRMContent />
+    </ProtectedRoute>
   );
 };
 
