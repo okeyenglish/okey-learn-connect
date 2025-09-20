@@ -54,7 +54,49 @@ export const useChatStatesDB = () => {
   // Загружаем данные при монтировании компонента или изменении пользователя
   useEffect(() => {
     loadChatStates();
-  }, [loadChatStates]);
+
+    // Настройка реального времени для синхронизации состояний чатов
+    if (user) {
+      const channel = supabase
+        .channel('chat-states-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'chat_states',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Chat state change:', payload);
+            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+              const newState = payload.new as any;
+              setChatStates(prev => ({
+                ...prev,
+                [newState.chat_id]: {
+                  chatId: newState.chat_id,
+                  isPinned: newState.is_pinned,
+                  isArchived: newState.is_archived,
+                  isUnread: newState.is_unread
+                }
+              }));
+            } else if (payload.eventType === 'DELETE') {
+              const oldState = payload.old as any;
+              setChatStates(prev => {
+                const newStates = { ...prev };
+                delete newStates[oldState.chat_id];
+                return newStates;
+              });
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [loadChatStates, user]);
 
   // Обновление состояния чата
   const updateChatState = useCallback(async (chatId: string, updates: Partial<Omit<ChatState, 'chatId'>>) => {
