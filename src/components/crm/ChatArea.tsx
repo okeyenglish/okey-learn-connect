@@ -310,24 +310,43 @@ export const ChatArea = ({
   // Функция для редактирования сообщения
   const handleEditMessage = async (messageId: string, newMessage: string) => {
     try {
-      // Вариант 1: Только редактирование в CRM без отправки клиенту
-      // Вариант 2: Попытка удалить старое сообщение и отправить новое (если API поддерживает)
-      // Вариант 3: Отправка исправления как нового сообщения
-      
-      // Пока используем вариант 1 - только обновление в CRM
-      toast({
-        title: "Сообщение отредактировано",
-        description: "Изменения сохранены в CRM (клиенту не отправляется из-за ограничений WhatsApp API)",
-      });
-      
-      // Обновляем локальное состояние сообщений
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.id === messageId
-            ? { ...msg, message: newMessage, isEdited: true, editedTime: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) }
-            : msg
-        )
-      );
+      // Попытка удалить старое сообщение и отправить новое через Green API
+      const { data, error } = await supabase.functions.invoke('edit-whatsapp-message', {
+        body: { 
+          messageId, 
+          newMessage, 
+          clientId 
+        }
+      })
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      if (data.success) {
+        let description = "Сообщение обновлено в WhatsApp"
+        if (data.deleteSuccess) {
+          description = "Старое сообщение удалено, новое отправлено"
+        } else if (data.deleteError) {
+          description = `Не удалось удалить старое сообщение (${data.deleteError}), но новое отправлено`
+        }
+
+        toast({
+          title: "Сообщение отредактировано",
+          description,
+        });
+        
+        // Обновляем локальное состояние сообщений
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.id === messageId
+              ? { ...msg, message: newMessage, isEdited: true, editedTime: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) }
+              : msg
+          )
+        );
+      } else {
+        throw new Error(data.error || "Не удалось отредактировать сообщение")
+      }
     } catch (error: any) {
       toast({
         title: "Ошибка редактирования", 
