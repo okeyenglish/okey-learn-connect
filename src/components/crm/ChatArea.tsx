@@ -75,12 +75,20 @@ const mockChatHistory: Record<string, any[]> = {
 export const ChatArea = ({ clientName, clientPhone, clientComment = "Базовый комментарий", onMessageChange, activePhoneId = '1' }: ChatAreaProps) => {
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showSearchInput, setShowSearchInput] = useState(false);
   const [isEditingComment, setIsEditingComment] = useState(false);
   const [editableComment, setEditableComment] = useState(clientComment);
 
   const handleMessageChange = (value: string) => {
     setMessage(value);
     onMessageChange?.(value.trim().length > 0);
+  };
+
+  const handleSearchToggle = () => {
+    setShowSearchInput(!showSearchInput);
+    if (showSearchInput) {
+      setSearchQuery(""); // Clear search when hiding
+    }
   };
 
   const handleSaveComment = () => {
@@ -118,9 +126,20 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
       {/* Chat Header */}
       <div className="border-b p-3 shrink-0">
         <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <h2 className="font-semibold text-base">{clientName}</h2>
-            <p className="text-sm text-muted-foreground">{clientPhone}</p>
+          <div className="flex-1 flex items-center gap-3">
+            <div>
+              <h2 className="font-semibold text-base">{clientName}</h2>
+              <p className="text-sm text-muted-foreground">{clientPhone}</p>
+            </div>
+            {showSearchInput && (
+              <Input
+                placeholder="Поиск в чате..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-64 h-8"
+                autoFocus
+              />
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Button 
@@ -141,10 +160,10 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
             </Button>
             <Button 
               size="sm" 
-              variant="outline" 
+              variant={showSearchInput ? "default" : "outline"}
               className="h-8 w-8 p-0"
               title="Поиск в чате"
-              onClick={() => setSearchQuery(searchQuery ? "" : "поиск")}
+              onClick={handleSearchToggle}
             >
               <Search className="h-4 w-4" />
             </Button>
