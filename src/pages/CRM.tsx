@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ChatArea } from "@/components/crm/ChatArea";
+import { CorporateChatArea } from "@/components/crm/CorporateChatArea";
 import { SearchInput } from "@/components/crm/SearchInput";
 import { SearchResults } from "@/components/crm/SearchResults";
 import { LinkedContacts } from "@/components/crm/LinkedContacts";
@@ -28,7 +29,8 @@ import {
   Phone,
   MessageCircle,
   MessageCirclePlus,
-  Pin
+  Pin,
+  Building2
 } from "lucide-react";
 
 const CRM = () => {
@@ -42,6 +44,8 @@ const CRM = () => {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [chatStates, setChatStates] = useState<Record<string, { pinned: boolean; archived: boolean; unread: boolean }>>({});
   const [activePhoneId, setActivePhoneId] = useState<string>('1');
+  const [activeChatId, setActiveChatId] = useState<string>('1');
+  const [activeChatType, setActiveChatType] = useState<'client' | 'corporate'>('client');
   
   
   const handleAuth = () => {
@@ -62,6 +66,9 @@ const CRM = () => {
 
   // Mock data для демонстрации поиска
   const mockSearchData = [
+    // Корпоративный чат
+    { id: 'corporate', type: 'chat', title: 'Корпоративный чат', subtitle: 'Команда OKEY ENGLISH', description: 'Общение с коллегами по филиалам' },
+    
     // Клиенты
     { id: '1', type: 'client', title: 'Мария Петрова', subtitle: '+7 (985) 261-50-56', description: 'Родитель Павла и Марии', metadata: { phone: '+7 (985) 261-50-56', branch: 'Котельники' } },
     { id: '2', type: 'client', title: 'Анна Смирнова', subtitle: '+7 (916) 123-45-67', description: 'Родитель Алексея', metadata: { phone: '+7 (916) 123-45-67', branch: 'Люберцы' } },
@@ -118,9 +125,10 @@ const CRM = () => {
 
   // Фильтрация чатов на основе поиска
   const allChats = [
-    { id: '1', name: 'Мария Петрова', phone: '+7 (985) 261-50-56', time: '10:32', unread: 2 },
-    { id: '2', name: 'Анна Смирнова', phone: '+7 (916) 123-45-67', time: '09:15', unread: 0 },
-    { id: '3', name: 'Игорь Волков', phone: '+7 (903) 987-65-43', time: 'Вчера', unread: 0 },
+    { id: 'corporate', name: 'Корпоративный чат', phone: 'Команда OKEY ENGLISH', time: '11:45', unread: 3, type: 'corporate' as const },
+    { id: '1', name: 'Мария Петрова', phone: '+7 (985) 261-50-56', time: '10:32', unread: 2, type: 'client' as const },
+    { id: '2', name: 'Анна Смирнова', phone: '+7 (916) 123-45-67', time: '09:15', unread: 0, type: 'client' as const },
+    { id: '3', name: 'Игорь Волков', phone: '+7 (903) 987-65-43', time: 'Вчера', unread: 0, type: 'client' as const },
   ];
 
   const filteredChats = allChats
@@ -183,6 +191,11 @@ const CRM = () => {
       }
     }));
     console.log(`${action} для чата:`, chatId);
+  };
+
+  const handleChatClick = (chatId: string, chatType: 'client' | 'corporate') => {
+    setActiveChatId(chatId);
+    setActiveChatType(chatType);
   };
 
   const menuItems = [
@@ -379,18 +392,24 @@ const CRM = () => {
                       >
                         <button 
                           className={`w-full p-3 text-left rounded-lg transition-colors relative ${
-                            index === 0 ? 'bg-muted hover:bg-muted/80' : 'hover:bg-muted/50'
+                            chat.id === activeChatId ? 'bg-muted hover:bg-muted/80' : 'hover:bg-muted/50'
                           }`}
+                          onClick={() => handleChatClick(chat.id, chat.type)}
                         >
                           {chatState.pinned && (
                             <Pin className="absolute top-2 right-2 h-3 w-3 text-muted-foreground" />
                           )}
                           <div className="flex items-center justify-between">
-                            <div>
-                              <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
-                                {chat.name}
-                              </p>
-                              <p className="text-xs text-muted-foreground">{chat.phone}</p>
+                            <div className="flex items-center gap-2">
+                              {chat.type === 'corporate' && (
+                                <Building2 className="h-4 w-4 text-slate-600" />
+                              )}
+                              <div>
+                                <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
+                                  {chat.name}
+                                </p>
+                                <p className="text-xs text-muted-foreground">{chat.phone}</p>
+                              </div>
                             </div>
                             <div className="flex flex-col items-end">
                               <span className="text-xs text-muted-foreground">{chat.time}</span>
@@ -419,26 +438,32 @@ const CRM = () => {
         </div>
 
         {/* Center - Chat */}
-        <ChatArea 
-          clientName="Мария Петрова"
-          clientPhone={getCurrentPhoneNumber()}
-          clientComment="Мама Павла, активная, всегда интересуется успехами"
-          onMessageChange={setHasUnsavedChat}
-          activePhoneId={activePhoneId}
-        />
-
-        {/* Right Sidebar - Family Card */}
-        <div className="w-80 bg-background p-4 overflow-y-auto">
-          <FamilyCard
-            familyGroupId="550e8400-e29b-41d4-a716-446655440000"
-            activeMemberId={activeFamilyMemberId}
-            onSwitchMember={handleSwitchFamilyMember}
-            onOpenChat={handleOpenLinkedChat}
-            onCall={handleCallFamilyMember}
-            onPhoneSwitch={handlePhoneSwitch}
+        {activeChatType === 'corporate' ? (
+          <CorporateChatArea onMessageChange={setHasUnsavedChat} />
+        ) : (
+          <ChatArea 
+            clientName="Мария Петрова"
+            clientPhone={getCurrentPhoneNumber()}
+            clientComment="Мама Павла, активная, всегда интересуется успехами"
+            onMessageChange={setHasUnsavedChat}
             activePhoneId={activePhoneId}
           />
-        </div>
+        )}
+
+        {/* Right Sidebar - Family Card (только для клиентских чатов) */}
+        {activeChatType === 'client' && (
+          <div className="w-80 bg-background p-4 overflow-y-auto">
+            <FamilyCard
+              familyGroupId="550e8400-e29b-41d4-a716-446655440000"
+              activeMemberId={activeFamilyMemberId}
+              onSwitchMember={handleSwitchFamilyMember}
+              onOpenChat={handleOpenLinkedChat}
+              onCall={handleCallFamilyMember}
+              onPhoneSwitch={handlePhoneSwitch}
+              activePhoneId={activePhoneId}
+            />
+          </div>
+        )}
       </div>
 
       {/* Search Results Modal */}
