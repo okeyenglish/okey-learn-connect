@@ -43,9 +43,9 @@ export const ClientTasks = ({ clientName, tasks }: ClientTasksProps) => {
   };
 
   return (
-    <Card className="mb-4 border-orange-200 bg-orange-50/50">
+    <Card className="mb-3 border-orange-200 bg-orange-50/30">
       <CardHeader 
-        className="pb-2 cursor-pointer" 
+        className="pb-2 pt-3 cursor-pointer" 
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <CardTitle className="text-sm flex items-center gap-2">
@@ -59,28 +59,30 @@ export const ClientTasks = ({ clientName, tasks }: ClientTasksProps) => {
         </CardTitle>
       </CardHeader>
       {isExpanded && (
-        <CardContent className="pt-2">
+        <CardContent className="pt-1 pb-3">
           <div className="space-y-2">
             {tasks.map((task) => (
-              <div key={task.id} className="bg-white rounded-md p-2 border border-orange-200">
+              <div key={task.id} className="bg-white rounded-md p-2 border border-orange-200/60">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{task.title}</p>
-                    {task.student && (
-                      <div className="flex items-center gap-1 mt-1">
-                        <User className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">{task.student}</span>
-                      </div>
-                    )}
-                    {task.dueDate && (
-                      <div className="flex items-center gap-1 mt-1">
-                        <Clock className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">{task.dueDate}</span>
-                      </div>
-                    )}
+                    <p className="text-sm font-medium truncate leading-tight">{task.title}</p>
+                    <div className="flex items-center gap-3 mt-1">
+                      {task.student && (
+                        <div className="flex items-center gap-1">
+                          <User className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">{task.student}</span>
+                        </div>
+                      )}
+                      {task.dueDate && (
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">{task.dueDate}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Badge variant={getPriorityColor(task.priority)} className="shrink-0 text-xs">
+                    <Badge variant={getPriorityColor(task.priority)} className="shrink-0 text-xs px-1.5 py-0.5">
                       {task.priority === 'high' ? 'Срочно' : task.priority === 'medium' ? 'Важно' : 'Обычно'}
                     </Badge>
                     <Button 
