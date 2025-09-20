@@ -255,7 +255,7 @@ export const ChatArea = ({
               variant="outline" 
               className="h-8 w-8 p-0"
               title="Добавить задачу"
-              onClick={() => setShowAddTaskModal(true)}
+              onClick={() => (onOpenTaskModal ? onOpenTaskModal() : setShowAddTaskModal(true))}
             >
               <Plus className="h-4 w-4" />
             </Button>
@@ -264,7 +264,7 @@ export const ChatArea = ({
               variant="outline" 
               className="h-8 w-8 p-0"
               title="Выставить счёт"
-              onClick={() => setShowInvoiceModal(true)}
+              onClick={() => (onOpenInvoiceModal ? onOpenInvoiceModal() : setShowInvoiceModal(true))}
             >
               <FileText className="h-4 w-4" />
             </Button>
