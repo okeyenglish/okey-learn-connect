@@ -70,6 +70,7 @@ export const ChatArea = ({
   const [editingScheduledMessage, setEditingScheduledMessage] = useState<ScheduledMessage | null>(null);
   const [showQuickResponsesModal, setShowQuickResponsesModal] = useState(false);
   const [commentMode, setCommentMode] = useState(false);
+  const [gptGenerating, setGptGenerating] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -311,6 +312,50 @@ export const ChatArea = ({
         description: error.message || "Не удалось сохранить комментарий",
         variant: "destructive",
       });
+    }
+  };
+
+  const generateGPTResponse = async () => {
+    if (!message.trim() || gptGenerating) return;
+
+    setGptGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-gpt-response', {
+        body: { 
+          clientId: clientId,
+          currentMessage: message.trim()
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.generatedText) {
+        setMessage(data.generatedText);
+        onMessageChange?.(true);
+        
+        // Auto-resize textarea
+        if (textareaRef.current) {
+          setTimeout(() => {
+            if (textareaRef.current) {
+              textareaRef.current.style.height = 'auto';
+              textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+            }
+          }, 0);
+        }
+
+        toast({
+          title: "Ответ сгенерирован",
+          description: "GPT сгенерировал подходящий ответ на основе контекста диалога",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Ошибка генерации",
+        description: error.message || "Не удалось сгенерировать ответ",
+        variant: "destructive",
+      });
+    } finally {
+      setGptGenerating(false);
     }
   };
 
@@ -951,8 +996,19 @@ export const ChatArea = ({
                   className={`h-8 w-8 p-0 ${commentMode ? "bg-yellow-100 text-yellow-700" : ""}`}
                   disabled={!!pendingMessage}
                   onClick={() => setCommentMode(!commentMode)}
+                  title="Режим комментариев"
                 >
-                  <Bot className="h-4 w-4" />
+                  <MessageCircle className="h-4 w-4" />
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className={`h-8 w-8 p-0 ${gptGenerating ? "bg-blue-100 text-blue-700" : ""}`}
+                  disabled={!!pendingMessage || !message.trim() || gptGenerating}
+                  onClick={generateGPTResponse}
+                  title="Генерировать ответ с помощью GPT"
+                >
+                  <Bot className={`h-4 w-4 ${gptGenerating ? "animate-pulse" : ""}`} />
                 </Button>
                 <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!!pendingMessage}>
                   <Mic className="h-4 w-4" />
