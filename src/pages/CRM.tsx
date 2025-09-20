@@ -93,33 +93,19 @@ const CRM = () => {
 
       <div className="flex flex-1 max-w-7xl mx-auto w-full">
         {/* Left Sidebar - Menu */}
-        <div className="relative group">
-          <div className="w-16 bg-background border-r flex flex-col py-4 shrink-0">
-            {menuItems.map((item, index) => (
-              <button
-                key={index}
-                className="flex items-center justify-center h-12 hover:bg-muted transition-colors relative"
-                title={item.label}
-              >
-                <item.icon className="h-5 w-5" />
-              </button>
-            ))}
-          </div>
-          
-          {/* Expanded Menu on Hover */}
-          <div className="absolute left-16 top-0 w-48 bg-background border-r shadow-lg transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out opacity-0 group-hover:opacity-100 z-10">
-            <div className="flex flex-col py-4">
-              {menuItems.map((item, index) => (
-                <button
-                  key={index}
-                  className="flex items-center gap-3 px-4 h-12 hover:bg-muted transition-colors text-left"
-                >
-                  <item.icon className="h-5 w-5" />
-                  <span className="text-sm">{item.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className="w-16 hover:w-48 bg-background border-r flex flex-col py-4 shrink-0 transition-all duration-300 ease-out group overflow-hidden">
+          {menuItems.map((item, index) => (
+            <button
+              key={index}
+              className="flex items-center gap-3 px-4 h-12 hover:bg-muted transition-colors relative"
+              title={item.label}
+            >
+              <item.icon className="h-5 w-5 shrink-0" />
+              <span className="text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                {item.label}
+              </span>
+            </button>
+          ))}
         </div>
 
         {/* Center - Chat */}
