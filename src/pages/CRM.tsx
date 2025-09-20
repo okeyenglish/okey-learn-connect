@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ChatArea } from "@/components/crm/ChatArea";
 import { 
   Search, 
   CheckSquare, 
@@ -17,23 +18,14 @@ import {
   DollarSign, 
   BarChart3, 
   Settings,
+  ExternalLink,
   Phone,
-  Send,
-  Paperclip,
-  Zap,
-  MessageCircle,
-  Mic,
-  PhoneCall,
-  Play,
-  FileSpreadsheet,
-  ExternalLink
+  MessageCircle
 } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
 
 const CRM = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
   const [openModal, setOpenModal] = useState<string | null>(null);
   const [hasUnsavedChat, setHasUnsavedChat] = useState(false);
   
@@ -46,16 +38,11 @@ const CRM = () => {
   };
 
   const handleMenuClick = (action: string) => {
-    if (hasUnsavedChat && message.trim()) {
+    if (hasUnsavedChat) {
       const confirm = window.confirm("У вас есть несохраненное сообщение. Продолжить?");
       if (!confirm) return;
     }
     setOpenModal(action);
-  };
-
-  const handleMessageChange = (value: string) => {
-    setMessage(value);
-    setHasUnsavedChat(value.trim().length > 0);
   };
 
   const menuItems = [
@@ -252,101 +239,11 @@ const CRM = () => {
         </div>
 
         {/* Center - Chat */}
-        <div className="flex-1 bg-background border-r flex flex-col min-w-0">
-          {/* Chat Header */}
-          <div className="border-b p-4 flex items-center justify-between">
-            <div>
-              <h2 className="font-semibold">Мария Петрова</h2>
-              <p className="text-sm text-muted-foreground">+7 (985) 261-50-56</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline">
-                <Phone className="h-4 w-4" />
-              </Button>
-              <Button size="sm" variant="outline" className="text-green-600">
-                <MessageCircle className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Chat Messages */}
-          <div className="flex-1 p-4 space-y-4 overflow-y-auto">
-            {/* Client Message */}
-            <div className="flex justify-start">
-              <div className="bg-muted rounded-lg p-3 max-w-xs">
-                <p className="text-sm">Здравствуйте! Можно узнать расписание занятий для Павла на следующую неделю?</p>
-                <span className="text-xs text-muted-foreground">10:30</span>
-              </div>
-            </div>
-
-            {/* Manager Message */}
-            <div className="flex justify-end">
-              <div className="bg-primary text-primary-foreground rounded-lg p-3 max-w-xs">
-                <p className="text-sm">Добрый день! Конечно, сейчас проверю расписание Павла.</p>
-                <span className="text-xs opacity-70">10:32</span>
-              </div>
-            </div>
-
-            {/* Missed Call */}
-            <div className="flex justify-center">
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
-                <Phone className="h-4 w-4 text-red-600" />
-                <span className="text-sm text-red-600">Пропущенный звонок</span>
-                <Button size="sm" variant="outline" className="text-red-600">
-                  <PhoneCall className="h-4 w-4" />
-                  Перезвонить
-                </Button>
-              </div>
-            </div>
-
-            {/* Call Record */}
-            <div className="flex justify-center">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
-                <Phone className="h-4 w-4 text-green-600" />
-                <span className="text-sm text-green-600">Был звонок (3:45)</span>
-                <Button size="sm" variant="outline" className="text-green-600">
-                  <Play className="h-4 w-4" />
-                  Прослушать
-                </Button>
-                <Button size="sm" variant="outline" className="text-green-600">
-                  <FileSpreadsheet className="h-4 w-4" />
-                  Саммари
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Message Input */}
-          <div className="border-t p-4">
-            <div className="flex items-end gap-2">
-              <div className="flex-1 space-y-2">
-                <Textarea
-                  placeholder="Введите сообщение..."
-                  value={message}
-                  onChange={(e) => handleMessageChange(e.target.value)}
-                  className="min-h-[60px] resize-none"
-                />
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="ghost">
-                    <Paperclip className="h-4 w-4" />
-                  </Button>
-                  <Button size="sm" variant="ghost">
-                    <Zap className="h-4 w-4" />
-                  </Button>
-                  <Button size="sm" variant="ghost">
-                    <MessageCircle className="h-4 w-4" />
-                  </Button>
-                  <Button size="sm" variant="ghost">
-                    <Mic className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <Button size="icon" className="rounded-full">
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
+        <ChatArea 
+          clientName="Мария Петрова"
+          clientPhone="+7 (985) 261-50-56"
+          onMessageChange={setHasUnsavedChat}
+        />
 
         {/* Right Sidebar - Client Card */}
         <div className="w-80 bg-background p-4">
