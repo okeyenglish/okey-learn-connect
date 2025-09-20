@@ -179,11 +179,11 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
                   <p className="text-sm leading-relaxed">{editedMessage}</p>
                 )}
                 {type === 'manager' && message !== '[Сообщение удалено]' && (
-                  <div className="absolute top-1 right-1 flex items-center gap-1">
+                  <div className="absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button 
                       size="sm" 
                       variant="ghost" 
-                      className="h-6 w-6 p-0 opacity-60 hover:opacity-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800"
+                      className="h-6 w-6 p-0 text-slate-600 hover:bg-slate-200 hover:text-slate-800"
                       onClick={() => setIsEditing(true)}
                       title="Редактировать сообщение"
                     >
@@ -193,7 +193,7 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
                       <Button 
                         size="sm" 
                         variant="ghost" 
-                        className="h-6 w-6 p-0 opacity-60 hover:opacity-100 text-red-600 hover:bg-red-100 hover:text-red-800"
+                        className="h-6 w-6 p-0 text-red-600 hover:bg-red-100 hover:text-red-800"
                         onClick={() => onMessageDelete(messageId)}
                         title="Удалить сообщение"
                       >
