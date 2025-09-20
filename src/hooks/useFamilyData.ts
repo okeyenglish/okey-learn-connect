@@ -11,6 +11,7 @@ export interface FamilyMember {
   unreadMessages?: number;
   isOnline?: boolean;
   isPrimaryContact: boolean;
+  avatar_url?: string;
 }
 
 export interface Student {
@@ -75,7 +76,8 @@ export const useFamilyData = (familyGroupId?: string) => {
             name,
             phone,
             email,
-            notes
+            notes,
+            avatar_url
           )
         `)
         .eq('family_group_id', familyGroupId);
@@ -110,7 +112,8 @@ export const useFamilyData = (familyGroupId?: string) => {
         isPrimaryContact: member.is_primary_contact,
         unreadMessages: Math.floor(Math.random() * 3), // Mock data for now
         isOnline: Math.random() > 0.5, // Mock data for now
-        lastContact: member.relationship_type === 'main' ? 'Сейчас в чате' : '2 дня назад' // Mock data
+        lastContact: member.relationship_type === 'main' ? 'Сейчас в чате' : '2 дня назад', // Mock data
+        avatar_url: member.clients.avatar_url || undefined
       }));
 
       // Transform students data from database

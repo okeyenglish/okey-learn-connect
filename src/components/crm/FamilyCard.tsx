@@ -185,9 +185,23 @@ export const FamilyCard = ({
       <Card className="border-slate-200 bg-slate-50">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <User className="h-5 w-5 text-slate-600" />
+            <div className="flex items-center gap-3">
+              <div className="relative flex-shrink-0">
+                {activeMember.avatar_url ? (
+                  <img 
+                    src={activeMember.avatar_url} 
+                    alt={`${activeMember.name} avatar`} 
+                    className="w-12 h-12 rounded-full object-cover border-2 border-green-200"
+                    onError={(e) => {
+                      const target = e.currentTarget as HTMLImageElement;
+                      target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
+                    }}
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                    <User className="h-6 w-6 text-green-600" />
+                  </div>
+                )}
                 {activeMember.isOnline && (
                   <div className="absolute -bottom-1 -right-1 h-3 w-3 bg-green-500 rounded-full border-2 border-white"></div>
                 )}
@@ -427,17 +441,29 @@ export const FamilyCard = ({
                   <Card key={member.id} className="hover:bg-muted/30 transition-colors cursor-pointer">
                     <CardContent className="p-3">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 flex-1">
-                          <div className="relative">
-                            <RelationIcon className="h-4 w-4 text-muted-foreground" />
-                            {member.isOnline && (
-                              <div className="absolute -bottom-1 -right-1 h-2 w-2 bg-green-500 rounded-full border border-white"></div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{member.name}</p>
-                            <div className="flex items-center gap-2">
-                              <p className="text-xs text-muted-foreground">{member.phone}</p>
+                         <div className="flex items-center gap-3 flex-1">
+                           <div className="relative flex-shrink-0">
+                             {member.avatar_url ? (
+                               <img 
+                                 src={member.avatar_url} 
+                                 alt={`${member.name} avatar`} 
+                                 className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
+                                 onError={(e) => {
+                                   const target = e.currentTarget as HTMLImageElement;
+                                   target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
+                                 }}
+                               />
+                             ) : (
+                               <RelationIcon className="w-10 h-10 text-green-600 bg-green-100 p-2 rounded-full" />
+                             )}
+                             {member.isOnline && (
+                               <div className="absolute -bottom-1 -right-1 h-2 w-2 bg-green-500 rounded-full border border-white"></div>
+                             )}
+                           </div>
+                           <div className="flex-1 min-w-0">
+                             <p className="font-medium text-sm truncate">{member.name}</p>
+                             <div className="flex items-center gap-2">
+                               <p className="text-xs text-muted-foreground">{member.phone}</p>
                               <Badge variant="outline" className="text-xs">
                                 {getRelationshipLabel(member.relationship)}
                               </Badge>

@@ -277,18 +277,23 @@ const CRMContent = () => {
 
   const allChats = [
     // Системные чаты
-    { id: 'corporate', name: 'Корпоративный чат', phone: 'Команда OKEY ENGLISH', time: '11:45', unread: 3, type: 'corporate' as const, timestamp: Date.now() - 1000 * 60 * 60 },
-    { id: 'teachers', name: 'Преподаватели', phone: 'Чаты с преподавателями', time: '10:15', unread: 2, type: 'teachers' as const, timestamp: Date.now() - 1000 * 60 * 90 },
+    { id: 'corporate', name: 'Корпоративный чат', phone: 'Команда OKEY ENGLISH', time: '11:45', unread: 3, type: 'corporate' as const, timestamp: Date.now() - 1000 * 60 * 60, avatar_url: null },
+    { id: 'teachers', name: 'Преподаватели', phone: 'Чаты с преподавателями', time: '10:15', unread: 2, type: 'teachers' as const, timestamp: Date.now() - 1000 * 60 * 90, avatar_url: null },
     // Реальные чаты с клиентами
-    ...threads.map(thread => ({
-      id: thread.client_id,
-      name: thread.client_name,
-      phone: thread.client_phone,
-      time: formatTime(thread.last_message_time),
-      unread: thread.unread_count,
-      type: 'client' as const,
-      timestamp: new Date(thread.last_message_time).getTime()
-    }))
+    ...threads.map(thread => {
+      // Find client data to get avatar
+      const clientData = clients.find(c => c.id === thread.client_id);
+      return {
+        id: thread.client_id,
+        name: thread.client_name,
+        phone: thread.client_phone,
+        time: formatTime(thread.last_message_time),
+        unread: thread.unread_count,
+        type: 'client' as const,
+        timestamp: new Date(thread.last_message_time).getTime(),
+        avatar_url: clientData?.avatar_url || null
+      };
+    })
   ];
 
   const filteredChats = allChats
@@ -834,26 +839,45 @@ const CRMContent = () => {
                                   }`}
                                   onClick={() => handleChatClick(chat.id, chat.type)}
                                 >
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                      {chat.type === 'corporate' && (
-                                        <Building2 className="h-4 w-4 text-slate-600" />
-                                      )}
-                                      {chat.type === 'teachers' && (
-                                        <GraduationCap className="h-4 w-4 text-slate-600" />
-                                      )}
-                                      <div className="flex-1">
-                                        <div className="flex items-center gap-2">
-                                          <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
-                                            {chat.name}
-                                          </p>
-                                          <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300">
-                                            В работе
-                                          </Badge>
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">{chat.phone}</p>
-                                      </div>
-                                    </div>
+                                   <div className="flex items-center justify-between">
+                                     <div className="flex items-center gap-3">
+                                       {/* Avatar or icon */}
+                                       {chat.type === 'corporate' ? (
+                                         <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                           <Building2 className="h-5 w-5 text-blue-600" />
+                                         </div>
+                                       ) : chat.type === 'teachers' ? (
+                                         <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                                           <GraduationCap className="h-5 w-5 text-purple-600" />
+                                         </div>
+                                       ) : chat.avatar_url ? (
+                                         <img 
+                                           src={chat.avatar_url} 
+                                           alt={`${chat.name} avatar`} 
+                                           className="w-10 h-10 rounded-full object-cover border-2 border-green-200 flex-shrink-0"
+                                           onError={(e) => {
+                                             const target = e.currentTarget as HTMLImageElement;
+                                             target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
+                                           }}
+                                         />
+                                       ) : (
+                                         <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                                           <User className="h-5 w-5 text-green-600" />
+                                         </div>
+                                       )}
+                                       
+                                       <div className="flex-1">
+                                         <div className="flex items-center gap-2">
+                                           <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
+                                             {chat.name}
+                                           </p>
+                                           <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300">
+                                             В работе
+                                           </Badge>
+                                         </div>
+                                         <p className="text-xs text-muted-foreground">{chat.phone}</p>
+                                       </div>
+                                     </div>
                                     <div className="flex flex-col items-end">
                                       <Pin className="h-3 w-3 text-orange-600 mb-1" />
                                       <span className="text-xs text-muted-foreground">{chat.time}</span>
@@ -905,21 +929,40 @@ const CRMContent = () => {
                                 }`}
                                 onClick={() => handleChatClick(chat.id, chat.type)}
                               >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    {chat.type === 'corporate' && (
-                                      <Building2 className="h-4 w-4 text-slate-600" />
-                                    )}
-                                    {chat.type === 'teachers' && (
-                                      <GraduationCap className="h-4 w-4 text-slate-600" />
-                                    )}
-                                    <div>
-                                      <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
-                                        {chat.name}
-                                      </p>
-                                      <p className="text-xs text-muted-foreground">{chat.phone}</p>
-                                    </div>
-                                  </div>
+                                 <div className="flex items-center justify-between">
+                                   <div className="flex items-center gap-3">
+                                     {/* Avatar or icon */}
+                                     {chat.type === 'corporate' ? (
+                                       <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                         <Building2 className="h-5 w-5 text-blue-600" />
+                                       </div>
+                                     ) : chat.type === 'teachers' ? (
+                                       <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                                         <GraduationCap className="h-5 w-5 text-purple-600" />
+                                       </div>
+                                     ) : chat.avatar_url ? (
+                                       <img 
+                                         src={chat.avatar_url} 
+                                         alt={`${chat.name} avatar`} 
+                                         className="w-10 h-10 rounded-full object-cover border-2 border-green-200 flex-shrink-0"
+                                         onError={(e) => {
+                                           const target = e.currentTarget as HTMLImageElement;
+                                           target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
+                                         }}
+                                       />
+                                     ) : (
+                                       <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                                         <User className="h-5 w-5 text-green-600" />
+                                       </div>
+                                     )}
+                                     
+                                     <div>
+                                       <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
+                                         {chat.name}
+                                       </p>
+                                       <p className="text-xs text-muted-foreground">{chat.phone}</p>
+                                     </div>
+                                   </div>
                                   <div className="flex flex-col items-end">
                                     <span className="text-xs text-muted-foreground">{chat.time}</span>
                                     {displayUnread && (
