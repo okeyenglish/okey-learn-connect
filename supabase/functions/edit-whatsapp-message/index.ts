@@ -70,57 +70,7 @@ serve(async (req) => {
       )
     }
 
-    const greenApiUrl = Deno.env.get('GREEN_API_URL')
-    const greenApiToken = Deno.env.get('GREEN_API_TOKEN_INSTANCE')
-    const greenApiInstance = Deno.env.get('GREEN_API_ID_INSTANCE')
-
-    if (!greenApiUrl || !greenApiToken || !greenApiInstance) {
-      console.error('Green API credentials not configured')
-      return new Response(
-        JSON.stringify({ success: false, error: 'Green API not configured' }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500 
-        }
-      )
-    }
-
-    let deleteSuccess = false
-    let deleteError = null
-
-    // Попытка удалить старое сообщение (если есть green_api_message_id)
-    if (messageData.green_api_message_id) {
-      try {
-        const deleteResponse = await fetch(
-          `${greenApiUrl}/waInstance${greenApiInstance}/deleteMessage/${greenApiToken}`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              idMessage: messageData.green_api_message_id
-            })
-          }
-        )
-
-        const deleteResult: GreenAPIResponse = await deleteResponse.json()
-        console.log('Delete message response:', deleteResult)
-        
-        if (deleteResponse.ok && !deleteResult.error) {
-          deleteSuccess = true
-          console.log('Message deleted successfully')
-        } else {
-          deleteError = deleteResult.error || 'Failed to delete message'
-          console.log('Failed to delete message:', deleteError)
-        }
-      } catch (error) {
-        deleteError = `Delete failed: ${error.message}`
-        console.log('Delete request failed:', error)
-      }
-    }
-
-    // Определяем chatId для отправки нового сообщения
+    // Определяем chatId
     let chatId = clientData.whatsapp_chat_id
     if (!chatId && clientData.phone) {
       // Создаем chatId из номера телефона если нет сохраненного
@@ -138,10 +88,35 @@ serve(async (req) => {
       )
     }
 
-    // Отправляем новое сообщение
+    if (!messageData.green_api_message_id) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'No Green API message ID found' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400 
+        }
+      )
+    }
+
+    const greenApiUrl = Deno.env.get('GREEN_API_URL')
+    const greenApiToken = Deno.env.get('GREEN_API_TOKEN_INSTANCE')
+    const greenApiInstance = Deno.env.get('GREEN_API_ID_INSTANCE')
+
+    if (!greenApiUrl || !greenApiToken || !greenApiInstance) {
+      console.error('Green API credentials not configured')
+      return new Response(
+        JSON.stringify({ success: false, error: 'Green API not configured' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500 
+        }
+      )
+    }
+
+    // Используем метод editMessage
     try {
-      const sendResponse = await fetch(
-        `${greenApiUrl}/waInstance${greenApiInstance}/sendMessage/${greenApiToken}`,
+      const editResponse = await fetch(
+        `${greenApiUrl}/waInstance${greenApiInstance}/editMessage/${greenApiToken}`,
         {
           method: 'POST',
           headers: {
@@ -149,21 +124,22 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             chatId: chatId,
+            idMessage: messageData.green_api_message_id,
             message: newMessage
           })
         }
       )
 
-      const sendResult: GreenAPIResponse = await sendResponse.json()
-      console.log('Send message response:', sendResult)
+      const editResult: GreenAPIResponse = await editResponse.json()
+      console.log('Edit message response:', editResult)
 
-      if (sendResponse.ok && sendResult.idMessage) {
+      if (editResponse.ok && editResult.idMessage) {
         // Обновляем сообщение в базе данных
         const { error: updateError } = await supabase
           .from('chat_messages')
           .update({ 
             message_text: newMessage,
-            green_api_message_id: sendResult.idMessage
+            green_api_message_id: editResult.idMessage
           })
           .eq('id', messageId)
 
@@ -174,25 +150,21 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ 
             success: true, 
-            messageId: sendResult.idMessage,
-            deleteSuccess,
-            deleteError: deleteSuccess ? null : deleteError
+            messageId: editResult.idMessage
           }),
           { 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       } else {
-        throw new Error(sendResult.error || 'Failed to send message')
+        throw new Error(editResult.error || 'Failed to edit message')
       }
     } catch (error) {
-      console.error('Error sending new message:', error)
+      console.error('Error editing message:', error)
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: `Failed to send new message: ${error.message}`,
-          deleteSuccess,
-          deleteError
+          error: `Failed to edit message: ${error.message}`
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
