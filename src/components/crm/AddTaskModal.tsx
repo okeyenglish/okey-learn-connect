@@ -135,7 +135,7 @@ export const AddTaskModal = ({
 
         <div className="space-y-6 py-4">
           {/* Date and Priority Row */}
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="date">Дата:</Label>
               <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
@@ -173,20 +173,49 @@ export const AddTaskModal = ({
               <Button
                 type="button"
                 variant="outline"
+                size="sm"
                 className={cn(
-                  "w-full justify-start",
+                  "w-full justify-start h-10",
                   formData.isHighPriority && "bg-yellow-50 border-yellow-300"
                 )}
                 onClick={() => setFormData(prev => ({ ...prev, isHighPriority: !prev.isHighPriority }))}
               >
                 <Star 
                   className={cn(
-                    "mr-2 h-4 w-4",
+                    "mr-2 h-3 w-3",
                     formData.isHighPriority ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"
                   )} 
                 />
-                {formData.isHighPriority ? "Высокий приоритет" : "Обычный приоритет"}
+                <span className="text-sm">
+                  {formData.isHighPriority ? "Высокий" : "Обычный"}
+                </span>
               </Button>
+            </div>
+
+            {/* Student Selection */}
+            <div className="space-y-2">
+              <Label>Ученик:</Label>
+              {familyData && familyData.students.length > 0 ? (
+                <Select 
+                  value={formData.selectedStudent} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, selectedStudent: value }))}
+                >
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Выберите ученика" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {familyData.students.map((student) => (
+                      <SelectItem key={student.id} value={student.id}>
+                        {student.firstName} ({student.age} лет)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="h-10 flex items-center px-3 border border-input rounded-md bg-muted text-sm text-muted-foreground">
+                  Нет учеников
+                </div>
+              )}
             </div>
           </div>
 
