@@ -112,7 +112,7 @@ export const ChatArea = ({
 
       const formattedMessages = (data || []).map(msg => ({
         id: msg.id,
-        type: msg.is_outgoing ? 'manager' : 'client',
+        type: msg.message_type === 'comment' ? 'comment' : (msg.is_outgoing ? 'manager' : 'client'),
         message: msg.message_text || '',
         time: new Date(msg.created_at).toLocaleTimeString('ru-RU', { 
           hour: '2-digit', 
@@ -166,7 +166,7 @@ export const ChatArea = ({
           console.log('Received new message via real-time:', payload);
           const newMessage = {
             id: payload.new.id,
-            type: payload.new.is_outgoing ? 'manager' : 'client',
+            type: payload.new.message_type === 'comment' ? 'comment' : (payload.new.is_outgoing ? 'manager' : 'client'),
             message: payload.new.message_text || '',
             time: new Date(payload.new.created_at).toLocaleTimeString('ru-RU', { 
               hour: '2-digit', 
@@ -289,8 +289,8 @@ export const ChatArea = ({
 
   const saveComment = async (commentText: string) => {
     try {
-      // Save comment to client - update the client's notes field
-      const { error } = await supabase
+      // Save comment to client's notes field
+      const { error: clientError } = await supabase
         .from('clients')
         .update({
           notes: commentText,
@@ -298,7 +298,22 @@ export const ChatArea = ({
         })
         .eq('id', clientId);
 
-      if (error) throw error;
+      if (clientError) throw clientError;
+
+      // Also add comment as a chat message
+      const { error: messageError } = await supabase
+        .from('chat_messages')
+        .insert({
+          client_id: clientId,
+          message_text: commentText,
+          message_type: 'comment',
+          is_outgoing: true,
+          messenger_type: 'system'
+        });
+
+      if (messageError) {
+        console.error('Error saving comment message:', messageError);
+      }
 
       toast({
         title: "Комментарий сохранен",
@@ -314,14 +329,14 @@ export const ChatArea = ({
   };
 
   const generateGPTResponse = async () => {
-    if (!message.trim() || gptGenerating) return;
+    if (gptGenerating) return;
 
     setGptGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-gpt-response', {
         body: { 
           clientId: clientId,
-          currentMessage: message.trim()
+          currentMessage: message.trim() || "" // Send empty string if no message
         }
       });
 
@@ -993,7 +1008,7 @@ export const ChatArea = ({
                   size="sm" 
                   variant="ghost" 
                   className={`h-8 w-8 p-0 ${gptGenerating ? "bg-blue-100 text-blue-700" : ""}`}
-                  disabled={!!pendingMessage || !message.trim() || gptGenerating}
+                  disabled={!!pendingMessage || gptGenerating}
                   onClick={generateGPTResponse}
                   title="Генерировать ответ с помощью GPT"
                 >

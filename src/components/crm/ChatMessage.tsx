@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 
 interface ChatMessageProps {
-  type: 'client' | 'manager' | 'system';
+  type: 'client' | 'manager' | 'system' | 'comment';
   message: string;
   time: string;
   systemType?: 'missed-call' | 'call-record';
@@ -102,6 +102,43 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
       );
     }
     return null;
+  }
+
+  // Отображение комментария
+  if (type === 'comment') {
+    return (
+      <div className="flex justify-end mb-4">
+        <div className="flex items-start gap-3 max-w-xs lg:max-w-md xl:max-w-lg">
+          {isSelectionMode && (
+            <div className="flex items-center pt-2">
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={onSelectionChange}
+                className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+              />
+            </div>
+          )}
+          <div className="order-2">
+            <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
+              <div className="w-6 h-6 rounded-full bg-yellow-200 flex items-center justify-center">
+                <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
+              </div>
+            </div>
+          </div>
+          <div className="order-1">
+            <div className="text-xs text-muted-foreground mb-1 text-right">
+              <span className="text-yellow-600">Комментарий</span>
+            </div>
+            <div className="rounded-2xl p-3 bg-yellow-100 text-slate-800 rounded-tr-md">
+              <p className="text-sm leading-relaxed">{message}</p>
+            </div>
+            <div className="flex items-center mt-1 text-xs text-muted-foreground justify-end">
+              <span>{time}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
