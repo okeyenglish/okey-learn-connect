@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
-import { useClients, useSearchClients } from "@/hooks/useClients";
+import { useClients, useSearchClients, useCreateClient } from "@/hooks/useClients";
 import { useChatThreads, useRealtimeMessages } from "@/hooks/useChatMessages";
 import { useStudents } from "@/hooks/useStudents";
 import { ChatArea } from "@/components/crm/ChatArea";
@@ -57,6 +57,7 @@ const CRMContent = () => {
     searchClients,
     clearSearch 
   } = useSearchClients();
+  const createClient = useCreateClient();
   const [openModal, setOpenModal] = useState<string | null>(null);
   const [hasUnsavedChat, setHasUnsavedChat] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -246,9 +247,25 @@ const CRMContent = () => {
     return phoneNumbers[activePhoneId as keyof typeof phoneNumbers] || '+7 (985) 261-50-56';
   };
 
-  const handleCreateNewChat = (contactInfo: any) => {
+  const handleCreateNewChat = async (contactInfo: any) => {
     console.log('Создание нового чата с:', contactInfo);
-    // Здесь будет логика создания нового чата
+    
+    try {
+      // Create new client in database
+      const newClient = await createClient.mutateAsync({
+        name: contactInfo.name,
+        phone: contactInfo.phone,
+        is_active: true
+      });
+      
+      // Switch to the new client's chat
+      setActiveChatId(newClient.id);
+      setActiveChatType('client');
+      
+      console.log('Новый клиент создан:', newClient);
+    } catch (error) {
+      console.error('Ошибка при создании клиента:', error);
+    }
   };
 
   const handleChatAction = (chatId: string, action: 'unread' | 'pin' | 'archive' | 'block') => {
