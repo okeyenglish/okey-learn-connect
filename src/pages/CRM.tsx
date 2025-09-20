@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ChatArea } from "@/components/crm/ChatArea";
 import { SearchInput } from "@/components/crm/SearchInput";
 import { SearchResults } from "@/components/crm/SearchResults";
+import { LinkedContacts } from "@/components/crm/LinkedContacts";
+import { FamilyCard } from "@/components/crm/FamilyCard";
 import { 
   Search, 
   CheckSquare, 
@@ -117,6 +119,88 @@ const CRM = () => {
     chat.name.toLowerCase().includes(chatSearchQuery.toLowerCase()) ||
     chat.phone.includes(chatSearchQuery)
   );
+
+  // Mock данные для семейных связей
+  const [activeFamilyMemberId, setActiveFamilyMemberId] = useState('main_contact');
+  
+  const familyMembers = [
+    {
+      id: 'main_contact',
+      name: 'Мария Петрова',
+      phone: '+7 (985) 261-50-56',
+      email: 'maria.petrova@email.com',
+      relationship: 'main' as const,
+      lastContact: 'Сейчас в чате',
+      unreadMessages: 2,
+      isOnline: true
+    },
+    {
+      id: 'husband_1',
+      name: 'Сергей Петров',
+      phone: '+7 (985) 123-45-67',
+      email: 'sergey.petrov@email.com',
+      relationship: 'spouse' as const,
+      lastContact: '2 дня назад',
+      unreadMessages: 1,
+      isOnline: false
+    }
+  ];
+
+  const familyChildren = [
+    {
+      name: 'Павел',
+      age: 8,
+      courses: ['Kids Box 2'],
+      nextLesson: 'Сегодня в 17:20',
+      nextPayment: '25.09.2025 - 11490₽',
+      status: 'active' as const
+    },
+    {
+      name: 'Маша',
+      age: 6,
+      courses: ['Super Safari 1'],
+      nextLesson: 'Завтра в 10:00',
+      nextPayment: 'Оплачено до 15.10.2025',
+      status: 'active' as const
+    }
+  ];
+
+  const currentContact = familyMembers.find(m => m.id === activeFamilyMemberId) || familyMembers[0];
+  const linkedContacts = familyMembers.filter(m => m.id !== activeFamilyMemberId).map(member => ({
+    id: member.id,
+    name: member.name,
+    phone: member.phone,
+    email: member.email,
+    relationship: (member.relationship === 'main' ? 'parent' : member.relationship) as 'spouse' | 'parent' | 'guardian',
+    lastContact: member.lastContact,
+    unreadMessages: member.unreadMessages
+  }));
+
+  const sharedChildren = familyChildren.map(child => ({
+    name: child.name,
+    age: child.age,
+    courses: child.courses,
+    nextLesson: child.nextLesson,
+    nextPayment: child.nextPayment
+  }));
+
+  const handleSwitchFamilyMember = (memberId: string) => {
+    setActiveFamilyMemberId(memberId);
+    console.log('Переключение на члена семьи:', memberId);
+  };
+
+  const handleSwitchContact = (contactId: string) => {
+    setActiveFamilyMemberId(contactId);
+    console.log('Переключение на контакт:', contactId);
+  };
+
+  const handleOpenLinkedChat = (contactId: string) => {
+    console.log('Открытие чата с:', contactId);
+  };
+
+  const handleCallFamilyMember = (memberId: string) => {
+    console.log('Звонок члену семьи:', memberId);
+  };
 
   const menuItems = [
     { icon: CheckSquare, label: "Мои задачи" },
@@ -331,104 +415,16 @@ const CRM = () => {
           onMessageChange={setHasUnsavedChat}
         />
 
-        {/* Right Sidebar - Client Card */}
-        <div className="w-80 bg-background p-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Карточка клиента</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Contact Info */}
-              <div className="space-y-2">
-                <p className="font-medium">Мария Петрова</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">+7 (985) 261-50-56</span>
-                  <Button size="sm" variant="ghost">
-                    <Phone className="h-3 w-3" />
-                  </Button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="ghost" className="text-green-600">
-                    <MessageCircle className="h-3 w-3" />
-                    WhatsApp
-                  </Button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="ghost" className="text-blue-600">
-                    <MessageCircle className="h-3 w-3" />
-                    Telegram
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground">maria.petrova@email.com</p>
-              </div>
-
-              {/* Tabs */}
-              <Tabs defaultValue="students" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="students">Учатся</TabsTrigger>
-                  <TabsTrigger value="courses">Не учатся</TabsTrigger>
-                  <TabsTrigger value="payments">Платежи</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="students" className="space-y-2">
-                  <Accordion type="single" collapsible defaultValue="pavel">
-                    <AccordionItem value="pavel">
-                      <AccordionTrigger className="text-sm">Павел</AccordionTrigger>
-                      <AccordionContent className="space-y-2">
-                        <div className="text-sm space-y-1">
-                          <p className="font-medium">Вт/Чт с 19:20 до 20:40</p>
-                          <p className="text-muted-foreground">с 26.08 по 28.05.26</p>
-                          <p className="text-muted-foreground">Ауд. WASHINGTON</p>
-                        </div>
-                        <div className="grid grid-cols-4 gap-1 text-xs mt-2">
-                          <div className="p-1 bg-muted rounded text-center">26.08</div>
-                          <div className="p-1 bg-muted rounded text-center">28.08</div>
-                          <div className="p-1 bg-muted rounded text-center">2.09</div>
-                          <div className="p-1 bg-muted rounded text-center">4.09</div>
-                          <div className="p-1 bg-muted rounded text-center">9.09</div>
-                          <div className="p-1 bg-muted rounded text-center">11.09</div>
-                          <div className="p-1 bg-muted rounded text-center">16.09</div>
-                          <div className="p-1 bg-muted rounded text-center">18.09</div>
-                          <div className="p-1 bg-green-100 text-green-800 rounded text-center">23.09</div>
-                          <div className="p-1 bg-green-100 text-green-800 rounded text-center">25.09</div>
-                          <div className="p-1 bg-muted rounded text-center">30.09</div>
-                          <div className="p-1 bg-muted rounded text-center">2.10</div>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-2">Курс: Kids Box 2</p>
-                      </AccordionContent>
-                    </AccordionItem>
-                    <AccordionItem value="masha">
-                      <AccordionTrigger className="text-sm">Маша</AccordionTrigger>
-                      <AccordionContent>
-                        <p className="text-sm text-muted-foreground">Информация о студенте</p>
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
-                </TabsContent>
-                
-                <TabsContent value="courses">
-                  <div className="space-y-2">
-                    <div className="p-2 bg-muted/50 rounded">
-                      <p className="text-sm font-medium">Мария Петрова</p>
-                      <p className="text-xs text-muted-foreground">Не обучается</p>
-                    </div>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="payments">
-                  <div className="space-y-2">
-                    <div className="p-2 bg-orange-50 border border-orange-200 rounded">
-                      <p className="text-sm font-medium text-orange-800">Ближайшая оплата 25.09.2025</p>
-                      <p className="text-sm text-orange-600">Выставить счёт на сумму 11490₽ за Марию</p>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      История платежей
-                    </div>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
+        {/* Right Sidebar - Family Card */}
+        <div className="w-80 bg-background p-4 overflow-y-auto">
+          <FamilyCard
+            familyMembers={familyMembers}
+            children={familyChildren}
+            activeMemberId={activeFamilyMemberId}
+            onSwitchMember={handleSwitchFamilyMember}
+            onOpenChat={handleOpenLinkedChat}
+            onCall={handleCallFamilyMember}
+          />
         </div>
       </div>
 
