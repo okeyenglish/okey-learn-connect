@@ -30,6 +30,7 @@ import { PinnedModalTabs } from "@/components/crm/PinnedModalTabs";
 import { AddTaskModal } from "@/components/crm/AddTaskModal";
 import { CreateInvoiceModal } from "@/components/crm/CreateInvoiceModal";
 import { PinnableModalHeader, PinnableDialogContent } from "@/components/crm/PinnableModal";
+import { ManagerMenu } from "@/components/crm/ManagerMenu";
 import { usePinnedModalsDB, PinnedModal } from "@/hooks/usePinnedModalsDB";
 import { useChatStatesDB } from "@/hooks/useChatStatesDB";
 import { useAllTasks } from "@/hooks/useTasks";
@@ -590,10 +591,11 @@ const CRMContent = () => {
                 Загрузка данных...
               </div>
             )}
-            <Button variant="outline" onClick={handleSignOut}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Выйти
-            </Button>
+            <ManagerMenu
+              managerName={profile ? `${profile.first_name} ${profile.last_name}` : 'Менеджер'}
+              managerEmail={user?.email}
+              onSignOut={handleSignOut}
+            />
           </div>
         </div>
       </div>
