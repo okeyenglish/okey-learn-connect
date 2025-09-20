@@ -849,135 +849,185 @@ export const ChatArea = ({
       }}
     >
       {/* Chat Header */}
-      <div className={`border-b p-3 shrink-0 ${isMobile ? 'bg-background' : ''}`}>
-        {/* Mobile: User info section - displayed prominently */}
+      <div className={`border-b shrink-0 ${isMobile ? 'bg-background sticky top-12 z-10' : 'p-3'}`}>
+        {/* Mobile: Compact header with contact info and actions on the same line */}
         {isMobile && (
-          <div className="mb-4 p-4 bg-muted/30 rounded-lg border">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between p-3 bg-background border-b">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
               {onBackToList && (
                 <Button 
                   size="sm" 
                   variant="ghost" 
-                  className="h-10 w-10 p-0 rounded-full"
+                  className="h-8 w-8 p-0 flex-shrink-0"
                   onClick={onBackToList}
                 >
-                  <ArrowLeft className="h-5 w-5" />
+                  <ArrowLeft className="h-4 w-4" />
                 </Button>
               )}
               <div className="flex-1 min-w-0">
-                <h2 className="font-bold text-lg text-foreground truncate">{clientName}</h2>
-                <p className="text-base text-muted-foreground font-medium">{clientPhone}</p>
+                <h2 className="font-semibold text-sm text-foreground truncate">{clientName}</h2>
+                <p className="text-xs text-muted-foreground truncate">{clientPhone}</p>
                 {getTypingMessage() && (
-                  <p className="text-sm text-orange-600 italic animate-pulse mt-1">
+                  <p className="text-xs text-orange-600 italic animate-pulse">
                     {getTypingMessage()}
                   </p>
                 )}
               </div>
             </div>
+            
+            {/* Action buttons moved to the right */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="h-8 w-8 p-0"
+                title="Добавить задачу"
+                onClick={() => (onOpenTaskModal ? onOpenTaskModal() : setShowAddTaskModal(true))}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="h-8 w-8 p-0"
+                title="Выставить счёт"
+                onClick={() => (onOpenInvoiceModal ? onOpenInvoiceModal() : setShowInvoiceModal(true))}
+              >
+                <FileText className="h-4 w-4" />
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="h-8 w-8 p-0"
+                title="Позвонить"
+                onClick={() => console.log('Calling client...')}
+              >
+                <Phone className="h-4 w-4" />
+              </Button>
+              <Button 
+                size="sm" 
+                variant={showSearchInput ? "default" : "outline"}
+                className="h-8 w-8 p-0"
+                title="Поиск в чате"
+                onClick={handleSearchToggle}
+              >
+                <Search className="h-4 w-4" />
+              </Button>
+              <Button 
+                size="sm" 
+                variant={isSelectionMode ? "default" : "outline"}
+                className="h-8 w-8 p-0"
+                title="Выделить сообщения"
+                onClick={handleToggleSelectionMode}
+              >
+                <Forward className="h-4 w-4" />
+              </Button>
+              
+              {/* Settings dropdown with all the removed options */}
+              {onChatAction && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="h-8 w-8 p-0"
+                      title="Настройки чата"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 bg-background border shadow-lg z-50">
+                    <DropdownMenuItem onClick={() => onChatAction(clientId, 'unread')}>
+                      <BellOff className="mr-2 h-4 w-4" />
+                      <span>Отметить непрочитанным</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onChatAction(clientId, 'pin')}>
+                      <Pin className="mr-2 h-4 w-4 text-purple-600" />
+                      <span>Закрепить диалог</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onChatAction(clientId, 'block')}>
+                      <Lock className="mr-2 h-4 w-4" />
+                      <span>Заблокировать клиента</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onChatAction(clientId, 'archive')}>
+                      <Archive className="mr-2 h-4 w-4 text-orange-600" />
+                      <span>Архивировать</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
           </div>
         )}
         
         {/* Desktop: Inline user info with actions */}
-        <div className={`flex items-start justify-between gap-4 ${isMobile ? 'mt-0' : ''}`}>
-          {!isMobile && (
+        {!isMobile && (
+          <div className="flex items-start justify-between gap-4 p-3">
             <div className="flex items-center gap-3">
               <div>
                 <h2 className="font-semibold text-base">{clientName}</h2>
                 <p className="text-sm text-muted-foreground">{clientPhone}</p>
               </div>
             </div>
-          )}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button 
-              size="sm" 
-              variant="outline" 
-              className="h-8 w-8 p-0"
-              title="Добавить задачу"
-              onClick={() => (onOpenTaskModal ? onOpenTaskModal() : setShowAddTaskModal(true))}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-            <Button 
-              size="sm" 
-              variant="outline" 
-              className="h-8 w-8 p-0"
-              title="Выставить счёт"
-              onClick={() => (onOpenInvoiceModal ? onOpenInvoiceModal() : setShowInvoiceModal(true))}
-            >
-              <FileText className="h-4 w-4" />
-            </Button>
-            <Button 
-              size="sm" 
-              variant="outline" 
-              className="h-8 w-8 p-0"
-              title="Позвонить"
-              onClick={() => console.log('Calling client...')}
-            >
-              <Phone className="h-4 w-4" />
-            </Button>
-            <Button 
-              size="sm" 
-              variant={showSearchInput ? "default" : "outline"}
-              className="h-8 w-8 p-0"
-              title="Поиск в чате"
-              onClick={handleSearchToggle}
-            >
-              <Search className="h-4 w-4" />
-            </Button>
-            <Button 
-              size="sm" 
-              variant={isSelectionMode ? "default" : "outline"}
-              className="h-8 w-8 p-0"
-              title="Выделить сообщения"
-              onClick={handleToggleSelectionMode}
-            >
-              <Forward className="h-4 w-4" />
-            </Button>
-            
-            {/* Mobile Settings Menu */}
-            {isMobile && onChatAction && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="h-8 w-8 p-0"
-                    title="Настройки чата"
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-background border shadow-lg z-50">
-                  <DropdownMenuItem onClick={() => onChatAction(clientId, 'unread')}>
-                    <BellOff className="mr-2 h-4 w-4" />
-                    <span>Отметить непрочитанным</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onChatAction(clientId, 'pin')}>
-                    <Pin className="mr-2 h-4 w-4 text-purple-600" />
-                    <span>Закрепить диалог</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onChatAction(clientId, 'block')}>
-                    <Lock className="mr-2 h-4 w-4" />
-                    <span>Заблокировать клиента</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onChatAction(clientId, 'archive')}>
-                    <Archive className="mr-2 h-4 w-4 text-orange-600" />
-                    <span>Архивировать</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-            
-            {showSearchInput && (
-              <Input
-                placeholder="Поиск в чате..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-64 h-8 ml-2"
-                autoFocus
-              />
-            )}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="h-8 w-8 p-0"
+                title="Добавить задачу"
+                onClick={() => (onOpenTaskModal ? onOpenTaskModal() : setShowAddTaskModal(true))}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="h-8 w-8 p-0"
+                title="Выставить счёт"
+                onClick={() => (onOpenInvoiceModal ? onOpenInvoiceModal() : setShowInvoiceModal(true))}
+              >
+                <FileText className="h-4 w-4" />
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="h-8 w-8 p-0"
+                title="Позвонить"
+                onClick={() => console.log('Calling client...')}
+              >
+                <Phone className="h-4 w-4" />
+              </Button>
+              <Button 
+                size="sm" 
+                variant={showSearchInput ? "default" : "outline"}
+                className="h-8 w-8 p-0"
+                title="Поиск в чате"
+                onClick={handleSearchToggle}
+              >
+                <Search className="h-4 w-4" />
+              </Button>
+              <Button 
+                size="sm" 
+                variant={isSelectionMode ? "default" : "outline"}
+                className="h-8 w-8 p-0"
+                title="Выделить сообщения"
+                onClick={handleToggleSelectionMode}
+              >
+                <Forward className="h-4 w-4" />
+              </Button>
+              
+              {showSearchInput && (
+                <Input
+                  placeholder="Поиск в чате..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-64 h-8 ml-2"
+                  autoFocus
+                />
+              )}
+            </div>
           </div>
+        )}
       </div>
 
       {/* Drag overlay */}
@@ -990,37 +1040,36 @@ export const ChatArea = ({
         </div>
       )}
         
-        {/* Панель действий для режима выделения */}
-        {isSelectionMode && (
-          <div className="bg-primary/10 border border-primary/20 rounded-lg p-2 mt-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">
-                Выбрано: {selectedMessages.size} сообщений
-              </span>
-              <div className="flex items-center gap-2">
-                <Button 
-                  size="sm" 
-                  onClick={() => setShowForwardModal(true)}
-                  disabled={selectedMessages.size === 0}
-                  className="h-7"
-                >
-                  <Forward className="h-3 w-3 mr-1" />
-                  Переслать
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  onClick={handleToggleSelectionMode}
-                  className="h-7"
-                >
-                  <X className="h-3 w-3 mr-1" />
-                  Отмена
-                </Button>
-              </div>
+      {/* Панель действий для режима выделения */}
+      {isSelectionMode && (
+        <div className="bg-primary/10 border border-primary/20 rounded-lg p-2 mt-2 mx-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">
+              Выбрано: {selectedMessages.size} сообщений
+            </span>
+            <div className="flex items-center gap-2">
+              <Button 
+                size="sm" 
+                onClick={() => setShowForwardModal(true)}
+                disabled={selectedMessages.size === 0}
+                className="h-7"
+              >
+                <Forward className="h-3 w-3 mr-1" />
+                Переслать
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={handleToggleSelectionMode}
+                className="h-7"
+              >
+                <X className="h-3 w-3 mr-1" />
+                Отмена
+              </Button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Client Tasks */}
       <div className="shrink-0">
