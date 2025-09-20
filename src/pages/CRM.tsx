@@ -641,7 +641,7 @@ const CRMContent = () => {
       </div>
 
       {/* Основная область */}
-      <div className="flex flex-1 w-full overflow-hidden">
+      <div className="relative z-10 flex flex-1 w-full overflow-hidden">
         {/* Left Unified Sidebar - Desktop */}
         <div className={`${
           isMobile ? 'hidden' : 'flex'
