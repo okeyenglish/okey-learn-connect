@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ArrowRight, MessageSquare, Send } from "lucide-react";
+import WorkshopSignupModal from "@/components/WorkshopSignupModal";
+import { branches } from "@/lib/branches";
 
 const Workshop = () => {
   const handleWhatsApp = () => {
@@ -170,52 +172,30 @@ const Workshop = () => {
             </div>
             
             <div className="grid md:grid-cols-2 gap-6">
-              {[
-                {
-                  title: "Филиал «Окская»",
-                  text: "Оффлайн мастер-классы для всех возрастов.",
-                  badge: "Москва",
-                  scheduleLink: "/schedule?tag=workshop&branch=okskaya",
-                  mapLink: "https://maps.yandex.ru/?text=OKEY%20ENGLISH%20Окская"
-                },
-                {
-                  title: "Филиал «Новокосино»",
-                  text: "Workshops по выходным и будням вечером.",
-                  badge: "Москва",
-                  scheduleLink: "/schedule?tag=workshop&branch=novokosino",
-                  mapLink: "https://maps.yandex.ru/?text=OKEY%20ENGLISH%20Новокосино"
-                },
-                {
-                  title: "Филиал «Грайвороновская»",
-                  text: "Тематики для подростков и взрослых.",
-                  badge: "Москва",
-                  scheduleLink: "/schedule?tag=workshop&branch=graivoronovskaya",
-                  mapLink: "https://maps.yandex.ru/?text=OKEY%20ENGLISH%20Грайвороновская"
-                },
-                {
-                  title: "Филиал «Островцы»",
-                  text: "Семейные форматы и тематические встречи.",
-                  badge: "МО",
-                  scheduleLink: "/schedule?tag=workshop&branch=ostrovcy",
-                  mapLink: "https://maps.yandex.ru/?text=OKEY%20ENGLISH%20Островцы"
-                }
-              ].map((branch, index) => (
-                <Card key={index}>
+              {branches.filter(branch => branch.id !== "online").map((branch) => (
+                <Card key={branch.id}>
                   <CardHeader>
                     <div className="flex items-start justify-between">
-                      <CardTitle className="text-xl">{branch.title}</CardTitle>
-                      <Badge variant="secondary">{branch.badge}</Badge>
+                      <CardTitle className="text-xl">Филиал «{branch.name}»</CardTitle>
+                      <Badge variant="secondary">
+                        {branch.id.includes("lyubertsy") || branch.id === "mytishchi" ? "МО" : "Москва"}
+                      </Badge>
                     </div>
-                    <CardDescription>{branch.text}</CardDescription>
+                    <CardDescription>{branch.address}</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="flex flex-col sm:flex-row gap-3">
-                      <Button className="flex-1" onClick={() => window.open(branch.scheduleLink, '_blank')}>
+                      <Button 
+                        className="flex-1" 
+                        onClick={() => window.open(`/branches/${branch.id}#schedule`, '_blank')}
+                      >
                         Расписание
                       </Button>
-                      <Button variant="outline" onClick={() => window.open(branch.mapLink, '_blank')}>
-                        Как добраться
-                      </Button>
+                      <WorkshopSignupModal branchId={branch.id} branchName={branch.name}>
+                        <Button variant="outline">
+                          Попробовать бесплатно
+                        </Button>
+                      </WorkshopSignupModal>
                     </div>
                   </CardContent>
                 </Card>
