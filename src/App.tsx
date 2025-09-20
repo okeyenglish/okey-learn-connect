@@ -35,6 +35,7 @@ import LocationOnline from "./pages/branches/Online";
 import Contacts from "./pages/Contacts";
 import ContactMethod from "./pages/ContactMethod";
 import Admin from "./pages/Admin";
+import CRM from "./pages/CRM";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -78,6 +79,7 @@ const App = () => (
               <Route path="/contacts" element={<Contacts />} />
               <Route path="/contact-method" element={<ContactMethod />} />
               <Route path="/admin" element={<Admin />} />
+              <Route path="/newcrm" element={<CRM />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
