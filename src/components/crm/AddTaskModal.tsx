@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,14 +8,25 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar, Bold, Italic, Link, Type, Undo, Redo, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PinnableModalHeader } from "./PinnableModal";
 
 interface AddTaskModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   clientName: string;
+  isPinned?: boolean;
+  onPin?: () => void;
+  onUnpin?: () => void;
 }
 
-export const AddTaskModal = ({ open, onOpenChange, clientName }: AddTaskModalProps) => {
+export const AddTaskModal = ({ 
+  open, 
+  onOpenChange, 
+  clientName, 
+  isPinned = false, 
+  onPin, 
+  onUnpin 
+}: AddTaskModalProps) => {
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     priority: "",
@@ -44,21 +55,13 @@ export const AddTaskModal = ({ open, onOpenChange, clientName }: AddTaskModalPro
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg font-medium text-muted-foreground">
-              Назначение разовой задачи
-            </DialogTitle>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-6 w-6"
-              onClick={() => onOpenChange(false)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </DialogHeader>
+        <PinnableModalHeader
+          title="Назначение разовой задачи"
+          isPinned={isPinned}
+          onPin={onPin || (() => {})}
+          onUnpin={onUnpin || (() => {})}
+          onClose={() => onOpenChange(false)}
+        />
 
         <div className="space-y-6 py-4">
           {/* Date and Priority Row */}

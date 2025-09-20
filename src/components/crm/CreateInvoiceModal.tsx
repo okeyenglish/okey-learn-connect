@@ -1,19 +1,30 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { X, Plus } from "lucide-react";
+import { PinnableModalHeader } from "./PinnableModal";
 
 interface CreateInvoiceModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   clientName: string;
+  isPinned?: boolean;
+  onPin?: () => void;
+  onUnpin?: () => void;
 }
 
-export const CreateInvoiceModal = ({ open, onOpenChange, clientName }: CreateInvoiceModalProps) => {
+export const CreateInvoiceModal = ({ 
+  open, 
+  onOpenChange, 
+  clientName, 
+  isPinned = false, 
+  onPin, 
+  onUnpin 
+}: CreateInvoiceModalProps) => {
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     invoiceNumber: Math.floor(Math.random() * 10000000000).toString(),
@@ -88,21 +99,15 @@ export const CreateInvoiceModal = ({ open, onOpenChange, clientName }: CreateInv
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg font-medium">
-              {clientName}. Платёж за <span className="text-blue-600 underline">обучение</span>
-            </DialogTitle>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-6 w-6"
-              onClick={() => onOpenChange(false)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </DialogHeader>
+        <PinnableModalHeader
+          title=""
+          isPinned={isPinned}
+          onPin={onPin || (() => {})}
+          onUnpin={onUnpin || (() => {})}
+          onClose={() => onOpenChange(false)}
+        >
+          {clientName}. Платёж за <span className="text-blue-600 underline">обучение</span>
+        </PinnableModalHeader>
 
         {/* Info Banner */}
         <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-sm text-blue-800">

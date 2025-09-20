@@ -25,6 +25,10 @@ import { ChatContextMenu } from "@/components/crm/ChatContextMenu";
 import { AddClientModal } from "@/components/crm/AddClientModal";
 import { ClientsList } from "@/components/crm/ClientsList";
 import { NewChatModal } from "@/components/crm/NewChatModal";
+import { PinnedModalTabs } from "@/components/crm/PinnedModalTabs";
+import { AddTaskModal } from "@/components/crm/AddTaskModal";
+import { CreateInvoiceModal } from "@/components/crm/CreateInvoiceModal";
+import { usePinnedModals } from "@/hooks/usePinnedModals";
 import { 
   Search, 
   CheckSquare, 
@@ -61,6 +65,14 @@ const CRMContent = () => {
   } = useSearchClients();
   const createClient = useCreateClient();
   const queryClient = useQueryClient();
+  const { 
+    pinnedModals, 
+    pinModal, 
+    unpinModal, 
+    openPinnedModal, 
+    closePinnedModal, 
+    isPinned 
+  } = usePinnedModals();
   const [openModal, setOpenModal] = useState<string | null>(null);
   const [hasUnsavedChat, setHasUnsavedChat] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -78,6 +90,11 @@ const CRMContent = () => {
   const [activeChatType, setActiveChatType] = useState<'client' | 'corporate' | 'teachers'>('client');
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>('teachers-group');
   const [isPinnedSectionOpen, setIsPinnedSectionOpen] = useState(false);
+  
+  // Состояния для модальных окон
+  const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [activeClientName, setActiveClientName] = useState('');
   
   // Enable real-time updates for the active chat
   useRealtimeMessages(activeChatId);
@@ -328,6 +345,57 @@ const CRMContent = () => {
     console.log('Переключение на чат:', { chatId, chatType });
     setActiveChatId(chatId);
     setActiveChatType(chatType);
+    
+    // Обновляем имя активного клиента для модальных окон
+    const activeClient = clients.find(client => client.id === chatId);
+    if (activeClient) {
+      setActiveClientName(activeClient.name);
+    }
+  };
+
+  // Обработчики для закрепления модальных окон
+  const handlePinTaskModal = () => {
+    const clientInfo = getActiveClientInfo();
+    pinModal({
+      id: activeChatId,
+      type: 'task',
+      title: `Задача: ${clientInfo.name}`,
+      props: { clientName: clientInfo.name }
+    });
+  };
+
+  const handlePinInvoiceModal = () => {
+    const clientInfo = getActiveClientInfo();
+    pinModal({
+      id: activeChatId,
+      type: 'invoice',
+      title: `Счет: ${clientInfo.name}`,
+      props: { clientName: clientInfo.name }
+    });
+  };
+
+  // Обработчик открытия закрепленных модальных окон
+  const handleOpenPinnedModal = (id: string, type: string) => {
+    if (type === 'task') {
+      setActiveChatId(id);
+      setShowAddTaskModal(true);
+      openPinnedModal(id, type);
+    } else if (type === 'invoice') {
+      setActiveChatId(id);
+      setShowInvoiceModal(true);
+      openPinnedModal(id, type);
+    }
+  };
+
+  // Обработчики для модальных окон
+  const handleTaskModalClose = () => {
+    setShowAddTaskModal(false);
+    closePinnedModal(activeChatId, 'task');
+  };
+
+  const handleInvoiceModalClose = () => {
+    setShowInvoiceModal(false);
+    closePinnedModal(activeChatId, 'invoice');
   };
 
   const menuItems = [
@@ -377,7 +445,7 @@ const CRMContent = () => {
       
       {/* Search Bar */}
       <div className="bg-background border-b p-4 shrink-0">
-        <div className="relative max-w-7xl mx-auto">
+        <div className="relative max-w-7xl mx-auto space-y-4">
           <SearchInput
             placeholder="Поиск клиентов, учеников, чатов, платежей..."
             onSearch={handleGlobalSearch}
@@ -387,6 +455,13 @@ const CRMContent = () => {
               setGlobalSearchResults([]);
             }}
             size="lg"
+          />
+          
+          {/* Закрепленные модальные окна как вкладки */}
+          <PinnedModalTabs 
+            pinnedModals={pinnedModals}
+            onOpenModal={handleOpenPinnedModal}
+            onUnpinModal={unpinModal}
           />
         </div>
       </div>
@@ -711,6 +786,8 @@ const CRMContent = () => {
             clientComment={getActiveClientInfo().comment}
             onMessageChange={setHasUnsavedChat}
             activePhoneId={activePhoneId}
+            onOpenTaskModal={() => setShowAddTaskModal(true)}
+            onOpenInvoiceModal={() => setShowInvoiceModal(true)}
           />
         )}
 
@@ -738,6 +815,54 @@ const CRMContent = () => {
         results={globalSearchResults}
         onSelectResult={handleSelectSearchResult}
       />
+
+      {/* Модальные окна с поддержкой закрепления */}
+      <AddTaskModal 
+        open={showAddTaskModal}
+        onOpenChange={handleTaskModalClose}
+        clientName={getActiveClientInfo().name}
+        isPinned={isPinned(activeChatId, 'task')}
+        onPin={handlePinTaskModal}
+        onUnpin={() => unpinModal(activeChatId, 'task')}
+      />
+
+      <CreateInvoiceModal 
+        open={showInvoiceModal}
+        onOpenChange={handleInvoiceModalClose}
+        clientName={getActiveClientInfo().name}
+        isPinned={isPinned(activeChatId, 'invoice')}
+        onPin={handlePinInvoiceModal}
+        onUnpin={() => unpinModal(activeChatId, 'invoice')}
+      />
+
+      {/* Закрепленные модальные окна */}
+      {pinnedModals.map((modal) => {
+        if (modal.type === 'task' && modal.isOpen) {
+          return (
+            <AddTaskModal
+              key={`pinned-task-${modal.id}`}
+              open={true}
+              onOpenChange={() => closePinnedModal(modal.id, modal.type)}
+              clientName={modal.props.clientName}
+              isPinned={true}
+              onUnpin={() => unpinModal(modal.id, modal.type)}
+            />
+          );
+        }
+        if (modal.type === 'invoice' && modal.isOpen) {
+          return (
+            <CreateInvoiceModal
+              key={`pinned-invoice-${modal.id}`}
+              open={true}
+              onOpenChange={() => closePinnedModal(modal.id, modal.type)}
+              clientName={modal.props.clientName}
+              isPinned={true}
+              onUnpin={() => unpinModal(modal.id, modal.type)}
+            />
+          );
+        }
+        return null;
+      })}
     </div>
   );
 };

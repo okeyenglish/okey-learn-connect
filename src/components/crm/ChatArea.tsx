@@ -14,7 +14,9 @@ interface ChatAreaProps {
   clientPhone: string;
   clientComment?: string;
   onMessageChange?: (hasUnsaved: boolean) => void;
-  activePhoneId?: string; // Add this prop to track which phone number is active
+  activePhoneId?: string;
+  onOpenTaskModal?: () => void;
+  onOpenInvoiceModal?: () => void;
 }
 
 // Mock chat history for different phone numbers
@@ -74,7 +76,15 @@ const mockChatHistory: Record<string, any[]> = {
 };
 
 // ChatArea component for CRM chat functionality
-export const ChatArea = ({ clientName, clientPhone, clientComment = "Базовый комментарий", onMessageChange, activePhoneId = '1' }: ChatAreaProps) => {
+export const ChatArea = ({ 
+  clientName, 
+  clientPhone, 
+  clientComment = "Базовый комментарий", 
+  onMessageChange, 
+  activePhoneId = '1', 
+  onOpenTaskModal, 
+  onOpenInvoiceModal 
+}: ChatAreaProps) => {
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchInput, setShowSearchInput] = useState(false);
@@ -277,19 +287,22 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
         </div>
       </div>
 
-      {/* Add Task Modal */}
-      <AddTaskModal 
-        open={showAddTaskModal}
-        onOpenChange={setShowAddTaskModal}
-        clientName={clientName}
-      />
+      {/* Модальные окна (только если не используются внешние обработчики) */}
+      {!onOpenTaskModal && (
+        <AddTaskModal 
+          open={showAddTaskModal}
+          onOpenChange={setShowAddTaskModal}
+          clientName={clientName}
+        />
+      )}
 
-      {/* Create Invoice Modal */}
-      <CreateInvoiceModal 
-        open={showInvoiceModal}
-        onOpenChange={setShowInvoiceModal}
-        clientName={clientName}
-      />
+      {!onOpenInvoiceModal && (
+        <CreateInvoiceModal 
+          open={showInvoiceModal}
+          onOpenChange={setShowInvoiceModal}
+          clientName={clientName}
+        />
+      )}
     </div>
   );
 };
