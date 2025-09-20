@@ -14,6 +14,7 @@ import { ClientTasks } from "./ClientTasks";
 import { AddTaskModal } from "./AddTaskModal";
 import { CreateInvoiceModal } from "./CreateInvoiceModal";
 import { ForwardMessageModal } from "./ForwardMessageModal";
+import { QuickResponsesModal } from "./QuickResponsesModal";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -67,6 +68,7 @@ export const ChatArea = ({
   const [scheduledMessages, setScheduledMessages] = useState<ScheduledMessage[]>([]);
   const [showScheduledMessagesDialog, setShowScheduledMessagesDialog] = useState(false);
   const [editingScheduledMessage, setEditingScheduledMessage] = useState<ScheduledMessage | null>(null);
+  const [showQuickResponsesModal, setShowQuickResponsesModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -451,6 +453,21 @@ export const ChatArea = ({
     
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
+    }
+  };
+
+  const handleQuickResponseSelect = (responseText: string) => {
+    setMessage(responseText);
+    onMessageChange?.(true);
+    
+    // Auto-resize textarea
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+        }
+      }, 0);
     }
   };
 
@@ -887,7 +904,7 @@ export const ChatArea = ({
                 <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!!pendingMessage}>
                   <Paperclip className="h-4 w-4" />
                 </Button>
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!!pendingMessage}>
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!!pendingMessage} onClick={() => setShowQuickResponsesModal(true)}>
                   <Zap className="h-4 w-4" />
                 </Button>
                 <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!!pendingMessage}>
@@ -1056,6 +1073,12 @@ export const ChatArea = ({
         selectedMessages={getSelectedMessagesForForward()}
         currentClientId={clientId}
         onForward={handleForwardMessages}
+      />
+
+      <QuickResponsesModal
+        open={showQuickResponsesModal}
+        onOpenChange={setShowQuickResponsesModal}
+        onSelectResponse={handleQuickResponseSelect}
       />
     </div>
   );
