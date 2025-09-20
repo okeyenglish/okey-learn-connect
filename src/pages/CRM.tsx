@@ -1120,7 +1120,7 @@ const CRMContent = () => {
         </Sheet>
 
         {/* Center - Chat Area */}
-        <div className="flex-1 min-w-0 flex flex-col bg-background">
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-background">
           {activeChatType === 'corporate' ? (
             <CorporateChatArea onMessageChange={setHasUnsavedChat} />
           ) : activeChatType === 'teachers' ? (

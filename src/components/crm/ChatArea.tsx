@@ -806,7 +806,7 @@ export const ChatArea = ({
 
   return (
     <div 
-      className="flex-1 bg-background flex flex-col min-w-0"
+      className="flex-1 bg-background flex flex-col min-w-0 min-h-0"
       onDragOver={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -947,8 +947,8 @@ export const ChatArea = ({
       </div>
 
       {/* Chat Messages with Tabs */}
-      <div className="flex-1 overflow-hidden">
-        <Tabs defaultValue="whatsapp" className="h-full flex flex-col">
+      <div className="flex-1 overflow-hidden min-h-0">
+        <Tabs defaultValue="whatsapp" className="h-full flex flex-col min-h-0">
           <TabsList className="grid w-full grid-cols-4 rounded-none bg-orange-50/30 border-orange-200 border-t rounded-t-none">
             <TabsTrigger value="whatsapp" className="text-xs">WhatsApp</TabsTrigger>
             <TabsTrigger value="telegram" className="text-xs">Telegram</TabsTrigger>
