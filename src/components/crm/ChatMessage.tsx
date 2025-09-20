@@ -1,4 +1,4 @@
-import { Phone, PhoneCall, Play, FileSpreadsheet, Edit2, Check, X, Forward, Trash2, CheckCheck } from "lucide-react";
+import { Phone, PhoneCall, Play, FileSpreadsheet, Edit2, Check, X, Forward, Trash2, CheckCheck, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -25,9 +25,10 @@ interface ChatMessageProps {
   onMessageDelete?: (messageId: string) => Promise<void>;
   messageStatus?: 'sent' | 'delivered' | 'read' | 'queued';
   clientAvatar?: string;
+  managerName?: string;
 }
 
-export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, messageStatus, clientAvatar }: ChatMessageProps) => {
+export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, messageStatus, clientAvatar, managerName }: ChatMessageProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message);
 
@@ -120,17 +121,17 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
             </div>
           )}
           <div className="order-2">
-            <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
-              <div className="w-6 h-6 rounded-full bg-yellow-200 flex items-center justify-center">
-                <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
-              </div>
+            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+              <MessageCircle className="w-5 h-5 text-amber-600" />
             </div>
           </div>
           <div className="order-1">
-            <div className="text-xs text-muted-foreground mb-1 text-right">
-              <span className="text-yellow-600">Комментарий</span>
+            <div className="text-xs text-muted-foreground mb-1 text-right flex items-center gap-1">
+              <span className="text-amber-600">{managerName || "Менеджер"}</span>
+              <span className="text-amber-500">•</span>
+              <span className="text-amber-500 text-xs">комментарий</span>
             </div>
-            <div className="rounded-2xl p-3 bg-yellow-100 text-slate-800 rounded-tr-md">
+            <div className="rounded-2xl p-3 bg-amber-50 text-slate-800 rounded-tr-md border border-amber-200">
               <p className="text-sm leading-relaxed">{message}</p>
             </div>
             <div className="flex items-center mt-1 text-xs text-muted-foreground justify-end">

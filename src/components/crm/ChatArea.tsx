@@ -28,6 +28,7 @@ interface ChatAreaProps {
   activePhoneId?: string;
   onOpenTaskModal?: () => void;
   onOpenInvoiceModal?: () => void;
+  managerName?: string; // Add manager name for comments
 }
 
 interface ScheduledMessage {
@@ -46,7 +47,8 @@ export const ChatArea = ({
   onMessageChange, 
   activePhoneId = '1', 
   onOpenTaskModal, 
-  onOpenInvoiceModal 
+  onOpenInvoiceModal,
+  managerName = "Менеджер"
 }: ChatAreaProps) => {
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -125,7 +127,8 @@ export const ChatArea = ({
         systemType: msg.system_type,
         callDuration: msg.call_duration,
         messageStatus: msg.message_status,
-        clientAvatar: msg.clients?.avatar_url || null
+        clientAvatar: msg.clients?.avatar_url || null,
+        managerName: managerName // Pass manager name for comments
       }));
 
       console.log('Formatted messages:', formattedMessages);
@@ -194,7 +197,8 @@ export const ChatArea = ({
               systemType: payload.new.system_type,
               callDuration: payload.new.call_duration,
               messageStatus: payload.new.message_status,
-              clientAvatar
+              clientAvatar,
+              managerName: managerName // Pass manager name for comments
             };
             
             console.log('Adding message to chat:', newMessage);
@@ -339,10 +343,8 @@ export const ChatArea = ({
         console.error('Error saving comment message:', messageError);
       }
 
-      toast({
-        title: "Комментарий сохранен",
-        description: "Комментарий успешно добавлен к клиенту",
-      });
+      // Don't show success toast - just log success
+      console.log('Comment saved successfully');
     } catch (error: any) {
       toast({
         title: "Ошибка сохранения",
@@ -926,6 +928,7 @@ export const ChatArea = ({
                     onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
                     messageStatus={msg.messageStatus}
                     clientAvatar={msg.clientAvatar}
+                    managerName={msg.managerName}
                   />
                 ))
               ) : (
