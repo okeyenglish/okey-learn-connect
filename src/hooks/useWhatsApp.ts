@@ -170,13 +170,19 @@ export const useWhatsApp = () => {
         throw error;
       }
 
+      const ok = data?.success;
+      const stateValue = data?.state?.stateInstance || data?.state?.state || data?.state?.status;
+      const desc = ok
+        ? (data?.message || (stateValue ? `Состояние: ${stateValue}` : 'WhatsApp инстанс работает корректно'))
+        : (data?.error || data?.message || (stateValue ? `Состояние: ${stateValue}` : 'Ошибка подключения к WhatsApp'));
+
       toast({
-        title: "Подключение проверено",
-        description: data.success ? "WhatsApp инстанс работает корректно" : "Ошибка подключения к WhatsApp",
-        variant: data.success ? "default" : "destructive",
+        title: ok ? 'Подключение проверено' : 'Ошибка проверки',
+        description: desc,
+        variant: ok ? 'default' : 'destructive',
       });
 
-      return data.success;
+      return !!ok;
 
     } catch (error: any) {
       console.error('Error testing WhatsApp connection:', error);

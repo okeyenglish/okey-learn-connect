@@ -51,7 +51,10 @@ serve(async (req) => {
       }
       try {
         const state = await getInstanceState();
-        return new Response(JSON.stringify({ success: true, state }), {
+        const stateValue = state?.stateInstance || state?.state || state?.status;
+        const authorized = String(stateValue || '').toLowerCase() === 'authorized';
+        const message = authorized ? 'Instance authorized' : `State: ${stateValue ?? 'unknown'}`;
+        return new Response(JSON.stringify({ success: authorized, state, message }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       } catch (e: any) {
