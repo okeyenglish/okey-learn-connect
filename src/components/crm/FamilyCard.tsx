@@ -36,7 +36,7 @@ export const FamilyCard = ({
   onOpenChat,
   onCall 
 }: FamilyCardProps) => {
-  const [activeTab, setActiveTab] = useState("contacts");
+  const [activeTab, setActiveTab] = useState("children");
   const { familyData, loading, error, refetch } = useFamilyData(familyGroupId);
   
   if (loading) {
@@ -174,14 +174,80 @@ export const FamilyCard = ({
       {/* Family Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="contacts">
-            Семья ({familyData.members.length})
-          </TabsTrigger>
           <TabsTrigger value="children">
             Дети ({familyData.students.length})
           </TabsTrigger>
+          <TabsTrigger value="contacts">
+            Семья ({familyData.members.length})
+          </TabsTrigger>
         </TabsList>
         
+        <TabsContent value="children" className="space-y-2 mt-4">
+          {familyData.students.length === 0 ? (
+            <div className="text-center py-6">
+              <GraduationCap className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground mb-3">
+                Пока нет учеников в системе
+              </p>
+              <AddStudentModal 
+                familyGroupId={familyGroupId}
+                onStudentAdded={refetch}
+              />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex justify-end">
+                <AddStudentModal 
+                  familyGroupId={familyGroupId}
+                  onStudentAdded={refetch}
+                />
+              </div>
+              <div className="space-y-2">
+                {familyData.students.map((student) => (
+                  <Card key={student.id} className="hover:bg-muted/20 transition-colors">
+                    <CardContent className="p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <p className="font-medium text-sm">{student.name}</p>
+                          <Badge variant="secondary" className="text-xs">{student.age} лет</Badge>
+                        </div>
+                        <Badge variant={getChildStatusColor(student.status)} className="text-xs">
+                          {getChildStatusLabel(student.status)}
+                        </Badge>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap gap-1">
+                          {student.courses.map((course, courseIndex) => (
+                            <Badge key={courseIndex} variant="outline" className="text-xs">
+                              {course.name}
+                            </Badge>
+                          ))}
+                        </div>
+                        
+                        {student.courses.map(course => course.nextLesson && (
+                          <div key={course.id} className="flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded">
+                            <Bell className="h-3 w-3" />
+                            {course.nextLesson}
+                          </div>
+                        ))}
+                        
+                        {student.courses.map(course => course.nextPayment && (
+                          <div key={course.id} className="flex items-center gap-1 text-xs text-orange-700 bg-orange-100 px-2 py-1 rounded">
+                            <Clock className="h-3 w-3" />
+                            {course.nextPayment}
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
         <TabsContent value="contacts" className="space-y-2 mt-4">
           {otherMembers.length === 0 ? (
             <div className="text-center py-6">
@@ -259,74 +325,8 @@ export const FamilyCard = ({
                       )}
                     </CardContent>
                   </Card>
-                 );
+                );
                })}
-             </div>
-           </div>
-          )}
-        </TabsContent>
-        
-        <TabsContent value="children" className="space-y-2 mt-4">
-          {familyData.students.length === 0 ? (
-            <div className="text-center py-6">
-              <GraduationCap className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground mb-3">
-                Пока нет учеников в системе
-              </p>
-              <AddStudentModal 
-                familyGroupId={familyGroupId}
-                onStudentAdded={refetch}
-              />
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex justify-end">
-                <AddStudentModal 
-                  familyGroupId={familyGroupId}
-                  onStudentAdded={refetch}
-                />
-              </div>
-              <div className="space-y-2">
-                {familyData.students.map((student) => (
-                <Card key={student.id} className="hover:bg-muted/20 transition-colors">
-                  <CardContent className="p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <p className="font-medium text-sm">{student.name}</p>
-                        <Badge variant="secondary" className="text-xs">{student.age} лет</Badge>
-                      </div>
-                      <Badge variant={getChildStatusColor(student.status)} className="text-xs">
-                        {getChildStatusLabel(student.status)}
-                      </Badge>
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap gap-1">
-                        {student.courses.map((course, courseIndex) => (
-                          <Badge key={courseIndex} variant="outline" className="text-xs">
-                            {course.name}
-                          </Badge>
-                        ))}
-                      </div>
-                      
-                      {student.courses.map(course => course.nextLesson && (
-                        <div key={course.id} className="flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded">
-                          <Bell className="h-3 w-3" />
-                          {course.nextLesson}
-                        </div>
-                      ))}
-                      
-                      {student.courses.map(course => course.nextPayment && (
-                        <div key={course.id} className="flex items-center gap-1 text-xs text-orange-700 bg-orange-100 px-2 py-1 rounded">
-                          <Clock className="h-3 w-3" />
-                          {course.nextPayment}
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-               ))}
              </div>
            </div>
           )}
