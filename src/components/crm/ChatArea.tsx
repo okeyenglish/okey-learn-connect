@@ -126,20 +126,9 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
       {/* Chat Header */}
       <div className="border-b p-3 shrink-0">
         <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 flex items-center gap-3">
-            <div>
-              <h2 className="font-semibold text-base">{clientName}</h2>
-              <p className="text-sm text-muted-foreground">{clientPhone}</p>
-            </div>
-            {showSearchInput && (
-              <Input
-                placeholder="Поиск в чате..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-64 h-8"
-                autoFocus
-              />
-            )}
+          <div>
+            <h2 className="font-semibold text-base">{clientName}</h2>
+            <p className="text-sm text-muted-foreground">{clientPhone}</p>
           </div>
           <div className="flex items-center gap-2">
             <Button 
@@ -167,6 +156,15 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
             >
               <Search className="h-4 w-4" />
             </Button>
+            {showSearchInput && (
+              <Input
+                placeholder="Поиск в чате..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-64 h-8 ml-2"
+                autoFocus
+              />
+            )}
           </div>
         </div>
       </div>
