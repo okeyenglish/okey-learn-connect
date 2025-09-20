@@ -102,10 +102,11 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
       {/* Chat Messages with Tabs */}
       <div className="flex-1 overflow-hidden">
         <Tabs defaultValue="whatsapp" className="h-full flex flex-col">
-          <TabsList className="grid w-full grid-cols-3 rounded-none bg-orange-50/30 border-orange-200 border-t rounded-t-none">
+          <TabsList className="grid w-full grid-cols-4 rounded-none bg-orange-50/30 border-orange-200 border-t rounded-t-none">
             <TabsTrigger value="whatsapp" className="text-xs">WhatsApp</TabsTrigger>
             <TabsTrigger value="telegram" className="text-xs">Telegram</TabsTrigger>
-            <TabsTrigger value="email" className="text-xs">Max Email</TabsTrigger>
+            <TabsTrigger value="max" className="text-xs">Max</TabsTrigger>
+            <TabsTrigger value="email" className="text-xs">Email</TabsTrigger>
           </TabsList>
           
           <TabsContent value="whatsapp" className="flex-1 p-3 overflow-y-auto mt-0">
@@ -127,6 +128,14 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
             <div className="space-y-1">
               <div className="text-center text-muted-foreground text-sm py-4">
                 История переписки в Telegram
+              </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="max" className="flex-1 p-3 overflow-y-auto mt-0">
+            <div className="space-y-1">
+              <div className="text-center text-muted-foreground text-sm py-4">
+                История переписки Max
               </div>
             </div>
           </TabsContent>

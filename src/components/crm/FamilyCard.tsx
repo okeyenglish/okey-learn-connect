@@ -221,7 +221,12 @@ export const FamilyCard = ({
           <div className="space-y-2 text-sm">
             <div className="flex items-center gap-2">
               <Phone className="h-3 w-3 text-muted-foreground" />
-              <span>{getDisplayPhone()}</span>
+              <span 
+                className="cursor-pointer hover:text-primary transition-colors"
+                onClick={() => handlePhoneClick(getActivePhone()?.id || '1')}
+              >
+                {getDisplayPhone()}
+              </span>
               {getActivePhone()?.isPrimary && (
                 <Badge variant="outline" className="text-xs text-primary">
                   (основной)
@@ -245,6 +250,24 @@ export const FamilyCard = ({
                 <Edit2 className="h-3 w-3" />
               </Button>
             </div>
+            {/* Additional Phone Numbers */}
+            {memberPhoneNumbers['main-member'] && 
+             memberPhoneNumbers['main-member'].filter(phone => phone.id !== getActivePhone()?.id).map((phone) => (
+              <div key={phone.id} className="flex items-center gap-2">
+                <Phone className="h-3 w-3 text-muted-foreground" />
+                <span 
+                  className="cursor-pointer hover:text-primary transition-colors"
+                  onClick={() => handlePhoneClick(phone.id)}
+                >
+                  {phone.phone}
+                </span>
+                {phone.isPrimary && (
+                  <Badge variant="outline" className="text-xs text-primary">
+                    (основной)
+                  </Badge>
+                )}
+              </div>
+            ))}
             <div className="flex items-center gap-2">
               <Clock className="h-3 w-3 text-muted-foreground" />
               <span>День рождения: 25.12.1993</span>
@@ -282,57 +305,6 @@ export const FamilyCard = ({
               )}
             </div>
 
-            {/* Alternative Phone Numbers */}
-            {memberPhoneNumbers['main-member'] && memberPhoneNumbers['main-member'].length > 1 && (
-              <div className="mt-2 pt-2 border-t">
-                <h4 className="text-xs font-medium mb-2 text-muted-foreground">
-                  Другие номера:
-                </h4>
-                <div className="space-y-1">
-                  {memberPhoneNumbers['main-member']
-                    .filter(phone => phone.id !== getActivePhone()?.id)
-                    .map((phone) => (
-                      <div 
-                        key={phone.id} 
-                        className="flex items-center justify-between p-2 rounded border hover:bg-muted/20 cursor-pointer transition-colors"
-                        onClick={() => handlePhoneClick(phone.id)}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-sm">{phone.phone}</span>
-                          {phone.isPrimary && (
-                            <Badge variant="outline" className="text-xs">
-                              (основной)
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {phone.isWhatsappEnabled && (
-                            <div className="w-2 h-2 rounded-full bg-green-500" title="WhatsApp" />
-                          )}
-                          {phone.isTelegramEnabled && (
-                            <div className="w-2 h-2 rounded-full bg-blue-500" title="Telegram" />
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-
-            {/* Phone Numbers Management Section */}
-            <div className="mt-4 pt-3 border-t">
-              <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-                <Phone className="h-4 w-4" />
-                Управление номерами
-              </h4>
-              <PhoneNumberManager
-                clientId="main-member"
-                phoneNumbers={memberPhoneNumbers['main-member'] || []}
-                onUpdate={(phoneNumbers) => handlePhoneNumbersUpdate('main-member', phoneNumbers)}
-                onMessageClick={handleMessageClick}
-              />
-            </div>
           </div>
         </CardContent>
       </Card>
