@@ -39,8 +39,16 @@ serve(async (req) => {
   try {
     const payload = await req.json().catch(() => ({} as any));
 
-    // Support connection test without requiring client/message params
     if (payload?.action === 'test_connection') {
+      // Check required secrets first
+      if (!greenApiUrl || !greenApiIdInstance || !greenApiToken) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'Missing Green-API secrets (GREEN_API_URL, GREEN_API_ID_INSTANCE, GREEN_API_TOKEN_INSTANCE)'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       try {
         const state = await getInstanceState();
         return new Response(JSON.stringify({ success: true, state }), {
@@ -48,7 +56,6 @@ serve(async (req) => {
         });
       } catch (e: any) {
         return new Response(JSON.stringify({ success: false, error: e?.message || 'Failed to reach Green-API' }), {
-          status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
