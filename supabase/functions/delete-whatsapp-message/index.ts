@@ -128,10 +128,28 @@ serve(async (req) => {
         }
       )
 
-      const deleteResult: GreenAPIResponse = await deleteResponse.json()
+      console.log('Delete response status:', deleteResponse.status)
+      
+      let deleteResult: GreenAPIResponse = {}
+      
+      // Проверяем, есть ли контент в ответе
+      const responseText = await deleteResponse.text()
+      console.log('Delete message response text:', responseText)
+      
+      if (responseText && responseText.trim()) {
+        try {
+          deleteResult = JSON.parse(responseText)
+        } catch (parseError) {
+          console.log('Failed to parse response as JSON:', parseError)
+          deleteResult = {}
+        }
+      }
+
       console.log('Delete message response:', deleteResult)
 
-      if (deleteResponse.ok && !deleteResult.error) {
+      if (deleteResponse.ok) {
+        // Успешный статус (200-299), независимо от содержимого ответа
+        
         // Помечаем сообщение как удаленное в базе данных
         const { error: updateError } = await supabase
           .from('chat_messages')
@@ -155,7 +173,9 @@ serve(async (req) => {
           }
         )
       } else {
-        throw new Error(deleteResult.error || 'Failed to delete message')
+        // Если статус не успешный, используем текст ошибки или общее сообщение
+        const errorMessage = deleteResult.error || responseText || 'Failed to delete message'
+        throw new Error(errorMessage)
       }
     } catch (error) {
       console.error('Error deleting message:', error)
