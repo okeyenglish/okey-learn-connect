@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Phone, MessageCircle, Video, Calendar, Users, Clock, ChevronRight, Send, Link, Copy } from 'lucide-react';
+import { Search, Phone, MessageCircle, Video, Calendar, Users, Clock, ChevronRight, Send, Link, Copy, ArrowLeft, GraduationCap } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { ChatMessage } from './ChatMessage';
 import { toast } from "sonner";
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface TeacherGroup {
   id: string;
@@ -231,17 +232,18 @@ const mockTeachers: Teacher[] = [
 ];
 
 interface TeacherChatAreaProps {
-  selectedTeacherId?: string;
-  onSelectTeacher: (teacherId: string) => void;
+  selectedTeacherId?: string | null;
+  onSelectTeacher: (teacherId: string | null) => void;
 }
 
 export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
-  selectedTeacherId = 'teacher-1',
+  selectedTeacherId = null,
   onSelectTeacher
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('диалог');
   const [message, setMessage] = useState('');
+  const isMobile = useIsMobile();
 
   const filteredTeachers = mockTeachers.filter(teacher =>
     teacher.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -249,7 +251,11 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     teacher.subject.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const selectedTeacher = mockTeachers.find(t => t.id === selectedTeacherId) || mockTeachers[0];
+  const selectedTeacher = selectedTeacherId ? mockTeachers.find(t => t.id === selectedTeacherId) : null;
+
+  const handleBackToList = () => {
+    onSelectTeacher(null as any);
+  };
 
   const handleLessonClick = (groupId: string) => {
     // Navigate to lesson page
@@ -325,6 +331,181 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const isGroupChat = selectedTeacherId === 'teachers-group';
   const currentMessages = isGroupChat ? groupChatMessages : teacherMessages;
   const currentTeacher = isGroupChat ? null : selectedTeacher;
+
+  // На мобильных показываем либо список преподавателей, либо чат
+  if (isMobile) {
+    // Показываем список преподавателей
+    if (!selectedTeacherId) {
+      return (
+        <div className="flex flex-col h-full bg-background">
+          <div className="p-3 border-b">
+            <div className="flex items-center gap-2">
+              <GraduationCap className="h-5 w-5 text-slate-600" />
+              <h2 className="font-semibold text-base">Преподаватели</h2>
+              <Badge variant="secondary" className="text-xs ml-auto">
+                {filteredTeachers.length + 1}
+              </Badge>
+            </div>
+            
+            <div className="relative mt-3">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Поиск преподавателя..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-8 text-sm"
+              />
+            </div>
+          </div>
+
+          <ScrollArea className="flex-1">
+            <div className="p-2">
+              {/* Group Chat for All Teachers */}
+              <div
+                onClick={() => onSelectTeacher('teachers-group')}
+                className="p-3 rounded-lg cursor-pointer transition-colors mb-2 hover:bg-muted/50 border bg-card"
+              >
+                <div className="flex items-start space-x-3">
+                  <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-sm font-medium text-primary">
+                    ЧП
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-medium text-sm text-foreground">
+                        Чат педагогов
+                      </h3>
+                      <Badge variant="destructive" className="h-5 w-5 p-0 flex items-center justify-center text-xs">
+                        4
+                      </Badge>
+                    </div>
+                    
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Общий чат всех преподавателей
+                    </p>
+                    
+                    <p className="text-xs text-muted-foreground">
+                      15 мин назад
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Individual Teachers */}
+              {filteredTeachers.map((teacher) => (
+                <div
+                  key={teacher.id}
+                  onClick={() => onSelectTeacher(teacher.id)}
+                  className="p-3 rounded-lg cursor-pointer transition-colors mb-2 hover:bg-muted/50 border bg-card"
+                >
+                  <div className="flex items-start space-x-3">
+                    <div className="relative">
+                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-sm font-medium text-primary">
+                        {teacher.firstName[0]}{teacher.lastName[0]}
+                      </div>
+                      {teacher.isOnline && (
+                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border border-background"></div>
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium text-sm text-foreground">
+                          {teacher.fullName}
+                        </h3>
+                        {teacher.unreadMessages > 0 && (
+                          <Badge variant="destructive" className="h-5 w-5 p-0 flex items-center justify-center text-xs">
+                            {teacher.unreadMessages}
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {teacher.branch} • {teacher.subject}
+                      </p>
+                      
+                      <p className="text-xs text-muted-foreground">
+                        {teacher.lastSeen}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+      );
+    }
+
+    // Показываем чат
+    return (
+      <div className="flex flex-col h-full bg-background">
+        {/* Chat Header with Back Button */}
+        <div className="border-b p-3 shrink-0">
+          <div className="flex items-center gap-3">
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              className="h-8 w-8 p-0"
+              onClick={handleBackToList}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex-1">
+              <h2 className="font-semibold text-base flex items-center gap-2">
+                <GraduationCap className="h-4 w-4 text-slate-600" />
+                {isGroupChat ? 'Чат педагогов' : currentTeacher?.fullName}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {isGroupChat 
+                  ? 'Общий чат всех преподавателей' 
+                  : `${currentTeacher?.branch} • ${currentTeacher?.phone}`
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Chat Messages */}
+        <ScrollArea className="flex-1 p-3">
+          <div className="space-y-3">
+            {currentMessages.map((msg, index) => (
+              <ChatMessage
+                key={index}
+                type={msg.type}
+                message={msg.message}
+                time={msg.time}
+              />
+            ))}
+          </div>
+        </ScrollArea>
+
+        {/* Message Input */}
+        <div className="border-t p-3 shrink-0">
+          <div className="flex gap-2">
+            <Textarea
+              placeholder="Введите сообщение..."
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              className="min-h-[40px] max-h-[120px] resize-none"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  // Handle send message
+                  setMessage('');
+                }
+              }}
+            />
+            <Button size="sm" className="shrink-0">
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop view: show both teacher list and chat
 
   return (
     <div className="h-full flex">

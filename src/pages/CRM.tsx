@@ -108,7 +108,7 @@ const CRMContent = () => {
   const [activePhoneId, setActivePhoneId] = useState<string>('1');
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [activeChatType, setActiveChatType] = useState<'client' | 'corporate' | 'teachers'>('client');
-  const [selectedTeacherId, setSelectedTeacherId] = useState<string>('teachers-group');
+  const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
   const [isPinnedSectionOpen, setIsPinnedSectionOpen] = useState(false);
   
   // Состояния для модальных окон
@@ -1285,7 +1285,7 @@ const CRMContent = () => {
           ) : activeChatType === 'teachers' ? (
             <TeacherChatArea 
               selectedTeacherId={selectedTeacherId}
-              onSelectTeacher={setSelectedTeacherId}
+              onSelectTeacher={(teacherId: string | null) => setSelectedTeacherId(teacherId)}
             />
           ) : (
             <div className="flex-1 bg-background flex items-center justify-center p-4">
