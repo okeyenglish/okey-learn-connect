@@ -1,6 +1,7 @@
 import { Phone, PhoneCall, Play, FileSpreadsheet, Edit2, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useState } from "react";
 
 interface ChatMessageProps {
@@ -11,9 +12,13 @@ interface ChatMessageProps {
   callDuration?: string;
   isEdited?: boolean;
   editedTime?: string;
+  isSelected?: boolean;
+  onSelectionChange?: (selected: boolean) => void;
+  isSelectionMode?: boolean;
+  messageId?: string;
 }
 
-export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime }: ChatMessageProps) => {
+export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId }: ChatMessageProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message);
 
@@ -58,11 +63,22 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
         </div>
       );
     }
+    return null;
   }
 
   return (
-    <div className={`flex ${type === 'manager' ? 'justify-end' : 'justify-start'} mb-4`}>
+    <div className={`flex ${type === 'manager' ? 'justify-end' : 'justify-start'} mb-4 ${isSelectionMode ? 'hover:bg-muted/20 p-2 rounded-lg' : ''}`}>
       <div className="flex items-start gap-3 max-w-xs lg:max-w-md xl:max-w-lg">
+        {/* Чекбокс для выделения сообщений */}
+        {isSelectionMode && (
+          <div className="flex items-center pt-2">
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={onSelectionChange}
+              className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+            />
+          </div>
+        )}
         {type === 'manager' && (
           <div className="order-2">
             <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">

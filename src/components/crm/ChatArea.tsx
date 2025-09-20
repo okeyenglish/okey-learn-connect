@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Phone } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Phone, Forward, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,6 +8,7 @@ import { ChatMessage } from "./ChatMessage";
 import { ClientTasks } from "./ClientTasks";
 import { AddTaskModal } from "./AddTaskModal";
 import { CreateInvoiceModal } from "./CreateInvoiceModal";
+import { ForwardMessageModal } from "./ForwardMessageModal";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,6 +45,9 @@ export const ChatArea = ({
   const [messages, setMessages] = useState<any[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
+  const [showForwardModal, setShowForwardModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { sendTextMessage, loading } = useWhatsApp();
@@ -82,6 +86,7 @@ export const ChatArea = ({
       console.log('Loaded messages from database:', data);
 
       const formattedMessages = (data || []).map(msg => ({
+        id: msg.id,
         type: msg.is_outgoing ? 'manager' : 'client',
         message: msg.message_text || '',
         time: new Date(msg.created_at).toLocaleTimeString('ru-RU', { 
@@ -132,6 +137,7 @@ export const ChatArea = ({
         (payload) => {
           console.log('Received new message via real-time:', payload);
           const newMessage = {
+            id: payload.new.id,
             type: payload.new.is_outgoing ? 'manager' : 'client',
             message: payload.new.message_text || '',
             time: new Date(payload.new.created_at).toLocaleTimeString('ru-RU', { 
@@ -218,6 +224,62 @@ export const ChatArea = ({
     console.log('Saving comment:', editableComment);
   };
 
+  // Функции для работы с выделением сообщений
+  const handleToggleSelectionMode = () => {
+    setIsSelectionMode(!isSelectionMode);
+    setSelectedMessages(new Set());
+  };
+
+  const handleMessageSelectionChange = (messageId: string, selected: boolean) => {
+    const newSelected = new Set(selectedMessages);
+    if (selected) {
+      newSelected.add(messageId);
+    } else {
+      newSelected.delete(messageId);
+    }
+    setSelectedMessages(newSelected);
+  };
+
+  const handleForwardMessages = async (clientIds: string[]) => {
+    const messagesToForward = messages.filter(msg => selectedMessages.has(msg.id));
+    
+    try {
+      // Отправляем каждое сообщение каждому выбранному клиенту
+      for (const clientId of clientIds) {
+        for (const msg of messagesToForward) {
+          const forwardedText = `Переслано: ${msg.message}`;
+          await sendTextMessage(clientId, forwardedText);
+        }
+      }
+      
+      toast({
+        title: "Сообщения переслаты",
+        description: `${messagesToForward.length} сообщений переслано ${clientIds.length} получателям`,
+      });
+      
+      // Сбрасываем режим выделения
+      setIsSelectionMode(false);
+      setSelectedMessages(new Set());
+    } catch (error) {
+      toast({
+        title: "Ошибка пересылки",
+        description: "Не удалось переслать сообщения",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getSelectedMessagesForForward = () => {
+    return messages
+      .filter(msg => selectedMessages.has(msg.id))
+      .map(msg => ({
+        id: msg.id,
+        message: msg.message,
+        time: msg.time,
+        type: msg.type
+      }));
+  };
+
   // Mock tasks data - in real app this would come from props or API
   const clientTasks = [
     {
@@ -286,6 +348,15 @@ export const ChatArea = ({
             >
               <Search className="h-4 w-4" />
             </Button>
+            <Button 
+              size="sm" 
+              variant={isSelectionMode ? "default" : "outline"}
+              className="h-8 w-8 p-0"
+              title="Выделить сообщения"
+              onClick={handleToggleSelectionMode}
+            >
+              <Forward className="h-4 w-4" />
+            </Button>
             {showSearchInput && (
               <Input
                 placeholder="Поиск в чате..."
@@ -297,6 +368,37 @@ export const ChatArea = ({
             )}
           </div>
         </div>
+        
+        {/* Панель действий для режима выделения */}
+        {isSelectionMode && (
+          <div className="bg-primary/10 border border-primary/20 rounded-lg p-2 mt-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">
+                Выбрано: {selectedMessages.size} сообщений
+              </span>
+              <div className="flex items-center gap-2">
+                <Button 
+                  size="sm" 
+                  onClick={() => setShowForwardModal(true)}
+                  disabled={selectedMessages.size === 0}
+                  className="h-7"
+                >
+                  <Forward className="h-3 w-3 mr-1" />
+                  Переслать
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={handleToggleSelectionMode}
+                  className="h-7"
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Отмена
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Client Tasks */}
@@ -326,12 +428,16 @@ export const ChatArea = ({
               ) : filteredMessages.length > 0 ? (
                 filteredMessages.map((msg, index) => (
                   <ChatMessage
-                    key={index}
+                    key={msg.id || index}
+                    messageId={msg.id}
                     type={msg.type}
                     message={msg.message}
                     time={msg.time}
                     systemType={msg.systemType}
                     callDuration={msg.callDuration}
+                    isSelectionMode={isSelectionMode}
+                    isSelected={selectedMessages.has(msg.id)}
+                    onSelectionChange={(selected) => handleMessageSelectionChange(msg.id, selected)}
                   />
                 ))
               ) : (
@@ -426,6 +532,15 @@ export const ChatArea = ({
           clientName={clientName}
         />
       )}
+      
+      {/* Модальное окно пересылки сообщений */}
+      <ForwardMessageModal
+        open={showForwardModal}
+        onOpenChange={setShowForwardModal}
+        selectedMessages={getSelectedMessagesForForward()}
+        currentClientId={clientId}
+        onForward={handleForwardMessages}
+      />
     </div>
   );
 };
