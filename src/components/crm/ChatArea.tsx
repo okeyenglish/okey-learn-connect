@@ -95,14 +95,14 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
       </div>
 
       {/* Client Tasks */}
-      <div className="p-3 shrink-0">
+      <div className="shrink-0">
         <ClientTasks clientName={clientName} tasks={clientTasks} />
       </div>
 
       {/* Chat Messages with Tabs */}
       <div className="flex-1 overflow-hidden">
         <Tabs defaultValue="whatsapp" className="h-full flex flex-col">
-          <TabsList className="mx-3 mt-2 grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-3 rounded-none bg-orange-50/30 border-orange-200 border-t rounded-t-none">
             <TabsTrigger value="whatsapp" className="text-xs">WhatsApp</TabsTrigger>
             <TabsTrigger value="telegram" className="text-xs">Telegram</TabsTrigger>
             <TabsTrigger value="email" className="text-xs">Email</TabsTrigger>

@@ -43,7 +43,7 @@ export const ClientTasks = ({ clientName, tasks }: ClientTasksProps) => {
   };
 
   return (
-    <Card className="mb-3 border-orange-200 bg-orange-50/30">
+    <Card className="mb-0 border-orange-200 bg-orange-50/30 border-b-0 rounded-b-none">
       <CardHeader 
         className="pb-2 pt-3 cursor-pointer" 
         onClick={() => setIsExpanded(!isExpanded)}
