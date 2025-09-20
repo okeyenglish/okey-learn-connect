@@ -12,6 +12,7 @@ import KidsBox from "./pages/programs/KidsBox";
 import Prepare from "./pages/programs/Prepare";
 import Empower from "./pages/programs/Empower";
 import Programs from "./pages/Programs";
+import MiniSadik from "./pages/programs/MiniSadik";
 import Branches from "./pages/Branches";
 import LocationKotelniki from "./pages/branches/Kotelniki";
 import LocationNovokosino from "./pages/branches/Novokosino";
@@ -49,8 +50,9 @@ const App = () => (
               <Route path="/programs" element={<Programs />} />
               <Route path="/programs/supersafari" element={<SuperSafari />} />
               <Route path="/programs/kidsbox" element={<KidsBox />} />
-              <Route path="/programs/prepare" element={<Prepare />} />
-              <Route path="/programs/empower" element={<Empower />} />
+          <Route path="/programs/prepare" element={<Prepare />} />
+          <Route path="/programs/empower" element={<Empower />} />
+          <Route path="/programs/minisadik" element={<MiniSadik />} />
               <Route path="/branches" element={<Branches />} />
               <Route path="/branches/kotelniki" element={<LocationKotelniki />} />
               <Route path="/branches/novokosino" element={<LocationNovokosino />} />

@@ -53,6 +53,17 @@ const programs = [
     color: "bg-gradient-to-r from-emerald-500 to-teal-500",
     image: empowerImg,
     href: "/programs/empower"
+  },
+  {
+    name: "Субботний мини-садик",
+    ageCategory: "Дошкольникам 3-6 лет",
+    age: "3–6 лет",
+    level: "Pre-A1 (игровой)",
+    description: "Весёлые занятия по субботам: игры, творчество, песни и сказки на английском.",
+    features: ["Субботы утром", "Игровой формат", "Перекусы включены"],
+    color: "bg-gradient-to-r from-orange-400 to-pink-500",
+    image: superSafariImg, // Используем временно изображение Super Safari
+    href: "/programs/minisadik"
   }
 ];
 
@@ -74,7 +85,7 @@ export default function Programs() {
                 <Users className="w-6 h-6 text-white" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-primary">4</div>
+                <div className="text-2xl font-bold text-primary">5</div>
                 <div className="text-sm text-muted-foreground">программы</div>
               </div>
             </div>
