@@ -100,7 +100,11 @@ export default function SpeakingClubSignupModal({ level, children }: SpeakingClu
         <DialogHeader>
           <DialogTitle>Записаться в Speaking Club</DialogTitle>
           <DialogDescription>
-            Онлайн разговорный клуб с носителем языка • Суббота 10:00-13:30 МСК
+            Онлайн разговорный клуб с носителем языка • Суббота {
+              formData.timeSlot 
+                ? timeSlots.find(slot => slot.value === formData.timeSlot)?.value + " МСК"
+                : "10:00-13:30 МСК"
+            }
           </DialogDescription>
         </DialogHeader>
         
