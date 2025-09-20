@@ -40,13 +40,6 @@ export const PhoneNumberManager = ({
 }: PhoneNumberManagerProps) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedPhone, setEditedPhone] = useState("");
-  const [isAddingNew, setIsAddingNew] = useState(false);
-  const [newPhone, setNewPhone] = useState({
-    phone: "",
-    phoneType: "mobile" as const,
-    isWhatsappEnabled: true,
-    isTelegramEnabled: false
-  });
 
   const handleEdit = (phoneNumber: PhoneNumber) => {
     setEditingId(phoneNumber.id);
@@ -65,28 +58,6 @@ export const PhoneNumberManager = ({
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditedPhone("");
-  };
-
-  const handleAddNew = () => {
-    if (!newPhone.phone.trim()) return;
-    
-    const newPhoneNumber: PhoneNumber = {
-      id: Date.now().toString(),
-      phone: newPhone.phone,
-      phoneType: newPhone.phoneType,
-      isPrimary: phoneNumbers.length === 0, // First phone is primary
-      isWhatsappEnabled: newPhone.isWhatsappEnabled,
-      isTelegramEnabled: newPhone.isTelegramEnabled
-    };
-    
-    onUpdate?.([...phoneNumbers, newPhoneNumber]);
-    setNewPhone({
-      phone: "",
-      phoneType: "mobile",
-      isWhatsappEnabled: true,
-      isTelegramEnabled: false
-    });
-    setIsAddingNew(false);
   };
 
   const handleDelete = (id: string) => {
@@ -222,87 +193,6 @@ export const PhoneNumberManager = ({
           )}
         </div>
       ))}
-
-      {/* Add New Phone Number */}
-      {isAddingNew ? (
-        <div className="border rounded-lg p-3 bg-muted/20">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Phone className="w-4 h-4 text-muted-foreground" />
-              <Input
-                value={newPhone.phone}
-                onChange={(e) => setNewPhone(prev => ({ ...prev, phone: e.target.value }))}
-                placeholder="+7 (___) ___-__-__"
-                className="flex-1"
-              />
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Label className="text-xs">Тип:</Label>
-                <Select
-                  value={newPhone.phoneType}
-                  onValueChange={(value: any) => setNewPhone(prev => ({ ...prev, phoneType: value }))}
-                >
-                  <SelectTrigger className="w-32 h-7 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mobile">Мобильный</SelectItem>
-                    <SelectItem value="work">Рабочий</SelectItem>
-                    <SelectItem value="home">Домашний</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={newPhone.isWhatsappEnabled}
-                  onCheckedChange={(checked) => setNewPhone(prev => ({ ...prev, isWhatsappEnabled: checked }))}
-                />
-                <Label className="text-xs">WhatsApp</Label>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={newPhone.isTelegramEnabled}
-                  onCheckedChange={(checked) => setNewPhone(prev => ({ ...prev, isTelegramEnabled: checked }))}
-                />
-                <Label className="text-xs">Telegram</Label>
-              </div>
-            </div>
-            
-            <div className="flex justify-end gap-2">
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={() => setIsAddingNew(false)}
-                className="text-xs"
-              >
-                Отмена
-              </Button>
-              <Button 
-                size="sm" 
-                onClick={handleAddNew}
-                className="text-xs"
-                disabled={!newPhone.phone.trim()}
-              >
-                Добавить
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <Button 
-          size="sm" 
-          variant="outline" 
-          onClick={() => setIsAddingNew(true)}
-          className="text-xs w-full"
-        >
-          <Plus className="w-3 h-3 mr-1" />
-          Добавить номер
-        </Button>
-      )}
     </div>
   );
 };

@@ -22,7 +22,8 @@ import {
   History,
   CheckCircle,
   AlertCircle,
-  MessageCircle
+  MessageCircle,
+  Edit2
 } from "lucide-react";
 
 interface Student {
@@ -214,8 +215,14 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
                   </Button>
                 </>
               ) : (
-                <Button size="sm" variant="outline" onClick={handleEdit}>
-                  Редактировать
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={handleEdit}
+                  className="h-8 w-8 p-0"
+                  title="Редактировать"
+                >
+                  <Edit2 className="h-4 w-4" />
                 </Button>
               )}
             </div>

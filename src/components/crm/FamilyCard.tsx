@@ -181,7 +181,7 @@ export const FamilyCard = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="relative">
-                <User className="h-5 w-5 text-primary" />
+                <User className="h-5 w-5 text-slate-600" />
                 {activeMember.isOnline && (
                   <div className="absolute -bottom-1 -right-1 h-3 w-3 bg-green-500 rounded-full border-2 border-white"></div>
                 )}
@@ -213,13 +213,13 @@ export const FamilyCard = ({
               <div className="flex items-center gap-2">
                 <Phone className="h-3 w-3 text-muted-foreground" />
                 <span 
-                  className="cursor-pointer hover:text-primary transition-colors"
+                  className="cursor-pointer hover:text-slate-600 transition-colors"
                   onClick={() => handlePhoneClick(getActivePhone()?.id || '1')}
                 >
                   {getDisplayPhone()}
                 </span>
                 {getActivePhone()?.isPrimary && (
-                  <Badge variant="outline" className="text-xs text-primary">
+                  <Badge variant="outline" className="text-xs text-slate-600">
                     (основной)
                   </Badge>
                 )}
@@ -305,7 +305,7 @@ export const FamilyCard = ({
                   <Button 
                     size="sm" 
                     variant="ghost" 
-                    className="absolute -right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0 bg-primary text-primary-foreground hover:bg-primary/90 rounded-full"
+                    className="absolute -right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0 bg-slate-600 text-white hover:bg-slate-700 rounded-full"
                   >
                     <Plus className="h-3 w-3" />
                   </Button>
@@ -322,7 +322,7 @@ export const FamilyCard = ({
                   <Button 
                     size="sm" 
                     variant="ghost" 
-                    className="absolute -right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0 bg-primary text-primary-foreground hover:bg-primary/90 rounded-full"
+                    className="absolute -right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0 bg-slate-600 text-white hover:bg-slate-700 rounded-full"
                   >
                     <Plus className="h-3 w-3" />
                   </Button>
