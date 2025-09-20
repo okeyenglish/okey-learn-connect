@@ -447,7 +447,7 @@ const CRM = () => {
           <CorporateChatArea onMessageChange={setHasUnsavedChat} />
         ) : activeChatType === 'teachers' ? (
           <TeacherChatArea 
-            selectedTeacherId="teacher-1"
+            selectedTeacherId="teachers-group"
             onSelectTeacher={(teacherId) => console.log('Selected teacher:', teacherId)}
           />
         ) : (

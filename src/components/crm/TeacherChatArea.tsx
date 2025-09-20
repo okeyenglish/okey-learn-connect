@@ -150,7 +150,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     console.log('Navigate to lesson:', groupId);
   };
 
-  // Mock chat messages for teacher
+  // Mock chat messages for individual teacher
   const teacherMessages = [
     {
       type: 'client' as const,
@@ -174,6 +174,39 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     }
   ];
 
+  // Mock group chat messages for all teachers
+  const groupChatMessages = [
+    {
+      type: 'client' as const,
+      message: 'Коллеги, напоминаю про методическое собрание завтра в 14:00',
+      time: '09:30'
+    },
+    {
+      type: 'manager' as const,
+      message: 'Семён, я буду! Подготовлю отчет по новым учебникам',
+      time: '09:32'
+    },
+    {
+      type: 'client' as const,
+      message: 'Отлично! А кто-нибудь может поделиться презентацией по грамматике для уровня B1?',
+      time: '09:35'
+    },
+    {
+      type: 'manager' as const,
+      message: 'У меня есть хорошая презентация, скину в чат после урока',
+      time: '09:37'
+    },
+    {
+      type: 'client' as const,
+      message: 'Спасибо, Маргарита! Очень поможет для завтрашних занятий',
+      time: '09:40'
+    }
+  ];
+
+  const isGroupChat = selectedTeacherId === 'teachers-group';
+  const currentMessages = isGroupChat ? groupChatMessages : teacherMessages;
+  const currentTeacher = isGroupChat ? null : selectedTeacher;
+
   return (
     <div className="h-full flex">
       {/* Compact Teachers List */}
@@ -182,7 +215,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold text-foreground">Преподаватели</h2>
             <Badge variant="secondary" className="text-xs">
-              {filteredTeachers.length}
+              {filteredTeachers.length + 1}
             </Badge>
           </div>
           
@@ -199,6 +232,42 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
         <ScrollArea className="flex-1">
           <div className="p-2">
+            {/* Group Chat for All Teachers */}
+            <div
+              onClick={() => onSelectTeacher('teachers-group')}
+              className={`p-2 rounded-lg cursor-pointer transition-colors mb-2 ${
+                selectedTeacherId === 'teachers-group'
+                  ? 'bg-muted border border-border'
+                  : 'hover:bg-muted/50'
+              }`}
+            >
+              <div className="flex items-start space-x-2">
+                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-xs font-medium text-primary">
+                  ЧП
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium text-sm text-foreground truncate">
+                      Чат педагогов
+                    </h3>
+                    <Badge variant="destructive" className="h-4 w-4 p-0 flex items-center justify-center text-xs">
+                      4
+                    </Badge>
+                  </div>
+                  
+                  <p className="text-xs text-muted-foreground truncate">
+                    Общий чат всех преподавателей
+                  </p>
+                  
+                  <p className="text-xs text-muted-foreground">
+                    15 мин назад
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Individual Teachers */}
             {filteredTeachers.map((teacher) => (
               <div
                 key={teacher.id}
@@ -255,32 +324,39 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
               <div className="relative">
                 <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
                   <span className="text-primary font-medium text-xs">
-                    {selectedTeacher.firstName[0]}{selectedTeacher.lastName[0]}
+                    {isGroupChat ? 'ЧП' : `${currentTeacher?.firstName[0]}${currentTeacher?.lastName[0]}`}
                   </span>
                 </div>
-                {selectedTeacher.isOnline && (
+                {!isGroupChat && currentTeacher?.isOnline && (
                   <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border border-background"></div>
                 )}
               </div>
               <div>
-                <h3 className="font-medium text-sm text-foreground">{selectedTeacher.fullName}</h3>
+                <h3 className="font-medium text-sm text-foreground">
+                  {isGroupChat ? 'Чат педагогов' : currentTeacher?.fullName}
+                </h3>
                 <p className="text-xs text-muted-foreground">
-                  {selectedTeacher.branch} • {selectedTeacher.lastSeen}
+                  {isGroupChat 
+                    ? 'Общий чат всех преподавателей' 
+                    : `${currentTeacher?.branch} • ${currentTeacher?.lastSeen}`
+                  }
                 </p>
               </div>
             </div>
             
-            <div className="flex items-center space-x-1">
-              <Button size="sm" variant="outline" className="h-7 w-7 p-0">
-                <Phone className="h-3 w-3" />
-              </Button>
-              <Button size="sm" variant="outline" className="h-7 w-7 p-0">
-                <Video className="h-3 w-3" />
-              </Button>
-              <Button size="sm" variant="outline" className="h-7 w-7 p-0">
-                <Mail className="h-3 w-3" />
-              </Button>
-            </div>
+            {!isGroupChat && (
+              <div className="flex items-center space-x-1">
+                <Button size="sm" variant="outline" className="h-7 w-7 p-0">
+                  <Phone className="h-3 w-3" />
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 w-7 p-0">
+                  <Video className="h-3 w-3" />
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 w-7 p-0">
+                  <Mail className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -294,84 +370,108 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
           </TabsList>
 
           <div className="flex-1 overflow-hidden">
-            <TabsContent value="основной" className="h-full m-0">
-              <ScrollArea className="h-full p-3">
-                <div className="space-y-3">
-                  {/* Contact Info */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">Контактные данные</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 pt-0">
-                      <div className="flex items-center space-x-2">
-                        <Phone className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs">{selectedTeacher.phone}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Mail className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs">{selectedTeacher.email}</span>
-                      </div>
-                      {selectedTeacher.telegram && (
-                        <div className="flex items-center space-x-2">
-                          <MessageCircle className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-xs">{selectedTeacher.telegram}</span>
-                        </div>
-                      )}
-                      {selectedTeacher.zoomLink && (
-                        <div className="flex items-center space-x-2">
-                          <Video className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-xs text-blue-600">{selectedTeacher.zoomLink}</span>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+            {/* Show individual teacher info only for individual teachers, not group chat */}
+            {!isGroupChat && (
+              <>
+                <TabsContent value="основной" className="h-full m-0">
+                  <ScrollArea className="h-full p-3">
+                    <div className="space-y-3">
+                      {/* Contact Info */}
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">Контактные данные</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2 pt-0">
+                          <div className="flex items-center space-x-2">
+                            <Phone className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-xs">{currentTeacher?.phone}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Mail className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-xs">{currentTeacher?.email}</span>
+                          </div>
+                          {currentTeacher?.telegram && (
+                            <div className="flex items-center space-x-2">
+                              <MessageCircle className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-xs">{currentTeacher.telegram}</span>
+                            </div>
+                          )}
+                          {currentTeacher?.zoomLink && (
+                            <div className="flex items-center space-x-2">
+                              <Video className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-xs text-blue-600">{currentTeacher.zoomLink}</span>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
 
-                  {/* Groups and Schedule */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">Группы и занятия</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 pt-0">
-                      {selectedTeacher.groups.map((group) => (
-                        <div 
-                          key={group.id}
-                          onClick={() => handleLessonClick(group.id)}
-                          className="p-2 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-2">
-                                <h4 className="font-medium text-xs text-foreground">{group.name}</h4>
-                                <Badge variant="outline" className="text-xs h-4">
-                                  {group.level}
-                                </Badge>
-                              </div>
-                              <div className="flex items-center space-x-3 mt-1">
-                                <div className="flex items-center space-x-1">
-                                  <Clock className="h-3 w-3 text-muted-foreground" />
-                                  <span className="text-xs text-muted-foreground">{group.nextLesson}</span>
+                      {/* Groups and Schedule */}
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">Группы и занятия</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2 pt-0">
+                          {currentTeacher?.groups.map((group) => (
+                            <div 
+                              key={group.id}
+                              onClick={() => handleLessonClick(group.id)}
+                              className="p-2 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center space-x-2">
+                                    <h4 className="font-medium text-xs text-foreground">{group.name}</h4>
+                                    <Badge variant="outline" className="text-xs h-4">
+                                      {group.level}
+                                    </Badge>
+                                  </div>
+                                  <div className="flex items-center space-x-3 mt-1">
+                                    <div className="flex items-center space-x-1">
+                                      <Clock className="h-3 w-3 text-muted-foreground" />
+                                      <span className="text-xs text-muted-foreground">{group.nextLesson}</span>
+                                    </div>
+                                    <div className="flex items-center space-x-1">
+                                      <Users className="h-3 w-3 text-muted-foreground" />
+                                      <span className="text-xs text-muted-foreground">{group.studentsCount} уч.</span>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="flex items-center space-x-1">
-                                  <Users className="h-3 w-3 text-muted-foreground" />
-                                  <span className="text-xs text-muted-foreground">{group.studentsCount} уч.</span>
-                                </div>
+                                <ChevronRight className="h-3 w-3 text-muted-foreground" />
                               </div>
                             </div>
-                            <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                          </div>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                </div>
-              </ScrollArea>
-            </TabsContent>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
 
+                <TabsContent value="расписание" className="h-full m-0">
+                  <ScrollArea className="h-full p-3">
+                    <div className="text-center py-8">
+                      <Calendar className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-sm text-muted-foreground">Расписание преподавателя</p>
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+
+                <TabsContent value="задания" className="h-full m-0">
+                  <ScrollArea className="h-full p-3">
+                    <div className="text-center py-8">
+                      <MessageCircle className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-sm text-muted-foreground">Домашние задания</p>
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+              </>
+            )}
+
+            {/* Chat tab - always available */}
             <TabsContent value="общение" className="h-full m-0 flex flex-col">
               {/* Chat Messages Area */}
               <ScrollArea className="flex-1 p-3">
                 <div className="space-y-1">
-                  {teacherMessages.map((msg, index) => (
+                  {currentMessages.map((msg, index) => (
                     <ChatMessage
                       key={index}
                       type={msg.type}
@@ -387,7 +487,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                 <div className="flex items-end gap-2">
                   <div className="flex-1">
                     <Textarea
-                      placeholder="Написать сообщение..."
+                      placeholder={isGroupChat ? "Написать в общий чат..." : "Написать сообщение..."}
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
                       className="min-h-[40px] max-h-[120px] resize-none text-sm"
@@ -401,23 +501,58 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
               </div>
             </TabsContent>
 
-            <TabsContent value="расписание" className="h-full m-0">
-              <ScrollArea className="h-full p-3">
-                <div className="text-center py-8">
-                  <Calendar className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-sm text-muted-foreground">Расписание преподавателя</p>
-                </div>
-              </ScrollArea>
-            </TabsContent>
+            {/* Group chat specific tabs */}
+            {isGroupChat && (
+              <>
+                <TabsContent value="основной" className="h-full m-0">
+                  <ScrollArea className="h-full p-3">
+                    <div className="space-y-3">
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">Участники чата</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2 pt-0">
+                          {mockTeachers.map((teacher) => (
+                            <div key={teacher.id} className="flex items-center space-x-2 p-2 rounded hover:bg-muted/50">
+                              <div className="relative">
+                                <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-xs font-medium text-primary">
+                                  {teacher.firstName[0]}{teacher.lastName[0]}
+                                </div>
+                                {teacher.isOnline && (
+                                  <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-background"></div>
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-xs font-medium">{teacher.fullName}</p>
+                                <p className="text-xs text-muted-foreground">{teacher.branch}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
 
-            <TabsContent value="задания" className="h-full m-0">
-              <ScrollArea className="h-full p-3">
-                <div className="text-center py-8">
-                  <MessageCircle className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-sm text-muted-foreground">Домашние задания</p>
-                </div>
-              </ScrollArea>
-            </TabsContent>
+                <TabsContent value="расписание" className="h-full m-0">
+                  <ScrollArea className="h-full p-3">
+                    <div className="text-center py-8">
+                      <Calendar className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-sm text-muted-foreground">Общее расписание</p>
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+
+                <TabsContent value="задания" className="h-full m-0">
+                  <ScrollArea className="h-full p-3">
+                    <div className="text-center py-8">
+                      <MessageCircle className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-sm text-muted-foreground">Общие задания</p>
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+              </>
+            )}
           </div>
         </Tabs>
       </div>
