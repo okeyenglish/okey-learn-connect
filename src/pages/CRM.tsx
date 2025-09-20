@@ -523,17 +523,6 @@ const CRMContent = () => {
       {/* Search Bar */}
       <div className="bg-background border-b p-4 shrink-0">
         <div className="relative max-w-7xl mx-auto space-y-4">
-          <SearchInput
-            placeholder="Поиск клиентов, учеников, чатов, платежей..."
-            onSearch={handleGlobalSearch}
-            onClear={() => {
-              setSearchQuery("");
-              setShowSearchResults(false);
-              setGlobalSearchResults([]);
-            }}
-            size="lg"
-          />
-          
           {/* Закрепленные модальные окна как вкладки */}
           <PinnedModalTabs 
             pinnedModals={pinnedModals}
