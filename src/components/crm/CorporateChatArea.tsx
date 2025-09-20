@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Search, Plus, FileText, Phone, Building2 } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Search, Plus, FileText, Phone, Building2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ChatMessage } from "./ChatMessage";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface CorporateChatAreaProps {
   onMessageChange?: (hasUnsaved: boolean) => void;
@@ -103,7 +104,8 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchInput, setShowSearchInput] = useState(false);
-  const [activeBranch, setActiveBranch] = useState('okskaya');
+  const [activeBranch, setActiveBranch] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   const handleMessageChange = (value: string) => {
     setMessage(value);
@@ -117,7 +119,15 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
     }
   };
 
-  const messages = mockCorporateChats[activeBranch] || [];
+  const handleBranchSelect = (branchId: string) => {
+    setActiveBranch(branchId);
+  };
+
+  const handleBackToList = () => {
+    setActiveBranch(null);
+  };
+
+  const messages = activeBranch ? mockCorporateChats[activeBranch] || [] : [];
 
   // Filter messages based on search query
   const filteredMessages = messages.filter(msg => 
@@ -129,58 +139,84 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
     return branches.find(b => b.id === activeBranch) || branches[0];
   };
 
-  return (
-    <div className="flex h-full">
-      {/* Left Sidebar - Branch List */}
-      <div className="w-64 border-r bg-background flex flex-col">
-        <div className="p-3 border-b">
-          <div className="flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-slate-600" />
-            <h2 className="font-semibold text-base">Корпоративный чат</h2>
+  // На мобильных показываем либо список филиалов, либо чат
+  if (isMobile) {
+    // Показываем список филиалов
+    if (!activeBranch) {
+      return (
+        <div className="flex flex-col h-full bg-background">
+          <div className="p-3 border-b">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-slate-600" />
+              <h2 className="font-semibold text-base">Корпоративный чат</h2>
+            </div>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-3 space-y-2">
+              {branches.map((branch) => {
+                const branchMessages = mockCorporateChats[branch.id] || [];
+                return (
+                  <button
+                    key={branch.id}
+                    onClick={() => handleBranchSelect(branch.id)}
+                    className="w-full text-left p-4 rounded-lg transition-colors bg-card border hover:bg-muted/50 shadow-sm"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <Building2 className="h-6 w-6 text-blue-600" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-sm">{branch.name}</p>
+                            {branch.unread > 0 && (
+                              <Badge variant="destructive" className="text-xs h-5 min-w-5 px-1.5">
+                                {branch.unread}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1 truncate">
+                            {branchMessages.length > 0 
+                              ? branchMessages[branchMessages.length - 1].message 
+                              : 'Нет сообщений'
+                            }
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className="text-xs text-muted-foreground">
+                          {branchMessages.length > 0 
+                            ? branchMessages[branchMessages.length - 1].time 
+                            : ''
+                          }
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
-        
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-2 space-y-1">
-            {branches.map((branch) => (
-              <button
-                key={branch.id}
-                onClick={() => setActiveBranch(branch.id)}
-                className={`w-full text-left p-3 rounded-lg transition-colors ${
-                  activeBranch === branch.id 
-                    ? 'bg-slate-100 border border-slate-200' 
-                    : 'hover:bg-slate-50'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-slate-500" />
-                    <span className="font-medium text-sm">{branch.name}</span>
-                  </div>
-                  {branch.unread > 0 && (
-                    <Badge variant="destructive" className="text-xs h-5 min-w-5 px-1.5">
-                      {branch.unread}
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1 truncate">
-                  {messages.length > 0 
-                    ? messages[messages.length - 1].message 
-                    : 'Нет сообщений'
-                  }
-                </p>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      );
+    }
 
-      {/* Right Chat Area */}
-      <div className="flex-1 bg-background flex flex-col min-w-0">
-        {/* Chat Header */}
+    // Показываем чат выбранного филиала
+    return (
+      <div className="flex flex-col h-full bg-background">
+        {/* Chat Header with Back Button */}
         <div className="border-b p-3 shrink-0">
-          <div className="flex items-start justify-between gap-4">
-            <div>
+          <div className="flex items-center gap-3">
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              className="h-8 w-8 p-0"
+              onClick={handleBackToList}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex-1">
               <h2 className="font-semibold text-base flex items-center gap-2">
                 <Building2 className="h-4 w-4 text-slate-600" />
                 Филиал {getActiveBranch().name}
@@ -198,22 +234,6 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
               </Button>
               <Button 
                 size="sm" 
-                variant="outline" 
-                className="h-8 w-8 p-0"
-                title="Выставить счёт"
-              >
-                <FileText className="h-4 w-4" />
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="h-8 w-8 p-0"
-                title="Позвонить"
-              >
-                <Phone className="h-4 w-4" />
-              </Button>
-              <Button 
-                size="sm" 
                 variant={showSearchInput ? "default" : "outline"}
                 className="h-8 w-8 p-0"
                 title="Поиск в чате"
@@ -221,17 +241,19 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
               >
                 <Search className="h-4 w-4" />
               </Button>
-              {showSearchInput && (
-                <Input
-                  placeholder="Поиск в чате..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-64 h-8 ml-2"
-                  autoFocus
-                />
-              )}
             </div>
           </div>
+          {showSearchInput && (
+            <div className="mt-2">
+              <Input
+                placeholder="Поиск в чате..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-8"
+                autoFocus
+              />
+            </div>
+          )}
         </div>
 
         {/* Chat Messages */}
@@ -323,6 +345,222 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
             </Button>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // Десктопная версия - двухпанельный интерфейс
+  return (
+    <div className="flex h-full">
+      {/* Left Sidebar - Branch List */}
+      <div className="w-64 border-r bg-background flex flex-col">
+        <div className="p-3 border-b">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-5 w-5 text-slate-600" />
+            <h2 className="font-semibold text-base">Корпоративный чат</h2>
+          </div>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-2 space-y-1">
+            {branches.map((branch) => {
+              const branchMessages = mockCorporateChats[branch.id] || [];
+              return (
+                <button
+                  key={branch.id}
+                  onClick={() => setActiveBranch(branch.id)}
+                  className={`w-full text-left p-3 rounded-lg transition-colors ${
+                    activeBranch === branch.id 
+                      ? 'bg-slate-100 border border-slate-200' 
+                      : 'hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-slate-500" />
+                      <span className="font-medium text-sm">{branch.name}</span>
+                    </div>
+                    {branch.unread > 0 && (
+                      <Badge variant="destructive" className="text-xs h-5 min-w-5 px-1.5">
+                        {branch.unread}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 truncate">
+                    {branchMessages.length > 0 
+                      ? branchMessages[branchMessages.length - 1].message 
+                      : 'Нет сообщений'
+                    }
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Right Chat Area */}
+      <div className="flex-1 bg-background flex flex-col min-w-0">
+        {activeBranch ? (
+          <>
+            {/* Chat Header */}
+            <div className="border-b p-3 shrink-0">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="font-semibold text-base flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-slate-600" />
+                    Филиал {getActiveBranch().name}
+                  </h2>
+                  <p className="text-sm text-muted-foreground">Корпоративный чат</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="h-8 w-8 p-0"
+                    title="Добавить задачу"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="h-8 w-8 p-0"
+                    title="Выставить счёт"
+                  >
+                    <FileText className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="h-8 w-8 p-0"
+                    title="Позвонить"
+                  >
+                    <Phone className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant={showSearchInput ? "default" : "outline"}
+                    className="h-8 w-8 p-0"
+                    title="Поиск в чате"
+                    onClick={handleSearchToggle}
+                  >
+                    <Search className="h-4 w-4" />
+                  </Button>
+                  {showSearchInput && (
+                    <Input
+                      placeholder="Поиск в чате..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-64 h-8 ml-2"
+                      autoFocus
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Chat Messages */}
+            <div className="flex-1 overflow-y-auto">
+              <Tabs defaultValue="main" className="h-full flex flex-col">
+                <TabsList className="grid w-full grid-cols-4 rounded-none bg-orange-50/30 border-orange-200 border-t rounded-t-none">
+                  <TabsTrigger value="main" className="text-xs">Основной</TabsTrigger>
+                  <TabsTrigger value="announcements" className="text-xs">Объявления</TabsTrigger>
+                  <TabsTrigger value="questions" className="text-xs">Вопросы</TabsTrigger>
+                  <TabsTrigger value="social" className="text-xs">Общение</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="main" className="flex-1 p-3 overflow-y-auto mt-0">
+                  <div className="space-y-1">
+                    {filteredMessages.map((msg, index) => (
+                      <div key={index} className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-6 h-6 bg-slate-200 rounded-full flex items-center justify-center">
+                            <span className="text-xs font-medium text-slate-600">
+                              {msg.sender.split(' ').map(n => n[0]).join('')}
+                            </span>
+                          </div>
+                          <span className="text-xs font-medium text-slate-700">{msg.sender}</span>
+                          <span className="text-xs text-muted-foreground">{msg.time}</span>
+                        </div>
+                        <div className="ml-8">
+                          <div className="bg-slate-50 rounded-lg p-2 text-sm">
+                            {msg.message}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {searchQuery && filteredMessages.length === 0 && (
+                      <div className="text-center text-muted-foreground text-sm py-4">
+                        Сообщения не найдены
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="announcements" className="flex-1 p-3 overflow-y-auto mt-0">
+                  <div className="text-center text-muted-foreground text-sm py-4">
+                    Объявления для филиала {getActiveBranch().name}
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="questions" className="flex-1 p-3 overflow-y-auto mt-0">
+                  <div className="text-center text-muted-foreground text-sm py-4">
+                    Вопросы и ответы
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="social" className="flex-1 p-3 overflow-y-auto mt-0">
+                  <div className="text-center text-muted-foreground text-sm py-4">
+                    Неформальное общение
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </div>
+
+            {/* Message Input */}
+            <div className="border-t p-3 shrink-0">
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <Textarea
+                    placeholder="Введите сообщение для команды..."
+                    value={message}
+                    onChange={(e) => handleMessageChange(e.target.value)}
+                    className="min-h-[40px] max-h-[120px] resize-none"
+                    rows={1}
+                  />
+                  <div className="flex items-center gap-1 mt-2">
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
+                      <Paperclip className="h-3 w-3" />
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
+                      <Zap className="h-3 w-3" />
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
+                      <MessageCircle className="h-3 w-3" />
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
+                      <Mic className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+                <Button size="icon" className="rounded-full h-10 w-10">
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 bg-background flex items-center justify-center p-4">
+            <div className="text-center text-muted-foreground max-w-sm mx-auto">
+              <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <h3 className="text-lg font-semibold mb-2">Выберите филиал</h3>
+              <p className="text-sm">
+                Выберите филиал из списка слева, чтобы начать общение с командой
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
