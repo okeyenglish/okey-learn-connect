@@ -434,6 +434,10 @@ const CRMContent = () => {
       setActiveChatId(id);
       setShowInvoiceModal(true);
       openPinnedModal(id, type);
+    } else {
+      // Для модальных окон из меню
+      setOpenModal(type);
+      openPinnedModal(id, type);
     }
   };
 
@@ -446,6 +450,14 @@ const CRMContent = () => {
   const handleInvoiceModalClose = () => {
     setShowInvoiceModal(false);
     closePinnedModal(activeChatId, 'invoice');
+  };
+
+  // Обработчик закрытия модальных окон из меню
+  const handleMenuModalClose = () => {
+    if (openModal) {
+      closePinnedModal(`menu-${openModal}`, openModal);
+    }
+    setOpenModal(null);
   };
 
   const menuItems = [
@@ -528,7 +540,7 @@ const CRMContent = () => {
             <TabsContent value="menu" className="flex-1 mt-0 overflow-y-auto">
               <div className="p-2 space-y-1">
                 {menuItems.map((item, index) => (
-                  <Dialog key={index} open={openModal === item.label} onOpenChange={(open) => !open && setOpenModal(null)}>
+                  <Dialog key={index} open={openModal === item.label} onOpenChange={(open) => !open && handleMenuModalClose()}>
                     <DialogTrigger asChild>
                       <button
                         className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left"
@@ -545,7 +557,7 @@ const CRMContent = () => {
                         isPinned={isPinned(`menu-${item.label}`, item.label)}
                         onPin={() => handlePinMenuModal(item.label)}
                         onUnpin={() => handleUnpinMenuModal(item.label)}
-                        onClose={() => setOpenModal(null)}
+                        onClose={handleMenuModalClose}
                       >
                         <item.icon className="h-5 w-5 ml-2" />
                       </PinnableModalHeader>
