@@ -573,16 +573,23 @@ const CRMContent = () => {
       {/* User Header */}
       <div className="bg-background border-b p-4 shrink-0">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-1">
             <Building2 className="h-6 w-6 text-primary" />
             <div>
               <h1 className="text-xl font-bold">O'KEY ENGLISH CRM</h1>
-              {profile && (
-                <p className="text-sm text-muted-foreground">
-                  {profile.first_name} {profile.last_name} ({role})
-                </p>
-              )}
             </div>
+            
+            {/* Закрепленные модальные окна на одной линии с заголовком */}
+            {pinnedModals && pinnedModals.length > 0 && (
+              <div className="ml-8 flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Закрепленные окна:</span>
+                <PinnedModalTabs 
+                  pinnedModals={pinnedModals}
+                  onOpenModal={handleOpenPinnedModal}
+                  onUnpinModal={unpinModal}
+                />
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {(clientsLoading || threadsLoading || studentsLoading || pinnedLoading || chatStatesLoading) && (
@@ -591,26 +598,19 @@ const CRMContent = () => {
                 Загрузка данных...
               </div>
             )}
-            <ManagerMenu
-              managerName={profile && profile.first_name && profile.last_name 
-                ? `${profile.first_name} ${profile.last_name}` 
-                : 'Менеджер'}
-              managerEmail={user?.email}
-              onSignOut={handleSignOut}
-            />
+            {profile && (
+              <span className="text-sm text-muted-foreground mr-2">
+                {profile.first_name} {profile.last_name}
+              </span>
+            )}
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleSignOut}
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
           </div>
-        </div>
-      </div>
-      
-      {/* Search Bar */}
-      <div className="relative z-0 bg-background border-b p-2 pb-4 shrink-0">
-        <div className="relative max-w-7xl mx-auto">
-          {/* Закрепленные модальные окна как вкладки */}
-          <PinnedModalTabs 
-            pinnedModals={pinnedModals}
-            onOpenModal={handleOpenPinnedModal}
-            onUnpinModal={unpinModal}
-          />
         </div>
       </div>
 
