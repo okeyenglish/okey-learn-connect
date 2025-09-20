@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { ChatMessage } from "./ChatMessage";
 import { ClientTasks } from "./ClientTasks";
+import { AddTaskModal } from "./AddTaskModal";
 
 interface ChatAreaProps {
   clientName: string;
@@ -78,6 +79,7 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
   const [showSearchInput, setShowSearchInput] = useState(false);
   const [isEditingComment, setIsEditingComment] = useState(false);
   const [editableComment, setEditableComment] = useState(clientComment);
+  const [showAddTaskModal, setShowAddTaskModal] = useState(false);
 
   const handleMessageChange = (value: string) => {
     setMessage(value);
@@ -136,6 +138,7 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
               variant="outline" 
               className="h-8 w-8 p-0"
               title="Добавить задачу"
+              onClick={() => setShowAddTaskModal(true)}
             >
               <Plus className="h-4 w-4" />
             </Button>
@@ -261,6 +264,13 @@ export const ChatArea = ({ clientName, clientPhone, clientComment = "Базов�
           </Button>
         </div>
       </div>
+
+      {/* Add Task Modal */}
+      <AddTaskModal 
+        open={showAddTaskModal}
+        onOpenChange={setShowAddTaskModal}
+        clientName={clientName}
+      />
     </div>
   );
 };
