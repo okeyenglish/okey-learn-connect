@@ -44,6 +44,8 @@ export const AddStudentModal = ({ familyGroupId, parentLastName, onStudentAdded,
         .insert({
           family_group_id: familyGroupId,
           name: `${formData.name} ${formData.lastName}`.trim(),
+          first_name: formData.name,
+          last_name: formData.lastName,
           age: parseInt(formData.age),
           date_of_birth: formData.dateOfBirth || null,
           status: formData.status,

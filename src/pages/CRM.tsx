@@ -21,6 +21,7 @@ import { SearchInput } from "@/components/crm/SearchInput";
 import { SearchResults } from "@/components/crm/SearchResults";
 import { LinkedContacts } from "@/components/crm/LinkedContacts";
 import { FamilyCard } from "@/components/crm/FamilyCard";
+import { FamilyCardWrapper } from "@/components/crm/FamilyCardWrapper";
 import { ChatContextMenu } from "@/components/crm/ChatContextMenu";
 import { AddClientModal } from "@/components/crm/AddClientModal";
 import { ClientsList } from "@/components/crm/ClientsList";
@@ -801,17 +802,9 @@ const CRMContent = () => {
         )}
 
         {/* Right Sidebar - Family Card (только для клиентских чатов) */}
-        {activeChatType === 'client' && (
+        {activeChatType === 'client' && activeChatId && (
           <div className="w-80 bg-background p-4 overflow-y-auto h-full">
-            <FamilyCard
-              familyGroupId="550e8400-e29b-41d4-a716-446655440000"
-              activeMemberId={activeFamilyMemberId}
-              onSwitchMember={handleSwitchFamilyMember}
-              onOpenChat={handleOpenLinkedChat}
-              onCall={handleCallFamilyMember}
-              onPhoneSwitch={handlePhoneSwitch}
-              activePhoneId={activePhoneId}
-            />
+            <FamilyCardWrapper clientId={activeChatId} />
           </div>
         )}
       </div>
