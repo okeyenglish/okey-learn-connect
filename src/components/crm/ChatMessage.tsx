@@ -24,9 +24,10 @@ interface ChatMessageProps {
   onMessageEdit?: (messageId: string, newMessage: string) => Promise<void>;
   onMessageDelete?: (messageId: string) => Promise<void>;
   messageStatus?: 'sent' | 'delivered' | 'read' | 'queued';
+  clientAvatar?: string;
 }
 
-export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, messageStatus }: ChatMessageProps) => {
+export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, messageStatus, clientAvatar }: ChatMessageProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message);
 
@@ -154,6 +155,31 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
             />
           </div>
         )}
+        
+        {/* Аватарка клиента (только для сообщений клиента) */}
+        {type === 'client' && (
+          <div className="flex-shrink-0">
+            {clientAvatar ? (
+              <img 
+                src={clientAvatar} 
+                alt="Client avatar" 
+                className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
+                onError={(e) => {
+                  // Если изображение не загрузилось, показываем дефолтный аватар
+                  const target = e.currentTarget as HTMLImageElement;
+                  target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
+                }}
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                <div className="w-6 h-6 rounded-full bg-green-200 flex items-center justify-center">
+                  <div className="w-3 h-3 rounded-full bg-green-400"></div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        
         {type === 'manager' && (
           <div className="order-2">
             <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">

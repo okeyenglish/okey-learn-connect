@@ -97,9 +97,13 @@ export const ChatArea = ({
     console.log('Loading messages for client:', clientId);
     
     try {
+      // Load messages along with client data for avatars
       const { data, error } = await supabase
         .from('chat_messages')
-        .select('*')
+        .select(`
+          *,
+          clients!inner(avatar_url)
+        `)
         .eq('client_id', clientId)
         .order('created_at', { ascending: true });
 
@@ -120,10 +124,9 @@ export const ChatArea = ({
         }),
         systemType: msg.system_type,
         callDuration: msg.call_duration,
-        messageStatus: msg.message_status
+        messageStatus: msg.message_status,
+        clientAvatar: msg.clients?.avatar_url || null
       }));
-
-      // 
 
       console.log('Formatted messages:', formattedMessages);
       setMessages(formattedMessages);
@@ -164,27 +167,48 @@ export const ChatArea = ({
         },
         (payload) => {
           console.log('Received new message via real-time:', payload);
-          const newMessage = {
-            id: payload.new.id,
-            type: payload.new.message_type === 'comment' ? 'comment' : (payload.new.is_outgoing ? 'manager' : 'client'),
-            message: payload.new.message_text || '',
-            time: new Date(payload.new.created_at).toLocaleTimeString('ru-RU', { 
-              hour: '2-digit', 
-              minute: '2-digit' 
-            }),
-            systemType: payload.new.system_type,
-            callDuration: payload.new.call_duration,
-            messageStatus: payload.new.message_status
+          
+          // Получаем аватарку клиента для нового сообщения
+          const getClientAvatar = async () => {
+            const { data: client } = await supabase
+              .from('clients')
+              .select('avatar_url')
+              .eq('id', payload.new.client_id)
+              .single();
+            
+            return client?.avatar_url || null;
           };
-          console.log('Adding message to chat:', newMessage);
-          setMessages(prev => {
-            const updated = [...prev, newMessage];
-            // Плавная прокрутка только для новых сообщений (не при первой загрузке)
-            if (!isInitialLoad) {
-              setTimeout(() => scrollToBottom(true), 100);
-            }
-            return updated;
-          });
+          
+          // Создаем новое сообщение
+          const createNewMessage = async () => {
+            const clientAvatar = await getClientAvatar();
+            
+            const newMessage = {
+              id: payload.new.id,
+              type: payload.new.message_type === 'comment' ? 'comment' : (payload.new.is_outgoing ? 'manager' : 'client'),
+              message: payload.new.message_text || '',
+              time: new Date(payload.new.created_at).toLocaleTimeString('ru-RU', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+              }),
+              systemType: payload.new.system_type,
+              callDuration: payload.new.call_duration,
+              messageStatus: payload.new.message_status,
+              clientAvatar
+            };
+            
+            console.log('Adding message to chat:', newMessage);
+            setMessages(prev => {
+              const updated = [...prev, newMessage];
+              // Плавная прокрутка только для новых сообщений (не при первой загрузке)
+              if (!isInitialLoad) {
+                setTimeout(() => scrollToBottom(true), 100);
+              }
+              return updated;
+            });
+          };
+          
+          createNewMessage();
         }
       )
       .subscribe((status) => {
@@ -901,6 +925,7 @@ export const ChatArea = ({
                     onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
                     onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
                     messageStatus={msg.messageStatus}
+                    clientAvatar={msg.clientAvatar}
                   />
                 ))
               ) : (

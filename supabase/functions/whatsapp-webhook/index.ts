@@ -337,6 +337,17 @@ async function findOrCreateClient(phoneNumber: string, displayName?: string) {
     .single()
 
   if (existingClient) {
+    // Если у клиента нет аватарки, попробуем получить её из WhatsApp
+    if (!existingClient.avatar_url) {
+      const avatarUrl = await fetchAndSaveAvatar(phoneNumber, existingClient.id)
+      if (avatarUrl) {
+        await supabase
+          .from('clients')
+          .update({ avatar_url: avatarUrl })
+          .eq('id', existingClient.id)
+        existingClient.avatar_url = avatarUrl
+      }
+    }
     return existingClient
   }
 
@@ -358,7 +369,96 @@ async function findOrCreateClient(phoneNumber: string, displayName?: string) {
   }
 
   console.log(`Created new client: ${newClient.name} (${phoneNumber})`)
+
+  // Пытаемся получить аватарку для нового клиента
+  const avatarUrl = await fetchAndSaveAvatar(phoneNumber, newClient.id)
+  if (avatarUrl) {
+    await supabase
+      .from('clients')
+      .update({ avatar_url: avatarUrl })
+      .eq('id', newClient.id)
+    newClient.avatar_url = avatarUrl
+  }
+
   return newClient
+}
+
+async function fetchAndSaveAvatar(phoneNumber: string, clientId: string): Promise<string | null> {
+  try {
+    const greenApiId = Deno.env.get('GREEN_API_ID_INSTANCE')
+    const greenApiToken = Deno.env.get('GREEN_API_TOKEN_INSTANCE')
+    const greenApiUrl = Deno.env.get('GREEN_API_URL')
+
+    if (!greenApiId || !greenApiToken || !greenApiUrl) {
+      console.log('Green API credentials not configured')
+      return null
+    }
+
+    // Формируем chatId
+    const chatId = `${phoneNumber.replace('+', '')}@c.us`
+    
+    // Получаем информацию о контакте через Green API
+    const contactInfoUrl = `${greenApiUrl}/waInstance${greenApiId}/getContactInfo/${greenApiToken}`
+    
+    console.log(`Fetching contact info for ${chatId}`)
+    
+    const contactResponse = await fetch(contactInfoUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ chatId })
+    })
+
+    if (!contactResponse.ok) {
+      console.log(`Failed to get contact info: ${contactResponse.status}`)
+      return null
+    }
+
+    const contactData = await contactResponse.json()
+    
+    if (!contactData.avatar) {
+      console.log(`No avatar found for ${phoneNumber}`)
+      return null
+    }
+
+    // Скачиваем аватарку
+    console.log(`Downloading avatar from: ${contactData.avatar}`)
+    
+    const avatarResponse = await fetch(contactData.avatar)
+    if (!avatarResponse.ok) {
+      console.log(`Failed to download avatar: ${avatarResponse.status}`)
+      return null
+    }
+
+    const avatarBlob = await avatarResponse.arrayBuffer()
+    const fileName = `avatar_${clientId}_${Date.now()}.jpg`
+    
+    // Сохраняем в Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(fileName, avatarBlob, {
+        contentType: 'image/jpeg',
+        upsert: true
+      })
+
+    if (uploadError) {
+      console.error('Error uploading avatar:', uploadError)
+      return null
+    }
+
+    // Возвращаем публичный URL
+    const { data: publicUrlData } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(fileName)
+
+    console.log(`Avatar saved for ${phoneNumber}: ${publicUrlData.publicUrl}`)
+    return publicUrlData.publicUrl
+
+  } catch (error) {
+    console.error('Error fetching avatar:', error)
+    return null
+  }
 }
 
 function extractPhoneFromChatId(chatId: string): string {
