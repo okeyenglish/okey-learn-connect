@@ -43,14 +43,17 @@ export const ChatArea = ({
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { sendTextMessage, loading } = useWhatsApp();
   const { toast } = useToast();
 
   // Функция для прокрутки к концу чата
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = (smooth = true) => {
+    messagesEndRef.current?.scrollIntoView({ 
+      behavior: smooth ? "smooth" : "instant" 
+    });
   };
 
   // Load messages from database
@@ -91,8 +94,12 @@ export const ChatArea = ({
 
       console.log('Formatted messages:', formattedMessages);
       setMessages(formattedMessages);
-      // Прокрутка к концу после загрузки сообщений
-      setTimeout(scrollToBottom, 100);
+      
+      // Мгновенная прокрутка к концу при первой загрузке
+      if (formattedMessages.length > 0) {
+        setTimeout(() => scrollToBottom(false), 50);
+        setIsInitialLoad(false);
+      }
     } catch (error) {
       console.error('Error loading messages:', error);
     } finally {
@@ -102,15 +109,9 @@ export const ChatArea = ({
 
   // Load messages on component mount and when clientId changes
   useEffect(() => {
+    setIsInitialLoad(true);
     loadMessages();
   }, [clientId]);
-
-  // Auto-scroll when messages change
-  useEffect(() => {
-    if (messages.length > 0) {
-      setTimeout(scrollToBottom, 100);
-    }
-  }, [messages]);
 
   // Real-time subscription for new messages
   useEffect(() => {
@@ -143,8 +144,10 @@ export const ChatArea = ({
           console.log('Adding message to chat:', newMessage);
           setMessages(prev => {
             const updated = [...prev, newMessage];
-            // Прокрутка к концу после добавления нового сообщения
-            setTimeout(scrollToBottom, 100);
+            // Плавная прокрутка только для новых сообщений (не при первой загрузке)
+            if (!isInitialLoad) {
+              setTimeout(() => scrollToBottom(true), 100);
+            }
             return updated;
           });
         }
@@ -177,8 +180,8 @@ export const ChatArea = ({
           title: "Сообщение отправлено",
           description: "Сообщение успешно отправлено в WhatsApp",
         });
-        // Прокрутка к концу после отправки сообщения
-        setTimeout(scrollToBottom, 300);
+        // Плавная прокрутка к концу после отправки сообщения
+        setTimeout(() => scrollToBottom(true), 300);
       } else {
         toast({
           title: "Ошибка отправки",
