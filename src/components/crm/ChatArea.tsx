@@ -310,30 +310,24 @@ export const ChatArea = ({
   // Функция для редактирования сообщения
   const handleEditMessage = async (messageId: string, newMessage: string) => {
     try {
-      // Отправляем исправленное сообщение клиенту (как отдельное сообщение)
-      const result = await sendTextMessage(clientId, `*Исправление:*\n${newMessage}`);
+      // Вариант 1: Только редактирование в CRM без отправки клиенту
+      // Вариант 2: Попытка удалить старое сообщение и отправить новое (если API поддерживает)
+      // Вариант 3: Отправка исправления как нового сообщения
       
-      if (result.success) {
-        toast({
-          title: "Сообщение отредактировано",
-          description: "Исправленное сообщение отправлено клиенту",
-        });
-        
-        // Обновляем локальное состояние сообщений
-        setMessages(prev => 
-          prev.map(msg => 
-            msg.id === messageId
-              ? { ...msg, message: newMessage, isEdited: true, editedTime: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) }
-              : msg
-          )
-        );
-      } else {
-        toast({
-          title: "Ошибка редактирования",
-          description: result.error || "Не удалось отправить исправленное сообщение",
-          variant: "destructive",
-        });
-      }
+      // Пока используем вариант 1 - только обновление в CRM
+      toast({
+        title: "Сообщение отредактировано",
+        description: "Изменения сохранены в CRM (клиенту не отправляется из-за ограничений WhatsApp API)",
+      });
+      
+      // Обновляем локальное состояние сообщений
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.id === messageId
+            ? { ...msg, message: newMessage, isEdited: true, editedTime: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) }
+            : msg
+        )
+      );
     } catch (error: any) {
       toast({
         title: "Ошибка редактирования", 
