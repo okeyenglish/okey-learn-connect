@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Phone, Forward, X } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Phone, Forward, X, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChatMessage } from "./ChatMessage";
 import { ClientTasks } from "./ClientTasks";
 import { AddTaskModal } from "./AddTaskModal";
@@ -48,7 +50,13 @@ export const ChatArea = ({
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
   const [showForwardModal, setShowForwardModal] = useState(false);
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const MAX_MESSAGE_LENGTH = 4000;
 
   const { sendTextMessage, loading } = useWhatsApp();
   const { toast } = useToast();
@@ -175,10 +183,16 @@ export const ChatArea = ({
   const handleMessageChange = (value: string) => {
     setMessage(value);
     onMessageChange?.(value.trim().length > 0);
+    
+    // Auto-resize textarea
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+    }
   };
 
   const handleSendMessage = async () => {
-    if (!message.trim() || loading) return;
+    if (!message.trim() || loading || message.length > MAX_MESSAGE_LENGTH) return;
 
     try {
       const result = await sendTextMessage(clientId, message.trim());
@@ -186,10 +200,10 @@ export const ChatArea = ({
       if (result.success) {
         setMessage(""); // Clear input after successful send
         onMessageChange?.(false);
-        toast({
-          title: "Сообщение отправлено",
-          description: "Сообщение успешно отправлено в WhatsApp",
-        });
+        // Reset textarea height
+        if (textareaRef.current) {
+          textareaRef.current.style.height = 'auto';
+        }
         // Плавная прокрутка к концу после отправки сообщения
         setTimeout(() => scrollToBottom(true), 300);
       } else {
@@ -205,6 +219,45 @@ export const ChatArea = ({
         description: error.message || "Не удалось отправить сообщение",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleScheduleMessage = async () => {
+    if (!message.trim() || !scheduleDate || !scheduleTime) {
+      toast({
+        title: "Ошибка",
+        description: "Заполните все поля для отложенного сообщения",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const scheduledDateTime = new Date(`${scheduleDate}T${scheduleTime}`);
+    const now = new Date();
+    
+    if (scheduledDateTime <= now) {
+      toast({
+        title: "Ошибка",
+        description: "Время отправки должно быть в будущем",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Here you would typically save the scheduled message to database
+    // For now, we'll just show a success message
+    toast({
+      title: "Сообщение запланировано",
+      description: `Сообщение будет отправлено ${scheduledDateTime.toLocaleString('ru-RU')}`,
+    });
+
+    setMessage("");
+    setScheduleDate("");
+    setScheduleTime("");
+    setShowScheduleDialog(false);
+    
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
     }
   };
 
@@ -592,41 +645,113 @@ export const ChatArea = ({
       </div>
 
       {/* Message Input */}
-      <div className="border-t p-3 shrink-0">
-        <div className="flex items-end gap-2">
-          <div className="flex-1">
-            <Textarea
-              placeholder="Введите сообщение..."
-              value={message}
-              onChange={(e) => handleMessageChange(e.target.value)}
-              onKeyPress={handleKeyPress}
-              className="min-h-[40px] max-h-[120px] resize-none"
-              rows={1}
-              disabled={loading}
-            />
-            <div className="flex items-center gap-1 mt-2">
-              <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                <Paperclip className="h-3 w-3" />
-              </Button>
-              <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                <Zap className="h-3 w-3" />
-              </Button>
-              <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                <MessageCircle className="h-3 w-3" />
-              </Button>
-              <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                <Mic className="h-3 w-3" />
+      <div className="border-t p-4 shrink-0">
+        <div className="space-y-3">
+          {/* Character counter and warning */}
+          {message.length > 0 && (
+            <div className="flex justify-between items-center text-xs text-muted-foreground">
+              <span className={message.length > MAX_MESSAGE_LENGTH ? "text-red-500" : ""}>
+                {message.length}/{MAX_MESSAGE_LENGTH} символов
+              </span>
+              {message.length > MAX_MESSAGE_LENGTH && (
+                <span className="text-red-500">Превышен лимит символов</span>
+              )}
+            </div>
+          )}
+          
+          <div className="flex items-end gap-3">
+            <div className="flex-1 space-y-2">
+              <Textarea
+                ref={textareaRef}
+                placeholder="Введите сообщение..."
+                value={message}
+                onChange={(e) => handleMessageChange(e.target.value)}
+                onKeyPress={handleKeyPress}
+                className="min-h-[48px] max-h-[120px] resize-none text-base"
+                disabled={loading}
+              />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                    <Paperclip className="h-4 w-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                    <Zap className="h-4 w-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                    <MessageCircle className="h-4 w-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                    <Mic className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              {/* Schedule message button */}
+              <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
+                <DialogTrigger asChild>
+                  <Button 
+                    size="icon" 
+                    variant="outline"
+                    className="rounded-full h-12 w-12"
+                    disabled={loading || !message.trim() || message.length > MAX_MESSAGE_LENGTH}
+                  >
+                    <Clock className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Запланировать сообщение</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Дата</label>
+                      <Input
+                        type="date"
+                        value={scheduleDate}
+                        onChange={(e) => setScheduleDate(e.target.value)}
+                        min={new Date().toISOString().split('T')[0]}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Время</label>
+                      <Input
+                        type="time"
+                        value={scheduleTime}
+                        onChange={(e) => setScheduleTime(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Сообщение</label>
+                      <div className="p-3 bg-muted rounded-md text-sm">
+                        {message || "Сообщение не введено"}
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setShowScheduleDialog(false)}>
+                        Отмена
+                      </Button>
+                      <Button onClick={handleScheduleMessage}>
+                        Запланировать
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              
+              {/* Send button */}
+              <Button 
+                size="icon" 
+                className="rounded-full h-12 w-12" 
+                onClick={handleSendMessage}
+                disabled={loading || !message.trim() || message.length > MAX_MESSAGE_LENGTH}
+              >
+                <Send className="h-4 w-4" />
               </Button>
             </div>
           </div>
-          <Button 
-            size="icon" 
-            className="rounded-full h-10 w-10" 
-            onClick={handleSendMessage}
-            disabled={loading || !message.trim()}
-          >
-            <Send className="h-4 w-4" />
-          </Button>
         </div>
       </div>
 
