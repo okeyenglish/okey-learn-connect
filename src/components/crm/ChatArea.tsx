@@ -8,8 +8,11 @@ import { ChatMessage } from "./ChatMessage";
 import { ClientTasks } from "./ClientTasks";
 import { AddTaskModal } from "./AddTaskModal";
 import { CreateInvoiceModal } from "./CreateInvoiceModal";
+import { useWhatsApp } from "@/hooks/useWhatsApp";
+import { useToast } from "@/hooks/use-toast";
 
 interface ChatAreaProps {
+  clientId: string;
   clientName: string;
   clientPhone: string;
   clientComment?: string;
@@ -77,6 +80,7 @@ const mockChatHistory: Record<string, any[]> = {
 
 // ChatArea component for CRM chat functionality
 export const ChatArea = ({ 
+  clientId,
   clientName, 
   clientPhone, 
   clientComment = "Базовый комментарий", 
@@ -93,9 +97,48 @@ export const ChatArea = ({
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
 
+  const { sendTextMessage, loading } = useWhatsApp();
+  const { toast } = useToast();
+
   const handleMessageChange = (value: string) => {
     setMessage(value);
     onMessageChange?.(value.trim().length > 0);
+  };
+
+  const handleSendMessage = async () => {
+    if (!message.trim() || loading) return;
+
+    try {
+      const result = await sendTextMessage(clientId, message.trim());
+      
+      if (result.success) {
+        setMessage(""); // Clear input after successful send
+        onMessageChange?.(false);
+        toast({
+          title: "Сообщение отправлено",
+          description: "Сообщение успешно отправлено в WhatsApp",
+        });
+      } else {
+        toast({
+          title: "Ошибка отправки",
+          description: result.error || "Не удалось отправить сообщение",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Ошибка отправки",
+        description: error.message || "Не удалось отправить сообщение",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
   };
 
   const handleSearchToggle = () => {
@@ -263,8 +306,10 @@ export const ChatArea = ({
               placeholder="Введите сообщение..."
               value={message}
               onChange={(e) => handleMessageChange(e.target.value)}
+              onKeyPress={handleKeyPress}
               className="min-h-[40px] max-h-[120px] resize-none"
               rows={1}
+              disabled={loading}
             />
             <div className="flex items-center gap-1 mt-2">
               <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
@@ -281,7 +326,12 @@ export const ChatArea = ({
               </Button>
             </div>
           </div>
-          <Button size="icon" className="rounded-full h-10 w-10">
+          <Button 
+            size="icon" 
+            className="rounded-full h-10 w-10" 
+            onClick={handleSendMessage}
+            disabled={loading || !message.trim()}
+          >
             <Send className="h-4 w-4" />
           </Button>
         </div>

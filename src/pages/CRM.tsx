@@ -781,6 +781,7 @@ const CRMContent = () => {
           />
         ) : (
           <ChatArea 
+            clientId={activeChatId || ''}
             clientName={getActiveClientInfo().name}
             clientPhone={getActiveClientInfo().phone}
             clientComment={getActiveClientInfo().comment}
