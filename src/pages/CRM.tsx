@@ -169,6 +169,21 @@ const CRMContent = () => {
   };
 
   // Используем реальные чаты из базы данных + системные чаты
+  // Функция для форматирования времени
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+    
+    if (diffInHours < 24) {
+      return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    } else if (diffInHours < 48) {
+      return 'Вчера';
+    } else {
+      return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+    }
+  };
+
   const allChats = [
     // Системные чаты
     { id: 'corporate', name: 'Корпоративный чат', phone: 'Команда OKEY ENGLISH', time: '11:45', unread: 3, type: 'corporate' as const, timestamp: Date.now() - 1000 * 60 * 60 },
@@ -184,21 +199,6 @@ const CRMContent = () => {
       timestamp: new Date(thread.last_message_time).getTime()
     }))
   ];
-
-  // Функция для форматирования времени
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
-    if (diffInHours < 24) {
-      return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-    } else if (diffInHours < 48) {
-      return 'Вчера';
-    } else {
-      return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
-    }
-  };
 
   const filteredChats = allChats
     .filter(chat => 
