@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Phone, Forward, X, Clock } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Phone, Forward, X, Clock, Calendar, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import { ru } from "date-fns/locale";
 import { ChatMessage } from "./ChatMessage";
 import { ClientTasks } from "./ClientTasks";
 import { AddTaskModal } from "./AddTaskModal";
@@ -24,6 +27,13 @@ interface ChatAreaProps {
   activePhoneId?: string;
   onOpenTaskModal?: () => void;
   onOpenInvoiceModal?: () => void;
+}
+
+interface ScheduledMessage {
+  id: string;
+  text: string;
+  scheduledDate: Date;
+  timeoutId: NodeJS.Timeout;
 }
 
 // ChatArea component for CRM chat functionality
@@ -54,6 +64,9 @@ export const ChatArea = ({
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
   const [pendingMessage, setPendingMessage] = useState<{text: string, countdown: number} | null>(null);
+  const [scheduledMessages, setScheduledMessages] = useState<ScheduledMessage[]>([]);
+  const [showScheduledMessagesDialog, setShowScheduledMessagesDialog] = useState(false);
+  const [editingScheduledMessage, setEditingScheduledMessage] = useState<ScheduledMessage | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -182,14 +195,16 @@ export const ChatArea = ({
     };
   }, [clientId]);
 
-  // Cleanup pending message timeout on unmount
+  // Cleanup pending message timeout and scheduled messages on unmount
   useEffect(() => {
     return () => {
       if (pendingTimeoutRef.current) {
         clearTimeout(pendingTimeoutRef.current);
       }
+      // Cancel all scheduled messages on unmount
+      scheduledMessages.forEach(msg => clearTimeout(msg.timeoutId));
     };
-  }, []);
+  }, [scheduledMessages]);
 
   const handleMessageChange = (value: string) => {
     setMessage(value);
@@ -301,16 +316,137 @@ export const ChatArea = ({
       return;
     }
 
-    // Here you would typically save the scheduled message to database
-    // For now, we'll just show a success message
+    const messageId = Date.now().toString();
+    const messageText = message.trim();
+    
+    // Calculate delay in milliseconds
+    const delay = scheduledDateTime.getTime() - now.getTime();
+    
+    // Set timeout for sending the message
+    const timeoutId = setTimeout(async () => {
+      try {
+        await sendTextMessage(clientId, messageText);
+        setScheduledMessages(prev => prev.filter(msg => msg.id !== messageId));
+        toast({
+          title: "Сообщение отправлено",
+          description: "Запланированное сообщение было отправлено",
+        });
+      } catch (error) {
+        toast({
+          title: "Ошибка отправки",
+          description: "Не удалось отправить запланированное сообщение",
+          variant: "destructive",
+        });
+        setScheduledMessages(prev => prev.filter(msg => msg.id !== messageId));
+      }
+    }, delay);
+
+    // Add to scheduled messages
+    const scheduledMessage: ScheduledMessage = {
+      id: messageId,
+      text: messageText,
+      scheduledDate: scheduledDateTime,
+      timeoutId
+    };
+
+    setScheduledMessages(prev => [...prev, scheduledMessage]);
+
     toast({
       title: "Сообщение запланировано",
-      description: `Сообщение будет отправлено ${scheduledDateTime.toLocaleString('ru-RU')}`,
+      description: `Сообщение будет отправлено ${format(scheduledDateTime, "d MMMM yyyy 'в' HH:mm", { locale: ru })}`,
     });
 
     setMessage("");
     setScheduleDate("");
     setScheduleTime("");
+    setShowScheduleDialog(false);
+    
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+  };
+
+  const cancelScheduledMessage = (messageId: string) => {
+    setScheduledMessages(prev => {
+      const message = prev.find(msg => msg.id === messageId);
+      if (message) {
+        clearTimeout(message.timeoutId);
+        toast({
+          title: "Сообщение отменено",
+          description: "Запланированное сообщение было отменено",
+        });
+      }
+      return prev.filter(msg => msg.id !== messageId);
+    });
+  };
+
+  const editScheduledMessage = (scheduledMessage: ScheduledMessage) => {
+    setEditingScheduledMessage(scheduledMessage);
+    setMessage(scheduledMessage.text);
+    setScheduleDate(format(scheduledMessage.scheduledDate, "yyyy-MM-dd"));
+    setScheduleTime(format(scheduledMessage.scheduledDate, "HH:mm"));
+    setShowScheduledMessagesDialog(false);
+    setShowScheduleDialog(true);
+  };
+
+  const updateScheduledMessage = () => {
+    if (!editingScheduledMessage || !message.trim() || !scheduleDate || !scheduleTime) {
+      return;
+    }
+
+    const scheduledDateTime = new Date(`${scheduleDate}T${scheduleTime}`);
+    const now = new Date();
+    
+    if (scheduledDateTime <= now) {
+      toast({
+        title: "Ошибка",
+        description: "Время отправки должно быть в будущем",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Cancel old timeout
+    clearTimeout(editingScheduledMessage.timeoutId);
+    
+    const messageText = message.trim();
+    const delay = scheduledDateTime.getTime() - now.getTime();
+    
+    // Set new timeout
+    const timeoutId = setTimeout(async () => {
+      try {
+        await sendTextMessage(clientId, messageText);
+        setScheduledMessages(prev => prev.filter(msg => msg.id !== editingScheduledMessage.id));
+        toast({
+          title: "Сообщение отправлено",
+          description: "Запланированное сообщение было отправлено",
+        });
+      } catch (error) {
+        toast({
+          title: "Ошибка отправки",
+          description: "Не удалось отправить запланированное сообщение",
+          variant: "destructive",
+        });
+        setScheduledMessages(prev => prev.filter(msg => msg.id !== editingScheduledMessage.id));
+      }
+    }, delay);
+
+    // Update scheduled message
+    setScheduledMessages(prev => prev.map(msg => 
+      msg.id === editingScheduledMessage.id 
+        ? { ...msg, text: messageText, scheduledDate: scheduledDateTime, timeoutId }
+        : msg
+    ));
+
+    toast({
+      title: "Сообщение обновлено",
+      description: `Сообщение будет отправлено ${format(scheduledDateTime, "d MMMM yyyy 'в' HH:mm", { locale: ru })}`,
+    });
+
+    setMessage("");
+    setScheduleDate("");
+    setScheduleTime("");
+    setEditingScheduledMessage(null);
     setShowScheduleDialog(false);
     
     if (textareaRef.current) {
@@ -762,7 +898,16 @@ export const ChatArea = ({
                 </Button>
                 
                 {/* Schedule message button */}
-                <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
+                <Dialog open={showScheduleDialog} onOpenChange={(open) => {
+                  setShowScheduleDialog(open);
+                  if (!open) {
+                    setEditingScheduledMessage(null);
+                    if (!message.trim()) {
+                      setScheduleDate("");
+                      setScheduleTime("");
+                    }
+                  }
+                }}>
                   <DialogTrigger asChild>
                     <Button 
                       size="sm" 
@@ -775,7 +920,9 @@ export const ChatArea = ({
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Запланировать сообщение</DialogTitle>
+                      <DialogTitle>
+                        {editingScheduledMessage ? "Редактировать запланированное сообщение" : "Запланировать сообщение"}
+                      </DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
                       <div className="space-y-2">
@@ -805,13 +952,69 @@ export const ChatArea = ({
                         <Button variant="outline" onClick={() => setShowScheduleDialog(false)}>
                           Отмена
                         </Button>
-                        <Button onClick={handleScheduleMessage}>
-                          Запланировать
+                        <Button onClick={editingScheduledMessage ? updateScheduledMessage : handleScheduleMessage}>
+                          {editingScheduledMessage ? "Обновить" : "Запланировать"}
                         </Button>
                       </div>
                     </div>
                   </DialogContent>
                 </Dialog>
+
+                {/* Scheduled messages button */}
+                {scheduledMessages.length > 0 && (
+                  <Dialog open={showScheduledMessagesDialog} onOpenChange={setShowScheduledMessagesDialog}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-8 w-8 p-0 relative"
+                      >
+                        <Calendar className="h-4 w-4" />
+                        <Badge 
+                          variant="destructive" 
+                          className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs flex items-center justify-center"
+                        >
+                          {scheduledMessages.length}
+                        </Badge>
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Запланированные сообщения ({scheduledMessages.length})</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {scheduledMessages.map((scheduledMsg) => (
+                          <div key={scheduledMsg.id} className="border rounded-lg p-3 space-y-2">
+                            <div className="text-sm font-medium">
+                              {format(scheduledMsg.scheduledDate, "d MMMM yyyy 'в' HH:mm", { locale: ru })}
+                            </div>
+                            <div className="text-sm text-muted-foreground bg-muted p-2 rounded">
+                              {scheduledMsg.text}
+                            </div>
+                            <div className="flex justify-end gap-1">
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => editScheduledMessage(scheduledMsg)}
+                              >
+                                <Edit2 className="h-3 w-3 mr-1" />
+                                Изменить
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => cancelScheduledMessage(scheduledMsg.id)}
+                              >
+                                <Trash2 className="h-3 w-3 mr-1" />
+                                Отменить
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </div>
             </div>
             
