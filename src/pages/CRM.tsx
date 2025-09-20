@@ -29,6 +29,7 @@ import { NewChatModal } from "@/components/crm/NewChatModal";
 import { PinnedModalTabs } from "@/components/crm/PinnedModalTabs";
 import { AddTaskModal } from "@/components/crm/AddTaskModal";
 import { CreateInvoiceModal } from "@/components/crm/CreateInvoiceModal";
+import { PinnableModalHeader, PinnableDialogContent } from "@/components/crm/PinnableModal";
 import { usePinnedModals } from "@/hooks/usePinnedModals";
 import { 
   Search, 
@@ -407,6 +408,20 @@ const CRMContent = () => {
     });
   };
 
+  // Обработчики для модальных окон из меню
+  const handlePinMenuModal = (modalType: string) => {
+    pinModal({
+      id: `menu-${modalType}`,
+      type: modalType as any,
+      title: modalType,
+      props: {}
+    });
+  };
+
+  const handleUnpinMenuModal = (modalType: string) => {
+    unpinModal(`menu-${modalType}`, modalType);
+  };
+
   // Обработчик открытия закрепленных модальных окон
   const handleOpenPinnedModal = (id: string, type: string) => {
     if (type === 'task') {
@@ -522,13 +537,16 @@ const CRMContent = () => {
                         <ExternalLink className="h-3 w-3 ml-auto opacity-50" />
                       </button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                          <item.icon className="h-5 w-5" />
-                          {item.label}
-                        </DialogTitle>
-                      </DialogHeader>
+                    <PinnableDialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                      <PinnableModalHeader
+                        title={item.label}
+                        isPinned={isPinned(`menu-${item.label}`, item.label)}
+                        onPin={() => handlePinMenuModal(item.label)}
+                        onUnpin={() => handleUnpinMenuModal(item.label)}
+                        onClose={() => setOpenModal(null)}
+                      >
+                        <item.icon className="h-5 w-5 ml-2" />
+                      </PinnableModalHeader>
                       <div className="py-4">
                         {item.label === "Лиды" && (
                           <div className="space-y-4">
@@ -620,7 +638,7 @@ const CRMContent = () => {
                           </div>
                         )}
                       </div>
-                    </DialogContent>
+                    </PinnableDialogContent>
                   </Dialog>
                 ))}
               </div>
