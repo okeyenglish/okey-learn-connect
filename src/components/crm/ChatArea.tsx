@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Phone, Forward, X, Clock, Calendar, Trash2 } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Phone, Forward, X, Clock, Calendar, Trash2, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -69,6 +69,7 @@ export const ChatArea = ({
   const [showScheduledMessagesDialog, setShowScheduledMessagesDialog] = useState(false);
   const [editingScheduledMessage, setEditingScheduledMessage] = useState<ScheduledMessage | null>(null);
   const [showQuickResponsesModal, setShowQuickResponsesModal] = useState(false);
+  const [commentMode, setCommentMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -222,7 +223,6 @@ export const ChatArea = ({
   const handleSendMessage = async () => {
     if (!message.trim() || loading || message.length > MAX_MESSAGE_LENGTH) return;
 
-    // Start 5-second countdown
     const messageText = message.trim();
     setMessage(""); // Clear input immediately
     onMessageChange?.(false);
@@ -232,7 +232,14 @@ export const ChatArea = ({
       textareaRef.current.style.height = 'auto';
     }
 
-    // Start countdown
+    // If in comment mode, save as comment instead of sending
+    if (commentMode) {
+      await saveComment(messageText);
+      setCommentMode(false); // Exit comment mode after saving
+      return;
+    }
+
+    // Start 5-second countdown for regular messages
     setPendingMessage({ text: messageText, countdown: 5 });
     
     const countdown = () => {
@@ -276,6 +283,32 @@ export const ChatArea = ({
       toast({
         title: "Ошибка отправки",
         description: error.message || "Не удалось отправить сообщение",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const saveComment = async (commentText: string) => {
+    try {
+      // Save comment to client - update the client's comment field
+      const { error } = await supabase
+        .from('clients')
+        .update({
+          comment: commentText,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', clientId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Комментарий сохранен",
+        description: "Комментарий успешно добавлен к клиенту",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Ошибка сохранения",
+        description: error.message || "Не удалось сохранить комментарий",
         variant: "destructive",
       });
     }
@@ -893,11 +926,13 @@ export const ChatArea = ({
             <div className="flex-1">
               <Textarea
                 ref={textareaRef}
-                placeholder="Введите сообщение..."
+                placeholder={commentMode ? "Введите комментарий..." : "Введите сообщение..."}
                 value={message}
                 onChange={(e) => handleMessageChange(e.target.value)}
                 onKeyPress={handleKeyPress}
-                className="min-h-[48px] max-h-[120px] resize-none text-base"
+                className={`min-h-[48px] max-h-[120px] resize-none text-base ${
+                  commentMode ? "bg-yellow-50 border-yellow-300" : ""
+                }`}
                 disabled={loading || !!pendingMessage}
               />
               <div className="flex items-center gap-1 mt-2">
@@ -909,6 +944,15 @@ export const ChatArea = ({
                 </Button>
                 <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!!pendingMessage}>
                   <MessageCircle className="h-4 w-4" />
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className={`h-8 w-8 p-0 ${commentMode ? "bg-yellow-100 text-yellow-700" : ""}`}
+                  disabled={!!pendingMessage}
+                  onClick={() => setCommentMode(!commentMode)}
+                >
+                  <Bot className="h-4 w-4" />
                 </Button>
                 <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!!pendingMessage}>
                   <Mic className="h-4 w-4" />
@@ -1038,7 +1082,9 @@ export const ChatArea = ({
             {/* Send button */}
             <Button 
               size="icon" 
-              className="rounded-full h-12 w-12 mb-10" 
+              className={`rounded-full h-12 w-12 mb-10 ${
+                commentMode ? "bg-yellow-500 hover:bg-yellow-600" : ""
+              }`}
               onClick={handleSendMessage}
               disabled={loading || !message.trim() || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
             >
