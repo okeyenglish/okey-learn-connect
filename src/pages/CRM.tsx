@@ -329,6 +329,16 @@ const CRMContent = () => {
     }
   };
 
+  const handleExistingClientFound = (clientId: string) => {
+    // Switch to the existing client's chat
+    setActiveChatId(clientId);
+    setActiveChatType('client');
+    
+    // Refresh threads and messages to ensure data is current
+    queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+    queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
+  };
+
   const handleChatAction = (chatId: string, action: 'unread' | 'pin' | 'archive' | 'block') => {
     setChatStates(prev => ({
       ...prev,
@@ -602,7 +612,10 @@ const CRMContent = () => {
                   onClear={() => setChatSearchQuery("")}
                   size="sm"
                 />
-                <NewChatModal onCreateChat={handleCreateNewChat}>
+                <NewChatModal 
+                  onCreateChat={handleCreateNewChat}
+                  onExistingClientFound={handleExistingClientFound}
+                >
                   <Button size="sm" className="w-full gap-2" variant="outline">
                     <MessageCirclePlus className="h-4 w-4" />
                     Новый чат

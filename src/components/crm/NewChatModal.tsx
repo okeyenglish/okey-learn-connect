@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,71 +13,112 @@ import {
   Mail,
   MessageCircle
 } from "lucide-react";
+import { useSearchClients, useCreateClient } from "@/hooks/useClients";
+import { useClientPhoneNumbers } from "@/hooks/useClients";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface NewChatModalProps {
   children: React.ReactNode;
   onCreateChat?: (contactInfo: any) => void;
+  onExistingClientFound?: (clientId: string) => void;
 }
 
-interface Contact {
-  id: string;
-  name: string;
-  phone: string;
-  email?: string;
-  type: 'existing' | 'lead';
-  lastContact?: string;
-}
-
-export const NewChatModal = ({ children, onCreateChat }: NewChatModalProps) => {
+export const NewChatModal = ({ children, onCreateChat, onExistingClientFound }: NewChatModalProps) => {
   const [open, setOpen] = useState(false);
   const [newContactData, setNewContactData] = useState({
     name: "",
     phone: ""
   });
-  const [phoneSuggestions, setPhoneSuggestions] = useState<Contact[]>([]);
+  const [isCheckingPhone, setIsCheckingPhone] = useState(false);
+  
+  const { searchClients, searchResults, isSearching } = useSearchClients();
+  const createClient = useCreateClient();
 
-  // Mock existing contacts/leads
-  const mockContacts: Contact[] = [
-    {
-      id: '1',
-      name: 'Елена Иванова',
-      phone: '+7 (916) 555-01-23',
-      email: 'elena.ivanova@email.com',
-      type: 'existing',
-      lastContact: '2 дня назад'
-    },
-    {
-      id: '2', 
-      name: 'Дмитрий Сидоров',
-      phone: '+7 (903) 555-45-67',
-      type: 'lead',
-      lastContact: 'Неделю назад'
-    },
-    {
-      id: '3',
-      name: 'Ольга Смирнова', 
-      phone: '+7 (925) 555-89-01',
-      email: 'olga.smirnova@email.com',
-      type: 'existing',
-      lastContact: 'Вчера'
-    }
-  ];
-
-  const handleCreateFromNewContact = () => {
-    if (newContactData.name && newContactData.phone) {
-      const newContact = {
-        id: Date.now().toString(),
-        ...newContactData,
-        type: 'new' as const
-      };
-      onCreateChat?.(newContact);
-      setNewContactData({ name: "", phone: "" });
-      setOpen(false);
+  const checkExistingPhone = async (phone: string) => {
+    if (!phone || phone.length < 5) return;
+    
+    setIsCheckingPhone(true);
+    try {
+      // Check in clients table
+      const { data: clients, error: clientError } = await supabase
+        .from('clients')
+        .select('id, name, phone, email')
+        .or(`phone.ilike.%${phone}%`)
+        .eq('is_active', true);
+      
+      if (clientError) throw clientError;
+      
+      if (clients && clients.length > 0) {
+        const existingClient = clients[0];
+        toast.info(`Клиент найден: ${existingClient.name}`, {
+          description: "Переходим к существующему чату",
+        });
+        onExistingClientFound?.(existingClient.id);
+        setOpen(false);
+        return true;
+      }
+      
+      // Check in client_phone_numbers table
+      const { data: phoneNumbers, error: phoneError } = await supabase
+        .from('client_phone_numbers')
+        .select(`
+          id,
+          phone,
+          client_id,
+          clients!inner(id, name, phone, email, is_active)
+        `)
+        .ilike('phone', `%${phone}%`);
+      
+      if (phoneError) throw phoneError;
+      
+      if (phoneNumbers && phoneNumbers.length > 0) {
+        const existingClient = phoneNumbers[0].clients;
+        if (existingClient.is_active) {
+          toast.info(`Клиент найден: ${existingClient.name}`, {
+            description: "Переходим к существующему чату",
+          });
+          onExistingClientFound?.(existingClient.id);
+          setOpen(false);
+          return true;
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error checking existing phone:', error);
+      return false;
+    } finally {
+      setIsCheckingPhone(false);
     }
   };
 
-  const handleCreateFromExisting = (contact: Contact) => {
-    onCreateChat?.(contact);
+  const handleCreateFromNewContact = async () => {
+    if (newContactData.name && newContactData.phone) {
+      // First check if phone already exists
+      const phoneExists = await checkExistingPhone(newContactData.phone);
+      if (phoneExists) return;
+      
+      try {
+        const result = await createClient.mutateAsync({
+          name: newContactData.name,
+          phone: newContactData.phone,
+          is_active: true
+        });
+        
+        toast.success("Новый клиент создан");
+        onCreateChat?.(result);
+        setNewContactData({ name: "", phone: "" });
+        setOpen(false);
+      } catch (error) {
+        console.error('Error creating client:', error);
+        toast.error("Ошибка при создании клиента");
+      }
+    }
+  };
+
+  const handleCreateFromExisting = (client: any) => {
+    onExistingClientFound?.(client.id);
     setOpen(false);
   };
 
@@ -85,32 +126,12 @@ export const NewChatModal = ({ children, onCreateChat }: NewChatModalProps) => {
     setNewContactData(prev => ({ ...prev, phone: value }));
     
     if (value.length >= 3) {
-      const suggestions = mockContacts.filter(contact =>
-        contact.phone.includes(value) || contact.name.toLowerCase().includes(value.toLowerCase())
-      );
-      setPhoneSuggestions(suggestions);
-    } else {
-      setPhoneSuggestions([]);
+      searchClients(value);
     }
   };
 
-  const getContactTypeColor = (type: string) => {
-    switch (type) {
-      case 'existing': return 'default';
-      case 'lead': return 'secondary';
-      case 'new': return 'outline';
-      default: return 'default';
-    }
-  };
-
-  const getContactTypeLabel = (type: string) => {
-    switch (type) {
-      case 'existing': return 'Клиент';
-      case 'lead': return 'Лид';
-      case 'new': return 'Новый';
-      default: return type;
-    }
-  };
+  const getContactTypeColor = () => 'default';
+  const getContactTypeLabel = () => 'Клиент';
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -145,22 +166,25 @@ export const NewChatModal = ({ children, onCreateChat }: NewChatModalProps) => {
                 value={newContactData.phone}
                 onChange={(e) => handlePhoneChange(e.target.value)}
               />
-              {phoneSuggestions.length > 0 && (
+              {searchResults.length > 0 && (
                 <div className="absolute top-full left-0 right-0 z-50 bg-background border border-border rounded-md shadow-md max-h-48 overflow-y-auto">
-                  {phoneSuggestions.map((contact) => (
+                  {searchResults.map((client) => (
                     <div
-                      key={contact.id}
+                      key={client.id}
                       className="p-2 hover:bg-muted cursor-pointer border-b last:border-b-0"
-                      onClick={() => handleCreateFromExisting(contact)}
+                      onClick={() => handleCreateFromExisting(client)}
                     >
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-muted-foreground" />
                         <div>
-                          <p className="text-sm font-medium">{contact.name}</p>
-                          <p className="text-xs text-muted-foreground">{contact.phone}</p>
+                          <p className="text-sm font-medium">{client.name}</p>
+                          <p className="text-xs text-muted-foreground">{client.phone}</p>
+                          {client.email && (
+                            <p className="text-xs text-muted-foreground">{client.email}</p>
+                          )}
                         </div>
-                        <Badge variant={getContactTypeColor(contact.type)} className="text-xs ml-auto">
-                          {getContactTypeLabel(contact.type)}
+                        <Badge variant="default" className="text-xs ml-auto">
+                          {getContactTypeLabel()}
                         </Badge>
                       </div>
                     </div>
@@ -176,7 +200,7 @@ export const NewChatModal = ({ children, onCreateChat }: NewChatModalProps) => {
             </Button>
             <Button 
               onClick={handleCreateFromNewContact}
-              disabled={!newContactData.name || !newContactData.phone}
+              disabled={!newContactData.name || !newContactData.phone || isCheckingPhone || createClient.isPending}
             >
               <MessageCirclePlus className="h-4 w-4 mr-2" />
               Создать чат
