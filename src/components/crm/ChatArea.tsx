@@ -51,8 +51,6 @@ export const ChatArea = ({
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchInput, setShowSearchInput] = useState(false);
-  const [isEditingComment, setIsEditingComment] = useState(false);
-  const [editableComment, setEditableComment] = useState(clientComment);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
@@ -563,12 +561,6 @@ export const ChatArea = ({
     }
   };
 
-  const handleSaveComment = () => {
-    setIsEditingComment(false);
-    // Here you would save the comment to your backend
-    console.log('Saving comment:', editableComment);
-  };
-
   // Функции для работы с выделением сообщений
   const handleToggleSelectionMode = () => {
     setIsSelectionMode(!isSelectionMode);
@@ -986,9 +978,6 @@ export const ChatArea = ({
                 </Button>
                 <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!!pendingMessage} onClick={() => setShowQuickResponsesModal(true)}>
                   <Zap className="h-4 w-4" />
-                </Button>
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!!pendingMessage}>
-                  <MessageCircle className="h-4 w-4" />
                 </Button>
                 <Button 
                   size="sm" 
