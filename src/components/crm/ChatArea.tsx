@@ -840,26 +840,40 @@ export const ChatArea = ({
       }}
     >
       {/* Chat Header */}
-      <div className="border-b p-3 shrink-0">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            {/* Back button for mobile */}
-            {isMobile && onBackToList && (
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                className="h-8 w-8 p-0"
-                onClick={onBackToList}
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            )}
-            <div>
-              <h2 className="font-semibold text-base">{clientName}</h2>
-              <p className="text-sm text-muted-foreground">{clientPhone}</p>
+      <div className={`border-b p-3 shrink-0 ${isMobile ? 'bg-background' : ''}`}>
+        {/* Mobile: User info section - displayed prominently */}
+        {isMobile && (
+          <div className="mb-3 pb-3 border-b">
+            <div className="flex items-center gap-3">
+              {onBackToList && (
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-8 w-8 p-0"
+                  onClick={onBackToList}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              )}
+              <div className="flex-1">
+                <h2 className="font-semibold text-lg">{clientName}</h2>
+                <p className="text-sm text-muted-foreground">{clientPhone}</p>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+        )}
+        
+        {/* Desktop: Inline user info with actions */}
+        <div className={`flex items-start justify-between gap-4 ${isMobile ? 'mt-0' : ''}`}>
+          {!isMobile && (
+            <div className="flex items-center gap-3">
+              <div>
+                <h2 className="font-semibold text-base">{clientName}</h2>
+                <p className="text-sm text-muted-foreground">{clientPhone}</p>
+              </div>
+            </div>
+          )}
+          <div className="flex items-center gap-2 flex-wrap">
             <Button 
               size="sm" 
               variant="outline" 
@@ -919,7 +933,7 @@ export const ChatArea = ({
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent align="end" className="w-56 bg-background border shadow-lg z-50">
                   <DropdownMenuItem onClick={() => onChatAction(clientId, 'unread')}>
                     <BellOff className="mr-2 h-4 w-4" />
                     <span>Отметить непрочитанным</span>
@@ -949,7 +963,7 @@ export const ChatArea = ({
                 autoFocus
               />
             )}
-        </div>
+          </div>
       </div>
 
       {/* Drag overlay */}
