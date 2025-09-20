@@ -194,11 +194,6 @@ export const FamilyCard = ({
               </div>
             </div>
             <div className="flex items-center gap-1">
-              {activeMember.unreadMessages && activeMember.unreadMessages > 0 && (
-                <Badge variant="destructive" className="text-xs">
-                  {activeMember.unreadMessages}
-                </Badge>
-              )}
               <EditContactModal
                 contactData={{
                   name: activeMember.name,
@@ -229,15 +224,6 @@ export const FamilyCard = ({
                   </Badge>
                 )}
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onCall?.(activeMember.id)}
-                className="h-6 w-6 p-0"
-                title="Позвонить"
-              >
-                <Phone className="h-3 w-3" />
-              </Button>
             </div>
             {/* Additional Phone Numbers */}
             {memberPhoneNumbers['main-member'] && 
@@ -367,7 +353,7 @@ export const FamilyCard = ({
                         <div className="flex items-center gap-2">
                           <User className="h-4 w-4 text-muted-foreground" />
                           <p className="font-medium text-sm">{student.firstName}</p>
-                          <Badge variant="secondary" className="text-xs">{student.age} {student.age === 1 ? 'год' : 'лет'}</Badge>
+                          <Badge variant="outline" className="text-xs bg-slate-100 text-slate-700 border-slate-300">{student.age} {student.age === 1 ? 'год' : 'лет'}</Badge>
                         </div>
                         <Badge 
                           variant={getChildStatusColor(student.status)} 
