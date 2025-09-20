@@ -323,6 +323,15 @@ const CRMContent = () => {
       if (aPinned && !bPinned) return -1;
       if (!aPinned && bPinned) return 1;
       
+      // В рамках закрепленных/не закрепленных: сначала непрочитанные
+      const aChatState = getChatState(a.id);
+      const bChatState = getChatState(b.id);
+      const aUnread = aChatState.isUnread || a.unread > 0;
+      const bUnread = bChatState.isUnread || b.unread > 0;
+      
+      if (aUnread && !bUnread) return -1;
+      if (!aUnread && bUnread) return 1;
+      
       // Внутри каждой группы сортируем по времени (новые сверху)
       return (b.timestamp || 0) - (a.timestamp || 0);
     });
