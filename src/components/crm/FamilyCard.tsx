@@ -301,42 +301,45 @@ export const FamilyCard = ({
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="relative">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="children" className="relative">
+            <TabsTrigger value="children">
               Дети ({familyData.students.length})
-              {activeTab === "children" && (
-                <AddStudentModal 
-                  familyGroupId={familyGroupId}
-                  parentLastName={activeMember.name.split(' ').pop()}
-                  onStudentAdded={refetch}
-                >
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    className="absolute -right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0 bg-slate-600 text-white hover:bg-slate-700 rounded-full"
-                  >
-                    <Plus className="h-3 w-3" />
-                  </Button>
-                </AddStudentModal>
-              )}
             </TabsTrigger>
-            <TabsTrigger value="contacts" className="relative">
+            <TabsTrigger value="contacts">
               Семья ({familyData.members.length})
-              {activeTab === "contacts" && (
-                <AddFamilyMemberModal 
-                  familyGroupId={familyGroupId}
-                  onMemberAdded={refetch}
-                >
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    className="absolute -right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0 bg-slate-600 text-white hover:bg-slate-700 rounded-full"
-                  >
-                    <Plus className="h-3 w-3" />
-                  </Button>
-                </AddFamilyMemberModal>
-              )}
             </TabsTrigger>
           </TabsList>
+          
+          {/* Add buttons positioned outside TabsTrigger */}
+          {activeTab === "children" && (
+            <AddStudentModal 
+              familyGroupId={familyGroupId}
+              parentLastName={activeMember.name.split(' ').pop()}
+              onStudentAdded={refetch}
+            >
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0 bg-slate-600 text-white hover:bg-slate-700 rounded-full z-10"
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
+            </AddStudentModal>
+          )}
+          
+          {activeTab === "contacts" && (
+            <AddFamilyMemberModal 
+              familyGroupId={familyGroupId}
+              onMemberAdded={refetch}
+            >
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0 bg-slate-600 text-white hover:bg-slate-700 rounded-full z-10"
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
+            </AddFamilyMemberModal>
+          )}
         </div>
         
         <TabsContent value="children" className="space-y-2 mt-4">
