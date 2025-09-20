@@ -9,9 +9,9 @@ const Admin = () => {
   return (
     <div className="min-h-screen bg-background">
       <SidebarProvider>
-        <div className="flex min-h-screen w-full">
+        <div className="flex min-h-screen h-screen w-full">
           <AdminSidebar onSectionChange={setActiveSection} />
-          <main className="flex-1 p-6">
+          <main className="flex-1 p-6 overflow-auto">
             <AdminDashboard activeSection={activeSection} />
           </main>
         </div>
