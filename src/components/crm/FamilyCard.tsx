@@ -17,7 +17,8 @@ import {
   Mail,
   Clock,
   Bell,
-  Plus
+  Plus,
+  GraduationCap
 } from "lucide-react";
 
 interface FamilyCardProps {
@@ -182,18 +183,11 @@ export const FamilyCard = ({
         </TabsList>
         
         <TabsContent value="contacts" className="space-y-2 mt-4">
-          <div className="flex justify-between items-center mb-3">
-            <h4 className="font-medium text-sm">Члены семьи</h4>
-            <AddFamilyMemberModal 
-              familyGroupId={familyGroupId}
-              onMemberAdded={refetch}
-            />
-          </div>
-          
           {otherMembers.length === 0 ? (
-            <div className="text-center py-4">
-              <p className="text-sm text-muted-foreground mb-2">
-                Нет связанных контактов
+            <div className="text-center py-6">
+              <Users className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground mb-3">
+                Пока нет связанных контактов
               </p>
               <AddFamilyMemberModal 
                 familyGroupId={familyGroupId}
@@ -201,8 +195,15 @@ export const FamilyCard = ({
               />
             </div>
           ) : (
-            <div className="space-y-2">
-              {otherMembers.map((member) => {
+            <div className="space-y-3">
+              <div className="flex justify-end">
+                <AddFamilyMemberModal 
+                  familyGroupId={familyGroupId}
+                  onMemberAdded={refetch}
+                />
+              </div>
+              <div className="space-y-2">
+                {otherMembers.map((member) => {
                 const RelationIcon = getRelationshipIcon(member.relationship);
                 return (
                   <Card key={member.id} className="hover:bg-muted/30 transition-colors cursor-pointer">
@@ -258,25 +259,19 @@ export const FamilyCard = ({
                       )}
                     </CardContent>
                   </Card>
-                );
-              })}
-            </div>
+                 );
+               })}
+             </div>
+           </div>
           )}
         </TabsContent>
         
         <TabsContent value="children" className="space-y-2 mt-4">
-          <div className="flex justify-between items-center mb-3">
-            <h4 className="font-medium text-sm">Ученики</h4>
-            <AddStudentModal 
-              familyGroupId={familyGroupId}
-              onStudentAdded={refetch}
-            />
-          </div>
-          
           {familyData.students.length === 0 ? (
-            <div className="text-center py-4">
-              <p className="text-sm text-muted-foreground mb-2">
-                Нет детей в системе
+            <div className="text-center py-6">
+              <GraduationCap className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground mb-3">
+                Пока нет учеников в системе
               </p>
               <AddStudentModal 
                 familyGroupId={familyGroupId}
@@ -284,8 +279,15 @@ export const FamilyCard = ({
               />
             </div>
           ) : (
-            <div className="space-y-2">
-              {familyData.students.map((student) => (
+            <div className="space-y-3">
+              <div className="flex justify-end">
+                <AddStudentModal 
+                  familyGroupId={familyGroupId}
+                  onStudentAdded={refetch}
+                />
+              </div>
+              <div className="space-y-2">
+                {familyData.students.map((student) => (
                 <Card key={student.id} className="hover:bg-muted/20 transition-colors">
                   <CardContent className="p-3">
                     <div className="flex items-center justify-between mb-2">
@@ -324,8 +326,9 @@ export const FamilyCard = ({
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
+               ))}
+             </div>
+           </div>
           )}
         </TabsContent>
       </Tabs>
