@@ -174,6 +174,10 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
     }
   };
 
+  const updateAllEndTimes = () => {
+    formData.schedule_days.forEach(day => updateEndTimeForDay(day));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     

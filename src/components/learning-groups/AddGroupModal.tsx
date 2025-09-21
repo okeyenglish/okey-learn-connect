@@ -33,7 +33,7 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
     status: "forming" as "reserve" | "forming" | "active" | "suspended" | "finished",
     capacity: "10",
     academic_hours: "",
-    lesson_duration: "",
+    lesson_duration: "80",
     responsible_teacher: "",
     period_start: null as Date | null,
     period_end: null as Date | null,
