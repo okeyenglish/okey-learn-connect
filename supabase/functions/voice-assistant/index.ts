@@ -126,14 +126,18 @@ serve(async (req) => {
 Доступные команды:
 1. Поиск клиентов: "найди клиента [имя]", "покажи клиента [имя]"
 2. Отправка сообщений: "отправь сообщение [имя] что [текст]", "напиши [имя] что [текст]"
-3. Создание задач: "создай задачу [описание]", "напомни [описание]"
+3. Создание задач: "создай задачу [описание]", "напомни [описание]", "поставь задачу на [дата] в [время] [описание]"
 4. Поиск преподавателей: "найди преподавателя [имя]", "покажи преподавателя [имя]"
 5. Управление чатами: "закрепи чат [имя]", "архивируй чат [имя]", "отметь прочитанным [имя]", "открой чат [имя]"
 6. Расписание: "покажи расписание", "расписание на сегодня"
 7. Задачи: "покажи мои задачи", "задачи на сегодня", "просроченные задачи"
 8. Модальные окна: "открой добавление клиента", "добавить преподавателя", "создать задачу"
 
-ВАЖНО: Если пользователь просит открыть что-то связанное с активным клиентом (например "покажи профиль", "создай задачу для него"), используй информацию из контекста.
+ВАЖНО: 
+- При создании задач с датой/временем парси "завтра", "послезавтра", "через неделю", "в понедельник" и конвертируй в формат YYYY-MM-DD
+- Время парси как "в 12 часов", "на 15:30", "в 9 утра" и конвертируй в формат HH:MM (24-часовой)
+- "завтра на 12 часов" = dueDate: завтрашняя дата, dueTime: "12:00"
+- Если пользователь просит открыть что-то связанное с активным клиентом (например "покажи профиль", "создай задачу для него"), используй информацию из контекста.
 
 Всегда отвечай дружелюбно и профессионально на русском языке. 
 Если команда неясна, переспроси для уточнения.
@@ -176,7 +180,8 @@ serve(async (req) => {
             description: { type: "string", description: "Описание задачи" },
             clientName: { type: "string", description: "Имя клиента (опционально)" },
             priority: { type: "string", enum: ["low", "medium", "high"], description: "Приоритет задачи" },
-            dueDate: { type: "string", description: "Срок выполнения в формате YYYY-MM-DD (опционально)" }
+            dueDate: { type: "string", description: "Срок выполнения в формате YYYY-MM-DD (опционально)" },
+            dueTime: { type: "string", description: "Время выполнения в формате HH:MM (опционально)" }
           },
           required: ["title"]
         }
@@ -377,24 +382,33 @@ serve(async (req) => {
               clientForTask = foundClient;
             }
 
+            const taskData: any = {
+              title: functionArgs.title,
+              description: functionArgs.description || '',
+              status: 'active',
+              priority: functionArgs.priority || 'medium',
+              due_date: functionArgs.dueDate || null,
+              due_time: functionArgs.dueTime || null,
+              branch: userProfile?.branch || 'Окская',
+              responsible: `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim() || userProfile?.email || 'Менеджер'
+            };
+
+            // Добавляем client_id только если клиент найден
+            if (clientForTask) {
+              taskData.client_id = clientForTask.id;
+            }
+
             const { error: taskError } = await supabase
               .from('tasks')
-              .insert({
-                client_id: clientForTask?.id || '00000000-0000-0000-0000-000000000000', // Default UUID
-                title: functionArgs.title,
-                description: functionArgs.description || '',
-                status: 'active',
-                priority: functionArgs.priority || 'medium',
-                due_date: functionArgs.dueDate || null,
-                branch: userProfile?.branch || 'Окская',
-                responsible: `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim() || userProfile?.email || 'Менеджер'
-              });
+              .insert(taskData);
 
             if (taskError) {
               console.error('Task creation error:', taskError);
               responseText = 'Ошибка при создании задачи.';
             } else {
-              responseText = `Задача "${functionArgs.title}" создана${clientForTask ? ` для клиента ${clientForTask.name}` : ''}.`;
+              const timeInfo = functionArgs.dueTime ? ` на ${functionArgs.dueTime}` : '';
+              const dateInfo = functionArgs.dueDate ? ` на ${functionArgs.dueDate}` : '';
+              responseText = `Задача "${functionArgs.title}"${dateInfo}${timeInfo} создана${clientForTask ? ` для клиента ${clientForTask.name}` : ''}.`;
               actionResult = { type: 'task_created', title: functionArgs.title, clientName: clientForTask?.name };
             }
             break;
