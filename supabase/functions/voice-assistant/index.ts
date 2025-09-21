@@ -259,7 +259,7 @@ serve(async (req) => {
         parameters: {
           type: "object",
           properties: {
-            date: { type: "string", description: "Дата в формате YYYY-MM-DD (опционalno)" },
+            date: { type: "string", description: "Дата в формате YYYY-MM-DD (опционално)" },
             branch: { type: "string", description: "Филиал для фильтрации (опционально)" }
           }
         }
@@ -329,437 +329,355 @@ serve(async (req) => {
     let responseText = message.content || 'Готов выполнить команду.';
     let actionResult = null;
 
-    // Если GPT вызвал функцию, выполняем её
+    // Если GPT вызвал функции, выполняем их все
     if (message.tool_calls && message.tool_calls.length > 0) {
-      const toolCall = message.tool_calls[0];
-      const functionName = toolCall.function.name;
-      const functionArgs = JSON.parse(toolCall.function.arguments);
-      console.log('Function call:', functionName, functionArgs);
+      const executedActions = [];
+      
+      for (const toolCall of message.tool_calls) {
+        const functionName = toolCall.function.name;
+        const functionArgs = JSON.parse(toolCall.function.arguments);
+        console.log('Function call:', functionName, functionArgs);
 
         try {
-        switch (functionName) {
-          case 'search_clients':
-            const { data: clients } = await supabase
-              .from('clients')
-              .select('id, name, phone, email, branch, notes, last_message_at')
-              .ilike('name', `%${functionArgs.query}%`)
-              .order('last_message_at', { ascending: false })
-              .limit(10);
-            
-            if (clients && clients.length > 0) {
-              const clientsList = clients.map(c => `${c.name} (${c.branch})`).join(', ');
-              responseText = `Найдены клиенты: ${clientsList}`;
-              actionResult = { type: 'clients', data: clients };
-            } else {
-              responseText = `Клиенты с именем "${functionArgs.query}" не найдены.`;
-            }
-            break;
-
-          case 'send_message':
-            // Поиск клиента: приоритет ID активного чата, затем имя из команды/контекста
-            let client: any = null;
-
-            if (!functionArgs.clientName && context?.activeClientId) {
-              const { data: byId } = await supabase
+          let singleResult = null;
+          
+          switch (functionName) {
+            case 'search_clients':
+              const { data: clients } = await supabase
                 .from('clients')
-                .select('*')
-                .eq('id', context.activeClientId)
-                .eq('is_active', true)
-                .maybeSingle();
-              if (byId) {
-                client = byId;
-                console.log('Using active client by ID for send_message:', byId.name);
-              }
-            }
-
-            if (!client) {
-              const targetClientName = functionArgs.clientName || context?.activeClientName;
-              if (!targetClientName) {
-                responseText = 'Не указан клиент для отправки сообщения.';
-                break;
-              }
-
-              const { data: byName } = await supabase
-                .from('clients')
-                .select('*')
-                .eq('is_active', true)
-                .not('name', 'ilike', 'Преподаватель:%')
-                .not('name', 'ilike', 'Teacher:%')
-                .not('name', 'ilike', 'Чат педагогов - %')
-                .not('name', 'ilike', 'Корпоративный чат - %')
-                .ilike('name', `%${targetClientName}%`)
-                .maybeSingle();
-              client = byName;
-            }
-
-            if (client && client.phone) {
-              const { error } = await supabase.functions.invoke('whatsapp-send', {
-                body: {
-                  clientId: client.id,
-                  phoneNumber: client.phone,
-                  message: functionArgs.message
-                }
-              });
-
-              if (error) {
-                console.error('WhatsApp send error:', error);
-                responseText = `Ошибка при отправке сообщения клиенту ${client.name}.`;
-              } else {
-                responseText = `Сообщение "${functionArgs.message}" отправлено клиенту ${client.name}.`;
-                actionResult = { type: 'message_sent', clientName: client.name };
-              }
-            } else {
-              responseText = 'Клиент не найден или у него нет номера телефона.';
-            }
-            break;
-
-          case 'create_task':
-            // Найдем клиента если указан, иначе используем активного из контекста
-            let clientForTask = null;
-            let taskClientName = functionArgs.clientName;
-            
-            // Приоритет: сначала используем activeClientId из контекста (точное совпадение),
-            // потом activeClientName, и только потом клиента по имени из команды
-            if (!taskClientName && context?.activeClientId) {
-              console.log('Using active client ID from context:', context.activeClientId);
-              const { data: foundClient } = await supabase
-                .from('clients')
-                .select('id, name')
-                .eq('id', context.activeClientId)
-                .eq('is_active', true)
-                .maybeSingle();
+                .select('id, name, phone, email, branch, notes, last_message_at')
+                .ilike('name', `%${functionArgs.query}%`)
+                .order('last_message_at', { ascending: false })
+                .limit(10);
               
-              if (foundClient) {
-                clientForTask = foundClient;
-                console.log('Found active client:', foundClient.name);
-              }
-            }
-
-            // Если не нашли по ID и имя не задано — берем имя из контекста
-            if (!clientForTask && !taskClientName && context?.activeClientName) {
-              taskClientName = context.activeClientName;
-              console.log('Falling back to active client name from context for task:', taskClientName);
-            }
-            
-            // Поиск по имени только если не нашли по ID
-            if (!clientForTask && taskClientName) {
-              const { data: foundClient } = await supabase
-                .from('clients')
-                .select('id, name')
-                .eq('is_active', true)
-                .not('name', 'ilike', 'Преподаватель:%')
-                .not('name', 'ilike', 'Teacher:%')
-                .not('name', 'ilike', 'Чат педагогов - %')
-                .not('name', 'ilike', 'Корпоративный чат - %')
-                .ilike('name', `%${taskClientName}%`)
-                .maybeSingle();
-              clientForTask = foundClient;
-            }
-
-            const taskData: any = {
-              title: functionArgs.title,
-              description: functionArgs.description || '',
-              status: 'active',
-              priority: functionArgs.priority || 'medium',
-              due_date: functionArgs.dueDate || null,
-              due_time: functionArgs.dueTime || null,
-              branch: userProfile?.branch || 'Окская',
-              responsible: `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim() || userProfile?.email || 'Менеджер'
-            };
-
-            // Привязываем client_id: приоритет ЯВНО указанного клиента из команды/распознавания,
-            // затем активного чата из контекста
-            if (clientForTask) {
-              taskData.client_id = clientForTask.id;
-            } else if (context?.activeClientId) {
-              taskData.client_id = context.activeClientId;
-            }
-
-            const { data: inserted, error: taskError } = await supabase
-              .from('tasks')
-              .insert(taskData)
-              .select('id')
-              .single();
-
-            if (taskError) {
-              console.error('Task creation error:', taskError);
-              responseText = 'Ошибка при создании задачи.';
-            } else {
-              const timeInfo = functionArgs.dueTime ? ` на ${functionArgs.dueTime}` : '';
-              const dateInfo = functionArgs.dueDate ? ` на ${functionArgs.dueDate}` : '';
-              const nameForText = clientForTask?.name || context?.activeClientName;
-              responseText = `Задача "${functionArgs.title}"${dateInfo}${timeInfo} создана${nameForText ? ` для клиента ${nameForText}` : ''}.`;
-              actionResult = { type: 'task_created', title: functionArgs.title, clientName: nameForText };
-            }
-            break;
-
-          case 'get_tasks':
-            // Фильтрация задач по ответственному текущему пользователю (без привязки к филиалу)
-            const userBranch = userProfile?.branch || 'Окская';
-            const userFullName = `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim();
-            const reversedName = `${userProfile?.last_name || ''} ${userProfile?.first_name || ''}`.trim();
-            const email = userProfile?.email || '';
-            
-            let tasksQuery = supabase
-              .from('tasks')
-              .select('id, title, description, status, priority, due_date, created_at, client_id, responsible');
-
-            // Показываем задачи только текущего пользователя (ответственного)
-            const orFilters = [
-              userFullName ? `responsible.ilike.%${userFullName}%` : null,
-              reversedName && reversedName !== userFullName ? `responsible.ilike.%${reversedName}%` : null,
-              email ? `responsible.ilike.%${email}%` : null,
-            ].filter(Boolean).join(',');
-            if (orFilters) {
-              tasksQuery = tasksQuery.or(orFilters);
-            }
-
-            // Применяем фильтры по статусу/датам
-            const today = new Date().toISOString().split('T')[0];
-            switch (functionArgs.filter) {
-              case 'today':
-                tasksQuery = tasksQuery.eq('due_date', today).eq('status', 'active');
-                break;
-              case 'overdue':
-                tasksQuery = tasksQuery.lt('due_date', today).eq('status', 'active');
-                break;
-              case 'pending':
-              case 'all':
-                tasksQuery = tasksQuery.eq('status', 'active');
-                break;
-              case 'completed':
-                tasksQuery = tasksQuery.eq('status', 'completed');
-                break;
-            }
-
-            // Опциональная фильтрация по клиенту без join'а
-            if (functionArgs.clientName) {
-              const { data: nameClients } = await supabase
-                .from('clients')
-                .select('id')
-                .ilike('name', `%${functionArgs.clientName}%`)
-                .limit(50);
-              const ids = (nameClients || []).map(c => c.id);
-              if (ids.length > 0) {
-                tasksQuery = tasksQuery.in('client_id', ids);
-              } else {
-                // Если клиентов по имени нет — вернем пустой список
-                tasksQuery = tasksQuery.in('client_id', ['00000000-0000-0000-0000-000000000000']);
-              }
-            }
-
-            const { data: tasks, error: tasksError } = await tasksQuery
-              .order('created_at', { ascending: false })
-              .limit(20);
-
-            console.log('Tasks query result:', { tasksCount: tasks?.length || 0, tasksError, userFullName, filter: functionArgs.filter });
-
-            if (tasks && tasks.length > 0) {
-              // Компактный ответ: просто количество и краткий список
-              const count = tasks.length;
-              let filterText = '';
-              switch (functionArgs.filter) {
-                case 'today': filterText = 'на сегодня'; break;
-                case 'overdue': filterText = 'просроченных'; break;
-                case 'pending': filterText = 'активных'; break;
-                case 'completed': filterText = 'выполненных'; break;
-                default: filterText = '';
-              }
-              
-              if (count === 1) {
-                responseText = `${count} задача ${filterText}: "${tasks[0].title}".`;
-              } else if (count <= 4) {
-                const titles = tasks.map(t => `"${t.title}"`).join(', ');
-                responseText = `${count} задачи ${filterText}: ${titles}.`;
-              } else {
-                responseText = `${count} задач ${filterText}.`;
-              }
-              
-              actionResult = { type: 'tasks', data: tasks, filter: functionArgs.filter };
-            } else {
-              responseText = `Задач${functionArgs.filter ? ` (${functionArgs.filter})` : ''} не найдено для ${userFullName || 'текущего пользователя'}.`;
-            }
-            break;
-
-          case 'update_task':
-            const { error: updateError } = await supabase
-              .from('tasks')
-              .update({ 
-                status: functionArgs.status,
-                ...(functionArgs.title && { title: functionArgs.title })
-              })
-              .eq('id', functionArgs.taskId);
-
-            if (updateError) {
-              responseText = 'Ошибка при обновлении задачи.';
-            } else {
-              responseText = `Задача ${functionArgs.status === 'completed' ? 'выполнена' : 'обновлена'}.`;
-              actionResult = { type: 'task_updated', status: functionArgs.status };
-            }
-            break;
-
-          case 'search_teachers':
-            const { data: teachers } = await supabase
-              .from('clients')
-              .select('id, name, phone, email, branch')
-              .or('name.ilike.%преподаватель:%,name.ilike.%teacher:%')
-              .ilike('name', `%${functionArgs.query}%`)
-              .limit(10);
-            
-            if (teachers && teachers.length > 0) {
-              const teachersList = teachers.map(t => t.name.replace(/^(преподаватель:|teacher:)/i, '')).join(', ');
-              responseText = `Найдены преподаватели: ${teachersList}`;
-              actionResult = { type: 'teachers', data: teachers };
-            } else {
-              responseText = `Преподаватели с именем "${functionArgs.query}" не найдены.`;
-            }
-            break;
-
-          case 'manage_chat':
-            // Поиск клиента для управления чатом - используем активного, если не указан
-            let chatClientName = functionArgs.clientName;
-            if (!chatClientName && context?.activeClientName) {
-              chatClientName = context.activeClientName;
-              console.log('Using active client from context for chat management:', chatClientName);
-            }
-
-            if (!chatClientName) {
-              responseText = 'Не указан клиент для управления чатом.';
-              break;
-            }
-
-            const { data: chatClient } = await supabase
-              .from('clients')
-              .select('*')
-              .ilike('name', `%${chatClientName}%`)
-              .maybeSingle();
-
-            if (chatClient) {
-              const chatAction = functionArgs.action;
-              
-              if (chatAction === 'open') {
-                responseText = `Открываю чат с ${chatClient.name}.`;
-                actionResult = { 
-                  type: 'chat_opened', 
-                  clientName: chatClient.name, 
-                  clientId: chatClient.id,
-                  action: 'open'
+              if (clients && clients.length > 0) {
+                const clientsList = clients.map(c => `${c.name} (${c.branch})`).join(', ');
+                singleResult = { 
+                  type: 'search_clients', 
+                  text: `Найдены клиенты: ${clientsList}`,
+                  data: clients 
                 };
               } else {
-                const updateData: any = {};
-                
-                if (chatAction === 'pin') updateData.is_pinned = true;
-                else if (chatAction === 'archive') updateData.is_archived = true;
-                
-                const { error: chatError } = await supabase
-                  .from('chat_states')
-                  .upsert({
-                    user_id: userId,
-                    chat_id: chatClient.id,
-                    ...updateData
-                  });
-
-                if (chatAction === 'mark_read') {
-                  await supabase
-                    .from('chat_messages')
-                    .update({ is_read: true })
-                    .eq('client_id', chatClient.id);
-                }
-
-                if (chatError) {
-                  responseText = `Ошибка при управлении чатом с ${chatClient.name}.`;
-                } else {
-                  const actionText = chatAction === 'pin' ? 'закреплён' : 
-                                   chatAction === 'archive' ? 'архивирован' : 
-                                   'отмечен как прочитанный';
-                  responseText = `Чат с ${chatClient.name} ${actionText}.`;
-                  actionResult = { type: 'chat_managed', clientName: chatClient.name, action: chatAction };
-                }
+                singleResult = { 
+                  type: 'search_clients', 
+                  text: `Клиенты с именем "${functionArgs.query}" не найдены.` 
+                };
               }
-            } else {
-              responseText = `Клиент "${chatClientName}" не найден.`;
-            }
-            break;
-
-          case 'get_schedule':
-            let scheduleQuery = supabase.rpc('get_public_schedule');
-            
-            if (functionArgs.branch) {
-              scheduleQuery = supabase.rpc('get_public_schedule', { branch_name: functionArgs.branch });
-            }
-            
-            const { data: schedule } = await scheduleQuery.limit(20);
-            
-            if (schedule && schedule.length > 0) {
-              const scheduleText = schedule.slice(0, 5).map(s => 
-                `${s.name} (${s.office_name}) - ${s.compact_days} ${s.compact_time}`
-              ).join(', ');
-              responseText = `Расписание${functionArgs.branch ? ` для ${functionArgs.branch}` : ''}: ${scheduleText}${schedule.length > 5 ? ` и ещё ${schedule.length - 5} занятий` : ''}`;
-              actionResult = { type: 'schedule', data: schedule };
-            } else {
-              responseText = 'Расписание не найдено.';
-            }
-            break;
-
-          case 'get_client_info':
-            // Получаем информацию о клиенте - используем активного, если не указан
-            let infoClientName = functionArgs.clientName;
-            if (!infoClientName && context?.activeClientName) {
-              infoClientName = context.activeClientName;
-              console.log('Using active client from context for info:', infoClientName);
-            }
-
-            if (!infoClientName) {
-              responseText = 'Не указан клиент для получения информации.';
               break;
-            }
 
-            const { data: clientInfo } = await supabase
-              .from('clients')
-              .select(`
-                id, name, phone, email, branch, notes, last_message_at, created_at,
-                students(name, age, status),
-                student_courses(course_name, start_date, end_date, is_active)
-              `)
-              .ilike('name', `%${infoClientName}%`)
-              .maybeSingle();
+            case 'send_message':
+              // Поиск клиента: приоритет ID активного чата, затем имя из команды/контекста
+              let client: any = null;
 
-            if (clientInfo) {
-              let info = `Клиент: ${clientInfo.name}\nФилиал: ${clientInfo.branch}`;
-              if (clientInfo.phone) info += `\nТелефон: ${clientInfo.phone}`;
-              if (clientInfo.email) info += `\nEmail: ${clientInfo.email}`;
-              if (clientInfo.students?.length) {
-                info += `\nСтуденты: ${clientInfo.students.map(s => `${s.name} (${s.age} лет)`).join(', ')}`;
+              if (!functionArgs.clientName && context?.activeClientId) {
+                const { data: byId } = await supabase
+                  .from('clients')
+                  .select('*')
+                  .eq('id', context.activeClientId)
+                  .eq('is_active', true)
+                  .maybeSingle();
+                if (byId) {
+                  client = byId;
+                  console.log('Using active client by ID for send_message:', byId.name);
+                }
               }
-              if (clientInfo.notes) info += `\nЗаметки: ${clientInfo.notes}`;
+
+              if (!client) {
+                const targetClientName = functionArgs.clientName || context?.activeClientName;
+                if (!targetClientName) {
+                  singleResult = { type: 'send_message', text: 'Не указан клиент для отправки сообщения.' };
+                  break;
+                }
+
+                const { data: byName } = await supabase
+                  .from('clients')
+                  .select('*')
+                  .eq('is_active', true)
+                  .not('name', 'ilike', 'Преподаватель:%')
+                  .not('name', 'ilike', 'Teacher:%')
+                  .not('name', 'ilike', 'Чат педагогов - %')
+                  .not('name', 'ilike', 'Корпоративный чат - %')
+                  .ilike('name', `%${targetClientName}%`)
+                  .maybeSingle();
+                client = byName;
+              }
+
+              if (client && client.phone) {
+                const { error } = await supabase.functions.invoke('whatsapp-send', {
+                  body: {
+                    clientId: client.id,
+                    phoneNumber: client.phone,
+                    message: functionArgs.message
+                  }
+                });
+
+                if (error) {
+                  console.error('WhatsApp send error:', error);
+                  singleResult = { type: 'send_message', text: `Ошибка при отправке сообщения клиенту ${client.name}.` };
+                } else {
+                  singleResult = { 
+                    type: 'send_message', 
+                    text: `Сообщение "${functionArgs.message}" отправлено клиенту ${client.name}.`,
+                    clientName: client.name 
+                  };
+                }
+              } else {
+                singleResult = { type: 'send_message', text: 'Клиент не найден или у него нет номера телефона.' };
+              }
+              break;
+
+            case 'create_task':
+              // Найдем клиента если указан, иначе используем активного из контекста
+              let clientForTask = null;
+              let taskClientName = functionArgs.clientName;
               
-              responseText = info;
-              actionResult = { type: 'client_info', data: clientInfo };
-            } else {
-              responseText = `Информация о клиенте "${infoClientName}" не найдена.`;
-            }
-            break;
+              // Приоритет: сначала используем activeClientId из контекста (точное совпадение),
+              // потом activeClientName, и только потом клиента по имени из команды
+              if (!taskClientName && context?.activeClientId) {
+                console.log('Using active client ID from context:', context.activeClientId);
+                const { data: foundClient } = await supabase
+                  .from('clients')
+                  .select('id, name')
+                  .eq('id', context.activeClientId)
+                  .eq('is_active', true)
+                  .maybeSingle();
+                
+                if (foundClient) {
+                  clientForTask = foundClient;
+                  console.log('Found active client:', foundClient.name);
+                }
+              }
 
-          case 'open_modal':
-            responseText = `Открываю окно ${functionArgs.modalType === 'add_client' ? 'добавления клиента' : 
-                                            functionArgs.modalType === 'add_teacher' ? 'добавления преподавателя' :
-                                            functionArgs.modalType === 'add_student' ? 'добавления студента' :
-                                            functionArgs.modalType === 'add_task' ? 'создания задачи' :
-                                            functionArgs.modalType === 'profile' ? 'профиля клиента' :
-                                            'профиля студента'}.`;
-            actionResult = { 
-              type: 'modal_opened', 
-              modalType: functionArgs.modalType,
-              clientId: functionArgs.clientId
-            };
-            break;
+              // Если не нашли по ID и имя не задано — берем имя из контекста
+              if (!clientForTask && !taskClientName && context?.activeClientName) {
+                taskClientName = context.activeClientName;
+                console.log('Falling back to active client name from context for task:', taskClientName);
+              }
+              
+              // Поиск по имени только если не нашли по ID
+              if (!clientForTask && taskClientName) {
+                const { data: foundClient } = await supabase
+                  .from('clients')
+                  .select('id, name')
+                  .eq('is_active', true)
+                  .not('name', 'ilike', 'Преподаватель:%')
+                  .not('name', 'ilike', 'Teacher:%')
+                  .not('name', 'ilike', 'Чат педагогов - %')
+                  .not('name', 'ilike', 'Корпоративный чат - %')
+                  .ilike('name', `%${taskClientName}%`)
+                  .maybeSingle();
+                clientForTask = foundClient;
+              }
 
-          default:
-            responseText = 'Функция не реализована.';
+              const taskData: any = {
+                title: functionArgs.title,
+                description: functionArgs.description || '',
+                status: 'active',
+                priority: functionArgs.priority || 'medium',
+                due_date: functionArgs.dueDate || null,
+                due_time: functionArgs.dueTime || null,
+                branch: userProfile?.branch || 'Окская',
+                responsible: `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim() || userProfile?.email || 'Менеджер'
+              };
+
+              // Привязываем client_id: приоритет ЯВНО указанного клиента из команды/распознавания,
+              // затем активного чата из контекста
+              if (clientForTask) {
+                taskData.client_id = clientForTask.id;
+              } else if (context?.activeClientId) {
+                taskData.client_id = context.activeClientId;
+              }
+
+              const { data: inserted, error: taskError } = await supabase
+                .from('tasks')
+                .insert(taskData)
+                .select('id')
+                .single();
+
+              if (taskError) {
+                console.error('Task creation error:', taskError);
+                singleResult = { type: 'create_task', text: 'Ошибка при создании задачи.' };
+              } else {
+                const timeInfo = functionArgs.dueTime ? ` на ${functionArgs.dueTime}` : '';
+                const dateInfo = functionArgs.dueDate ? ` на ${functionArgs.dueDate}` : '';
+                const nameForText = clientForTask?.name || context?.activeClientName;
+                singleResult = { 
+                  type: 'create_task', 
+                  text: `Задача "${functionArgs.title}"${dateInfo}${timeInfo} создана${nameForText ? ` для клиента ${nameForText}` : ''}.`,
+                  title: functionArgs.title, 
+                  clientName: nameForText 
+                };
+              }
+              break;
+
+            case 'get_tasks':
+              // Фильтрация задач по ответственному текущему пользователю (без привязки к филиалу)
+              const userBranch = userProfile?.branch || 'Окская';
+              const userFullName = `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim();
+              const reversedName = `${userProfile?.last_name || ''} ${userProfile?.first_name || ''}`.trim();
+              const userEmail = userProfile?.email || '';
+
+              let taskFilter = supabase
+                .from('tasks')
+                .select(`
+                  id, title, description, status, priority, due_date, due_time, 
+                  created_at, updated_at, responsible, branch,
+                  clients(name, phone, email)
+                `)
+                .eq('status', 'active');
+
+              // Фильтрация по ответственному
+              if (userFullName) {
+                taskFilter = taskFilter.or(`responsible.ilike.%${userFullName}%,responsible.ilike.%${reversedName}%`);
+              } else if (userEmail) {
+                taskFilter = taskFilter.ilike('responsible', `%${userEmail}%`);
+              }
+
+              // Сортировка по дате и времени
+              taskFilter = taskFilter.order('due_date', { ascending: true, nullsLast: true })
+                                  .order('due_time', { ascending: true, nullsLast: true })
+                                  .limit(20);
+
+              const { data: tasks } = await taskFilter;
+              
+              if (tasks && tasks.length > 0) {
+                const tasksText = tasks.map(t => {
+                  const client = t.clients ? ` для ${t.clients.name}` : '';
+                  const dueInfo = t.due_date ? ` до ${t.due_date}` : '';
+                  const timeInfo = t.due_time ? ` в ${t.due_time}` : '';
+                  return `"${t.title}"${client}${dueInfo}${timeInfo}`;
+                }).join(', ');
+                singleResult = { 
+                  type: 'tasks', 
+                  text: `Ваши активные задачи: ${tasksText}`,
+                  data: tasks 
+                };
+              } else {
+                singleResult = { type: 'tasks', text: 'У вас нет активных задач.' };
+              }
+              break;
+
+            case 'get_schedule':
+              const todayDate = new Date().toISOString().split('T')[0];
+              const { data: scheduleData } = await supabase
+                .from('schedule')
+                .select(`
+                  id, day_of_week, time_start, time_end, student_name, 
+                  student_age, branch, course_name, teacher_name, 
+                  student_phone, date
+                `)
+                .eq('date', todayDate)
+                .eq('branch', userProfile?.branch || 'Окская')
+                .order('time_start');
+
+              if (scheduleData && scheduleData.length > 0) {
+                const scheduleText = scheduleData.map(s => 
+                  `${s.time_start}-${s.time_end}: ${s.student_name} (${s.course_name})`
+                ).join(', ');
+                singleResult = { 
+                  type: 'schedule', 
+                  text: `Расписание на сегодня: ${scheduleText}`,
+                  data: scheduleData 
+                };
+              } else {
+                singleResult = { type: 'schedule', text: 'Расписание не найдено.' };
+              }
+              break;
+
+            case 'get_client_info':
+              // Получаем информацию о клиенте - используем активного, если не указан
+              let infoClientName = functionArgs.clientName;
+              if (!infoClientName && context?.activeClientName) {
+                infoClientName = context.activeClientName;
+                console.log('Using active client from context for info:', infoClientName);
+              }
+
+              if (!infoClientName) {
+                singleResult = { type: 'client_info', text: 'Не указан клиент для получения информации.' };
+                break;
+              }
+
+              const { data: clientInfo } = await supabase
+                .from('clients')
+                .select(`
+                  id, name, phone, email, branch, notes, last_message_at, created_at,
+                  students(name, age, status),
+                  student_courses(course_name, start_date, end_date, is_active)
+                `)
+                .ilike('name', `%${infoClientName}%`)
+                .maybeSingle();
+
+              if (clientInfo) {
+                let info = `Клиент: ${clientInfo.name}\nФилиал: ${clientInfo.branch}`;
+                if (clientInfo.phone) info += `\nТелефон: ${clientInfo.phone}`;
+                if (clientInfo.email) info += `\nEmail: ${clientInfo.email}`;
+                if (clientInfo.students?.length) {
+                  info += `\nСтуденты: ${clientInfo.students.map(s => `${s.name} (${s.age} лет)`).join(', ')}`;
+                }
+                if (clientInfo.notes) info += `\nЗаметки: ${clientInfo.notes}`;
+                
+                singleResult = { 
+                  type: 'client_info', 
+                  text: info,
+                  data: clientInfo 
+                };
+              } else {
+                singleResult = { type: 'client_info', text: `Информация о клиенте "${infoClientName}" не найдена.` };
+              }
+              break;
+
+            case 'open_modal':
+              singleResult = { 
+                type: 'modal_opened',
+                text: `Открываю окно ${functionArgs.modalType === 'add_client' ? 'добавления клиента' : 
+                                             functionArgs.modalType === 'add_teacher' ? 'добавления преподавателя' :
+                                             functionArgs.modalType === 'add_student' ? 'добавления студента' :
+                                             functionArgs.modalType === 'add_task' ? 'создания задачи' :
+                                             functionArgs.modalType === 'profile' ? 'профиля клиента' :
+                                             'профиля студента'}.`,
+                modalType: functionArgs.modalType,
+                clientId: functionArgs.clientId
+              };
+              break;
+
+            default:
+              singleResult = { type: 'unknown', text: 'Функция не реализована.' };
+          }
+          
+          if (singleResult) {
+            executedActions.push(singleResult);
+          }
+          
+        } catch (error) {
+          console.error('Function execution error:', error);
+          executedActions.push({ type: 'error', text: 'Произошла ошибка при выполнении команды.' });
         }
-      } catch (error) {
-        console.error('Function execution error:', error);
-        responseText = 'Произошла ошибка при выполнении команды.';
+      }
+      
+      // Объединяем результаты всех действий
+      if (executedActions.length > 0) {
+        // Генерируем общий ответ на основе всех выполненных действий
+        const taskActions = executedActions.filter(action => action.type === 'create_task');
+        
+        if (taskActions.length > 1) {
+          // Если создано несколько задач
+          const taskTitles = taskActions.map(action => `"${action.title}"`).join(', ');
+          const firstDueDate = message.tool_calls?.[0]?.function ? JSON.parse(message.tool_calls[0].function.arguments)?.dueDate : null;
+          const dateInfo = firstDueDate ? ` на ${firstDueDate}` : '';
+          const clientInfo = taskActions[0]?.clientName ? ` для клиента ${taskActions[0].clientName}` : '';
+          responseText = `Создано ${taskActions.length} задач${dateInfo}${clientInfo}: ${taskTitles}.`;
+          actionResult = { 
+            type: 'multiple_tasks_created', 
+            count: taskActions.length,
+            tasks: taskActions.map(t => ({ title: t.title, clientName: t.clientName }))
+          };
+        } else {
+          // Если одно действие или разные действия
+          responseText = executedActions.map(action => action.text).join(' ');
+          actionResult = executedActions.length === 1 ? 
+            { type: executedActions[0].type, ...executedActions[0] } : 
+            { type: 'multiple_actions', actions: executedActions };
+        }
       }
     }
 
