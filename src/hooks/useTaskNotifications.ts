@@ -8,7 +8,7 @@ export const useTaskNotifications = () => {
       await sendMessage.mutateAsync({
         clientId,
         messageText: `Задача "${taskTitle}" успешно завершена`,
-        messageType: 'manager'
+        messageType: 'system'
       });
     } catch (error) {
       console.error('Error sending task completed notification:', error);
@@ -20,7 +20,7 @@ export const useTaskNotifications = () => {
       await sendMessage.mutateAsync({
         clientId,
         messageText: `Задача "${taskTitle}" отменена`,
-        messageType: 'manager'
+        messageType: 'system'
       });
     } catch (error) {
       console.error('Error sending task cancelled notification:', error);
