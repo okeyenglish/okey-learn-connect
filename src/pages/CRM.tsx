@@ -1036,32 +1036,46 @@ const CRMContent = () => {
                         {item.label === "Мои задачи" && (
                           <div className="space-y-4">
                             {/* Переключение между списком и календарем */}
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Button 
+                                  size="sm"
+                                  variant={tasksView === "list" ? "default" : "outline"}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setTasksView("list");
+                                  }}
+                                  className="gap-2"
+                                  type="button"
+                                >
+                                  📋 Список
+                                </Button>
+                                <Button 
+                                  size="sm"
+                                  variant={tasksView === "calendar" ? "default" : "outline"}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setTasksView("calendar");
+                                  }}
+                                  className="gap-2"
+                                  type="button"
+                                >
+                                  📅 Календарь
+                                </Button>
+                              </div>
                               <Button 
                                 size="sm"
-                                variant={tasksView === "list" ? "default" : "outline"}
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  setTasksView("list");
+                                  setShowAddTaskModal(true);
                                 }}
-                                className="gap-2"
+                                className="gap-1"
                                 type="button"
                               >
-                                📋 Список
-                              </Button>
-                              <Button 
-                                size="sm"
-                                variant={tasksView === "calendar" ? "default" : "outline"}
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setTasksView("calendar");
-                                }}
-                                className="gap-2"
-                                type="button"
-                              >
-                                📅 Календарь
+                                + Добавить
                               </Button>
                             </div>
 
