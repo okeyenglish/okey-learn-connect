@@ -356,26 +356,43 @@ serve(async (req) => {
             break;
 
           case 'send_message':
-            // Поиск клиента - используем активного, если не указан в команде
-            let targetClientName = functionArgs.clientName;
-            if (!targetClientName && context?.activeClientName) {
-              targetClientName = context.activeClientName;
-              console.log('Using active client from context:', targetClientName);
+            // Поиск клиента: приоритет ID активного чата, затем имя из команды/контекста
+            let client: any = null;
+
+            if (!functionArgs.clientName && context?.activeClientId) {
+              const { data: byId } = await supabase
+                .from('clients')
+                .select('*')
+                .eq('id', context.activeClientId)
+                .eq('is_active', true)
+                .maybeSingle();
+              if (byId) {
+                client = byId;
+                console.log('Using active client by ID for send_message:', byId.name);
+              }
             }
 
-            if (!targetClientName) {
-              responseText = 'Не указан клиент для отправки сообщения.';
-              break;
-            }
+            if (!client) {
+              const targetClientName = functionArgs.clientName || context?.activeClientName;
+              if (!targetClientName) {
+                responseText = 'Не указан клиент для отправки сообщения.';
+                break;
+              }
 
-            const { data: client } = await supabase
-              .from('clients')
-              .select('*')
-              .ilike('name', `%${targetClientName}%`)
-              .maybeSingle();
+              const { data: byName } = await supabase
+                .from('clients')
+                .select('*')
+                .eq('is_active', true)
+                .not('name', 'ilike', 'Преподаватель:%')
+                .not('name', 'ilike', 'Teacher:%')
+                .not('name', 'ilike', 'Чат педагогов - %')
+                .not('name', 'ilike', 'Корпоративный чат - %')
+                .ilike('name', `%${targetClientName}%`)
+                .maybeSingle();
+              client = byName;
+            }
 
             if (client && client.phone) {
-              // Отправка сообщения через WhatsApp с правильными параметрами
               const { error } = await supabase.functions.invoke('whatsapp-send', {
                 body: {
                   clientId: client.id,
@@ -392,7 +409,7 @@ serve(async (req) => {
                 actionResult = { type: 'message_sent', clientName: client.name };
               }
             } else {
-              responseText = `Клиент "${targetClientName}" не найден или у него нет номера телефона.`;
+              responseText = 'Клиент не найден или у него нет номера телефона.';
             }
             break;
 
@@ -416,9 +433,12 @@ serve(async (req) => {
                 clientForTask = foundClient;
                 console.log('Found active client:', foundClient.name);
               }
-            } else if (!taskClientName && context?.activeClientName) {
+            }
+
+            // Если не нашли по ID и имя не задано — берем имя из контекста
+            if (!clientForTask && !taskClientName && context?.activeClientName) {
               taskClientName = context.activeClientName;
-              console.log('Using active client name from context for task:', taskClientName);
+              console.log('Falling back to active client name from context for task:', taskClientName);
             }
             
             // Поиск по имени только если не нашли по ID
@@ -772,7 +792,8 @@ serve(async (req) => {
             .eq('is_active', true)
             .maybeSingle();
           clientForTask = c;
-        } else if (context?.activeClientName) {
+        }
+        if (!clientForTask && context?.activeClientName) {
           const { data: c } = await supabase
             .from('clients')
             .select('id, name')
