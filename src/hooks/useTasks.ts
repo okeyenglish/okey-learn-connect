@@ -269,20 +269,34 @@ export const useUpdateTask = () => {
         .eq('id', id)
         .select()
         .single();
-      
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
+    // Оптимистичное обновление для мгновенного UI-эффекта
+    onMutate: async (variables: Partial<Task> & { id: string }) => {
+      await queryClient.cancelQueries({ queryKey: ['all-tasks'] });
+      const previousAll = queryClient.getQueryData<any[]>(['all-tasks']);
+      if (previousAll) {
+        const nextAll = previousAll.map((t) =>
+          t.id === variables.id ? { ...t, ...variables } : t
+        );
+        queryClient.setQueryData(['all-tasks'], nextAll);
+      }
+      return { previousAll };
+    },
+    onError: (error, _vars, context) => {
+      console.error('Error updating task:', error);
+      if (context?.previousAll) {
+        queryClient.setQueryData(['all-tasks'], context.previousAll);
+      }
+      toast.error("Ошибка при обновлении задачи");
+    },
+    onSuccess: () => {
       // Инвалидируем все связанные кэши
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['tasks-by-date'] });
       toast.success("Задача обновлена");
-    },
-    onError: (error) => {
-      console.error('Error updating task:', error);
-      toast.error("Ошибка при обновлении задачи");
     },
   });
 };

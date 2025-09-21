@@ -125,6 +125,9 @@ const CRMContent = () => {
   
   // Client tasks tab state
   const [clientTasksTab, setClientTasksTab] = useState<"active" | "overdue">("active");
+  
+  // Local view state for tasks section
+  const [tasksView, setTasksView] = useState<"list" | "calendar">("list");
   const [openModal, setOpenModal] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("chats");
   const [hasUnsavedChat, setHasUnsavedChat] = useState(false);
@@ -1015,11 +1018,11 @@ const CRMContent = () => {
                             <div className="flex items-center gap-2">
                               <Button 
                                 size="sm"
-                                variant={activeTab !== "tasks-calendar" ? "default" : "outline"}
+                                variant={tasksView === "list" ? "default" : "outline"}
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  setActiveTab("menu");
+                                  setTasksView("list");
                                 }}
                                 className="gap-2"
                                 type="button"
@@ -1028,11 +1031,11 @@ const CRMContent = () => {
                               </Button>
                               <Button 
                                 size="sm"
-                                variant={activeTab === "tasks-calendar" ? "default" : "outline"}
+                                variant={tasksView === "calendar" ? "default" : "outline"}
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  setActiveTab("tasks-calendar");
+                                  setTasksView("calendar");
                                 }}
                                 className="gap-2"
                                 type="button"
@@ -1041,7 +1044,7 @@ const CRMContent = () => {
                               </Button>
                             </div>
 
-                            {activeTab !== "tasks-calendar" ? (
+                            {tasksView === "list" ? (
                               <>
                                  {/* Клиентские задачи */}
                                 <Card>
