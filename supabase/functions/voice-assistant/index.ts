@@ -399,9 +399,13 @@ serve(async (req) => {
             break;
 
           case 'get_tasks':
+            // Получаем филиал пользователя для фильтрации задач
+            const userBranch = userProfile?.branch || 'Окская';
+            
             let tasksQuery = supabase
               .from('tasks')
-              .select('id, title, description, status, priority, due_date, created_at, client_id, clients(name)');
+              .select('id, title, description, status, priority, due_date, created_at, client_id, clients(name)')
+              .eq('branch', userBranch); // Фильтруем по филиалу пользователя
 
             // Применяем фильтры
             const today = new Date().toISOString().split('T')[0];
@@ -426,9 +430,11 @@ serve(async (req) => {
               tasksQuery = tasksQuery.ilike('clients.name', `%${functionArgs.clientName}%`);
             }
 
-            const { data: tasks } = await tasksQuery
+            const { data: tasks, error: tasksError } = await tasksQuery
               .order('created_at', { ascending: false })
               .limit(20);
+
+            console.log('Tasks query result:', { tasks, tasksError, userBranch, filter: functionArgs.filter });
 
             if (tasks && tasks.length > 0) {
               let filterText = '';
@@ -446,7 +452,7 @@ serve(async (req) => {
               responseText = `Найдены задачи (${filterText}): ${tasksText}${tasks.length > 5 ? ` и ещё ${tasks.length - 5}` : ''}.`;
               actionResult = { type: 'tasks', data: tasks, filter: functionArgs.filter };
             } else {
-              responseText = `Задач не найдено.`;
+              responseText = `Задач${functionArgs.filter ? ` (${functionArgs.filter})` : ''} не найдено в филиале ${userBranch}.`;
             }
             break;
 
