@@ -481,7 +481,7 @@ export default function VoiceAssistant({
           <div className="mt-4">
             <p className="text-sm text-muted-foreground mb-2">Найденные преподаватели:</p>
             <div className="space-y-1">
-              {actionResult.data.map((teacher: any) => (
+              {(actionResult.data || []).map((teacher: any) => (
                 <Badge key={teacher.id} variant="secondary" className="mr-1">
                   {teacher.name.replace(/^(преподаватель:|teacher:)/i, '')}
                 </Badge>
@@ -554,9 +554,9 @@ export default function VoiceAssistant({
                 </div>
               ))}
             </div>
-            {actionResult.data.length > 5 && (
+            {(actionResult.data || []).length > 5 && (
               <p className="text-xs text-muted-foreground mt-1">
-                И ещё {actionResult.data.length - 5} задач...
+                И ещё {(actionResult.data || []).length - 5} задач...
               </p>
             )}
           </div>
@@ -631,11 +631,15 @@ export default function VoiceAssistant({
           <div className="mt-4">
             <p className="text-sm text-muted-foreground mb-2">Информация о клиенте:</p>
             <div className="text-sm bg-muted p-2 rounded max-h-32 overflow-y-auto">
-              <div><strong>{actionResult.data.name}</strong></div>
-              <div>Филиал: {actionResult.data.branch}</div>
-              {actionResult.data.phone && <div>Телефон: {actionResult.data.phone}</div>}
-              {actionResult.data.students?.length > 0 && (
-                <div>Студенты: {actionResult.data.students.map((s: any) => s.name).join(', ')}</div>
+              {actionResult.data && (
+                <>
+                  <div><strong>{actionResult.data.name}</strong></div>
+                  <div>Филиал: {actionResult.data.branch}</div>
+                  {actionResult.data.phone && <div>Телефон: {actionResult.data.phone}</div>}
+                  {actionResult.data.students?.length > 0 && (
+                    <div>Студенты: {actionResult.data.students.map((s: any) => s.name).join(', ')}</div>
+                  )}
+                </>
               )}
             </div>
           </div>
