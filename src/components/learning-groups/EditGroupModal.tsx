@@ -474,7 +474,7 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
                           </SelectItem>
                         ))}
                         {teachers.length === 0 && (
-                          <SelectItem value="" disabled>
+                          <SelectItem value="no-teachers" disabled>
                             Нет доступных преподавателей
                           </SelectItem>
                         )}

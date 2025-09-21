@@ -550,7 +550,7 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                           </SelectItem>
                         ))}
                         {teachers.length === 0 && (
-                          <SelectItem value="" disabled>
+                          <SelectItem value="no-teachers" disabled>
                             Нет доступных преподавателей
                           </SelectItem>
                         )}
