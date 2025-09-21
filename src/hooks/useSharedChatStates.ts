@@ -81,8 +81,8 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
 
     fetchSharedStates();
 
-    // Подписываемся на изменения в chat_states для синхронизации между пользователями
-    const channel = supabase
+    // Подписываемся на изменения в chat_states (с учетом RLS могут не приходить события от других пользователей)
+    const changesChannel = supabase
       .channel('shared-chat-states-realtime')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'chat_states' }, 
@@ -91,6 +91,11 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
           fetchSharedStates();
         }
       )
+      .subscribe();
+
+    // Доп. канал вещания для межпользовательской синхронизации
+    const busChannel = supabase
+      .channel('chat-states-bus')
       .on('broadcast', { event: 'pin-change' }, () => {
         console.log('Broadcast pin-change received, refetching...');
         fetchSharedStates();
@@ -98,7 +103,8 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(changesChannel);
+      supabase.removeChannel(busChannel);
     };
   }, [user?.id, chatIds]);
 
