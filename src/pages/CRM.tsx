@@ -364,8 +364,7 @@ const CRMContent = () => {
 
   const handleClientClick = (clientId: string | null) => {
     if (clientId) {
-      setActiveChatId(clientId);
-      setActiveChatType('client');
+      handleChatClick(clientId, 'client');
       setActiveTab('chats');
     }
   };
@@ -2327,14 +2326,12 @@ const CRMContent = () => {
                                   className="w-full p-3 text-left rounded-lg transition-colors bg-card border hover:bg-muted/50 shadow-sm"
                                 >
                                   <div className="flex items-center justify-between">
-                                    <div 
-                                      className="flex items-center gap-3 flex-1 cursor-pointer"
-                                      onClick={() => {
-                                        setActiveChatId(chat.id);
-                                        setActiveChatType(chat.type as any);
-                                        handleChatClick(chat.id, chat.type);
-                                      }}
-                                    >
+                                     <div 
+                                       className="flex items-center gap-3 flex-1 cursor-pointer"
+                                       onClick={() => {
+                                         handleChatClick(chat.id, chat.type as any);
+                                       }}
+                                     >
                                       <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                                         <User className="h-6 w-6 text-green-600" />
                                       </div>
@@ -2432,14 +2429,12 @@ const CRMContent = () => {
                               className="w-full p-3 text-left rounded-lg transition-colors bg-card border hover:bg-muted/50 shadow-sm"
                             >
                                <div className="flex items-center justify-between">
-                                 <div 
-                                   className="flex items-center gap-3 flex-1 cursor-pointer"
-                                   onClick={() => {
-                                     setActiveChatId(chat.id);
-                                     setActiveChatType(chat.type as any);
-                                     handleChatClick(chat.id, chat.type);
-                                   }}
-                                 >
+                                  <div 
+                                    className="flex items-center gap-3 flex-1 cursor-pointer"
+                                    onClick={() => {
+                                      handleChatClick(chat.id, chat.type as any);
+                                    }}
+                                  >
                                    <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                                      <User className="h-6 w-6 text-green-600" />
                                    </div>
@@ -2544,7 +2539,7 @@ const CRMContent = () => {
               onSelectTeacher={(teacherId: string | null) => {
                 setSelectedTeacherId(teacherId);
                 if (teacherId) {
-                  setActiveChatId(teacherId);
+                  handleChatClick(teacherId, 'teachers');
                 }
               }}
             />
@@ -2695,8 +2690,7 @@ const CRMContent = () => {
           addStudent: () => setOpenModal('Добавить студента'),
           addInvoice: () => setShowInvoiceModal(true),
           clientProfile: (clientId: string) => {
-            setActiveChatId(clientId);
-            setActiveChatType('client');
+            handleChatClick(clientId, 'client');
             setRightSidebarOpen(true);
           },
           editTask: (taskId: string) => {
@@ -2705,8 +2699,7 @@ const CRMContent = () => {
           }
         }}
         onOpenChat={(clientId: string) => {
-          setActiveChatId(clientId);
-          setActiveChatType('client');
+          handleChatClick(clientId, 'client');
         }}
       />
 
