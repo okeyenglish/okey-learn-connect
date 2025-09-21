@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Phone, MessageCircle, Video, Calendar, Users, Clock, ChevronRight, Send, Link, Copy, ArrowLeft, GraduationCap } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useChatMessages, useSendMessage, useMarkAsRead, useRealtimeMessages } from '@/hooks/useChatMessages';
 import { useTypingStatus } from '@/hooks/useTypingStatus';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TeacherGroup {
   id: string;
@@ -247,14 +248,44 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const [message, setMessage] = useState('');
   const isMobile = useIsMobile();
 
-  // Hooks for real chat functionality
-  const clientId = selectedTeacherId || '';
+  // Resolve real client UUID for the selected teacher or group
+  const [resolvedClientId, setResolvedClientId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const resolve = async () => {
+      if (!selectedTeacherId) { setResolvedClientId(null); return; }
+      let nameToFind: string | null = null;
+      if (selectedTeacherId === 'teachers-group') {
+        nameToFind = 'Чат педагогов';
+      } else {
+        const t = mockTeachers.find(tt => tt.id === selectedTeacherId);
+        nameToFind = t?.fullName || null;
+      }
+      if (!nameToFind) { setResolvedClientId(null); return; }
+      const { data } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('name', nameToFind)
+        .maybeSingle();
+      setResolvedClientId(data?.id || null);
+    };
+    resolve();
+  }, [selectedTeacherId]);
+
+  const clientId = resolvedClientId || '';
   const { messages } = useChatMessages(clientId);
   const sendMessage = useSendMessage();
   const markAsRead = useMarkAsRead();
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
   
   useRealtimeMessages(clientId);
+
+  // Mark as read when opening/receiving
+  useEffect(() => {
+    if (clientId && messages.length > 0) {
+      markAsRead.mutate(clientId);
+    }
+  }, [clientId, messages.length]);
 
   const filteredTeachers = mockTeachers.filter(teacher =>
     teacher.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Send, Paperclip, Zap, MessageCircle, Mic, Search, Plus, FileText, Phone, Building2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +10,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useChatMessages, useSendMessage, useMarkAsRead, useRealtimeMessages } from '@/hooks/useChatMessages';
 import { useTypingStatus } from '@/hooks/useTypingStatus';
 import { toast } from "sonner";
+import { supabase } from '@/integrations/supabase/client';
 
 interface CorporateChatAreaProps {
   onMessageChange?: (hasUnsaved: boolean) => void;
@@ -94,13 +95,13 @@ const mockCorporateChats: Record<string, any[]> = {
 };
 
 const branches = [
-  { id: 'okskaya', name: 'Окская', unread: 2 },
-  { id: 'kotelniki', name: 'Котельники', unread: 1 },
+  { id: 'okskaya', name: 'Окская', unread: 0 },
+  { id: 'kotelniki', name: 'Котельники', unread: 0 },
   { id: 'stakhanovskaya', name: 'Стахановская', unread: 0 },
   { id: 'novokosino', name: 'Новокосино', unread: 0 },
   { id: 'mytishchi', name: 'Мытищи', unread: 0 },
   { id: 'solntsevo', name: 'Солнцево', unread: 0 },
-  { id: 'online', name: 'Онлайн', unread: 1 }
+  { id: 'online', name: 'Онлайн', unread: 0 }
 ];
 
 export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) => {
@@ -110,14 +111,35 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
   const [activeBranch, setActiveBranch] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
-  // Hooks for real chat functionality
-  const clientId = activeBranch || 'corporate-general';
+  // Resolve real client UUID for selected branch
+  const [resolvedClientId, setResolvedClientId] = useState<string | null>(null);
+  useEffect(() => {
+    const resolve = async () => {
+      if (!activeBranch) { setResolvedClientId(null); return; }
+      const branchName = branches.find(b => b.id === activeBranch)?.name;
+      if (!branchName) { setResolvedClientId(null); return; }
+      const { data } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('name', `Корпоративный чат - ${branchName}`)
+        .maybeSingle();
+      setResolvedClientId(data?.id || null);
+    };
+    resolve();
+  }, [activeBranch]);
+
+  const clientId = resolvedClientId || '';
   const { messages } = useChatMessages(clientId);
   const sendMessage = useSendMessage();
   const markAsRead = useMarkAsRead();
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
   
   useRealtimeMessages(clientId);
+  useEffect(() => {
+    if (clientId && messages.length > 0) {
+      markAsRead.mutate(clientId);
+    }
+  }, [clientId, messages.length]);
 
   const handleMessageChange = (value: string) => {
     setMessage(value);
