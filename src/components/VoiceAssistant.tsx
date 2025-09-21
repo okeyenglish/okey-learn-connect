@@ -340,11 +340,16 @@ export default function VoiceAssistant({
         setActionResult(data.actionResult);
 
         // Инвалидируем задачи при создании новой
-        if (data.actionResult?.type === 'task_created') {
+        const resultType = data.actionResult?.type;
+        if (resultType === 'task_created' || resultType === 'create_task' || resultType === 'multiple_tasks_created') {
+          // Конкретный клиент
           if (context?.activeClientId) {
             queryClient.invalidateQueries({ queryKey: ['tasks', context.activeClientId] });
           }
+          // Глобальные списки задач
+          queryClient.invalidateQueries({ queryKey: ['tasks'] });
           queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+          queryClient.invalidateQueries({ queryKey: ['tasks-by-date'] });
         }
         
         toast.success(`Команда выполнена: ${data.response}`);
