@@ -1247,8 +1247,7 @@ const CRMContent = () => {
                                             В работе
                                           </Badge>
                                         </div>
-                                        <p className="text-xs text-muted-foreground mt-1">{chat.phone}</p>
-                                        <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5 italic">
+                                        <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
                                           {(typingByClient[chat.id]?.count ?? 0) > 0
                                             ? `${typingByClient[chat.id]?.names?.[0] || 'Менеджер'} печатает...`
                                             : (chat.lastMessage || 'Последнее сообщение')}
