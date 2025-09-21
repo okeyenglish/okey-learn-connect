@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Calendar, Plus } from "lucide-react";
+import { Calendar, Plus, Grid, Table } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScheduleCalendarView } from "./ScheduleCalendarView";
 import { ScheduleTableView } from "./ScheduleTableView";
+import { ScheduleGridView } from "./ScheduleGridView";
 import { ScheduleFilters } from "./ScheduleFilters";
 import { AddLessonModal } from "./AddLessonModal";
 import { SessionFilters } from "@/hooks/useLessonSessions";
@@ -13,7 +14,11 @@ export const ScheduleModal = () => {
   const [open, setOpen] = useState(false);
   const [addLessonOpen, setAddLessonOpen] = useState(false);
   const [filters, setFilters] = useState<SessionFilters>({});
-  const [currentView, setCurrentView] = useState<'calendar' | 'table'>('calendar');
+  const [currentView, setCurrentView] = useState<'grid' | 'calendar' | 'table'>('grid');
+
+  const resetFilters = () => {
+    setFilters({});
+  };
 
   return (
     <>
@@ -49,14 +54,28 @@ export const ScheduleModal = () => {
           <div className="flex-1 overflow-hidden">
             <div className="p-6 space-y-6">
               {/* Фильтры */}
-              <ScheduleFilters filters={filters} onFiltersChange={setFilters} />
+              <ScheduleFilters filters={filters} onFiltersChange={setFilters} onReset={resetFilters} />
 
               {/* Вкладки */}
-              <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as 'calendar' | 'table')}>
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="calendar">Календарь</TabsTrigger>
-                  <TabsTrigger value="table">Таблица</TabsTrigger>
+              <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as 'grid' | 'calendar' | 'table')}>
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="grid" className="flex items-center gap-2">
+                    <Grid className="h-4 w-4" />
+                    Сетка
+                  </TabsTrigger>
+                  <TabsTrigger value="calendar" className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Календарь
+                  </TabsTrigger>
+                  <TabsTrigger value="table" className="flex items-center gap-2">
+                    <Table className="h-4 w-4" />
+                    Таблица
+                  </TabsTrigger>
                 </TabsList>
+                
+                <TabsContent value="grid" className="mt-6">
+                  <ScheduleGridView filters={filters} />
+                </TabsContent>
                 
                 <TabsContent value="calendar" className="mt-6">
                   <ScheduleCalendarView filters={filters} />
