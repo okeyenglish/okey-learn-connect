@@ -2013,16 +2013,9 @@ const CRMContent = () => {
                                              <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
                                                {chat.name}
                                              </p>
-                                              <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                  <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300 cursor-help">
-                                                    В работе
-                                                  </Badge>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                  <p>Закреплен у: {getPinnedByUserName(chat.id)}</p>
-                                                </TooltipContent>
-                                              </Tooltip>
+                                                <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300">
+                                                  В работе
+                                                </Badge>
                                            </div>
                                           <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
                                             {chat.lastMessage || "Привет! Как дела?"}
@@ -2270,16 +2263,9 @@ const CRMContent = () => {
                                           <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
                                             {chat.name}
                                           </p>
-                                           <Tooltip>
-                                             <TooltipTrigger asChild>
-                                               <Badge variant="outline" className="text-xs h-5 bg-orange-100 text-orange-700 border-orange-300 cursor-help">
-                                                 В работе
-                                               </Badge>
-                                             </TooltipTrigger>
-                                             <TooltipContent>
-                                               <p>Закреплен у: {getPinnedByUserName(chat.id)}</p>
-                                             </TooltipContent>
-                                           </Tooltip>
+                                           <Badge variant="outline" className="text-xs h-5 bg-orange-100 text-orange-700 border-orange-300">
+                                             В работе
+                                           </Badge>
                                         </div>
                                         <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
                                           {(typingByClient[chat.id]?.count ?? 0) > 0
