@@ -183,7 +183,7 @@ export const AddTaskModal = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <PinnableDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <PinnableModalHeader
-          title={clientName ? `Назначение задачи - ${clientName}` : "Новая задача"}
+          title={clientName ? `Назначение задачи - ${clientName}` : "Личная задача"}
           isPinned={isPinned}
           onPin={onPin || (() => {})}
           onUnpin={onUnpin || (() => {})}
@@ -303,115 +303,119 @@ export const AddTaskModal = ({
             )}
           </div>
 
-          {/* Responsible Person */}
-          <div className="space-y-2">
-            <Label>Ответственный:</Label>
+          {/* Responsible Person - only show for client tasks */}
+          {clientId && (
             <div className="space-y-2">
-              <div className="flex gap-2">
-                <Select 
-                  value={formData.responsible} 
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, responsible: value }))}
-                >
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Выберите ответственного" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {employees.map((employee) => (
-                      <SelectItem key={employee.id} value={employee.id}>
-                        {getEmployeeFullName(employee)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                <Popover open={addResponsibleOpen} onOpenChange={setAddResponsibleOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-10 w-10"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-56 p-0" align="start">
-                    <div className="p-2">
-                      <div className="text-sm font-medium mb-2">Добавить ответственного</div>
-                      <div className="space-y-1">
-                        {employees
-                          .filter(emp => emp.id !== formData.responsible && !formData.additionalResponsible.includes(emp.id))
-                          .map((employee) => (
-                          <Button
-                            key={employee.id}
-                            variant="ghost"
-                            className="w-full justify-start text-sm h-8 px-2"
-                            onClick={() => addResponsible(employee.id)}
-                          >
-                            {getEmployeeFullName(employee)}
-                          </Button>
-                        ))}
-                        {employees.filter(emp => emp.id !== formData.responsible && !formData.additionalResponsible.includes(emp.id)).length === 0 && (
-                          <div className="text-xs text-muted-foreground px-2 py-1">
-                            Нет доступных сотрудников
-                          </div>
-                        )}
+              <Label>Ответственный:</Label>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Select 
+                    value={formData.responsible} 
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, responsible: value }))}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Выберите ответственного" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {employees.map((employee) => (
+                        <SelectItem key={employee.id} value={employee.id}>
+                          {getEmployeeFullName(employee)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  <Popover open={addResponsibleOpen} onOpenChange={setAddResponsibleOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-10 w-10"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-56 p-0" align="start">
+                      <div className="p-2">
+                        <div className="text-sm font-medium mb-2">Добавить ответственного</div>
+                        <div className="space-y-1">
+                          {employees
+                            .filter(emp => emp.id !== formData.responsible && !formData.additionalResponsible.includes(emp.id))
+                            .map((employee) => (
+                            <Button
+                              key={employee.id}
+                              variant="ghost"
+                              className="w-full justify-start text-sm h-8 px-2"
+                              onClick={() => addResponsible(employee.id)}
+                            >
+                              {getEmployeeFullName(employee)}
+                            </Button>
+                          ))}
+                          {employees.filter(emp => emp.id !== formData.responsible && !formData.additionalResponsible.includes(emp.id)).length === 0 && (
+                            <div className="text-xs text-muted-foreground px-2 py-1">
+                              Нет доступных сотрудников
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              
-              {/* Additional responsible persons */}
-              {formData.additionalResponsible.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {formData.additionalResponsible.map((employeeId) => {
-                    const employee = getEmployeeById(employeeId);
-                    return (
-                      <div key={employeeId} className="flex items-center gap-1 bg-muted px-2 py-1 rounded text-sm">
-                        <Users className="h-3 w-3" />
-                        {employee ? getEmployeeFullName(employee) : 'Неизвестный сотрудник'}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-4 w-4 p-0 ml-1"
-                          onClick={() => removeResponsible(employeeId)}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    );
-                  })}
+                    </PopoverContent>
+                  </Popover>
                 </div>
-              )}
+                
+                {/* Additional responsible persons */}
+                {formData.additionalResponsible.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {formData.additionalResponsible.map((employeeId) => {
+                      const employee = getEmployeeById(employeeId);
+                      return (
+                        <div key={employeeId} className="flex items-center gap-1 bg-muted px-2 py-1 rounded text-sm">
+                          <Users className="h-3 w-3" />
+                          {employee ? getEmployeeFullName(employee) : 'Неизвестный сотрудник'}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-4 w-4 p-0 ml-1"
+                            onClick={() => removeResponsible(employeeId)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Description with Templates */}
+          {/* Description with Templates - only show templates for client tasks */}
           <div className="space-y-2">
             <Label htmlFor="description">Описание*:</Label>
             
             <div className="space-y-2">
-              <Select onValueChange={handleTemplateSelect}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите шаблон или напишите свой" />
-                </SelectTrigger>
-                <SelectContent>
-                  {taskTemplates.map((template, index) => (
-                    <SelectItem key={index} value={template}>
-                      {template}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {clientId && (
+                <Select onValueChange={handleTemplateSelect}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите шаблон или напишите свой" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {taskTemplates.map((template, index) => (
+                      <SelectItem key={index} value={template}>
+                        {template}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
 
               <Textarea
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 className="min-h-[100px]"
-                placeholder="Напишите описание задачи..."
+                placeholder={clientId ? "Напишите описание задачи..." : "Напишите описание личной задачи..."}
               />
             </div>
           </div>
