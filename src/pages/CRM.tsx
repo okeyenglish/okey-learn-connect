@@ -38,6 +38,7 @@ import { PinnableModalHeader, PinnableDialogContent } from "@/components/crm/Pin
 import { ManagerMenu } from "@/components/crm/ManagerMenu";
 import { usePinnedModalsDB, PinnedModal } from "@/hooks/usePinnedModalsDB";
 import { useChatStatesDB } from "@/hooks/useChatStatesDB";
+import { useSharedChatStates } from "@/hooks/useSharedChatStates";
 import { useAllTasks, useCompleteTask, useCancelTask, useUpdateTask } from "@/hooks/useTasks";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { 
@@ -117,6 +118,7 @@ const CRMContent = () => {
     markAsUnread,
     getChatState
   } = useChatStatesDB();
+  const { isInWorkByOthers, isPinnedByCurrentUser } = useSharedChatStates();
   const { tasks: allTasks, isLoading: tasksLoading } = useAllTasks();
   const completeTask = useCompleteTask();
   const cancelTask = useCancelTask();
@@ -557,9 +559,9 @@ const CRMContent = () => {
     )
     .filter(chat => !getChatState(chat.id).isArchived) // Скрываем архивированные чаты
     .sort((a, b) => {
-      // Сначала закрепленные чаты
-      const aPinned = getChatState(a.id).isPinned || false;
-      const bPinned = getChatState(b.id).isPinned || false;
+      // Сначала закрепленные чаты (только текущим пользователем)
+      const aPinned = isPinnedByCurrentUser(a.id);
+      const bPinned = isPinnedByCurrentUser(b.id);
       if (aPinned && !bPinned) return -1;
       if (!aPinned && bPinned) return 1;
       
@@ -1896,7 +1898,7 @@ const CRMContent = () => {
               <ScrollArea className="flex-1">
                 <div className="p-2">
                   {/* Закрепленные чаты */}
-                  {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
+                  {filteredChats.some(chat => isPinnedByCurrentUser(chat.id)) && (
                     <div className="mb-4">
                       <button 
                         className="w-full flex items-center justify-between px-2 py-1 mb-2 hover:bg-muted/50 rounded transition-colors"
@@ -1913,13 +1915,13 @@ const CRMContent = () => {
                           </h3>
                         </div>
                         <Badge variant="secondary" className="text-xs h-4">
-                          {filteredChats.filter(chat => getChatState(chat.id).isPinned).length}
+                          {filteredChats.filter(chat => isPinnedByCurrentUser(chat.id)).length}
                         </Badge>
                       </button>
                       {isPinnedSectionOpen && (
                         <div className="space-y-1">
                         {filteredChats
-                          .filter(chat => getChatState(chat.id).isPinned)
+                          .filter(chat => isPinnedByCurrentUser(chat.id))
                           .map((chat) => {
                             const chatState = getChatState(chat.id);
                             const displayUnread = chatState.isUnread || chat.unread > 0;
@@ -2039,12 +2041,12 @@ const CRMContent = () => {
                         Активные чаты
                       </h3>
                       <Badge variant="secondary" className="text-xs h-4">
-                        {filteredChats.filter(chat => !getChatState(chat.id).isPinned).length}
+                        {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id)).length}
                       </Badge>
                     </div>
                     <div className="space-y-1">
                       {filteredChats
-                        .filter(chat => !getChatState(chat.id).isPinned)
+                        .filter(chat => !isPinnedByCurrentUser(chat.id))
                         .map((chat) => {
                           const chatState = getChatState(chat.id);
                           const displayUnread = chatState.isUnread || chat.unread > 0;
@@ -2109,14 +2111,21 @@ const CRMContent = () => {
                                        </div>
                                      )}
                                      
-                                      <div className="flex-1 min-w-0">
-                                        <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
-                                          {chat.name}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
-                                          {chat.lastMessage || "Последнее сообщение"}
-                                        </p>
-                                      </div>
+                                       <div className="flex-1 min-w-0">
+                                         <div className="flex items-center gap-2">
+                                           <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
+                                             {chat.name}
+                                           </p>
+                                           {isInWorkByOthers(chat.id) && (
+                                             <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300">
+                                               В работе
+                                             </Badge>
+                                           )}
+                                         </div>
+                                         <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
+                                           {chat.lastMessage || "Последнее сообщение"}
+                                         </p>
+                                       </div>
                                    </div>
                                   <div className="flex flex-col items-end">
                                     <span className="text-xs text-muted-foreground">{chat.time}</span>
@@ -2191,7 +2200,7 @@ const CRMContent = () => {
               <ScrollArea className="flex-1">
                 <div className="p-3">
                   {/* Закрепленные чаты */}
-                  {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
+                  {filteredChats.some(chat => isPinnedByCurrentUser(chat.id)) && (
                     <div className="mb-6">
                       <button 
                         className="w-full flex items-center justify-between px-2 py-2 mb-3 hover:bg-muted/50 rounded transition-colors"
@@ -2208,13 +2217,13 @@ const CRMContent = () => {
                           </h3>
                         </div>
                         <Badge variant="secondary" className="text-xs h-5">
-                          {filteredChats.filter(chat => getChatState(chat.id).isPinned).length}
+                          {filteredChats.filter(chat => isPinnedByCurrentUser(chat.id)).length}
                         </Badge>
                       </button>
                       {isPinnedSectionOpen && (
                         <div className="space-y-2 mb-6">
                           {filteredChats
-                            .filter(chat => getChatState(chat.id).isPinned)
+                            .filter(chat => isPinnedByCurrentUser(chat.id))
                             .map((chat) => {
                               const chatState = getChatState(chat.id);
                               const displayUnread = chatState.isUnread || chat.unread > 0;
@@ -2311,12 +2320,12 @@ const CRMContent = () => {
                         Активные чаты
                       </h3>
                       <Badge variant="secondary" className="text-xs h-5">
-                        {filteredChats.filter(chat => !getChatState(chat.id).isPinned).length}
+                        {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id)).length}
                       </Badge>
                     </div>
                     <div className="space-y-2">
                       {filteredChats
-                        .filter(chat => !getChatState(chat.id).isPinned)
+                        .filter(chat => !isPinnedByCurrentUser(chat.id))
                         .map((chat) => {
                           const chatState = getChatState(chat.id);
                           const displayUnread = chatState.isUnread || chat.unread > 0;
@@ -2337,14 +2346,21 @@ const CRMContent = () => {
                                    <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                                      <User className="h-6 w-6 text-green-600" />
                                    </div>
-                                        <div className="flex-1 min-w-0">
-                                          <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
-                                            {chat.name}
-                                          </p>
-                                          <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
-                                            {chat.lastMessage || "Последнее сообщение"}
-                                          </p>
-                                        </div>
+                                         <div className="flex-1 min-w-0">
+                                           <div className="flex items-center gap-2">
+                                             <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
+                                               {chat.name}
+                                             </p>
+                                             {isInWorkByOthers(chat.id) && (
+                                               <Badge variant="outline" className="text-xs h-5 bg-orange-100 text-orange-700 border-orange-300">
+                                                 В работе
+                                               </Badge>
+                                             )}
+                                           </div>
+                                           <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
+                                             {chat.lastMessage || "Последнее сообщение"}
+                                           </p>
+                                         </div>
                                  </div>
                                  <div className="flex flex-col items-end gap-2">
                                    <div className="flex items-center gap-2">
