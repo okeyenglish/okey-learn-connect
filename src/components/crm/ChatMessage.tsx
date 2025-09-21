@@ -378,6 +378,16 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
                 />
               </div>
             )}
+            {type === 'client' && messageId && (
+              <div className="ml-2 flex items-center">
+                <MessageReadIndicator 
+                  messageId={messageId} 
+                  isOutgoing={false}
+                  authorName="Клиент"
+                  authorAvatar={clientAvatar}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

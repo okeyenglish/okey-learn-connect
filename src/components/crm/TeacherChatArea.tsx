@@ -555,6 +555,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             {(currentMessages || []).map((msg) => (
               <ChatMessage
                 key={msg.id}
+                messageId={msg.id}
                 type={msg.message_type}
                 message={msg.message_text}
                 time={new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
@@ -783,6 +784,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             {(currentMessages || []).map((msg) => (
               <ChatMessage
                 key={msg.id}
+                messageId={msg.id}
                 type={msg.message_type}
                 message={msg.message_text}
                 time={new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}

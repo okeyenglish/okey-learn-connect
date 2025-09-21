@@ -281,6 +281,7 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
               {filteredMessages.map((msg, index) => (
                 <ChatMessage 
                   key={msg.id || index}
+                  messageId={msg.id}
                   message={msg.message_text}
                   time={new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
                   type={msg.message_type === 'system' ? 'manager' : msg.message_type}
@@ -413,6 +414,7 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
               {filteredMessages.map((msg, index) => (
                 <ChatMessage 
                   key={msg.id || index}
+                  messageId={msg.id}
                   message={msg.message_text}
                   time={new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
                   type={msg.message_type === 'system' ? 'manager' : msg.message_type}

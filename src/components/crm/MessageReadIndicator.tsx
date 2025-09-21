@@ -23,8 +23,8 @@ export const MessageReadIndicator = ({
 }: MessageReadIndicatorProps) => {
   const { data: readStatuses, isLoading } = useMessageReadStatus(messageId);
   
-  // Only show read indicators for outgoing messages
-  if (!isOutgoing || isLoading) {
+  // Only show read indicators for messages that have an ID
+  if (!messageId || isLoading) {
     return null;
   }
 
