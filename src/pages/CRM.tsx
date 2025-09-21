@@ -312,13 +312,33 @@ const CRMContent = () => {
     }
   };
 
-  // Системные чаты из БД (агрегация по последнему сообщению и непрочитанным)
-  const corporateUnread = (corporateChats || []).reduce((sum: number, c: any) => sum + (c.unreadCount || 0), 0);
-  const latestCorporate = (corporateChats || []).reduce((latest: any, c: any) => {
-    if (!c?.lastMessageTime) return latest;
-    if (!latest) return c;
-    return new Date(c.lastMessageTime) > new Date(latest.lastMessageTime) ? c : latest;
-  }, null as any);
+  // Системные чаты из БД - показываем корпоративные чаты отдельно по филиалам
+  const corporateChatsByBranch = (corporateChats || []).reduce((acc: Record<string, any>, chat: any) => {
+    const branchKey = chat.branch;
+    if (!acc[branchKey]) {
+      acc[branchKey] = {
+        id: `corporate-${branchKey}`,
+        name: `Корпоративный чат - ${branchKey}`,
+        phone: `Команда ${branchKey}`,
+        lastMessage: chat.lastMessage || 'Нет сообщений',
+        time: chat.lastMessageTime ? formatTime(chat.lastMessageTime) : '',
+        unread: chat.unreadCount || 0,
+        type: 'corporate' as const,
+        timestamp: chat.lastMessageTime ? new Date(chat.lastMessageTime).getTime() : 0,
+        avatar_url: null,
+        branch: branchKey
+      };
+    } else {
+      // Обновляем если это сообщение более новое
+      if (chat.lastMessageTime && new Date(chat.lastMessageTime) > new Date(acc[branchKey].timestamp)) {
+        acc[branchKey].lastMessage = chat.lastMessage || 'Нет сообщений';
+        acc[branchKey].time = formatTime(chat.lastMessageTime);
+        acc[branchKey].timestamp = new Date(chat.lastMessageTime).getTime();
+      }
+      acc[branchKey].unread += chat.unreadCount || 0;
+    }
+    return acc;
+  }, {});
 
   const teacherUnread = (teacherChats || []).reduce((sum: number, c: any) => sum + (c.unreadCount || 0), 0);
   const latestTeacher = (teacherChats || []).reduce((latest: any, c: any) => {
@@ -327,19 +347,9 @@ const CRMContent = () => {
     return new Date(c.lastMessageTime) > new Date(latest.lastMessageTime) ? c : latest;
   }, null as any);
 
-  // Системные чаты (сводные карточки)
+  // Системные чаты
   const systemChats = [
-    {
-      id: 'corporate',
-      name: 'Корпоративный чат',
-      phone: 'Команда OKEY ENGLISH',
-      lastMessage: latestCorporate?.lastMessage || 'Нет сообщений',
-      time: latestCorporate?.lastMessageTime ? formatTime(latestCorporate.lastMessageTime) : '',
-      unread: corporateUnread,
-      type: 'corporate' as const,
-      timestamp: latestCorporate?.lastMessageTime ? new Date(latestCorporate.lastMessageTime).getTime() : 0,
-      avatar_url: null,
-    },
+    ...(Object.values(corporateChatsByBranch) as any[]),
     {
       id: 'teachers',
       name: 'Преподаватели',
@@ -553,30 +563,30 @@ const CRMContent = () => {
     setActiveChatType(chatType);
     
     // Помечаем как прочитанное только при переключении на НОВЫЙ чат
-    if (isNewChat) {
-      if (chatType === 'client') {
-        // Помечаем сообщения как прочитанные в базе данных
-        markAsReadMutation.mutate(chatId);
-        // Помечаем чат как прочитанный в состоянии чата
-        markAsRead(chatId);
-      } else if (chatType === 'corporate') {
-        // Для корпоративных чатов найдем все соответствующие клиентские записи
-        corporateChats.forEach((chat: any) => {
-          if (chat.id) {
-            markAsReadMutation.mutate(chat.id);
-            markAsRead(chat.id);
+      if (isNewChat) {
+        if (chatType === 'client') {
+          // Помечаем сообщения как прочитанные в базе данных
+          markAsReadMutation.mutate(chatId);
+          // Помечаем чат как прочитанный в состоянии чата
+          markAsRead(chatId);
+        } else if (chatType === 'corporate') {
+          // Для корпоративных чатов найдем соответствующий клиентский ID по филиалу
+          const branchName = chatId.replace('corporate-', '');
+          const corporateChat = corporateChats.find((chat: any) => chat.branch === branchName);
+          if (corporateChat?.id) {
+            markAsReadMutation.mutate(corporateChat.id);
+            markAsRead(corporateChat.id);
           }
-        });
-      } else if (chatType === 'teachers') {
-        // Для преподавательских чатов
-        teacherChats.forEach((chat: any) => {
-          if (chat.id) {
-            markAsReadMutation.mutate(chat.id);
-            markAsRead(chat.id);
-          }
-        });
+        } else if (chatType === 'teachers') {
+          // Для преподавательских чатов
+          teacherChats.forEach((chat: any) => {
+            if (chat.id) {
+              markAsReadMutation.mutate(chat.id);
+              markAsRead(chat.id);
+            }
+          });
+        }
       }
-    }
     
     // Обновляем имя активного клиента для модальных окон
     if (chatType === 'client') {
@@ -1466,7 +1476,7 @@ const CRMContent = () => {
           ) : activeChatType === 'corporate' ? (
             <CorporateChatArea 
               onMessageChange={setHasUnsavedChat} 
-              selectedBranchId={activeChatId?.startsWith('corporate:') ? activeChatId.split(':')[1] : null}
+              selectedBranchId={activeChatId?.startsWith('corporate-') ? activeChatId.replace('corporate-', '') : null}
               embedded
             />
           ) : activeChatType === 'teachers' ? (

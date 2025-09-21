@@ -16,6 +16,7 @@ import { useChatMessages, useSendMessage, useMarkAsRead, useRealtimeMessages } f
 import { useTypingStatus } from '@/hooks/useTypingStatus';
 import { usePinCounts } from '@/hooks/usePinCounts';
 import { supabase } from '@/integrations/supabase/client';
+import { AddTeacherModal } from './AddTeacherModal';
 
 interface TeacherGroup {
   id: string;
@@ -459,12 +460,17 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
       return (
         <div className="flex flex-col h-full min-h-0 bg-background">
           <div className="p-3 border-b">
-            <div className="flex items-center gap-2">
-              <GraduationCap className="h-5 w-5 text-slate-600" />
-              <h2 className="font-semibold text-base">Преподаватели</h2>
-              <Badge variant="secondary" className="text-xs ml-auto">
-                {filteredTeachers.length + 1}
-              </Badge>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <GraduationCap className="h-5 w-5 text-slate-600" />
+                <h2 className="font-semibold text-base">Преподаватели</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-xs">
+                  {filteredTeachers.length + 1}
+                </Badge>
+                <AddTeacherModal onTeacherAdded={() => window.location.reload()} />
+              </div>
             </div>
             
             <div className="relative mt-3">
@@ -657,9 +663,12 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         <div className="p-3 border-b border-border">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold text-foreground">Преподаватели</h2>
-            <Badge variant="secondary" className="text-xs">
-              {filteredTeachers.length + 1}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-xs">
+                {filteredTeachers.length + 1}
+              </Badge>
+              <AddTeacherModal onTeacherAdded={() => window.location.reload()} />
+            </div>
           </div>
           
           <div className="relative">

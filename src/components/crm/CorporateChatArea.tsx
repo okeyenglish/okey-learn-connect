@@ -68,21 +68,15 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
     };
   });
 
-  // Load allowed branches for current user
+  // Устанавливаем активный филиал при загрузке, если передан selectedBranchId
   useEffect(() => {
-    (async () => {
-      const { data: u } = await supabase.auth.getUser();
-      const uid = u.user?.id;
-      if (!uid) return;
-      const { data: res } = await supabase.rpc('get_user_branches', { _user_id: uid });
-      const arr: string[] = Array.isArray(res) ? res : [];
-      setAllowedBranches(arr);
-      if (!activeBranch && arr.length > 0) {
-        const first = branches.find(b => arr.includes(b.name))?.id;
-        if (first) setActiveBranch(first);
+    if (selectedBranchId && !activeBranch) {
+      const branch = branches.find(b => b.name === selectedBranchId);
+      if (branch) {
+        setActiveBranch(branch.id);
       }
-    })();
-  }, []);
+    }
+  }, [selectedBranchId, activeBranch]);
 
   // Resolve real client UUID for selected branch
   const [resolvedClientId, setResolvedClientId] = useState<string | null>(null);
