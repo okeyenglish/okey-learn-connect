@@ -14,7 +14,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients, useSearchClients, useCreateClient } from "@/hooks/useClients";
-import { useChatThreads, useRealtimeMessages, useMarkAsRead } from "@/hooks/useChatMessages";
+import { useChatThreads, useRealtimeMessages, useMarkAsRead, useMarkAsUnread } from "@/hooks/useChatMessages";
 import { useStudents } from "@/hooks/useStudents";
 import { ChatArea } from "@/components/crm/ChatArea";
 import { CorporateChatArea } from "@/components/crm/CorporateChatArea";
@@ -82,6 +82,7 @@ const CRMContent = () => {
   } = useSearchClients();
   const createClient = useCreateClient();
   const markAsReadMutation = useMarkAsRead();
+  const markAsUnreadMutation = useMarkAsUnread();
   const queryClient = useQueryClient();
   const { 
     pinnedModals, 
@@ -498,7 +499,10 @@ const CRMContent = () => {
 
   const handleChatAction = (chatId: string, action: 'unread' | 'pin' | 'archive' | 'block') => {
     if (action === 'unread') {
+      // 1) Флаг чата для текущего пользователя
       markAsUnread(chatId);
+      // 2) Обновим сообщения в таблице, чтобы счётчик нитей тоже мог обновиться
+      markAsUnreadMutation.mutate(chatId);
     } else if (action === 'pin') {
       togglePin(chatId);
     } else if (action === 'archive') {
@@ -1019,9 +1023,9 @@ const CRMContent = () => {
                                                В работе
                                              </Badge>
                                            </div>
-                                           <p className="text-xs text-muted-foreground truncate">
-                                             {chat.lastMessage || "Привет! Как дела?"}
-                                           </p>
+                                          <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
+                                            {chat.lastMessage || "Привет! Как дела?"}
+                                          </p>
                                          </div>
                                      </div>
                                     <div className="flex flex-col items-end">
@@ -1106,7 +1110,7 @@ const CRMContent = () => {
                                         <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
                                           {chat.name}
                                         </p>
-                                        <p className="text-xs text-muted-foreground truncate">
+                                        <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
                                           {chat.lastMessage || "Последнее сообщение"}
                                         </p>
                                       </div>
@@ -1330,7 +1334,7 @@ const CRMContent = () => {
                                           <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
                                             {chat.name}
                                           </p>
-                                          <p className="text-xs text-muted-foreground truncate">
+                                          <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
                                             {chat.lastMessage || "Последнее сообщение"}
                                           </p>
                                         </div>
@@ -1351,24 +1355,24 @@ const CRMContent = () => {
                                            <MoreVertical className="h-4 w-4" />
                                          </Button>
                                        </DropdownMenuTrigger>
-                                       <DropdownMenuContent align="end" className="w-56">
-                                         <DropdownMenuItem onClick={() => handleChatAction(chat.id, 'unread')}>
-                                           <BellOff className="mr-2 h-4 w-4" />
-                                           <span>Отметить непрочитанным</span>
-                                         </DropdownMenuItem>
-                                         <DropdownMenuItem onClick={() => handleChatAction(chat.id, 'pin')}>
-                                           <Pin className="mr-2 h-4 w-4 text-purple-600" />
-                                           <span>Закрепить диалог</span>
-                                         </DropdownMenuItem>
-                                         <DropdownMenuItem onClick={() => handleChatAction(chat.id, 'block')}>
-                                           <Lock className="mr-2 h-4 w-4" />
-                                           <span>Заблокировать клиента</span>
-                                         </DropdownMenuItem>
-                                         <DropdownMenuItem onClick={() => handleChatAction(chat.id, 'archive')}>
-                                           <Archive className="mr-2 h-4 w-4 text-orange-600" />
-                                           <span>Архивировать</span>
-                                         </DropdownMenuItem>
-                                       </DropdownMenuContent>
+                                        <DropdownMenuContent align="end" className="w-56 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-md">
+                                          <DropdownMenuItem onClick={() => handleChatAction(chat.id, 'unread')}>
+                                            <BellOff className="mr-2 h-4 w-4" />
+                                            <span>Отметить непрочитанным</span>
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => handleChatAction(chat.id, 'pin')}>
+                                            <Pin className="mr-2 h-4 w-4 text-purple-600" />
+                                            <span>Закрепить диалог</span>
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => handleChatAction(chat.id, 'block')}>
+                                            <Lock className="mr-2 h-4 w-4" />
+                                            <span>Заблокировать клиента</span>
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => handleChatAction(chat.id, 'archive')}>
+                                            <Archive className="mr-2 h-4 w-4 text-orange-600" />
+                                            <span>Архивировать</span>
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
                                      </DropdownMenu>
                                    </div>
                                    

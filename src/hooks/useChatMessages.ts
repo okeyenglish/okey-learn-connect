@@ -185,7 +185,7 @@ export const useRealtimeMessages = (clientId: string) => {
           table: 'chat_messages',
           filter: `client_id=eq.${clientId}`,
         },
-        (payload) => {
+        () => {
           queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
           queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
         }
@@ -198,7 +198,7 @@ export const useRealtimeMessages = (clientId: string) => {
           table: 'chat_messages',
           filter: `client_id=eq.${clientId}`,
         },
-        (payload) => {
+        () => {
           queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
           queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
         }
@@ -209,4 +209,24 @@ export const useRealtimeMessages = (clientId: string) => {
       supabase.removeChannel(channel);
     };
   }, [clientId, queryClient]);
+};
+
+// Mark all client messages as unread for a chat
+export const useMarkAsUnread = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (clientId: string) => {
+      const { error } = await supabase
+        .from('chat_messages')
+        .update({ is_read: false })
+        .eq('client_id', clientId);
+      if (error) throw error;
+    },
+    onSuccess: (_,_clientId) => {
+      const clientId = _clientId as unknown as string;
+      queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+    }
+  });
 };
