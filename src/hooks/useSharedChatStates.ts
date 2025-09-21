@@ -23,15 +23,10 @@ export const useSharedChatStates = () => {
 
     const fetchSharedStates = async () => {
       try {
-        // Получаем все закрепленные чаты всех пользователей с информацией о пользователях
+        // Получаем все закрепленные чаты всех пользователей
         const { data: allPinnedChats, error } = await supabase
           .from('chat_states')
-          .select(`
-            chat_id, 
-            user_id, 
-            is_pinned,
-            profiles(first_name, last_name)
-          `)
+          .select('chat_id, user_id, is_pinned')
           .eq('is_pinned', true);
 
         if (error) {
@@ -39,13 +34,33 @@ export const useSharedChatStates = () => {
           return;
         }
 
+        // Получаем информацию о пользователях отдельным запросом
+        const userIds = [...new Set(allPinnedChats?.map(chat => chat.user_id) || [])];
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, email')
+          .in('id', userIds);
+
+        if (profilesError) {
+          console.error('Error fetching profiles:', profilesError);
+        }
+
+        // Создаем карту профилей для быстрого доступа
+        const profilesMap = new Map();
+        profilesData?.forEach(profile => {
+          profilesMap.set(profile.id, profile);
+        });
+
         // Группируем по chat_id
         const chatStatesMap: Record<string, SharedChatState> = {};
         
         allPinnedChats?.forEach(state => {
           const chatId = state.chat_id;
-          const profile = (state as any).profiles;
-          const userName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : 'Неизвестный пользователь';
+          const profile = profilesMap.get(state.user_id);
+          const userName = profile ? 
+            `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 
+            profile.email?.split('@')[0] || 'Пользователь' 
+            : 'Неизвестный пользователь';
           
           if (!chatStatesMap[chatId]) {
             chatStatesMap[chatId] = {

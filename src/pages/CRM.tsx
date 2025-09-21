@@ -1977,8 +1977,12 @@ const CRMContent = () => {
                                               }
                                               const clientStatus = getClientStatus(chatInfo.id);
                                               console.log(`Client ${chatInfo.id} (${chatInfo.name}) status:`, clientStatus);
+                                              console.log(`Should show lead icon for ${chatInfo.name}:`, clientStatus.isLead);
+                                              if (clientStatus.isLead) {
+                                                console.log(`RENDERING LEAD ICON FOR ${chatInfo.name}`);
+                                              }
                                               return clientStatus.isLead ? (
-                                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white">
+                                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white z-10">
                                                   <UserPlus className="w-2.5 h-2.5 text-white" />
                                                 </div>
                                               ) : null;
@@ -1990,16 +1994,17 @@ const CRMContent = () => {
                                              <User className="h-5 w-5 text-green-600" />
                                            </div>
                                            {/* Lead indicator */}
-                                           {(() => {
-                                             const chatInfo = chat as any; // Временно для отладки
-                                             if (chatInfo.type !== 'client') return null;
-                                             const clientStatus = getClientStatus(chatInfo.id);
-                                             return clientStatus.isLead ? (
-                                               <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white">
-                                                 <UserPlus className="w-2.5 h-2.5 text-white" />
-                                               </div>
-                                             ) : null;
-                                           })()}
+                                            {(() => {
+                                              const chatInfo = chat as any; // Временно для отладки
+                                              if (chatInfo.type !== 'client') return null;
+                                              const clientStatus = getClientStatus(chatInfo.id);
+                                              console.log(`Lead check without avatar for ${chatInfo.name}:`, clientStatus.isLead);
+                                              return clientStatus.isLead ? (
+                                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white z-10">
+                                                  <UserPlus className="w-2.5 h-2.5 text-white" />
+                                                </div>
+                                              ) : null;
+                                            })()}
                                           </div>
                                        )}
                                        
