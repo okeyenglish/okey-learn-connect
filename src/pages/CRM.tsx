@@ -71,6 +71,7 @@ import {
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
+import VoiceAssistant from '@/components/VoiceAssistant';
 
 const CRMContent = () => {
   const { user, profile, role, signOut } = useAuth();
@@ -135,6 +136,7 @@ const CRMContent = () => {
   const isMobile = useIsMobile();
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
+  const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
   const { typingByClient } = useTypingPresence();
   
   // Enable real-time updates for the active chat
@@ -1565,6 +1567,12 @@ const CRMContent = () => {
         // УБИРАЕМ дублирующие модальные окна из меню - они уже есть в основном меню
         return null;
       })}
+      
+      {/* Голосовой ассистент */}
+      <VoiceAssistant 
+        isOpen={voiceAssistantOpen}
+        onToggle={() => setVoiceAssistantOpen(!voiceAssistantOpen)}
+      />
     </div>
   );
 };
