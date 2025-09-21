@@ -361,6 +361,23 @@ export default function VoiceAssistant({
         if (resultType === 'task_created' || resultType === 'create_task' || resultType === 'multiple_tasks_created' || 
             resultType === 'task_updated' || resultType === 'tasks_deleted' || resultType === 'delete_error') {
           
+          // Оптимистично удаляем задачи из кэша, если ассистент вернул их список
+          if (Array.isArray(data.actionResult?.deletedTasks) && data.actionResult.deletedTasks.length > 0) {
+            const deletedIds = data.actionResult.deletedTasks.map((t: any) => t.id);
+            const updateFn = (old: any) => {
+              if (!old) return old;
+              if (Array.isArray(old)) return old.filter((task: any) => !deletedIds.includes(task.id));
+              return old;
+            };
+            const keys: any[] = [ ['tasks'], ['all-tasks'] ];
+            if (context?.activeClientId) keys.push(['tasks', context.activeClientId]);
+            keys.forEach((key) => queryClient.setQueriesData({ queryKey: key }, updateFn));
+            // Все запросы вида ['tasks-by-date', *]
+            queryClient.setQueriesData({
+              predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'tasks-by-date'
+            }, updateFn);
+          }
+          
           console.log('Invalidating task queries after:', resultType);
           
           // Инвалидируем все возможные ключи задач

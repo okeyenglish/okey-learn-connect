@@ -45,6 +45,7 @@ export const useTasks = (clientId?: string) => {
         .from('tasks')
         .select('*')
         .eq('client_id', clientId)
+        .eq('status', 'active')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
