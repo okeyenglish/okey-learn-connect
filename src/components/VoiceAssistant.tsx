@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Mic, MicOff, Volume2, VolumeX, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -70,6 +71,7 @@ export default function VoiceAssistant({
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const processAudioRef = useRef<((blob: Blob) => Promise<void>) | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -338,6 +340,19 @@ export default function VoiceAssistant({
         setLastCommand(data.transcription || 'Команда не распознана');
         setLastResponse(data.response || 'Нет ответа');
         setActionResult(data.actionResult);
+
+        // Автоматически прокручиваем вниз после получения нового ответа
+        setTimeout(() => {
+          if (scrollAreaRef.current) {
+            const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+            if (scrollContainer) {
+              scrollContainer.scrollTo({
+                top: scrollContainer.scrollHeight,
+                behavior: 'smooth'
+              });
+            }
+          }
+        }, 100);
 
         // Инвалидируем задачи при создании новой
         const resultType = data.actionResult?.type;
@@ -700,10 +715,10 @@ export default function VoiceAssistant({
   return (
     <Card className={`fixed shadow-xl bg-background border z-50 ${
       isMobile 
-        ? 'bottom-20 right-2 left-2 w-auto' // На мобильных растягиваем на всю ширину с отступами
-        : 'bottom-6 right-6 w-80'           // На десктопе фиксированная ширина
-    } p-4`}>
-      <div className="flex items-center justify-between mb-4">
+        ? 'bottom-20 right-2 left-2 w-auto max-h-[70vh]' // На мобильных растягиваем на всю ширину с отступами и ограничиваем высоту
+        : 'bottom-6 right-6 w-80 max-h-[80vh]'           // На десктопе фиксированная ширина и высота
+    } flex flex-col`}>
+      <div className="flex items-center justify-between p-4 pb-2 shrink-0">
         <h3 className="font-semibold">Голосовой ассистент</h3>
         <div className="flex gap-2">
           <Button
@@ -723,116 +738,118 @@ export default function VoiceAssistant({
         </div>
       </div>
 
-      <div className="space-y-4">
-        {/* Статус и управление */}
-        <div className="flex flex-col items-center gap-3">
-          <div className="flex gap-2">
-            {!isProcessing && !isSpeaking && (
-              <Button
-                onClick={isRecording ? stopRecording : startRecording}
-                size="lg"
-                variant={isRecording ? "destructive" : "default"}
-                className="rounded-full h-12 w-12"
-              >
-                {isRecording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-              </Button>
-            )}
-            
-            {isSpeaking && (
-              <Button
-                onClick={stopSpeaking}
-                size="lg"
-                variant="secondary"
-                className="rounded-full h-12 w-12"
-              >
-                <VolumeX className="h-5 w-5" />
-              </Button>
-            )}
-            
-            {isProcessing && (
-              <Button
-                disabled
-                size="lg"
-                className="rounded-full h-12 w-12"
-              >
-                <Loader2 className="h-5 w-5 animate-spin" />
-              </Button>
-            )}
-          </div>
-
-          <div className="text-center">
-            {isRecording && (
-              <div className="space-y-2">
-                <Badge variant="destructive" className="animate-pulse">
-                  🎤 Запись... Говорите сейчас
-                </Badge>
-                <p className="text-xs text-muted-foreground">
-                  Остановится автоматически при тишине или нажмите кнопку
-                </p>
-              </div>
-            )}
-            {isProcessing && (
-              <Badge variant="secondary">
-                Обработка...
-              </Badge>
-            )}
-            {isSpeaking && (
-              <Badge variant="default" className="animate-pulse">
-                Воспроизведение...
-              </Badge>
-            )}
-            {!isRecording && !isProcessing && !isSpeaking && (
-              <Badge variant="outline">
-                Готов к команде
-              </Badge>
-            )}
-          </div>
-        </div>
-
-        {/* Последняя команда и ответ */}
-        {lastCommand && (
-          <div className="space-y-2">
-            <div>
-              <p className="text-xs text-muted-foreground">Команда:</p>
-              <p className="text-sm bg-muted p-2 rounded">{lastCommand}</p>
+      <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 pt-0">
+        <div className="space-y-4">
+          {/* Статус и управление */}
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex gap-2">
+              {!isProcessing && !isSpeaking && (
+                <Button
+                  onClick={isRecording ? stopRecording : startRecording}
+                  size="lg"
+                  variant={isRecording ? "destructive" : "default"}
+                  className="rounded-full h-12 w-12"
+                >
+                  {isRecording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                </Button>
+              )}
+              
+              {isSpeaking && (
+                <Button
+                  onClick={stopSpeaking}
+                  size="lg"
+                  variant="secondary"
+                  className="rounded-full h-12 w-12"
+                >
+                  <VolumeX className="h-5 w-5" />
+                </Button>
+              )}
+              
+              {isProcessing && (
+                <Button
+                  disabled
+                  size="lg"
+                  className="rounded-full h-12 w-12"
+                >
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                </Button>
+              )}
             </div>
-            
-            {lastResponse && (
-              <div>
-                <p className="text-xs text-muted-foreground">Ответ:</p>
-                <p className="text-sm bg-primary/10 p-2 rounded">{lastResponse}</p>
-              </div>
-            )}
-            
-            {renderActionResult()}
-          </div>
-        )}
 
-        {/* Подсказки */}
-        <div className="text-xs text-muted-foreground">
-          {isMobile && (
-            <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded text-amber-800">
-              <p className="font-medium mb-1">📱 Для работы на мобильном:</p>
-              <p>• Разрешите доступ к микрофону в браузере</p>
-              <p>• Используйте HTTPS соединение</p>
-              <p>• Говорите четко и громко</p>
+            <div className="text-center">
+              {isRecording && (
+                <div className="space-y-2">
+                  <Badge variant="destructive" className="animate-pulse">
+                    🎤 Запись... Говорите сейчас
+                  </Badge>
+                  <p className="text-xs text-muted-foreground">
+                    Остановится автоматически при тишине или нажмите кнопку
+                  </p>
+                </div>
+              )}
+              {isProcessing && (
+                <Badge variant="secondary">
+                  Обработка...
+                </Badge>
+              )}
+              {isSpeaking && (
+                <Badge variant="default" className="animate-pulse">
+                  Воспроизведение...
+                </Badge>
+              )}
+              {!isRecording && !isProcessing && !isSpeaking && (
+                <Badge variant="outline">
+                  Готов к команде
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          {/* Последняя команда и ответ */}
+          {lastCommand && (
+            <div className="space-y-2">
+              <div>
+                <p className="text-xs text-muted-foreground">Команда:</p>
+                <p className="text-sm bg-muted p-2 rounded">{lastCommand}</p>
+              </div>
+              
+              {lastResponse && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Ответ:</p>
+                  <p className="text-sm bg-primary/10 p-2 rounded">{lastResponse}</p>
+                </div>
+              )}
+              
+              {renderActionResult()}
             </div>
           )}
-          <p className="font-medium mb-1">Примеры команд:</p>
-          <ul className="space-y-1">
-            <li>• "Найди клиента Иван"</li>
-            <li>• "Отправь сообщение Анне что урок переносится"</li>
-            <li>• "Создай задачу позвонить клиенту"</li>
-            <li>• "Покажи мои задачи на сегодня"</li>
-            <li>• "Какие у меня просроченные задачи?"</li>
-            <li>• "Покажи расписание на сегодня"</li>
-            <li>• "Открой чат с Марией"</li>
-            <li>• "Найди преподавателя Елена"</li>
-            <li>• "Открой окно добавления клиента"</li>
-            <li>• "Покажи информацию о клиенте Иван"</li>
-          </ul>
+
+          {/* Подсказки */}
+          <div className="text-xs text-muted-foreground">
+            {isMobile && (
+              <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded text-amber-800">
+                <p className="font-medium mb-1">📱 Для работы на мобильном:</p>
+                <p>• Разрешите доступ к микрофону в браузере</p>
+                <p>• Используйте HTTPS соединение</p>
+                <p>• Говорите четко и громко</p>
+              </div>
+            )}
+            <p className="font-medium mb-1">Примеры команд:</p>
+            <ul className="space-y-1">
+              <li>• "Найди клиента Иван"</li>
+              <li>• "Отправь сообщение Анне что урок переносится"</li>
+              <li>• "Создай задачу позвонить клиенту"</li>
+              <li>• "Покажи мои задачи на сегодня"</li>
+              <li>• "Какие у меня просроченные задачи?"</li>
+              <li>• "Покажи расписание на сегодня"</li>
+              <li>• "Открой чат с Марией"</li>
+              <li>• "Найди преподавателя Елена"</li>
+              <li>• "Открой окно добавления клиента"</li>
+              <li>• "Покажи информацию о клиенте Иван"</li>
+            </ul>
+          </div>
         </div>
-      </div>
+      </ScrollArea>
     </Card>
   );
 }
