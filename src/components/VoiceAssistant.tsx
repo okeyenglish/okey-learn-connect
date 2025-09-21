@@ -97,7 +97,7 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
         }
       };
       
-      mediaRecorder.start(100); // Записываем чанками по 100мс для лучшего отклика
+      mediaRecorder.start(500); // Записываем чанками по 500мс для лучшего отклика
       setIsRecording(true);
       toast.success('Запись начата. Говорите...');
       
@@ -110,52 +110,10 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
     }
   }, []);
 
-  // Определение тишины для автоматической остановки записи
-  const startSilenceDetection = useCallback(() => {
-    if (!analyserRef.current) return;
-    
-    const bufferLength = analyserRef.current.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    
-    const checkAudioLevel = () => {
-      if (!analyserRef.current || !isRecording) return;
-      
-      analyserRef.current.getByteFrequencyData(dataArray);
-      
-      // Вычисляем средний уровень звука
-      const average = dataArray.reduce((sum, value) => sum + value, 0) / bufferLength;
-      
-      // Порог тишины (можно настроить)
-      const silenceThreshold = 20;
-      
-      if (average < silenceThreshold) {
-        // Если тишина, запускаем таймер
-        if (!silenceTimerRef.current) {
-          silenceTimerRef.current = setTimeout(() => {
-            if (isRecording) {
-              stopRecording();
-            }
-          }, 2000); // Останавливаем через 2 секунды тишины
-        }
-      } else {
-        // Если есть звук, сбрасываем таймер
-        if (silenceTimerRef.current) {
-          clearTimeout(silenceTimerRef.current);
-          silenceTimerRef.current = null;
-        }
-      }
-      
-      // Продолжаем мониторинг
-      if (isRecording) {
-        requestAnimationFrame(checkAudioLevel);
-      }
-    };
-    
-    checkAudioLevel();
-  }, [isRecording]);
-
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
+      console.log('Stopping recording...');
+      
       // Очищаем таймер тишины
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
@@ -167,6 +125,57 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
       setIsProcessing(true);
       toast.info('Обработка команды...');
     }
+  }, [isRecording]);
+
+  // Определение тишины для автоматической остановки записи
+  const startSilenceDetection = useCallback(() => {
+    if (!analyserRef.current || !isRecording) return;
+    
+    const bufferLength = analyserRef.current.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    let consecutiveSilenceChecks = 0;
+    const maxSilenceChecks = 20; // ~2 секунды при 100мс интервалах
+    
+    const checkAudioLevel = () => {
+      if (!analyserRef.current || !isRecording) return;
+      
+      analyserRef.current.getByteFrequencyData(dataArray);
+      
+      // Вычисляем средний уровень звука
+      const average = dataArray.reduce((sum, value) => sum + value, 0) / bufferLength;
+      
+      // Порог тишины (можно настроить)
+      const silenceThreshold = 25;
+      
+      console.log('Audio level:', average); // Для отладки
+      
+      if (average < silenceThreshold) {
+        consecutiveSilenceChecks++;
+        console.log('Silence detected, count:', consecutiveSilenceChecks);
+        
+        if (consecutiveSilenceChecks >= maxSilenceChecks) {
+          console.log('Stopping recording due to silence');
+          if (mediaRecorderRef.current && isRecording) {
+            mediaRecorderRef.current.stop();
+            setIsRecording(false);
+            setIsProcessing(true);
+            toast.info('Обработка команды...');
+          }
+          return;
+        }
+      } else {
+        // Если есть звук, сбрасываем счетчик
+        consecutiveSilenceChecks = 0;
+      }
+      
+      // Продолжаем мониторинг каждые 100мс
+      if (isRecording) {
+        setTimeout(checkAudioLevel, 100);
+      }
+    };
+    
+    // Начинаем проверку через 1 секунду (даем время для начала речи)
+    setTimeout(checkAudioLevel, 1000);
   }, [isRecording]);
 
   const processAudio = async (audioBlob: Blob) => {
@@ -424,10 +433,10 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
             {isRecording && (
               <div className="space-y-2">
                 <Badge variant="destructive" className="animate-pulse">
-                  Запись... Говорите сейчас
+                  🎤 Запись... Говорите сейчас
                 </Badge>
                 <p className="text-xs text-muted-foreground">
-                  Остановится автоматически через 2 сек тишины
+                  Остановится автоматически при тишине или нажмите кнопку
                 </p>
               </div>
             )}

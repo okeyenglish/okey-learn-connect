@@ -243,8 +243,8 @@ serve(async (req) => {
               .ilike('name', `%${functionArgs.clientName}%`)
               .single();
 
-            if (client) {
-              // Отправка сообщения через WhatsApp
+            if (client && client.phone) {
+              // Отправка сообщения через WhatsApp с правильными параметрами
               const { error } = await supabase.functions.invoke('whatsapp-send', {
                 body: {
                   phone: client.phone,
@@ -253,13 +253,14 @@ serve(async (req) => {
               });
 
               if (error) {
+                console.error('WhatsApp send error:', error);
                 responseText = `Ошибка при отправке сообщения клиенту ${client.name}.`;
               } else {
-                responseText = `Сообщение отправлено клиенту ${client.name}.`;
+                responseText = `Сообщение "${functionArgs.message}" отправлено клиенту ${client.name}.`;
                 actionResult = { type: 'message_sent', clientName: client.name };
               }
             } else {
-              responseText = `Клиент "${functionArgs.clientName}" не найден.`;
+              responseText = `Клиент "${functionArgs.clientName}" не найден или у него нет номера телефона.`;
             }
             break;
 
