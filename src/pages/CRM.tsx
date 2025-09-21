@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -90,6 +91,7 @@ import VoiceAssistant from '@/components/VoiceAssistant';
 
 const CRMContent = () => {
   const { user, profile, role, signOut } = useAuth();
+  const navigate = useNavigate();
   const { clients, isLoading: clientsLoading } = useClients();
   const { threads, isLoading: threadsLoading } = useChatThreads();
   const { students, isLoading: studentsLoading } = useStudents();
@@ -391,7 +393,7 @@ const CRMContent = () => {
   const handleMenuClick = (action: string) => {
     // Special handling for "Обучение" - navigate to Groups page
     if (action === "Обучение") {
-      window.location.href = "/groups";
+      navigate("/groups");
       return;
     }
     

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,7 @@ import { AddGroupModal } from "@/components/learning-groups/AddGroupModal";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
 const GroupsContent = () => {
+  const navigate = useNavigate();
   const [filters, setFilters] = useState<GroupFilters>({
     status: ['active', 'forming'] // Show active and forming groups by default
   });
@@ -49,7 +51,7 @@ const GroupsContent = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => window.history.back()}
+                onClick={() => navigate("/newcrm")}
                 className="gap-2"
               >
                 <ArrowLeft className="h-4 w-4" />

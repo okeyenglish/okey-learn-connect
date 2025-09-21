@@ -118,14 +118,14 @@ export const GroupsFilters = ({ filters, onFiltersChange, onReset }: GroupsFilte
           <div className="space-y-2">
             <Label>Филиал</Label>
             <Select
-              value={filters.branch || ""}
-              onValueChange={(value) => onFiltersChange({ ...filters, branch: value || undefined })}
+              value={filters.branch || "all"}
+              onValueChange={(value) => onFiltersChange({ ...filters, branch: value === "all" ? undefined : value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Все филиалы" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Все филиалы</SelectItem>
+                <SelectItem value="all">Все филиалы</SelectItem>
                 {branches.map(branch => (
                   <SelectItem key={branch.value} value={branch.label}>
                     {branch.label}
@@ -138,14 +138,14 @@ export const GroupsFilters = ({ filters, onFiltersChange, onReset }: GroupsFilte
           <div className="space-y-2">
             <Label>Тип</Label>
             <Select
-              value={filters.group_type || ""}
-              onValueChange={(value) => onFiltersChange({ ...filters, group_type: value || undefined })}
+              value={filters.group_type || "all"}
+              onValueChange={(value) => onFiltersChange({ ...filters, group_type: value === "all" ? undefined : value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Все типы" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Все типы</SelectItem>
+                <SelectItem value="all">Все типы</SelectItem>
                 {types.map(type => (
                   <SelectItem key={type.value} value={type.value}>
                     {type.label}
@@ -160,14 +160,14 @@ export const GroupsFilters = ({ filters, onFiltersChange, onReset }: GroupsFilte
           <div className="space-y-2">
             <Label>Дисциплина</Label>
             <Select
-              value={filters.subject || ""}
-              onValueChange={(value) => onFiltersChange({ ...filters, subject: value || undefined })}
+              value={filters.subject || "all"}
+              onValueChange={(value) => onFiltersChange({ ...filters, subject: value === "all" ? undefined : value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Все дисциплины" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Все дисциплины</SelectItem>
+                <SelectItem value="all">Все дисциплины</SelectItem>
                 {subjects.map(subject => (
                   <SelectItem key={subject} value={subject}>
                     {subject}
@@ -180,14 +180,14 @@ export const GroupsFilters = ({ filters, onFiltersChange, onReset }: GroupsFilte
           <div className="space-y-2">
             <Label>Уровень</Label>
             <Select
-              value={filters.level || ""}
-              onValueChange={(value) => onFiltersChange({ ...filters, level: value || undefined })}
+              value={filters.level || "all"}
+              onValueChange={(value) => onFiltersChange({ ...filters, level: value === "all" ? undefined : value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Все уровни" />
               </SelectTrigger>
               <SelectContent className="max-h-60">
-                <SelectItem value="">Все уровни</SelectItem>
+                <SelectItem value="all">Все уровни</SelectItem>
                 {levels.map(level => (
                   <SelectItem key={level} value={level}>
                     {level}
