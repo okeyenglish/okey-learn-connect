@@ -34,6 +34,10 @@ export const useClients = () => {
         .from('clients')
         .select('*')
         .eq('is_active', true)
+        .not('name', 'ilike', 'Преподаватель:%')
+        .not('name', 'ilike', 'Teacher:%')
+        .not('name', 'ilike', 'Чат педагогов - %')
+        .not('name', 'ilike', 'Корпоративный чат - %')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -157,6 +161,10 @@ export const useSearchClients = () => {
         .select('*')
         .or(`name.ilike.%${query}%,phone.ilike.%${query}%,email.ilike.%${query}%`)
         .eq('is_active', true)
+        .not('name', 'ilike', 'Преподаватель:%')
+        .not('name', 'ilike', 'Teacher:%')
+        .not('name', 'ilike', 'Чат педагогов - %')
+        .not('name', 'ilike', 'Корпоративный чат - %')
         .limit(10);
 
       if (error) throw error;
