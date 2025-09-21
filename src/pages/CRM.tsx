@@ -31,6 +31,7 @@ import { NewChatModal } from "@/components/crm/NewChatModal";
 import { PinnedModalTabs } from "@/components/crm/PinnedModalTabs";
 import { AddTaskModal } from "@/components/crm/AddTaskModal";
 import { EditTaskModal } from "@/components/crm/EditTaskModal";
+import { TaskCalendar } from "@/components/crm/TaskCalendar";
 import { CreateInvoiceModal } from "@/components/crm/CreateInvoiceModal";
 import { PinnableModalHeader, PinnableDialogContent } from "@/components/crm/PinnableModal";
 import { ManagerMenu } from "@/components/crm/ManagerMenu";
@@ -942,91 +943,229 @@ const CRMContent = () => {
                         )}
                         {item.label === "Мои задачи" && (
                           <div className="space-y-4">
-                            <Card>
-                              <CardHeader>
-                                <CardTitle className="flex items-center justify-between">
-                                  Активные задачи
-                                  <Search className="h-4 w-4 text-muted-foreground" />
-                                </CardTitle>
-                              </CardHeader>
-                              <CardContent>
-                                {tasksLoading ? (
-                                  <div className="text-center py-4 text-muted-foreground">
-                                    Загрузка задач...
-                                  </div>
-                                 ) : allTasks.length > 0 ? (
-                                   <div className="space-y-2 max-h-96 overflow-y-auto">
-                                      {allTasks.map((task) => (
-                                        <div 
-                                          key={task.id} 
-                                          className={`p-3 border-l-4 rounded-md cursor-pointer hover:shadow-md transition-shadow ${
-                                            task.priority === 'high' ? 'border-red-500 bg-red-50' :
-                                            task.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
-                                            'border-blue-500 bg-blue-50'
-                                          }`}
-                                          onClick={() => handleClientClick(task.client_id)}
-                                        >
-                                          <div className="flex items-start justify-between gap-3">
-                                            <div className="flex-1 min-w-0">
-                                              <p className="font-medium text-sm leading-tight">{task.title}</p>
-                                              <div className="mt-2 space-y-1">
-                                                <p className="text-sm">
-                                                  Клиент: <span className="text-primary">
-                                                    {task.clients?.name || 'Неизвестен'}
-                                                  </span>
-                                                </p>
-                                                {task.due_date && (
-                                                  <div className="flex items-center gap-1">
-                                                    <Clock className="h-3 w-3 text-muted-foreground" />
-                                                    <span className="text-xs text-muted-foreground">
-                                                      Срок: {new Date(task.due_date).toLocaleDateString('ru-RU')}
+                            {/* Переключение между списком и календарем */}
+                            <div className="flex items-center gap-2">
+                              <Button 
+                                size="sm"
+                                variant={activeTab !== "tasks-calendar" ? "default" : "outline"}
+                                onClick={() => setActiveTab("menu")}
+                                className="gap-2"
+                              >
+                                📋 Список
+                              </Button>
+                              <Button 
+                                size="sm"
+                                variant={activeTab === "tasks-calendar" ? "default" : "outline"}
+                                onClick={() => setActiveTab("tasks-calendar")}
+                                className="gap-2"
+                              >
+                                📅 Календарь
+                              </Button>
+                            </div>
+
+                            {activeTab !== "tasks-calendar" ? (
+                              <>
+                                {/* Клиентские задачи */}
+                                <Card>
+                                  <CardHeader>
+                                    <CardTitle className="flex items-center justify-between">
+                                      <span>Задачи по клиентам ({allTasks.filter(t => t.client_id).length})</span>
+                                      <Button 
+                                        size="sm"
+                                        onClick={() => setShowAddTaskModal(true)}
+                                        variant="outline"
+                                      >
+                                        + Добавить
+                                      </Button>
+                                    </CardTitle>
+                                  </CardHeader>
+                                  <CardContent>
+                                    {tasksLoading ? (
+                                      <div className="text-center py-4 text-muted-foreground">
+                                        Загрузка задач...
+                                      </div>
+                                    ) : allTasks.filter(t => t.client_id).length > 0 ? (
+                                      <div className="space-y-2 max-h-96 overflow-y-auto">
+                                        {allTasks.filter(t => t.client_id).map((task) => (
+                                          <div 
+                                            key={task.id} 
+                                            className={`p-3 border-l-4 rounded-md cursor-pointer hover:shadow-md transition-shadow ${
+                                              task.priority === 'high' ? 'border-red-500 bg-red-50' :
+                                              task.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
+                                              'border-blue-500 bg-blue-50'
+                                            }`}
+                                            onClick={() => task.client_id && handleClientClick(task.client_id)}
+                                          >
+                                            <div className="flex items-start justify-between gap-3">
+                                              <div className="flex-1 min-w-0">
+                                                <p className="font-medium text-sm leading-tight">{task.title}</p>
+                                                <div className="mt-2 space-y-1">
+                                                  <p className="text-sm">
+                                                    Клиент: <span className="text-primary">
+                                                      {task.clients?.name || 'Неизвестен'}
                                                     </span>
-                                                  </div>
-                                                )}
-                                                {task.responsible && (
-                                                  <p className="text-xs text-muted-foreground">
-                                                    Ответственный: {task.responsible}
                                                   </p>
-                                                )}
+                                                  {task.due_date && (
+                                                    <div className="flex items-center gap-1">
+                                                      <Clock className="h-3 w-3 text-muted-foreground" />
+                                                      <span className="text-xs text-muted-foreground">
+                                                        Срок: {new Date(task.due_date).toLocaleDateString('ru-RU')}
+                                                        {task.due_time && ` в ${task.due_time.slice(0, 5)}`}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                  {task.responsible && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                      Ответственный: {task.responsible}
+                                                    </p>
+                                                  )}
+                                                </div>
+                                              </div>
+                                              <div className="flex items-center gap-1 shrink-0">
+                                                <Button 
+                                                  size="sm" 
+                                                  variant="ghost" 
+                                                  className="h-7 w-7 p-0 text-green-600 hover:bg-green-50"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleCompleteTask(task.id);
+                                                  }}
+                                                  title="Отметить выполненной"
+                                                >
+                                                  <Check className="h-4 w-4" />
+                                                </Button>
+                                                <Button 
+                                                  size="sm" 
+                                                  variant="ghost" 
+                                                  className="h-7 w-7 p-0 text-red-600 hover:bg-red-50"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleCancelTask(task.id);
+                                                  }}
+                                                  title="Отменить задачу"
+                                                >
+                                                  <X className="h-4 w-4" />
+                                                </Button>
                                               </div>
                                             </div>
-                                            <div className="flex items-center gap-1 shrink-0">
-                                              <Button 
-                                                size="sm" 
-                                                variant="ghost" 
-                                                className="h-7 w-7 p-0 text-green-600 hover:bg-green-50"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleCompleteTask(task.id);
-                                                }}
-                                                title="Отметить выполненной"
-                                              >
-                                                <Check className="h-4 w-4" />
-                                              </Button>
-                                              <Button 
-                                                size="sm" 
-                                                variant="ghost" 
-                                                className="h-7 w-7 p-0 text-red-600 hover:bg-red-50"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleCancelTask(task.id);
-                                                }}
-                                                title="Отменить задачу"
-                                              >
-                                                <X className="h-4 w-4" />
-                                              </Button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className="text-center py-4 text-muted-foreground">
+                                        <p>Нет задач по клиентам</p>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="mt-2"
+                                          onClick={() => setShowAddTaskModal(true)}
+                                        >
+                                          Создать задачу
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </CardContent>
+                                </Card>
+
+                                {/* Личные задачи менеджера */}
+                                <Card className="border-purple-200 bg-purple-50/30">
+                                  <CardHeader>
+                                    <CardTitle className="flex items-center justify-between text-purple-800">
+                                      <span>📝 Мой личный планер ({allTasks.filter(t => !t.client_id).length})</span>
+                                      <Button 
+                                        size="sm"
+                                        onClick={() => setShowAddTaskModal(true)}
+                                        variant="outline"
+                                        className="border-purple-300 text-purple-700 hover:bg-purple-100"
+                                      >
+                                        + Личная задача
+                                      </Button>
+                                    </CardTitle>
+                                  </CardHeader>
+                                  <CardContent>
+                                    {allTasks.filter(t => !t.client_id).length > 0 ? (
+                                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                                        {allTasks.filter(t => !t.client_id).map((task) => (
+                                          <div 
+                                            key={task.id} 
+                                            className={`p-3 border-l-4 rounded-md hover:shadow-md transition-shadow bg-white ${
+                                              task.priority === 'high' ? 'border-red-500' :
+                                              task.priority === 'medium' ? 'border-yellow-500' :
+                                              'border-purple-400'
+                                            }`}
+                                          >
+                                            <div className="flex items-start justify-between gap-3">
+                                              <div className="flex-1 min-w-0">
+                                                <p className="font-medium text-sm leading-tight">{task.title}</p>
+                                                <div className="mt-2 space-y-1">
+                                                  <p className="text-sm text-purple-600 font-medium">Личная задача</p>
+                                                  {task.due_date && (
+                                                    <div className="flex items-center gap-1">
+                                                      <Clock className="h-3 w-3 text-muted-foreground" />
+                                                      <span className="text-xs text-muted-foreground">
+                                                        Срок: {new Date(task.due_date).toLocaleDateString('ru-RU')}
+                                                        {task.due_time && ` в ${task.due_time.slice(0, 5)}`}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                  {task.responsible && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                      Ответственный: {task.responsible}
+                                                    </p>
+                                                  )}
+                                                </div>
+                                              </div>
+                                              <div className="flex items-center gap-1 shrink-0">
+                                                <Button 
+                                                  size="sm" 
+                                                  variant="ghost" 
+                                                  className="h-7 w-7 p-0 text-green-600 hover:bg-green-50"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleCompleteTask(task.id);
+                                                  }}
+                                                  title="Отметить выполненной"
+                                                >
+                                                  <Check className="h-4 w-4" />
+                                                </Button>
+                                                <Button 
+                                                  size="sm" 
+                                                  variant="ghost" 
+                                                  className="h-7 w-7 p-0 text-red-600 hover:bg-red-50"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleCancelTask(task.id);
+                                                  }}
+                                                  title="Отменить задачу"
+                                                >
+                                                  <X className="h-4 w-4" />
+                                                </Button>
+                                              </div>
                                             </div>
                                           </div>
-                                        </div>
-                                     ))}
-                                   </div>
-                                ) : (
-                                  <div className="text-center py-4 text-muted-foreground">
-                                    Нет активных задач
-                                  </div>
-                                )}
-                              </CardContent>
-                            </Card>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className="text-center py-4 text-muted-foreground">
+                                        <p>У вас нет личных задач</p>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="mt-2 border-purple-300 text-purple-700 hover:bg-purple-100"
+                                          onClick={() => setShowAddTaskModal(true)}
+                                        >
+                                          Создать личную задачу
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </CardContent>
+                                </Card>
+                              </>
+                            ) : (
+                              <TaskCalendar 
+                                onTaskClick={(taskId) => setEditTaskId(taskId)}
+                              />
+                            )}
                           </div>
                         )}
                         {!["Расписание", "Финансы", "Мои задачи"].includes(item.label) && (
