@@ -549,6 +549,16 @@ const CRMContent = () => {
         const lastMsgDisplay = typing && typing.count > 0
           ? `${typing.names[0] || 'Менеджер'} печатает...`
           : (thread.last_message?.trim?.() || 'Нет сообщений');
+          
+        // Диагностика для отладки аватаров
+        if (isMobile && clientData) {
+          console.log(`Mobile avatar debug for ${clientData.name}:`, {
+            id: clientData.id,
+            avatar_url: clientData.avatar_url,
+            hasAvatar: !!clientData.avatar_url
+          });
+        }
+          
         return {
           id: thread.client_id,
           name: thread.client_name,
@@ -595,8 +605,12 @@ const CRMContent = () => {
   const clientIds = filteredChats
     .filter(chat => chat.type === 'client')
     .map(chat => chat.id);
-  console.log('Client IDs for status check:', clientIds);
-  const { getClientStatus } = useClientStatus(clientIds);
+  
+  if (isMobile) {
+    console.log('Mobile debug - Client IDs for status check:', clientIds);
+  }
+  
+  const { getClientStatus, isLoading: statusLoading } = useClientStatus(clientIds);
 
   const [activeFamilyMemberId, setActiveFamilyMemberId] = useState('550e8400-e29b-41d4-a716-446655440001');
 
@@ -1974,55 +1988,72 @@ const CRMContent = () => {
                                          <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
                                            <GraduationCap className="h-5 w-5 text-purple-600" />
                                          </div>
-                                        ) : chat.avatar_url ? (
-                                          <div className="relative flex-shrink-0">
-                                            <img 
-                                              src={chat.avatar_url} 
-                                              alt={`${chat.name} avatar`} 
-                                              className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
-                                              onError={(e) => {
-                                                const target = e.currentTarget as HTMLImageElement;
-                                                target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
-                                              }}
-                                            />
-                                            {/* Lead indicator */}
-                                            {(() => {
-                                              const chatInfo = chat as any; // Временно для отладки 
-                                              console.log(`Processing chat for lead indicator: ${chatInfo.id} (${chatInfo.name}) type: ${chatInfo.type}`);
-                                              if (chatInfo.type !== 'client') {
-                                                console.log(`Skipping ${chatInfo.name} - not client type (${chatInfo.type})`);
-                                                return null;
-                                              }
-                                              const clientStatus = getClientStatus(chatInfo.id);
-                                              console.log(`Client ${chatInfo.id} (${chatInfo.name}) status:`, clientStatus);
-                                              console.log(`Should show lead icon for ${chatInfo.name}:`, clientStatus.isLead);
-                                              if (clientStatus.isLead) {
-                                                console.log(`RENDERING LEAD ICON FOR ${chatInfo.name}`);
-                                              }
-                                              return clientStatus.isLead ? (
-                                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white z-10">
-                                                  <UserPlus className="w-2.5 h-2.5 text-white" />
-                                                </div>
-                                              ) : null;
-                                            })()}
+                                         ) : chat.avatar_url ? (
+                                           <div className="relative flex-shrink-0">
+                                             <img 
+                                               src={chat.avatar_url} 
+                                               alt={`${chat.name} avatar`} 
+                                               className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
+                                               onError={(e) => {
+                                                 const target = e.currentTarget as HTMLImageElement;
+                                                 target.style.display = 'none';
+                                                 const fallback = target.nextElementSibling as HTMLElement;
+                                                 if (fallback) fallback.style.display = 'flex';
+                                               }}
+                                             />
+                                             <div 
+                                               className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center" 
+                                               style={{ display: 'none' }}
+                                             >
+                                               <User className="h-5 w-5 text-green-600" />
+                                             </div>
+                                           {/* Lead indicator */}
+                                             {(() => {
+                                               const chatInfo = chat as any;
+                                               if (chatInfo.type !== 'client') return null;
+                                               const clientStatus = getClientStatus(chatInfo.id);
+                                               
+                                               if (isMobile) {
+                                                 console.log(`Mobile lead check for ${chatInfo.name}:`, {
+                                                   id: chatInfo.id,
+                                                   isLead: clientStatus.isLead,
+                                                   hasActiveStudents: clientStatus.hasActiveStudents,
+                                                   studentsCount: clientStatus.studentsCount
+                                                 });
+                                               }
+                                               
+                                               return clientStatus.isLead ? (
+                                                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white z-10">
+                                                   <UserPlus className="w-2.5 h-2.5 text-white" />
+                                                 </div>
+                                               ) : null;
+                                             })()}
                                           </div>
                                        ) : (
                                          <div className="relative flex-shrink-0">
                                            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
                                              <User className="h-5 w-5 text-green-600" />
                                            </div>
-                                           {/* Lead indicator */}
-                                            {(() => {
-                                              const chatInfo = chat as any; // Временно для отладки
-                                              if (chatInfo.type !== 'client') return null;
-                                              const clientStatus = getClientStatus(chatInfo.id);
-                                              console.log(`Lead check without avatar for ${chatInfo.name}:`, clientStatus.isLead);
-                                              return clientStatus.isLead ? (
-                                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white z-10">
-                                                  <UserPlus className="w-2.5 h-2.5 text-white" />
-                                                </div>
-                                              ) : null;
-                                            })()}
+                                            {/* Lead indicator */}
+                                             {(() => {
+                                               const chatInfo = chat as any;
+                                               if (chatInfo.type !== 'client') return null;
+                                               const clientStatus = getClientStatus(chatInfo.id);
+                                               
+                                               if (isMobile) {
+                                                 console.log(`Mobile lead check without avatar for ${chatInfo.name}:`, {
+                                                   id: chatInfo.id,
+                                                   isLead: clientStatus.isLead,
+                                                   hasActiveStudents: clientStatus.hasActiveStudents
+                                                 });
+                                               }
+                                               
+                                               return clientStatus.isLead ? (
+                                                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white z-10">
+                                                   <UserPlus className="w-2.5 h-2.5 text-white" />
+                                                 </div>
+                                               ) : null;
+                                             })()}
                                           </div>
                                        )}
                                        
@@ -2104,33 +2135,36 @@ const CRMContent = () => {
                                        <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
                                          <GraduationCap className="h-5 w-5 text-purple-600" />
                                        </div>
-                                      ) : chat.avatar_url ? (
-                                        <div className="relative flex-shrink-0">
-                                          <img 
-                                            src={chat.avatar_url} 
-                                            alt={`${chat.name} avatar`} 
-                                            className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
-                                            onError={(e) => {
-                                              const target = e.currentTarget as HTMLImageElement;
-                                              target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
-                                            }}
-                                          />
+                                       ) : chat.avatar_url ? (
+                                         <div className="relative flex-shrink-0">
+                                           <img 
+                                             src={chat.avatar_url} 
+                                             alt={`${chat.name} avatar`} 
+                                             className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
+                                             onError={(e) => {
+                                               const target = e.currentTarget as HTMLImageElement;
+                                               target.style.display = 'none';
+                                               const fallback = target.nextElementSibling as HTMLElement;
+                                               if (fallback) fallback.style.display = 'flex';
+                                             }}
+                                           />
+                                           <div 
+                                             className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center" 
+                                             style={{ display: 'none' }}
+                                           >
+                                             <User className="h-5 w-5 text-green-600" />
+                                           </div>
                                           {/* Lead indicator */}
-                                          {(() => {
-                                            const chatInfo = chat as any; // Временно для отладки 
-                                            console.log(`Processing chat for lead indicator (second list): ${chatInfo.id} (${chatInfo.name}) type: ${chatInfo.type}`);
-                                            if (chatInfo.type !== 'client') {
-                                              console.log(`Skipping ${chatInfo.name} - not client type (${chatInfo.type})`);
-                                              return null;
-                                            }
-                                            const clientStatus = getClientStatus(chatInfo.id);
-                                            console.log(`Client ${chatInfo.id} (${chatInfo.name}) status (second list):`, clientStatus);
-                                            return clientStatus.isLead ? (
-                                              <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white">
-                                                <UserPlus className="w-2.5 h-2.5 text-white" />
-                                              </div>
-                                            ) : null;
-                                          })()}
+                                           {(() => {
+                                             const chatInfo = chat as any;
+                                             if (chatInfo.type !== 'client') return null;
+                                             const clientStatus = getClientStatus(chatInfo.id);
+                                             return clientStatus.isLead ? (
+                                               <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white z-10">
+                                                 <UserPlus className="w-2.5 h-2.5 text-white" />
+                                               </div>
+                                             ) : null;
+                                           })()}
                                         </div>
                                      ) : (
                                        <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
