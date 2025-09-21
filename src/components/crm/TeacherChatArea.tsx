@@ -281,18 +281,43 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   };
 
   const handleSendMessage = async () => {
-    if (!message.trim() || !clientId) return;
+    if (!message.trim() || !clientId || whatsappLoading) return;
 
+    const messageText = message.trim();
+    const currentTeacher = teachers?.find(t => t.id === selectedTeacherId);
+    
     try {
+      // First save to database
       await sendMessage.mutateAsync({
         clientId,
-        messageText: message.trim(),
+        messageText: messageText,
         messageType: 'manager'
       });
+      
+      // Then send via WhatsApp if teacher has phone
+      if (currentTeacher?.phone) {
+        // Format phone number for WhatsApp (remove spaces, dashes, etc.)
+        const cleanPhone = currentTeacher.phone.replace(/[^\d+]/g, '');
+        console.log('Sending WhatsApp to teacher:', currentTeacher.fullName, 'Phone:', cleanPhone);
+        
+        const result = await sendTextMessage(clientId, messageText, cleanPhone);
+        
+        if (result.success) {
+          toast.success(`Сообщение отправлено преподавателю ${currentTeacher.fullName} в WhatsApp`);
+        } else {
+          console.error('WhatsApp send error:', result.error);
+          toast.error(`Сообщение сохранено, но не отправлено в WhatsApp: ${result.error}`);
+        }
+      } else {
+        console.log('No phone number for teacher:', currentTeacher?.fullName);
+        toast.success("Сообщение сохранено (у преподавателя нет номера телефона для WhatsApp)");
+      }
+      
       setMessage('');
       updateTypingStatus(false);
     } catch (error) {
-      toast.error('Ошибка отправки сообщения');
+      console.error('Error sending message:', error);
+      toast.error("Не удалось отправить сообщение");
     }
   };
 
@@ -322,11 +347,12 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         
         // Send via WhatsApp if teacher has phone
         if (currentTeacher?.phone) {
-          const result = await sendTextMessage(clientId, text, currentTeacher.phone);
+          const cleanPhone = currentTeacher.phone.replace(/[^\d+]/g, '');
+          const result = await sendTextMessage(clientId, text, cleanPhone);
           if (result.success) {
-            toast.success("Запланированное сообщение отправлено в WhatsApp");
+            toast.success(`Запланированное сообщение отправлено преподавателю ${currentTeacher.fullName} в WhatsApp`);
           } else {
-            toast.error("Запланированное сообщение сохранено, но не отправлено в WhatsApp");
+            toast.error(`Запланированное сообщение сохранено, но не отправлено в WhatsApp: ${result.error}`);
           }
         } else {
           toast.success("Запланированное сообщение отправлено");
