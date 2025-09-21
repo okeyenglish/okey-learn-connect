@@ -95,13 +95,14 @@ export const useSharedChatStates = () => {
 
     fetchSharedStates();
 
-    // Подписываемся на изменения в chat_states
+    // Подписываемся на изменения в chat_states для синхронизации между пользователями
     const channel = supabase
-      .channel('shared-chat-states')
+      .channel('shared-chat-states-realtime')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'chat_states' }, 
-        () => {
-          console.log('Chat states changed, refetching...');
+        (payload) => {
+          console.log('Shared chat states changed, refetching...', payload);
+          // Перезагружаем состояния при любых изменениях от других пользователей
           fetchSharedStates();
         }
       )

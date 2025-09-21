@@ -58,7 +58,7 @@ export const useChatStatesDB = () => {
     // Настройка реального времени для синхронизации состояний чатов
     if (user) {
       const channel = supabase
-        .channel('chat-states-changes')
+        .channel(`chat-states-${user.id}`)
         .on(
           'postgres_changes',
           {
@@ -68,7 +68,7 @@ export const useChatStatesDB = () => {
             filter: `user_id=eq.${user.id}`
           },
           (payload) => {
-            console.log('Chat state change:', payload);
+            console.log('Personal chat state change:', payload);
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
               const newState = payload.new as any;
               setChatStates(prev => ({
