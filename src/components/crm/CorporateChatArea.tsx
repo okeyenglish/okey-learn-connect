@@ -282,7 +282,7 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
                   key={msg.id || index}
                   message={msg.message_text}
                   time={new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                  type={msg.message_type}
+                  type={msg.message_type === 'system' ? 'manager' : msg.message_type}
                 />
               ))}
           {isOtherUserTyping && (
@@ -414,7 +414,7 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
                   key={msg.id || index}
                   message={msg.message_text}
                   time={new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                  type={msg.message_type}
+                  type={msg.message_type === 'system' ? 'manager' : msg.message_type}
                 />
               ))}
               {isOtherUserTyping && (
