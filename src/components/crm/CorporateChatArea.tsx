@@ -109,21 +109,49 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchInput, setShowSearchInput] = useState(false);
   const [activeBranch, setActiveBranch] = useState<string | null>(null);
+  const [allowedBranches, setAllowedBranches] = useState<string[]>([]);
   const isMobile = useIsMobile();
+
+  // Load allowed branches for current user
+  useEffect(() => {
+    (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) return;
+      const { data: res } = await supabase.rpc('get_user_branches', { _user_id: uid });
+      const arr: string[] = Array.isArray(res) ? res : [];
+      setAllowedBranches(arr);
+      if (!activeBranch && arr.length > 0) {
+        const first = branches.find(b => arr.includes(b.name))?.id;
+        if (first) setActiveBranch(first);
+      }
+    })();
+  }, []);
 
   // Resolve real client UUID for selected branch
   const [resolvedClientId, setResolvedClientId] = useState<string | null>(null);
   useEffect(() => {
+    const ensureClient = async (name: string, branch: string) => {
+      const { data: found } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('name', name)
+        .eq('branch', branch)
+        .maybeSingle();
+      if (found?.id) return found.id as string;
+      const { data: inserted } = await supabase
+        .from('clients')
+        .insert({ name, phone: '-', branch })
+        .select('id')
+        .maybeSingle();
+      return inserted?.id || null;
+    };
     const resolve = async () => {
       if (!activeBranch) { setResolvedClientId(null); return; }
       const branchName = branches.find(b => b.id === activeBranch)?.name;
       if (!branchName) { setResolvedClientId(null); return; }
-      const { data } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('name', `Корпоративный чат - ${branchName}`)
-        .maybeSingle();
-      setResolvedClientId(data?.id || null);
+      const id = await ensureClient(`Корпоративный чат - ${branchName}`, branchName);
+      setResolvedClientId(id);
     };
     resolve();
   }, [activeBranch]);
@@ -213,7 +241,7 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
           
           <div className="flex-1 overflow-y-auto">
             <div className="p-3 space-y-2">
-              {branches.map((branch) => {
+              {branches.filter(b => allowedBranches.length === 0 || allowedBranches.includes(b.name)).map((branch) => {
                 const branchMessages = mockCorporateChats[branch.id] || [];
                 return (
                   <button
@@ -429,7 +457,7 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
         
         <div className="flex-1 overflow-y-auto">
           <div className="p-2 space-y-1">
-            {branches.map((branch) => {
+            {branches.filter(b => allowedBranches.length === 0 || allowedBranches.includes(b.name)).map((branch) => {
               const branchMessages = mockCorporateChats[branch.id] || [];
               return (
                 <button

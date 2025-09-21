@@ -250,27 +250,63 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
   // Resolve real client UUID for the selected teacher or group
   const [resolvedClientId, setResolvedClientId] = useState<string | null>(null);
+  const [userBranch, setUserBranch] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) return;
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('branch')
+        .eq('id', uid)
+        .maybeSingle();
+      setUserBranch(profile?.branch || null);
+    };
+    loadProfile();
+  }, []);
+
+  const ensureClient = async (name: string, branch: string) => {
+    const { data: found } = await supabase
+      .from('clients')
+      .select('id')
+      .eq('name', name)
+      .eq('branch', branch)
+      .maybeSingle();
+    if (found?.id) return found.id as string;
+    const { data: inserted, error } = await supabase
+      .from('clients')
+      .insert({ name, phone: '-', branch })
+      .select('id')
+      .maybeSingle();
+    if (error) {
+      console.error('ensureClient insert error', error);
+      return null;
+    }
+    return inserted?.id || null;
+  };
 
   useEffect(() => {
     const resolve = async () => {
       if (!selectedTeacherId) { setResolvedClientId(null); return; }
       let nameToFind: string | null = null;
+      let branchToUse: string | null = null;
       if (selectedTeacherId === 'teachers-group') {
-        nameToFind = 'Чат педагогов';
+        // Делать групповой чат по филиалу пользователя
+        nameToFind = userBranch ? `Чат педагогов - ${userBranch}` : null;
+        branchToUse = userBranch;
       } else {
         const t = mockTeachers.find(tt => tt.id === selectedTeacherId);
         nameToFind = t?.fullName || null;
+        branchToUse = t?.branch || userBranch;
       }
-      if (!nameToFind) { setResolvedClientId(null); return; }
-      const { data } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('name', nameToFind)
-        .maybeSingle();
-      setResolvedClientId(data?.id || null);
+      if (!nameToFind || !branchToUse) { setResolvedClientId(null); return; }
+      const id = await ensureClient(nameToFind, branchToUse);
+      setResolvedClientId(id);
     };
     resolve();
-  }, [selectedTeacherId]);
+  }, [selectedTeacherId, userBranch]);
 
   const clientId = resolvedClientId || '';
   const { messages } = useChatMessages(clientId);
