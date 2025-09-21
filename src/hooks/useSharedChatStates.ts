@@ -140,3 +140,5 @@ export const useSharedChatStates = () => {
     isLoading
   };
 };
+
+export default useSharedChatStates;

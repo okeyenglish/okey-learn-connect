@@ -38,7 +38,7 @@ import { PinnableModalHeader, PinnableDialogContent } from "@/components/crm/Pin
 import { ManagerMenu } from "@/components/crm/ManagerMenu";
 import { usePinnedModalsDB, PinnedModal } from "@/hooks/usePinnedModalsDB";
 import { useChatStatesDB } from "@/hooks/useChatStatesDB";
-import { useSharedChatStates } from "@/hooks/useSharedChatStates";
+import useSharedChatStates from "@/hooks/useSharedChatStates";
 import { useGlobalChatReadStatus } from "@/hooks/useGlobalChatReadStatus";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAllTasks, useCompleteTask, useCancelTask, useUpdateTask } from "@/hooks/useTasks";
