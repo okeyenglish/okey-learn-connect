@@ -70,11 +70,14 @@ import {
 } from "lucide-react";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 
+import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
+
 const CRMContent = () => {
   const { user, profile, role, signOut } = useAuth();
   const { clients, isLoading: clientsLoading } = useClients();
   const { threads, isLoading: threadsLoading } = useChatThreads();
   const { students, isLoading: studentsLoading } = useStudents();
+  const { corporateChats, teacherChats, isLoading: systemChatsLoading } = useSystemChatMessages();
   const { 
     searchResults: clientSearchResults, 
     isSearching, 
@@ -309,19 +312,9 @@ const CRMContent = () => {
     }
   };
 
-  // Системные чаты + корпоративные по филиалам
-  const corporateBranchMap = [
-    { id: 'okskaya', name: 'Окская' },
-    { id: 'kotelniki', name: 'Котельники' },
-    { id: 'stakhanovskaya', name: 'Стахановская' },
-    { id: 'novokosino', name: 'Новокосино' },
-    { id: 'mytishchi', name: 'Мытищи' },
-    { id: 'solntsevo', name: 'Солнцево' },
-    { id: 'online', name: 'Онлайн' },
-  ];
-
+  // Системные чаты (убираем дубли корпоративных)
   const allChats = [
-    // Системные чаты
+    // Общий корпоративный чат только один
     { 
       id: 'corporate', 
       name: 'Корпоративный чат', 
@@ -344,22 +337,16 @@ const CRMContent = () => {
       timestamp: Date.now() - 1000 * 60 * 90, 
       avatar_url: null 
     },
-    // Корпоративные чаты по филиалам
-    ...corporateBranchMap.map(b => ({
-      id: `corporate:${b.id}`,
-      name: `Корпоративный чат - ${b.name}`,
-      phone: '+7 (800) 000-00-01',
-      lastMessage: 'Обсуждаем расписание... ',
-      time: 'Сегодня',
-      unread: 0,
-      type: 'corporate' as const,
-      timestamp: Date.now() - 1000 * 60 * 120,
-      avatar_url: null,
-    })),
-    // Реальные чаты с клиентами
-    ...threads.map(thread => {
-      // Find client data to get avatar
-      const clientData = clients.find(c => c.id === thread.client_id);
+    // Только реальные клиентские чаты (исключаем системные)
+    ...threads
+      .filter(thread => {
+        const clientData = clients.find(c => c.id === thread.client_id);
+        return clientData && !clientData.name.includes('Корпоративный чат') && 
+               !clientData.name.includes('Чат педагогов') && 
+               !clientData.name.includes('Преподаватель:');
+      })
+      .map(thread => {
+        const clientData = clients.find(c => c.id === thread.client_id);
         const typing = typingByClient[thread.client_id];
         const lastMsgDisplay = typing && typing.count > 0
           ? `${typing.names[0] || 'Менеджер'} печатает...`
@@ -375,7 +362,7 @@ const CRMContent = () => {
           timestamp: new Date(thread.last_message_time).getTime(),
           avatar_url: clientData?.avatar_url || null
         };
-    })
+      })
   ];
 
   const filteredChats = allChats
@@ -767,7 +754,7 @@ const CRMContent = () => {
               )}
             </div>
             <div className="flex items-center gap-2">
-              {(clientsLoading || threadsLoading || studentsLoading || pinnedLoading || chatStatesLoading) && (
+              {(clientsLoading || threadsLoading || studentsLoading || pinnedLoading || chatStatesLoading || systemChatsLoading) && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
                   <span className="hidden sm:inline">Загрузка данных...</span>

@@ -311,15 +311,11 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     // Use prefixed name for teacher chats to match RLS policy
     const chatName = name.includes('Чат педагогов') ? name : `Преподаватель: ${name}`;
     
-    // Generate unique pseudo-phone to satisfy unique "clients_phone_key" constraint
-    const slug = (s: string) => s.toLowerCase().replace(/[^a-zа-я0-9]+/gi, '-').replace(/^-+|-+$/g, '');
-    const pseudoPhone = `-teachers-${slug(branch)}-${slug(chatName)}`.slice(0, 50);
-    
-    const { data: inserted, error } = await supabase
-      .from('clients')
-      .insert({ name: chatName, phone: pseudoPhone, branch })
-      .select('id')
-      .maybeSingle();
+      const { data: inserted, error } = await supabase
+        .from('clients')
+        .insert({ name: chatName, phone: '-', branch })
+        .select('id')
+        .maybeSingle();
     if (error) {
       console.error('ensureClient insert error', error);
       return null;

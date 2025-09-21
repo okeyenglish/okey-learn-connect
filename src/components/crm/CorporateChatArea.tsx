@@ -164,13 +164,9 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
         .maybeSingle();
       if (found?.id) return found.id as string;
 
-      // generate unique pseudo phone to avoid unique constraint
-      const slug = (s: string) => s.toLowerCase().replace(/[^a-zа-я0-9]+/gi, '-').replace(/^-+|-+$/g, '');
-      const pseudoPhone = `-corporate-${slug(branch)}`.slice(0, 50);
-
       const { data: inserted, error } = await supabase
         .from('clients')
-        .insert({ name, phone: pseudoPhone, branch })
+        .insert({ name, phone: '-', branch })
         .select('id')
         .maybeSingle();
       if (error) {
