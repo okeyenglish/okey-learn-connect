@@ -39,6 +39,7 @@ import { ManagerMenu } from "@/components/crm/ManagerMenu";
 import { usePinnedModalsDB, PinnedModal } from "@/hooks/usePinnedModalsDB";
 import { useChatStatesDB } from "@/hooks/useChatStatesDB";
 import { useSharedChatStates } from "@/hooks/useSharedChatStates";
+import { useGlobalChatReadStatus } from "@/hooks/useGlobalChatReadStatus";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAllTasks, useCompleteTask, useCancelTask, useUpdateTask } from "@/hooks/useTasks";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -119,7 +120,8 @@ const CRMContent = () => {
     markAsUnread,
     getChatState
   } = useChatStatesDB();
-  const { isInWorkByOthers, isPinnedByCurrentUser, isPinnedByAnyone, getPinnedByUserName = () => 'Неизвестный пользователь', isLoading: sharedStatesLoading } = useSharedChatStates();
+  const { isInWorkByOthers, isPinnedByCurrentUser, isPinnedByAnyone, getPinnedByUserName, isLoading: sharedStatesLoading } = useSharedChatStates();
+  const { markChatAsReadGlobally, isChatReadGlobally } = useGlobalChatReadStatus();
   const { tasks: allTasks, isLoading: tasksLoading } = useAllTasks();
   const completeTask = useCompleteTask();
   const cancelTask = useCancelTask();
@@ -569,8 +571,9 @@ const CRMContent = () => {
       // В рамках закрепленных/не закрепленных: сначала непрочитанные
       const aChatState = getChatState(a.id);
       const bChatState = getChatState(b.id);
-      const aUnread = aChatState.isUnread || a.unread > 0;
-      const bUnread = bChatState.isUnread || b.unread > 0;
+      // Используем глобальную систему прочитанности для сортировки
+      const aUnread = !isChatReadGlobally(a.id) || a.unread > 0;
+      const bUnread = !isChatReadGlobally(b.id) || b.unread > 0;
       
       if (aUnread && !bUnread) return -1;
       if (!aUnread && bUnread) return 1;
@@ -721,7 +724,7 @@ const CRMContent = () => {
     console.log(`${action} для чата:`, chatId);
   };
 
-  const handleChatClick = (chatId: string, chatType: 'client' | 'corporate' | 'teachers') => {
+  const handleChatClick = async (chatId: string, chatType: 'client' | 'corporate' | 'teachers') => {
     console.log('Переключение на чат:', { chatId, chatType });
     
     // Только переключаемся на новый чат, если это действительно другой чат
@@ -730,24 +733,28 @@ const CRMContent = () => {
     setActiveChatType(chatType);
     
     // Помечаем как прочитанное только при переключении на НОВЫЙ чат
-      if (isNewChat) {
-        if (chatType === 'client') {
-          // Помечаем сообщения как прочитанные в базе данных
-          markAsReadMutation.mutate(chatId);
-          // Помечаем чат как прочитанный в состоянии чата
-          markAsRead(chatId);
-        } else if (chatType === 'corporate') {
-          // Папка корпоративных чатов — не отмечаем прочитанным на этом уровне
-        } else if (chatType === 'teachers') {
-          // Для преподавательских чатов
-          teacherChats.forEach((chat: any) => {
-            if (chat.id) {
-              markAsReadMutation.mutate(chat.id);
-              markAsRead(chat.id);
-            }
-          });
-        }
+    if (isNewChat) {
+      // Сначала помечаем чат как прочитанный глобально для всех пользователей
+      await markChatAsReadGlobally(chatId);
+      
+      if (chatType === 'client') {
+        // Помечаем сообщения как прочитанные в базе данных
+        markAsReadMutation.mutate(chatId);
+        // Помечаем чат как прочитанный в персональном состоянии (для закрепленных и пр.)
+        markAsRead(chatId);
+      } else if (chatType === 'corporate') {
+        // Папка корпоративных чатов — не отмечаем прочитанным на этом уровне
+      } else if (chatType === 'teachers') {
+        // Для преподавательских чатов
+        teacherChats.forEach(async (chat: any) => {
+          if (chat.id) {
+            await markChatAsReadGlobally(chat.id);
+            markAsReadMutation.mutate(chat.id);
+            markAsRead(chat.id);
+          }
+        });
       }
+    }
     
     // Обновляем имя активного клиента для модальных окон
     if (chatType === 'client') {
@@ -865,10 +872,10 @@ const CRMContent = () => {
   ];
 
 
-  // Calculate total unread messages
+  // Calculate total unread messages using global read status
   const totalUnreadCount = filteredChats.reduce((total, chat) => {
-    const chatState = getChatState(chat.id);
-    const unreadCount = chatState.isUnread ? 1 : chat.unread;
+    const isUnreadGlobally = !isChatReadGlobally(chat.id);
+    const unreadCount = isUnreadGlobally ? 1 : chat.unread;
     return total + unreadCount;
   }, 0);
 
@@ -1926,7 +1933,9 @@ const CRMContent = () => {
                           .filter(chat => isPinnedByCurrentUser(chat.id))
                           .map((chat) => {
                             const chatState = getChatState(chat.id);
-                            const displayUnread = chatState.isUnread || chat.unread > 0;
+                            // Используем глобальную систему прочитанности: если чат НЕ прочитан глобально, то он непрочитанный
+                            const isUnreadGlobally = !isChatReadGlobally(chat.id);
+                            const displayUnread = isUnreadGlobally || chat.unread > 0;
                             return (
                               <ChatContextMenu
                                 key={chat.id}
@@ -2026,9 +2035,9 @@ const CRMContent = () => {
                                       <Pin className="h-3 w-3 text-orange-600 mb-1" />
                                       <span className="text-xs text-muted-foreground">{chat.time}</span>
                                       {displayUnread && (
-                                        <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full mt-1">
-                                            {chatState.isUnread ? '1' : chat.unread}
-                                        </span>
+                                         <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full mt-1">
+                                             {isUnreadGlobally ? '1' : chat.unread}
+                                         </span>
                                       )}
                                     </div>
                                   </div>
@@ -2056,7 +2065,9 @@ const CRMContent = () => {
                         .filter(chat => !isPinnedByCurrentUser(chat.id))
                         .map((chat) => {
                           const chatState = getChatState(chat.id);
-                          const displayUnread = chatState.isUnread || chat.unread > 0;
+                          // Используем глобальную систему прочитанности
+                          const isUnreadGlobally = !isChatReadGlobally(chat.id);
+                          const displayUnread = isUnreadGlobally || chat.unread > 0;
                           return (
                             <ChatContextMenu
                               key={chat.id}
@@ -2144,9 +2155,9 @@ const CRMContent = () => {
                                   <div className="flex flex-col items-end">
                                     <span className="text-xs text-muted-foreground">{chat.time}</span>
                                     {displayUnread && (
-                                      <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
-                                        {chatState.isUnread ? '1' : chat.unread}
-                                      </span>
+                                       <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+                                         {isUnreadGlobally ? '1' : chat.unread}
+                                       </span>
                                     )}
                                   </div>
                                 </div>
@@ -2240,7 +2251,9 @@ const CRMContent = () => {
                             .filter(chat => isPinnedByCurrentUser(chat.id))
                             .map((chat) => {
                               const chatState = getChatState(chat.id);
-                              const displayUnread = chatState.isUnread || chat.unread > 0;
+                              // Используем глобальную систему прочитанности
+                              const isUnreadGlobally = !isChatReadGlobally(chat.id);
+                              const displayUnread = isUnreadGlobally || chat.unread > 0;
                               return (
                                 <div 
                                   key={chat.id}
@@ -2313,9 +2326,9 @@ const CRMContent = () => {
                                       </div>
                                       
                                       {displayUnread && (
-                                        <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded-full">
-                                          {chatState.isUnread ? '1' : chat.unread}
-                                        </span>
+                                         <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded-full">
+                                           {isUnreadGlobally ? '1' : chat.unread}
+                                         </span>
                                       )}
                                     </div>
                                   </div>
@@ -2342,7 +2355,9 @@ const CRMContent = () => {
                         .filter(chat => !isPinnedByCurrentUser(chat.id))
                         .map((chat) => {
                           const chatState = getChatState(chat.id);
-                          const displayUnread = chatState.isUnread || chat.unread > 0;
+                          // Используем глобальную систему прочитанности
+                          const isUnreadGlobally = !isChatReadGlobally(chat.id);
+                          const displayUnread = isUnreadGlobally || chat.unread > 0;
                           return (
                             <div 
                               key={chat.id}
@@ -2421,9 +2436,9 @@ const CRMContent = () => {
                                    </div>
                                    
                                    {displayUnread && (
-                                     <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full">
-                                       {chatState.isUnread ? '1' : chat.unread}
-                                     </span>
+                                      <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full">
+                                        {isUnreadGlobally ? '1' : chat.unread}
+                                      </span>
                                    )}
                                  </div>
                                </div>

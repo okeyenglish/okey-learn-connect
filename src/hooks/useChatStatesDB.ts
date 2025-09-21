@@ -149,6 +149,8 @@ export const useChatStatesDB = () => {
   }, [chatStates, updateChatState]);
 
   const markAsRead = useCallback((chatId: string) => {
+    // Обновляем только персональные состояния (закрепленные, архивированные)
+    // Прочитанность теперь глобальная и управляется через useGlobalChatReadStatus
     updateChatState(chatId, { isUnread: false });
   }, [updateChatState]);
 

@@ -340,6 +340,33 @@ export type Database = {
         }
         Relationships: []
       }
+      global_chat_read_status: {
+        Row: {
+          chat_id: string
+          created_at: string
+          id: string
+          last_read_at: string
+          last_read_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          chat_id: string
+          created_at?: string
+          id?: string
+          last_read_at?: string
+          last_read_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          chat_id?: string
+          created_at?: string
+          id?: string
+          last_read_at?: string
+          last_read_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       manager_branches: {
         Row: {
           branch: string
