@@ -1981,9 +1981,22 @@ const CRMContent = () => {
                                             })()}
                                           </div>
                                        ) : (
-                                         <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                                           <User className="h-5 w-5 text-green-600" />
-                                         </div>
+                                         <div className="relative flex-shrink-0">
+                                           <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                                             <User className="h-5 w-5 text-green-600" />
+                                           </div>
+                                           {/* Lead indicator */}
+                                           {(() => {
+                                             const chatInfo = chat as any; // Временно для отладки
+                                             if (chatInfo.type !== 'client') return null;
+                                             const clientStatus = getClientStatus(chatInfo.id);
+                                             return clientStatus.isLead ? (
+                                               <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white">
+                                                 <UserPlus className="w-2.5 h-2.5 text-white" />
+                                               </div>
+                                             ) : null;
+                                           })()}
+                                          </div>
                                        )}
                                        
                                          <div className="flex-1 min-w-0">
