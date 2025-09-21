@@ -29,7 +29,33 @@ serve(async (req) => {
     // Если передан аудио, конвертируем его в текст
     if (audio) {
       try {
-        const binaryAudio = Uint8Array.from(atob(audio), c => c.charCodeAt(0));
+        // Process base64 in chunks to prevent stack overflow
+        const chunkSize = 8192;
+        const chunks: Uint8Array[] = [];
+        let position = 0;
+        
+        while (position < audio.length) {
+          const chunk = audio.slice(position, position + chunkSize);
+          const binaryChunk = atob(chunk);
+          const bytes = new Uint8Array(binaryChunk.length);
+          
+          for (let i = 0; i < binaryChunk.length; i++) {
+            bytes[i] = binaryChunk.charCodeAt(i);
+          }
+          
+          chunks.push(bytes);
+          position += chunkSize;
+        }
+
+        const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+        const binaryAudio = new Uint8Array(totalLength);
+        let offset = 0;
+
+        for (const chunk of chunks) {
+          binaryAudio.set(chunk, offset);
+          offset += chunk.length;
+        }
+
         const formData = new FormData();
         const blob = new Blob([binaryAudio], { type: 'audio/webm' });
         formData.append('file', blob, 'audio.webm');
@@ -392,7 +418,19 @@ serve(async (req) => {
     let base64Audio = null;
     if (ttsResponse.ok) {
       const audioBuffer = await ttsResponse.arrayBuffer();
-      base64Audio = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
+      const uint8Array = new Uint8Array(audioBuffer);
+      
+      // Convert to base64 in chunks to prevent stack overflow
+      const chunkSize = 8192;
+      let base64String = '';
+      
+      for (let i = 0; i < uint8Array.length; i += chunkSize) {
+        const chunk = uint8Array.slice(i, i + chunkSize);
+        const chunkString = String.fromCharCode.apply(null, Array.from(chunk));
+        base64String += btoa(chunkString);
+      }
+      
+      base64Audio = base64String;
     }
 
     return new Response(JSON.stringify({

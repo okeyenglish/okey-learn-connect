@@ -155,12 +155,7 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
         
         if (consecutiveSilenceChecks >= maxSilenceChecks) {
           console.log('Stopping recording due to silence');
-          if (mediaRecorderRef.current && isRecording) {
-            mediaRecorderRef.current.stop();
-            setIsRecording(false);
-            setIsProcessing(true);
-            toast.info('Обработка команды...');
-          }
+          stopRecording();
           return;
         }
       } else {
@@ -168,27 +163,42 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
         consecutiveSilenceChecks = 0;
       }
       
-      // Продолжаем мониторинг каждые 100мс
+      // Продолжаем мониторинг каждые 100мс только если запись активна
       if (isRecording) {
-        setTimeout(checkAudioLevel, 100);
+        silenceTimerRef.current = setTimeout(checkAudioLevel, 100);
       }
     };
     
     // Начинаем проверку через 1 секунду (даем время для начала речи)
-    setTimeout(checkAudioLevel, 1000);
-  }, [isRecording]);
+    silenceTimerRef.current = setTimeout(checkAudioLevel, 1000);
+  }, [isRecording, stopRecording]);
 
   const processAudio = async (audioBlob: Blob) => {
     try {
       // Проверяем минимальный размер аудио
       if (audioBlob.size < 1000) {
         toast.error('Слишком короткая запись');
+        setIsProcessing(false);
         return;
       }
       
-      // Конвертируем аудио в base64
+      console.log('Processing audio blob size:', audioBlob.size);
+      
+      // Конвертируем аудио в base64 по частям чтобы избежать переполнения стека
       const arrayBuffer = await audioBlob.arrayBuffer();
-      const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+      const uint8Array = new Uint8Array(arrayBuffer);
+      
+      // Разбиваем на чанки для избежания переполнения стека
+      const chunkSize = 32768; // 32KB chunks
+      let base64Audio = '';
+      
+      for (let i = 0; i < uint8Array.length; i += chunkSize) {
+        const chunk = uint8Array.slice(i, i + chunkSize);
+        const chunkString = String.fromCharCode.apply(null, Array.from(chunk));
+        base64Audio += btoa(chunkString);
+      }
+      
+      console.log('Audio converted to base64, length:', base64Audio.length);
       
       const { data, error } = await supabase.functions.invoke('voice-assistant', {
         body: {
