@@ -779,6 +779,13 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      get_chat_pin_counts: {
+        Args: { _chat_ids: string[] }
+        Returns: {
+          chat_id: string
+          pin_count: number
+        }[]
+      }
       get_public_schedule: {
         Args: Record<PropertyKey, never> | { branch_name?: string }
         Returns: {
