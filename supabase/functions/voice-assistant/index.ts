@@ -400,18 +400,24 @@ serve(async (req) => {
             break;
 
           case 'get_tasks':
-            // Получаем филиал пользователя и ФИО для фильтрации задач по ответственному
+            // Фильтрация задач по ответственному текущему пользователю (без привязки к филиалу)
             const userBranch = userProfile?.branch || 'Окская';
             const userFullName = `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim();
+            const reversedName = `${userProfile?.last_name || ''} ${userProfile?.first_name || ''}`.trim();
+            const email = userProfile?.email || '';
             
             let tasksQuery = supabase
               .from('tasks')
-              .select('id, title, description, status, priority, due_date, created_at, client_id, responsible')
-              .eq('branch', userBranch);
+              .select('id, title, description, status, priority, due_date, created_at, client_id, responsible');
 
-            // Фильтруем по ответственному: показываем задачи только текущего пользователя
-            if (userFullName) {
-              tasksQuery = tasksQuery.ilike('responsible', `%${userFullName}%`);
+            // Показываем задачи только текущего пользователя (ответственного)
+            const orFilters = [
+              userFullName ? `responsible.ilike.%${userFullName}%` : null,
+              reversedName && reversedName !== userFullName ? `responsible.ilike.%${reversedName}%` : null,
+              email ? `responsible.ilike.%${email}%` : null,
+            ].filter(Boolean).join(',');
+            if (orFilters) {
+              tasksQuery = tasksQuery.or(orFilters);
             }
 
             // Применяем фильтры по статусу/датам
@@ -452,7 +458,7 @@ serve(async (req) => {
               .order('created_at', { ascending: false })
               .limit(20);
 
-            console.log('Tasks query result:', { tasksCount: tasks?.length || 0, tasksError, userBranch, userFullName, filter: functionArgs.filter });
+            console.log('Tasks query result:', { tasksCount: tasks?.length || 0, tasksError, userFullName, filter: functionArgs.filter });
 
             if (tasks && tasks.length > 0) {
               let filterText = '';
@@ -472,7 +478,7 @@ serve(async (req) => {
               responseText = `Найдены задачи (${filterText}): ${tasksText}${tasks.length > 5 ? ` и ещё ${tasks.length - 5}` : ''}.`;
               actionResult = { type: 'tasks', data: tasks, filter: functionArgs.filter };
             } else {
-              responseText = `Задач${functionArgs.filter ? ` (${functionArgs.filter})` : ''} не найдено для ${userFullName || 'текущего пользователя'} в филиале ${userBranch}.`;
+              responseText = `Задач${functionArgs.filter ? ` (${functionArgs.filter})` : ''} не найдено для ${userFullName || 'текущего пользователя'}.`;
             }
             break;
 
