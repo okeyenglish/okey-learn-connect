@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, AlertTriangle, Loader2 } from "lucide-react";
+import { CalendarIcon, AlertTriangle, Loader2, Users } from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -15,8 +15,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useUpdateLessonSession, useCheckScheduleConflicts, LessonSession } from "@/hooks/useLessonSessions";
 import { useLearningGroups } from "@/hooks/useLearningGroups";
 import { useTeachers } from "@/hooks/useTeachers";
+import { useAddStudentsToSession } from "@/hooks/useStudentScheduleConflicts";
 import { getBranchesForSelect, getClassroomsForBranch } from "@/lib/branches";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { SessionStudentsDisplay } from "./SessionStudentsDisplay";
+import { StudentSelector } from "./StudentSelector";
 
 interface EditLessonModalProps {
   session: any;
@@ -99,6 +102,31 @@ export const EditLessonModal = ({ session, open, onOpenChange, onSessionUpdated 
       setConflicts(result);
     } catch (error) {
       console.error('Error checking conflicts:', error);
+    }
+  };
+
+  const handleAddStudents = async () => {
+    if (selectedStudents.length > 0 && session) {
+      try {
+        await addStudentsToSession.mutateAsync({
+          studentIds: selectedStudents,
+          lessonSessionId: session.id
+        });
+        
+        toast({
+          title: "Успешно",
+          description: `Добавлено ${selectedStudents.length} учеников`
+        });
+        
+        setSelectedStudents([]);
+        setShowStudentSelector(false);
+      } catch (error: any) {
+        toast({
+          title: "Ошибка", 
+          description: error.message || "Не удалось добавить учеников",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -197,7 +225,7 @@ export const EditLessonModal = ({ session, open, onOpenChange, onSessionUpdated 
             <SessionStudentsDisplay
               sessionId={session?.id || ""}
               sessionInfo={{
-                lesson_date: formData.lesson_date,
+                lesson_date: formData.lesson_date ? format(formData.lesson_date, 'yyyy-MM-dd') : '',
                 start_time: formData.start_time,
                 end_time: formData.end_time,
                 branch: formData.branch
@@ -225,7 +253,7 @@ export const EditLessonModal = ({ session, open, onOpenChange, onSessionUpdated 
                 <StudentSelector
                   selectedStudentIds={selectedStudents}
                   onSelectionChange={setSelectedStudents}
-                  lessonDate={formData.lesson_date}
+                  lessonDate={formData.lesson_date ? format(formData.lesson_date, 'yyyy-MM-dd') : ''}
                   startTime={formData.start_time}
                   endTime={formData.end_time}
                   excludeSessionId={session?.id}
@@ -396,10 +424,10 @@ export const EditLessonModal = ({ session, open, onOpenChange, onSessionUpdated 
             </Button>
             <Button 
               type="submit" 
-              disabled={updateSession.isPending || conflicts.length > 0}
+              disabled={updateSession.isPending || addStudentsToSession.isPending || conflicts.length > 0}
               className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
             >
-              {updateSession.isPending ? (
+              {updateSession.isPending || addStudentsToSession.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   Сохранение...
