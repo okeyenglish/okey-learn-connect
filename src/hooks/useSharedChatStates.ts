@@ -28,18 +28,21 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
           return;
         }
 
-        // Мои закрепленные чаты (разрешено RLS)
-        const { data: myPins, error: myPinsError } = await supabase
+        // Мои состояния чатов (все, не только закрепленные)
+        const { data: myStates, error: myStatesError } = await supabase
           .from('chat_states')
           .select('chat_id, is_pinned')
           .eq('user_id', user.id)
-          .eq('is_pinned', true);
+          .in('chat_id', chatIds);
 
-        if (myPinsError) {
-          console.error('Error fetching my pins:', myPinsError);
+        if (myStatesError) {
+          console.error('Error fetching my chat states:', myStatesError);
         }
 
-        const myPinnedSet = new Set((myPins || []).map((p: any) => p.chat_id));
+        const myStatesMap = new Map<string, boolean>();
+        (myStates || []).forEach((state: any) => {
+          myStatesMap.set(state.chat_id, state.is_pinned);
+        });
 
         // Глобальный счетчик закреплений по чату (SECURITY DEFINER функция)
         const { data: counts, error: countsError } = await supabase.rpc('get_chat_pin_counts', {
@@ -56,7 +59,7 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
         // Собираем итоговую карту
         const chatStatesMap: Record<string, SharedChatState> = {};
         chatIds.forEach((chatId) => {
-          const isPinnedByMe = myPinnedSet.has(chatId);
+          const isPinnedByMe = myStatesMap.get(chatId) || false;
           const totalPins = countMap.get(chatId) || 0;
           chatStatesMap[chatId] = {
             chat_id: chatId,
@@ -67,6 +70,7 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
           };
         });
 
+        console.log('Updated shared chat states:', chatStatesMap);
         setSharedStates(chatStatesMap);
       } catch (error) {
         console.error('Error in fetchSharedStates:', error);
@@ -96,7 +100,7 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id]);
+  }, [user?.id, chatIds]);
 
   const isInWorkByOthers = (chatId: string): boolean => {
     const state = sharedStates[chatId];
