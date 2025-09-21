@@ -367,6 +367,108 @@ export type Database = {
         }
         Relationships: []
       }
+      learning_groups: {
+        Row: {
+          academic_hours: number | null
+          branch: string
+          capacity: number
+          category: Database["public"]["Enums"]["group_category"]
+          created_at: string
+          current_students: number
+          custom_name: string | null
+          debt_count: number | null
+          default_price: number | null
+          description: string | null
+          group_type: Database["public"]["Enums"]["group_type"]
+          id: string
+          is_active: boolean
+          lesson_end_month: string | null
+          lesson_end_time: string | null
+          lesson_start_month: string | null
+          lesson_start_time: string | null
+          level: string
+          name: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          period_end: string | null
+          period_start: string | null
+          responsible_teacher: string | null
+          schedule_days: string[] | null
+          schedule_room: string | null
+          schedule_time: string | null
+          status: Database["public"]["Enums"]["group_status"]
+          subject: string
+          textbook: string | null
+          updated_at: string
+          zoom_link: string | null
+        }
+        Insert: {
+          academic_hours?: number | null
+          branch?: string
+          capacity?: number
+          category?: Database["public"]["Enums"]["group_category"]
+          created_at?: string
+          current_students?: number
+          custom_name?: string | null
+          debt_count?: number | null
+          default_price?: number | null
+          description?: string | null
+          group_type?: Database["public"]["Enums"]["group_type"]
+          id?: string
+          is_active?: boolean
+          lesson_end_month?: string | null
+          lesson_end_time?: string | null
+          lesson_start_month?: string | null
+          lesson_start_time?: string | null
+          level: string
+          name: string
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          period_end?: string | null
+          period_start?: string | null
+          responsible_teacher?: string | null
+          schedule_days?: string[] | null
+          schedule_room?: string | null
+          schedule_time?: string | null
+          status?: Database["public"]["Enums"]["group_status"]
+          subject?: string
+          textbook?: string | null
+          updated_at?: string
+          zoom_link?: string | null
+        }
+        Update: {
+          academic_hours?: number | null
+          branch?: string
+          capacity?: number
+          category?: Database["public"]["Enums"]["group_category"]
+          created_at?: string
+          current_students?: number
+          custom_name?: string | null
+          debt_count?: number | null
+          default_price?: number | null
+          description?: string | null
+          group_type?: Database["public"]["Enums"]["group_type"]
+          id?: string
+          is_active?: boolean
+          lesson_end_month?: string | null
+          lesson_end_time?: string | null
+          lesson_start_month?: string | null
+          lesson_start_time?: string | null
+          level?: string
+          name?: string
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          period_end?: string | null
+          period_start?: string | null
+          responsible_teacher?: string | null
+          schedule_days?: string[] | null
+          schedule_room?: string | null
+          schedule_time?: string | null
+          status?: Database["public"]["Enums"]["group_status"]
+          subject?: string
+          textbook?: string | null
+          updated_at?: string
+          zoom_link?: string | null
+        }
+        Relationships: []
+      }
       manager_branches: {
         Row: {
           branch: string
@@ -999,6 +1101,9 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "manager" | "teacher"
+      group_category: "preschool" | "school" | "adult" | "all"
+      group_status: "reserve" | "forming" | "active" | "suspended" | "finished"
+      group_type: "general" | "individual" | "mini" | "corporate"
       message_status:
         | "queued"
         | "sent"
@@ -1007,6 +1112,7 @@ export type Database = {
         | "failed"
         | "noAccount"
       messenger_type: "whatsapp" | "telegram" | "system"
+      payment_method: "per_lesson" | "monthly" | "course" | "package"
       relationship_type: "main" | "spouse" | "parent" | "guardian" | "other"
       student_status: "active" | "inactive" | "trial" | "graduated"
     }
@@ -1137,6 +1243,9 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "manager", "teacher"],
+      group_category: ["preschool", "school", "adult", "all"],
+      group_status: ["reserve", "forming", "active", "suspended", "finished"],
+      group_type: ["general", "individual", "mini", "corporate"],
       message_status: [
         "queued",
         "sent",
@@ -1146,6 +1255,7 @@ export const Constants = {
         "noAccount",
       ],
       messenger_type: ["whatsapp", "telegram", "system"],
+      payment_method: ["per_lesson", "monthly", "course", "package"],
       relationship_type: ["main", "spouse", "parent", "guardian", "other"],
       student_status: ["active", "inactive", "trial", "graduated"],
     },

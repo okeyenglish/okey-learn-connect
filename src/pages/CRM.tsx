@@ -389,6 +389,12 @@ const CRMContent = () => {
   };
 
   const handleMenuClick = (action: string) => {
+    // Special handling for "Обучение" - navigate to Groups page
+    if (action === "Обучение") {
+      window.location.href = "/groups";
+      return;
+    }
+    
     // Проверяем, что мы на правильной вкладке
     if (activeTab !== "menu") {
       setActiveTab("menu");
