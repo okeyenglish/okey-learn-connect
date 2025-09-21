@@ -467,8 +467,10 @@ serve(async (req) => {
               responsible: `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim() || userProfile?.email || 'Менеджер'
             };
 
-            // Добавляем client_id только если клиент найден
-            if (clientForTask) {
+            // Привязываем client_id: приоритет активного чата (даже если это демо-ID), затем найденный в БД клиент
+            if (context?.activeClientId) {
+              taskData.client_id = context.activeClientId;
+            } else if (clientForTask) {
               taskData.client_id = clientForTask.id;
             }
 
@@ -484,8 +486,9 @@ serve(async (req) => {
             } else {
               const timeInfo = functionArgs.dueTime ? ` на ${functionArgs.dueTime}` : '';
               const dateInfo = functionArgs.dueDate ? ` на ${functionArgs.dueDate}` : '';
-              responseText = `Задача "${functionArgs.title}"${dateInfo}${timeInfo} создана${clientForTask ? ` для клиента ${clientForTask.name}` : ''}.`;
-              actionResult = { type: 'task_created', title: functionArgs.title, clientName: clientForTask?.name };
+              const nameForText = clientForTask?.name || context?.activeClientName;
+              responseText = `Задача "${functionArgs.title}"${dateInfo}${timeInfo} создана${nameForText ? ` для клиента ${nameForText}` : ''}.`;
+              actionResult = { type: 'task_created', title: functionArgs.title, clientName: nameForText };
             }
             break;
 
@@ -813,7 +816,12 @@ serve(async (req) => {
           branch: userProfile?.branch || 'Окская',
           responsible: `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim() || userProfile?.email || 'Менеджер'
         };
-        if (clientForTask) taskData.client_id = clientForTask.id;
+        // Привязываем client_id: приоритет активного чата (даже если демо-ID), затем найденный клиент
+        if (context?.activeClientId) {
+          taskData.client_id = context.activeClientId;
+        } else if (clientForTask) {
+          taskData.client_id = clientForTask.id;
+        }
 
         const { error: fallbackTaskError } = await supabase
           .from('tasks')
