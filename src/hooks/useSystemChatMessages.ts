@@ -26,16 +26,9 @@ export const useSystemChatMessages = () => {
       // Get all system chats (corporate + teachers)
       const { data: clients, error: clientsError } = await supabase
         .from('clients')
-        .select(`
-          id, name, branch,
-          last_message:chat_messages!inner(
-            message_text,
-            created_at,
-            is_read
-          )
-        `)
+        .select('id, name, branch')
         .or('name.ilike.%Корпоративный чат%,name.ilike.%Чат педагогов%,name.ilike.%Преподаватель:%')
-        .order('last_message_at', { ascending: false });
+        .order('updated_at', { ascending: false });
 
       if (clientsError) throw clientsError;
 

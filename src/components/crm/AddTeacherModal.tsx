@@ -51,6 +51,18 @@ export const AddTeacherModal = ({ onTeacherAdded }: AddTeacherModalProps) => {
     try {
       // Create client record for the teacher
       const teacherName = `Преподаватель: ${firstName} ${lastName}`;
+
+      // Prevent duplicates by phone (except system '-')
+      const { data: existing } = await supabase
+        .from('clients')
+        .select('id, name')
+        .eq('phone', phone)
+        .maybeSingle();
+      if (existing?.id) {
+        toast.error('Контакт с таким телефоном уже существует');
+        setIsOpen(false);
+        return;
+      }
       
       const { data: newClient, error: clientError } = await supabase
         .from('clients')
@@ -76,9 +88,13 @@ export const AddTeacherModal = ({ onTeacherAdded }: AddTeacherModalProps) => {
       toast.success('Преподаватель успешно добавлен');
       onTeacherAdded?.();
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding teacher:', error);
-      toast.error('Ошибка при добавлении преподавателя');
+      if (error?.code === '23505') {
+        toast.error('Контакт с таким телефоном уже существует');
+      } else {
+        toast.error('Ошибка при добавлении преподавателя');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -87,9 +103,8 @@ export const AddTeacherModal = ({ onTeacherAdded }: AddTeacherModalProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="gap-2">
+        <Button size="sm" variant="outline" aria-label="Добавить преподавателя">
           <Plus className="h-4 w-4" />
-          Добавить преподавателя
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
