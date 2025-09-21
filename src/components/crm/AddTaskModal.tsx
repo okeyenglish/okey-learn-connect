@@ -116,8 +116,8 @@ export const AddTaskModal = ({
         responsible: responsibleNames.join(", "),
       };
 
-      // Add client_id only if it exists
-      if (clientId) {
+      // Add client_id only if this is a client task (has clientName)
+      if (clientId && clientName) {
         taskData.client_id = clientId;
       }
 
