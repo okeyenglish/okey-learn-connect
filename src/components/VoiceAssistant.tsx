@@ -666,10 +666,20 @@ export default function VoiceAssistant({
     }
   };
 
+  const handleMicrophoneClick = async () => {
+    onToggle(); // Открываем окно ассистента
+    // Небольшая задержка, чтобы окно успело открыться
+    setTimeout(() => {
+      if (!isRecording && !isProcessing && !isSpeaking) {
+        startRecording();
+      }
+    }, 100);
+  };
+
   if (!isOpen) {
     return (
       <Button
-        onClick={onToggle}
+        onClick={handleMicrophoneClick}
         size="lg"
         className={`fixed shadow-lg bg-gradient-primary hover:shadow-elevated z-50 rounded-full h-14 w-14 ${
           isMobile 

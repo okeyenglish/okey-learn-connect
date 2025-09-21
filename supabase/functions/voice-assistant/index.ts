@@ -137,6 +137,7 @@ serve(async (req) => {
 1. "поставь задачу", "создай задачу", "напомни" = create_task (НЕ search_clients!)
 2. "найди клиента", "покажи клиента" = search_clients  
 3. "отправь сообщение", "напиши" = send_message
+4. "мои задачи", "покажи задачи", "какие задачи", "список задач", "задачи на сегодня", "просроченные задачи" = get_tasks
 
 ПРИМЕРЫ ПАРСИНГА КОМАНД:
 ✅ "Поставь задачу на завтра на клиента Даниила написать ему сообщение"
@@ -145,8 +146,14 @@ serve(async (req) => {
 ✅ "Создай задачу позвонить Марии в понедельник в 15:00"  
    → create_task: {title: "позвонить", clientName: "Мария", dueDate: "2025-09-23", dueTime: "15:00"}
 
-✅ "Напомни завтра в 12 часов проверить оплату у Петрова"
-   → create_task: {title: "проверить оплату", clientName: "Петров", dueDate: "2025-09-22", dueTime: "12:00"}
+✅ "Покажи мои задачи на сегодня"
+   → get_tasks: {filter: "today"}
+
+✅ "Какие у меня задачи?"
+   → get_tasks: {filter: "all"}
+
+✅ "Есть ли у меня просроченные задачи?"
+   → get_tasks: {filter: "overdue"}
 
 ❌ НЕ ДЕЛАЙ: "поставь задачу на клиента Иван" → search_clients (НЕПРАВИЛЬНО!)
 
@@ -160,12 +167,14 @@ serve(async (req) => {
 
 Доступные функции:
 - create_task: создание задач (основная для команд "поставь задачу")
+- get_tasks: просмотр задач (для "мои задачи", "покажи задачи", "какие задачи")
 - search_clients: только для поиска клиентов
 - send_message: отправка сообщений
-- get_tasks: просмотр задач
 - search_teachers: поиск преподавателей
 
-ВАЖНО: Если команда содержит "поставь задачу" или "создай задачу" - ВСЕГДА используй create_task, даже если упоминается клиент!
+ВАЖНО: 
+- Если команда содержит "поставь задачу" или "создай задачу" - ВСЕГДА используй create_task, даже если упоминается клиент!
+- Если команда спрашивает про задачи ("мои задачи", "какие задачи", "покажи задачи") - ВСЕГДА используй get_tasks!
 
 Всегда отвечай дружелюбно и профессионально на русском языке.
 
@@ -530,49 +539,72 @@ serve(async (req) => {
               break;
 
             case 'get_tasks':
-              // Фильтрация задач по ответственному текущему пользователю (без привязки к филиалу)
+              // Получаем все активные задачи из филиалов пользователя
               const userBranch = userProfile?.branch || 'Окская';
-              const userFullName = `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim();
-              const reversedName = `${userProfile?.last_name || ''} ${userProfile?.first_name || ''}`.trim();
-              const userEmail = userProfile?.email || '';
+              
+              // Получаем список филиалов пользователя
+              const { data: userBranches } = await supabase
+                .from('manager_branches')
+                .select('branch')
+                .eq('manager_id', userId);
+              
+              const branches = [userBranch];
+              if (userBranches && userBranches.length > 0) {
+                branches.push(...userBranches.map(b => b.branch));
+              }
+              
+              // Удаляем дубликаты
+              const uniqueBranches = [...new Set(branches)];
 
-              let taskFilter = supabase
+              let taskQuery = supabase
                 .from('tasks')
                 .select(`
                   id, title, description, status, priority, due_date, due_time, 
-                  created_at, updated_at, responsible, branch,
+                  created_at, updated_at, responsible, branch, client_id,
                   clients(name, phone, email)
                 `)
-                .eq('status', 'active');
+                .eq('status', 'active')
+                .in('branch', uniqueBranches);
 
-              // Фильтрация по ответственному
-              if (userFullName) {
-                taskFilter = taskFilter.or(`responsible.ilike.%${userFullName}%,responsible.ilike.%${reversedName}%`);
-              } else if (userEmail) {
-                taskFilter = taskFilter.ilike('responsible', `%${userEmail}%`);
+              // Применяем фильтр по типу
+              const currentDate = formatMoscowDate(0);
+              if (functionArgs.filter === 'today') {
+                taskQuery = taskQuery.eq('due_date', currentDate);
+              } else if (functionArgs.filter === 'overdue') {
+                taskQuery = taskQuery.lt('due_date', currentDate);
               }
 
               // Сортировка по дате и времени
-              taskFilter = taskFilter.order('due_date', { ascending: true, nullsLast: true })
+              taskQuery = taskQuery.order('due_date', { ascending: true, nullsLast: true })
                                   .order('due_time', { ascending: true, nullsLast: true })
-                                  .limit(20);
+                                  .limit(50);
 
-              const { data: tasks } = await taskFilter;
+              const { data: tasks, error: tasksError } = await taskQuery;
               
-              if (tasks && tasks.length > 0) {
-                const tasksText = tasks.map(t => {
+              if (tasksError) {
+                console.error('Error fetching tasks:', tasksError);
+                singleResult = { type: 'tasks', text: 'Ошибка при получении задач.' };
+              } else if (tasks && tasks.length > 0) {
+                const tasksText = tasks.slice(0, 10).map(t => {
                   const client = t.clients ? ` для ${t.clients.name}` : '';
                   const dueInfo = t.due_date ? ` до ${t.due_date}` : '';
                   const timeInfo = t.due_time ? ` в ${t.due_time}` : '';
                   return `"${t.title}"${client}${dueInfo}${timeInfo}`;
                 }).join(', ');
+                
+                const filterLabel = functionArgs.filter === 'today' ? 'на сегодня' : 
+                                   functionArgs.filter === 'overdue' ? 'просроченных' : 'активных';
+                
                 singleResult = { 
                   type: 'tasks', 
-                  text: `Ваши активные задачи: ${tasksText}`,
-                  data: tasks 
+                  text: `У вас ${tasks.length} ${filterLabel} задач${tasks.length > 10 ? ' (показано 10)' : ''}: ${tasksText}`,
+                  data: tasks,
+                  filter: functionArgs.filter || 'all'
                 };
               } else {
-                singleResult = { type: 'tasks', text: 'У вас нет активных задач.' };
+                const filterLabel = functionArgs.filter === 'today' ? 'на сегодня' : 
+                                   functionArgs.filter === 'overdue' ? 'просроченных' : 'активных';
+                singleResult = { type: 'tasks', text: `У вас нет ${filterLabel} задач.` };
               }
               break;
 
