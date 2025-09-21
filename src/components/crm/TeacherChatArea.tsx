@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useChatMessages, useSendMessage, useMarkAsRead, useRealtimeMessages } from '@/hooks/useChatMessages';
+import { useMarkChatMessagesAsRead } from '@/hooks/useMessageReadStatus';
 import { useTypingStatus } from '@/hooks/useTypingStatus';
 import { usePinCounts } from '@/hooks/usePinCounts';
 import { useWhatsApp } from '@/hooks/useWhatsApp';

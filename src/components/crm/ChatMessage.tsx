@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { AttachedFile } from "./AttachedFile";
+import { MessageReadIndicator } from "./MessageReadIndicator";
 
 interface ChatMessageProps {
   type: 'client' | 'manager' | 'system' | 'comment';
@@ -367,11 +368,12 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
                 <span className="ml-2">отредактировано {editedTime}</span>
               )}
             </span>
-            {type === 'manager' && messageStatus && message !== '[Сообщение удалено]' && (
+            {type === 'manager' && messageId && message !== '[Сообщение удалено]' && (
               <div className="ml-2 flex items-center">
-                {messageStatus === 'sent' && <Check className="h-3 w-3 text-muted-foreground" />}
-                {messageStatus === 'delivered' && <CheckCheck className="h-3 w-3 text-muted-foreground" />}
-                {messageStatus === 'read' && <CheckCheck className="h-3 w-3 text-blue-500" />}
+                <MessageReadIndicator 
+                  messageId={messageId} 
+                  isOutgoing={true}
+                />
               </div>
             )}
           </div>

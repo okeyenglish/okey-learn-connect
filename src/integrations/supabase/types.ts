@@ -396,6 +396,38 @@ export type Database = {
           },
         ]
       }
+      message_read_status: {
+        Row: {
+          created_at: string
+          id: string
+          message_id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message_id: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message_id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_message_read_status_message_id"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messenger_settings: {
         Row: {
           created_at: string
@@ -816,6 +848,14 @@ export type Database = {
           pin_count: number
         }[]
       }
+      get_message_read_status: {
+        Args: { p_message_id: string }
+        Returns: {
+          read_at: string
+          user_id: string
+          user_name: string
+        }[]
+      }
       get_public_schedule: {
         Args: Record<PropertyKey, never> | { branch_name?: string }
         Returns: {
@@ -901,6 +941,14 @@ export type Database = {
       l2_normalize: {
         Args: { "": string } | { "": unknown } | { "": unknown }
         Returns: unknown
+      }
+      mark_chat_messages_as_read: {
+        Args: { p_client_id: string }
+        Returns: undefined
+      }
+      mark_message_as_read: {
+        Args: { p_message_id: string }
+        Returns: undefined
       }
       match_docs: {
         Args: { match_count: number; query_embedding: string }

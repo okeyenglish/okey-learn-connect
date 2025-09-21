@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useClients, useSearchClients, useCreateClient } from "@/hooks/useClients";
 import { useClientStatus } from "@/hooks/useClientStatus";
 import { useChatThreads, useRealtimeMessages, useMarkAsRead, useMarkAsUnread } from "@/hooks/useChatMessages";
+import { useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
 import { useStudents } from "@/hooks/useStudents";
 import { ChatArea } from "@/components/crm/ChatArea";
 import { CorporateChatArea } from "@/components/crm/CorporateChatArea";
@@ -101,6 +102,7 @@ const CRMContent = () => {
   const createClient = useCreateClient();
   const markAsReadMutation = useMarkAsRead();
   const markAsUnreadMutation = useMarkAsUnread();
+  const markChatMessagesAsReadMutation = useMarkChatMessagesAsRead();
   const queryClient = useQueryClient();
   const { 
     pinnedModals, 
@@ -760,7 +762,9 @@ const CRMContent = () => {
       await markChatAsReadGlobally(chatId);
       
       if (chatType === 'client') {
-        // Помечаем сообщения как прочитанные в базе данных
+        // Помечаем все сообщения в чате как прочитанные для текущего пользователя
+        markChatMessagesAsReadMutation.mutate(chatId);
+        // Помечаем сообщения как прочитанные в базе данных (старая система)
         markAsReadMutation.mutate(chatId);
         // Помечаем чат как прочитанный в персональном состоянии (для закрепленных и пр.)
         markAsRead(chatId);
@@ -771,6 +775,7 @@ const CRMContent = () => {
         teacherChats.forEach(async (chat: any) => {
           if (chat.id) {
             await markChatAsReadGlobally(chat.id);
+            markChatMessagesAsReadMutation.mutate(chat.id);
             markAsReadMutation.mutate(chat.id);
             markAsRead(chat.id);
           }

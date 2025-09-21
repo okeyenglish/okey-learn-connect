@@ -23,6 +23,7 @@ import { AttachedFile } from "./AttachedFile";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
 
 interface ChatAreaProps {
   clientId: string;
@@ -97,6 +98,7 @@ export const ChatArea = ({
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
+  const markChatMessagesAsReadMutation = useMarkChatMessagesAsRead();
 
   // Функция для прокрутки к концу чата
   const scrollToBottom = (smooth = true) => {
@@ -156,6 +158,9 @@ export const ChatArea = ({
       if (formattedMessages.length > 0) {
         setTimeout(() => scrollToBottom(false), 50);
         setIsInitialLoad(false);
+        
+        // Отмечаем все сообщения в чате как прочитанные
+        markChatMessagesAsReadMutation.mutate(clientId);
       }
     } catch (error) {
       console.error('Error loading messages:', error);

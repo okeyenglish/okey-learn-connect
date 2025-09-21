@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ChatMessage } from "./ChatMessage";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useChatMessages, useSendMessage, useMarkAsRead, useRealtimeMessages } from '@/hooks/useChatMessages';
+import { useMarkChatMessagesAsRead } from '@/hooks/useMessageReadStatus';
 import { useTypingStatus } from '@/hooks/useTypingStatus';
 import { toast } from "sonner";
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
