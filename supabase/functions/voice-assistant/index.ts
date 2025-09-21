@@ -563,13 +563,26 @@ serve(async (req) => {
                 default: filterText = 'все';
               }
               
-              const tasksText = tasks.slice(0, 5).map(t => {
-                const date = t.due_date ? ` (к ${t.due_date})` : '';
-                const statusText = t.status === 'active' ? 'активна' : (t.status === 'completed' ? 'выполнена' : t.status);
-                const responsible = t.responsible ? ` — ${t.responsible}` : '';
-                return `"${t.title}"${date}${responsible} — ${statusText}`;
-              }).join(', ');
-              responseText = `Найдены задачи (${filterText}): ${tasksText}${tasks.length > 5 ? ` и ещё ${tasks.length - 5}` : ''}.`;
+              // Компактный ответ: просто количество и краткий список
+              const count = tasks.length;
+              let filterText = '';
+              switch (functionArgs.filter) {
+                case 'today': filterText = 'на сегодня'; break;
+                case 'overdue': filterText = 'просроченных'; break;
+                case 'pending': filterText = 'активных'; break;
+                case 'completed': filterText = 'выполненных'; break;
+                default: filterText = '';
+              }
+              
+              if (count === 1) {
+                responseText = `${count} задача ${filterText}: "${tasks[0].title}".`;
+              } else if (count <= 4) {
+                const titles = tasks.map(t => `"${t.title}"`).join(', ');
+                responseText = `${count} задачи ${filterText}: ${titles}.`;
+              } else {
+                responseText = `${count} задач ${filterText}.`;
+              }
+              
               actionResult = { type: 'tasks', data: tasks, filter: functionArgs.filter };
             } else {
               responseText = `Задач${functionArgs.filter ? ` (${functionArgs.filter})` : ''} не найдено для ${userFullName || 'текущего пользователя'}.`;
