@@ -92,16 +92,35 @@ export const AddTaskModal = ({
   const { data: employees = [] } = useEmployees(profile?.branch);
   const { sendTaskCreatedNotification } = useTaskNotifications();
 
-  // Sync incoming client props into local selection state
+  // Автосинхронизация клиента и сброс полей при открытии модалки
   useEffect(() => {
+    if (!open) return;
     if (clientId && clientName) {
       setSelectedClientId(clientId);
       setSelectedClientName(clientName);
       if (familyGroupId) setSelectedFamilyGroupId(familyGroupId);
+    } else {
+      // Открыли без контекста клиента — очищаем прошлый выбор
+      setSelectedClientId(undefined);
+      setSelectedClientName(undefined);
+      setSelectedFamilyGroupId(undefined);
     }
-  }, [clientId, clientName, familyGroupId]);
+    // Сбросить зависящие поля, чтобы не тянуть значения из предыдущего открытия
+    setFormData(prev => ({ ...prev, selectedStudent: "", responsible: "" }));
+  }, [open, clientId, clientName, familyGroupId]);
 
-
+  // Автопроставление ответственного (текущий пользователь) при открытии и наличии клиента
+  useEffect(() => {
+    if (!open) return;
+    if (!hasClient) return;
+    if (!formData.responsible && employees.length > 0) {
+      const currentEmployee = employees.find(emp =>
+        emp.email === profile?.email ||
+        (emp.first_name === profile?.first_name && emp.last_name === profile?.last_name)
+      );
+      setFormData(prev => ({ ...prev, responsible: currentEmployee?.id || employees[0].id }));
+    }
+  }, [open, hasClient, employees, profile, formData.responsible]);
   // Resolve family group for selected client
   useEffect(() => {
     const run = async () => {
