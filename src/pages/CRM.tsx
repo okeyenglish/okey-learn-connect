@@ -548,23 +548,42 @@ const CRMContent = () => {
     console.log('Переключение на чат:', { chatId, chatType });
     
     // Только переключаемся на новый чат, если это действительно другой чат
-    const isNewChat = activeChatId !== chatId;
+    const isNewChat = activeChatId !== chatId || activeChatType !== chatType;
     setActiveChatId(chatId);
     setActiveChatType(chatType);
     
     // Помечаем как прочитанное только при переключении на НОВЫЙ чат
-    if (chatType === 'client' && isNewChat) {
-      // Помечаем сообщения как прочитанные в базе данных
-      markAsReadMutation.mutate(chatId);
-      
-      // Помечаем чат как прочитанный в состоянии чата
-      markAsRead(chatId);
+    if (isNewChat) {
+      if (chatType === 'client') {
+        // Помечаем сообщения как прочитанные в базе данных
+        markAsReadMutation.mutate(chatId);
+        // Помечаем чат как прочитанный в состоянии чата
+        markAsRead(chatId);
+      } else if (chatType === 'corporate') {
+        // Для корпоративных чатов найдем все соответствующие клиентские записи
+        corporateChats.forEach((chat: any) => {
+          if (chat.id) {
+            markAsReadMutation.mutate(chat.id);
+            markAsRead(chat.id);
+          }
+        });
+      } else if (chatType === 'teachers') {
+        // Для преподавательских чатов
+        teacherChats.forEach((chat: any) => {
+          if (chat.id) {
+            markAsReadMutation.mutate(chat.id);
+            markAsRead(chat.id);
+          }
+        });
+      }
     }
     
     // Обновляем имя активного клиента для модальных окон
-    const activeClient = clients.find(client => client.id === chatId);
-    if (activeClient) {
-      setActiveClientName(activeClient.name);
+    if (chatType === 'client') {
+      const activeClient = clients.find(client => client.id === chatId);
+      if (activeClient) {
+        setActiveClientName(activeClient.name);
+      }
     }
   };
 
@@ -1452,8 +1471,13 @@ const CRMContent = () => {
             />
           ) : activeChatType === 'teachers' ? (
             <TeacherChatArea 
-              selectedTeacherId={selectedTeacherId}
-              onSelectTeacher={(teacherId: string | null) => setSelectedTeacherId(teacherId)}
+              selectedTeacherId={activeChatId === 'teachers' ? 'teachers-group' : activeChatId}
+              onSelectTeacher={(teacherId: string | null) => {
+                setSelectedTeacherId(teacherId);
+                if (teacherId) {
+                  setActiveChatId(teacherId);
+                }
+              }}
             />
           ) : (
             <div className="flex-1 bg-background flex items-center justify-center p-4">

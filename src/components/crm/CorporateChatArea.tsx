@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Search, Plus, FileText, Phone, Building2, ArrowLeft, Pin } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Search, Plus, FileText, Phone, Building2, ArrowLeft, Pin, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,8 +9,8 @@ import { ChatMessage } from "./ChatMessage";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useChatMessages, useSendMessage, useMarkAsRead, useRealtimeMessages } from '@/hooks/useChatMessages';
 import { useTypingStatus } from '@/hooks/useTypingStatus';
-import { usePinCounts } from '@/hooks/usePinCounts';
 import { toast } from "sonner";
+import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
 import { supabase } from '@/integrations/supabase/client';
 
 interface CorporateChatAreaProps {
@@ -18,84 +18,6 @@ interface CorporateChatAreaProps {
   selectedBranchId?: string | null; // e.g. 'okskaya'
   embedded?: boolean; // if true, render without internal left sidebar
 }
-
-// Mock corporate chat history for different branches
-const mockCorporateChats: Record<string, any[]> = {
-  'okskaya': [
-    {
-      type: 'manager' as const,
-      message: 'Добрый день! У нас новое расписание на следующую неделю',
-      time: '14:30',
-      sender: 'Пышнов Данил'
-    },
-    {
-      type: 'manager' as const,
-      message: 'Отлично, когда можно посмотреть?',
-      time: '14:32',
-      sender: 'Иванова Мария'
-    },
-    {
-      type: 'manager' as const,
-      message: 'Уже выложил в общей папке',
-      time: '14:33',
-      sender: 'Пышнов Данил'
-    }
-  ],
-  'kotelniki': [
-    {
-      type: 'manager' as const,
-      message: 'Нужна помощь с настройкой нового оборудования',
-      time: '13:15',
-      sender: 'Петров Алексей'
-    },
-    {
-      type: 'manager' as const,
-      message: 'Могу подъехать после 16:00',
-      time: '13:18',
-      sender: 'Сидоров Игорь'
-    }
-  ],
-  'stakhanovskaya': [
-    {
-      type: 'manager' as const,
-      message: 'Кто может подменить завтра во второй смене?',
-      time: '12:45',
-      sender: 'Козлова Елена'
-    }
-  ],
-  'novokosino': [
-    {
-      type: 'manager' as const,
-      message: 'Поступила новая партия учебников',
-      time: '11:20',
-      sender: 'Орлов Максим'
-    }
-  ],
-  'mytishchi': [
-    {
-      type: 'manager' as const,
-      message: 'Планируем открытый урок на следующей неделе',
-      time: '10:30',
-      sender: 'Белова Анна'
-    }
-  ],
-  'solntsevo': [
-    {
-      type: 'manager' as const,
-      message: 'Успешно завершили курс для взрослых',
-      time: '16:45',
-      sender: 'Морозов Денис'
-    }
-  ],
-  'online': [
-    {
-      type: 'manager' as const,
-      message: 'Обновили платформу для онлайн занятий',
-      time: '09:15',
-      sender: 'Волков Артем'
-    }
-  ]
-};
 
 const branches = [
   { id: 'okskaya', name: 'Окская', unread: 0 },
@@ -113,28 +35,38 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
   const [showSearchInput, setShowSearchInput] = useState(false);
   const [activeBranch, setActiveBranch] = useState<string | null>(selectedBranchId);
   const [allowedBranches, setAllowedBranches] = useState<string[]>([]);
-  const [pinCounts, setPinCounts] = useState<Record<string, number>>({});
   const isMobile = useIsMobile();
+  
+  // Получаем реальные данные корпоративных чатов
+  const { corporateChats, isLoading: systemChatsLoading } = useSystemChatMessages();
 
-  // Load pin counts for visualization
-  useEffect(() => {
-    const loadPinCounts = async () => {
-      try {
-        const allChatIds = branches.map(b => `corporate-${b.id}`);
-        const { data, error } = await supabase.rpc('get_chat_pin_counts', { _chat_ids: allChatIds });
-        if (!error && data) {
-          const counts = data.reduce((acc: Record<string, number>, item: any) => {
-            acc[item.chat_id] = item.pin_count;
-            return acc;
-          }, {});
-          setPinCounts(counts);
-        }
-      } catch (error) {
-        console.error('Error loading pin counts:', error);
-      }
+  // Группируем корпоративные чаты по филиалам
+  const branchChats = (corporateChats || []).reduce((acc: any, chat: any) => {
+    if (!acc[chat.branch]) {
+      acc[chat.branch] = [];
+    }
+    acc[chat.branch].push(chat);
+    return acc;
+  }, {});
+
+  // Создаем список филиалов с данными о последних сообщениях
+  const branchesWithData = branches.map(branch => {
+    const chatsForBranch = branchChats[branch.name] || [];
+    const latestMessage = chatsForBranch.reduce((latest: any, chat: any) => {
+      if (!chat.lastMessageTime) return latest;
+      if (!latest) return chat;
+      return new Date(chat.lastMessageTime) > new Date(latest.lastMessageTime) ? chat : latest;
+    }, null);
+    
+    const totalUnread = chatsForBranch.reduce((sum: number, chat: any) => sum + (chat.unreadCount || 0), 0);
+    
+    return {
+      ...branch,
+      unread: totalUnread,
+      lastMessage: latestMessage?.lastMessage || 'Нет сообщений',
+      lastMessageTime: latestMessage?.lastMessageTime || null
     };
-    loadPinCounts();
-  }, []);
+  });
 
   // Load allowed branches for current user
   useEffect(() => {
@@ -261,7 +193,7 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
     if (!activeBranch) {
       return (
         <div className="flex flex-col h-full bg-background">
-          <div className="p-3 border-b">
+          <div className="flex items-center justify-between p-4 border-b">
             <div className="flex items-center gap-2">
               <Building2 className="h-5 w-5 text-slate-600" />
               <h2 className="font-semibold text-base">Корпоративный чат</h2>
@@ -270,8 +202,7 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
           
           <div className="flex-1 overflow-y-auto">
             <div className="p-3 space-y-2">
-              {branches.map((branch) => {
-                const branchMessages = mockCorporateChats[branch.id] || [];
+              {branchesWithData.map((branch) => {
                 return (
                   <button
                     key={branch.id}
@@ -283,35 +214,25 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
                         <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                           <Building2 className="h-6 w-6 text-blue-600" />
                         </div>
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="font-medium text-sm">{branch.name}</p>
-                            <div className="flex items-center gap-1">
-                              {pinCounts[branch.id] > 0 && (
-                                <Pin className="h-3 w-3 text-muted-foreground" />
-                              )}
-                              {branch.unread > 0 && (
-                                <Badge variant="destructive" className="text-xs h-5 min-w-5 px-1.5">
-                                  {branch.unread}
-                                </Badge>
-                              )}
-                            </div>
+                            <p className="font-medium text-sm truncate">{branch.name}</p>
+                            {branch.unread > 0 && (
+                              <Badge variant="destructive" className="text-xs h-5">
+                                {branch.unread}
+                              </Badge>
+                            )}
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1 truncate">
-                            {branchMessages.length > 0 
-                              ? branchMessages[branchMessages.length - 1].message 
-                              : 'Нет сообщений'
-                            }
+                          <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
+                            {branch.lastMessage}
                           </p>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end">
+                      <div className="flex flex-col items-end gap-2">
                         <span className="text-xs text-muted-foreground">
-                          {branchMessages.length > 0 
-                            ? branchMessages[branchMessages.length - 1].time 
-                            : ''
-                          }
+                          {branch.lastMessageTime ? new Date(branch.lastMessageTime).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : ''}
                         </span>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       </div>
                     </div>
                   </button>
@@ -323,151 +244,79 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
       );
     }
 
-    // Показываем чат выбранного филиала
+    // Показываем чат конкретного филиала
     return (
-       <div className="flex flex-col h-full min-h-0 bg-background">
-        {/* Chat Header with Back Button */}
-        <div className="border-b p-3 shrink-0">
+      <div className="flex flex-col h-full bg-background">
+        <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-3">
             <Button 
               size="sm" 
               variant="ghost" 
-              className="h-8 w-8 p-0"
               onClick={handleBackToList}
+              className="p-1"
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <div className="flex-1">
-              <h2 className="font-semibold text-base flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-slate-600" />
-                Филиал {getActiveBranch().name}
-              </h2>
-              <p className="text-sm text-muted-foreground">Корпоративный чат</p>
-            </div>
             <div className="flex items-center gap-2">
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="h-8 w-8 p-0"
-                title="Добавить задачу"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-              <Button 
-                size="sm" 
-                variant={showSearchInput ? "default" : "outline"}
-                className="h-8 w-8 p-0"
-                title="Поиск в чате"
-                onClick={handleSearchToggle}
-              >
-                <Search className="h-4 w-4" />
-              </Button>
+              <Building2 className="h-5 w-5 text-blue-600" />
+              <h2 className="font-semibold text-base">{getActiveBranch().name}</h2>
             </div>
           </div>
-          {showSearchInput && (
-            <div className="mt-2">
-              <Input
-                placeholder="Поиск в чате..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-8"
-                autoFocus
-              />
+          
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="ghost" onClick={handleSearchToggle}>
+              <Search className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {showSearchInput && (
+          <div className="p-3 border-b">
+            <Input
+              type="text"
+              placeholder="Поиск сообщений..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full"
+            />
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {filteredMessages.map((msg, index) => (
+                <ChatMessage 
+                  key={msg.id || index}
+                  message={msg.message_text}
+                  time={new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                  type={msg.message_type}
+                />
+              ))}
+          {isOtherUserTyping && (
+            <div className="text-sm text-muted-foreground italic">
+              {getTypingMessage()}
             </div>
           )}
         </div>
 
-        {/* Chat Messages */}
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <Tabs defaultValue="main" className="h-full flex flex-col min-h-0">
-            <TabsList className="grid w-full grid-cols-4 rounded-none bg-orange-50/30 border-orange-200 border-t rounded-t-none">
-              <TabsTrigger value="main" className="text-xs">Основной</TabsTrigger>
-              <TabsTrigger value="announcements" className="text-xs">Объявления</TabsTrigger>
-              <TabsTrigger value="questions" className="text-xs">Вопросы</TabsTrigger>
-              <TabsTrigger value="social" className="text-xs">Общение</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="main" className="flex-1 p-3 overflow-y-auto mt-0">
-              <div className="space-y-1">
-                {filteredMessages.map((msg) => (
-                  <ChatMessage
-                    key={msg.id}
-                    type={msg.message_type}
-                    message={msg.message_text}
-                    time={new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                    managerName={msg.message_type === 'manager' ? 'Вы' : 'Сотрудник'}
-                  />
-                ))}
-                {isOtherUserTyping && (
-                  <div className="text-sm text-muted-foreground italic">
-                    {getTypingMessage()}
-                  </div>
-                )}
-                {searchQuery && filteredMessages.length === 0 && (
-                  <div className="text-center text-muted-foreground text-sm py-4">
-                    Сообщения не найдены
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="announcements" className="flex-1 p-3 overflow-y-auto mt-0">
-              <div className="text-center text-muted-foreground text-sm py-4">
-                Объявления для филиала {getActiveBranch().name}
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="questions" className="flex-1 p-3 overflow-y-auto mt-0">
-              <div className="text-center text-muted-foreground text-sm py-4">
-                Вопросы и ответы
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="social" className="flex-1 p-3 overflow-y-auto mt-0">
-              <div className="text-center text-muted-foreground text-sm py-4">
-                Неформальное общение
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div>
-
-        {/* Message Input */}
-        <div className="border-t p-3 shrink-0">
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
-              <Textarea
-                placeholder="Введите сообщение для команды..."
-                value={message}
-                onChange={(e) => handleMessageChange(e.target.value)}
-                className="min-h-[40px] max-h-[120px] resize-none"
-                rows={1}
-                   onKeyDown={(e) => {
-                     if (e.key === 'Enter' && !e.shiftKey) {
-                       e.preventDefault();
-                       handleSendMessage();
-                     }
-                   }}
-              />
-              <div className="flex items-center gap-1 mt-2">
-                <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                  <Paperclip className="h-3 w-3" />
-                </Button>
-                <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                  <Zap className="h-3 w-3" />
-                </Button>
-                <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                  <MessageCircle className="h-3 w-3" />
-                </Button>
-                <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                  <Mic className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
+        <div className="p-4 border-t">
+          <div className="flex gap-2">
+            <Textarea
+              value={message}
+              onChange={(e) => handleMessageChange(e.target.value)}
+              placeholder="Напишите сообщение..."
+              className="flex-1 min-h-[40px] max-h-[120px] resize-none"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+            />
             <Button 
-              size="icon" 
-              className="rounded-full h-10 w-10"
               onClick={handleSendMessage}
               disabled={!message.trim()}
+              size="sm"
+              className="px-3"
             >
               <Send className="h-4 w-4" />
             </Button>
@@ -477,220 +326,129 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
     );
   }
 
-  // Десктопная версия - двухпанельный интерфейс
+  // Desktop версия
   return (
-    <div className="flex h-full">
-      {/* Left Sidebar - Branch List */}
-      <div className="w-64 border-r bg-background flex flex-col">
-        <div className="p-3 border-b">
-          <div className="flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-slate-600" />
-            <h2 className="font-semibold text-base">Корпоративный чат</h2>
+    <div className="flex h-full bg-background">
+      {!embedded && (
+        <div className="w-80 border-r bg-muted/30 flex flex-col">
+          <div className="p-4 border-b">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-slate-600" />
+              <h2 className="font-semibold text-base">Корпоративный чат</h2>
+            </div>
           </div>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-2 space-y-1">
-            {branches.map((branch) => {
-              const branchMessages = mockCorporateChats[branch.id] || [];
-              return (
-                <button
-                  key={branch.id}
-                  onClick={() => setActiveBranch(branch.id)}
-                  className={`w-full text-left p-3 rounded-lg transition-colors ${
-                    activeBranch === branch.id 
-                      ? 'bg-slate-100 border border-slate-200' 
-                      : 'hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                   <div className="flex items-center gap-2">
-                     <Building2 className="h-4 w-4 text-slate-500" />
-                     <span className="font-medium text-sm flex items-center gap-1">
-                       {branch.name}
-                       {pinCounts[`corporate-${branch.id}`] > 0 && (
-                         <Pin className="h-3 w-3 text-muted-foreground opacity-70" />
-                       )}
-                     </span>
-                   </div>
-                    <div className="flex items-center gap-1">
-                      {pinCounts[branch.id] > 0 && (
-                        <Pin className="h-3 w-3 text-muted-foreground" />
-                      )}
-                      {branch.unread > 0 && (
-                        <Badge variant="destructive" className="text-xs h-5 min-w-5 px-1.5">
-                          {branch.unread}
-                        </Badge>
-                      )}
+          
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-2 space-y-1">
+              {branchesWithData.map((branch) => {
+                return (
+                  <button
+                    key={branch.id}
+                    onClick={() => setActiveBranch(branch.id)}
+                    className={`w-full text-left p-3 rounded-lg transition-colors ${
+                      activeBranch === branch.id 
+                        ? 'bg-slate-100 border border-slate-200' 
+                        : 'hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <Building2 className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-sm truncate">{branch.name}</p>
+                            {branch.unread > 0 && (
+                              <Badge variant="destructive" className="text-xs h-4">
+                                {branch.unread}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {branch.lastMessage}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="text-xs text-muted-foreground">
+                          {branch.lastMessageTime ? new Date(branch.lastMessageTime).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : ''}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1 truncate">
-                    {branchMessages.length > 0 
-                      ? branchMessages[branchMessages.length - 1].message 
-                      : 'Нет сообщений'
-                    }
-                  </p>
-                </button>
-              );
-            })}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Right Chat Area */}
-      <div className="flex-1 bg-background flex flex-col min-w-0 min-h-0">
+      <div className="flex-1 flex flex-col">
         {activeBranch ? (
           <>
-            {/* Chat Header */}
-            <div className="border-b p-3 shrink-0">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="font-semibold text-base flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-slate-600" />
-                    Филиал {getActiveBranch().name}
-                  </h2>
-                  <p className="text-sm text-muted-foreground">Корпоративный чат</p>
-                </div>
+            <div className="flex items-center justify-between p-4 border-b">
+              <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="h-8 w-8 p-0"
-                    title="Добавить задачу"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="h-8 w-8 p-0"
-                    title="Выставить счёт"
-                  >
-                    <FileText className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="h-8 w-8 p-0"
-                    title="Позвонить"
-                  >
-                    <Phone className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant={showSearchInput ? "default" : "outline"}
-                    className="h-8 w-8 p-0"
-                    title="Поиск в чате"
-                    onClick={handleSearchToggle}
-                  >
-                    <Search className="h-4 w-4" />
-                  </Button>
-                  {showSearchInput && (
-                    <Input
-                      placeholder="Поиск в чате..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-64 h-8 ml-2"
-                      autoFocus
-                    />
-                  )}
+                  <Building2 className="h-5 w-5 text-blue-600" />
+                  <h2 className="font-semibold text-base">{getActiveBranch().name}</h2>
                 </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="ghost" onClick={handleSearchToggle}>
+                  <Search className="h-4 w-4" />
+                </Button>
               </div>
             </div>
 
-            {/* Chat Messages */}
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <Tabs defaultValue="main" className="h-full flex flex-col min-h-0">
-                <TabsList className="grid w-full grid-cols-4 rounded-none bg-orange-50/30 border-orange-200 border-t rounded-t-none">
-                  <TabsTrigger value="main" className="text-xs">Основной</TabsTrigger>
-                  <TabsTrigger value="announcements" className="text-xs">Объявления</TabsTrigger>
-                  <TabsTrigger value="questions" className="text-xs">Вопросы</TabsTrigger>
-                  <TabsTrigger value="social" className="text-xs">Общение</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="main" className="flex-1 p-3 overflow-y-auto mt-0">
-                  <div className="space-y-1">
-                     {filteredMessages.map((msg, index) => (
-                       <div key={msg.id} className="flex flex-col gap-1">
-                         <div className="flex items-center gap-2 mb-1">
-                           <div className="w-6 h-6 bg-slate-200 rounded-full flex items-center justify-center">
-                             <span className="text-xs font-medium text-slate-600">
-                               {msg.message_type === 'manager' ? 'M' : 'C'}
-                             </span>
-                           </div>
-                           <span className="text-xs font-medium text-slate-700">
-                             {msg.message_type === 'manager' ? 'Вы' : 'Сотрудник'}
-                           </span>
-                           <span className="text-xs text-muted-foreground">
-                             {new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                           </span>
-                         </div>
-                         <div className="ml-8">
-                           <div className="bg-slate-50 rounded-lg p-2 text-sm">
-                             {msg.message_text}
-                           </div>
-                         </div>
-                       </div>
-                     ))}
-                    {searchQuery && filteredMessages.length === 0 && (
-                      <div className="text-center text-muted-foreground text-sm py-4">
-                        Сообщения не найдены
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
+            {showSearchInput && (
+              <div className="p-3 border-b">
+                <Input
+                  type="text"
+                  placeholder="Поиск сообщений..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)} 
+                  className="w-full"
+                />
+              </div>
+            )}
 
-                <TabsContent value="announcements" className="flex-1 p-3 overflow-y-auto mt-0">
-                  <div className="text-center text-muted-foreground text-sm py-4">
-                    Объявления для филиала {getActiveBranch().name}
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="questions" className="flex-1 p-3 overflow-y-auto mt-0">
-                  <div className="text-center text-muted-foreground text-sm py-4">
-                    Вопросы и ответы
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="social" className="flex-1 p-3 overflow-y-auto mt-0">
-                  <div className="text-center text-muted-foreground text-sm py-4">
-                    Неформальное общение
-                  </div>
-                </TabsContent>
-              </Tabs>
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {filteredMessages.map((msg, index) => (
+                <ChatMessage 
+                  key={msg.id || index}
+                  message={msg.message_text}
+                  time={new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                  type={msg.message_type}
+                />
+              ))}
+              {isOtherUserTyping && (
+                <div className="text-sm text-muted-foreground italic">
+                  {getTypingMessage()}
+                </div>
+              )}
             </div>
 
-            {/* Message Input */}
-            <div className="border-t p-3 shrink-0">
-              <div className="flex items-end gap-2">
-                <div className="flex-1">
-                  <Textarea
-                    placeholder="Введите сообщение для команды..."
-                    value={message}
-                    onChange={(e) => handleMessageChange(e.target.value)}
-                    className="min-h-[40px] max-h-[120px] resize-none"
-                    rows={1}
-                  />
-                  <div className="flex items-center gap-1 mt-2">
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                      <Paperclip className="h-3 w-3" />
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                      <Zap className="h-3 w-3" />
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                      <MessageCircle className="h-3 w-3" />
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                      <Mic className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
+            <div className="p-4 border-t">
+              <div className="flex gap-2">
+                <Textarea
+                  value={message}
+                  onChange={(e) => handleMessageChange(e.target.value)}
+                  placeholder="Напишите сообщение..."
+                  className="flex-1 min-h-[40px] max-h-[120px] resize-none"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                />
                 <Button 
-                  size="icon" 
-                  className="rounded-full h-10 w-10"
                   onClick={handleSendMessage}
-                  disabled={!message.trim() || !clientId}
+                  disabled={!message.trim()}
+                  size="sm"
+                  className="px-3"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
@@ -698,12 +456,12 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
             </div>
           </>
         ) : (
-          <div className="flex-1 bg-background flex items-center justify-center p-4">
+          <div className="flex-1 flex items-center justify-center p-4">
             <div className="text-center text-muted-foreground max-w-sm mx-auto">
-              <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <Building2 className="h-16 w-16 mx-auto mb-4 opacity-50" />
               <h3 className="text-lg font-semibold mb-2">Выберите филиал</h3>
               <p className="text-sm">
-                Выберите филиал из списка слева, чтобы начать общение с командой
+                Выберите филиал из списка слева, чтобы начать общение с коллегами
               </p>
             </div>
           </div>

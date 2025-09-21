@@ -65,6 +65,7 @@ export const useSystemChatMessages = () => {
             unreadCount: unreadCount || 0,
             type: client.name.includes('Корпоративный') ? 'corporate' : 'teachers'
           };
+        })
       );
 
       return chatData;
