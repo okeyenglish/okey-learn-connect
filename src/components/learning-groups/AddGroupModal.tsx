@@ -134,6 +134,41 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
     }
   };
 
+  // Auto-calculate end date and academic hours
+  const updateCalculatedFields = () => {
+    setFormData(prev => {
+      let newEndDate = prev.period_end;
+      
+      // Calculate end date if we have start date, level, and schedule days
+      if (prev.period_start && prev.level && prev.schedule_days.length > 0) {
+        if (shouldSetMay31End(prev.level)) {
+          newEndDate = getNextMay31();
+        } else {
+          const totalLessons = getTotalLessons(prev.level);
+          if (totalLessons > 0) {
+            newEndDate = calculateEndDate(prev.period_start, prev.schedule_days, totalLessons);
+          }
+        }
+      }
+      
+      // Calculate academic hours
+      const lessonDuration = getLessonDuration();
+      let newAcademicHours = prev.academic_hours;
+      if (prev.period_start && newEndDate && prev.schedule_days.length > 0 && lessonDuration > 0) {
+        const hours = calculateAcademicHours(prev.period_start, newEndDate, prev.schedule_days, lessonDuration);
+        if (hours > 0) {
+          newAcademicHours = hours.toString();
+        }
+      }
+      
+      return {
+        ...prev,
+        period_end: newEndDate,
+        academic_hours: newAcademicHours
+      };
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -614,7 +649,7 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                             selected={formData.period_start || undefined}
                             onSelect={(date) => {
                               setFormData(prev => ({ ...prev, period_start: date || null }));
-                              setTimeout(updateAcademicHours, 100);
+                              setTimeout(updateCalculatedFields, 100);
                             }}
                             className="p-3 pointer-events-auto"
                             initialFocus
@@ -674,7 +709,7 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                         size="sm"
                         onClick={() => {
                           toggleDay(day);
-                          setTimeout(updateAcademicHours, 100);
+                          setTimeout(updateCalculatedFields, 100);
                         }}
                         className={formData.schedule_days.includes(day) ? "bg-blue-600 text-white" : ""}
                       >
@@ -697,7 +732,7 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                           value={formData.lesson_start_hour}
                           onValueChange={(value) => {
                             setFormData(prev => ({ ...prev, lesson_start_hour: value }));
-                            setTimeout(updateAcademicHours, 100);
+                            setTimeout(updateCalculatedFields, 100);
                           }}
                           required
                         >
@@ -716,7 +751,7 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                           value={formData.lesson_start_minute}
                           onValueChange={(value) => {
                             setFormData(prev => ({ ...prev, lesson_start_minute: value }));
-                            setTimeout(updateAcademicHours, 100);
+                            setTimeout(updateCalculatedFields, 100);
                           }}
                           required
                         >
@@ -741,7 +776,7 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                           value={formData.lesson_end_hour}
                           onValueChange={(value) => {
                             setFormData(prev => ({ ...prev, lesson_end_hour: value }));
-                            setTimeout(updateAcademicHours, 100);
+                            setTimeout(updateCalculatedFields, 100);
                           }}
                           required
                         >
@@ -760,7 +795,7 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                           value={formData.lesson_end_minute}
                           onValueChange={(value) => {
                             setFormData(prev => ({ ...prev, lesson_end_minute: value }));
-                            setTimeout(updateAcademicHours, 100);
+                            setTimeout(updateCalculatedFields, 100);
                           }}
                           required
                         >
