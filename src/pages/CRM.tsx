@@ -36,7 +36,7 @@ import { PinnableModalHeader, PinnableDialogContent } from "@/components/crm/Pin
 import { ManagerMenu } from "@/components/crm/ManagerMenu";
 import { usePinnedModalsDB, PinnedModal } from "@/hooks/usePinnedModalsDB";
 import { useChatStatesDB } from "@/hooks/useChatStatesDB";
-import { useAllTasks } from "@/hooks/useTasks";
+import { useAllTasks, useCompleteTask, useCancelTask } from "@/hooks/useTasks";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { 
   Search, 
@@ -67,6 +67,8 @@ import {
   MoreVertical,
   Archive,
   BellOff,
+  Check,
+  Clock,
   Lock
 } from "lucide-react";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
@@ -109,6 +111,8 @@ const CRMContent = () => {
     getChatState
   } = useChatStatesDB();
   const { tasks: allTasks, isLoading: tasksLoading } = useAllTasks();
+  const completeTask = useCompleteTask();
+  const cancelTask = useCancelTask();
   const [openModal, setOpenModal] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("chats");
   const [hasUnsavedChat, setHasUnsavedChat] = useState(false);
@@ -194,8 +198,31 @@ const CRMContent = () => {
   };
 
   // Обработчик переключения вкладок
+  const handleCompleteTask = async (taskId: string) => {
+    try {
+      await completeTask.mutateAsync(taskId);
+    } catch (error) {
+      console.error('Error completing task:', error);
+    }
+  };
+
+  const handleCancelTask = async (taskId: string) => {
+    try {
+      await cancelTask.mutateAsync(taskId);
+    } catch (error) {
+      console.error('Error cancelling task:', error);
+    }
+  };
+
+  const handleClientClick = (clientId: string | null) => {
+    if (clientId) {
+      setActiveChatId(clientId);
+      setActiveChatType('client');
+      setActiveTab('chats');
+    }
+  };
+
   const handleTabChange = (newTab: string) => {
-    // Закрываем все модальные окна при переключении вкладок
     setOpenModal(null);
     setShowAddTaskModal(false);
     setShowEditTaskModal(false);
@@ -927,31 +954,65 @@ const CRMContent = () => {
                                   <div className="text-center py-4 text-muted-foreground">
                                     Загрузка задач...
                                   </div>
-                                ) : allTasks.length > 0 ? (
-                                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                                    {allTasks.map((task) => (
-                                      <div key={task.id} className={`p-2 border-l-4 ${
-                                        task.priority === 'high' ? 'border-red-500 bg-red-50' :
-                                        task.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
-                                        'border-blue-500 bg-blue-50'
-                                      }`}>
-                                        <p className="font-medium">{task.title}</p>
-                                        <p className="text-sm text-muted-foreground">
-                                           Клиент: {task.clients?.name || 'Неизвестен'}
-                                        </p>
-                                        {task.due_date && (
-                                          <p className="text-xs text-muted-foreground">
-                                            Срок: {new Date(task.due_date).toLocaleDateString('ru-RU')}
-                                          </p>
-                                        )}
-                                        {task.responsible && (
-                                          <p className="text-xs text-muted-foreground">
-                                            Ответственный: {task.responsible}
-                                          </p>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
+                                 ) : allTasks.length > 0 ? (
+                                   <div className="space-y-2 max-h-96 overflow-y-auto">
+                                     {allTasks.map((task) => (
+                                       <div key={task.id} className={`p-3 border-l-4 rounded-md ${
+                                         task.priority === 'high' ? 'border-red-500 bg-red-50' :
+                                         task.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
+                                         'border-blue-500 bg-blue-50'
+                                       }`}>
+                                         <div className="flex items-start justify-between gap-3">
+                                           <div className="flex-1 min-w-0">
+                                             <p className="font-medium text-sm leading-tight">{task.title}</p>
+                                             <div className="mt-2 space-y-1">
+                                               <p className="text-sm">
+                                                 Клиент: <button 
+                                                   onClick={() => handleClientClick(task.client_id)}
+                                                   className="text-primary hover:underline cursor-pointer"
+                                                 >
+                                                   {task.clients?.name || 'Неизвестен'}
+                                                 </button>
+                                               </p>
+                                               {task.due_date && (
+                                                 <div className="flex items-center gap-1">
+                                                   <Clock className="h-3 w-3 text-muted-foreground" />
+                                                   <span className="text-xs text-muted-foreground">
+                                                     Срок: {new Date(task.due_date).toLocaleDateString('ru-RU')}
+                                                   </span>
+                                                 </div>
+                                               )}
+                                               {task.responsible && (
+                                                 <p className="text-xs text-muted-foreground">
+                                                   Ответственный: {task.responsible}
+                                                 </p>
+                                               )}
+                                             </div>
+                                           </div>
+                                           <div className="flex items-center gap-1 shrink-0">
+                                             <Button 
+                                               size="sm" 
+                                               variant="ghost" 
+                                               className="h-7 w-7 p-0 text-green-600 hover:bg-green-50"
+                                               onClick={() => handleCompleteTask(task.id)}
+                                               title="Отметить выполненной"
+                                             >
+                                               <Check className="h-4 w-4" />
+                                             </Button>
+                                             <Button 
+                                               size="sm" 
+                                               variant="ghost" 
+                                               className="h-7 w-7 p-0 text-red-600 hover:bg-red-50"
+                                               onClick={() => handleCancelTask(task.id)}
+                                               title="Отменить задачу"
+                                             >
+                                               <X className="h-4 w-4" />
+                                             </Button>
+                                           </div>
+                                         </div>
+                                       </div>
+                                     ))}
+                                   </div>
                                 ) : (
                                   <div className="text-center py-4 text-muted-foreground">
                                     Нет активных задач
