@@ -74,6 +74,9 @@ export const AddTaskModal = ({
   // Whether we have a client context (from props or selection)
   const hasClient = !!(selectedClientId && selectedClientName);
 
+  // Family data for selected client
+  const { familyData: selectedFamilyData } = useFamilyData(selectedClientId);
+
 
   // Update date when preselectedDate changes
   useEffect(() => {
@@ -306,7 +309,7 @@ export const AddTaskModal = ({
                     {formData.date ? format(formData.date, "dd.MM.yyyy", { locale: ru }) : "Выберите дату"}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 z-50" align="start">
+                <PopoverContent className="w-auto p-0 z-[9999]" align="start">
                   <Calendar
                     mode="single"
                     selected={formData.date}
@@ -376,16 +379,16 @@ export const AddTaskModal = ({
             {hasClient && (
               <div className="space-y-2">
                 <Label>Ученик:</Label>
-                {familyData && familyData.students.length > 0 ? (
+                {selectedFamilyData && selectedFamilyData.students.length > 0 ? (
                   <Select 
                     value={formData.selectedStudent} 
                     onValueChange={(value) => setFormData(prev => ({ ...prev, selectedStudent: value }))}
                   >
                     <SelectTrigger className="h-10">
-                      <SelectValue placeholder="Выберите ученика" />
+                      <SelectValue placeholder="Выберите ученика (необязательно)" />
                     </SelectTrigger>
                     <SelectContent>
-                      {familyData.students.map((student) => (
+                      {selectedFamilyData.students.map((student) => (
                         <SelectItem key={student.id} value={student.id}>
                           {student.firstName} ({student.age} лет)
                         </SelectItem>
@@ -394,7 +397,7 @@ export const AddTaskModal = ({
                   </Select>
                 ) : (
                   <div className="h-10 flex items-center px-3 border border-input rounded-md bg-muted text-sm text-muted-foreground">
-                    {taskType === 'client' ? "Выберите клиента для задачи" : "Нет учеников"}
+                    Нет учеников для данного клиента
                   </div>
                 )}
               </div>
