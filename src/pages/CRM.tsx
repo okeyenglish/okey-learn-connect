@@ -2245,7 +2245,6 @@ const CRMContent = () => {
               ? getFamilyGroupId(pinnedTaskClientId)
               : undefined
           }
-          taskType={pinnedTaskClientId === 'client-task' ? 'client' : 'personal'}
           isPinned={
             pinnedTaskClientId && 
             pinnedTaskClientId !== 'client-task' &&

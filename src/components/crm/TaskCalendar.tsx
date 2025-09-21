@@ -23,7 +23,6 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDayView, setShowDayView] = useState(false);
-  const [taskType, setTaskType] = useState<'personal' | 'client'>('personal');
   
   const { tasks: allTasks } = useAllTasks();
   const { tasks: dayTasks } = useTasksByDate(format(selectedDate, 'yyyy-MM-dd'));
@@ -68,39 +67,18 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Календарь задач</h2>
-        <div className="flex items-center gap-2">
-          {/* Task type selector */}
-          <div className="flex items-center gap-1 border rounded-md p-1">
-            <Button
-              size="sm"
-              variant={taskType === 'personal' ? 'default' : 'ghost'}
-              onClick={() => setTaskType('personal')}
-              className="h-8 px-3 text-xs"
-            >
-              Личные
-            </Button>
-            <Button
-              size="sm"
-              variant={taskType === 'client' ? 'default' : 'ghost'}
-              onClick={() => setTaskType('client')}
-              className="h-8 px-3 text-xs"
-            >
-              Клиентские
-            </Button>
-          </div>
-          <Button 
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleAddTask();
-            }} 
-            className="gap-2"
-            type="button"
-          >
-            <Plus className="h-4 w-4" />
-            Добавить {taskType === 'personal' ? 'личную' : 'клиентскую'} задачу
-          </Button>
-        </div>
+        <Button 
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleAddTask();
+          }} 
+          className="gap-2"
+          type="button"
+        >
+          <Plus className="h-4 w-4" />
+          Добавить задачу
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -193,7 +171,7 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
                   }}
                   type="button"
                 >
-                  Создать {taskType === 'personal' ? 'личную' : 'клиентскую'} задачу
+                  Создать задачу
                 </Button>
               </div>
             )}
@@ -206,7 +184,6 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
         open={showAddModal}
         onOpenChange={setShowAddModal}
         preselectedDate={format(selectedDate, 'yyyy-MM-dd')}
-        taskType={taskType}
       />
 
       <TaskDayView

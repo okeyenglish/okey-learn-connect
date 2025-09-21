@@ -29,7 +29,6 @@ interface AddTaskModalProps {
   onPin?: () => void;
   onUnpin?: () => void;
   preselectedDate?: string;
-  taskType?: 'client' | 'personal'; // Добавляем тип задачи
 }
 
 const taskTemplates = [
@@ -53,8 +52,7 @@ export const AddTaskModal = ({
   isPinned = false, 
   onPin, 
   onUnpin,
-  preselectedDate,
-  taskType = 'personal'
+  preselectedDate
 }: AddTaskModalProps) => {
   const [formData, setFormData] = useState({
     date: preselectedDate ? new Date(preselectedDate) : new Date(),
@@ -222,9 +220,7 @@ export const AddTaskModal = ({
           title={
             hasClient 
               ? `Назначение задачи - ${selectedClientName}` 
-              : taskType === 'client' 
-                ? "Задача по клиенту" 
-                : "Личная задача"
+              : "Новая задача"
           }
           isPinned={isPinned}
           onPin={onPin || (() => {})}
@@ -233,8 +229,8 @@ export const AddTaskModal = ({
         />
 
         <div className="space-y-6 py-4">
-          {/* Client Selection - only for client tasks without existing client */}
-          {taskType === 'client' && !clientId && (
+          {/* Client Selection - показываем всегда если нет заданного клиента из props */}
+          {!clientId && (
             <div className="space-y-2">
               <Label>Выбор клиента:</Label>
               <div className="space-y-2">
@@ -532,9 +528,9 @@ export const AddTaskModal = ({
                 placeholder={
                   clientId 
                     ? "Напишите описание задачи..." 
-                    : taskType === 'client' 
+                    : hasClient 
                       ? "Напишите описание задачи по клиенту..." 
-                      : "Напишите описание личной задачи..."
+                      : "Напишите описание задачи..."
                 }
               />
             </div>
