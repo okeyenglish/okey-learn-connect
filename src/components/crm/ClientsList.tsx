@@ -17,6 +17,16 @@ export const ClientsList = ({ onSelectClient, selectedClientId }: ClientsListPro
   const clientIds = clients.map(client => client.id);
   const { getClientStatus } = useClientStatus(clientIds);
 
+  // Безопасная обработка URL аватарок (замена http -> https)
+  const getSafeUrl = (url?: string | null) => {
+    if (!url) return '';
+    try {
+      return url.replace(/^http:\/\//i, 'https://');
+    } catch {
+      return url;
+    }
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -87,11 +97,13 @@ export const ClientsList = ({ onSelectClient, selectedClientId }: ClientsListPro
                       <div className="flex-shrink-0 relative">
                         {client.avatar_url ? (
                           <img 
-                            src={client.avatar_url} 
+                            src={getSafeUrl(client.avatar_url)} 
                             alt={`${client.name} avatar`} 
                             className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                            crossOrigin="anonymous"
                             onError={(e) => {
-                              // Если изображение не загрузилось, показываем дефолтный аватар
                               const target = e.currentTarget as HTMLImageElement;
                               target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
                             }}
@@ -115,7 +127,15 @@ export const ClientsList = ({ onSelectClient, selectedClientId }: ClientsListPro
                       
                       {/* Client Info */}
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-sm">{client.name}</h4>
+                        <h4 className="font-medium text-sm flex items-center gap-2">
+                          {client.name}
+                          {(() => {
+                            const s = getClientStatus(client.id);
+                            return s.isLead ? (
+                              <Badge variant="destructive" className="sm:hidden">Лид</Badge>
+                            ) : null;
+                          })()}
+                        </h4>
                         <div className="flex items-center gap-2 mt-1">
                           <Phone className="h-3 w-3 text-muted-foreground" />
                           <span className="text-xs text-muted-foreground">

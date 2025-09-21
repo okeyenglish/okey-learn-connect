@@ -61,6 +61,7 @@ export default function VoiceAssistant({
   const [audioEnabled, setAudioEnabled] = useState(true);
   
   const isMobile = useIsMobile();
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && (navigator as any).maxTouchPoints > 1);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -97,6 +98,11 @@ export default function VoiceAssistant({
         throw new Error('Ваш браузер не поддерживает запись аудио');
       }
 
+      // Дополнительно проверяем поддержку MediaRecorder
+      if (typeof (window as any).MediaRecorder === 'undefined') {
+        throw new Error('Ваш браузер не поддерживает запись аудио (MediaRecorder). Обновите браузер.');
+      }
+
       // Специальная обработка для мобильных устройств  
       const constraints = {
         audio: {
@@ -117,24 +123,38 @@ export default function VoiceAssistant({
       console.log('Microphone access granted');
       
       // Создаем аудио контекст для определения тишины
-      audioContextRef.current = new AudioContext();
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (audioContextRef.current.state === 'suspended') {
+        try { await audioContextRef.current.resume(); } catch {}
+      }
       const source = audioContextRef.current.createMediaStreamSource(stream);
       analyserRef.current = audioContextRef.current.createAnalyser();
       analyserRef.current.fftSize = 256;
       source.connect(analyserRef.current);
       
-      // Проверяем поддержку различных форматов для мобильных
+      // Проверяем поддержку различных форматов (особенно для iOS)
       let mimeType = 'audio/webm;codecs=opus';
-      if (isMobile) {
-        if (MediaRecorder.isTypeSupported('audio/mp4')) {
-          mimeType = 'audio/mp4';
-        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
-          mimeType = 'audio/webm';
-        } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
-          mimeType = 'audio/ogg';
+      try {
+        if (isIOS) {
+          if ((MediaRecorder as any).isTypeSupported?.('audio/mp4;codecs=mp4a.40.2')) {
+            mimeType = 'audio/mp4;codecs=mp4a.40.2';
+          } else if ((MediaRecorder as any).isTypeSupported?.('audio/mp4')) {
+            mimeType = 'audio/mp4';
+          } else if ((MediaRecorder as any).isTypeSupported?.('audio/webm')) {
+            mimeType = 'audio/webm';
+          } else if ((MediaRecorder as any).isTypeSupported?.('audio/ogg')) {
+            mimeType = 'audio/ogg';
+          }
+        } else if (isMobile) {
+          if ((MediaRecorder as any).isTypeSupported?.('audio/webm;codecs=opus')) {
+            mimeType = 'audio/webm;codecs=opus';
+          } else if ((MediaRecorder as any).isTypeSupported?.('audio/ogg')) {
+            mimeType = 'audio/ogg';
+          } else if ((MediaRecorder as any).isTypeSupported?.('audio/mp4')) {
+            mimeType = 'audio/mp4';
+          }
         }
-      }
-      
+      } catch {}
       const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
