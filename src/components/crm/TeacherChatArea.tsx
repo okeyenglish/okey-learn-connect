@@ -54,189 +54,33 @@ interface Teacher {
   education: string;
 }
 
-const mockTeachers: Teacher[] = [
-  {
-    id: 'teacher-1',
-    firstName: 'Семён',
-    lastName: 'Пяткин',
-    fullName: 'Пяткин Семён',
-    phone: '+7 (999) 123-45-67',
-    email: 'semyon.pyatkin@okeyenglish.ru',
-    telegram: '@semyon_teacher',
-    whatsapp: '+7 (999) 123-45-67',
-    branch: 'Окская',
-    subject: 'Английский',
-    category: 'Школьники',
-    unreadMessages: 2,
-    isOnline: true,
-    lastSeen: 'в сети',
-    zoomLink: 'okeyclass.ktalk.ru/qt43k5...',
-    resume: 'Опытный преподаватель английского языка с 8-летним стажем работы. Специализируется на подготовке школьников к экзаменам и развитии разговорных навыков.',
-    languages: ['Английский', 'Немецкий'],
-    levels: ['Beginner', 'Elementary', 'Pre-Intermediate', 'Intermediate', 'Upper-Intermediate'],
-    comments: 'Очень ответственный преподаватель, всегда находит подход к детям. Отличные результаты по подготовке к ЕГЭ.',
-    experience: '8 лет',
-    education: 'МГУ, факультет иностранных языков',
-    groups: [
-      {
-        id: 'group-1',
-        name: 'Группа ОКС38_PR7',
-        level: 'Prepare 6',
-        nextLesson: '20.09, 19:20-20:40',
-        studentsCount: 4,
-        branch: 'Окская'
-      },
-      {
-        id: 'group-2', 
-        name: 'Индивидуальные занятия',
-        level: 'Mixed',
-        nextLesson: '21.09, 15:00-15:45',
-        studentsCount: 3,
-        branch: 'Окская'
-      },
-      {
-        id: 'group-3',
-        name: 'Группа ОКС38_INT1',
-        level: 'Intermediate',
-        nextLesson: '22.09, 17:00-18:30',
-        studentsCount: 6,
-        branch: 'Окская'
-      },
-      {
-        id: 'group-4',
-        name: 'Kids Box 4',
-        level: 'Elementary',
-        nextLesson: '23.09, 16:00-17:00',
-        studentsCount: 5,
-        branch: 'Окская'
-      },
-      {
-        id: 'group-5',
-        name: 'Взрослые разговорный',
-        level: 'Upper-Intermediate',
-        nextLesson: '24.09, 20:00-21:30',
-        studentsCount: 7,
-        branch: 'Окская'
-      }
-    ]
-  },
-  {
-    id: 'teacher-2',
-    firstName: 'Маргарита',
-    lastName: 'Селицкая',
-    fullName: 'Селицкая Маргарита Андреевна',
-    phone: '+7 (999) 234-56-78',
-    email: 'margarita.selitskaya@okeyenglish.ru',
-    branch: 'Новокосино',
-    subject: 'Английский',
-    category: 'Дети',
-    unreadMessages: 0,
-    isOnline: false,
-    lastSeen: '2 часа назад',
-    resume: 'Специалист по работе с детьми дошкольного и младшего школьного возраста. Использует игровые методики и современные подходы в обучении.',
-    languages: ['Английский'],
-    levels: ['Beginner', 'Elementary', 'Pre-Intermediate'],
-    comments: 'Замечательно работает с маленькими детьми, очень терпеливая и креативная.',
-    experience: '5 лет',
-    education: 'МПГУ, педагогический факультет',
-    groups: [
-      {
-        id: 'group-6',
-        name: 'Super Safari 2',
-        level: 'Beginner',
-        nextLesson: '22.09, 10:00-10:45',
-        studentsCount: 6,
-        branch: 'Новокосино'
-      },
-      {
-        id: 'group-7',
-        name: 'Малыши 4-5 лет',
-        level: 'Starter',
-        nextLesson: '23.09, 11:00-11:45',
-        studentsCount: 4,
-        branch: 'Новокосино'
-      },
-      {
-        id: 'group-8',
-        name: 'Kids Box 1',
-        level: 'Beginner',
-        nextLesson: '24.09, 15:30-16:30',
-        studentsCount: 8,
-        branch: 'Новокосино'
-      },
-      {
-        id: 'group-9',
-        name: 'Дошкольники',
-        level: 'Pre-A1',
-        nextLesson: '25.09, 17:00-17:45',
-        studentsCount: 5,
-        branch: 'Новокосино'
-      }
-    ]
-  },
-  {
-    id: 'teacher-3',
-    firstName: 'Оксана',
-    lastName: 'Ветрова',
-    fullName: 'Ветрова Оксана Юрьевна',
-    phone: '+7 (999) 345-67-89',
-    email: 'oksana.vetrova@okeyenglish.ru',
-    branch: 'Котельники',
-    subject: 'Английский',
-    category: 'Взрослые',
-    unreadMessages: 1,
-    isOnline: true,
-    lastSeen: 'в сети',
-    resume: 'Преподаватель с международной сертификацией CELTA. Специализируется на обучении взрослых и подготовке к международным экзаменам.',
-    languages: ['Английский', 'Французский'],
-    levels: ['Intermediate', 'Upper-Intermediate', 'Advanced'],
-    comments: 'Высокопрофессиональный преподаватель, отличные результаты подготовки к IELTS и TOEFL.',
-    experience: '12 лет',
-    education: 'Cambridge University, сертификат CELTA',
-    groups: [
-      {
-        id: 'group-10',
-        name: 'Empower B2',
-        level: 'Upper-Intermediate',
-        nextLesson: '23.09, 18:00-19:30',
-        studentsCount: 8,
-        branch: 'Котельники'
-      },
-      {
-        id: 'group-11',
-        name: 'IELTS подготовка',
-        level: 'Advanced',
-        nextLesson: '24.09, 19:30-21:00',
-        studentsCount: 4,
-        branch: 'Котельники'
-      },
-      {
-        id: 'group-12',
-        name: 'Бизнес английский',
-        level: 'Upper-Intermediate',
-        nextLesson: '25.09, 10:00-11:30',
-        studentsCount: 6,
-        branch: 'Котельники'
-      },
-      {
-        id: 'group-13',
-        name: 'Взрослые Elementary',
-        level: 'Elementary',
-        nextLesson: '26.09, 18:30-20:00',
-        studentsCount: 7,
-        branch: 'Котельники'
-      },
-      {
-        id: 'group-14',
-        name: 'Cambridge FCE',
-        level: 'Upper-Intermediate',
-        nextLesson: '27.09, 17:00-18:30',
-        studentsCount: 5,
-        branch: 'Котельники'
-      }
-    ]
-  }
-];
+// Данные преподавателей теперь подгружаются из БД
+interface DbTeacher {
+  id: string;
+  fullName: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  branch: string;
+  unreadMessages: number;
+  lastSeen: string;
+  isOnline: boolean;
+  // Optional fields for future expansion
+  email?: string;
+  telegram?: string;
+  experience?: string;
+  education?: string;
+  languages?: string[];
+  levels?: string[];
+  resume?: string;
+  comments?: string;
+  zoomLink?: string;
+  subject?: string;
+  groups?: { id: string; name: string; level: string; nextLesson: string; studentsCount: number; branch: string }[];
+}
+
+const DEFAULT_SUBJECT = 'Английский';
+
 
 interface TeacherChatAreaProps {
   selectedTeacherId?: string | null;
@@ -247,6 +91,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   selectedTeacherId = null,
   onSelectTeacher
 }) => {
+  const [dbTeachers, setDbTeachers] = useState<DbTeacher[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('диалог');
   const [message, setMessage] = useState('');
@@ -261,44 +106,70 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const [resolvedClientId, setResolvedClientId] = useState<string | null>(null);
   const [userBranch, setUserBranch] = useState<string | null>(null);
 
-  // Load pin counts for visualization
+  // Load teachers from DB by branch
   useEffect(() => {
-    const loadPinCounts = async () => {
-      try {
-        // Use resolved client IDs where possible, fallback to placeholder IDs
-        const allChatIds = [
-          'teachers-group',
-          ...mockTeachers.map(t => `teacher-${t.id}`)
-        ];
-        const { data, error } = await supabase.rpc('get_chat_pin_counts', { _chat_ids: allChatIds });
-        if (!error && data) {
-          const counts = data.reduce((acc: Record<string, number>, item: any) => {
-            acc[item.chat_id] = item.pin_count;
-            return acc;
-          }, {});
-          setPinCounts(counts);
-        }
-      } catch (error) {
-        console.error('Error loading pin counts:', error);
+    const fetchTeachers = async (branch: string) => {
+      const { data: clients, error } = await supabase
+        .from('clients')
+        .select('id, name, phone, branch')
+        .eq('branch', branch)
+        .ilike('name', 'Преподаватель:%');
+      if (error) {
+        console.error('Error fetching teachers', error);
+        return;
       }
+      const enriched = await Promise.all((clients || []).map(async (c) => {
+        const full = (c.name || '').replace('Преподаватель:', '').trim();
+        const [lastName, firstName, ...rest] = full.split(' ');
+        const fullName = `${lastName || ''} ${firstName || ''}${rest.length ? ' ' + rest.join(' ') : ''}`.trim();
+        const { data: lastMsg } = await supabase
+          .from('chat_messages')
+          .select('created_at, is_read')
+          .eq('client_id', c.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const { count: unread } = await supabase
+          .from('chat_messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('client_id', c.id)
+          .eq('is_read', false);
+        return {
+          id: c.id,
+          fullName: fullName || full || c.name,
+          firstName: firstName || '',
+          lastName: lastName || '',
+          phone: c.phone,
+          branch: c.branch,
+          unreadMessages: unread || 0,
+          lastSeen: lastMsg?.created_at ? new Date(lastMsg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : 'нет данных',
+          isOnline: false,
+        } as DbTeacher;
+      }));
+      // sort by last message time desc
+      enriched.sort((a, b) => {
+        const aTs = Date.parse(a.lastSeen.replace(/(\d{2}):(\d{2})/, (m)=>a.lastSeen));
+        const bTs = Date.parse(b.lastSeen.replace(/(\d{2}):(\d{2})/, (m)=>b.lastSeen));
+        return (bTs || 0) - (aTs || 0);
+      });
+      setDbTeachers(enriched);
     };
-    loadPinCounts();
-  }, []);
+    if (userBranch) fetchTeachers(userBranch);
+  }, [userBranch]);
 
+  // Realtime refresh
   useEffect(() => {
-    const loadProfile = async () => {
-      const { data: u } = await supabase.auth.getUser();
-      const uid = u.user?.id;
-      if (!uid) return;
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('branch')
-        .eq('id', uid)
-        .maybeSingle();
-      setUserBranch(profile?.branch || null);
-    };
-    loadProfile();
-  }, []);
+    const channel = supabase
+      .channel('teachers-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, () => {
+        if (userBranch) {
+          // trigger refetch by updating userBranch state
+          setUserBranch((b) => b);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [userBranch]);
 
   const ensureClient = async (name: string, branch: string) => {
     const { data: found } = await supabase
@@ -334,9 +205,9 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         nameToFind = userBranch ? `Чат педагогов - ${userBranch}` : null;
         branchToUse = userBranch;
       } else {
-        const t = mockTeachers.find(tt => tt.id === selectedTeacherId);
-        nameToFind = t?.fullName || null;
-        branchToUse = t?.branch || userBranch;
+        const tDb = dbTeachers.find(tt => tt.id === selectedTeacherId);
+        nameToFind = tDb ? `Преподаватель: ${tDb.fullName}` : null;
+        branchToUse = tDb?.branch || userBranch;
       }
       if (!nameToFind || !branchToUse) { setResolvedClientId(null); return; }
       const id = await ensureClient(nameToFind, branchToUse);
@@ -360,13 +231,13 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     }
   }, [clientId, messages.length]);
 
-  const filteredTeachers = mockTeachers.filter(teacher =>
+  const teachers = dbTeachers;
+  const filteredTeachers = teachers.filter(teacher =>
     teacher.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    teacher.branch.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    teacher.subject.toLowerCase().includes(searchQuery.toLowerCase())
+    teacher.branch.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const selectedTeacher = selectedTeacherId ? mockTeachers.find(t => t.id === selectedTeacherId) : null;
+  const selectedTeacher = selectedTeacherId ? teachers.find((t: any) => t.id === selectedTeacherId) : null;
 
   const handleBackToList = () => {
     onSelectTeacher(null as any);
@@ -557,7 +428,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                       </div>
                       
                       <p className="text-xs text-muted-foreground mt-1">
-                        {teacher.branch} • {teacher.subject}
+                        {teacher.branch} • {DEFAULT_SUBJECT}
                       </p>
                       
                       <p className="text-xs text-muted-foreground">
@@ -763,7 +634,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                     </div>
                     
                     <p className="text-xs text-muted-foreground truncate">
-                      {teacher.branch} • {teacher.subject}
+                      {teacher.branch} • {DEFAULT_SUBJECT}
                     </p>
                     
                     <p className="text-xs text-muted-foreground">
@@ -811,15 +682,6 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                 <Button size="sm" variant="outline" className="h-7 w-7 p-0">
                   <Phone className="h-3 w-3" />
                 </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="h-7 w-7 p-0"
-                  onClick={() => handleCopyZoomLink(currentTeacher?.zoomLink)}
-                  title="Скопировать ссылку на занятие"
-                >
-                  <Link className="h-3 w-3" />
-                </Button>
               </div>
             )}
           </div>
@@ -862,36 +724,8 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             {!isGroupChat && (
               <TabsContent value="расписание" className="h-full m-0">
                 <ScrollArea className="flex-1 p-3">
-                  <div className="space-y-2">
-                    {currentTeacher?.groups.map((group) => (
-                      <div 
-                        key={group.id}
-                        onClick={() => handleLessonClick(group.id)}
-                        className="p-3 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors min-h-[80px] flex items-center"
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-2 mb-2">
-                              <h4 className="font-medium text-sm text-foreground truncate">{group.name}</h4>
-                              <Badge variant="outline" className="text-xs shrink-0 h-5">
-                                {group.level}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center space-x-4">
-                              <div className="flex items-center space-x-1">
-                                <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
-                                <span className="text-xs text-muted-foreground">{group.nextLesson}</span>
-                              </div>
-                              <div className="flex items-center space-x-1">
-                                <Users className="h-3 w-3 text-muted-foreground shrink-0" />
-                                <span className="text-xs text-muted-foreground">{group.studentsCount} уч.</span>
-                              </div>
-                            </div>
-                          </div>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 ml-2" />
-                        </div>
-                      </div>
-                    ))}
+                  <div className="text-center py-8 text-sm text-muted-foreground">
+                    Расписание преподавателя будет доступно позже
                   </div>
                 </ScrollArea>
               </TabsContent>

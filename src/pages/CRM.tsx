@@ -570,9 +570,10 @@ const CRMContent = () => {
           // Помечаем чат как прочитанный в состоянии чата
           markAsRead(chatId);
         } else if (chatType === 'corporate') {
-          // Для корпоративных чатов найдем соответствующий клиентский ID по филиалу
+          // Для корпоративных чатов выбираем самый свежий чат по филиалу
           const branchName = chatId.replace('corporate-', '');
-          const corporateChat = corporateChats.find((chat: any) => chat.branch === branchName);
+          const matches = corporateChats.filter((c: any) => c.branch === branchName);
+          const corporateChat = matches.sort((a: any, b: any) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime())[0];
           if (corporateChat?.id) {
             markAsReadMutation.mutate(corporateChat.id);
             markAsRead(corporateChat.id);
