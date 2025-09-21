@@ -19,13 +19,17 @@ interface TaskDayViewProps {
   onOpenChange: (open: boolean) => void;
   date: Date;
   onTaskClick?: (taskId: string) => void;
+  activeClientId?: string;
+  activeClientName?: string;
 }
 
 export const TaskDayView: React.FC<TaskDayViewProps> = ({
   open,
   onOpenChange,
   date,
-  onTaskClick
+  onTaskClick,
+  activeClientId,
+  activeClientName
 }) => {
   const [showAddModal, setShowAddModal] = React.useState(false);
   const [editingTaskId, setEditingTaskId] = React.useState<string | null>(null);
@@ -286,6 +290,8 @@ export const TaskDayView: React.FC<TaskDayViewProps> = ({
         open={showAddModal}
         onOpenChange={setShowAddModal}
         preselectedDate={format(date, 'yyyy-MM-dd')}
+        clientId={activeClientId}
+        clientName={activeClientName}
       />
 
       {editingTaskId && (

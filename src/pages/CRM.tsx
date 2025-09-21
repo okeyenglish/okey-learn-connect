@@ -1848,6 +1848,8 @@ const CRMContent = () => {
                             ) : (
                               <TaskCalendar 
                                 onTaskClick={(taskId) => setEditTaskId(taskId)}
+                                activeClientId={activeChatId || undefined}
+                                activeClientName={activeChatId ? getActiveClientInfo().name : undefined}
                               />
                             )}
                           </div>

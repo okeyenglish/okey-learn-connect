@@ -15,11 +15,15 @@ import { cn } from '@/lib/utils';
 interface TaskCalendarProps {
   onDateSelect?: (date: Date) => void;
   onTaskClick?: (taskId: string) => void;
+  activeClientId?: string;
+  activeClientName?: string;
 }
 
 export const TaskCalendar: React.FC<TaskCalendarProps> = ({
   onDateSelect,
-  onTaskClick
+  onTaskClick,
+  activeClientId,
+  activeClientName
 }) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showAddModal, setShowAddModal] = useState(false);
@@ -199,6 +203,8 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
         open={showAddModal}
         onOpenChange={setShowAddModal}
         preselectedDate={format(selectedDate, 'yyyy-MM-dd')}
+        clientId={activeClientId}
+        clientName={activeClientName}
       />
 
       <TaskDayView
@@ -206,6 +212,8 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
         onOpenChange={setShowDayView}
         date={selectedDate}
         onTaskClick={onTaskClick}
+        activeClientId={activeClientId}
+        activeClientName={activeClientName}
       />
 
       {editingTaskId && (
