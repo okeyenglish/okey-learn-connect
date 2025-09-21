@@ -386,7 +386,8 @@ serve(async (req) => {
                 status: 'active',
                 priority: functionArgs.priority || 'medium',
                 due_date: functionArgs.dueDate || null,
-                branch: userProfile?.branch || 'Окская'
+                branch: userProfile?.branch || 'Окская',
+                responsible: `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim() || userProfile?.email || 'Менеджер'
               });
 
             if (taskError) {
@@ -399,15 +400,21 @@ serve(async (req) => {
             break;
 
           case 'get_tasks':
-            // Получаем филиал пользователя для фильтрации задач
+            // Получаем филиал пользователя и ФИО для фильтрации задач по ответственному
             const userBranch = userProfile?.branch || 'Окская';
+            const userFullName = `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim();
             
             let tasksQuery = supabase
               .from('tasks')
-              .select('id, title, description, status, priority, due_date, created_at, client_id, clients(name)')
-              .eq('branch', userBranch); // Фильтруем по филиалу пользователя
+              .select('id, title, description, status, priority, due_date, created_at, client_id, responsible')
+              .eq('branch', userBranch);
 
-            // Применяем фильтры
+            // Фильтруем по ответственному: показываем задачи только текущего пользователя
+            if (userFullName) {
+              tasksQuery = tasksQuery.ilike('responsible', `%${userFullName}%`);
+            }
+
+            // Применяем фильтры по статусу/датам
             const today = new Date().toISOString().split('T')[0];
             switch (functionArgs.filter) {
               case 'today':
@@ -425,16 +432,27 @@ serve(async (req) => {
                 break;
             }
 
+            // Опциональная фильтрация по клиенту без join'а
             if (functionArgs.clientName) {
-              // Фильтр по клиенту через join
-              tasksQuery = tasksQuery.ilike('clients.name', `%${functionArgs.clientName}%`);
+              const { data: nameClients } = await supabase
+                .from('clients')
+                .select('id')
+                .ilike('name', `%${functionArgs.clientName}%`)
+                .limit(50);
+              const ids = (nameClients || []).map(c => c.id);
+              if (ids.length > 0) {
+                tasksQuery = tasksQuery.in('client_id', ids);
+              } else {
+                // Если клиентов по имени нет — вернем пустой список
+                tasksQuery = tasksQuery.in('client_id', ['00000000-0000-0000-0000-000000000000']);
+              }
             }
 
             const { data: tasks, error: tasksError } = await tasksQuery
               .order('created_at', { ascending: false })
               .limit(20);
 
-            console.log('Tasks query result:', { tasks, tasksError, userBranch, filter: functionArgs.filter });
+            console.log('Tasks query result:', { tasksCount: tasks?.length || 0, tasksError, userBranch, userFullName, filter: functionArgs.filter });
 
             if (tasks && tasks.length > 0) {
               let filterText = '';
@@ -446,13 +464,15 @@ serve(async (req) => {
                 default: filterText = 'все';
               }
               
-              const tasksText = tasks.slice(0, 5).map(t => 
-                `"${t.title}"${t.clients?.name ? ` (${t.clients.name})` : ''} - ${t.status === 'active' ? 'активна' : 'выполнена'}`
-              ).join(', ');
+              const tasksText = tasks.slice(0, 5).map(t => {
+                const date = t.due_date ? ` (к ${t.due_date})` : '';
+                const statusText = t.status === 'active' ? 'активна' : (t.status === 'completed' ? 'выполнена' : t.status);
+                return `"${t.title}"${date} — ${statusText}`;
+              }).join(', ');
               responseText = `Найдены задачи (${filterText}): ${tasksText}${tasks.length > 5 ? ` и ещё ${tasks.length - 5}` : ''}.`;
               actionResult = { type: 'tasks', data: tasks, filter: functionArgs.filter };
             } else {
-              responseText = `Задач${functionArgs.filter ? ` (${functionArgs.filter})` : ''} не найдено в филиале ${userBranch}.`;
+              responseText = `Задач${functionArgs.filter ? ` (${functionArgs.filter})` : ''} не найдено для ${userFullName || 'текущего пользователя'} в филиале ${userBranch}.`;
             }
             break;
 

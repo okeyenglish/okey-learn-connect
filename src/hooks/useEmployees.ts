@@ -14,23 +14,14 @@ export const useEmployees = (branch?: string) => {
   return useQuery({
     queryKey: ['employees', branch],
     queryFn: async () => {
-      let query = supabase
-        .from('profiles')
-        .select('id, first_name, last_name, email, branch, department')
-        .order('first_name');
-
-      if (branch) {
-        query = query.eq('branch', branch);
-      }
-
-      const { data, error } = await query;
-
+      const { data, error } = await supabase.functions.invoke('get-employees', {
+        body: { branch: branch || null },
+      });
       if (error) {
         console.error('Error fetching employees:', error);
         throw error;
       }
-
-      return data || [];
+      return (data?.employees ?? []) as Employee[];
     },
   });
 };
