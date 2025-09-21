@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
+import { useTaskNotifications } from "@/hooks/useTaskNotifications";
 
 interface AddTaskModalProps {
   open: boolean;
@@ -89,6 +90,7 @@ export const AddTaskModal = ({
   const { familyData } = useFamilyData(familyGroupId);
   const { profile } = useAuth();
   const { data: employees = [] } = useEmployees(profile?.branch);
+  const { sendTaskCreatedNotification } = useTaskNotifications();
 
   // Sync incoming client props into local selection state
   useEffect(() => {
@@ -161,6 +163,13 @@ export const AddTaskModal = ({
       }
 
       await createTask.mutateAsync(taskData);
+
+      // Send notification if this is a client task
+      if (hasClient && selectedClientId) {
+        const taskTitle = formData.description.substring(0, 100) || "Новая задача";
+        const formattedDate = format(formData.date, 'dd.MM.yyyy', { locale: ru });
+        await sendTaskCreatedNotification(selectedClientId, taskTitle, formattedDate);
+      }
 
       // Reset form
       const currentEmployee = employees.find(emp => 

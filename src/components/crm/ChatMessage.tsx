@@ -1,4 +1,4 @@
-import { Phone, PhoneCall, Play, FileSpreadsheet, Edit2, Check, X, Forward, Trash2, CheckCheck, MessageCircle, User, CheckCircle, XCircle } from "lucide-react";
+import { Phone, PhoneCall, Play, FileSpreadsheet, Edit2, Check, X, Forward, Trash2, CheckCheck, MessageCircle, User, CheckCircle, XCircle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -109,6 +109,21 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
     }
 
     // Default system message display (for task notifications)
+    if (message.includes('создана на')) {
+      return (
+        <div className="flex justify-center my-3">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 max-w-md">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <Plus className="h-5 w-5 text-blue-600" />
+              </div>
+              <div className="text-sm text-blue-800 font-medium">{message}</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     if (message.includes('успешно завершена')) {
       return (
         <div className="flex justify-center my-3">

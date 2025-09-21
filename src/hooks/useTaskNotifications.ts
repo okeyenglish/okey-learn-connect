@@ -3,6 +3,18 @@ import { useSendMessage } from './useChatMessages';
 export const useTaskNotifications = () => {
   const sendMessage = useSendMessage();
 
+  const sendTaskCreatedNotification = async (clientId: string, taskTitle: string, dueDate: string) => {
+    try {
+      await sendMessage.mutateAsync({
+        clientId,
+        messageText: `Задача "${taskTitle}" создана на ${dueDate}`,
+        messageType: 'system'
+      });
+    } catch (error) {
+      console.error('Error sending task created notification:', error);
+    }
+  };
+
   const sendTaskCompletedNotification = async (clientId: string, taskTitle: string) => {
     try {
       await sendMessage.mutateAsync({
@@ -28,6 +40,7 @@ export const useTaskNotifications = () => {
   };
 
   return {
+    sendTaskCreatedNotification,
     sendTaskCompletedNotification,
     sendTaskCancelledNotification
   };
