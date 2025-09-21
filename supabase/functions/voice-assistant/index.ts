@@ -160,9 +160,41 @@ serve(async (req) => {
           type: "object",
           properties: {
             title: { type: "string", description: "Заголовок задачи" },
-            description: { type: "string", description: "Описание задачи" }
+            description: { type: "string", description: "Описание задачи" },
+            clientName: { type: "string", description: "Имя клиента (опционально)" },
+            priority: { type: "string", enum: ["low", "medium", "high"], description: "Приоритет задачи" },
+            dueDate: { type: "string", description: "Срок выполнения в формате YYYY-MM-DD (опционально)" }
           },
           required: ["title"]
+        }
+      },
+      {
+        name: "get_tasks",
+        description: "Получить список задач",
+        parameters: {
+          type: "object",
+          properties: {
+            filter: { 
+              type: "string", 
+              enum: ["today", "overdue", "pending", "completed", "all"], 
+              description: "Фильтр задач" 
+            },
+            clientName: { type: "string", description: "Имя клиента для фильтрации (опционально)" }
+          },
+          required: ["filter"]
+        }
+      },
+      {
+        name: "update_task",
+        description: "Обновить статус задачи",
+        parameters: {
+          type: "object",
+          properties: {
+            taskId: { type: "string", description: "ID задачи" },
+            status: { type: "string", enum: ["pending", "completed", "cancelled"], description: "Новый статус" },
+            title: { type: "string", description: "Новый заголовок (опционально)" }
+          },
+          required: ["taskId", "status"]
         }
       },
       {
@@ -178,12 +210,12 @@ serve(async (req) => {
       },
       {
         name: "manage_chat",
-        description: "Управление чатом (закрепление, архивирование, отметка прочитанным)",
+        description: "Управление чатом (закрепление, архивирование, отметка прочитанным, открыть чат)",
         parameters: {
           type: "object",
           properties: {
             clientName: { type: "string", description: "Имя клиента" },
-            action: { type: "string", enum: ["pin", "archive", "mark_read"], description: "Действие" }
+            action: { type: "string", enum: ["pin", "archive", "mark_read", "open"], description: "Действие" }
           },
           required: ["clientName", "action"]
         }
@@ -194,8 +226,36 @@ serve(async (req) => {
         parameters: {
           type: "object",
           properties: {
-            date: { type: "string", description: "Дата в формате YYYY-MM-DD (опционально)" }
+            date: { type: "string", description: "Дата в формате YYYY-MM-DD (опционalno)" },
+            branch: { type: "string", description: "Филиал для фильтрации (опционально)" }
           }
+        }
+      },
+      {
+        name: "get_client_info",
+        description: "Получить подробную информацию о клиенте",
+        parameters: {
+          type: "object",
+          properties: {
+            clientName: { type: "string", description: "Имя клиента" }
+          },
+          required: ["clientName"]
+        }
+      },
+      {
+        name: "open_modal",
+        description: "Открыть модальное окно в CRM",
+        parameters: {
+          type: "object",
+          properties: {
+            modalType: { 
+              type: "string", 
+              enum: ["add_client", "add_teacher", "add_student", "add_task", "profile", "student_profile"],
+              description: "Тип модального окна" 
+            },
+            clientId: { type: "string", description: "ID клиента (для профиля)" }
+          },
+          required: ["modalType"]
         }
       }
     ];
@@ -243,17 +303,18 @@ serve(async (req) => {
       const functionArgs = JSON.parse(toolCall.function.arguments);
       console.log('Function call:', functionName, functionArgs);
 
-      try {
+        try {
         switch (functionName) {
           case 'search_clients':
             const { data: clients } = await supabase
               .from('clients')
-              .select('id, name, phone')
+              .select('id, name, phone, email, branch, notes, last_message_at')
               .ilike('name', `%${functionArgs.query}%`)
-              .limit(5);
+              .order('last_message_at', { ascending: false })
+              .limit(10);
             
             if (clients && clients.length > 0) {
-              const clientsList = clients.map(c => c.name).join(', ');
+              const clientsList = clients.map(c => `${c.name} (${c.branch})`).join(', ');
               responseText = `Найдены клиенты: ${clientsList}`;
               actionResult = { type: 'clients', data: clients };
             } else {
@@ -267,7 +328,7 @@ serve(async (req) => {
               .from('clients')
               .select('*')
               .ilike('name', `%${functionArgs.clientName}%`)
-              .single();
+              .maybeSingle();
 
             if (client && client.phone) {
               // Отправка сообщения через WhatsApp с правильными параметрами
@@ -292,34 +353,119 @@ serve(async (req) => {
             break;
 
           case 'create_task':
+            // Найдем клиента если указан
+            let clientForTask = null;
+            if (functionArgs.clientName) {
+              const { data: foundClient } = await supabase
+                .from('clients')
+                .select('id, name')
+                .ilike('name', `%${functionArgs.clientName}%`)
+                .maybeSingle();
+              clientForTask = foundClient;
+            }
+
             const { error: taskError } = await supabase
               .from('tasks')
               .insert({
                 user_id: userId,
+                client_id: clientForTask?.id || '00000000-0000-0000-0000-000000000000', // Default UUID
                 title: functionArgs.title,
                 description: functionArgs.description || '',
                 status: 'pending',
-                priority: 'medium'
+                priority: functionArgs.priority || 'medium',
+                due_date: functionArgs.dueDate || null,
+                branch: userProfile?.branch || 'Окская'
               });
 
             if (taskError) {
+              console.error('Task creation error:', taskError);
               responseText = 'Ошибка при создании задачи.';
             } else {
-              responseText = `Задача "${functionArgs.title}" создана.`;
-              actionResult = { type: 'task_created', title: functionArgs.title };
+              responseText = `Задача "${functionArgs.title}" создана${clientForTask ? ` для клиента ${clientForTask.name}` : ''}.`;
+              actionResult = { type: 'task_created', title: functionArgs.title, clientName: clientForTask?.name };
+            }
+            break;
+
+          case 'get_tasks':
+            let tasksQuery = supabase
+              .from('tasks')
+              .select('id, title, description, status, priority, due_date, created_at, client_id, clients(name)')
+              .eq('user_id', userId);
+
+            // Применяем фильтры
+            const today = new Date().toISOString().split('T')[0];
+            switch (functionArgs.filter) {
+              case 'today':
+                tasksQuery = tasksQuery.eq('due_date', today);
+                break;
+              case 'overdue':
+                tasksQuery = tasksQuery.lt('due_date', today).eq('status', 'pending');
+                break;
+              case 'pending':
+                tasksQuery = tasksQuery.eq('status', 'pending');
+                break;
+              case 'completed':
+                tasksQuery = tasksQuery.eq('status', 'completed');
+                break;
+            }
+
+            if (functionArgs.clientName) {
+              // Фильтр по клиенту через join
+              tasksQuery = tasksQuery.ilike('clients.name', `%${functionArgs.clientName}%`);
+            }
+
+            const { data: tasks } = await tasksQuery
+              .order('created_at', { ascending: false })
+              .limit(20);
+
+            if (tasks && tasks.length > 0) {
+              let filterText = '';
+              switch (functionArgs.filter) {
+                case 'today': filterText = 'на сегодня'; break;
+                case 'overdue': filterText = 'просроченные'; break;
+                case 'pending': filterText = 'активные'; break;
+                case 'completed': filterText = 'выполненные'; break;
+                default: filterText = 'все';
+              }
+              
+              const tasksText = tasks.slice(0, 5).map(t => 
+                `"${t.title}"${t.clients?.name ? ` (${t.clients.name})` : ''} - ${t.status === 'pending' ? 'активна' : 'выполнена'}`
+              ).join(', ');
+              responseText = `Найдены задачи (${filterText}): ${tasksText}${tasks.length > 5 ? ` и ещё ${tasks.length - 5}` : ''}.`;
+              actionResult = { type: 'tasks', data: tasks, filter: functionArgs.filter };
+            } else {
+              responseText = `Задач не найдено.`;
+            }
+            break;
+
+          case 'update_task':
+            const { error: updateError } = await supabase
+              .from('tasks')
+              .update({ 
+                status: functionArgs.status,
+                ...(functionArgs.title && { title: functionArgs.title })
+              })
+              .eq('id', functionArgs.taskId)
+              .eq('user_id', userId);
+
+            if (updateError) {
+              responseText = 'Ошибка при обновлении задачи.';
+            } else {
+              responseText = `Задача ${functionArgs.status === 'completed' ? 'выполнена' : 'обновлена'}.`;
+              actionResult = { type: 'task_updated', status: functionArgs.status };
             }
             break;
 
           case 'search_teachers':
             const { data: teachers } = await supabase
               .from('clients')
-              .select('id, name, phone')
-              .like('id', 'teacher_%')
+              .select('id, name, phone, email, branch')
+              .or('name.ilike.%преподаватель:%,name.ilike.%teacher:%')
               .ilike('name', `%${functionArgs.query}%`)
-              .limit(5);
+              .limit(10);
             
             if (teachers && teachers.length > 0) {
-              const teachersList = teachers.map(t => t.name).join(', ');
+              const teachersList = teachers.map(t => t.name.replace(/^(преподаватель:|teacher:)/i, '')).join(', ');
               responseText = `Найдены преподаватели: ${teachersList}`;
               actionResult = { type: 'teachers', data: teachers };
             } else {
@@ -333,38 +479,49 @@ serve(async (req) => {
               .from('clients')
               .select('*')
               .ilike('name', `%${functionArgs.clientName}%`)
-              .single();
+              .maybeSingle();
 
             if (chatClient) {
               const chatAction = functionArgs.action;
-              const updateData: any = {};
               
-              if (chatAction === 'pin') updateData.is_pinned = true;
-              else if (chatAction === 'archive') updateData.is_archived = true;
-              
-              const { error: chatError } = await supabase
-                .from('chat_states')
-                .upsert({
-                  user_id: userId,
-                  chat_id: chatClient.id,
-                  ...updateData
-                });
-
-              if (chatAction === 'mark_read') {
-                await supabase
-                  .from('chat_messages')
-                  .update({ is_read: true })
-                  .eq('client_id', chatClient.id);
-              }
-
-              if (chatError) {
-                responseText = `Ошибка при управлении чатом с ${chatClient.name}.`;
+              if (chatAction === 'open') {
+                responseText = `Открываю чат с ${chatClient.name}.`;
+                actionResult = { 
+                  type: 'chat_opened', 
+                  clientName: chatClient.name, 
+                  clientId: chatClient.id,
+                  action: 'open'
+                };
               } else {
-                const actionText = chatAction === 'pin' ? 'закреплён' : 
-                                 chatAction === 'archive' ? 'архивирован' : 
-                                 'отмечен как прочитанный';
-                responseText = `Чат с ${chatClient.name} ${actionText}.`;
-                actionResult = { type: 'chat_managed', clientName: chatClient.name, action: chatAction };
+                const updateData: any = {};
+                
+                if (chatAction === 'pin') updateData.is_pinned = true;
+                else if (chatAction === 'archive') updateData.is_archived = true;
+                
+                const { error: chatError } = await supabase
+                  .from('chat_states')
+                  .upsert({
+                    user_id: userId,
+                    chat_id: chatClient.id,
+                    ...updateData
+                  });
+
+                if (chatAction === 'mark_read') {
+                  await supabase
+                    .from('chat_messages')
+                    .update({ is_read: true })
+                    .eq('client_id', chatClient.id);
+                }
+
+                if (chatError) {
+                  responseText = `Ошибка при управлении чатом с ${chatClient.name}.`;
+                } else {
+                  const actionText = chatAction === 'pin' ? 'закреплён' : 
+                                   chatAction === 'archive' ? 'архивирован' : 
+                                   'отмечен как прочитанный';
+                  responseText = `Чат с ${chatClient.name} ${actionText}.`;
+                  actionResult = { type: 'chat_managed', clientName: chatClient.name, action: chatAction };
+                }
               }
             } else {
               responseText = `Клиент "${functionArgs.clientName}" не найден.`;
@@ -372,19 +529,64 @@ serve(async (req) => {
             break;
 
           case 'get_schedule':
-            const { data: schedule } = await supabase
-              .rpc('get_public_schedule')
-              .limit(10);
+            let scheduleQuery = supabase.rpc('get_public_schedule');
+            
+            if (functionArgs.branch) {
+              scheduleQuery = supabase.rpc('get_public_schedule', { branch_name: functionArgs.branch });
+            }
+            
+            const { data: schedule } = await scheduleQuery.limit(20);
             
             if (schedule && schedule.length > 0) {
-              const scheduleText = schedule.slice(0, 3).map(s => 
-                `${s.name} - ${s.compact_days} ${s.compact_time}`
+              const scheduleText = schedule.slice(0, 5).map(s => 
+                `${s.name} (${s.office_name}) - ${s.compact_days} ${s.compact_time}`
               ).join(', ');
-              responseText = `Ближайшие занятия: ${scheduleText}`;
+              responseText = `Расписание${functionArgs.branch ? ` для ${functionArgs.branch}` : ''}: ${scheduleText}${schedule.length > 5 ? ` и ещё ${schedule.length - 5} занятий` : ''}`;
               actionResult = { type: 'schedule', data: schedule };
             } else {
               responseText = 'Расписание не найдено.';
             }
+            break;
+
+          case 'get_client_info':
+            const { data: clientInfo } = await supabase
+              .from('clients')
+              .select(`
+                id, name, phone, email, branch, notes, last_message_at, created_at,
+                students(name, age, status),
+                student_courses(course_name, start_date, end_date, is_active)
+              `)
+              .ilike('name', `%${functionArgs.clientName}%`)
+              .maybeSingle();
+
+            if (clientInfo) {
+              let info = `Клиент: ${clientInfo.name}\nФилиал: ${clientInfo.branch}`;
+              if (clientInfo.phone) info += `\nТелефон: ${clientInfo.phone}`;
+              if (clientInfo.email) info += `\nEmail: ${clientInfo.email}`;
+              if (clientInfo.students?.length) {
+                info += `\nСтуденты: ${clientInfo.students.map(s => `${s.name} (${s.age} лет)`).join(', ')}`;
+              }
+              if (clientInfo.notes) info += `\nЗаметки: ${clientInfo.notes}`;
+              
+              responseText = info;
+              actionResult = { type: 'client_info', data: clientInfo };
+            } else {
+              responseText = `Информация о клиенте "${functionArgs.clientName}" не найдена.`;
+            }
+            break;
+
+          case 'open_modal':
+            responseText = `Открываю окно ${functionArgs.modalType === 'add_client' ? 'добавления клиента' : 
+                                            functionArgs.modalType === 'add_teacher' ? 'добавления преподавателя' :
+                                            functionArgs.modalType === 'add_student' ? 'добавления студента' :
+                                            functionArgs.modalType === 'add_task' ? 'создания задачи' :
+                                            functionArgs.modalType === 'profile' ? 'профиля клиента' :
+                                            'профиля студента'}.`;
+            actionResult = { 
+              type: 'modal_opened', 
+              modalType: functionArgs.modalType,
+              clientId: functionArgs.clientId
+            };
             break;
 
           default:

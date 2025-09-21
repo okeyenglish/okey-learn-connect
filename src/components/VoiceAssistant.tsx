@@ -16,8 +16,12 @@ interface ActionResult {
   type: string;
   data?: any;
   clientName?: string;
+  clientId?: string;
   action?: string;
   title?: string;
+  filter?: string;
+  status?: string;
+  modalType?: string;
 }
 
 export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps) {
@@ -307,9 +311,9 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
           <div className="mt-4">
             <p className="text-sm text-muted-foreground mb-2">Найденные клиенты:</p>
             <div className="space-y-1">
-              {actionResult.data.map((client: any) => (
-                <Badge key={client.id} variant="secondary">
-                  {client.name}
+              {actionResult.data.slice(0, 5).map((client: any) => (
+                <Badge key={client.id} variant="secondary" className="mr-1">
+                  {client.name} ({client.branch})
                 </Badge>
               ))}
             </div>
@@ -322,8 +326,8 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
             <p className="text-sm text-muted-foreground mb-2">Найденные преподаватели:</p>
             <div className="space-y-1">
               {actionResult.data.map((teacher: any) => (
-                <Badge key={teacher.id} variant="secondary">
-                  {teacher.name}
+                <Badge key={teacher.id} variant="secondary" className="mr-1">
+                  {teacher.name.replace(/^(преподаватель:|teacher:)/i, '')}
                 </Badge>
               ))}
             </div>
@@ -344,6 +348,37 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
           <div className="mt-4">
             <Badge variant="default" className="bg-blue-100 text-blue-800">
               ✓ Задача "{actionResult.title}" создана
+              {actionResult.clientName && ` для ${actionResult.clientName}`}
+            </Badge>
+          </div>
+        );
+
+      case 'tasks':
+        return (
+          <div className="mt-4">
+            <p className="text-sm text-muted-foreground mb-2">
+              Задачи ({actionResult.filter}): {actionResult.data.length}
+            </p>
+            <div className="space-y-1 max-h-32 overflow-y-auto">
+              {actionResult.data.slice(0, 5).map((task: any) => (
+                <div key={task.id} className="text-xs bg-muted p-2 rounded">
+                  <div className="font-medium">{task.title}</div>
+                  <div className="text-muted-foreground">
+                    {task.clients?.name && `${task.clients.name} • `}
+                    {task.status === 'pending' ? 'Активна' : 'Выполнена'}
+                    {task.due_date && ` • ${task.due_date}`}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+      case 'task_updated':
+        return (
+          <div className="mt-4">
+            <Badge variant="default" className="bg-green-100 text-green-800">
+              ✓ Задача {actionResult.status === 'completed' ? 'выполнена' : 'обновлена'}
             </Badge>
           </div>
         );
@@ -357,16 +392,50 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
             </Badge>
           </div>
         );
+
+      case 'chat_opened':
+        return (
+          <div className="mt-4">
+            <Badge variant="default" className="bg-green-100 text-green-800">
+              ✓ Открыт чат с {actionResult.clientName}
+            </Badge>
+          </div>
+        );
+
+      case 'modal_opened':
+        return (
+          <div className="mt-4">
+            <Badge variant="default" className="bg-blue-100 text-blue-800">
+              ✓ Открыто модальное окно
+            </Badge>
+          </div>
+        );
+
+      case 'client_info':
+        return (
+          <div className="mt-4">
+            <p className="text-sm text-muted-foreground mb-2">Информация о клиенте:</p>
+            <div className="text-sm bg-muted p-2 rounded max-h-32 overflow-y-auto">
+              <div><strong>{actionResult.data.name}</strong></div>
+              <div>Филиал: {actionResult.data.branch}</div>
+              {actionResult.data.phone && <div>Телефон: {actionResult.data.phone}</div>}
+              {actionResult.data.students?.length > 0 && (
+                <div>Студенты: {actionResult.data.students.map((s: any) => s.name).join(', ')}</div>
+              )}
+            </div>
+          </div>
+        );
       
       case 'schedule':
         return (
           <div className="mt-4">
             <p className="text-sm text-muted-foreground mb-2">Расписание:</p>
-            <div className="space-y-2">
-              {actionResult.data.slice(0, 3).map((item: any, index: number) => (
+            <div className="space-y-2 max-h-32 overflow-y-auto">
+              {actionResult.data.slice(0, 5).map((item: any, index: number) => (
                 <div key={index} className="text-sm bg-muted p-2 rounded">
-                  <strong>{item.name}</strong><br />
+                  <strong>{item.name}</strong> ({item.office_name})<br />
                   {item.compact_days} {item.compact_time}
+                  {item.vacancies > 0 && <span className="text-green-600"> • {item.vacancies} мест</span>}
                 </div>
               ))}
             </div>
@@ -504,9 +573,13 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
             <li>• "Найди клиента Иван"</li>
             <li>• "Отправь сообщение Анне что урок переносится"</li>
             <li>• "Создай задачу позвонить клиенту"</li>
+            <li>• "Покажи мои задачи на сегодня"</li>
+            <li>• "Какие у меня просроченные задачи?"</li>
             <li>• "Покажи расписание на сегодня"</li>
-            <li>• "Закрепи чат с Марией"</li>
+            <li>• "Открой чат с Марией"</li>
             <li>• "Найди преподавателя Елена"</li>
+            <li>• "Открой окно добавления клиента"</li>
+            <li>• "Покажи информацию о клиенте Иван"</li>
           </ul>
         </div>
       </div>
