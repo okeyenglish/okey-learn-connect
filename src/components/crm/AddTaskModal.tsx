@@ -218,6 +218,70 @@ export const AddTaskModal = ({
         />
 
         <div className="space-y-6 py-4">
+          {/* Client Selection - only for client tasks without existing client */}
+          {taskType === 'client' && !clientId && (
+            <div className="space-y-2">
+              <Label>Выбор клиента:</Label>
+              <div className="space-y-2">
+                <Input
+                  placeholder="Поиск по имени клиента..."
+                  value={clientSearch}
+                  onChange={(e) => setClientSearch(e.target.value)}
+                />
+                {clientSearch && (
+                  <div className="border rounded-lg max-h-40 overflow-y-auto">
+                    {clients
+                      .filter(client => 
+                        client.name.toLowerCase().includes(clientSearch.toLowerCase())
+                      )
+                      .slice(0, 5)
+                      .map(client => (
+                        <div 
+                          key={client.id}
+                          className="p-2 hover:bg-muted cursor-pointer border-b last:border-b-0"
+                          onClick={() => {
+                            setSelectedClientId(client.id);
+                            setSelectedClientName(client.name);
+                            setClientSearch(client.name);
+                          }}
+                        >
+                          <div className="font-medium">{client.name}</div>
+                          {client.phone && (
+                            <div className="text-sm text-muted-foreground">{client.phone}</div>
+                          )}
+                        </div>
+                      ))
+                    }
+                    {clients.filter(client => 
+                      client.name.toLowerCase().includes(clientSearch.toLowerCase())
+                    ).length === 0 && (
+                      <div className="p-2 text-sm text-muted-foreground">
+                        Клиенты не найдены
+                      </div>
+                    )}
+                  </div>
+                )}
+                {selectedClientId && selectedClientName && (
+                  <div className="flex items-center gap-2 p-2 bg-muted rounded">
+                    <span className="text-sm">Выбран клиент: <strong>{selectedClientName}</strong></span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedClientId(undefined);
+                        setSelectedClientName(undefined);
+                        setClientSearch("");
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Date, Time and Priority Row */}
           <div className="grid grid-cols-4 gap-4">
             <div className="space-y-2">
@@ -235,7 +299,7 @@ export const AddTaskModal = ({
                     {formData.date ? format(formData.date, "dd.MM.yyyy", { locale: ru }) : "Выберите дату"}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent className="w-auto p-0 z-50" align="start">
                   <Calendar
                     mode="single"
                     selected={formData.date}
@@ -246,7 +310,7 @@ export const AddTaskModal = ({
                       }
                     }}
                     initialFocus
-                    className="pointer-events-auto"
+                    className="p-3 pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>
@@ -301,8 +365,8 @@ export const AddTaskModal = ({
               </Button>
             </div>
 
-            {/* Student Selection - only show if there's a client or it's a client task */}
-            {(clientId || taskType === 'client') && (
+            {/* Student Selection - only show if there's a client */}
+            {hasClient && (
               <div className="space-y-2">
                 <Label>Ученик:</Label>
                 {familyData && familyData.students.length > 0 ? (
@@ -331,7 +395,7 @@ export const AddTaskModal = ({
           </div>
 
           {/* Responsible Person - only show for client tasks */}
-          {(clientId || taskType === 'client') && (
+          {hasClient && (
             <div className="space-y-2">
               <Label>Ответственный:</Label>
               <div className="space-y-2">
@@ -422,7 +486,7 @@ export const AddTaskModal = ({
             <Label htmlFor="description">Описание*:</Label>
             
             <div className="space-y-2">
-              {(clientId || taskType === 'client') && (
+              {hasClient && (
                 <Select onValueChange={handleTemplateSelect}>
                   <SelectTrigger>
                     <SelectValue placeholder="Выберите шаблон или напишите свой" />
