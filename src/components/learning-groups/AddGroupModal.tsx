@@ -38,11 +38,8 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
     period_start: null as Date | null,
     period_end: null as Date | null,
     schedule_days: [] as string[],
-    schedule_room: "",
-    lesson_start_hour: "",
-    lesson_start_minute: "",
-    lesson_end_hour: "",
-    lesson_end_minute: ""
+    schedule_times: {} as Record<string, { start_hour: string; start_minute: string; end_hour: string; end_minute: string }>,
+    schedule_room: ""
   });
   
   const { toast } = useToast();
@@ -114,14 +111,10 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
   };
 
   // Get lesson duration in minutes
+  // Get lesson duration in minutes - now just return the selected duration
   const getLessonDuration = () => {
-    if (!formData.lesson_start_hour || !formData.lesson_start_minute || 
-        !formData.lesson_end_hour || !formData.lesson_end_minute) return 0;
-    
-    const startMinutes = parseInt(formData.lesson_start_hour) * 60 + parseInt(formData.lesson_start_minute);
-    const endMinutes = parseInt(formData.lesson_end_hour) * 60 + parseInt(formData.lesson_end_minute);
-    
-    return endMinutes - startMinutes;
+    if (!formData.lesson_duration) return 0;
+    return parseInt(formData.lesson_duration);
   };
 
   // Auto-calculate end time based on start time and duration
@@ -140,18 +133,32 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
     };
   };
 
-  // Update end time when start time or duration changes
-  const updateEndTime = () => {
-    if (formData.lesson_start_hour && formData.lesson_start_minute && formData.lesson_duration) {
+  // Update end time for a specific day
+  const updateEndTimeForDay = (day: string) => {
+    const daySchedule = formData.schedule_times[day];
+    if (daySchedule?.start_hour && daySchedule?.start_minute && formData.lesson_duration) {
       const durationMinutes = parseInt(formData.lesson_duration);
-      const endTime = calculateEndTime(formData.lesson_start_hour, formData.lesson_start_minute, durationMinutes);
+      const endTime = calculateEndTime(daySchedule.start_hour, daySchedule.start_minute, durationMinutes);
       
       setFormData(prev => ({
         ...prev,
-        lesson_end_hour: endTime.hour,
-        lesson_end_minute: endTime.minute
+        schedule_times: {
+          ...prev.schedule_times,
+          [day]: {
+            ...prev.schedule_times[day],
+            end_hour: endTime.hour,
+            end_minute: endTime.minute
+          }
+        }
       }));
     }
+  };
+
+  // Update end times for all scheduled days
+  const updateAllEndTimes = () => {
+    formData.schedule_days.forEach(day => {
+      updateEndTimeForDay(day);
+    });
   };
   const updateAcademicHours = () => {
     const lessonDuration = getLessonDuration();
@@ -201,11 +208,23 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
     e.preventDefault();
     
     try {
-      // Create schedule_time from start and end times
-      const schedule_time = (formData.lesson_start_hour && formData.lesson_start_minute && 
-                           formData.lesson_end_hour && formData.lesson_end_minute) 
-        ? `${formData.lesson_start_hour.padStart(2, '0')}:${formData.lesson_start_minute.padStart(2, '0')}-${formData.lesson_end_hour.padStart(2, '0')}:${formData.lesson_end_minute.padStart(2, '0')}`
-        : undefined;
+      // Create schedule_time from schedule_times object
+      let schedule_time: string | undefined = undefined;
+      if (formData.schedule_days.length > 0) {
+        const timeStrings = formData.schedule_days.map(day => {
+          const dayTime = formData.schedule_times[day];
+          if (dayTime?.start_hour && dayTime?.start_minute && dayTime?.end_hour && dayTime?.end_minute) {
+            const startTime = `${dayTime.start_hour.padStart(2, '0')}:${dayTime.start_minute.padStart(2, '0')}`;
+            const endTime = `${dayTime.end_hour.padStart(2, '0')}:${dayTime.end_minute.padStart(2, '0')}`;
+            return `${day} ${startTime}-${endTime}`;
+          }
+          return null;
+        }).filter(Boolean);
+        
+        if (timeStrings.length > 0) {
+          schedule_time = timeStrings.join(', ');
+        }
+      }
 
       const groupData: Omit<LearningGroup, 'id' | 'created_at' | 'updated_at'> = {
         name: formData.name,
@@ -251,11 +270,8 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
         period_start: null,
         period_end: null,
         schedule_days: [],
-        schedule_room: "",
-        lesson_start_hour: "",
-        lesson_start_minute: "",
-        lesson_end_hour: "",
-        lesson_end_minute: ""
+        schedule_times: {},
+        schedule_room: ""
       });
       
       setOpen(false);
@@ -362,12 +378,32 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
   const minutes = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
 
   const toggleDay = (day: string) => {
-    setFormData(prev => ({
-      ...prev,
-      schedule_days: prev.schedule_days.includes(day)
-        ? prev.schedule_days.filter(d => d !== day)
-        : [...prev.schedule_days, day]
-    }));
+    setFormData(prev => {
+      const isCurrentlySelected = prev.schedule_days.includes(day);
+      let newScheduleDays;
+      let newScheduleTimes = { ...prev.schedule_times };
+      
+      if (isCurrentlySelected) {
+        // Remove day
+        newScheduleDays = prev.schedule_days.filter(d => d !== day);
+        delete newScheduleTimes[day];
+      } else {
+        // Add day
+        newScheduleDays = [...prev.schedule_days, day];
+        newScheduleTimes[day] = {
+          start_hour: "",
+          start_minute: "",
+          end_hour: "",
+          end_minute: ""
+        };
+      }
+      
+      return {
+        ...prev,
+        schedule_days: newScheduleDays,
+        schedule_times: newScheduleTimes
+      };
+    });
   };
 
   return (
@@ -582,7 +618,7 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                       onValueChange={(value) => {
                         setFormData(prev => ({ ...prev, lesson_duration: value }));
                         setTimeout(() => {
-                          updateEndTime();
+                          updateAllEndTimes();
                           updateCalculatedFields();
                         }, 100);
                       }}
@@ -730,128 +766,162 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                 </div>
 
                 <div className="space-y-3">
-                  <Label className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-orange-600" />
-                    Дни занятий
-                  </Label>
-                  <div className="flex gap-2 flex-wrap">
-                    {days.map(day => (
-                      <Button
-                        key={day}
-                        type="button"
-                        variant={formData.schedule_days.includes(day) ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => {
-                          toggleDay(day);
-                          setTimeout(updateCalculatedFields, 100);
-                        }}
-                        className={formData.schedule_days.includes(day) ? "bg-blue-600 text-white" : ""}
-                      >
-                        {day.charAt(0).toUpperCase() + day.slice(1)}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
                   <Label className="flex items-center gap-2 font-medium">
                     <Calendar className="h-4 w-4 text-blue-600" />
-                    Время занятий *
+                    Расписание занятий *
                   </Label>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label className="text-sm text-gray-600">Время начала</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Select
-                          value={formData.lesson_start_hour}
-                          onValueChange={(value) => {
-                            setFormData(prev => ({ ...prev, lesson_start_hour: value }));
-                            setTimeout(() => {
-                              updateEndTime();
-                              updateCalculatedFields();
-                            }, 100);
+                  <div className="space-y-4">
+                    <div className="flex gap-2 flex-wrap">
+                      {days.map(day => (
+                        <Button
+                          key={day}
+                          type="button"
+                          variant={formData.schedule_days.includes(day) ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            toggleDay(day);
+                            setTimeout(updateCalculatedFields, 100);
                           }}
-                          required
+                          className={formData.schedule_days.includes(day) ? "bg-blue-600 text-white" : ""}
                         >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Час" />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-60">
-                            {hours.map(hour => (
-                              <SelectItem key={hour} value={hour}>
-                                {hour}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Select
-                          value={formData.lesson_start_minute}
-                          onValueChange={(value) => {
-                            setFormData(prev => ({ ...prev, lesson_start_minute: value }));
-                            setTimeout(() => {
-                              updateEndTime();
-                              updateCalculatedFields();
-                            }, 100);
-                          }}
-                          required
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Мин" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {minutes.map(minute => (
-                              <SelectItem key={minute} value={minute}>
-                                {minute}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                          {day.charAt(0).toUpperCase() + day.slice(1)}
+                        </Button>
+                      ))}
                     </div>
                     
-                    <div className="space-y-2">
-                      <Label className="text-sm text-gray-600">Время окончания</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Select
-                          value={formData.lesson_end_hour}
-                          onValueChange={(value) => {
-                            setFormData(prev => ({ ...prev, lesson_end_hour: value }));
-                            setTimeout(updateCalculatedFields, 100);
-                          }}
-                          required
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Час" />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-60">
-                            {hours.map(hour => (
-                              <SelectItem key={hour} value={hour}>
-                                {hour}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Select
-                          value={formData.lesson_end_minute}
-                          onValueChange={(value) => {
-                            setFormData(prev => ({ ...prev, lesson_end_minute: value }));
-                            setTimeout(updateCalculatedFields, 100);
-                          }}
-                          required
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Мин" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {minutes.map(minute => (
-                              <SelectItem key={minute} value={minute}>
-                                {minute}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                    {/* Time inputs for each selected day */}
+                    {formData.schedule_days.length > 0 && (
+                      <div className="space-y-3">
+                        {formData.schedule_days.map(day => (
+                          <div key={day} className="border rounded-lg p-4 bg-gray-50">
+                            <h4 className="font-medium mb-3 text-gray-700">{day.charAt(0).toUpperCase() + day.slice(1)}</h4>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label className="text-sm text-gray-600">Время начала</Label>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <Select
+                                    value={formData.schedule_times[day]?.start_hour || ""}
+                                    onValueChange={(value) => {
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        schedule_times: {
+                                          ...prev.schedule_times,
+                                          [day]: {
+                                            ...prev.schedule_times[day],
+                                            start_hour: value
+                                          }
+                                        }
+                                      }));
+                                      setTimeout(() => updateEndTimeForDay(day), 100);
+                                    }}
+                                    required
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Час" />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-60">
+                                      {hours.map(hour => (
+                                        <SelectItem key={hour} value={hour}>
+                                          {hour}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Select
+                                    value={formData.schedule_times[day]?.start_minute || ""}
+                                    onValueChange={(value) => {
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        schedule_times: {
+                                          ...prev.schedule_times,
+                                          [day]: {
+                                            ...prev.schedule_times[day],
+                                            start_minute: value
+                                          }
+                                        }
+                                      }));
+                                      setTimeout(() => updateEndTimeForDay(day), 100);
+                                    }}
+                                    required
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Мин" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {minutes.map(minute => (
+                                        <SelectItem key={minute} value={minute}>
+                                          {minute}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label className="text-sm text-gray-600">Время окончания</Label>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <Select
+                                    value={formData.schedule_times[day]?.end_hour || ""}
+                                    onValueChange={(value) => {
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        schedule_times: {
+                                          ...prev.schedule_times,
+                                          [day]: {
+                                            ...prev.schedule_times[day],
+                                            end_hour: value
+                                          }
+                                        }
+                                      }));
+                                    }}
+                                    disabled
+                                  >
+                                    <SelectTrigger className="bg-gray-100">
+                                      <SelectValue placeholder="Час" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {hours.map(hour => (
+                                        <SelectItem key={hour} value={hour}>
+                                          {hour}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Select
+                                    value={formData.schedule_times[day]?.end_minute || ""}
+                                    onValueChange={(value) => {
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        schedule_times: {
+                                          ...prev.schedule_times,
+                                          [day]: {
+                                            ...prev.schedule_times[day],
+                                            end_minute: value
+                                          }
+                                        }
+                                      }));
+                                    }}
+                                    disabled
+                                  >
+                                    <SelectTrigger className="bg-gray-100">
+                                      <SelectValue placeholder="Мин" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {minutes.map(minute => (
+                                        <SelectItem key={minute} value={minute}>
+                                          {minute}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
 

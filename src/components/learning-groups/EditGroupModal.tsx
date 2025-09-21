@@ -1,24 +1,23 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, Users, BookOpen, MapPin, Calendar, Clock, User } from "lucide-react";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useUpdateLearningGroup, LearningGroup } from "@/hooks/useLearningGroups";
+import { useTeachers } from "@/hooks/useTeachers";
+import { useToast } from "@/hooks/use-toast";
+import { getBranchesForSelect, getClassroomsForBranch } from "@/lib/branches";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
-import { useUpdateLearningGroup, LearningGroup } from "@/hooks/useLearningGroups";
-import { useTeachers, getTeacherFullName } from "@/hooks/useTeachers";
-import { getBranchesForSelect, getClassroomsForBranch } from "@/lib/branches";
+import { Calendar, MapPin, BookOpen, Users, Clock, User } from "lucide-react";
 
 interface EditGroupModalProps {
-  group: LearningGroup | null;
+  group: LearningGroup;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onGroupUpdated?: () => void;
@@ -40,73 +39,162 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
     period_start: null as Date | null,
     period_end: null as Date | null,
     schedule_days: [] as string[],
-    schedule_room: "",
-    lesson_start_hour: "",
-    lesson_start_minute: "",
-    lesson_end_hour: "",
-    lesson_end_minute: ""
+    schedule_times: {} as Record<string, { start_hour: string; start_minute: string; end_hour: string; end_minute: string }>,
+    schedule_room: ""
   });
   
   const { toast } = useToast();
   const updateGroup = useUpdateLearningGroup();
 
-  // Get filtered teachers for the current branch/subject/category
+  // Parse existing schedule_time into schedule_times
+  const parseScheduleTime = (scheduleTime: string, scheduleDays: string[]) => {
+    const scheduleTimes: Record<string, { start_hour: string; start_minute: string; end_hour: string; end_minute: string }> = {};
+    
+    if (scheduleTime && scheduleDays.length > 0) {
+      // Check if it's the new format (day specific) or old format (general)
+      if (scheduleTime.includes('пн') || scheduleTime.includes('вт') || scheduleTime.includes('ср') || 
+          scheduleTime.includes('чт') || scheduleTime.includes('пт') || scheduleTime.includes('сб') || 
+          scheduleTime.includes('вс')) {
+        // New format: "пн 10:00-11:00, ср 15:00-16:00"
+        const dayTimePairs = scheduleTime.split(', ');
+        dayTimePairs.forEach(pair => {
+          const [day, timeRange] = pair.split(' ');
+          if (timeRange && timeRange.includes('-')) {
+            const [startTime, endTime] = timeRange.split('-');
+            const [startHour, startMinute] = startTime.split(':');
+            const [endHour, endMinute] = endTime.split(':');
+            
+            scheduleTimes[day] = {
+              start_hour: startHour,
+              start_minute: startMinute,
+              end_hour: endHour,
+              end_minute: endMinute
+            };
+          }
+        });
+      } else {
+        // Old format: "10:00-11:00" - apply to all scheduled days
+        if (scheduleTime.includes('-')) {
+          const [startTime, endTime] = scheduleTime.split('-');
+          const [startHour, startMinute] = startTime.split(':');
+          const [endHour, endMinute] = endTime.split(':');
+          
+          scheduleDays.forEach(day => {
+            scheduleTimes[day] = {
+              start_hour: startHour,
+              start_minute: startMinute,
+              end_hour: endHour,
+              end_minute: endMinute
+            };
+          });
+        }
+      }
+    }
+    
+    return scheduleTimes;
+  };
+
   const { teachers } = useTeachers({
-    branch: formData.branch || undefined,
     subject: formData.subject,
     category: formData.category
   });
 
-  // Function to automatically set category based on level
+  const getTeacherFullName = (teacher: any) => {
+    return `${teacher.last_name} ${teacher.first_name}`.trim();
+  };
+
   const getCategoryFromLevel = (level: string): "preschool" | "school" | "adult" | "all" => {
-    if (level.startsWith("Super Safari")) return "preschool";
-    if (level.startsWith("Kids Box")) return "school";
-    if (level.startsWith("Prepare")) return "school";
-    if (level.startsWith("Empower")) return "adult";
+    if (level.startsWith("Super Safari") || level.includes("Kindergarten")) return "preschool";
+    if (level.startsWith("Kids Box") || level.startsWith("Prepare")) return "school";
+    if (level.startsWith("Empower") || level.includes("Speaking Club") || level.includes("Workshop")) return "adult";
     return "all";
   };
 
-  // Load group data when modal opens
+  // Initialize form when group changes
   useEffect(() => {
     if (group && open) {
-      const [startHour = "", startMinute = ""] = group.schedule_time?.split('-')[0]?.split(':') || [];
-      const [endHour = "", endMinute = ""] = group.schedule_time?.split('-')[1]?.split(':') || [];
+      const scheduleDays = group.schedule_days || [];
+      const scheduleTimes = parseScheduleTime(group.schedule_time || "", scheduleDays);
       
       setFormData({
         name: group.name || "",
         branch: group.branch || "",
         subject: group.subject || "Английский",
         level: group.level || "",
-        category: group.category || "all",
+        category: getCategoryFromLevel(group.level || ""),
         group_type: group.group_type || "general",
         status: group.status || "forming",
         capacity: group.capacity?.toString() || "10",
         academic_hours: group.academic_hours?.toString() || "",
-        lesson_duration: "", // Will be set by level default or user selection
+        lesson_duration: "80", // Default, will be set based on level
         responsible_teacher: group.responsible_teacher || "",
         period_start: group.period_start ? new Date(group.period_start) : null,
         period_end: group.period_end ? new Date(group.period_end) : null,
-        schedule_days: group.schedule_days || [],
-        schedule_room: group.schedule_room || "",
-        lesson_start_hour: startHour,
-        lesson_start_minute: startMinute,
-        lesson_end_hour: endHour,
-        lesson_end_minute: endMinute
+        schedule_days: scheduleDays,
+        schedule_times: scheduleTimes,
+        schedule_room: group.schedule_room || ""
       });
     }
   }, [group, open]);
 
+  // Auto-calculate end time based on start time and duration
+  const calculateEndTime = (startHour: string, startMinute: string, durationMinutes: number) => {
+    if (!startHour || !startMinute || !durationMinutes) return { hour: "", minute: "" };
+    
+    const startTotalMinutes = parseInt(startHour) * 60 + parseInt(startMinute);
+    const endTotalMinutes = startTotalMinutes + durationMinutes;
+    
+    const endHour = Math.floor(endTotalMinutes / 60) % 24;
+    const endMinute = endTotalMinutes % 60;
+    
+    return {
+      hour: endHour.toString().padStart(2, '0'),
+      minute: endMinute.toString().padStart(2, '0')
+    };
+  };
+
+  // Update end time for a specific day
+  const updateEndTimeForDay = (day: string) => {
+    const daySchedule = formData.schedule_times[day];
+    if (daySchedule?.start_hour && daySchedule?.start_minute && formData.lesson_duration) {
+      const durationMinutes = parseInt(formData.lesson_duration);
+      const endTime = calculateEndTime(daySchedule.start_hour, daySchedule.start_minute, durationMinutes);
+      
+      setFormData(prev => ({
+        ...prev,
+        schedule_times: {
+          ...prev.schedule_times,
+          [day]: {
+            ...prev.schedule_times[day],
+            end_hour: endTime.hour,
+            end_minute: endTime.minute
+          }
+        }
+      }));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!group) return;
-    
     try {
-      // Create schedule_time from start and end times
-      const schedule_time = (formData.lesson_start_hour && formData.lesson_start_minute && 
-                           formData.lesson_end_hour && formData.lesson_end_minute) 
-        ? `${formData.lesson_start_hour.padStart(2, '0')}:${formData.lesson_start_minute.padStart(2, '0')}-${formData.lesson_end_hour.padStart(2, '0')}:${formData.lesson_end_minute.padStart(2, '0')}`
-        : undefined;
+      // Create schedule_time from schedule_times object
+      let schedule_time: string | undefined = undefined;
+      if (formData.schedule_days.length > 0) {
+        const timeStrings = formData.schedule_days.map(day => {
+          const dayTime = formData.schedule_times[day];
+          if (dayTime?.start_hour && dayTime?.start_minute && dayTime?.end_hour && dayTime?.end_minute) {
+            const startTime = `${dayTime.start_hour.padStart(2, '0')}:${dayTime.start_minute.padStart(2, '0')}`;
+            const endTime = `${dayTime.end_hour.padStart(2, '0')}:${dayTime.end_minute.padStart(2, '0')}`;
+            return `${day} ${startTime}-${endTime}`;
+          }
+          return null;
+        }).filter(Boolean);
+        
+        if (timeStrings.length > 0) {
+          schedule_time = timeStrings.join(', ');
+        }
+      }
 
       const groupData = {
         name: formData.name,
@@ -118,21 +206,21 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
         status: formData.status,
         capacity: parseInt(formData.capacity),
         academic_hours: formData.academic_hours ? parseFloat(formData.academic_hours) : undefined,
+        responsible_teacher: formData.responsible_teacher || undefined,
         period_start: formData.period_start?.toISOString().split('T')[0] || undefined,
         period_end: formData.period_end?.toISOString().split('T')[0] || undefined,
         schedule_days: formData.schedule_days.length > 0 ? formData.schedule_days : undefined,
         schedule_time: schedule_time,
-        schedule_room: formData.schedule_room || undefined,
-        responsible_teacher: formData.responsible_teacher || undefined
+        schedule_room: formData.schedule_room || undefined
       };
 
       await updateGroup.mutateAsync({ id: group.id, data: groupData });
 
       toast({
         title: "Успешно",
-        description: "Данные группы обновлены"
+        description: "Группа обновлена"
       });
-      
+
       onOpenChange(false);
       onGroupUpdated?.();
 
@@ -146,65 +234,36 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
     }
   };
 
+  const toggleDay = (day: string) => {
+    setFormData(prev => {
+      const isCurrentlySelected = prev.schedule_days.includes(day);
+      let newScheduleDays;
+      let newScheduleTimes = { ...prev.schedule_times };
+      
+      if (isCurrentlySelected) {
+        // Remove day
+        newScheduleDays = prev.schedule_days.filter(d => d !== day);
+        delete newScheduleTimes[day];
+      } else {
+        // Add day
+        newScheduleDays = [...prev.schedule_days, day];
+        newScheduleTimes[day] = {
+          start_hour: "",
+          start_minute: "",
+          end_hour: "",
+          end_minute: ""
+        };
+      }
+      
+      return {
+        ...prev,
+        schedule_days: newScheduleDays,
+        schedule_times: newScheduleTimes
+      };
+    });
+  };
+
   const branches = getBranchesForSelect();
-  // Function to get default academic hours based on level
-  const getDefaultAcademicHours = (level: string): string => {
-    if (level.startsWith("Super Safari")) return "120";
-    if (level.startsWith("Kids Box")) return "160";
-    if (level.startsWith("Prepare")) return "160";
-    if (level.startsWith("Empower")) return "120";
-    return "";
-  };
-
-  // Function to get default lesson duration based on level
-  const getDefaultLessonDuration = (level: string): string => {
-    if (level.startsWith("Super Safari")) return "60";
-    return "80"; // Default for Kids Box, Prepare, Empower
-  };
-
-  // Function to get total lessons for course
-  const getTotalLessons = (level: string): number => {
-    if (level.startsWith("Super Safari")) return 80;
-    if (level.startsWith("Kids Box")) return 80;
-    if (level.startsWith("Prepare")) return 80;
-    if (level.startsWith("Empower")) return 60;
-    return 0;
-  };
-
-  // Function to get next May 31st date
-  const getNextMay31 = (): Date => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const may31ThisYear = new Date(currentYear, 4, 31); // May is month 4 (0-indexed)
-    
-    // If we're past May 31st this year, use next year
-    if (now > may31ThisYear) {
-      return new Date(currentYear + 1, 4, 31);
-    }
-    return may31ThisYear;
-  };
-
-  // Function to set period end for special programs
-  const shouldSetMay31End = (level: string): boolean => {
-    const specialPrograms = ["Speaking Club", "Workshop", "Kindergarten"];
-    return specialPrograms.some(program => level.includes(program));
-  };
-
-  // Function to calculate end date based on start date, schedule days and total lessons
-  const calculateEndDate = (startDate: Date, scheduleDays: string[], totalLessons: number): Date => {
-    if (!startDate || !scheduleDays || scheduleDays.length === 0 || totalLessons === 0) {
-      return startDate;
-    }
-
-    const daysPerWeek = scheduleDays.length;
-    const totalWeeks = Math.ceil(totalLessons / daysPerWeek);
-    
-    const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + (totalWeeks * 7));
-    
-    return endDate;
-  };
-
   const levels = [
     "Super Safari 1", "Super Safari 2", "Super Safari 3",
     "Kids Box Starter", "Kids Box 1", "Kids Box 2", "Kids Box 3", "Kids Box 4", "Kids Box 5", "Kids Box 6",
@@ -213,37 +272,9 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
     "Empower 1", "Empower 2", "Empower 3", "Empower 4", "Empower 5",
     "Speaking Club", "Workshop", "Kindergarten"
   ];
-
   const days = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
-  
-  // Generate classroom options based on branch
-  const getClassroomsForBranch = (branch: string) => {
-    const classroomMap: Record<string, string[]> = {
-      "Окская": ["Аудитория 1", "Аудитория 2", "Аудитория 3", "Аудитория 4"],
-      "Котельники": ["Кабинет 101", "Кабинет 102", "Кабинет 103"],
-      "Люберцы-1": ["Класс А", "Класс Б", "Класс В", "Класс Г"],
-      "Люберцы-2": ["Комната 1", "Комната 2", "Комната 3"],
-      "Мытищи": ["Зал 1", "Зал 2", "Зал 3", "Зал 4"],
-      "Новокосино": ["Студия 1", "Студия 2", "Студия 3"],
-      "Солнцево": ["Кабинет 1", "Кабинет 2", "Кабинет 3", "Кабинет 4"],
-      "Стахановская": ["Аудитория А", "Аудитория Б", "Аудитория В"],
-      "Онлайн": ["Zoom-комната 1", "Zoom-комната 2", "Zoom-комната 3"]
-    };
-    return classroomMap[branch] || [];
-  };
-
-  // Generate time options
   const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
   const minutes = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
-
-  const toggleDay = (day: string) => {
-    setFormData(prev => ({
-      ...prev,
-      schedule_days: prev.schedule_days.includes(day)
-        ? prev.schedule_days.filter(d => d !== day)
-        : [...prev.schedule_days, day]
-    }));
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -265,6 +296,16 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
               <CardContent className="p-6 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
+                    <Label>Название группы *</Label>
+                    <Input
+                      value={formData.name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Название группы"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
                     <Label className="flex items-center gap-2 font-medium">
                       <MapPin className="h-4 w-4 text-blue-600" />
                       Филиал *
@@ -275,43 +316,14 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
                       required
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Выберите филиал" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branches.map(branch => (
-                          <SelectItem key={branch.value} value={branch.label}>
-                            {branch.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2 font-medium">
-                      <Badge className="h-4 w-4 text-yellow-600" />
-                      Статус группы
-                    </Label>
-                    <Select
-                      value={formData.status}
-                      onValueChange={(value: any) => setFormData(prev => ({ ...prev, status: value }))}
-                    >
-                      <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="forming">
-                          <span className="text-yellow-600">Формирующаяся</span>
-                        </SelectItem>
-                        <SelectItem value="active">
-                          <span className="text-green-600">В работе</span>
-                        </SelectItem>
-                        <SelectItem value="reserve">
-                          <span className="text-gray-600">Резервная</span>
-                        </SelectItem>
-                        <SelectItem value="suspended">
-                          <span className="text-red-600">Приостановленная</span>
-                        </SelectItem>
+                        {branches.map(branch => (
+                          <SelectItem key={branch.value} value={branch.value}>
+                            {branch.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -319,10 +331,11 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Язык</Label>
+                    <Label>Предмет</Label>
                     <Select
                       value={formData.subject}
                       onValueChange={(value) => setFormData(prev => ({ ...prev, subject: value }))}
+                      disabled
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -340,20 +353,11 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
                     </Label>
                     <Select
                       value={formData.level}
-                      onValueChange={(value) => setFormData(prev => {
-                        const newFormData = { 
-                          ...prev, 
-                          level: value, 
-                          category: getCategoryFromLevel(value),
-                          academic_hours: getDefaultAcademicHours(value),
-                          lesson_duration: getDefaultLessonDuration(value),
-                          period_end: shouldSetMay31End(value) ? getNextMay31() : 
-                            (prev.period_start && prev.schedule_days?.length > 0 ? 
-                              calculateEndDate(prev.period_start, prev.schedule_days, getTotalLessons(value)) : 
-                              prev.period_end)
-                        };
-                        return newFormData;
-                      })}
+                      onValueChange={(value) => setFormData(prev => ({ 
+                        ...prev, 
+                        level: value, 
+                        category: getCategoryFromLevel(value)
+                      }))}
                       required
                     >
                       <SelectTrigger>
@@ -365,43 +369,6 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
                             {level}
                           </SelectItem>
                         ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Категория</Label>
-                    <Select
-                      value={formData.category}
-                      onValueChange={(value: any) => setFormData(prev => ({ ...prev, category: value }))}
-                      disabled
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">[Все]</SelectItem>
-                        <SelectItem value="preschool">Дошкольники</SelectItem>
-                        <SelectItem value="school">Школьники</SelectItem>
-                        <SelectItem value="adult">Взрослые</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Тип</Label>
-                    <Select
-                      value={formData.group_type}
-                      onValueChange={(value: any) => setFormData(prev => ({ ...prev, group_type: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="general">Группа</SelectItem>
-                        <SelectItem value="mini">Мини-группа</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -429,7 +396,7 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
                       type="number"
                       value={formData.academic_hours}
                       onChange={(e) => setFormData(prev => ({ ...prev, academic_hours: e.target.value }))}
-                      placeholder="117"
+                      placeholder="Академические часы"
                     />
                   </div>
 
@@ -453,7 +420,9 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
 
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
                       <User className="h-4 w-4 text-blue-600" />
@@ -510,7 +479,7 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
                 <div className="space-y-3">
                   <Label className="flex items-center gap-2 font-medium">
                     <Calendar className="h-4 w-4 text-green-600" />
-                    Период обучения
+                    Период обучения *
                   </Label>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -579,143 +548,140 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
                 </div>
 
                 <div className="space-y-3">
-                  <Label className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-orange-600" />
-                    Дни занятий
-                  </Label>
-                  <div className="flex gap-2 flex-wrap">
-                    {days.map(day => (
-                      <Button
-                        key={day}
-                        type="button"
-                        variant={formData.schedule_days.includes(day) ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => toggleDay(day)}
-                        className={formData.schedule_days.includes(day) ? "bg-blue-600 text-white" : ""}
-                      >
-                        {day.charAt(0).toUpperCase() + day.slice(1)}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
                   <Label className="flex items-center gap-2 font-medium">
                     <Calendar className="h-4 w-4 text-blue-600" />
-                    Время занятий *
+                    Расписание занятий *
                   </Label>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label className="text-sm text-gray-600">Время начала</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Select
-                          value={formData.lesson_start_hour}
-                          onValueChange={(value) => setFormData(prev => ({ ...prev, lesson_start_hour: value }))}
-                          required
+                  <div className="space-y-4">
+                    <div className="flex gap-2 flex-wrap">
+                      {days.map(day => (
+                        <Button
+                          key={day}
+                          type="button"
+                          variant={formData.schedule_days.includes(day) ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => toggleDay(day)}
+                          className={formData.schedule_days.includes(day) ? "bg-blue-600 text-white" : ""}
                         >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Час" />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-60">
-                            {hours.map(hour => (
-                              <SelectItem key={hour} value={hour}>
-                                {hour}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Select
-                          value={formData.lesson_start_minute}
-                          onValueChange={(value) => setFormData(prev => ({ ...prev, lesson_start_minute: value }))}
-                          required
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Мин" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {minutes.map(minute => (
-                              <SelectItem key={minute} value={minute}>
-                                {minute}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                          {day.charAt(0).toUpperCase() + day.slice(1)}
+                        </Button>
+                      ))}
                     </div>
                     
-                    <div className="space-y-2">
-                      <Label className="text-sm text-gray-600">Время окончания</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Select
-                          value={formData.lesson_end_hour}
-                          onValueChange={(value) => setFormData(prev => ({ ...prev, lesson_end_hour: value }))}
-                          required
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Час" />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-60">
-                            {hours.map(hour => (
-                              <SelectItem key={hour} value={hour}>
-                                {hour}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Select
-                          value={formData.lesson_end_minute}
-                          onValueChange={(value) => setFormData(prev => ({ ...prev, lesson_end_minute: value }))}
-                          required
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Мин" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {minutes.map(minute => (
-                              <SelectItem key={minute} value={minute}>
-                                {minute}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                    {/* Time inputs for each selected day */}
+                    {formData.schedule_days.length > 0 && (
+                      <div className="space-y-3">
+                        {formData.schedule_days.map(day => (
+                          <div key={day} className="border rounded-lg p-4 bg-gray-50">
+                            <h4 className="font-medium mb-3 text-gray-700">{day.charAt(0).toUpperCase() + day.slice(1)}</h4>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label className="text-sm text-gray-600">Время начала</Label>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <Select
+                                    value={formData.schedule_times[day]?.start_hour || ""}
+                                    onValueChange={(value) => {
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        schedule_times: {
+                                          ...prev.schedule_times,
+                                          [day]: {
+                                            ...prev.schedule_times[day],
+                                            start_hour: value
+                                          }
+                                        }
+                                      }));
+                                      setTimeout(() => updateEndTimeForDay(day), 100);
+                                    }}
+                                    required
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Час" />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-60">
+                                      {hours.map(hour => (
+                                        <SelectItem key={hour} value={hour}>
+                                          {hour}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Select
+                                    value={formData.schedule_times[day]?.start_minute || ""}
+                                    onValueChange={(value) => {
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        schedule_times: {
+                                          ...prev.schedule_times,
+                                          [day]: {
+                                            ...prev.schedule_times[day],
+                                            start_minute: value
+                                          }
+                                        }
+                                      }));
+                                      setTimeout(() => updateEndTimeForDay(day), 100);
+                                    }}
+                                    required
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Мин" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {minutes.map(minute => (
+                                        <SelectItem key={minute} value={minute}>
+                                          {minute}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label className="text-sm text-gray-600">Время окончания</Label>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <Select
+                                    value={formData.schedule_times[day]?.end_hour || ""}
+                                    disabled
+                                  >
+                                    <SelectTrigger className="bg-gray-100">
+                                      <SelectValue placeholder="Час" />
+                                    </SelectTrigger>
+                                  </Select>
+                                  <Select
+                                    value={formData.schedule_times[day]?.end_minute || ""}
+                                    disabled
+                                  >
+                                    <SelectTrigger className="bg-gray-100">
+                                      <SelectValue placeholder="Мин" />
+                                    </SelectTrigger>
+                                  </Select>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
+                    )}
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Название группы *</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Название группы"
-                    required
-                  />
                 </div>
               </CardContent>
             </Card>
 
-            <div className="flex justify-end gap-3 pt-4">
+            <div className="flex justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
               >
-                Отменить
+                Отмена
               </Button>
               <Button
                 type="submit"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
                 disabled={updateGroup.isPending}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
               >
-                {updateGroup.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Сохранение...
-                  </>
-                ) : (
-                  'Сохранить'
-                )}
+                {updateGroup.isPending ? "Сохранение..." : "Сохранить"}
               </Button>
             </div>
           </form>
