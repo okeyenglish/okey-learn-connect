@@ -62,6 +62,16 @@ export const useClientStatus = (clientIds: string[]) => {
             ?.filter(fm => fm.client_id === clientId)
             .map(fm => fm.family_group_id) || [];
 
+          // Если у клиента нет семейной группы - это лид
+          if (clientFamilyGroups.length === 0) {
+            newStatusMap[clientId] = {
+              isLead: true,
+              hasActiveStudents: false,
+              studentsCount: 0
+            };
+            continue;
+          }
+
           // Находим студентов в этих семейных группах
           const clientStudents = students?.filter(s => 
             clientFamilyGroups.includes(s.family_group_id)
@@ -70,7 +80,7 @@ export const useClientStatus = (clientIds: string[]) => {
           const activeStudents = clientStudents.filter(s => s.status === 'active');
           
           newStatusMap[clientId] = {
-            isLead: activeStudents.length === 0,
+            isLead: activeStudents.length === 0, // Лид если нет активных студентов
             hasActiveStudents: activeStudents.length > 0,
             studentsCount: clientStudents.length
           };
