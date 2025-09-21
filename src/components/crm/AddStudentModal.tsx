@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { GraduationCap, Loader2, User, Calendar, BookOpen, CreditCard, FileText, Star } from "lucide-react";
+import { GraduationCap, Loader2, User, Calendar, BookOpen, CreditCard, FileText, Star, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { getBranchesForSelect } from "@/lib/branches";
 
 interface AddStudentModalProps {
   familyGroupId: string;
@@ -26,10 +27,11 @@ export const AddStudentModal = ({ familyGroupId, parentLastName, onStudentAdded,
     lastName: parentLastName || "",
     age: "",
     dateOfBirth: "",
-    status: "trial" as "active" | "inactive" | "trial" | "graduated",
+    status: "trial" as "active" | "trial",
     courseName: "",
     paymentAmount: "",
-    nextPaymentDate: "",
+    branch: "",
+    additionalBranch: "",
     notes: ""
   });
   
@@ -84,7 +86,6 @@ export const AddStudentModal = ({ familyGroupId, parentLastName, onStudentAdded,
             student_id: studentData.id,
             course_name: formData.courseName,
             payment_amount: formData.paymentAmount ? parseFloat(formData.paymentAmount) : null,
-            next_payment_date: formData.nextPaymentDate || null,
             is_active: true
           });
 
@@ -105,7 +106,8 @@ export const AddStudentModal = ({ familyGroupId, parentLastName, onStudentAdded,
         status: "trial",
         courseName: "",
         paymentAmount: "",
-        nextPaymentDate: "",
+        branch: "",
+        additionalBranch: "",
         notes: ""
       });
       
@@ -124,15 +126,7 @@ export const AddStudentModal = ({ familyGroupId, parentLastName, onStudentAdded,
     }
   };
 
-  const getStatusLabel = (value: string) => {
-    const labels = {
-      active: "Активный",
-      inactive: "Неактивный", 
-      trial: "Пробный",
-      graduated: "Выпускник"
-    };
-    return labels[value as keyof typeof labels] || value;
-  };
+  const branches = getBranchesForSelect();
 
   const courses = [
     "Kids Box 1", "Kids Box 2", "Kids Box 3", "Kids Box 4", "Kids Box 5", "Kids Box 6",
@@ -267,18 +261,58 @@ export const AddStudentModal = ({ familyGroupId, parentLastName, onStudentAdded,
                           Активный
                         </div>
                       </SelectItem>
-                      <SelectItem value="inactive">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-gray-500 rounded-full" />
-                          Неактивный
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="graduated">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                          Выпускник
-                        </div>
-                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="branch" className="flex items-center gap-2 font-medium">
+                    <Star className="h-4 w-4 text-red-500" />
+                    <MapPin className="h-4 w-4 text-gray-500" />
+                    Филиал
+                  </Label>
+                  <Select
+                    value={formData.branch}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, branch: value }))}
+                  >
+                    <SelectTrigger className="transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                      <SelectValue placeholder="Выберите филиал" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {branches.map(branch => (
+                        <SelectItem key={branch.value} value={branch.label}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{branch.label}</span>
+                            <span className="text-xs text-gray-500">{branch.address}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="additional-branch" className="flex items-center gap-2 font-medium">
+                    <MapPin className="h-4 w-4 text-gray-500" />
+                    Дополнительный филиал
+                    <Badge variant="secondary" className="text-xs">Опционально</Badge>
+                  </Label>
+                  <Select
+                    value={formData.additionalBranch}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, additionalBranch: value }))}
+                  >
+                    <SelectTrigger className="transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                      <SelectValue placeholder="Выберите дополнительный филиал" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {branches.filter(branch => branch.label !== formData.branch).map(branch => (
+                        <SelectItem key={branch.value} value={branch.label}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{branch.label}</span>
+                            <span className="text-xs text-gray-500">{branch.address}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -338,36 +372,21 @@ export const AddStudentModal = ({ familyGroupId, parentLastName, onStudentAdded,
                   </Select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="payment-amount" className="flex items-center gap-2 font-medium">
-                      <CreditCard className="h-4 w-4 text-green-600" />
-                      Стоимость курса
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="payment-amount"
-                        type="number"
-                        value={formData.paymentAmount}
-                        onChange={(e) => setFormData(prev => ({ ...prev, paymentAmount: e.target.value }))}
-                        placeholder="11490"
-                        className="pr-8 transition-all duration-200 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                      />
-                      <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₽</span>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="next-payment" className="flex items-center gap-2 font-medium">
-                      <Calendar className="h-4 w-4 text-green-600" />
-                      Следующая оплата
-                    </Label>
+                <div className="space-y-2">
+                  <Label htmlFor="payment-amount" className="flex items-center gap-2 font-medium">
+                    <CreditCard className="h-4 w-4 text-green-600" />
+                    Стоимость курса
+                  </Label>
+                  <div className="relative">
                     <Input
-                      id="next-payment"
-                      type="date"
-                      value={formData.nextPaymentDate}
-                      onChange={(e) => setFormData(prev => ({ ...prev, nextPaymentDate: e.target.value }))}
-                      className="transition-all duration-200 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      id="payment-amount"
+                      type="number"
+                      value={formData.paymentAmount}
+                      onChange={(e) => setFormData(prev => ({ ...prev, paymentAmount: e.target.value }))}
+                      placeholder="11490"
+                      className="pr-8 transition-all duration-200 focus:ring-2 focus:ring-green-500 focus:border-green-500"
                     />
+                    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₽</span>
                   </div>
                 </div>
               </CardContent>
