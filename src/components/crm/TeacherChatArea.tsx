@@ -15,6 +15,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useChatMessages, useSendMessage, useMarkAsRead, useRealtimeMessages } from '@/hooks/useChatMessages';
 import { useTypingStatus } from '@/hooks/useTypingStatus';
 import { usePinCounts } from '@/hooks/usePinCounts';
+import { useWhatsApp } from '@/hooks/useWhatsApp';
 import { supabase } from '@/integrations/supabase/client';
 import { AddTeacherModal } from './AddTeacherModal';
 
@@ -237,6 +238,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const sendMessage = useSendMessage();
   const markAsRead = useMarkAsRead();
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
+  const { sendTextMessage, loading: whatsappLoading } = useWhatsApp();
   
   useRealtimeMessages(clientId);
 
@@ -310,12 +312,25 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     setMessage('');
     updateTypingStatus(false);
     setTimeout(async () => {
+      const currentTeacher = teachers?.find(t => t.id === selectedTeacherId);
       try {
         await sendMessage.mutateAsync({
           clientId,
           messageText: text,
           messageType: 'manager'
         });
+        
+        // Send via WhatsApp if teacher has phone
+        if (currentTeacher?.phone) {
+          const result = await sendTextMessage(clientId, text, currentTeacher.phone);
+          if (result.success) {
+            toast.success("Запланированное сообщение отправлено в WhatsApp");
+          } else {
+            toast.error("Запланированное сообщение сохранено, но не отправлено в WhatsApp");
+          }
+        } else {
+          toast.success("Запланированное сообщение отправлено");
+        }
       } catch (e) {
         console.error('Ошибка отправки запланированного сообщения', e);
       }
@@ -532,7 +547,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
               size="icon" 
               className="rounded-full h-10 w-10"
               onClick={handleSendMessage} 
-              disabled={!message.trim() || !clientId}
+              disabled={!message.trim() || !clientId || whatsappLoading}
             >
               <Send className="h-4 w-4" />
             </Button>
@@ -914,7 +929,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                   </Dialog>
                 </div>
               </div>
-              <Button size="icon" className="rounded-full h-10 w-10 shrink-0" onClick={handleSendMessage} disabled={!message.trim() || !clientId}>
+              <Button size="icon" className="rounded-full h-10 w-10 shrink-0" onClick={handleSendMessage} disabled={!message.trim() || !clientId || whatsappLoading}>
                 <Send className="h-4 w-4" />
               </Button>
             </div>
