@@ -7,6 +7,7 @@ import { Eye, Edit, Trash2, Users, Calendar, MapPin, BookOpen, DollarSign } from
 import { LearningGroup, formatSchedule, getStatusColor, getCategoryLabel, getStatusLabel, useDeleteLearningGroup } from "@/hooks/useLearningGroups";
 import { useToast } from "@/hooks/use-toast";
 import { EditGroupModal } from "./EditGroupModal";
+import { GroupDetailModal } from "./GroupDetailModal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +28,8 @@ interface GroupsTableProps {
 export const GroupsTable = ({ groups, isLoading }: GroupsTableProps) => {
   const [editGroup, setEditGroup] = useState<LearningGroup | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [detailGroup, setDetailGroup] = useState<LearningGroup | null>(null);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
   const { toast } = useToast();
   const deleteGroup = useDeleteLearningGroup();
 
@@ -182,6 +185,10 @@ export const GroupsTable = ({ groups, isLoading }: GroupsTableProps) => {
                           size="sm" 
                           variant="ghost"
                           className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50"
+                          onClick={() => {
+                            setDetailGroup(group);
+                            setDetailModalOpen(true);
+                          }}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
@@ -242,6 +249,12 @@ export const GroupsTable = ({ groups, isLoading }: GroupsTableProps) => {
           setEditGroup(null);
           setEditModalOpen(false);
         }}
+      />
+
+      <GroupDetailModal
+        group={detailGroup}
+        open={detailModalOpen}
+        onOpenChange={setDetailModalOpen}
       />
     </>
   );
