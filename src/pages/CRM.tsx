@@ -258,7 +258,12 @@ const CRMContent = () => {
     e.preventDefault();
     
     const taskId = e.dataTransfer.getData('text/plain');
-    if (!taskId || !draggedTask) return;
+    if (!taskId || !draggedTask) {
+      // Clear drag state even if no valid task
+      setDraggedTask(null);
+      setDragOverColumn(null);
+      return;
+    }
 
     // Calculate target date
     const targetDate = new Date();
@@ -270,6 +275,8 @@ const CRMContent = () => {
     // Find the task to update
     const task = allTasks.find(t => t.id === taskId);
     if (!task || task.due_date === targetDateStr) {
+      // Clear drag state
+      setDraggedTask(null);
       setDragOverColumn(null);
       return;
     }
@@ -283,8 +290,22 @@ const CRMContent = () => {
       console.error('Error updating task date:', error);
     }
 
+    // Always clear drag state after drop
+    setDraggedTask(null);
     setDragOverColumn(null);
   };
+
+  // Auto-clear drag state as a safety measure
+  useEffect(() => {
+    if (draggedTask) {
+      const timeout = setTimeout(() => {
+        setDraggedTask(null);
+        setDragOverColumn(null);
+      }, 5000); // Clear after 5 seconds if not cleared otherwise
+
+      return () => clearTimeout(timeout);
+    }
+  }, [draggedTask]);
 
   const handleClientClick = (clientId: string | null) => {
     if (clientId) {
