@@ -68,6 +68,7 @@ import {
   BellOff,
   Lock
 } from "lucide-react";
+import { useTypingPresence } from "@/hooks/useTypingPresence";
 
 const CRMContent = () => {
   const { user, profile, role, signOut } = useAuth();
@@ -131,6 +132,7 @@ const CRMContent = () => {
   const isMobile = useIsMobile();
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
+  const { typingByClient } = useTypingPresence();
   
   // Enable real-time updates for the active chat
   useRealtimeMessages(activeChatId);
@@ -335,11 +337,15 @@ const CRMContent = () => {
     ...threads.map(thread => {
       // Find client data to get avatar
       const clientData = clients.find(c => c.id === thread.client_id);
+        const typing = typingByClient[thread.client_id];
+        const lastMsgDisplay = typing && typing.count > 0
+          ? `${typing.names[0] || 'Менеджер'} печатает...`
+          : (thread.last_message?.trim?.() || 'Нет сообщений');
         return {
           id: thread.client_id,
           name: thread.client_name,
           phone: thread.client_phone,
-          lastMessage: (thread.last_message?.trim?.() || 'Нет сообщений'),
+          lastMessage: lastMsgDisplay,
           time: formatTime(thread.last_message_time),
           unread: thread.unread_count,
           type: 'client' as const,
@@ -1232,9 +1238,9 @@ const CRMContent = () => {
                                       <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                                         <User className="h-6 w-6 text-green-600" />
                                       </div>
-                                      <div className="flex-1">
+                                      <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2">
-                                          <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
+                                          <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
                                             {chat.name}
                                           </p>
                                           <Badge variant="outline" className="text-xs h-5 bg-orange-100 text-orange-700 border-orange-300">
@@ -1242,6 +1248,11 @@ const CRMContent = () => {
                                           </Badge>
                                         </div>
                                         <p className="text-xs text-muted-foreground mt-1">{chat.phone}</p>
+                                        <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5 italic">
+                                          {(typingByClient[chat.id]?.count ?? 0) > 0
+                                            ? `${typingByClient[chat.id]?.names?.[0] || 'Менеджер'} печатает...`
+                                            : (chat.lastMessage || 'Последнее сообщение')}
+                                        </p>
                                       </div>
                                     </div>
                                     <div className="flex flex-col items-end gap-2">
