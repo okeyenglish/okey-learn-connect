@@ -17,6 +17,7 @@ import { useClients } from "@/hooks/useClients";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AddTaskModalProps {
   open: boolean;
@@ -74,10 +75,9 @@ export const AddTaskModal = ({
   // Whether we have a client context (from props or selection)
   const hasClient = !!(selectedClientId && selectedClientName);
 
-  // Family data for selected client
-  const { familyData: selectedFamilyData } = useFamilyData(selectedClientId);
-
-
+  // Family data for selected client/chat
+  const [selectedFamilyGroupId, setSelectedFamilyGroupId] = useState<string | undefined>(familyGroupId);
+  const { familyData: selectedFamilyData } = useFamilyData(selectedFamilyGroupId);
   // Update date when preselectedDate changes
   useEffect(() => {
     if (preselectedDate) {
@@ -97,26 +97,38 @@ export const AddTaskModal = ({
     if (clientId && clientName) {
       setSelectedClientId(clientId);
       setSelectedClientName(clientName);
+      if (familyGroupId) setSelectedFamilyGroupId(familyGroupId);
     }
-  }, [clientId, clientName]);
+  }, [clientId, clientName, familyGroupId]);
 
-  // Set current user as responsible when employees load
+
+  // Resolve family group for selected client
   useEffect(() => {
-    if (employees.length > 0 && profile && !formData.responsible) {
-      // Find current user among employees by email or name
-      const currentEmployee = employees.find(emp => 
-        emp.email === profile.email || 
-        (emp.first_name === profile.first_name && emp.last_name === profile.last_name)
-      );
-      
-      if (currentEmployee) {
-        setFormData(prev => ({ ...prev, responsible: currentEmployee.id }));
-      } else if (employees.length > 0) {
-        // Fallback to first employee if current user not found
-        setFormData(prev => ({ ...prev, responsible: employees[0].id }));
+    const run = async () => {
+      if (!selectedClientId) {
+        setSelectedFamilyGroupId(undefined);
+        return;
       }
-    }
-  }, [employees, profile, formData.responsible]);
+      // If opened from chat and same client, we already have familyGroupId
+      if (clientId && familyGroupId && selectedClientId === clientId) {
+        setSelectedFamilyGroupId(familyGroupId);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('family_members')
+        .select('family_group_id')
+        .eq('client_id', selectedClientId)
+        .limit(1)
+        .maybeSingle();
+      if (!error && data) {
+        setSelectedFamilyGroupId(data.family_group_id as string);
+      } else {
+        setSelectedFamilyGroupId(undefined);
+      }
+    };
+    run();
+  }, [selectedClientId, clientId, familyGroupId]);
+
 
   const handleSave = async () => {
     if (!formData.description.trim()) {
@@ -296,7 +308,7 @@ export const AddTaskModal = ({
           <div className="grid grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label htmlFor="date">Дата:</Label>
-              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen} modal={false}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
@@ -379,7 +391,7 @@ export const AddTaskModal = ({
             {hasClient && (
               <div className="space-y-2">
                 <Label>Ученик:</Label>
-                {selectedFamilyData && selectedFamilyData.students.length > 0 ? (
+                {(selectedFamilyData?.students?.length || familyData?.students?.length) > 0 ? (
                   <Select 
                     value={formData.selectedStudent} 
                     onValueChange={(value) => setFormData(prev => ({ ...prev, selectedStudent: value }))}
@@ -388,7 +400,7 @@ export const AddTaskModal = ({
                       <SelectValue placeholder="Выберите ученика (необязательно)" />
                     </SelectTrigger>
                     <SelectContent>
-                      {selectedFamilyData.students.map((student) => (
+                      {(selectedFamilyData?.students ?? familyData?.students ?? []).map((student) => (
                         <SelectItem key={student.id} value={student.id}>
                           {student.firstName} ({student.age} лет)
                         </SelectItem>
