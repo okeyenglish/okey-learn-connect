@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -120,7 +120,16 @@ const CRMContent = () => {
     markAsUnread,
     getChatState
   } = useChatStatesDB();
-  const { isInWorkByOthers, isPinnedByCurrentUser, isPinnedByAnyone, getPinnedByUserName, isLoading: sharedStatesLoading } = useSharedChatStates();
+
+  const visibleChatIds = useMemo(() => {
+    const ids = new Set<string>();
+    (clients || []).forEach((c: any) => c?.id && ids.add(c.id));
+    (corporateChats || []).forEach((c: any) => c?.id && ids.add(c.id));
+    (teacherChats || []).forEach((c: any) => c?.id && ids.add(c.id));
+    return Array.from(ids);
+  }, [clients, corporateChats, teacherChats]);
+
+  const { isInWorkByOthers, isPinnedByCurrentUser, isPinnedByAnyone, getPinnedByUserName, isLoading: sharedStatesLoading } = useSharedChatStates(visibleChatIds);
   const { markChatAsReadGlobally, isChatReadGlobally } = useGlobalChatReadStatus();
   const { tasks: allTasks, isLoading: tasksLoading } = useAllTasks();
   const completeTask = useCompleteTask();

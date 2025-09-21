@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
@@ -13,6 +13,7 @@ export const useChatStatesDB = () => {
   const [chatStates, setChatStates] = useState<Record<string, ChatState>>({});
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const busRef = useRef<any>(null);
 
   // Загрузка состояний чатов из базы данных
   const loadChatStates = useCallback(async () => {
@@ -92,8 +93,15 @@ export const useChatStatesDB = () => {
         )
         .subscribe();
 
+      // Канал для уведомлений другим клиентам (межпользовательская синхронизация)
+      const bus = supabase
+        .channel('chat-states-bus')
+        .subscribe();
+      busRef.current = bus;
+
       return () => {
         supabase.removeChannel(channel);
+        supabase.removeChannel(bus);
       };
     }
   }, [loadChatStates, user]);
@@ -122,6 +130,19 @@ export const useChatStatesDB = () => {
       if (error) {
         console.error('Error updating chat state:', error);
         return;
+      }
+
+      // Уведомляем других клиентов о смене статуса закрепления
+      if (Object.prototype.hasOwnProperty.call(updates, 'isPinned')) {
+        try {
+          await busRef.current?.send({
+            type: 'broadcast',
+            event: 'pin-change',
+            payload: { chatId, isPinned: newState.isPinned }
+          });
+        } catch (e) {
+          console.warn('Broadcast failed', e);
+        }
       }
 
       // Обновляем локальное состояние
