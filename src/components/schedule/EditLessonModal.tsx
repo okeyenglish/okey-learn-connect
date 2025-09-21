@@ -21,8 +21,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { SessionStudentsDisplay } from "./SessionStudentsDisplay";
 import { StudentSelector } from "./StudentSelector";
 
+interface ScheduleConflict {
+  conflict_type: 'teacher' | 'classroom';
+  conflicting_teacher?: string;
+  conflicting_classroom?: string;
+  conflicting_time_range: string;
+}
+
 interface EditLessonModalProps {
-  session: any;
+  session: LessonSession | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSessionUpdated?: () => void;
@@ -42,7 +49,7 @@ export const EditLessonModal = ({ session, open, onOpenChange, onSessionUpdated 
   });
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [showStudentSelector, setShowStudentSelector] = useState(false);
-  const [conflicts, setConflicts] = useState<any[]>([]);
+  const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
   
   const { toast } = useToast();
   const updateSession = useUpdateLessonSession();

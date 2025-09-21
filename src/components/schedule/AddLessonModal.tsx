@@ -15,6 +15,13 @@ import { StudentSelector } from "./StudentSelector";
 import { useAddStudentsToSession } from "@/hooks/useStudentScheduleConflicts";
 import { getBranchesForSelect, getClassroomsForBranch } from "@/lib/branches";
 
+interface ScheduleConflict {
+  conflict_type: 'teacher' | 'classroom';
+  conflicting_teacher?: string;
+  conflicting_classroom?: string;
+  conflicting_time_range: string;
+}
+
 interface AddLessonModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -32,7 +39,7 @@ export const AddLessonModal = ({ open, onOpenChange }: AddLessonModalProps) => {
     notes: ""
   });
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
-  const [conflicts, setConflicts] = useState<any[]>([]);
+  const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
   
   const { toast } = useToast();
   const createSession = useCreateLessonSession();

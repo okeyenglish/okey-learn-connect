@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, UserX, Plus } from "lucide-react";
 import { useSessionStudents, useRemoveStudentsFromSession } from "@/hooks/useStudentScheduleConflicts";
 import { useToast } from "@/hooks/use-toast";
+import { Student } from "@/hooks/useStudents";
 
 interface SessionStudentsDisplayProps {
   sessionId: string;
@@ -89,7 +90,7 @@ export const SessionStudentsDisplay = ({
           </div>
         ) : (
           <div className="space-y-2">
-            {students.map((student: any) => (
+            {students.map((student: Student) => (
               <div 
                 key={student.id} 
                 className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"

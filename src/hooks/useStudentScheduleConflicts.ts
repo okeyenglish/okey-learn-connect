@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { Student } from "./useStudents";
 
 export interface StudentConflict {
   conflict_session_id: string;
@@ -184,6 +185,7 @@ export const useAddStudentsToSession = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['student-lesson-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['session-students'] });
       queryClient.invalidateQueries({ queryKey: ['lesson-sessions'] });
     }
   });
@@ -211,6 +213,7 @@ export const useRemoveStudentsFromSession = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['student-lesson-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['session-students'] });
       queryClient.invalidateQueries({ queryKey: ['lesson-sessions'] });
     }
   });
@@ -223,20 +226,25 @@ export const useSessionStudents = (lessonSessionId?: string) => {
     queryFn: async () => {
       if (!lessonSessionId) return [];
 
-      const { data, error } = await supabase
+      // First get student IDs from the junction table
+      const { data: sessionStudents, error: sessionError } = await supabase
         .from('student_lesson_sessions')
-        .select(`
-          students (
-            id,
-            name,
-            age,
-            status
-          )
-        `)
+        .select('student_id')
         .eq('lesson_session_id', lessonSessionId);
 
-      if (error) throw error;
-      return data.map(item => item.students).filter(Boolean) as any[];
+      if (sessionError) throw sessionError;
+      if (!sessionStudents || sessionStudents.length === 0) return [];
+
+      const studentIds = sessionStudents.map(s => s.student_id);
+
+      // Then get the actual student data
+      const { data: students, error: studentsError } = await supabase
+        .from('students')
+        .select('id, name, age, status')
+        .in('id', studentIds);
+
+      if (studentsError) throw studentsError;
+      return (students || []) as Student[];
     },
     enabled: !!lessonSessionId
   });
