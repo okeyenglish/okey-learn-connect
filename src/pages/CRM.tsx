@@ -312,8 +312,8 @@ const CRMContent = () => {
     }
   };
 
-  const allChats = [
-    // Общий корпоративный чат
+  // Системные чаты
+  const systemChats = [
     { 
       id: 'corporate', 
       name: 'Корпоративный чат', 
@@ -335,27 +335,11 @@ const CRMContent = () => {
       type: 'teachers' as const, 
       timestamp: Date.now() - 1000 * 60 * 90, 
       avatar_url: null 
-    },
-    .filter(b => profile?.branch === b.name || (profile && ['admin', 'super-admin'].includes(role || ''))) // Только доступные филиалы
-    .map(b => {
-      // Найдём реальный thread для этого чата
-      const corporateThread = threads.find(t => t.client_name === `Корпоративный чат - ${b.name}`);
-      return {
-        id: `corporate:${b.id}`,
-        name: `Корпоративный чат - ${b.name}`,
-        phone: '+7 (800) 000-00-01',
-        lastMessage: corporateThread?.last_message || 'Обсуждаем расписание...',
-        time: corporateThread ? formatTime(corporateThread.last_message_time) : 'Сегодня',
-        unread: corporateThread?.unread_count || 0,
-        type: 'corporate' as const,
-        timestamp: corporateThread ? new Date(corporateThread.last_message_time).getTime() : Date.now() - 1000 * 60 * 120,
-        avatar_url: null,
-      };
-    });
+    }
+  ];
 
   const allChats = [
     ...systemChats,
-    ...corporateBranchChats,
     // Только реальные клиентские чаты (исключаем системные)
     ...threads
       .filter(thread => {
