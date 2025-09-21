@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 import { PinnableModalHeader, PinnableDialogContent } from "./PinnableModal";
 import { useCreateTask } from "@/hooks/useTasks";
 import { useFamilyData } from "@/hooks/useFamilyData";
+import { useEmployees, getEmployeeFullName, type Employee } from "@/hooks/useEmployees";
+import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 
@@ -37,12 +39,6 @@ const taskTemplates = [
   "Подготовить отчет об успеваемости"
 ];
 
-const employees = [
-  "Пышнов Данил Александр",
-  "Иванова Анна Сергеевна", 
-  "Петров Максим Владимирович",
-  "Смирнова Елена Игоревна"
-];
 
 export const AddTaskModal = ({ 
   open, 
@@ -57,15 +53,18 @@ export const AddTaskModal = ({
   const [formData, setFormData] = useState({
     date: new Date(),
     isHighPriority: false,
-    responsible: "Пышнов Данил Александр",
+    responsible: "",
     selectedStudent: "",
     description: "",
     additionalResponsible: [] as string[]
   });
 
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [addResponsibleOpen, setAddResponsibleOpen] = useState(false);
   const createTask = useCreateTask();
   const { familyData } = useFamilyData(familyGroupId);
+  const { profile } = useAuth();
+  const { data: employees = [] } = useEmployees(profile?.branch);
 
   const handleSave = async () => {
     if (!formData.description.trim()) {
@@ -73,20 +72,28 @@ export const AddTaskModal = ({
     }
 
     try {
+      const responsibleNames = [
+        formData.responsible ? getEmployeeFullName(getEmployeeById(formData.responsible)!) : '',
+        ...formData.additionalResponsible.map(id => {
+          const emp = getEmployeeById(id);
+          return emp ? getEmployeeFullName(emp) : '';
+        }).filter(name => name)
+      ].filter(name => name);
+
       await createTask.mutateAsync({
         client_id: clientId,
         title: formData.description.substring(0, 100) || "Новая задача",
         description: formData.description,
         priority: formData.isHighPriority ? "high" : "medium",
         due_date: format(formData.date, 'yyyy-MM-dd'),
-        responsible: [formData.responsible, ...formData.additionalResponsible].join(", "),
+        responsible: responsibleNames.join(", "),
       });
 
       // Reset form
       setFormData({
         date: new Date(),
         isHighPriority: false,
-        responsible: "Пышнов Данил Александр",
+        responsible: employees.length > 0 ? employees[0].id : "",
         selectedStudent: "",
         description: "",
         additionalResponsible: []
@@ -106,20 +113,25 @@ export const AddTaskModal = ({
     setFormData(prev => ({ ...prev, description: template }));
   };
 
-  const addResponsible = (employee: string) => {
-    if (!formData.additionalResponsible.includes(employee)) {
+  const addResponsible = (employeeId: string) => {
+    if (!formData.additionalResponsible.includes(employeeId)) {
       setFormData(prev => ({
         ...prev,
-        additionalResponsible: [...prev.additionalResponsible, employee]
+        additionalResponsible: [...prev.additionalResponsible, employeeId]
       }));
     }
+    setAddResponsibleOpen(false);
   };
 
-  const removeResponsible = (employee: string) => {
+  const removeResponsible = (employeeId: string) => {
     setFormData(prev => ({
       ...prev,
-      additionalResponsible: prev.additionalResponsible.filter(e => e !== employee)
+      additionalResponsible: prev.additionalResponsible.filter(e => e !== employeeId)
     }));
+  };
+
+  const getEmployeeById = (id: string): Employee | undefined => {
+    return employees.find(emp => emp.id === id);
   };
 
   return (
@@ -223,53 +235,84 @@ export const AddTaskModal = ({
           <div className="space-y-2">
             <Label>Ответственный:</Label>
             <div className="space-y-2">
-              <Select 
-                value={formData.responsible} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, responsible: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {employees.map((employee) => (
-                    <SelectItem key={employee} value={employee}>{employee}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select 
+                  value={formData.responsible} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, responsible: value }))}
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Выберите ответственного" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees.map((employee) => (
+                      <SelectItem key={employee.id} value={employee.id}>
+                        {getEmployeeFullName(employee)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <Popover open={addResponsibleOpen} onOpenChange={setAddResponsibleOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-10 w-10"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-0" align="start">
+                    <div className="p-2">
+                      <div className="text-sm font-medium mb-2">Добавить ответственного</div>
+                      <div className="space-y-1">
+                        {employees
+                          .filter(emp => emp.id !== formData.responsible && !formData.additionalResponsible.includes(emp.id))
+                          .map((employee) => (
+                          <Button
+                            key={employee.id}
+                            variant="ghost"
+                            className="w-full justify-start text-sm h-8 px-2"
+                            onClick={() => addResponsible(employee.id)}
+                          >
+                            {getEmployeeFullName(employee)}
+                          </Button>
+                        ))}
+                        {employees.filter(emp => emp.id !== formData.responsible && !formData.additionalResponsible.includes(emp.id)).length === 0 && (
+                          <div className="text-xs text-muted-foreground px-2 py-1">
+                            Нет доступных сотрудников
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
               
               {/* Additional responsible persons */}
               {formData.additionalResponsible.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                  {formData.additionalResponsible.map((employee) => (
-                    <div key={employee} className="flex items-center gap-1 bg-muted px-2 py-1 rounded text-sm">
-                      <Users className="h-3 w-3" />
-                      {employee}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-4 w-4 p-0 ml-1"
-                        onClick={() => removeResponsible(employee)}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
+                  {formData.additionalResponsible.map((employeeId) => {
+                    const employee = getEmployeeById(employeeId);
+                    return (
+                      <div key={employeeId} className="flex items-center gap-1 bg-muted px-2 py-1 rounded text-sm">
+                        <Users className="h-3 w-3" />
+                        {employee ? getEmployeeFullName(employee) : 'Неизвестный сотрудник'}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-4 w-4 p-0 ml-1"
+                          onClick={() => removeResponsible(employeeId)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
-              
-              <Select onValueChange={addResponsible}>
-                <SelectTrigger>
-                  <SelectValue placeholder="+ Добавить ответственного" />
-                </SelectTrigger>
-                <SelectContent>
-                  {employees
-                    .filter(emp => emp !== formData.responsible && !formData.additionalResponsible.includes(emp))
-                    .map((employee) => (
-                    <SelectItem key={employee} value={employee}>{employee}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           </div>
 
