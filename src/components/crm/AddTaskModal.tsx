@@ -13,6 +13,7 @@ import { PinnableModalHeader, PinnableDialogContent } from "./PinnableModal";
 import { useCreateTask } from "@/hooks/useTasks";
 import { useFamilyData } from "@/hooks/useFamilyData";
 import { useEmployees, getEmployeeFullName, type Employee } from "@/hooks/useEmployees";
+import { useClients } from "@/hooks/useClients";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -64,6 +65,16 @@ export const AddTaskModal = ({
     additionalResponsible: [] as string[]
   });
 
+  // Client selection state (for client tasks outside chat)
+  const { clients } = useClients();
+  const [clientSearch, setClientSearch] = useState("");
+  const [selectedClientId, setSelectedClientId] = useState<string | undefined>(clientId);
+  const [selectedClientName, setSelectedClientName] = useState<string | undefined>(clientName);
+
+  // Whether we have a client context (from props or selection)
+  const hasClient = !!(selectedClientId && selectedClientName);
+
+
   // Update date when preselectedDate changes
   useEffect(() => {
     if (preselectedDate) {
@@ -77,6 +88,14 @@ export const AddTaskModal = ({
   const { familyData } = useFamilyData(familyGroupId);
   const { profile } = useAuth();
   const { data: employees = [] } = useEmployees(profile?.branch);
+
+  // Sync incoming client props into local selection state
+  useEffect(() => {
+    if (clientId && clientName) {
+      setSelectedClientId(clientId);
+      setSelectedClientName(clientName);
+    }
+  }, [clientId, clientName]);
 
   // Set current user as responsible when employees load
   useEffect(() => {
@@ -101,7 +120,7 @@ export const AddTaskModal = ({
       return;
     }
 
-    try {
+  try {
       const responsibleNames = [
         formData.responsible ? getEmployeeFullName(getEmployeeById(formData.responsible)!) : '',
         ...formData.additionalResponsible.map(id => {
@@ -118,9 +137,9 @@ export const AddTaskModal = ({
         responsible: responsibleNames.join(", "),
       };
 
-      // Add client_id only if this is a client task (has clientName)
-      if (clientId && clientName) {
-        taskData.client_id = clientId;
+      // Add client_id only if this is a client task (has client context)
+      if (hasClient) {
+        taskData.client_id = selectedClientId;
       }
 
       // Add due_time only if it's set
@@ -186,8 +205,8 @@ export const AddTaskModal = ({
       <PinnableDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <PinnableModalHeader
           title={
-            clientName 
-              ? `Назначение задачи - ${clientName}` 
+            hasClient 
+              ? `Назначение задачи - ${selectedClientName}` 
               : taskType === 'client' 
                 ? "Задача по клиенту" 
                 : "Личная задача"
