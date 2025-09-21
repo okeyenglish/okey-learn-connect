@@ -44,6 +44,8 @@ interface ActionResult {
   status?: string;
   modalType?: string;
   taskId?: string;
+  deletedCount?: number;
+  deletedTasks?: any[];
 }
 
 export default function VoiceAssistant({ 
@@ -587,6 +589,34 @@ export default function VoiceAssistant({
           <div className="mt-4">
             <Badge variant="default" className="bg-green-100 text-green-800">
               ✓ Задача {actionResult.status === 'completed' ? 'выполнена' : 'обновлена'}
+            </Badge>
+          </div>
+        );
+
+      case 'tasks_deleted':
+        return (
+          <div className="mt-4">
+            <Badge variant="default" className="bg-red-100 text-red-800">
+              ✓ Удалено задач: {actionResult.deletedCount}
+            </Badge>
+            {actionResult.deletedTasks && actionResult.deletedTasks.length > 0 && (
+              <div className="mt-2 text-xs text-muted-foreground max-h-20 overflow-y-auto">
+                {actionResult.deletedTasks.slice(0, 3).map((task: any, index: number) => (
+                  <div key={index} className="truncate">"{task.title}"</div>
+                ))}
+                {actionResult.deletedTasks.length > 3 && (
+                  <div>и ещё {actionResult.deletedTasks.length - 3} задач...</div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      
+      case 'delete_error':
+        return (
+          <div className="mt-4">
+            <Badge variant="destructive" className="bg-red-100 text-red-800">
+              ❌ Ошибка удаления
             </Badge>
           </div>
         );
