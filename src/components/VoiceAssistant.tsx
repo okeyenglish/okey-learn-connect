@@ -356,17 +356,36 @@ export default function VoiceAssistant({
           }
         }, 100);
 
-        // Инвалидируем задачи при создании новой
+        // Инвалидируем задачи при любых изменениях с задачами
         const resultType = data.actionResult?.type;
-        if (resultType === 'task_created' || resultType === 'create_task' || resultType === 'multiple_tasks_created' || resultType === 'task_updated' || resultType === 'tasks_deleted') {
-          // Конкретный клиент
+        if (resultType === 'task_created' || resultType === 'create_task' || resultType === 'multiple_tasks_created' || 
+            resultType === 'task_updated' || resultType === 'tasks_deleted' || resultType === 'delete_error') {
+          
+          console.log('Invalidating task queries after:', resultType);
+          
+          // Инвалидируем все возможные ключи задач
+          queryClient.invalidateQueries({ queryKey: ['tasks'] });
+          queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+          
+          // Инвалидируем задачи по датам (сегодня и завтра)
+          const today = new Date().toISOString().split('T')[0];
+          const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          queryClient.invalidateQueries({ queryKey: ['tasks-by-date', today] });
+          queryClient.invalidateQueries({ queryKey: ['tasks-by-date', tomorrow] });
+          queryClient.invalidateQueries({ queryKey: ['tasks-by-date'] });
+          
+          // Инвалидируем задачи для конкретного клиента если есть контекст
           if (context?.activeClientId) {
             queryClient.invalidateQueries({ queryKey: ['tasks', context.activeClientId] });
           }
-          // Глобальные списки задач
-          queryClient.invalidateQueries({ queryKey: ['tasks'] });
-          queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
-          queryClient.invalidateQueries({ queryKey: ['tasks-by-date'] });
+          
+          // Дополнительно инвалидируем общие запросы
+          queryClient.invalidateQueries({ 
+            predicate: (query) => {
+              const key = query.queryKey[0];
+              return typeof key === 'string' && key.includes('task');
+            }
+          });
         }
         
         toast.success(`Команда выполнена: ${data.response}`);
