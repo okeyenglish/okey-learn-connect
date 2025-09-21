@@ -37,7 +37,7 @@ import { PinnableModalHeader, PinnableDialogContent } from "@/components/crm/Pin
 import { ManagerMenu } from "@/components/crm/ManagerMenu";
 import { usePinnedModalsDB, PinnedModal } from "@/hooks/usePinnedModalsDB";
 import { useChatStatesDB } from "@/hooks/useChatStatesDB";
-import { useAllTasks, useCompleteTask, useCancelTask } from "@/hooks/useTasks";
+import { useAllTasks, useCompleteTask, useCancelTask, useUpdateTask } from "@/hooks/useTasks";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { 
   Search, 
@@ -114,6 +114,11 @@ const CRMContent = () => {
   const { tasks: allTasks, isLoading: tasksLoading } = useAllTasks();
   const completeTask = useCompleteTask();
   const cancelTask = useCancelTask();
+  const updateTask = useUpdateTask();
+  
+  // Drag and drop state
+  const [draggedTask, setDraggedTask] = useState<string | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [openModal, setOpenModal] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("chats");
   const [hasUnsavedChat, setHasUnsavedChat] = useState(false);
@@ -213,6 +218,63 @@ const CRMContent = () => {
     } catch (error) {
       console.error('Error cancelling task:', error);
     }
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    setDraggedTask(taskId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', taskId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedTask(null);
+    setDragOverColumn(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, column: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverColumn(column);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Only clear drag over if we're leaving the drop zone completely
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setDragOverColumn(null);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetColumn: string) => {
+    e.preventDefault();
+    
+    const taskId = e.dataTransfer.getData('text/plain');
+    if (!taskId || !draggedTask) return;
+
+    // Calculate target date
+    const targetDate = new Date();
+    if (targetColumn === 'tomorrow') {
+      targetDate.setDate(targetDate.getDate() + 1);
+    }
+    const targetDateStr = targetDate.toISOString().split('T')[0];
+
+    // Find the task to update
+    const task = allTasks.find(t => t.id === taskId);
+    if (!task || task.due_date === targetDateStr) {
+      setDragOverColumn(null);
+      return;
+    }
+
+    try {
+      await updateTask.mutateAsync({
+        id: taskId,
+        due_date: targetDateStr
+      });
+    } catch (error) {
+      console.error('Error updating task date:', error);
+    }
+
+    setDragOverColumn(null);
   };
 
   const handleClientClick = (clientId: string | null) => {
@@ -1004,17 +1066,25 @@ const CRMContent = () => {
                                     ) : allTasks.filter(t => t.client_id).length > 0 ? (
                                       <div className="grid grid-cols-2 gap-4">
                                         {/* Сегодня */}
-                                        <div>
+                                        <div 
+                                          onDragOver={(e) => handleDragOver(e, 'today')}
+                                          onDragLeave={handleDragLeave}
+                                          onDrop={(e) => handleDrop(e, 'today')}
+                                          className={`transition-colors ${dragOverColumn === 'today' ? 'bg-blue-50 border-2 border-dashed border-blue-300 rounded-lg p-2' : ''}`}
+                                        >
                                           <h4 className="font-medium text-sm mb-2 text-primary">Сегодня:</h4>
                                           <div className="space-y-1.5 max-h-96 overflow-y-auto">
                                             {allTasks.filter(t => t.client_id && t.due_date === new Date().toISOString().split('T')[0]).map((task) => (
                                               <div 
-                                                key={task.id} 
-                                                className={`p-2.5 border-l-4 rounded-md cursor-pointer hover:shadow-md transition-shadow ${
+                                                key={task.id}
+                                                draggable
+                                                onDragStart={(e) => handleDragStart(e, task.id)}
+                                                onDragEnd={handleDragEnd}
+                                                className={`p-2.5 border-l-4 rounded-md cursor-grab hover:shadow-md transition-all ${
                                                   task.priority === 'high' ? 'border-red-500 bg-red-50' :
                                                   task.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
                                                   'border-blue-500 bg-blue-50'
-                                                }`}
+                                                } ${draggedTask === task.id ? 'opacity-50 cursor-grabbing' : ''}`}
                                                 onClick={() => task.client_id && handleClientClick(task.client_id)}
                                               >
                                                 <div className="flex items-start justify-between gap-2">
@@ -1070,7 +1140,12 @@ const CRMContent = () => {
                                         </div>
                                         
                                         {/* Завтра */}
-                                        <div>
+                                        <div 
+                                          onDragOver={(e) => handleDragOver(e, 'tomorrow')}
+                                          onDragLeave={handleDragLeave}
+                                          onDrop={(e) => handleDrop(e, 'tomorrow')}
+                                          className={`transition-colors ${dragOverColumn === 'tomorrow' ? 'bg-blue-50 border-2 border-dashed border-blue-300 rounded-lg p-2' : ''}`}
+                                        >
                                           <h4 className="font-medium text-sm mb-2 text-primary">Завтра:</h4>
                                           <div className="space-y-1.5 max-h-96 overflow-y-auto">
                                             {(() => {
@@ -1079,12 +1154,15 @@ const CRMContent = () => {
                                               const tomorrowStr = tomorrow.toISOString().split('T')[0];
                                               return allTasks.filter(t => t.client_id && t.due_date === tomorrowStr).map((task) => (
                                                 <div 
-                                                  key={task.id} 
-                                                  className={`p-2.5 border-l-4 rounded-md cursor-pointer hover:shadow-md transition-shadow ${
+                                                  key={task.id}
+                                                  draggable
+                                                  onDragStart={(e) => handleDragStart(e, task.id)}
+                                                  onDragEnd={handleDragEnd}
+                                                  className={`p-2.5 border-l-4 rounded-md cursor-grab hover:shadow-md transition-all ${
                                                     task.priority === 'high' ? 'border-red-500 bg-red-50' :
                                                     task.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
                                                     'border-blue-500 bg-blue-50'
-                                                  }`}
+                                                  } ${draggedTask === task.id ? 'opacity-50 cursor-grabbing' : ''}`}
                                                   onClick={() => task.client_id && handleClientClick(task.client_id)}
                                                 >
                                                   <div className="flex items-start justify-between gap-2">
