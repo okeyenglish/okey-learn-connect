@@ -247,7 +247,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     }
   }, [clientId, messages.length]);
 
-  const teachers = dbTeachers;
+  const teachers = dbTeachers || [];
   const filteredTeachers = teachers.filter((teacher) => {
     const q = searchQuery.toLowerCase();
     return (teacher.fullName || '').toLowerCase().includes(q) ||
