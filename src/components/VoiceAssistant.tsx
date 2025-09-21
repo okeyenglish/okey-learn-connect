@@ -90,15 +90,31 @@ export default function VoiceAssistant({
 
   const startRecording = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      console.log('Requesting microphone access...');
+      
+      // Проверяем поддержку медиа API
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Ваш браузер не поддерживает запись аудио');
+      }
+
+      // Специальная обработка для мобильных устройств  
+      const constraints = {
         audio: {
-          sampleRate: 16000,
-          channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
+          autoGainControl: true,
+          ...(isMobile ? {
+            sampleRate: 16000, // Меньше для мобильных
+            channelCount: 1
+          } : {
+            sampleRate: 16000,
+            channelCount: 1
+          })
         }
-      });
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log('Microphone access granted');
       
       // Создаем аудио контекст для определения тишины
       audioContextRef.current = new AudioContext();
@@ -107,10 +123,19 @@ export default function VoiceAssistant({
       analyserRef.current.fftSize = 256;
       source.connect(analyserRef.current);
       
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
+      // Проверяем поддержку различных форматов для мобильных
+      let mimeType = 'audio/webm;codecs=opus';
+      if (isMobile) {
+        if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4';
+        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+          mimeType = 'audio/webm';
+        } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+          mimeType = 'audio/ogg';
+        }
+      }
       
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
       
@@ -121,9 +146,15 @@ export default function VoiceAssistant({
       };
       
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        if (processAudioRef.current) {
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        console.log('Audio blob created, size:', audioBlob.size, 'type:', mimeType);
+        
+        if (audioBlob.size > 0 && processAudioRef.current) {
           await processAudioRef.current(audioBlob);
+        } else {
+          toast.error('Не удалось записать аудио');
+          setIsRecording(false);
+          setIsProcessing(false);
         }
         
         // Останавливаем все треки и очищаем ресурсы
@@ -141,11 +172,39 @@ export default function VoiceAssistant({
       // Запускаем мониторинг тишины
       startSilenceDetection();
       
-    } catch (error) {
+      // Автоматическая остановка через 15 секунд для мобильных
+      if (isMobile) {
+        setTimeout(() => {
+          if (isRecording && mediaRecorderRef.current?.state === 'recording') {
+            console.log('Auto-stopping recording on mobile after 15s');
+            stopRecording();
+          }
+        }, 15000);
+      }
+      
+    } catch (error: any) {
       console.error('Error starting recording:', error);
-      toast.error('Ошибка доступа к микрофону');
+      setIsRecording(false);
+      setIsProcessing(false);
+      
+      let errorMessage = 'Ошибка доступа к микрофону';
+      if (error.name === 'NotAllowedError') {
+        errorMessage = isMobile 
+          ? 'Доступ к микрофону запрещен. Нажмите на иконку замка в адресной строке и разрешите доступ к микрофону, затем обновите страницу.'
+          : 'Доступ к микрофону запрещен. Разрешите доступ в настройках браузера и обновите страницу.';
+      } else if (error.name === 'NotFoundError') {
+        errorMessage = 'Микрофон не найден. Проверьте подключение микрофона.';
+      } else if (error.name === 'NotSupportedError') {
+        errorMessage = 'Ваш браузер не поддерживает запись аудио.';
+      } else if (error.name === 'SecurityError') {
+        errorMessage = 'Ошибка безопасности. Попробуйте использовать HTTPS соединение.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage);
     }
-  }, []);
+  }, [isMobile, toast]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
@@ -712,6 +771,14 @@ export default function VoiceAssistant({
 
         {/* Подсказки */}
         <div className="text-xs text-muted-foreground">
+          {isMobile && (
+            <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded text-amber-800">
+              <p className="font-medium mb-1">📱 Для работы на мобильном:</p>
+              <p>• Разрешите доступ к микрофону в браузере</p>
+              <p>• Используйте HTTPS соединение</p>
+              <p>• Говорите четко и громко</p>
+            </div>
+          )}
           <p className="font-medium mb-1">Примеры команд:</p>
           <ul className="space-y-1">
             <li>• "Найди клиента Иван"</li>
