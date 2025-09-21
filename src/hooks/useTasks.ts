@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from "sonner";
 
@@ -33,6 +34,8 @@ export interface CreateTaskData {
 }
 
 export const useTasks = (clientId?: string) => {
+  const queryClient = useQueryClient();
+  
   const { data: tasks, isLoading, error } = useQuery({
     queryKey: ['tasks', clientId],
     queryFn: async () => {
@@ -49,6 +52,31 @@ export const useTasks = (clientId?: string) => {
     },
     enabled: !!clientId,
   });
+
+  // Real-time subscription for tasks
+  useEffect(() => {
+    if (!clientId) return;
+
+    const channel = supabase
+      .channel(`tasks-${clientId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tasks',
+          filter: `client_id=eq.${clientId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['tasks', clientId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [clientId, queryClient]);
 
   return {
     tasks: tasks || [],
@@ -85,6 +113,8 @@ export const useCreateTask = () => {
 
 // Новый хук для получения всех активных задач с информацией о клиентах
 export const useAllTasks = () => {
+  const queryClient = useQueryClient();
+  
   const { data: tasks, isLoading, error } = useQuery({
     queryKey: ['all-tasks'],
     queryFn: async () => {
@@ -123,6 +153,28 @@ export const useAllTasks = () => {
     },
   });
 
+  // Real-time subscription for all tasks
+  useEffect(() => {
+    const channel = supabase
+      .channel('all-tasks-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tasks',
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return {
     tasks: tasks || [],
     isLoading,
@@ -132,6 +184,8 @@ export const useAllTasks = () => {
 
 // Новый хук для получения задач по дате
 export const useTasksByDate = (date?: string) => {
+  const queryClient = useQueryClient();
+  
   const { data: tasks, isLoading, error } = useQuery({
     queryKey: ['tasks-by-date', date],
     queryFn: async () => {
@@ -171,6 +225,31 @@ export const useTasksByDate = (date?: string) => {
     },
     enabled: !!date,
   });
+
+  // Real-time subscription for tasks by date
+  useEffect(() => {
+    if (!date) return;
+
+    const channel = supabase
+      .channel(`tasks-by-date-${date}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tasks',
+          filter: `due_date=eq.${date}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['tasks-by-date', date] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [date, queryClient]);
 
   return {
     tasks: tasks || [],
