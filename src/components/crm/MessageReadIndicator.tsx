@@ -1,6 +1,6 @@
 import { Check, CheckCheck } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
 import { useMessageReadStatus } from "@/hooks/useMessageReadStatus";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
@@ -30,19 +30,18 @@ export const MessageReadIndicator = ({
 
   const readCount = readStatuses?.length || 0;
   
-  // If no one read it yet, show "1" with author avatar
+  // If no one has read it yet
   if (readCount === 0) {
-    return (
-      <div className={`flex items-center gap-1 ${className}`}>
-        <Avatar className="h-4 w-4">
-          <AvatarImage src={authorAvatar} alt={authorName} />
-          <AvatarFallback className="text-[8px] bg-muted">
-            {authorName?.charAt(0)?.toUpperCase() || "?"}
-          </AvatarFallback>
-        </Avatar>
-        <span className="text-xs text-muted-foreground font-medium">1</span>
-      </div>
-    );
+    // For outgoing messages, show a single check (sent)
+    if (isOutgoing) {
+      return (
+        <div className={`flex items-center gap-0.5 ${className}`}>
+          <Check className="h-3 w-3 text-muted-foreground" />
+        </div>
+      );
+    }
+    // For incoming messages, don't show anything until someone reads it
+    return null;
   }
 
   // If people read it, show double blue checks with tooltip
@@ -64,9 +63,9 @@ export const MessageReadIndicator = ({
     <Tooltip>
       <TooltipTrigger asChild>
         <div className={`flex items-center gap-0.5 ${className}`}>
-          <CheckCheck className="h-3 w-3 text-blue-500" />
+          <CheckCheck className="h-3 w-3 text-primary" />
           {readCount > 1 && (
-            <span className="text-xs text-blue-500 font-medium">
+            <span className="text-xs text-primary font-medium">
               {readCount}
             </span>
           )}

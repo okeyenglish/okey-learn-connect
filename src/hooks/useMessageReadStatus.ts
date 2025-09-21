@@ -52,10 +52,6 @@ export const useMarkMessageAsRead = () => {
         queryKey: ['message-read-status', messageId] 
       });
       
-      // Also invalidate all message read statuses to update UI
-      queryClient.invalidateQueries({ 
-        queryKey: ['message-read-status'] 
-      });
     }
   });
 };
