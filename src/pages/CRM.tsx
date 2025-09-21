@@ -580,6 +580,7 @@ const CRMContent = () => {
   const clientIds = filteredChats
     .filter(chat => chat.type === 'client')
     .map(chat => chat.id);
+  console.log('Client IDs for status check:', clientIds);
   const { getClientStatus } = useClientStatus(clientIds);
 
   const [activeFamilyMemberId, setActiveFamilyMemberId] = useState('550e8400-e29b-41d4-a716-446655440001');
@@ -1966,6 +1967,7 @@ const CRMContent = () => {
                                             {(() => {
                                               if (chat.type !== 'client') return null;
                                               const clientStatus = getClientStatus(chat.id);
+                                              console.log(`Client ${chat.id} (${chat.name}) status:`, clientStatus);
                                               return clientStatus.isLead ? (
                                                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white">
                                                   <UserPlus className="w-2.5 h-2.5 text-white" />
@@ -2070,6 +2072,7 @@ const CRMContent = () => {
                                           {(() => {
                                             if (chat.type !== 'client') return null;
                                             const clientStatus = getClientStatus(chat.id);
+                                            console.log(`Client ${chat.id} (${chat.name}) status (second list):`, clientStatus);
                                             return clientStatus.isLead ? (
                                               <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white">
                                                 <UserPlus className="w-2.5 h-2.5 text-white" />
