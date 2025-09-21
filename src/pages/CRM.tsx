@@ -1958,7 +1958,8 @@ const CRMContent = () => {
                             const chatState = getChatState(chat.id);
                             // Используем глобальную систему прочитанности: если чат НЕ прочитан глобально, то он непрочитанный
                             const isUnreadGlobally = !isChatReadGlobally(chat.id);
-                            const displayUnread = isUnreadGlobally || chat.unread > 0;
+                            const showEye = !!chatState?.isUnread;
+                            const displayUnread = showEye || isUnreadGlobally || chat.unread > 0;
                             return (
                               <ChatContextMenu
                                 key={chat.id}
@@ -2080,7 +2081,7 @@ const CRMContent = () => {
                                       <span className="text-xs text-muted-foreground">{chat.time}</span>
                                        {displayUnread && (
                                           <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full mt-1 flex items-center justify-center">
-                                              {isUnreadGlobally ? <Eye className="h-2.5 w-2.5" /> : chat.unread}
+                                              {showEye ? <Eye className="h-2.5 w-2.5" /> : chat.unread}
                                           </span>
                                        )}
                                     </div>
@@ -2111,7 +2112,8 @@ const CRMContent = () => {
                           const chatState = getChatState(chat.id);
                           // Используем глобальную систему прочитанности
                           const isUnreadGlobally = !isChatReadGlobally(chat.id);
-                          const displayUnread = isUnreadGlobally || chat.unread > 0;
+                          const showEye = !!chatState?.isUnread;
+                          const displayUnread = showEye || isUnreadGlobally || chat.unread > 0;
                           return (
                             <ChatContextMenu
                               key={chat.id}
@@ -2220,7 +2222,7 @@ const CRMContent = () => {
                                     <span className="text-xs text-muted-foreground">{chat.time}</span>
                                      {displayUnread && (
                                         <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full flex items-center justify-center">
-                                          {isUnreadGlobally ? <Eye className="h-2.5 w-2.5" /> : chat.unread}
+                                          {showEye ? <Eye className="h-2.5 w-2.5" /> : chat.unread}
                                         </span>
                                      )}
                                   </div>
@@ -2317,7 +2319,8 @@ const CRMContent = () => {
                               const chatState = getChatState(chat.id);
                               // Используем глобальную систему прочитанности
                               const isUnreadGlobally = !isChatReadGlobally(chat.id);
-                              const displayUnread = isUnreadGlobally || chat.unread > 0;
+                              const showEye = !!chatState?.isUnread;
+                              const displayUnread = showEye || isUnreadGlobally || chat.unread > 0;
                               return (
                                 <div 
                                   key={chat.id}
@@ -2391,7 +2394,7 @@ const CRMContent = () => {
                                       
                                        {displayUnread && (
                                           <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded-full flex items-center justify-center">
-                                            {isUnreadGlobally ? <Eye className="h-2.5 w-2.5" /> : chat.unread}
+                                            {showEye ? <Eye className="h-2.5 w-2.5" /> : chat.unread}
                                           </span>
                                        )}
                                     </div>
@@ -2421,7 +2424,8 @@ const CRMContent = () => {
                           const chatState = getChatState(chat.id);
                           // Используем глобальную систему прочитанности
                           const isUnreadGlobally = !isChatReadGlobally(chat.id);
-                          const displayUnread = isUnreadGlobally || chat.unread > 0;
+                          const showEye = !!chatState?.isUnread;
+                          const displayUnread = showEye || isUnreadGlobally || chat.unread > 0;
                           return (
                             <div 
                               key={chat.id}
@@ -2501,7 +2505,7 @@ const CRMContent = () => {
                                    
                                     {displayUnread && (
                                        <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full flex items-center justify-center">
-                                         {isUnreadGlobally ? <Eye className="h-2.5 w-2.5" /> : chat.unread}
+                                         {showEye ? <Eye className="h-2.5 w-2.5" /> : chat.unread}
                                        </span>
                                     )}
                                  </div>
