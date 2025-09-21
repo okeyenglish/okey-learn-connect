@@ -1010,19 +1010,19 @@ const CRMContent = () => {
                                          </div>
                                        )}
                                        
-                                        <div className="flex-1">
-                                          <div className="flex items-center gap-2">
-                                            <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''}`}>
-                                              {chat.name}
-                                            </p>
-                                            <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300">
-                                              В работе
-                                            </Badge>
-                                          </div>
-                                          <p className="text-xs text-muted-foreground truncate max-w-40">
-                                            {chat.lastMessage || "Привет! Как дела?"}
-                                          </p>
-                                        </div>
+                                         <div className="flex-1 min-w-0">
+                                           <div className="flex items-center gap-2">
+                                             <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
+                                               {chat.name}
+                                             </p>
+                                             <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300">
+                                               В работе
+                                             </Badge>
+                                           </div>
+                                           <p className="text-xs text-muted-foreground truncate">
+                                             {chat.lastMessage || "Привет! Как дела?"}
+                                           </p>
+                                         </div>
                                      </div>
                                     <div className="flex flex-col items-end">
                                       <Pin className="h-3 w-3 text-orange-600 mb-1" />
