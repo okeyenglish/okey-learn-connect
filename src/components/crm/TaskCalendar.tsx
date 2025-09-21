@@ -73,18 +73,6 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Календарь задач</h2>
-        <Button 
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            handleAddTask();
-          }} 
-          className="gap-2"
-          type="button"
-        >
-          <Plus className="h-4 w-4" />
-          Добавить задачу
-        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
