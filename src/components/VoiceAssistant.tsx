@@ -65,6 +65,7 @@ export default function VoiceAssistant({
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const processAudioRef = useRef<((blob: Blob) => Promise<void>) | null>(null);
   
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -118,7 +119,9 @@ export default function VoiceAssistant({
       
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        await processAudio(audioBlob);
+        if (processAudioRef.current) {
+          await processAudioRef.current(audioBlob);
+        }
         
         // Останавливаем все треки и очищаем ресурсы
         stream.getTracks().forEach(track => track.stop());
@@ -204,7 +207,7 @@ export default function VoiceAssistant({
     silenceTimerRef.current = setTimeout(checkAudioLevel, 1000);
   }, [isRecording, stopRecording]);
 
-  const processAudio = async (audioBlob: Blob) => {
+  const processAudio = useCallback(async (audioBlob: Blob) => {
     try {
       // Проверяем минимальный размер аудио
       if (audioBlob.size < 1000) {
@@ -214,6 +217,7 @@ export default function VoiceAssistant({
       }
       
       console.log('Processing audio blob size:', audioBlob.size);
+      console.log('VA context to send:', context);
       
       // Конвертируем аудио в base64 безопасно: собираем бинарную строку чанками, затем один раз btoa
       const arrayBuffer = await audioBlob.arrayBuffer();
@@ -234,8 +238,8 @@ export default function VoiceAssistant({
           userId: user?.id,
           context: context ? {
             currentPage: context.currentPage,
-            activeClientId: context.activeClientId,
-            activeClientName: context.activeClientName,
+            activeClientId: context.activeClientId || undefined,
+            activeClientName: context.activeClientName || undefined,
             userRole: context.userRole,
             userBranch: context.userBranch,
             activeChatType: context.activeChatType
@@ -278,7 +282,11 @@ export default function VoiceAssistant({
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [user?.id, context, audioEnabled, queryClient]);
+
+  useEffect(() => {
+    processAudioRef.current = processAudio;
+  }, [processAudio]);
 
   const playAudioResponse = async (base64Audio: string) => {
     try {
