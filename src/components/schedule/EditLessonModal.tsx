@@ -37,10 +37,13 @@ export const EditLessonModal = ({ session, open, onOpenChange, onSessionUpdated 
     status: "scheduled" as LessonSession['status'],
     notes: ""
   });
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [showStudentSelector, setShowStudentSelector] = useState(false);
   const [conflicts, setConflicts] = useState<any[]>([]);
   
   const { toast } = useToast();
   const updateSession = useUpdateLessonSession();
+  const addStudentsToSession = useAddStudentsToSession();
   const checkConflicts = useCheckScheduleConflicts();
   const { groups } = useLearningGroups({});
   const { teachers } = useTeachers({});
@@ -188,6 +191,61 @@ export const EditLessonModal = ({ session, open, onOpenChange, onSessionUpdated 
               </AlertDescription>
             </Alert>
           )}
+
+          {/* Students Management */}
+          <div className="space-y-4">
+            <SessionStudentsDisplay
+              sessionId={session?.id || ""}
+              sessionInfo={{
+                lesson_date: formData.lesson_date,
+                start_time: formData.start_time,
+                end_time: formData.end_time,
+                branch: formData.branch
+              }}
+              onAddStudents={() => setShowStudentSelector(true)}
+              isEditable={true}
+            />
+
+            {showStudentSelector && (
+              <div className="space-y-4 border-t pt-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Добавить учеников
+                  </h4>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    onClick={() => setShowStudentSelector(false)}
+                  >
+                    Отмена
+                  </Button>
+                </div>
+                
+                <StudentSelector
+                  selectedStudentIds={selectedStudents}
+                  onSelectionChange={setSelectedStudents}
+                  lessonDate={formData.lesson_date}
+                  startTime={formData.start_time}
+                  endTime={formData.end_time}
+                  excludeSessionId={session?.id}
+                  branch={formData.branch}
+                />
+                
+                {selectedStudents.length > 0 && (
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleAddStudents}
+                      disabled={addStudentsToSession.isPending}
+                    >
+                      {addStudentsToSession.isPending ? "Добавление..." : `Добавить ${selectedStudents.length} учеников`}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

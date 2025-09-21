@@ -882,6 +882,38 @@ export type Database = {
           },
         ]
       }
+      student_lesson_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          lesson_session_id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lesson_session_id: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lesson_session_id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_lesson_sessions_lesson_session_id_fkey"
+            columns: ["lesson_session_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           age: number
@@ -1138,6 +1170,30 @@ export type Database = {
         }
         Returns: boolean
       }
+      check_multiple_students_conflicts: {
+        Args: {
+          p_end_time: string
+          p_exclude_session_id?: string
+          p_lesson_date: string
+          p_start_time: string
+          p_student_ids: string[]
+        }
+        Returns: {
+          conflict_details: Json
+          has_conflict: boolean
+          student_id: string
+        }[]
+      }
+      check_student_conflict: {
+        Args: {
+          p_end_time: string
+          p_exclude_session_id?: string
+          p_lesson_date: string
+          p_start_time: string
+          p_student_id: string
+        }
+        Returns: boolean
+      }
       check_teacher_conflict: {
         Args: {
           p_end_time: string
@@ -1202,6 +1258,24 @@ export type Database = {
           conflicting_group_id: string
           conflicting_teacher: string
           conflicting_time_range: string
+        }[]
+      }
+      get_student_schedule_conflicts: {
+        Args: {
+          p_end_time: string
+          p_exclude_session_id?: string
+          p_lesson_date: string
+          p_start_time: string
+          p_student_id: string
+        }
+        Returns: {
+          conflict_session_id: string
+          conflicting_branch: string
+          conflicting_classroom: string
+          conflicting_group_name: string
+          conflicting_teacher: string
+          conflicting_time_range: string
+          lesson_type: string
         }[]
       }
       get_user_branches: {

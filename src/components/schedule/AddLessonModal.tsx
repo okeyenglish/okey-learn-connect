@@ -5,18 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, AlertTriangle, Loader2 } from "lucide-react";
-import { format } from "date-fns";
-import { ru } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useCreateLessonSession, useCheckScheduleConflicts, LessonSession } from "@/hooks/useLessonSessions";
+import { useCreateLessonSession, useCheckScheduleConflicts } from "@/hooks/useLessonSessions";
 import { useLearningGroups } from "@/hooks/useLearningGroups";
 import { useTeachers } from "@/hooks/useTeachers";
+import { StudentSelector } from "./StudentSelector";
+import { useAddStudentsToSession } from "@/hooks/useStudentScheduleConflicts";
 import { getBranchesForSelect, getClassroomsForBranch } from "@/lib/branches";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface AddLessonModalProps {
   open: boolean;
@@ -29,21 +26,24 @@ export const AddLessonModal = ({ open, onOpenChange }: AddLessonModalProps) => {
     teacher_name: "",
     branch: "",
     classroom: "",
-    lesson_date: null as Date | null,
+    lesson_date: "",
     start_time: "",
     end_time: "",
     notes: ""
   });
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [conflicts, setConflicts] = useState<any[]>([]);
   
   const { toast } = useToast();
   const createSession = useCreateLessonSession();
+  const addStudentsToSession = useAddStudentsToSession();
   const checkConflicts = useCheckScheduleConflicts();
   const { groups } = useLearningGroups({});
   const { teachers } = useTeachers({});
   const branches = getBranchesForSelect();
 
-  const getDayOfWeek = (date: Date): LessonSession['day_of_week'] => {
+  const getDayOfWeek = (dateString: string) => {
+    const date = new Date(dateString);
     const dayMap = {
       0: 'sunday' as const,
       1: 'monday' as const,
@@ -67,7 +67,7 @@ export const AddLessonModal = ({ open, onOpenChange }: AddLessonModalProps) => {
         teacher_name: formData.teacher_name,
         branch: formData.branch,
         classroom: formData.classroom,
-        lesson_date: format(formData.lesson_date, 'yyyy-MM-dd'),
+        lesson_date: formData.lesson_date,
         start_time: formData.start_time,
         end_time: formData.end_time
       });
@@ -81,13 +81,29 @@ export const AddLessonModal = ({ open, onOpenChange }: AddLessonModalProps) => {
     handleCheckConflicts();
   }, [formData.teacher_name, formData.branch, formData.classroom, formData.lesson_date, formData.start_time, formData.end_time]);
 
+  const resetForm = () => {
+    setFormData({
+      group_id: "",
+      teacher_name: "",
+      branch: "",
+      classroom: "",
+      lesson_date: "",
+      start_time: "",
+      end_time: "",
+      notes: ""
+    });
+    setSelectedStudents([]);
+    setConflicts([]);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.lesson_date) {
+    if (!formData.lesson_date || !formData.start_time || !formData.end_time || 
+        !formData.teacher_name || !formData.branch || !formData.classroom) {
       toast({
         title: "Ошибка",
-        description: "Выберите дату занятия",
+        description: "Заполните все обязательные поля",
         variant: "destructive"
       });
       return;
@@ -103,12 +119,13 @@ export const AddLessonModal = ({ open, onOpenChange }: AddLessonModalProps) => {
     }
 
     try {
-      await createSession.mutateAsync({
-        group_id: formData.group_id,
+      // Create the lesson session first
+      const newSession = await createSession.mutateAsync({
+        group_id: formData.group_id || undefined,
         teacher_name: formData.teacher_name,
         branch: formData.branch,
         classroom: formData.classroom,
-        lesson_date: format(formData.lesson_date, 'yyyy-MM-dd'),
+        lesson_date: formData.lesson_date,
         start_time: formData.start_time,
         end_time: formData.end_time,
         day_of_week: getDayOfWeek(formData.lesson_date),
@@ -116,29 +133,25 @@ export const AddLessonModal = ({ open, onOpenChange }: AddLessonModalProps) => {
         notes: formData.notes || undefined
       });
 
+      // Add students to the session if any are selected
+      if (selectedStudents.length > 0) {
+        await addStudentsToSession.mutateAsync({
+          studentIds: selectedStudents,
+          lessonSessionId: newSession.id
+        });
+      }
+
       toast({
         title: "Успешно",
-        description: "Занятие добавлено в расписание"
+        description: `Занятие создано${selectedStudents.length > 0 ? ` и добавлено ${selectedStudents.length} учеников` : ''}`
       });
-
-      // Сброс формы
-      setFormData({
-        group_id: "",
-        teacher_name: "",
-        branch: "",
-        classroom: "",
-        lesson_date: null,
-        start_time: "",
-        end_time: "",
-        notes: ""
-      });
-      setConflicts([]);
+      
       onOpenChange(false);
-    } catch (error) {
-      console.error('Error creating session:', error);
+      resetForm();
+    } catch (error: any) {
       toast({
         title: "Ошибка",
-        description: "Не удалось добавить занятие",
+        description: error.message || "Не удалось создать занятие",
         variant: "destructive"
       });
     }
@@ -146,7 +159,7 @@ export const AddLessonModal = ({ open, onOpenChange }: AddLessonModalProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Добавить занятие в расписание</DialogTitle>
         </DialogHeader>
@@ -174,12 +187,13 @@ export const AddLessonModal = ({ open, onOpenChange }: AddLessonModalProps) => {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="group_id">Группа</Label>
+              <Label htmlFor="group_id">Группа (необязательно)</Label>
               <Select value={formData.group_id} onValueChange={(value) => setFormData(prev => ({ ...prev, group_id: value }))}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Выберите группу" />
+                  <SelectValue placeholder="Выберите группу или оставьте пустым для индивидуального занятия" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="">Индивидуальное занятие</SelectItem>
                   {groups.map(group => (
                     <SelectItem key={group.id} value={group.id}>
                       {group.name} ({group.level})
@@ -190,7 +204,7 @@ export const AddLessonModal = ({ open, onOpenChange }: AddLessonModalProps) => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="teacher_name">Преподаватель</Label>
+              <Label htmlFor="teacher_name">Преподаватель *</Label>
               <Select value={formData.teacher_name} onValueChange={(value) => setFormData(prev => ({ ...prev, teacher_name: value }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Выберите преподавателя" />
@@ -208,7 +222,7 @@ export const AddLessonModal = ({ open, onOpenChange }: AddLessonModalProps) => {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="branch">Филиал</Label>
+              <Label htmlFor="branch">Филиал *</Label>
               <Select 
                 value={formData.branch} 
                 onValueChange={(value) => setFormData(prev => ({ ...prev, branch: value, classroom: "" }))}
@@ -227,7 +241,7 @@ export const AddLessonModal = ({ open, onOpenChange }: AddLessonModalProps) => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="classroom">Аудитория</Label>
+              <Label htmlFor="classroom">Аудитория *</Label>
               <Select value={formData.classroom} onValueChange={(value) => setFormData(prev => ({ ...prev, classroom: value }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Выберите аудиторию" />
@@ -243,35 +257,18 @@ export const AddLessonModal = ({ open, onOpenChange }: AddLessonModalProps) => {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Дата занятия</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !formData.lesson_date && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {formData.lesson_date ? format(formData.lesson_date, "dd.MM.yyyy", { locale: ru }) : "Выберите дату"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={formData.lesson_date || undefined}
-                  onSelect={(date) => setFormData(prev => ({ ...prev, lesson_date: date || null }))}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="start_time">Время начала</Label>
+              <Label htmlFor="lesson_date">Дата занятия *</Label>
+              <Input
+                id="lesson_date"
+                type="date"
+                value={formData.lesson_date}
+                onChange={(e) => setFormData(prev => ({ ...prev, lesson_date: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="start_time">Время начала *</Label>
               <Input
                 id="start_time"
                 type="time"
@@ -280,7 +277,7 @@ export const AddLessonModal = ({ open, onOpenChange }: AddLessonModalProps) => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="end_time">Время окончания</Label>
+              <Label htmlFor="end_time">Время окончания *</Label>
               <Input
                 id="end_time"
                 type="time"
@@ -289,6 +286,20 @@ export const AddLessonModal = ({ open, onOpenChange }: AddLessonModalProps) => {
               />
             </div>
           </div>
+
+          {/* Students Section */}
+          {formData.lesson_date && formData.start_time && formData.end_time && (
+            <div className="space-y-4">
+              <StudentSelector
+                selectedStudentIds={selectedStudents}
+                onSelectionChange={setSelectedStudents}
+                lessonDate={formData.lesson_date}
+                startTime={formData.start_time}
+                endTime={formData.end_time}
+                branch={formData.branch}
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="notes">Заметки (необязательно)</Label>
@@ -307,16 +318,16 @@ export const AddLessonModal = ({ open, onOpenChange }: AddLessonModalProps) => {
             </Button>
             <Button 
               type="submit" 
-              disabled={createSession.isPending || conflicts.length > 0}
+              disabled={createSession.isPending || addStudentsToSession.isPending || conflicts.length > 0}
               className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
             >
-              {createSession.isPending ? (
+              {createSession.isPending || addStudentsToSession.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Сохранение...
+                  Создание...
                 </>
               ) : (
-                'Добавить занятие'
+                'Создать занятие'
               )}
             </Button>
           </div>
