@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Search, Plus, FileText, Phone, Building2, ArrowLeft } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Search, Plus, FileText, Phone, Building2, ArrowLeft, Pin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,6 +9,7 @@ import { ChatMessage } from "./ChatMessage";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useChatMessages, useSendMessage, useMarkAsRead, useRealtimeMessages } from '@/hooks/useChatMessages';
 import { useTypingStatus } from '@/hooks/useTypingStatus';
+import { usePinCounts } from '@/hooks/usePinCounts';
 import { toast } from "sonner";
 import { supabase } from '@/integrations/supabase/client';
 
@@ -111,6 +112,9 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
   const [activeBranch, setActiveBranch] = useState<string | null>(null);
   const [allowedBranches, setAllowedBranches] = useState<string[]>([]);
   const isMobile = useIsMobile();
+  
+  // Get pin counts for all branches
+  const { pinCounts } = usePinCounts(branches.map(b => b.id));
 
   // Load allowed branches for current user
   useEffect(() => {
@@ -139,11 +143,15 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
         .eq('branch', branch)
         .maybeSingle();
       if (found?.id) return found.id as string;
-      const { data: inserted } = await supabase
+      const { data: inserted, error } = await supabase
         .from('clients')
         .insert({ name, phone: '-', branch })
         .select('id')
         .maybeSingle();
+      if (error) {
+        console.error('ensureClient insert error', error);
+        return null;
+      }
       return inserted?.id || null;
     };
     const resolve = async () => {
@@ -241,7 +249,7 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
           
           <div className="flex-1 overflow-y-auto">
             <div className="p-3 space-y-2">
-              {branches.filter(b => allowedBranches.length === 0 || allowedBranches.includes(b.name)).map((branch) => {
+              {branches.map((branch) => {
                 const branchMessages = mockCorporateChats[branch.id] || [];
                 return (
                   <button
@@ -257,11 +265,16 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <p className="font-medium text-sm">{branch.name}</p>
-                            {branch.unread > 0 && (
-                              <Badge variant="destructive" className="text-xs h-5 min-w-5 px-1.5">
-                                {branch.unread}
-                              </Badge>
-                            )}
+                            <div className="flex items-center gap-1">
+                              {pinCounts[branch.id] > 0 && (
+                                <Pin className="h-3 w-3 text-muted-foreground" />
+                              )}
+                              {branch.unread > 0 && (
+                                <Badge variant="destructive" className="text-xs h-5 min-w-5 px-1.5">
+                                  {branch.unread}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                           <p className="text-xs text-muted-foreground mt-1 truncate">
                             {branchMessages.length > 0 
@@ -407,12 +420,12 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
                 onChange={(e) => handleMessageChange(e.target.value)}
                 className="min-h-[40px] max-h-[120px] resize-none"
                 rows={1}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
+                   onKeyDown={(e) => {
+                     if (e.key === 'Enter' && !e.shiftKey) {
+                       e.preventDefault();
+                       handleSendMessage();
+                     }
+                   }}
               />
               <div className="flex items-center gap-1 mt-2">
                 <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
@@ -457,7 +470,7 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
         
         <div className="flex-1 overflow-y-auto">
           <div className="p-2 space-y-1">
-            {branches.filter(b => allowedBranches.length === 0 || allowedBranches.includes(b.name)).map((branch) => {
+            {branches.map((branch) => {
               const branchMessages = mockCorporateChats[branch.id] || [];
               return (
                 <button
@@ -474,11 +487,16 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
                       <Building2 className="h-4 w-4 text-slate-500" />
                       <span className="font-medium text-sm">{branch.name}</span>
                     </div>
-                    {branch.unread > 0 && (
-                      <Badge variant="destructive" className="text-xs h-5 min-w-5 px-1.5">
-                        {branch.unread}
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {pinCounts[branch.id] > 0 && (
+                        <Pin className="h-3 w-3 text-muted-foreground" />
+                      )}
+                      {branch.unread > 0 && (
+                        <Badge variant="destructive" className="text-xs h-5 min-w-5 px-1.5">
+                          {branch.unread}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1 truncate">
                     {branchMessages.length > 0 
@@ -642,7 +660,12 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
                     </Button>
                   </div>
                 </div>
-                <Button size="icon" className="rounded-full h-10 w-10">
+                <Button 
+                  size="icon" 
+                  className="rounded-full h-10 w-10"
+                  onClick={handleSendMessage}
+                  disabled={!message.trim() || !clientId}
+                >
                   <Send className="h-4 w-4" />
                 </Button>
               </div>

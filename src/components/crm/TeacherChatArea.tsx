@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Phone, MessageCircle, Video, Calendar, Users, Clock, ChevronRight, Send, Link, Copy, ArrowLeft, GraduationCap, Zap } from 'lucide-react';
+import { Search, Phone, MessageCircle, Video, Calendar, Users, Clock, ChevronRight, Send, Link, Copy, ArrowLeft, GraduationCap, Zap, Pin } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useChatMessages, useSendMessage, useMarkAsRead, useRealtimeMessages } from '@/hooks/useChatMessages';
 import { useTypingStatus } from '@/hooks/useTypingStatus';
+import { usePinCounts } from '@/hooks/usePinCounts';
 import { supabase } from '@/integrations/supabase/client';
 
 interface TeacherGroup {
@@ -257,6 +258,13 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   // Resolve real client UUID for the selected teacher or group
   const [resolvedClientId, setResolvedClientId] = useState<string | null>(null);
   const [userBranch, setUserBranch] = useState<string | null>(null);
+  
+  // Get pin counts for all chats
+  const allChatIds = [
+    'teachers-group',
+    ...mockTeachers.map(t => t.id)
+  ];
+  const { pinCounts } = usePinCounts(allChatIds);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -281,9 +289,13 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
       .eq('branch', branch)
       .maybeSingle();
     if (found?.id) return found.id as string;
+    
+    // Use prefixed name for teacher chats to match RLS policy
+    const chatName = name.includes('Чат педагогов') ? name : `Преподаватель: ${name}`;
+    
     const { data: inserted, error } = await supabase
       .from('clients')
-      .insert({ name, phone: '-', branch })
+      .insert({ name: chatName, phone: '-', branch })
       .select('id')
       .maybeSingle();
     if (error) {
@@ -465,9 +477,14 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                       <h3 className="font-medium text-sm text-foreground">
                         Чат педагогов
                       </h3>
-                      <Badge variant="destructive" className="h-5 w-5 p-0 flex items-center justify-center text-xs">
-                        4
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        {pinCounts['teachers-group'] > 0 && (
+                          <Pin className="h-3 w-3 text-muted-foreground" />
+                        )}
+                        <Badge variant="destructive" className="h-5 w-5 p-0 flex items-center justify-center text-xs">
+                          4
+                        </Badge>
+                      </div>
                     </div>
                     
                     <p className="text-xs text-muted-foreground mt-1">
@@ -503,11 +520,16 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                         <h3 className="font-medium text-sm text-foreground">
                           {teacher.fullName}
                         </h3>
-                        {teacher.unreadMessages > 0 && (
-                          <Badge variant="destructive" className="h-5 w-5 p-0 flex items-center justify-center text-xs">
-                            {teacher.unreadMessages}
-                          </Badge>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {pinCounts[teacher.id] > 0 && (
+                            <Pin className="h-3 w-3 text-muted-foreground" />
+                          )}
+                          {teacher.unreadMessages > 0 && (
+                            <Badge variant="destructive" className="h-5 w-5 p-0 flex items-center justify-center text-xs">
+                              {teacher.unreadMessages}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       
                       <p className="text-xs text-muted-foreground mt-1">
@@ -573,20 +595,33 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
         {/* Message Input */}
         <div className="border-t p-3 shrink-0">
-          <div className="flex gap-2">
-            <Textarea
-              placeholder="Введите сообщение..."
-              value={message}
-              onChange={(e) => handleMessageChange(e.target.value)}
-              className="min-h-[40px] max-h-[120px] resize-none"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
-            />
-            <Button size="sm" className="shrink-0" onClick={handleSendMessage} disabled={!message.trim() || !clientId}>
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Textarea
+                placeholder={isGroupChat ? "Написать в общий чат..." : "Написать сообщение..."}
+                value={message}
+                onChange={(e) => handleMessageChange(e.target.value)}
+                className="min-h-[40px] max-h-[120px] resize-none"
+                rows={1}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+              />
+              <div className="flex items-center gap-1 mt-2">
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setShowQuickResponsesModal(true)}>
+                  <Zap className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <Button 
+              size="icon" 
+              className="rounded-full h-10 w-10"
+              onClick={handleSendMessage} 
+              disabled={!message.trim() || !clientId}
+            >
               <Send className="h-4 w-4" />
             </Button>
           </div>
@@ -641,9 +676,14 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                     <h3 className="font-medium text-sm text-foreground truncate">
                       Чат педагогов
                     </h3>
-                    <Badge variant="destructive" className="h-4 w-4 p-0 flex items-center justify-center text-xs">
-                      4
-                    </Badge>
+                    <div className="flex items-center gap-1">
+                      {pinCounts['teachers-group'] > 0 && (
+                        <Pin className="h-3 w-3 text-muted-foreground" />
+                      )}
+                      <Badge variant="destructive" className="h-4 w-4 p-0 flex items-center justify-center text-xs">
+                        4
+                      </Badge>
+                    </div>
                   </div>
                   
                   <p className="text-xs text-muted-foreground truncate">
@@ -683,11 +723,16 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                       <h3 className="font-medium text-sm text-foreground truncate">
                         {teacher.fullName}
                       </h3>
-                      {teacher.unreadMessages > 0 && (
-                        <Badge variant="destructive" className="h-4 w-4 p-0 flex items-center justify-center text-xs">
-                          {teacher.unreadMessages}
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {pinCounts[teacher.id] > 0 && (
+                          <Pin className="h-3 w-3 text-muted-foreground" />
+                        )}
+                        {teacher.unreadMessages > 0 && (
+                          <Badge variant="destructive" className="h-4 w-4 p-0 flex items-center justify-center text-xs">
+                            {teacher.unreadMessages}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     
                     <p className="text-xs text-muted-foreground truncate">
