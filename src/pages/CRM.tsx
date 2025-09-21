@@ -309,6 +309,17 @@ const CRMContent = () => {
     }
   };
 
+  // Системные чаты + корпоративные по филиалам
+  const corporateBranchMap = [
+    { id: 'okskaya', name: 'Окская' },
+    { id: 'kotelniki', name: 'Котельники' },
+    { id: 'stakhanovskaya', name: 'Стахановская' },
+    { id: 'novokosino', name: 'Новокосино' },
+    { id: 'mytishchi', name: 'Мытищи' },
+    { id: 'solntsevo', name: 'Солнцево' },
+    { id: 'online', name: 'Онлайн' },
+  ];
+
   const allChats = [
     // Системные чаты
     { 
@@ -333,6 +344,18 @@ const CRMContent = () => {
       timestamp: Date.now() - 1000 * 60 * 90, 
       avatar_url: null 
     },
+    // Корпоративные чаты по филиалам
+    ...corporateBranchMap.map(b => ({
+      id: `corporate:${b.id}`,
+      name: `Корпоративный чат - ${b.name}`,
+      phone: '+7 (800) 000-00-01',
+      lastMessage: 'Обсуждаем расписание... ',
+      time: 'Сегодня',
+      unread: 0,
+      type: 'corporate' as const,
+      timestamp: Date.now() - 1000 * 60 * 120,
+      avatar_url: null,
+    })),
     // Реальные чаты с клиентами
     ...threads.map(thread => {
       // Find client data to get avatar
@@ -1418,7 +1441,11 @@ const CRMContent = () => {
               onChatAction={handleChatAction}
             />
           ) : activeChatType === 'corporate' ? (
-            <CorporateChatArea onMessageChange={setHasUnsavedChat} />
+            <CorporateChatArea 
+              onMessageChange={setHasUnsavedChat} 
+              selectedBranchId={activeChatId?.startsWith('corporate:') ? activeChatId.split(':')[1] : null}
+              embedded
+            />
           ) : activeChatType === 'teachers' ? (
             <TeacherChatArea 
               selectedTeacherId={selectedTeacherId}

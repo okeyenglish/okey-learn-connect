@@ -15,6 +15,8 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface CorporateChatAreaProps {
   onMessageChange?: (hasUnsaved: boolean) => void;
+  selectedBranchId?: string | null; // e.g. 'okskaya'
+  embedded?: boolean; // if true, render without internal left sidebar
 }
 
 // Mock corporate chat history for different branches
@@ -105,11 +107,11 @@ const branches = [
   { id: 'online', name: 'Онлайн', unread: 0 }
 ];
 
-export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) => {
+export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, embedded = false }: CorporateChatAreaProps) => {
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchInput, setShowSearchInput] = useState(false);
-  const [activeBranch, setActiveBranch] = useState<string | null>(null);
+  const [activeBranch, setActiveBranch] = useState<string | null>(selectedBranchId);
   const [allowedBranches, setAllowedBranches] = useState<string[]>([]);
   const [pinCounts, setPinCounts] = useState<Record<string, number>>({});
   const isMobile = useIsMobile();
@@ -161,9 +163,14 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
         .eq('branch', branch)
         .maybeSingle();
       if (found?.id) return found.id as string;
+
+      // generate unique pseudo phone to avoid unique constraint
+      const slug = (s: string) => s.toLowerCase().replace(/[^a-zа-я0-9]+/gi, '-').replace(/^-+|-+$/g, '');
+      const pseudoPhone = `-corporate-${slug(branch)}`.slice(0, 50);
+
       const { data: inserted, error } = await supabase
         .from('clients')
-        .insert({ name, phone: '-', branch })
+        .insert({ name, phone: pseudoPhone, branch })
         .select('id')
         .maybeSingle();
       if (error) {
