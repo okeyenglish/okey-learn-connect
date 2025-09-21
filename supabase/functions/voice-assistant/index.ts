@@ -6,6 +6,16 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+// Timezone helpers
+function formatMoscowDate(offsetDays: number = 0) {
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const msk = new Date(utc + 3 * 60 * 60000 + offsetDays * 86400000);
+  const y = msk.getFullYear();
+  const m = String(msk.getMonth() + 1).padStart(2, '0');
+  const d = String(msk.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -140,9 +150,10 @@ serve(async (req) => {
 
 ❌ НЕ ДЕЛАЙ: "поставь задачу на клиента Иван" → search_clients (НЕПРАВИЛЬНО!)
 
-ПАРСИНГ ДАТА/ВРЕМЯ:
-- "завтра" = ${new Date(Date.now() + 86400000).toISOString().split('T')[0]}
-- "послезавтра" = ${new Date(Date.now() + 172800000).toISOString().split('T')[0]} 
+ПАРСИНГ ДАТА/ВРЕМЯ (часовой пояс: Европа/Москва):
+- "сегодня" = ${formatMoscowDate(0)}
+- "завтра" = ${formatMoscowDate(1)}
+- "послезавтра" = ${formatMoscowDate(2)}
 - "в понедельник" = дата ближайшего понедельника
 - "в 12 часов", "на 12:00", "в полдень" = "12:00"
 - "в 9 утра" = "09:00", "в 3 дня" = "15:00"
@@ -469,12 +480,19 @@ serve(async (req) => {
                 clientForTask = foundClient;
               }
 
+              const inferredDueDate = functionArgs.dueDate
+                ? functionArgs.dueDate
+                : /сегодня/i.test(userCommand) ? formatMoscowDate(0)
+                : /завтра/i.test(userCommand) ? formatMoscowDate(1)
+                : /послезавтра/i.test(userCommand) ? formatMoscowDate(2)
+                : null;
+
               const taskData: any = {
                 title: functionArgs.title,
                 description: functionArgs.description || '',
                 status: 'active',
                 priority: functionArgs.priority || 'medium',
-                due_date: functionArgs.dueDate || null,
+                due_date: inferredDueDate,
                 due_time: functionArgs.dueTime || null,
                 branch: userProfile?.branch || 'Окская',
                 responsible: `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim() || userProfile?.email || 'Менеджер'
@@ -499,13 +517,14 @@ serve(async (req) => {
                 singleResult = { type: 'create_task', text: 'Ошибка при создании задачи.' };
               } else {
                 const timeInfo = functionArgs.dueTime ? ` на ${functionArgs.dueTime}` : '';
-                const dateInfo = functionArgs.dueDate ? ` на ${functionArgs.dueDate}` : '';
+                const dateInfo = inferredDueDate ? ` на ${inferredDueDate}` : '';
                 const nameForText = clientForTask?.name || context?.activeClientName;
                 singleResult = { 
                   type: 'create_task', 
                   text: `Задача "${functionArgs.title}"${dateInfo}${timeInfo} создана${nameForText ? ` для клиента ${nameForText}` : ''}.`,
                   title: functionArgs.title, 
-                  clientName: nameForText 
+                  clientName: nameForText,
+                  dueDate: inferredDueDate
                 };
               }
               break;
@@ -558,7 +577,7 @@ serve(async (req) => {
               break;
 
             case 'get_schedule':
-              const todayDate = new Date().toISOString().split('T')[0];
+              const todayDate = formatMoscowDate(0);
               const { data: scheduleData } = await supabase
                 .from('schedule')
                 .select(`
@@ -662,7 +681,7 @@ serve(async (req) => {
         if (taskActions.length > 1) {
           // Если создано несколько задач
           const taskTitles = taskActions.map(action => `"${action.title}"`).join(', ');
-          const firstDueDate = message.tool_calls?.[0]?.function ? JSON.parse(message.tool_calls[0].function.arguments)?.dueDate : null;
+          const firstDueDate = taskActions[0]?.dueDate || null;
           const dateInfo = firstDueDate ? ` на ${firstDueDate}` : '';
           const clientInfo = taskActions[0]?.clientName ? ` для клиента ${taskActions[0].clientName}` : '';
           responseText = `Создано ${taskActions.length} задач${dateInfo}${clientInfo}: ${taskTitles}.`;
@@ -690,13 +709,14 @@ serve(async (req) => {
         else if (/напис/i.test(userCommand)) inferredTitle = 'написать';
 
         // Простая вычитка срока: сегодня/завтра
-        const now = new Date();
+        // Используем часовой пояс Москва для корректной даты
         let dueDate: string | null = null;
         if (/завтра/i.test(userCommand)) {
-          const t = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-          dueDate = t.toISOString().split('T')[0];
+          dueDate = formatMoscowDate(1);
         } else if (/сегодня/i.test(userCommand)) {
-          dueDate = now.toISOString().split('T')[0];
+          dueDate = formatMoscowDate(0);
+        } else if (/послезавтра/i.test(userCommand)) {
+          dueDate = formatMoscowDate(2);
         }
 
         // Попробуем распознать время формата HH:MM
