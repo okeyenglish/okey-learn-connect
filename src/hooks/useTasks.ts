@@ -299,11 +299,34 @@ export const useCompleteTask = () => {
       if (error) throw error;
       return data;
     },
+    onMutate: async (taskId: string) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['tasks'] });
+      
+      // Optimistically update the tasks
+      const queryKeys = [
+        ['tasks'],
+        ['all-tasks'],
+        ['tasks-by-date']
+      ];
+      
+      queryKeys.forEach(key => {
+        queryClient.setQueriesData({ queryKey: key }, (old: any) => {
+          if (!old) return old;
+          if (Array.isArray(old)) {
+            return old.filter((task: any) => task.id !== taskId);
+          }
+          return old;
+        });
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       toast.success("Задача выполнена");
     },
-    onError: (error) => {
+    onError: (error, taskId) => {
+      // Revert optimistic update on error
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       console.error('Error completing task:', error);
       toast.error("Ошибка при выполнении задачи");
     },
@@ -325,11 +348,34 @@ export const useCancelTask = () => {
       if (error) throw error;
       return data;
     },
+    onMutate: async (taskId: string) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['tasks'] });
+      
+      // Optimistically update the tasks
+      const queryKeys = [
+        ['tasks'],
+        ['all-tasks'],
+        ['tasks-by-date']
+      ];
+      
+      queryKeys.forEach(key => {
+        queryClient.setQueriesData({ queryKey: key }, (old: any) => {
+          if (!old) return old;
+          if (Array.isArray(old)) {
+            return old.filter((task: any) => task.id !== taskId);
+          }
+          return old;
+        });
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       toast.success("Задача отменена");
     },
-    onError: (error) => {
+    onError: (error, taskId) => {
+      // Revert optimistic update on error
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       console.error('Error cancelling task:', error);
       toast.error("Ошибка при отмене задачи");
     },
