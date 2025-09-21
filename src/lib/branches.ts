@@ -157,3 +157,15 @@ export const getBranchesForIndex = (): BranchForIndex[] => {
     nextGroup: "Завтра в 10:00" // Значение по умолчанию, будет обновляться из API
   }));
 };
+
+// Для выбора аудиторий в филиалах
+export const getClassroomsForBranch = (branchId: string): string[] => {
+  // Возвращаем стандартный набор аудиторий для каждого филиала
+  return [
+    "Аудитория 1",
+    "Аудитория 2", 
+    "Аудитория 3",
+    "Аудитория 4",
+    "Онлайн"
+  ];
+};

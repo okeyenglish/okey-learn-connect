@@ -26,6 +26,7 @@ export interface LearningGroup {
   debt_count?: number;
   zoom_link?: string;
   description?: string;
+  responsible_teacher?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;

@@ -936,6 +936,48 @@ export type Database = {
         }
         Relationships: []
       }
+      teachers: {
+        Row: {
+          branch: string
+          categories: string[] | null
+          created_at: string
+          email: string | null
+          first_name: string
+          id: string
+          is_active: boolean
+          last_name: string
+          phone: string | null
+          subjects: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          branch?: string
+          categories?: string[] | null
+          created_at?: string
+          email?: string | null
+          first_name: string
+          id?: string
+          is_active?: boolean
+          last_name: string
+          phone?: string | null
+          subjects?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          branch?: string
+          categories?: string[] | null
+          created_at?: string
+          email?: string | null
+          first_name?: string
+          id?: string
+          is_active?: boolean
+          last_name?: string
+          phone?: string | null
+          subjects?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       typing_status: {
         Row: {
           client_id: string

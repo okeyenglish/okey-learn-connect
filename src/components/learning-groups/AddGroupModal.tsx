@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Loader2, Users, BookOpen, MapPin, Calendar, Clock } from "lucide-react";
+import { Plus, Loader2, Users, BookOpen, MapPin, Calendar, Clock, User } from "lucide-react";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
@@ -14,7 +14,8 @@ import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateLearningGroup, LearningGroup, useLearningGroups } from "@/hooks/useLearningGroups";
-import { getBranchesForSelect } from "@/lib/branches";
+import { useTeachers, getTeacherFullName } from "@/hooks/useTeachers";
+import { getBranchesForSelect, getClassroomsForBranch } from "@/lib/branches";
 
 interface AddGroupModalProps {
   onGroupAdded?: () => void;
@@ -34,6 +35,7 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
     capacity: "10",
     academic_hours: "",
     lesson_duration: "",
+    responsible_teacher: "",
     period_start: null as Date | null,
     period_end: null as Date | null,
     schedule_days: [] as string[],
@@ -49,6 +51,13 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
   
   // Get all groups for auto-naming
   const { groups: allGroups } = useLearningGroups();
+  
+  // Get filtered teachers for the current branch/subject/category
+  const { teachers } = useTeachers({
+    branch: formData.branch || undefined,
+    subject: formData.subject,
+    category: formData.category
+  });
 
   // Function to automatically set category based on level
   const getCategoryFromLevel = (level: string): "preschool" | "school" | "adult" | "all" => {
@@ -148,6 +157,7 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
         capacity: parseInt(formData.capacity),
         current_students: 0,
         academic_hours: formData.academic_hours ? parseFloat(formData.academic_hours) : undefined,
+        responsible_teacher: formData.responsible_teacher || undefined,
         period_start: formData.period_start?.toISOString().split('T')[0] || undefined,
         period_end: formData.period_end?.toISOString().split('T')[0] || undefined,
         schedule_days: formData.schedule_days.length > 0 ? formData.schedule_days : undefined,
@@ -177,6 +187,7 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
         capacity: "10",
         academic_hours: "",
         lesson_duration: "",
+        responsible_teacher: "",
         period_start: null,
         period_end: null,
         schedule_days: [],
@@ -518,6 +529,34 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                         <SelectItem value="40">40 минут</SelectItem>
                         <SelectItem value="60">60 минут</SelectItem>
                         <SelectItem value="80">80 минут</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-blue-600" />
+                      Преподаватель *
+                    </Label>
+                    <Select
+                      value={formData.responsible_teacher}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, responsible_teacher: value }))}
+                      required
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Выберите преподавателя" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white z-50 max-h-60">
+                        {teachers.map(teacher => (
+                          <SelectItem key={teacher.id} value={getTeacherFullName(teacher)}>
+                            {getTeacherFullName(teacher)}
+                          </SelectItem>
+                        ))}
+                        {teachers.length === 0 && (
+                          <SelectItem value="" disabled>
+                            Нет доступных преподавателей
+                          </SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
