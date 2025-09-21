@@ -7,10 +7,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { LearningGroup } from "@/hooks/useLearningGroups";
-import { Calendar, Users, BookOpen, MapPin, Clock, User, Phone, Mail, Video, ExternalLink, Edit, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { Calendar, Users, BookOpen, MapPin, Clock, User, Phone, Mail, Video, ExternalLink, Edit, Plus, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import { AddScheduleModal } from "./AddScheduleModal";
+import { AddHomeworkModal } from "./AddHomeworkModal";
+import { EditGroupDetailsModal } from "./EditGroupDetailsModal";
+import { useToast } from "@/hooks/use-toast";
 
 interface GroupDetailModalProps {
   group: LearningGroup | null;
@@ -23,6 +27,26 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
   const [statisticsExpanded, setStatisticsExpanded] = useState(true);
   const [parametersExpanded, setParametersExpanded] = useState(true);
   const [userFieldsExpanded, setUserFieldsExpanded] = useState(true);
+  const [addScheduleOpen, setAddScheduleOpen] = useState(false);
+  const [addHomeworkOpen, setAddHomeworkOpen] = useState(false);
+  const [editDetailsOpen, setEditDetailsOpen] = useState(false);
+  const [scheduleData, setScheduleData] = useState([
+    { day: "Ср/Пт", time: "с 20:00 до 21:00", period: "с 03.09 по 27.02.26", room: "Ауд. London" },
+    { day: "Пн/Ср", time: "с 19:00 до 20:00", period: "с 21.07 по 29.08", room: "Ауд. New York" },
+    { day: "Пн/Ср", time: "с 19:30 до 20:30", period: "с 07.07 по 16.07", room: "Ауд. New York" },
+    { day: "Чт", time: "с 19:30 до 20:30", period: "03.07", room: "Ауд. New York" },
+    { day: "Пн/Ср", time: "с 20:00 до 21:00", period: "с 23.06 по 01.07", room: "Ауд. New York" },
+    { day: "Пт", time: "с 19:00 до 20:00", period: "20.06", room: "Ауд. New York" }
+  ]);
+  const [homeworkData, setHomeworkData] = useState([
+    { student: "Tchuente Dany", assignment: "10 сентября 2025 г.", showInLK: true, comments: "Audio HW" },
+    { student: "Tchuente Dany", assignment: "5 сентября 2025 г.", showInLK: true, comments: "Audio HW" },
+    { student: "Tchuente Dany", assignment: "3 сентября 2025 г.", showInLK: true, comments: "Workbook page 16" },
+    { student: "Tchuente Dany", assignment: "20 августа 2025 г.", showInLK: true, comments: "Weekend HW" },
+    { student: "Tchuente Dany", assignment: "18 августа 2025 г.", showInLK: true, comments: "UNIT 2 – REVISION EXERCISE" }
+  ]);
+  
+  const { toast } = useToast();
 
   if (!group) return null;
 
@@ -48,22 +72,46 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
     teacherPayment: "45 900,00 руб."
   };
 
-  const scheduleData = [
-    { day: "Ср/Пт", time: "с 20:00 до 21:00", period: "с 03.09 по 27.02.26", room: "Ауд. London" },
-    { day: "Пн/Ср", time: "с 19:00 до 20:00", period: "с 21.07 по 29.08", room: "Ауд. New York" },
-    { day: "Пн/Ср", time: "с 19:30 до 20:30", period: "с 07.07 по 16.07", room: "Ауд. New York" },
-    { day: "Чт", time: "с 19:30 до 20:30", period: "03.07", room: "Ауд. New York" },
-    { day: "Пн/Ср", time: "с 20:00 до 21:00", period: "с 23.06 по 01.07", room: "Ауд. New York" },
-    { day: "Пт", time: "с 19:00 до 20:00", period: "20.06", room: "Ауд. New York" }
-  ];
+  const handleAddSchedule = (newSchedule: any) => {
+    setScheduleData(prev => [...prev, newSchedule]);
+    toast({
+      title: "Успешно",
+      description: "Элемент расписания добавлен"
+    });
+  };
 
-  const homeworkData = [
-    { student: "Tchuente Dany", assignment: "10 сентября 2025 г.", showInLK: true, comments: "Audio HW" },
-    { student: "Tchuente Dany", assignment: "5 сентября 2025 г.", showInLK: true, comments: "Audio HW" },
-    { student: "Tchuente Dany", assignment: "3 сентября 2025 г.", showInLK: true, comments: "Workbook page 16" },
-    { student: "Tchuente Dany", assignment: "20 августа 2025 г.", showInLK: true, comments: "Weekend HW" },
-    { student: "Tchuente Dany", assignment: "18 августа 2025 г.", showInLK: true, comments: "UNIT 2 – REVISION EXERCISE" }
-  ];
+  const handleDeleteSchedule = (index: number) => {
+    setScheduleData(prev => prev.filter((_, i) => i !== index));
+    toast({
+      title: "Успешно", 
+      description: "Элемент расписания удален"
+    });
+  };
+
+  const handleAddHomework = (newHomework: any) => {
+    setHomeworkData(prev => [...prev, newHomework]);
+    toast({
+      title: "Успешно",
+      description: "Домашнее задание добавлено"
+    });
+  };
+
+  const handleDeleteHomework = (index: number) => {
+    setHomeworkData(prev => prev.filter((_, i) => i !== index));
+    toast({
+      title: "Успешно",
+      description: "Домашнее задание удалено"
+    });
+  };
+
+  const handleSaveDetails = (details: any) => {
+    // Here you would typically make an API call to update the group
+    console.log("Saving group details:", details);
+    toast({
+      title: "Успешно",
+      description: "Детали группы обновлены"
+    });
+  };
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -135,7 +183,11 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
               <TabsContent value="schedule" className="space-y-6 mt-0">
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold">Расписание</h3>
-                  <Button size="sm" className="bg-blue-500 hover:bg-blue-600">
+                  <Button 
+                    size="sm" 
+                    className="bg-blue-500 hover:bg-blue-600"
+                    onClick={() => setAddScheduleOpen(true)}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Добавить
                   </Button>
@@ -159,8 +211,13 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                             <Button size="sm" variant="outline" className="text-teal-600">
                               <ExternalLink className="h-4 w-4" />
                             </Button>
-                            <Button size="sm" variant="outline" className="text-red-600">
-                              <span className="text-lg">×</span>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="text-red-600"
+                              onClick={() => handleDeleteSchedule(index)}
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                             <Button size="sm" variant="outline" className="text-blue-600">
                               <Calendar className="h-4 w-4" />
@@ -189,7 +246,11 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                   <h3 className="text-lg font-semibold text-blue-600">Домашние задания / планы занятий</h3>
                   <div className="flex gap-2">
                     <span className="text-sm text-gray-600">полностью</span>
-                    <Button size="sm" className="bg-blue-500 hover:bg-blue-600">
+                    <Button 
+                      size="sm" 
+                      className="bg-blue-500 hover:bg-blue-600"
+                      onClick={() => setAddHomeworkOpen(true)}
+                    >
                       <Plus className="h-4 w-4 mr-2" />
                       Добавить
                     </Button>
@@ -219,8 +280,13 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                                 <Button size="sm" variant="outline" className="text-yellow-600">
                                   <Edit className="h-4 w-4" />
                                 </Button>
-                                <Button size="sm" variant="outline" className="text-red-600">
-                                  <span className="text-lg">×</span>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="text-red-600"
+                                  onClick={() => handleDeleteHomework(index)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
                             </div>
@@ -345,7 +411,14 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                       <CardTitle className="flex items-center justify-between text-lg">
                         Параметры
                         <div className="flex items-center gap-2">
-                          <Edit className="h-4 w-4" />
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className="p-0 h-auto"
+                            onClick={() => setEditDetailsOpen(true)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
                           {parametersExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                         </div>
                       </CardTitle>
@@ -428,7 +501,14 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                     <CardTitle className="flex items-center justify-between text-lg">
                       Пользовательские поля
                       <div className="flex items-center gap-2">
-                        <Edit className="h-4 w-4" />
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="p-0 h-auto"
+                          onClick={() => setEditDetailsOpen(true)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
                         {userFieldsExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                       </div>
                     </CardTitle>
@@ -456,6 +536,26 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
             </div>
           </Tabs>
         </div>
+        
+        {/* Modals */}
+        <AddScheduleModal 
+          open={addScheduleOpen}
+          onOpenChange={setAddScheduleOpen}
+          onAddSchedule={handleAddSchedule}
+        />
+        
+        <AddHomeworkModal 
+          open={addHomeworkOpen}
+          onOpenChange={setAddHomeworkOpen}
+          onAddHomework={handleAddHomework}
+        />
+        
+        <EditGroupDetailsModal 
+          open={editDetailsOpen}
+          onOpenChange={setEditDetailsOpen}
+          group={group}
+          onSaveDetails={handleSaveDetails}
+        />
       </DialogContent>
     </Dialog>
   );
