@@ -7,7 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { UserPlus, Loader2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { UserPlus, Loader2, User, Phone, Mail, Heart, FileText, Star, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { PhoneNumbersEditor } from "./PhoneNumbersEditor";
@@ -181,94 +183,199 @@ export const AddFamilyMemberModal = ({ familyGroupId, onMemberAdded, children }:
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {children || (
-          <Button size="sm" className="gap-2">
+          <Button size="sm" className="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white border-0 shadow-lg">
             <UserPlus className="h-4 w-4" />
             Добавить члена семьи
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh]">
-        <DialogHeader>
-          <DialogTitle>Добавить члена семьи</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden p-0">
+        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3 text-xl font-semibold">
+              <div className="p-2 bg-white/20 rounded-lg">
+                <Users className="h-6 w-6" />
+              </div>
+              Добавить члена семьи
+            </DialogTitle>
+            <p className="text-emerald-100 mt-2">Добавьте нового члена семьи с контактной информацией</p>
+          </DialogHeader>
+        </div>
         
-        <ScrollArea className="max-h-[70vh] pr-4">
+        <ScrollArea className="max-h-[calc(90vh-180px)] p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="name">Имя и фамилия *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Введите имя и фамилию"
-                required
-              />
-            </div>
+            {/* Основная информация */}
+            <Card className="border-l-4 border-l-emerald-500 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <User className="h-5 w-5 text-emerald-600" />
+                  Основная информация
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="flex items-center gap-2 font-medium">
+                    <Star className="h-4 w-4 text-red-500" />
+                    Имя и фамилия
+                  </Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Например: Мария Петрова"
+                    required
+                    className="transition-all duration-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  />
+                </div>
 
-            <PhoneNumbersEditor 
-              phoneNumbers={phoneNumbers}
-              onPhoneNumbersChange={setPhoneNumbers}
-            />
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="flex items-center gap-2 font-medium">
+                    <Mail className="h-4 w-4 text-emerald-600" />
+                    Электронная почта
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="maria.petrova@example.com"
+                    className="transition-all duration-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="email@example.com"
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="relationship" className="flex items-center gap-2 font-medium">
+                    <Heart className="h-4 w-4 text-emerald-600" />
+                    Родственная связь
+                  </Label>
+                  <Select
+                    value={formData.relationship}
+                    onValueChange={(value: any) => setFormData(prev => ({ ...prev, relationship: value }))}
+                  >
+                    <SelectTrigger className="transition-all duration-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="spouse">
+                        <div className="flex items-center gap-2">
+                          <Heart className="h-4 w-4 text-pink-500" />
+                          Супруг(а)
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="parent">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-blue-500" />
+                          Родитель
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="guardian">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4 text-green-500" />
+                          Опекун
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="other">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-gray-500" />
+                          Другое
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="relationship">Родственная связь</Label>
-              <Select
-                value={formData.relationship}
-                onValueChange={(value: any) => setFormData(prev => ({ ...prev, relationship: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="spouse">Супруг(а)</SelectItem>
-                  <SelectItem value="parent">Родитель</SelectItem>
-                  <SelectItem value="guardian">Опекун</SelectItem>
-                  <SelectItem value="other">Другое</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="flex items-center space-x-3 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+                  <Switch
+                    id="primary-contact"
+                    checked={formData.isPrimaryContact}
+                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isPrimaryContact: checked }))}
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor="primary-contact" className="flex items-center gap-2 font-medium cursor-pointer">
+                      <Star className="h-4 w-4 text-amber-500" />
+                      Основной контакт
+                    </Label>
+                    <p className="text-sm text-emerald-600">
+                      Основной контакт получает важные уведомления
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="primary-contact"
-                checked={formData.isPrimaryContact}
-                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isPrimaryContact: checked }))}
-              />
-              <Label htmlFor="primary-contact">Основной контакт</Label>
-            </div>
+            {/* Контактная информация */}
+            <Card className="border-l-4 border-l-blue-500 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Phone className="h-5 w-5 text-blue-600" />
+                  Контактная информация
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 font-medium">
+                    <Star className="h-4 w-4 text-red-500" />
+                    Номера телефонов
+                  </Label>
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <PhoneNumbersEditor 
+                      phoneNumbers={phoneNumbers}
+                      onPhoneNumbersChange={setPhoneNumbers}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-            <div className="space-y-2">
-              <Label htmlFor="notes">Заметки</Label>
-              <Textarea
-                id="notes"
-                value={formData.notes}
-                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                placeholder="Дополнительная информация..."
-                rows={3}
-              />
-            </div>
+            {/* Дополнительная информация */}
+            <Card className="border-l-4 border-l-purple-500 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <FileText className="h-5 w-5 text-purple-600" />
+                  Дополнительная информация
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <Label htmlFor="notes" className="flex items-center gap-2 font-medium">
+                    <FileText className="h-4 w-4 text-purple-600" />
+                    Заметки о члене семьи
+                  </Label>
+                  <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Особенности, предпочтения по общению, важная информация..."
+                    rows={3}
+                    className="resize-none transition-all duration-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  />
+                </div>
+              </CardContent>
+            </Card>
           </form>
         </ScrollArea>
 
-        <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-            Отмена
-          </Button>
-          <Button type="submit" disabled={isLoading} onClick={handleSubmit}>
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Добавить
-          </Button>
+        {/* Кнопки действий */}
+        <div className="border-t bg-gray-50 px-6 py-4">
+          <div className="flex justify-end gap-3">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setOpen(false)}
+              className="px-6"
+            >
+              Отмена
+            </Button>
+            <Button 
+              type="submit" 
+              disabled={isLoading} 
+              onClick={handleSubmit}
+              className="px-6 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white border-0 shadow-lg"
+            >
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Добавить в семью
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
