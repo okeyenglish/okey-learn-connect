@@ -106,6 +106,22 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const [resolvedClientId, setResolvedClientId] = useState<string | null>(null);
   const [userBranch, setUserBranch] = useState<string | null>(null);
 
+  // Load current user's branch once
+  useEffect(() => {
+    const loadBranch = async () => {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) return;
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('branch')
+        .eq('id', uid)
+        .maybeSingle();
+      setUserBranch(profile?.branch || null);
+    };
+    loadBranch();
+  }, []);
+
   // Load teachers from DB by branch
   useEffect(() => {
     const fetchTeachers = async (branch: string) => {
@@ -232,10 +248,11 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   }, [clientId, messages.length]);
 
   const teachers = dbTeachers;
-  const filteredTeachers = teachers.filter(teacher =>
-    teacher.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    teacher.branch.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredTeachers = teachers.filter((teacher) => {
+    const q = searchQuery.toLowerCase();
+    return (teacher.fullName || '').toLowerCase().includes(q) ||
+           ((teacher.branch || '').toLowerCase().includes(q));
+  });
 
   const selectedTeacher = selectedTeacherId ? teachers.find((t: any) => t.id === selectedTeacherId) : null;
 
@@ -403,7 +420,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                   <div className="flex items-start space-x-3">
                     <div className="relative">
                       <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-sm font-medium text-primary">
-                        {teacher.firstName[0]}{teacher.lastName[0]}
+                        {(teacher.firstName?.[0] || teacher.fullName?.[0] || '•')}{(teacher.lastName?.[0] || '')}
                       </div>
                       {teacher.isOnline && (
                         <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border border-background"></div>
@@ -609,7 +626,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                 <div className="flex items-start space-x-2">
                   <div className="relative">
                     <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-xs font-medium text-primary">
-                      {teacher.firstName[0]}{teacher.lastName[0]}
+                      {(teacher.firstName?.[0] || teacher.fullName?.[0] || '•')}{(teacher.lastName?.[0] || '')}
                     </div>
                     {teacher.isOnline && (
                       <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border border-background"></div>
