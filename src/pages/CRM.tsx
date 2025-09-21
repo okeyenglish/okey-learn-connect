@@ -1015,8 +1015,8 @@ const CRMContent = () => {
         {/* Left Unified Sidebar - Desktop */}
         <div className={`${
           isMobile ? 'hidden' : 'flex'
-        } w-80 lg:w-96 bg-background border-r flex-col h-full min-h-0 overflow-y-auto transition-all duration-300`}>
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col">
+        } w-80 lg:w-96 bg-background border-r flex-col h-full min-h-0 transition-all duration-300`}>
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-full">
             <TabsList className="grid w-full grid-cols-2 m-2 shrink-0">
               <TabsTrigger value="menu">Меню</TabsTrigger>
               <TabsTrigger value="chats">Чаты</TabsTrigger>
