@@ -184,19 +184,16 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
       
       console.log('Processing audio blob size:', audioBlob.size);
       
-      // Конвертируем аудио в base64 по частям чтобы избежать переполнения стека
+      // Конвертируем аудио в base64 безопасно: собираем бинарную строку чанками, затем один раз btoa
       const arrayBuffer = await audioBlob.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
-      
-      // Разбиваем на чанки для избежания переполнения стека
-      const chunkSize = 32768; // 32KB chunks
-      let base64Audio = '';
-      
+      const chunkSize = 0x8000; // 32KB
+      let binaryString = '';
       for (let i = 0; i < uint8Array.length; i += chunkSize) {
-        const chunk = uint8Array.slice(i, i + chunkSize);
-        const chunkString = String.fromCharCode.apply(null, Array.from(chunk));
-        base64Audio += btoa(chunkString);
+        const chunk = uint8Array.subarray(i, i + chunkSize);
+        binaryString += String.fromCharCode.apply(null, Array.from(chunk));
       }
+      const base64Audio = btoa(binaryString);
       
       console.log('Audio converted to base64, length:', base64Audio.length);
       
