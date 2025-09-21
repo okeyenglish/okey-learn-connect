@@ -1022,7 +1022,7 @@ const CRMContent = () => {
               <TabsTrigger value="chats">Чаты</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="menu" className="mt-0 flex-1 min-h-0 flex flex-col">
+            <TabsContent value="menu" className="mt-0 flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col">
               <div className="p-2 space-y-1 overflow-y-auto flex-1">
                 {menuItems.map((item, index) => (
                   <Dialog key={index} open={openModal === item.label} onOpenChange={(open) => !open && handleMenuModalClose()}>
@@ -1909,7 +1909,7 @@ const CRMContent = () => {
               </div>
             </TabsContent>
             
-            <TabsContent value="chats" className="mt-0 flex-1 min-h-0 flex flex-col">
+            <TabsContent value="chats" className="mt-0 flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col">
               <div className="p-2 border-b space-y-2 shrink-0">
                 <SearchInput
                   placeholder="Поиск по чатам..."
