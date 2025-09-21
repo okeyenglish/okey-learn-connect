@@ -444,7 +444,7 @@ export default function VoiceAssistant({
           <div className="mt-4">
             <p className="text-sm text-muted-foreground mb-2">Найденные клиенты:</p>
             <div className="space-y-1">
-              {actionResult.data.slice(0, 5).map((client: any) => (
+              {(actionResult.data || []).slice(0, 5).map((client: any) => (
                 <div
                   key={client.id}
                   className="flex items-center justify-between cursor-pointer hover:bg-muted/50 p-2 rounded transition-colors"
@@ -513,10 +513,10 @@ export default function VoiceAssistant({
         return (
           <div className="mt-4">
             <p className="text-sm text-muted-foreground mb-2">
-              Задачи ({actionResult.filter}): {actionResult.data.length}
+              Задачи ({actionResult.filter}): {(actionResult.data || []).length}
             </p>
             <div className="space-y-1 max-h-32 overflow-y-auto">
-              {actionResult.data.slice(0, 5).map((task: any) => (
+              {(actionResult.data || []).slice(0, 5).map((task: any) => (
                 <div 
                   key={task.id} 
                   className="text-xs bg-muted p-2 rounded cursor-pointer hover:bg-muted/80 transition-colors border-l-2 border-l-primary/50"
@@ -646,7 +646,7 @@ export default function VoiceAssistant({
           <div className="mt-4">
             <p className="text-sm text-muted-foreground mb-2">Расписание:</p>
             <div className="space-y-2 max-h-32 overflow-y-auto">
-              {actionResult.data.slice(0, 5).map((item: any, index: number) => (
+              {(actionResult.data || []).slice(0, 5).map((item: any, index: number) => (
                 <div key={index} className="text-sm bg-muted p-2 rounded">
                   <strong>{item.name}</strong> ({item.office_name})<br />
                   {item.compact_days} {item.compact_time}
