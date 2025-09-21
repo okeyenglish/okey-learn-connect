@@ -1084,7 +1084,7 @@ const CRMContent = () => {
                                  {/* Клиентские задачи */}
                                 <Card>
                                   <CardHeader>
-                                    <CardTitle className="flex items-center justify-between">
+                                    <CardTitle>
                                       {(() => {
                                         const today = new Date().toISOString().split('T')[0];
                                         const clientTasks = allTasks.filter(t => t.client_id);
@@ -1100,20 +1100,6 @@ const CRMContent = () => {
                                           </span>
                                         );
                                       })()}
-                                      <Button 
-                                        size="sm"
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          // Устанавливаем специальное значение для клиентских задач
-                                          setPinnedTaskClientId('client-task');
-                                          setShowAddTaskModal(true);
-                                        }}
-                                        variant="outline"
-                                        type="button"
-                                      >
-                                        + Добавить
-                                      </Button>
                                     </CardTitle>
                                   </CardHeader>
                                   <CardContent>
@@ -1398,16 +1384,8 @@ const CRMContent = () => {
                                 {/* Личные задачи менеджера */}
                                 <Card className="border-purple-200 bg-purple-50/30">
                                   <CardHeader>
-                                    <CardTitle className="flex items-center justify-between text-purple-800">
-                                      <span>📝 Мой личный планер ({allTasks.filter(t => !t.client_id).length})</span>
-                                      <Button 
-                                        size="sm"
-                                        onClick={() => setShowAddTaskModal(true)}
-                                        variant="outline"
-                                        className="border-purple-300 text-purple-700 hover:bg-purple-100"
-                                      >
-                                        + Личная задача
-                                      </Button>
+                                    <CardTitle className="text-purple-800">
+                                      📝 Мой личный планер ({allTasks.filter(t => !t.client_id).length})
                                     </CardTitle>
                                   </CardHeader>
                                   <CardContent>
