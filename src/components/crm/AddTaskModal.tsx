@@ -27,6 +27,7 @@ interface AddTaskModalProps {
   onPin?: () => void;
   onUnpin?: () => void;
   preselectedDate?: string;
+  taskType?: 'client' | 'personal'; // Добавляем тип задачи
 }
 
 const taskTemplates = [
@@ -50,7 +51,8 @@ export const AddTaskModal = ({
   isPinned = false, 
   onPin, 
   onUnpin,
-  preselectedDate
+  preselectedDate,
+  taskType = 'personal'
 }: AddTaskModalProps) => {
   const [formData, setFormData] = useState({
     date: preselectedDate ? new Date(preselectedDate) : new Date(),
@@ -183,7 +185,13 @@ export const AddTaskModal = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <PinnableDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <PinnableModalHeader
-          title={clientName ? `Назначение задачи - ${clientName}` : "Личная задача"}
+          title={
+            clientName 
+              ? `Назначение задачи - ${clientName}` 
+              : taskType === 'client' 
+                ? "Задача по клиенту" 
+                : "Личная задача"
+          }
           isPinned={isPinned}
           onPin={onPin || (() => {})}
           onUnpin={onUnpin || (() => {})}
@@ -274,8 +282,8 @@ export const AddTaskModal = ({
               </Button>
             </div>
 
-            {/* Student Selection - only show if there's a client */}
-            {clientId && (
+            {/* Student Selection - only show if there's a client or it's a client task */}
+            {(clientId || taskType === 'client') && (
               <div className="space-y-2">
                 <Label>Ученик:</Label>
                 {familyData && familyData.students.length > 0 ? (
@@ -296,7 +304,7 @@ export const AddTaskModal = ({
                   </Select>
                 ) : (
                   <div className="h-10 flex items-center px-3 border border-input rounded-md bg-muted text-sm text-muted-foreground">
-                    Нет учеников
+                    {taskType === 'client' ? "Выберите клиента для задачи" : "Нет учеников"}
                   </div>
                 )}
               </div>
@@ -304,7 +312,7 @@ export const AddTaskModal = ({
           </div>
 
           {/* Responsible Person - only show for client tasks */}
-          {clientId && (
+          {(clientId || taskType === 'client') && (
             <div className="space-y-2">
               <Label>Ответственный:</Label>
               <div className="space-y-2">
@@ -395,7 +403,7 @@ export const AddTaskModal = ({
             <Label htmlFor="description">Описание*:</Label>
             
             <div className="space-y-2">
-              {clientId && (
+              {(clientId || taskType === 'client') && (
                 <Select onValueChange={handleTemplateSelect}>
                   <SelectTrigger>
                     <SelectValue placeholder="Выберите шаблон или напишите свой" />
@@ -415,7 +423,13 @@ export const AddTaskModal = ({
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 className="min-h-[100px]"
-                placeholder={clientId ? "Напишите описание задачи..." : "Напишите описание личной задачи..."}
+                placeholder={
+                  clientId 
+                    ? "Напишите описание задачи..." 
+                    : taskType === 'client' 
+                      ? "Напишите описание задачи по клиенту..." 
+                      : "Напишите описание личной задачи..."
+                }
               />
             </div>
           </div>

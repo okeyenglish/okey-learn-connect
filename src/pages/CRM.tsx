@@ -985,8 +985,8 @@ const CRMContent = () => {
                                         onClick={(e) => {
                                           e.preventDefault();
                                           e.stopPropagation();
-                                          // Очищаем привязку к клиенту для задач по клиентам
-                                          setPinnedTaskClientId('');
+                                          // Устанавливаем специальное значение для клиентских задач
+                                          setPinnedTaskClientId('client-task');
                                           setShowAddTaskModal(true);
                                         }}
                                         variant="outline"
@@ -1756,24 +1756,29 @@ const CRMContent = () => {
           onOpenChange={handleTaskModalClose}
           clientName={
             pinnedTaskClientId && 
+            pinnedTaskClientId !== 'client-task' &&
             getActiveClientInfo(pinnedTaskClientId).name !== 'Выберите чат' 
               ? getActiveClientInfo(pinnedTaskClientId).name 
               : undefined
           }
           clientId={
             pinnedTaskClientId && 
+            pinnedTaskClientId !== 'client-task' &&
             getActiveClientInfo(pinnedTaskClientId).name !== 'Выберите чат' 
               ? pinnedTaskClientId 
               : undefined
           }
           familyGroupId={
             pinnedTaskClientId && 
+            pinnedTaskClientId !== 'client-task' &&
             getActiveClientInfo(pinnedTaskClientId).name !== 'Выберите чат' 
               ? getFamilyGroupId(pinnedTaskClientId)
               : undefined
           }
+          taskType={pinnedTaskClientId === 'client-task' ? 'client' : 'personal'}
           isPinned={
             pinnedTaskClientId && 
+            pinnedTaskClientId !== 'client-task' &&
             getActiveClientInfo(pinnedTaskClientId).name !== 'Выберите чат' 
               ? isPinned(pinnedTaskClientId, 'task')
               : false
