@@ -1118,7 +1118,7 @@ const CRMContent = () => {
                         {item.label === "Мои задачи" && (
                           <div className="space-y-4">
                             {/* Переключение между списком и календарем */}
-                            <div className="flex items-center justify-between">
+                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
                               <div className="flex items-center gap-2">
                                 <Button 
                                   size="sm"
@@ -1229,7 +1229,7 @@ const CRMContent = () => {
                                           }
                                           
                                           return (
-                                            <div className="grid grid-cols-2 gap-4">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                               {/* Сегодня */}
                                               <div 
                                                 onDragOver={(e) => handleDragOver(e, 'today')}
@@ -1616,7 +1616,7 @@ const CRMContent = () => {
                                           }
                                           
                                           return (
-                                            <div className="grid grid-cols-2 gap-4">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                               {/* Сегодня */}
                                               <div 
                                                 onDragOver={(e) => handleDragOver(e, 'today')}
@@ -1991,9 +1991,13 @@ const CRMContent = () => {
                                          ) : chat.avatar_url ? (
                                            <div className="relative flex-shrink-0">
                                              <img 
-                                               src={chat.avatar_url} 
+                                               src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
                                                alt={`${chat.name} avatar`} 
                                                className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
+                                               loading="lazy"
+                                               decoding="async"
+                                               referrerPolicy="no-referrer"
+                                               crossOrigin="anonymous"
                                                onError={(e) => {
                                                  const target = e.currentTarget as HTMLImageElement;
                                                  target.style.display = 'none';
@@ -2006,7 +2010,7 @@ const CRMContent = () => {
                                                style={{ display: 'none' }}
                                              >
                                                <User className="h-5 w-5 text-green-600" />
-                                             </div>
+                                              </div>
                                            {/* Lead indicator */}
                                              {(() => {
                                                const chatInfo = chat as any;
@@ -2137,23 +2141,28 @@ const CRMContent = () => {
                                        </div>
                                        ) : chat.avatar_url ? (
                                          <div className="relative flex-shrink-0">
-                                           <img 
-                                             src={chat.avatar_url} 
-                                             alt={`${chat.name} avatar`} 
-                                             className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
-                                             onError={(e) => {
-                                               const target = e.currentTarget as HTMLImageElement;
-                                               target.style.display = 'none';
-                                               const fallback = target.nextElementSibling as HTMLElement;
-                                               if (fallback) fallback.style.display = 'flex';
-                                             }}
-                                           />
-                                           <div 
-                                             className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center" 
-                                             style={{ display: 'none' }}
-                                           >
-                                             <User className="h-5 w-5 text-green-600" />
-                                           </div>
+                                            <img 
+                                              src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
+                                              alt={`${chat.name} avatar`} 
+                                              className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
+                                              loading="lazy"
+                                              decoding="async"
+                                              referrerPolicy="no-referrer"
+                                              crossOrigin="anonymous"
+                                              onError={(e) => {
+                                                const target = e.currentTarget as HTMLImageElement;
+                                                target.style.display = 'none';
+                                                const fallback = target.nextElementSibling as HTMLElement;
+                                                if (fallback) fallback.style.display = 'flex';
+                                              }}
+                                            />
+                                            <div 
+                                              className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center" 
+                                              style={{ display: 'none' }}
+                                            >
+                                              <User className="h-5 w-5 text-green-600" />
+                                             </div>
+                                            </div>
                                           {/* Lead indicator */}
                                            {(() => {
                                              const chatInfo = chat as any;
