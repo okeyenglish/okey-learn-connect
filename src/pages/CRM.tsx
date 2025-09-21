@@ -1965,9 +1965,14 @@ const CRMContent = () => {
                                             />
                                             {/* Lead indicator */}
                                             {(() => {
-                                              if (chat.type !== 'client') return null;
-                                              const clientStatus = getClientStatus(chat.id);
-                                              console.log(`Client ${chat.id} (${chat.name}) status:`, clientStatus);
+                                              const chatInfo = chat as any; // Временно для отладки 
+                                              console.log(`Processing chat for lead indicator: ${chatInfo.id} (${chatInfo.name}) type: ${chatInfo.type}`);
+                                              if (chatInfo.type !== 'client') {
+                                                console.log(`Skipping ${chatInfo.name} - not client type (${chatInfo.type})`);
+                                                return null;
+                                              }
+                                              const clientStatus = getClientStatus(chatInfo.id);
+                                              console.log(`Client ${chatInfo.id} (${chatInfo.name}) status:`, clientStatus);
                                               return clientStatus.isLead ? (
                                                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white">
                                                   <UserPlus className="w-2.5 h-2.5 text-white" />
@@ -2070,9 +2075,14 @@ const CRMContent = () => {
                                           />
                                           {/* Lead indicator */}
                                           {(() => {
-                                            if (chat.type !== 'client') return null;
-                                            const clientStatus = getClientStatus(chat.id);
-                                            console.log(`Client ${chat.id} (${chat.name}) status (second list):`, clientStatus);
+                                            const chatInfo = chat as any; // Временно для отладки 
+                                            console.log(`Processing chat for lead indicator (second list): ${chatInfo.id} (${chatInfo.name}) type: ${chatInfo.type}`);
+                                            if (chatInfo.type !== 'client') {
+                                              console.log(`Skipping ${chatInfo.name} - not client type (${chatInfo.type})`);
+                                              return null;
+                                            }
+                                            const clientStatus = getClientStatus(chatInfo.id);
+                                            console.log(`Client ${chatInfo.id} (${chatInfo.name}) status (second list):`, clientStatus);
                                             return clientStatus.isLead ? (
                                               <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white">
                                                 <UserPlus className="w-2.5 h-2.5 text-white" />
