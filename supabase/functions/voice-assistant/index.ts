@@ -273,7 +273,8 @@ serve(async (req) => {
               // Отправка сообщения через WhatsApp с правильными параметрами
               const { error } = await supabase.functions.invoke('whatsapp-send', {
                 body: {
-                  phone: client.phone,
+                  clientId: client.id,
+                  phoneNumber: client.phone,
                   message: functionArgs.message
                 }
               });
