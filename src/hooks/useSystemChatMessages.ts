@@ -42,7 +42,7 @@ export const useSystemChatMessages = () => {
       // Get latest message for each client
       const chatData = await Promise.all(
         (clients || []).map(async (client: any) => {
-          const { data: lastMsg, error } = await supabase
+          const { data: lastMsg } = await supabase
             .from('chat_messages')
             .select('message_text, created_at, is_read')
             .eq('client_id', client.id)
@@ -50,9 +50,9 @@ export const useSystemChatMessages = () => {
             .limit(1)
             .maybeSingle();
 
-          const { data: unreadCount } = await supabase
+          const { count: unreadCount } = await supabase
             .from('chat_messages')
-            .select('id', { count: 'exact' })
+            .select('*', { count: 'exact', head: true })
             .eq('client_id', client.id)
             .eq('is_read', false);
 
@@ -62,10 +62,9 @@ export const useSystemChatMessages = () => {
             branch: client.branch,
             lastMessage: lastMsg?.message_text || '',
             lastMessageTime: lastMsg?.created_at || '',
-            unreadCount: unreadCount?.length || 0,
+            unreadCount: unreadCount || 0,
             type: client.name.includes('Корпоративный') ? 'corporate' : 'teachers'
           };
-        })
       );
 
       return chatData;

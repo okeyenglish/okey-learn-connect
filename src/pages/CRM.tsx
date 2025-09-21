@@ -312,32 +312,46 @@ const CRMContent = () => {
     }
   };
 
-  // Системные чаты
-  const systemChats = [
-    { 
-      id: 'corporate', 
-      name: 'Корпоративный чат', 
-      phone: 'Команда OKEY ENGLISH', 
-      lastMessage: 'Всем привет! Обсуждаем новые материалы',
-      time: '11:45', 
-      unread: 3, 
-      type: 'corporate' as const, 
-      timestamp: Date.now() - 1000 * 60 * 60, 
-      avatar_url: null 
-    },
-    { 
-      id: 'teachers', 
-      name: 'Преподаватели', 
-      phone: 'Чаты с преподавателями', 
-      lastMessage: 'Обновили расписание на следующую неделю',
-      time: '10:15', 
-      unread: 2, 
-      type: 'teachers' as const, 
-      timestamp: Date.now() - 1000 * 60 * 90, 
-      avatar_url: null 
-    }
-  ];
+  // Системные чаты из БД (агрегация по последнему сообщению и непрочитанным)
+  const corporateUnread = (corporateChats || []).reduce((sum: number, c: any) => sum + (c.unreadCount || 0), 0);
+  const latestCorporate = (corporateChats || []).reduce((latest: any, c: any) => {
+    if (!c?.lastMessageTime) return latest;
+    if (!latest) return c;
+    return new Date(c.lastMessageTime) > new Date(latest.lastMessageTime) ? c : latest;
+  }, null as any);
 
+  const teacherUnread = (teacherChats || []).reduce((sum: number, c: any) => sum + (c.unreadCount || 0), 0);
+  const latestTeacher = (teacherChats || []).reduce((latest: any, c: any) => {
+    if (!c?.lastMessageTime) return latest;
+    if (!latest) return c;
+    return new Date(c.lastMessageTime) > new Date(latest.lastMessageTime) ? c : latest;
+  }, null as any);
+
+  // Системные чаты (сводные карточки)
+  const systemChats = [
+    {
+      id: 'corporate',
+      name: 'Корпоративный чат',
+      phone: 'Команда OKEY ENGLISH',
+      lastMessage: latestCorporate?.lastMessage || 'Нет сообщений',
+      time: latestCorporate?.lastMessageTime ? formatTime(latestCorporate.lastMessageTime) : '',
+      unread: corporateUnread,
+      type: 'corporate' as const,
+      timestamp: latestCorporate?.lastMessageTime ? new Date(latestCorporate.lastMessageTime).getTime() : 0,
+      avatar_url: null,
+    },
+    {
+      id: 'teachers',
+      name: 'Преподаватели',
+      phone: 'Чаты с преподавателями',
+      lastMessage: latestTeacher?.lastMessage || 'Нет сообщений',
+      time: latestTeacher?.lastMessageTime ? formatTime(latestTeacher.lastMessageTime) : '',
+      unread: teacherUnread,
+      type: 'teachers' as const,
+      timestamp: latestTeacher?.lastMessageTime ? new Date(latestTeacher.lastMessageTime).getTime() : 0,
+      avatar_url: null,
+    },
+  ];
   const allChats = [
     ...systemChats,
     // Только реальные клиентские чаты (исключаем системные)
@@ -1244,7 +1258,7 @@ const CRMContent = () => {
                                       className="flex items-center gap-3 flex-1 cursor-pointer"
                                       onClick={() => {
                                         setActiveChatId(chat.id);
-                                        setActiveChatType('client');
+                                        setActiveChatType(chat.type as any);
                                         handleChatClick(chat.id, chat.type);
                                       }}
                                     >
@@ -1346,7 +1360,7 @@ const CRMContent = () => {
                                    className="flex items-center gap-3 flex-1 cursor-pointer"
                                    onClick={() => {
                                      setActiveChatId(chat.id);
-                                     setActiveChatType('client');
+                                     setActiveChatType(chat.type as any);
                                      handleChatClick(chat.id, chat.type);
                                    }}
                                  >
