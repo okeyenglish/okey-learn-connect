@@ -318,11 +318,11 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   };
 
   const handleSendMessage = async () => {
-    if (!message.trim() || !selectedTeacherId) return;
+    if (!message.trim() || !clientId) return;
 
     try {
       await sendMessage.mutateAsync({
-        clientId: selectedTeacherId,
+        clientId,
         messageText: message.trim(),
         messageType: 'manager'
       });
@@ -334,9 +334,9 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   };
 
   const handleMarkAsRead = async () => {
-    if (!selectedTeacherId) return;
+    if (!clientId) return;
     try {
-      await markAsRead.mutateAsync(selectedTeacherId);
+      await markAsRead.mutateAsync(clientId);
       toast.success('Отмечено как прочитанное');
     } catch (error) {
       toast.error('Ошибка отметки прочитанным');
@@ -347,7 +347,6 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     setMessage(value);
     updateTypingStatus(value.length > 0);
   };
-
   const isGroupChat = selectedTeacherId === 'teachers-group';
   const currentMessages = messages;
   const currentTeacher = isGroupChat ? null : selectedTeacher;
@@ -507,17 +506,16 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             <Textarea
               placeholder="Введите сообщение..."
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              onChange={(e) => handleMessageChange(e.target.value)}
               className="min-h-[40px] max-h-[120px] resize-none"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  // Handle send message
-                  setMessage('');
+                  handleSendMessage();
                 }
               }}
             />
-            <Button size="sm" className="shrink-0">
+            <Button size="sm" className="shrink-0" onClick={handleSendMessage} disabled={!message.trim() || !clientId}>
               <Send className="h-4 w-4" />
             </Button>
           </div>
@@ -721,9 +719,15 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                     <Textarea
                       placeholder={isGroupChat ? "Написать в общий чат..." : "Написать сообщение..."}
                       value={message}
-                      onChange={(e) => setMessage(e.target.value)}
+                      onChange={(e) => handleMessageChange(e.target.value)}
                       className="min-h-[40px] max-h-[120px] resize-none text-sm"
                       rows={1}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
                     />
                   </div>
                   <Button size="icon" className="rounded-full h-10 w-10 shrink-0">
