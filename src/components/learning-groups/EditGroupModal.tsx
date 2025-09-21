@@ -27,7 +27,6 @@ interface EditGroupModalProps {
 export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: EditGroupModalProps) => {
   const [formData, setFormData] = useState({
     name: "",
-    custom_name: "",
     branch: "",
     subject: "Английский",
     level: "",
@@ -75,7 +74,6 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
       
       setFormData({
         name: group.name || "",
-        custom_name: group.custom_name || "",
         branch: group.branch || "",
         subject: group.subject || "Английский",
         level: group.level || "",
@@ -112,7 +110,6 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
 
       const groupData = {
         name: formData.name,
-        custom_name: formData.custom_name || undefined,
         branch: formData.branch,
         subject: formData.subject,
         level: formData.level,
@@ -691,17 +688,8 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
                   <Input
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="ГР1_SS2"
+                    placeholder="Название группы"
                     required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Произвольное имя</Label>
-                  <Input
-                    value={formData.custom_name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, custom_name: e.target.value }))}
-                    placeholder="Дополнительное название группы"
                   />
                 </div>
               </CardContent>

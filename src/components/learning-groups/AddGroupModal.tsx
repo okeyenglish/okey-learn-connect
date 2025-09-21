@@ -25,7 +25,6 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    custom_name: "",
     branch: "",
     subject: "Английский",
     level: "",
@@ -84,18 +83,18 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
     return abbreviations[branch] || "ОК";
   };
 
-  // Function to generate custom name automatically
-  const generateCustomName = (branch: string) => {
+  // Function to generate group name automatically
+  const generateGroupName = (branch: string) => {
     if (!branch || !allGroups) return "";
     
     const branchAbbr = getBranchAbbreviation(branch);
     const existingGroups = allGroups.filter(g => 
-      g.custom_name?.startsWith(branchAbbr) && g.branch === branch
+      g.name?.startsWith(branchAbbr) && g.branch === branch
     );
     
     // Find next available number
     let nextNumber = 1;
-    while (existingGroups.some(g => g.custom_name === `${branchAbbr}${nextNumber}`)) {
+    while (existingGroups.some(g => g.name === `${branchAbbr}${nextNumber}`)) {
       nextNumber++;
     }
     
@@ -147,7 +146,6 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
 
       const groupData: Omit<LearningGroup, 'id' | 'created_at' | 'updated_at'> = {
         name: formData.name,
-        custom_name: formData.custom_name || undefined,
         branch: formData.branch,
         subject: formData.subject,
         level: formData.level,
@@ -177,7 +175,6 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
       // Reset form
       setFormData({
         name: "",
-        custom_name: "",
         branch: "",
         subject: "Английский",
         level: "",
@@ -346,7 +343,7 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                         setFormData(prev => ({ 
                           ...prev, 
                           branch: value,
-                          custom_name: generateCustomName(value)
+                          name: generateGroupName(value)
                         }));
                       }}
                       required
@@ -788,16 +785,6 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                   <Input
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="ГР1_SS2"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Произвольное имя</Label>
-                  <Input
-                    value={formData.custom_name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, custom_name: e.target.value }))}
                     placeholder="Генерируется автоматически"
                     readOnly
                     className="bg-gray-50"
