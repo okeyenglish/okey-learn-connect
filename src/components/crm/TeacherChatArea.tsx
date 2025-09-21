@@ -493,7 +493,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         {/* Chat Messages */}
         <ScrollArea className="flex-1 p-3">
           <div className="space-y-3">
-            {currentMessages.map((msg) => (
+            {(currentMessages || []).map((msg) => (
               <ChatMessage
                 key={msg.id}
                 type={msg.message_type}
@@ -720,17 +720,17 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
               {/* Chat Messages Area - Fixed height */}
               <div className="flex-1 min-h-0">
                 <ScrollArea className="h-full">
-                  <div className="p-3 space-y-1">
-                    {currentMessages.map((msg) => (
-                      <ChatMessage
-                        key={msg.id}
-                        type={msg.message_type}
-                        message={msg.message_text}
-                        time={new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                        managerName={msg.message_type === 'manager' ? 'Вы' : currentTeacher?.fullName}
-                      />
-                    ))}
-                  </div>
+          <div className="p-3 space-y-1">
+            {(currentMessages || []).map((msg) => (
+              <ChatMessage
+                key={msg.id}
+                type={msg.message_type}
+                message={msg.message_text}
+                time={new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                managerName={msg.message_type === 'manager' ? 'Вы' : currentTeacher?.fullName}
+              />
+            ))}
+          </div>
                 </ScrollArea>
               </div>
               
@@ -793,7 +793,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                         <div>
                           <h4 className="text-xs font-medium text-muted-foreground mb-1">Языки</h4>
                           <div className="flex flex-wrap gap-1">
-                            {currentTeacher?.languages.map((language, index) => (
+                            {currentTeacher?.languages?.map((language, index) => (
                               <Badge key={index} variant="secondary" className="text-xs h-5">
                                 {language}
                               </Badge>
@@ -803,7 +803,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                         <div>
                           <h4 className="text-xs font-medium text-muted-foreground mb-1">Уровни</h4>
                           <div className="flex flex-wrap gap-1">
-                            {currentTeacher?.levels.map((level, index) => (
+                            {currentTeacher?.levels?.map((level, index) => (
                               <Badge key={index} variant="outline" className="text-xs h-5">
                                 {level}
                               </Badge>
