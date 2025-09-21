@@ -150,16 +150,7 @@ export const GroupsTable = ({ groups, isLoading }: GroupsTableProps) => {
                   </TableCell>
                   
                   <TableCell>
-                    {group.responsible_teacher ? (
-                      <div className="space-y-1">
-                        <div className="text-sm font-medium">{group.responsible_teacher}</div>
-                        {group.textbook && (
-                          <div className="text-xs text-gray-600">{group.textbook}</div>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-gray-400 text-sm">Не назначен</span>
-                    )}
+                    <span className="text-gray-400 text-sm">-</span>
                   </TableCell>
                   
                   <TableCell>

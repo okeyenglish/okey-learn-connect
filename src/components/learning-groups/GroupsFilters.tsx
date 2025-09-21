@@ -34,10 +34,8 @@ export const GroupsFilters = ({ filters, onFiltersChange, onReset }: GroupsFilte
     "Empower 1", "Empower 2", "Empower 3", "Empower 4", "Empower 5"
   ];
   const types = [
-    { value: "general", label: "Общий" },
-    { value: "individual", label: "Индивидуальный" },
-    { value: "mini", label: "Мини-группа" },
-    { value: "corporate", label: "Корпоративный" }
+    { value: "general", label: "Группа" },
+    { value: "mini", label: "Мини-группа" }
   ];
 
   const statusOptions = [

@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Loader2, Users, BookOpen, MapPin, User, DollarSign, Calendar } from "lucide-react";
+import { Plus, Loader2, Users, BookOpen, MapPin, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateLearningGroup, LearningGroup } from "@/hooks/useLearningGroups";
 import { getBranchesForSelect } from "@/lib/branches";
@@ -27,15 +27,14 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
     category: "all" as const,
     group_type: "general" as const,
     status: "forming" as const,
-    payment_method: "per_lesson" as const,
-    default_price: "",
-    textbook: "",
-    responsible_teacher: "",
     capacity: "12",
     academic_hours: "",
     schedule_days: [] as string[],
-    schedule_time: "",
     schedule_room: "",
+    lesson_start_hour: "",
+    lesson_start_minute: "",
+    lesson_end_hour: "",
+    lesson_end_minute: "",
     description: ""
   });
   
@@ -46,6 +45,12 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
     e.preventDefault();
     
     try {
+      // Create schedule_time from start and end times
+      const schedule_time = (formData.lesson_start_hour && formData.lesson_start_minute && 
+                           formData.lesson_end_hour && formData.lesson_end_minute) 
+        ? `${formData.lesson_start_hour.padStart(2, '0')}:${formData.lesson_start_minute.padStart(2, '0')}-${formData.lesson_end_hour.padStart(2, '0')}:${formData.lesson_end_minute.padStart(2, '0')}`
+        : undefined;
+
       const groupData: Omit<LearningGroup, 'id' | 'created_at' | 'updated_at'> = {
         name: formData.name,
         custom_name: formData.custom_name || undefined,
@@ -55,15 +60,11 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
         category: formData.category,
         group_type: formData.group_type,
         status: formData.status,
-        payment_method: formData.payment_method,
-        default_price: formData.default_price ? parseFloat(formData.default_price) : undefined,
-        textbook: formData.textbook || undefined,
-        responsible_teacher: formData.responsible_teacher || undefined,
         capacity: parseInt(formData.capacity),
         current_students: 0,
         academic_hours: formData.academic_hours ? parseFloat(formData.academic_hours) : undefined,
         schedule_days: formData.schedule_days.length > 0 ? formData.schedule_days : undefined,
-        schedule_time: formData.schedule_time || undefined,
+        schedule_time: schedule_time,
         schedule_room: formData.schedule_room || undefined,
         description: formData.description || undefined,
         debt_count: 0,
@@ -87,15 +88,14 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
         category: "all",
         group_type: "general",
         status: "forming",
-        payment_method: "per_lesson",
-        default_price: "",
-        textbook: "",
-        responsible_teacher: "",
         capacity: "12",
         academic_hours: "",
         schedule_days: [],
-        schedule_time: "",
         schedule_room: "",
+        lesson_start_hour: "",
+        lesson_start_minute: "",
+        lesson_end_hour: "",
+        lesson_end_minute: "",
         description: ""
       });
       
@@ -121,8 +121,27 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
     "Empower 1", "Empower 2", "Empower 3", "Empower 4", "Empower 5"
   ];
 
-  const textbooks = ["Disney", "Cambridge", "New York", "Oxford"];
   const days = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
+  
+  // Generate classroom options based on branch
+  const getClassroomsForBranch = (branch: string) => {
+    const classroomMap: Record<string, string[]> = {
+      "Окская": ["Аудитория 1", "Аудитория 2", "Аудитория 3", "Аудитория 4"],
+      "Котельники": ["Кабинет 101", "Кабинет 102", "Кабинет 103"],
+      "Люберцы-1": ["Класс А", "Класс Б", "Класс В", "Класс Г"],
+      "Люберцы-2": ["Комната 1", "Комната 2", "Комната 3"],
+      "Мытищи": ["Зал 1", "Зал 2", "Зал 3", "Зал 4"],
+      "Новокосино": ["Студия 1", "Студия 2", "Студия 3"],
+      "Солнцево": ["Кабинет 1", "Кабинет 2", "Кабинет 3", "Кабинет 4"],
+      "Стахановская": ["Аудитория А", "Аудитория Б", "Аудитория В"],
+      "Онлайн": ["Zoom-комната 1", "Zoom-комната 2", "Zoom-комната 3"]
+    };
+    return classroomMap[branch] || [];
+  };
+
+  // Generate time options
+  const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+  const minutes = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
 
   const toggleDay = (day: string) => {
     setFormData(prev => ({
@@ -280,78 +299,10 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="general">Общий</SelectItem>
-                        <SelectItem value="individual">Индивидуальный</SelectItem>
+                        <SelectItem value="general">Группа</SelectItem>
                         <SelectItem value="mini">Мини-группа</SelectItem>
-                        <SelectItem value="corporate">Корпоративный</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Способ оплаты</Label>
-                    <Select
-                      value={formData.payment_method}
-                      onValueChange={(value: any) => setFormData(prev => ({ ...prev, payment_method: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="per_lesson">По занятиям</SelectItem>
-                        <SelectItem value="monthly">Помесячно</SelectItem>
-                        <SelectItem value="course">За курс</SelectItem>
-                        <SelectItem value="package">Пакет</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-green-600" />
-                      Цена по умолчанию
-                    </Label>
-                    <Input
-                      type="number"
-                      value={formData.default_price}
-                      onChange={(e) => setFormData(prev => ({ ...prev, default_price: e.target.value }))}
-                      placeholder="11490"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Учебник</Label>
-                    <Select
-                      value={formData.textbook}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, textbook: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Выберите учебник" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {textbooks.map(book => (
-                          <SelectItem key={book} value={book}>
-                            {book}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-purple-600" />
-                      Ответственный
-                    </Label>
-                    <Input
-                      value={formData.responsible_teacher}
-                      onChange={(e) => setFormData(prev => ({ ...prev, responsible_teacher: e.target.value }))}
-                      placeholder="Имя преподавателя"
-                    />
                   </div>
                 </div>
 
@@ -382,12 +333,26 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Аудитория</Label>
-                    <Input
+                    <Label className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-purple-600" />
+                      Аудитория *
+                    </Label>
+                    <Select
                       value={formData.schedule_room}
-                      onChange={(e) => setFormData(prev => ({ ...prev, schedule_room: e.target.value }))}
-                      placeholder="Аудитория 1"
-                    />
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, schedule_room: value }))}
+                      required
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Выберите аудиторию" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getClassroomsForBranch(formData.branch).map(room => (
+                          <SelectItem key={room} value={room}>
+                            {room}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
@@ -412,25 +377,98 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Время занятий</Label>
-                    <Input
-                      value={formData.schedule_time}
-                      onChange={(e) => setFormData(prev => ({ ...prev, schedule_time: e.target.value }))}
-                      placeholder="18:00-19:20"
-                    />
+                <div className="space-y-3">
+                  <Label className="flex items-center gap-2 font-medium">
+                    <Calendar className="h-4 w-4 text-blue-600" />
+                    Время занятий *
+                  </Label>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label className="text-sm text-gray-600">Время начала</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Select
+                          value={formData.lesson_start_hour}
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, lesson_start_hour: value }))}
+                          required
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Час" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-60">
+                            {hours.map(hour => (
+                              <SelectItem key={hour} value={hour}>
+                                {hour}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={formData.lesson_start_minute}
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, lesson_start_minute: value }))}
+                          required
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Мин" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {minutes.map(minute => (
+                              <SelectItem key={minute} value={minute}>
+                                {minute}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-sm text-gray-600">Время окончания</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Select
+                          value={formData.lesson_end_hour}
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, lesson_end_hour: value }))}
+                          required
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Час" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-60">
+                            {hours.map(hour => (
+                              <SelectItem key={hour} value={hour}>
+                                {hour}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={formData.lesson_end_minute}
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, lesson_end_minute: value }))}
+                          required
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Мин" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {minutes.map(minute => (
+                              <SelectItem key={minute} value={minute}>
+                                {minute}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                   </div>
+                </div>
 
-                  <div className="space-y-2">
-                    <Label>Название группы *</Label>
-                    <Input
-                      value={formData.name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="ГР1_SS2"
-                      required
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label>Название группы *</Label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="ГР1_SS2"
+                    required
+                  />
                 </div>
 
                 <div className="space-y-2">

@@ -9,12 +9,8 @@ export interface LearningGroup {
   subject: string;
   level: string;
   category: 'preschool' | 'school' | 'adult' | 'all';
-  group_type: 'general' | 'individual' | 'mini' | 'corporate';
+  group_type: 'general' | 'mini';
   status: 'reserve' | 'forming' | 'active' | 'suspended' | 'finished';
-  payment_method: 'per_lesson' | 'monthly' | 'course' | 'package';
-  default_price?: number;
-  textbook?: string;
-  responsible_teacher?: string;
   capacity: number;
   current_students: number;
   academic_hours?: number;
