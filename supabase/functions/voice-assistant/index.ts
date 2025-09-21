@@ -645,6 +645,98 @@ serve(async (req) => {
               }
               break;
 
+            case 'manage_chat':
+              // Поиск клиента для управления чатом
+              let chatClient: any = null;
+              
+              // Используем активного клиента если не указан
+              if (!functionArgs.clientName && context?.activeClientId) {
+                const { data: byId } = await supabase
+                  .from('clients')
+                  .select('*')
+                  .eq('id', context.activeClientId)
+                  .eq('is_active', true)
+                  .maybeSingle();
+                chatClient = byId;
+              }
+              
+              if (!chatClient && functionArgs.clientName) {
+                const { data: byName } = await supabase
+                  .from('clients')
+                  .select('*')
+                  .eq('is_active', true)
+                  .not('name', 'ilike', 'Преподаватель:%')
+                  .not('name', 'ilike', 'Teacher:%')
+                  .not('name', 'ilike', 'Чат педагогов - %')
+                  .not('name', 'ilike', 'Корпоративный чат - %')
+                  .ilike('name', `%${functionArgs.clientName}%`)
+                  .maybeSingle();
+                chatClient = byName;
+              }
+              
+              if (!chatClient) {
+                singleResult = { 
+                  type: 'manage_chat', 
+                  text: `Клиент "${functionArgs.clientName || 'не указан'}" не найден.` 
+                };
+                break;
+              }
+              
+              // Выполняем действие с чатом
+              switch (functionArgs.action) {
+                case 'open':
+                  singleResult = { 
+                    type: 'chat_opened',
+                    text: `Открываю чат с клиентом ${chatClient.name}.`,
+                    clientId: chatClient.id,
+                    clientName: chatClient.name,
+                    action: 'open_chat'
+                  };
+                  break;
+                case 'pin':
+                  // Здесь можно добавить логику закрепления чата
+                  singleResult = { 
+                    type: 'chat_pinned',
+                    text: `Чат с клиентом ${chatClient.name} закреплен.`,
+                    clientId: chatClient.id,
+                    action: 'pin_chat'
+                  };
+                  break;
+                case 'archive':
+                  singleResult = { 
+                    type: 'chat_archived',
+                    text: `Чат с клиентом ${chatClient.name} архивирован.`,
+                    clientId: chatClient.id,
+                    action: 'archive_chat'
+                  };
+                  break;
+                case 'mark_read':
+                  // Отмечаем все сообщения как прочитанные
+                  await supabase
+                    .from('message_read_status')
+                    .upsert({
+                      message_id: null, // Можно добавить логику для конкретных сообщений
+                      user_id: userId,
+                      client_id: chatClient.id,
+                      is_read: true,
+                      read_at: new Date().toISOString()
+                    });
+                  
+                  singleResult = { 
+                    type: 'chat_marked_read',
+                    text: `Сообщения в чате с клиентом ${chatClient.name} отмечены как прочитанные.`,
+                    clientId: chatClient.id,
+                    action: 'mark_read'
+                  };
+                  break;
+                default:
+                  singleResult = { 
+                    type: 'manage_chat', 
+                    text: `Неизвестное действие: ${functionArgs.action}` 
+                  };
+              }
+              break;
+
             case 'open_modal':
               singleResult = { 
                 type: 'modal_opened',
