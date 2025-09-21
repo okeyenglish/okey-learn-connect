@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useClients } from "@/hooks/useClients";
-import { Phone, Mail, MessageCircle, User } from "lucide-react";
+import { useClientStatus } from "@/hooks/useClientStatus";
+import { Phone, Mail, MessageCircle, User, UserPlus } from "lucide-react";
 
 interface ClientsListProps {
   onSelectClient?: (clientId: string) => void;
@@ -13,6 +14,8 @@ interface ClientsListProps {
 
 export const ClientsList = ({ onSelectClient, selectedClientId }: ClientsListProps) => {
   const { clients, isLoading, error } = useClients();
+  const clientIds = clients.map(client => client.id);
+  const { getClientStatus } = useClientStatus(clientIds);
 
   if (isLoading) {
     return (
@@ -81,7 +84,7 @@ export const ClientsList = ({ onSelectClient, selectedClientId }: ClientsListPro
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3 flex-1">
                       {/* Client Avatar */}
-                      <div className="flex-shrink-0">
+                      <div className="flex-shrink-0 relative">
                         {client.avatar_url ? (
                           <img 
                             src={client.avatar_url} 
@@ -98,6 +101,16 @@ export const ClientsList = ({ onSelectClient, selectedClientId }: ClientsListPro
                             <User className="w-6 h-6 text-green-600" />
                           </div>
                         )}
+                        
+                        {/* Lead indicator */}
+                        {(() => {
+                          const clientStatus = getClientStatus(client.id);
+                          return clientStatus.isLead ? (
+                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white">
+                              <UserPlus className="w-2.5 h-2.5 text-white" />
+                            </div>
+                          ) : null;
+                        })()}
                       </div>
                       
                       {/* Client Info */}

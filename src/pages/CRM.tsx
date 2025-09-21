@@ -14,6 +14,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients, useSearchClients, useCreateClient } from "@/hooks/useClients";
+import { useClientStatus } from "@/hooks/useClientStatus";
 import { useChatThreads, useRealtimeMessages, useMarkAsRead, useMarkAsUnread } from "@/hooks/useChatMessages";
 import { useStudents } from "@/hooks/useStudents";
 import { ChatArea } from "@/components/crm/ChatArea";
@@ -74,7 +75,8 @@ import {
   Check,
   Clock,
   Lock,
-  Edit
+  Edit,
+  UserPlus
 } from "lucide-react";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 
@@ -573,6 +575,12 @@ const CRMContent = () => {
       // Внутри каждой группы сортируем по времени (новые сверху)
       return (b.timestamp || 0) - (a.timestamp || 0);
     });
+
+  // Use client status hook for lead detection
+  const clientIds = filteredChats
+    .filter(chat => chat.type === 'client')
+    .map(chat => chat.id);
+  const { getClientStatus } = useClientStatus(clientIds);
 
   const [activeFamilyMemberId, setActiveFamilyMemberId] = useState('550e8400-e29b-41d4-a716-446655440001');
 
@@ -1943,16 +1951,28 @@ const CRMContent = () => {
                                          <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
                                            <GraduationCap className="h-5 w-5 text-purple-600" />
                                          </div>
-                                       ) : chat.avatar_url ? (
-                                         <img 
-                                           src={chat.avatar_url} 
-                                           alt={`${chat.name} avatar`} 
-                                           className="w-10 h-10 rounded-full object-cover border-2 border-green-200 flex-shrink-0"
-                                           onError={(e) => {
-                                             const target = e.currentTarget as HTMLImageElement;
-                                             target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
-                                           }}
-                                         />
+                                        ) : chat.avatar_url ? (
+                                          <div className="relative flex-shrink-0">
+                                            <img 
+                                              src={chat.avatar_url} 
+                                              alt={`${chat.name} avatar`} 
+                                              className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
+                                              onError={(e) => {
+                                                const target = e.currentTarget as HTMLImageElement;
+                                                target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
+                                              }}
+                                            />
+                                            {/* Lead indicator */}
+                                            {(() => {
+                                              if (chat.type !== 'client') return null;
+                                              const clientStatus = getClientStatus(chat.id);
+                                              return clientStatus.isLead ? (
+                                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white">
+                                                  <UserPlus className="w-2.5 h-2.5 text-white" />
+                                                </div>
+                                              ) : null;
+                                            })()}
+                                          </div>
                                        ) : (
                                          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                                            <User className="h-5 w-5 text-green-600" />
@@ -2035,16 +2055,28 @@ const CRMContent = () => {
                                        <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
                                          <GraduationCap className="h-5 w-5 text-purple-600" />
                                        </div>
-                                     ) : chat.avatar_url ? (
-                                       <img 
-                                         src={chat.avatar_url} 
-                                         alt={`${chat.name} avatar`} 
-                                         className="w-10 h-10 rounded-full object-cover border-2 border-green-200 flex-shrink-0"
-                                         onError={(e) => {
-                                           const target = e.currentTarget as HTMLImageElement;
-                                           target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
-                                         }}
-                                       />
+                                      ) : chat.avatar_url ? (
+                                        <div className="relative flex-shrink-0">
+                                          <img 
+                                            src={chat.avatar_url} 
+                                            alt={`${chat.name} avatar`} 
+                                            className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
+                                            onError={(e) => {
+                                              const target = e.currentTarget as HTMLImageElement;
+                                              target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
+                                            }}
+                                          />
+                                          {/* Lead indicator */}
+                                          {(() => {
+                                            if (chat.type !== 'client') return null;
+                                            const clientStatus = getClientStatus(chat.id);
+                                            return clientStatus.isLead ? (
+                                              <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white">
+                                                <UserPlus className="w-2.5 h-2.5 text-white" />
+                                              </div>
+                                            ) : null;
+                                          })()}
+                                        </div>
                                      ) : (
                                        <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                                          <User className="h-5 w-5 text-green-600" />
