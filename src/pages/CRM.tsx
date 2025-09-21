@@ -1572,6 +1572,30 @@ const CRMContent = () => {
       <VoiceAssistant 
         isOpen={voiceAssistantOpen}
         onToggle={() => setVoiceAssistantOpen(!voiceAssistantOpen)}
+        context={{
+          currentPage: 'CRM',
+          activeClientId: activeChatId,
+          activeClientName: activeChatId ? getActiveClientInfo(activeChatId).name : null,
+          userRole: role,
+          userBranch: profile?.branch,
+          activeChatType
+        }}
+        onOpenModal={{
+          addClient: () => setOpenModal('Добавить клиента'),
+          addTask: () => setShowAddTaskModal(true),
+          addTeacher: () => setOpenModal('Добавить преподавателя'),
+          addStudent: () => setOpenModal('Добавить студента'),
+          addInvoice: () => setShowInvoiceModal(true),
+          clientProfile: (clientId: string) => {
+            setActiveChatId(clientId);
+            setActiveChatType('client');
+            setRightSidebarOpen(true);
+          }
+        }}
+        onOpenChat={(clientId: string) => {
+          setActiveChatId(clientId);
+          setActiveChatType('client');
+        }}
       />
     </div>
   );

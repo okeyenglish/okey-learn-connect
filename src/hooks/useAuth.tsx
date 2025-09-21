@@ -11,6 +11,7 @@ interface Profile {
   email: string | null;
   phone: string | null;
   department: string | null;
+  branch: string | null;
   avatar_url: string | null;
 }
 

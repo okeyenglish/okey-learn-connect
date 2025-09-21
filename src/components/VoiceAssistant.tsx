@@ -10,6 +10,23 @@ import { useAuth } from '@/hooks/useAuth';
 interface VoiceAssistantProps {
   isOpen: boolean;
   onToggle: () => void;
+  context?: {
+    currentPage: string;
+    activeClientId: string | null;
+    activeClientName: string | null;
+    userRole?: string;
+    userBranch?: string;
+    activeChatType?: string;
+  };
+  onOpenModal?: {
+    addClient?: () => void;
+    addTask?: () => void;
+    addTeacher?: () => void;
+    addStudent?: () => void;
+    addInvoice?: () => void;
+    clientProfile?: (clientId: string) => void;
+  };
+  onOpenChat?: (clientId: string) => void;
 }
 
 interface ActionResult {
@@ -24,7 +41,13 @@ interface ActionResult {
   modalType?: string;
 }
 
-export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps) {
+export default function VoiceAssistant({ 
+  isOpen, 
+  onToggle, 
+  context,
+  onOpenModal,
+  onOpenChat 
+}: VoiceAssistantProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -204,7 +227,15 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
       const { data, error } = await supabase.functions.invoke('voice-assistant', {
         body: {
           audio: base64Audio,
-          userId: user?.id
+          userId: user?.id,
+          context: context ? {
+            currentPage: context.currentPage,
+            activeClientId: context.activeClientId,
+            activeClientName: context.activeClientName,
+            userRole: context.userRole,
+            userBranch: context.userBranch,
+            activeChatType: context.activeChatType
+          } : undefined
         }
       });
       
@@ -399,6 +430,13 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
             <Badge variant="default" className="bg-green-100 text-green-800">
               ✓ Открыт чат с {actionResult.clientName}
             </Badge>
+            {/* Реально открываем чат */}
+            {actionResult.clientId && onOpenChat && (
+              (() => {
+                setTimeout(() => onOpenChat(actionResult.clientId!), 100);
+                return null;
+              })()
+            )}
           </div>
         );
 
@@ -408,6 +446,24 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
             <Badge variant="default" className="bg-blue-100 text-blue-800">
               ✓ Открыто модальное окно
             </Badge>
+            {/* Реально открываем модальное окно */}
+            {actionResult.modalType && onOpenModal && (
+              (() => {
+                const modalType = actionResult.modalType;
+                if (modalType === 'add_client' && onOpenModal.addClient) {
+                  setTimeout(() => onOpenModal.addClient!(), 100);
+                } else if (modalType === 'add_teacher' && onOpenModal.addTeacher) {
+                  setTimeout(() => onOpenModal.addTeacher!(), 100);
+                } else if (modalType === 'add_student' && onOpenModal.addStudent) {
+                  setTimeout(() => onOpenModal.addStudent!(), 100);
+                } else if (modalType === 'add_task' && onOpenModal.addTask) {
+                  setTimeout(() => onOpenModal.addTask!(), 100);
+                } else if (modalType === 'profile' && onOpenModal.clientProfile && actionResult.clientId) {
+                  setTimeout(() => onOpenModal.clientProfile!(actionResult.clientId!), 100);
+                }
+                return null;
+              })()
+            )}
           </div>
         );
 
