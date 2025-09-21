@@ -467,11 +467,12 @@ serve(async (req) => {
               responsible: `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim() || userProfile?.email || 'Менеджер'
             };
 
-            // Привязываем client_id: приоритет активного чата (даже если это демо-ID), затем найденный в БД клиент
-            if (context?.activeClientId) {
-              taskData.client_id = context.activeClientId;
-            } else if (clientForTask) {
+            // Привязываем client_id: приоритет ЯВНО указанного клиента из команды/распознавания,
+            // затем активного чата из контекста
+            if (clientForTask) {
               taskData.client_id = clientForTask.id;
+            } else if (context?.activeClientId) {
+              taskData.client_id = context.activeClientId;
             }
 
             const { data: inserted, error: taskError } = await supabase
