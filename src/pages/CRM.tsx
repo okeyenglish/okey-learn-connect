@@ -77,7 +77,6 @@ import {
   Edit
 } from "lucide-react";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
-import { toast } from "@/hooks/use-toast";
 
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
 import VoiceAssistant from '@/components/VoiceAssistant';
@@ -242,12 +241,7 @@ const CRMContent = () => {
     const task = allTasks?.find(t => t.id === taskId);
     try {
       await completeTask.mutateAsync(taskId);
-      if (task) {
-        toast({
-          title: "Задача завершена",
-          description: `Задача "${task.title}" успешно завершена`,
-        });
-      }
+      // Task notifications will be handled by individual components
     } catch (error) {
       console.error('Error completing task:', error);
     }
@@ -257,12 +251,7 @@ const CRMContent = () => {
     const task = allTasks?.find(t => t.id === taskId);
     try {
       await cancelTask.mutateAsync(taskId);
-      if (task) {
-        toast({
-          title: "Задача отменена", 
-          description: `Задача "${task.title}" отменена`,
-        });
-      }
+      // Task notifications will be handled by individual components
     } catch (error) {
       console.error('Error cancelling task:', error);
     }

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useTasks, useCompleteTask, useCancelTask } from "@/hooks/useTasks";
 import { EditTaskModal } from "./EditTaskModal";
-import { toast } from "@/hooks/use-toast";
+import { useTaskNotifications } from "@/hooks/useTaskNotifications";
 
 interface ClientTasksProps {
   clientId: string;
@@ -18,6 +18,7 @@ export const ClientTasks = ({ clientId, clientName }: ClientTasksProps) => {
   const { tasks, isLoading } = useTasks(clientId);
   const completeTask = useCompleteTask();
   const cancelTask = useCancelTask();
+  const { sendTaskCompletedNotification, sendTaskCancelledNotification } = useTaskNotifications();
   
   // Filter only active tasks
   const activeTasks = tasks.filter(task => task.status === 'active');
@@ -31,10 +32,7 @@ export const ClientTasks = ({ clientId, clientName }: ClientTasksProps) => {
     try {
       await completeTask.mutateAsync(taskId);
       if (task) {
-        toast({
-          title: "Задача завершена",
-          description: `Задача "${task.title}" успешно завершена`,
-        });
+        await sendTaskCompletedNotification(clientId, task.title);
       }
     } catch (error) {
       console.error('Error completing task:', error);
@@ -46,10 +44,7 @@ export const ClientTasks = ({ clientId, clientName }: ClientTasksProps) => {
     try {
       await cancelTask.mutateAsync(taskId);
       if (task) {
-        toast({
-          title: "Задача отменена",
-          description: `Задача "${task.title}" отменена`,
-        });
+        await sendTaskCancelledNotification(clientId, task.title);
       }
     } catch (error) {
       console.error('Error cancelling task:', error);

@@ -13,7 +13,6 @@ import { Clock, User, Check, X, Plus, Edit } from 'lucide-react';
 import { useTasksByDate, useCompleteTask, useCancelTask } from '@/hooks/useTasks';
 import { AddTaskModal } from './AddTaskModal';
 import { EditTaskModal } from './EditTaskModal';
-import { toast } from "@/hooks/use-toast";
 
 interface TaskDayViewProps {
   open: boolean;
@@ -37,23 +36,13 @@ export const TaskDayView: React.FC<TaskDayViewProps> = ({
   const handleCompleteTask = (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
     completeTask(taskId);
-    if (task) {
-      toast({
-        title: "Задача завершена",
-        description: `Задача "${task.title}" успешно завершена`,
-      });
-    }
+    // Task notifications will be handled by ClientTasks component
   };
 
   const handleCancelTask = (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
     cancelTask(taskId);
-    if (task) {
-      toast({
-        title: "Задача отменена",
-        description: `Задача "${task.title}" отменена`,
-      });
-    }
+    // Task notifications will be handled by ClientTasks component
   };
 
   const getPriorityColor = (priority: string) => {
