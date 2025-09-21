@@ -124,7 +124,35 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
     return endMinutes - startMinutes;
   };
 
-  // Auto-calculate academic hours when relevant fields change
+  // Auto-calculate end time based on start time and duration
+  const calculateEndTime = (startHour: string, startMinute: string, durationMinutes: number) => {
+    if (!startHour || !startMinute || !durationMinutes) return { hour: "", minute: "" };
+    
+    const startTotalMinutes = parseInt(startHour) * 60 + parseInt(startMinute);
+    const endTotalMinutes = startTotalMinutes + durationMinutes;
+    
+    const endHour = Math.floor(endTotalMinutes / 60) % 24;
+    const endMinute = endTotalMinutes % 60;
+    
+    return {
+      hour: endHour.toString().padStart(2, '0'),
+      minute: endMinute.toString().padStart(2, '0')
+    };
+  };
+
+  // Update end time when start time or duration changes
+  const updateEndTime = () => {
+    if (formData.lesson_start_hour && formData.lesson_start_minute && formData.lesson_duration) {
+      const durationMinutes = parseInt(formData.lesson_duration);
+      const endTime = calculateEndTime(formData.lesson_start_hour, formData.lesson_start_minute, durationMinutes);
+      
+      setFormData(prev => ({
+        ...prev,
+        lesson_end_hour: endTime.hour,
+        lesson_end_minute: endTime.minute
+      }));
+    }
+  };
   const updateAcademicHours = () => {
     const lessonDuration = getLessonDuration();
     const hours = calculateAcademicHours(formData.period_start, formData.period_end, formData.schedule_days, lessonDuration);
@@ -551,7 +579,13 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                     </Label>
                     <Select
                       value={formData.lesson_duration}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, lesson_duration: value }))}
+                      onValueChange={(value) => {
+                        setFormData(prev => ({ ...prev, lesson_duration: value }));
+                        setTimeout(() => {
+                          updateEndTime();
+                          updateCalculatedFields();
+                        }, 100);
+                      }}
                       required
                     >
                       <SelectTrigger>
@@ -732,7 +766,10 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                           value={formData.lesson_start_hour}
                           onValueChange={(value) => {
                             setFormData(prev => ({ ...prev, lesson_start_hour: value }));
-                            setTimeout(updateCalculatedFields, 100);
+                            setTimeout(() => {
+                              updateEndTime();
+                              updateCalculatedFields();
+                            }, 100);
                           }}
                           required
                         >
@@ -751,7 +788,10 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                           value={formData.lesson_start_minute}
                           onValueChange={(value) => {
                             setFormData(prev => ({ ...prev, lesson_start_minute: value }));
-                            setTimeout(updateCalculatedFields, 100);
+                            setTimeout(() => {
+                              updateEndTime();
+                              updateCalculatedFields();
+                            }, 100);
                           }}
                           required
                         >
