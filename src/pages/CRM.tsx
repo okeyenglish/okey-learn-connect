@@ -2236,19 +2236,18 @@ const CRMContent = () => {
                                   <div className="flex flex-col items-end">
                                     <span className="text-xs text-muted-foreground">{chat.time}</span>
                                      {displayUnread && (
-                    <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                      {showEye ? (
-                        <>
-                          <Avatar className="h-4 w-4">
-                            <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
-                            <AvatarFallback className="text-[8px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
-                          </Avatar>
-                          <span>1</span>
-                        </>
-                      ) : (
-                        chat.unread
-                      )}
-                    </span>
+                                       showEye ? (
+                                         <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                                           <Avatar className="h-4 w-4">
+                                             <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
+                                             <AvatarFallback className="text-[8px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
+                                           </Avatar>
+                                           <span>1</span>
+                                         </span>
+                                       ) : (
+                                         <span className="w-2 h-2 rounded-full bg-primary" aria-label="Непрочитанные сообщения"></span>
+                                       )
+                                     )}
                                      )}
                                   </div>
                                 </div>
