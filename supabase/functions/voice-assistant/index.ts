@@ -392,6 +392,11 @@ serve(async (req) => {
               const { data: foundClient } = await supabase
                 .from('clients')
                 .select('id, name')
+                .eq('is_active', true)
+                .not('name', 'ilike', 'Преподаватель:%')
+                .not('name', 'ilike', 'Teacher:%')
+                .not('name', 'ilike', 'Чат педагогов - %')
+                .not('name', 'ilike', 'Корпоративный чат - %')
                 .ilike('name', `%${functionArgs.clientName}%`)
                 .maybeSingle();
               clientForTask = foundClient;
@@ -413,9 +418,11 @@ serve(async (req) => {
               taskData.client_id = clientForTask.id;
             }
 
-            const { error: taskError } = await supabase
+            const { data: inserted, error: taskError } = await supabase
               .from('tasks')
-              .insert(taskData);
+              .insert(taskData)
+              .select('id')
+              .single();
 
             if (taskError) {
               console.error('Task creation error:', taskError);

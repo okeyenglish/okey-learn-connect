@@ -328,6 +328,7 @@ export const AddTaskModal = ({
                     onSelect={(date) => {
                       if (date) {
                         setFormData(prev => ({ ...prev, date }));
+                        // Не закрываем модалку, только поповер
                         setDatePickerOpen(false);
                       }
                     }}

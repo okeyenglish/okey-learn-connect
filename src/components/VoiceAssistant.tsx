@@ -6,6 +6,7 @@ import { Mic, MicOff, Volume2, VolumeX, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface VoiceAssistantProps {
   isOpen: boolean;
@@ -66,6 +67,7 @@ export default function VoiceAssistant({
   const analyserRef = useRef<AnalyserNode | null>(null);
   
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   // Очистка ресурсов при размонтировании
   useEffect(() => {
@@ -250,6 +252,14 @@ export default function VoiceAssistant({
         setLastCommand(data.transcription || 'Команда не распознана');
         setLastResponse(data.response || 'Нет ответа');
         setActionResult(data.actionResult);
+
+        // Инвалидируем задачи при создании новой
+        if (data.actionResult?.type === 'task_created') {
+          if (context?.activeClientId) {
+            queryClient.invalidateQueries({ queryKey: ['tasks', context.activeClientId] });
+          }
+          queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+        }
         
         toast.success(`Команда выполнена: ${data.response}`);
         
