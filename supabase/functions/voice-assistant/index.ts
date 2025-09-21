@@ -554,15 +554,6 @@ serve(async (req) => {
             console.log('Tasks query result:', { tasksCount: tasks?.length || 0, tasksError, userFullName, filter: functionArgs.filter });
 
             if (tasks && tasks.length > 0) {
-              let filterText = '';
-              switch (functionArgs.filter) {
-                case 'today': filterText = 'на сегодня'; break;
-                case 'overdue': filterText = 'просроченные'; break;
-                case 'pending': filterText = 'активные'; break;
-                case 'completed': filterText = 'выполненные'; break;
-                default: filterText = 'все';
-              }
-              
               // Компактный ответ: просто количество и краткий список
               const count = tasks.length;
               let filterText = '';
