@@ -64,11 +64,6 @@ export const MessageReadIndicator = ({
       <TooltipTrigger asChild>
         <div className={`flex items-center gap-0.5 ${className}`}>
           <CheckCheck className="h-3 w-3 text-primary" />
-          {readCount > 1 && (
-            <span className="text-xs text-primary font-medium">
-              {readCount}
-            </span>
-          )}
         </div>
       </TooltipTrigger>
       <TooltipContent side="left" className="max-w-xs">
