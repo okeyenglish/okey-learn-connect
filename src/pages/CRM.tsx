@@ -509,11 +509,14 @@ const CRMContent = () => {
 
   const handleChatClick = (chatId: string, chatType: 'client' | 'corporate' | 'teachers') => {
     console.log('Переключение на чат:', { chatId, chatType });
+    
+    // Только переключаемся на новый чат, если это действительно другой чат
+    const isNewChat = activeChatId !== chatId;
     setActiveChatId(chatId);
     setActiveChatType(chatType);
     
-    // Если это клиентский чат, помечаем сообщения как прочитанные
-    if (chatType === 'client') {
+    // Помечаем как прочитанное только при переключении на НОВЫЙ чат
+    if (chatType === 'client' && isNewChat) {
       // Помечаем сообщения как прочитанные в базе данных
       markAsReadMutation.mutate(chatId);
       
