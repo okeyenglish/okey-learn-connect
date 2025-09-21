@@ -950,6 +950,7 @@ const CRMContent = () => {
                                 variant={activeTab !== "tasks-calendar" ? "default" : "outline"}
                                 onClick={() => setActiveTab("menu")}
                                 className="gap-2"
+                                type="button"
                               >
                                 📋 Список
                               </Button>
@@ -958,6 +959,7 @@ const CRMContent = () => {
                                 variant={activeTab === "tasks-calendar" ? "default" : "outline"}
                                 onClick={() => setActiveTab("tasks-calendar")}
                                 className="gap-2"
+                                type="button"
                               >
                                 📅 Календарь
                               </Button>
@@ -972,8 +974,13 @@ const CRMContent = () => {
                                       <span>Задачи по клиентам ({allTasks.filter(t => t.client_id).length})</span>
                                       <Button 
                                         size="sm"
-                                        onClick={() => setShowAddTaskModal(true)}
+                                        onClick={() => {
+                                          // Очищаем привязку к клиенту для задач по клиентам
+                                          setPinnedTaskClientId('');
+                                          setShowAddTaskModal(true);
+                                        }}
                                         variant="outline"
+                                        type="button"
                                       >
                                         + Добавить
                                       </Button>
@@ -1152,7 +1159,12 @@ const CRMContent = () => {
                                           variant="outline"
                                           size="sm"
                                           className="mt-2 border-purple-300 text-purple-700 hover:bg-purple-100"
-                                          onClick={() => setShowAddTaskModal(true)}
+                                          onClick={() => {
+                                            // Очищаем привязку к клиенту для личных задач
+                                            setPinnedTaskClientId('');
+                                            setShowAddTaskModal(true);
+                                          }}
+                                          type="button"
                                         >
                                           Создать личную задачу
                                         </Button>
@@ -1731,31 +1743,31 @@ const CRMContent = () => {
           open={showAddTaskModal}
           onOpenChange={handleTaskModalClose}
           clientName={
-            (pinnedTaskClientId || activeChatId) && 
-            getActiveClientInfo(pinnedTaskClientId || activeChatId).name !== 'Выберите чат' 
-              ? getActiveClientInfo(pinnedTaskClientId || activeChatId).name 
+            pinnedTaskClientId && 
+            getActiveClientInfo(pinnedTaskClientId).name !== 'Выберите чат' 
+              ? getActiveClientInfo(pinnedTaskClientId).name 
               : undefined
           }
           clientId={
-            (pinnedTaskClientId || activeChatId) && 
-            getActiveClientInfo(pinnedTaskClientId || activeChatId).name !== 'Выберите чат' 
-              ? (pinnedTaskClientId || activeChatId) 
+            pinnedTaskClientId && 
+            getActiveClientInfo(pinnedTaskClientId).name !== 'Выберите чат' 
+              ? pinnedTaskClientId 
               : undefined
           }
           familyGroupId={
-            (pinnedTaskClientId || activeChatId) && 
-            getActiveClientInfo(pinnedTaskClientId || activeChatId).name !== 'Выберите чат' 
-              ? getFamilyGroupId(pinnedTaskClientId || activeChatId)
+            pinnedTaskClientId && 
+            getActiveClientInfo(pinnedTaskClientId).name !== 'Выберите чат' 
+              ? getFamilyGroupId(pinnedTaskClientId)
               : undefined
           }
           isPinned={
-            (pinnedTaskClientId || activeChatId) && 
-            getActiveClientInfo(pinnedTaskClientId || activeChatId).name !== 'Выберите чат' 
-              ? isPinned(pinnedTaskClientId || activeChatId, 'task')
+            pinnedTaskClientId && 
+            getActiveClientInfo(pinnedTaskClientId).name !== 'Выберите чат' 
+              ? isPinned(pinnedTaskClientId, 'task')
               : false
           }
           onPin={handlePinTaskModal}
-          onUnpin={() => unpinModal(pinnedTaskClientId || activeChatId || '', 'task')}
+          onUnpin={() => unpinModal(pinnedTaskClientId || '', 'task')}
         />
 
       <EditTaskModal 
