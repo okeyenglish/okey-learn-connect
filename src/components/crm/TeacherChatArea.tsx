@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Phone, MessageCircle, Video, Calendar, Users, Clock, ChevronRight, Send, Link, Copy, ArrowLeft, GraduationCap } from 'lucide-react';
+import { Search, Phone, MessageCircle, Video, Calendar, Users, Clock, ChevronRight, Send, Link, Copy, ArrowLeft, GraduationCap, Zap } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { ChatMessage } from './ChatMessage';
 import { QuickResponsesModal } from './QuickResponsesModal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from "sonner";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useChatMessages, useSendMessage, useMarkAsRead, useRealtimeMessages } from '@/hooks/useChatMessages';
@@ -248,6 +249,9 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const [activeTab, setActiveTab] = useState('диалог');
   const [message, setMessage] = useState('');
   const [showQuickResponsesModal, setShowQuickResponsesModal] = useState(false);
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [scheduleTime, setScheduleTime] = useState('');
   const isMobile = useIsMobile();
 
   // Resolve real client UUID for the selected teacher or group
@@ -371,6 +375,35 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     }
   };
 
+  const handleScheduleMessage = async () => {
+    if (!message.trim() || !scheduleDate || !scheduleTime || !clientId) {
+      toast.error('Заполните дату/время и текст сообщения');
+      return;
+    }
+    const scheduledDateTime = new Date(`${scheduleDate}T${scheduleTime}`);
+    const delay = scheduledDateTime.getTime() - Date.now();
+    if (delay <= 0) {
+      toast.error('Время отправки должно быть в будущем');
+      return;
+    }
+    const text = message.trim();
+    setShowScheduleDialog(false);
+    setMessage('');
+    updateTypingStatus(false);
+    setTimeout(async () => {
+      try {
+        await sendMessage.mutateAsync({
+          clientId,
+          messageText: text,
+          messageType: 'manager'
+        });
+      } catch (e) {
+        console.error('Ошибка отправки запланированного сообщения', e);
+      }
+    }, delay);
+    toast.success('Сообщение запланировано');
+  };
+
   const handleMarkAsRead = async () => {
     if (!clientId) return;
     try {
@@ -394,7 +427,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     // Показываем список преподавателей
     if (!selectedTeacherId) {
       return (
-        <div className="flex flex-col h-full bg-background">
+        <div className="flex flex-col h-full min-h-0 bg-background">
           <div className="p-3 border-b">
             <div className="flex items-center gap-2">
               <GraduationCap className="h-5 w-5 text-slate-600" />
@@ -496,7 +529,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
     // Показываем чат
     return (
-      <div className="flex flex-col h-full bg-background">
+      <div className="flex flex-col h-full min-h-0 bg-background">
         {/* Chat Header with Back Button */}
         <div className="border-b p-3 shrink-0">
           <div className="flex items-center gap-3">
@@ -673,7 +706,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
       </div>
 
       {/* Chat Area with Header */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-h-0">
         {/* Header - Fixed height */}
         <div className="p-3 border-b border-border bg-background shrink-0 h-16 flex items-center">
           <div className="flex items-center justify-between w-full">
@@ -767,11 +800,47 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                         }
                       }}
                     />
+                    <div className="flex items-center gap-1 mt-2">
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setShowQuickResponsesModal(true)}>
+                        <Zap className="h-4 w-4" />
+                      </Button>
+                      <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
+                        <DialogTrigger asChild>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!message.trim()}>
+                            <Clock className="h-4 w-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Запланировать сообщение</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-3">
+                            <div className="space-y-1">
+                              <label className="text-sm">Дата</label>
+                              <Input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-sm">Время</label>
+                              <Input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} />
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button variant="outline" onClick={() => setShowScheduleDialog(false)}>Отмена</Button>
+                              <Button onClick={handleScheduleMessage} disabled={!scheduleDate || !scheduleTime || !message.trim()}>Запланировать</Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
                   </div>
-                  <Button size="icon" className="rounded-full h-10 w-10 shrink-0">
+                  <Button size="icon" className="rounded-full h-10 w-10 shrink-0" onClick={handleSendMessage} disabled={!message.trim() || !clientId}>
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
+                <QuickResponsesModal
+                  open={showQuickResponsesModal}
+                  onOpenChange={setShowQuickResponsesModal}
+                  onSelectResponse={(text) => setMessage((prev) => (prev ? `${prev} ${text}` : text))}
+                />
               </div>
             </TabsContent>
 

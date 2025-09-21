@@ -291,7 +291,7 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
 
     // Показываем чат выбранного филиала
     return (
-      <div className="flex flex-col h-full bg-background">
+       <div className="flex flex-col h-full min-h-0 bg-background">
         {/* Chat Header with Back Button */}
         <div className="border-b p-3 shrink-0">
           <div className="flex items-center gap-3">
@@ -344,8 +344,8 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
         </div>
 
         {/* Chat Messages */}
-        <div className="flex-1 overflow-y-auto">
-          <Tabs defaultValue="main" className="h-full flex flex-col">
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <Tabs defaultValue="main" className="h-full flex flex-col min-h-0">
             <TabsList className="grid w-full grid-cols-4 rounded-none bg-orange-50/30 border-orange-200 border-t rounded-t-none">
               <TabsTrigger value="main" className="text-xs">Основной</TabsTrigger>
               <TabsTrigger value="announcements" className="text-xs">Объявления</TabsTrigger>
@@ -494,7 +494,7 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
       </div>
 
       {/* Right Chat Area */}
-      <div className="flex-1 bg-background flex flex-col min-w-0">
+      <div className="flex-1 bg-background flex flex-col min-w-0 min-h-0">
         {activeBranch ? (
           <>
             {/* Chat Header */}
@@ -555,8 +555,8 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
             </div>
 
             {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto">
-              <Tabs defaultValue="main" className="h-full flex flex-col">
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <Tabs defaultValue="main" className="h-full flex flex-col min-h-0">
                 <TabsList className="grid w-full grid-cols-4 rounded-none bg-orange-50/30 border-orange-200 border-t rounded-t-none">
                   <TabsTrigger value="main" className="text-xs">Основной</TabsTrigger>
                   <TabsTrigger value="announcements" className="text-xs">Объявления</TabsTrigger>
