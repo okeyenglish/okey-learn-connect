@@ -11,16 +11,22 @@ import { UserPlus, Loader2 } from "lucide-react";
 interface AddClientModalProps {
   children?: React.ReactNode;
   onClientCreated?: (clientId: string) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export const AddClientModal = ({ children, onClientCreated }: AddClientModalProps) => {
-  const [open, setOpen] = useState(false);
+export const AddClientModal = ({ children, onClientCreated, open: externalOpen, onOpenChange: externalOnOpenChange }: AddClientModalProps) => {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
     email: '',
     notes: ''
   });
+
+  // Use external state if provided, otherwise use internal state
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setOpen = externalOnOpenChange !== undefined ? externalOnOpenChange : setInternalOpen;
 
   const createClientMutation = useCreateClient();
 
@@ -56,14 +62,17 @@ export const AddClientModal = ({ children, onClientCreated }: AddClientModalProp
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children || (
-          <Button>
-            <UserPlus className="h-4 w-4 mr-2" />
-            Добавить клиента
-          </Button>
-        )}
-      </DialogTrigger>
+      {/* Render trigger only if children are provided OR if in uncontrolled mode */}
+      {(children || externalOpen === undefined) && (
+        <DialogTrigger asChild>
+          {children || (
+            <Button>
+              <UserPlus className="h-4 w-4 mr-2" />
+              Добавить клиента
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Добавить нового клиента</DialogTitle>

@@ -183,6 +183,11 @@ const CRMContent = () => {
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [globalSearchResults, setGlobalSearchResults] = useState<any[]>([]);
+  
+  // Состояния для модальных окон, открываемых голосовым ассистентом
+  const [showAddClientModal, setShowAddClientModal] = useState(false);
+  const [showAddTeacherModal, setShowAddTeacherModal] = useState(false);
+  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   // Добавим несколько чатов в закрепленные для демонстрации
   const [activePhoneId, setActivePhoneId] = useState<string>('1');
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -2742,10 +2747,10 @@ const CRMContent = () => {
           activeChatType
         }}
         onOpenModal={{
-          addClient: () => setOpenModal('Добавить клиента'),
+          addClient: () => setShowAddClientModal(true),
           addTask: () => setShowAddTaskModal(true),
-          addTeacher: () => setOpenModal('Добавить преподавателя'),
-          addStudent: () => setOpenModal('Добавить студента'),
+          addTeacher: () => setShowAddTeacherModal(true),
+          addStudent: () => setShowAddStudentModal(true),
           addInvoice: () => setShowInvoiceModal(true),
           clientProfile: (clientId: string) => {
             handleChatClick(clientId, 'client');
@@ -2911,6 +2916,34 @@ const CRMContent = () => {
         onGroupsClick={() => setShowGroupsModal(true)}
         onIndividualClick={() => setShowIndividualLessonsModal(true)}
       />
+
+      {/* Модальные окна для голосового ассистента */}
+      <AddClientModal 
+        open={showAddClientModal}
+        onOpenChange={setShowAddClientModal}
+      />
+      
+      <Dialog open={showAddTeacherModal} onOpenChange={setShowAddTeacherModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Добавить преподавателя</DialogTitle>
+          </DialogHeader>
+          <p className="text-muted-foreground">
+            Функция добавления преподавателей будет реализована позже.
+          </p>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={showAddStudentModal} onOpenChange={setShowAddStudentModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Добавить студента</DialogTitle>
+          </DialogHeader>
+          <p className="text-muted-foreground">
+            Функция добавления студентов будет реализована позже.
+          </p>
+        </DialogContent>
+      </Dialog>
       </div>
     </TooltipProvider>
   );
