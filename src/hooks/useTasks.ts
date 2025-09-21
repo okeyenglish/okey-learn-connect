@@ -4,12 +4,13 @@ import { toast } from "sonner";
 
 export interface Task {
   id: string;
-  client_id: string;
+  client_id?: string;
   title: string;
   description?: string;
   priority: 'low' | 'medium' | 'high';
   status: 'active' | 'completed' | 'cancelled';
   due_date?: string;
+  due_time?: string;
   responsible?: string;
   goal?: string;
   method?: string;
@@ -19,11 +20,12 @@ export interface Task {
 }
 
 export interface CreateTaskData {
-  client_id: string;
+  client_id?: string;
   title: string;
   description?: string;
   priority: 'low' | 'medium' | 'high';
   due_date?: string;
+  due_time?: string;
   responsible?: string;
   goal?: string;
   method?: string;
@@ -96,25 +98,78 @@ export const useAllTasks = () => {
       if (tasksError) throw tasksError;
       if (!tasksData || tasksData.length === 0) return [];
 
-      // Получаем уникальные client_id
-      const clientIds = [...new Set(tasksData.map(task => task.client_id))];
+      // Получаем уникальные client_id (исключаем null)
+      const clientIds = [...new Set(tasksData.map(task => task.client_id).filter(Boolean))];
       
-      // Получаем информацию о клиентах
-      const { data: clientsData, error: clientsError } = await supabase
-        .from('clients')
-        .select('id, name, phone')
-        .in('id', clientIds);
-      
-      if (clientsError) throw clientsError;
+      let clientsData = [];
+      if (clientIds.length > 0) {
+        // Получаем информацию о клиентах
+        const { data: clients, error: clientsError } = await supabase
+          .from('clients')
+          .select('id, name, phone')
+          .in('id', clientIds);
+        
+        if (clientsError) throw clientsError;
+        clientsData = clients || [];
+      }
       
       // Соединяем данные
       const tasksWithClients = tasksData.map(task => ({
         ...task,
-        clients: clientsData?.find(client => client.id === task.client_id) || null
+        clients: task.client_id ? clientsData?.find(client => client.id === task.client_id) || null : null
       }));
       
       return tasksWithClients;
     },
+  });
+
+  return {
+    tasks: tasks || [],
+    isLoading,
+    error,
+  };
+};
+
+// Новый хук для получения задач по дате
+export const useTasksByDate = (date?: string) => {
+  const { data: tasks, isLoading, error } = useQuery({
+    queryKey: ['tasks-by-date', date],
+    queryFn: async () => {
+      if (!date) return [];
+      
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('status', 'active')
+        .eq('due_date', date)
+        .order('due_time', { ascending: true, nullsFirst: false });
+      
+      if (tasksError) throw tasksError;
+      if (!tasksData || tasksData.length === 0) return [];
+
+      // Получаем информацию о клиентах для задач с client_id
+      const clientIds = [...new Set(tasksData.map(task => task.client_id).filter(Boolean))];
+      
+      let clientsData = [];
+      if (clientIds.length > 0) {
+        const { data: clients, error: clientsError } = await supabase
+          .from('clients')
+          .select('id, name, phone')
+          .in('id', clientIds);
+        
+        if (clientsError) throw clientsError;
+        clientsData = clients || [];
+      }
+      
+      // Соединяем данные
+      const tasksWithClients = tasksData.map(task => ({
+        ...task,
+        clients: task.client_id ? clientsData?.find(client => client.id === task.client_id) || null : null
+      }));
+      
+      return tasksWithClients;
+    },
+    enabled: !!date,
   });
 
   return {

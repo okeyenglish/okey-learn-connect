@@ -634,11 +634,12 @@ export type Database = {
       tasks: {
         Row: {
           branch: string | null
-          client_id: string
+          client_id: string | null
           created_at: string
           description: string | null
           direction: string | null
           due_date: string | null
+          due_time: string | null
           goal: string | null
           id: string
           method: string | null
@@ -650,11 +651,12 @@ export type Database = {
         }
         Insert: {
           branch?: string | null
-          client_id: string
+          client_id?: string | null
           created_at?: string
           description?: string | null
           direction?: string | null
           due_date?: string | null
+          due_time?: string | null
           goal?: string | null
           id?: string
           method?: string | null
@@ -666,11 +668,12 @@ export type Database = {
         }
         Update: {
           branch?: string | null
-          client_id?: string
+          client_id?: string | null
           created_at?: string
           description?: string | null
           direction?: string | null
           due_date?: string | null
+          due_time?: string | null
           goal?: string | null
           id?: string
           method?: string | null

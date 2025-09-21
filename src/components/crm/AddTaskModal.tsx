@@ -20,12 +20,13 @@ import { ru } from "date-fns/locale";
 interface AddTaskModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  clientName: string;
-  clientId: string;
+  clientName?: string;
+  clientId?: string;
   familyGroupId?: string;
   isPinned?: boolean;
   onPin?: () => void;
   onUnpin?: () => void;
+  preselectedDate?: string;
 }
 
 const taskTemplates = [
@@ -48,16 +49,25 @@ export const AddTaskModal = ({
   familyGroupId,
   isPinned = false, 
   onPin, 
-  onUnpin 
+  onUnpin,
+  preselectedDate
 }: AddTaskModalProps) => {
   const [formData, setFormData] = useState({
-    date: new Date(),
+    date: preselectedDate ? new Date(preselectedDate) : new Date(),
+    time: "",
     isHighPriority: false,
     responsible: "",
     selectedStudent: "",
     description: "",
     additionalResponsible: [] as string[]
   });
+
+  // Update date when preselectedDate changes
+  useEffect(() => {
+    if (preselectedDate) {
+      setFormData(prev => ({ ...prev, date: new Date(preselectedDate) }));
+    }
+  }, [preselectedDate]);
 
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [addResponsibleOpen, setAddResponsibleOpen] = useState(false);
@@ -80,18 +90,30 @@ export const AddTaskModal = ({
         }).filter(name => name)
       ].filter(name => name);
 
-      await createTask.mutateAsync({
-        client_id: clientId,
+      const taskData: any = {
         title: formData.description.substring(0, 100) || "Новая задача",
         description: formData.description,
         priority: formData.isHighPriority ? "high" : "medium",
         due_date: format(formData.date, 'yyyy-MM-dd'),
         responsible: responsibleNames.join(", "),
-      });
+      };
+
+      // Add client_id only if it exists
+      if (clientId) {
+        taskData.client_id = clientId;
+      }
+
+      // Add due_time only if it's set
+      if (formData.time) {
+        taskData.due_time = formData.time;
+      }
+
+      await createTask.mutateAsync(taskData);
 
       // Reset form
       setFormData({
         date: new Date(),
+        time: "",
         isHighPriority: false,
         responsible: employees.length > 0 ? employees[0].id : "",
         selectedStudent: "",
@@ -138,7 +160,7 @@ export const AddTaskModal = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <PinnableDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <PinnableModalHeader
-          title="Назначение задачи"
+          title={clientName ? `Назначение задачи - ${clientName}` : "Новая задача"}
           isPinned={isPinned}
           onPin={onPin || (() => {})}
           onUnpin={onUnpin || (() => {})}
@@ -146,8 +168,8 @@ export const AddTaskModal = ({
         />
 
         <div className="space-y-6 py-4">
-          {/* Date and Priority Row */}
-          <div className="grid grid-cols-3 gap-4">
+          {/* Date, Time and Priority Row */}
+          <div className="grid grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label htmlFor="date">Дата:</Label>
               <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
@@ -181,6 +203,31 @@ export const AddTaskModal = ({
             </div>
             
             <div className="space-y-2">
+              <Label htmlFor="time">Время:</Label>
+              <Select 
+                value={formData.time} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, time: value }))}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Выберите время" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 25 }, (_, i) => {
+                    const hour = Math.floor(i / 2) + 9;
+                    const minute = (i % 2) * 30;
+                    const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+                    if (hour > 21) return null;
+                    return (
+                      <SelectItem key={time} value={time}>
+                        {time}
+                      </SelectItem>
+                    );
+                  }).filter(Boolean)}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
               <Label>Приоритет:</Label>
               <Button
                 type="button"
@@ -204,31 +251,33 @@ export const AddTaskModal = ({
               </Button>
             </div>
 
-            {/* Student Selection */}
-            <div className="space-y-2">
-              <Label>Ученик:</Label>
-              {familyData && familyData.students.length > 0 ? (
-                <Select 
-                  value={formData.selectedStudent} 
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, selectedStudent: value }))}
-                >
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Выберите ученика" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {familyData.students.map((student) => (
-                      <SelectItem key={student.id} value={student.id}>
-                        {student.firstName} ({student.age} лет)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <div className="h-10 flex items-center px-3 border border-input rounded-md bg-muted text-sm text-muted-foreground">
-                  Нет учеников
-                </div>
-              )}
-            </div>
+            {/* Student Selection - only show if there's a client */}
+            {clientId && (
+              <div className="space-y-2">
+                <Label>Ученик:</Label>
+                {familyData && familyData.students.length > 0 ? (
+                  <Select 
+                    value={formData.selectedStudent} 
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, selectedStudent: value }))}
+                  >
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder="Выберите ученика" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {familyData.students.map((student) => (
+                        <SelectItem key={student.id} value={student.id}>
+                          {student.firstName} ({student.age} лет)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="h-10 flex items-center px-3 border border-input rounded-md bg-muted text-sm text-muted-foreground">
+                    Нет учеников
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Responsible Person */}
