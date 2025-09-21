@@ -199,12 +199,41 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
   };
 
   const branches = getBranchesForSelect();
+  // Function to get default academic hours based on level
+  const getDefaultAcademicHours = (level: string): string => {
+    if (level.startsWith("Super Safari")) return "120";
+    if (level.startsWith("Kids Box")) return "160";
+    if (level.startsWith("Prepare")) return "160";
+    if (level.startsWith("Empower")) return "120";
+    return "";
+  };
+
+  // Function to get next May 31st date
+  const getNextMay31 = (): Date => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const may31ThisYear = new Date(currentYear, 4, 31); // May is month 4 (0-indexed)
+    
+    // If we're past May 31st this year, use next year
+    if (now > may31ThisYear) {
+      return new Date(currentYear + 1, 4, 31);
+    }
+    return may31ThisYear;
+  };
+
+  // Function to set period end for special programs
+  const shouldSetMay31End = (level: string): boolean => {
+    const specialPrograms = ["Speaking Club", "Workshop", "Kindergarten"];
+    return specialPrograms.some(program => level.includes(program));
+  };
+
   const levels = [
     "Super Safari 1", "Super Safari 2", "Super Safari 3",
     "Kids Box Starter", "Kids Box 1", "Kids Box 2", "Kids Box 3", "Kids Box 4", "Kids Box 5", "Kids Box 6",
     "Kids Box 3+4", "Kids Box Starter + 1",
     "Prepare 1", "Prepare 2", "Prepare 3", "Prepare 4", "Prepare 5", "Prepare 6",
-    "Empower 1", "Empower 2", "Empower 3", "Empower 4", "Empower 5"
+    "Empower 1", "Empower 2", "Empower 3", "Empower 4", "Empower 5",
+    "Speaking Club", "Workshop", "Kindergarten"
   ];
 
   const days = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
@@ -348,7 +377,9 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                       onValueChange={(value) => setFormData(prev => ({ 
                         ...prev, 
                         level: value, 
-                        category: getCategoryFromLevel(value)
+                        category: getCategoryFromLevel(value),
+                        academic_hours: getDefaultAcademicHours(value),
+                        period_end: shouldSetMay31End(value) ? getNextMay31() : prev.period_end
                       }))}
                       required
                     >
