@@ -30,6 +30,7 @@ import { ClientsList } from "@/components/crm/ClientsList";
 import { NewChatModal } from "@/components/crm/NewChatModal";
 import { PinnedModalTabs } from "@/components/crm/PinnedModalTabs";
 import { AddTaskModal } from "@/components/crm/AddTaskModal";
+import { EditTaskModal } from "@/components/crm/EditTaskModal";
 import { CreateInvoiceModal } from "@/components/crm/CreateInvoiceModal";
 import { PinnableModalHeader, PinnableDialogContent } from "@/components/crm/PinnableModal";
 import { ManagerMenu } from "@/components/crm/ManagerMenu";
@@ -124,6 +125,8 @@ const CRMContent = () => {
   
   // Состояния для модальных окон
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [showEditTaskModal, setShowEditTaskModal] = useState(false);
+  const [editTaskId, setEditTaskId] = useState<string>('');
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [activeClientName, setActiveClientName] = useState('');
   
@@ -195,6 +198,7 @@ const CRMContent = () => {
     // Закрываем все модальные окна при переключении вкладок
     setOpenModal(null);
     setShowAddTaskModal(false);
+    setShowEditTaskModal(false);
     setShowInvoiceModal(false);
     
     // Закрываем все закрепленные модальные окна
@@ -1527,6 +1531,15 @@ const CRMContent = () => {
           onUnpin={() => unpinModal(pinnedTaskClientId || activeChatId || '', 'task')}
         />
 
+      <EditTaskModal 
+        open={showEditTaskModal}
+        onOpenChange={(open) => {
+          setShowEditTaskModal(open);
+          if (!open) setEditTaskId('');
+        }}
+        taskId={editTaskId}
+      />
+
       <CreateInvoiceModal 
         open={showInvoiceModal}
         onOpenChange={handleInvoiceModalClose}
@@ -1590,6 +1603,10 @@ const CRMContent = () => {
             setActiveChatId(clientId);
             setActiveChatType('client');
             setRightSidebarOpen(true);
+          },
+          editTask: (taskId: string) => {
+            setEditTaskId(taskId);
+            setShowEditTaskModal(true);
           }
         }}
         onOpenChat={(clientId: string) => {

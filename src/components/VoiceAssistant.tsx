@@ -25,6 +25,7 @@ interface VoiceAssistantProps {
     addStudent?: () => void;
     addInvoice?: () => void;
     clientProfile?: (clientId: string) => void;
+    editTask?: (taskId: string) => void;
   };
   onOpenChat?: (clientId: string) => void;
 }
@@ -39,6 +40,7 @@ interface ActionResult {
   filter?: string;
   status?: string;
   modalType?: string;
+  taskId?: string;
 }
 
 export default function VoiceAssistant({ 
@@ -343,9 +345,32 @@ export default function VoiceAssistant({
             <p className="text-sm text-muted-foreground mb-2">Найденные клиенты:</p>
             <div className="space-y-1">
               {actionResult.data.slice(0, 5).map((client: any) => (
-                <Badge key={client.id} variant="secondary" className="mr-1">
-                  {client.name} ({client.branch})
-                </Badge>
+                <div
+                  key={client.id}
+                  className="flex items-center justify-between cursor-pointer hover:bg-muted/50 p-2 rounded transition-colors"
+                  onClick={() => {
+                    if (onOpenModal?.clientProfile) {
+                      onOpenModal.clientProfile(client.id);
+                    }
+                  }}
+                >
+                  <Badge variant="secondary" className="mr-1">
+                    {client.name} ({client.branch})
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onOpenChat) {
+                        onOpenChat(client.id);
+                      }
+                    }}
+                  >
+                    💬 Чат
+                  </Button>
+                </div>
               ))}
             </div>
           </div>
@@ -392,16 +417,48 @@ export default function VoiceAssistant({
             </p>
             <div className="space-y-1 max-h-32 overflow-y-auto">
               {actionResult.data.slice(0, 5).map((task: any) => (
-                <div key={task.id} className="text-xs bg-muted p-2 rounded">
-                  <div className="font-medium">{task.title}</div>
-                  <div className="text-muted-foreground">
-                    {task.clients?.name && `${task.clients.name} • `}
-                    {task.status === 'pending' ? 'Активна' : 'Выполнена'}
-                    {task.due_date && ` • ${task.due_date}`}
+                <div 
+                  key={task.id} 
+                  className="text-xs bg-muted p-2 rounded cursor-pointer hover:bg-muted/80 transition-colors border-l-2 border-l-primary/50"
+                  onClick={() => {
+                    if (onOpenModal?.editTask) {
+                      onOpenModal.editTask(task.id);
+                    }
+                  }}
+                >
+                  <div className="font-medium text-primary">{task.title}</div>
+                  <div className="text-muted-foreground flex items-center justify-between">
+                    <div>
+                      <span className={`inline-block w-2 h-2 rounded-full mr-1 ${
+                        task.status === 'active' ? 'bg-green-500' : 'bg-gray-400'
+                      }`} />
+                      {task.status === 'active' ? 'Активна' : 'Выполнена'}
+                      {task.due_date && ` • ${task.due_date}`}
+                    </div>
+                    {task.client_id && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-4 px-2 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onOpenChat) {
+                            onOpenChat(task.client_id);
+                          }
+                        }}
+                      >
+                        💬
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
+            {actionResult.data.length > 5 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                И ещё {actionResult.data.length - 5} задач...
+              </p>
+            )}
           </div>
         );
 
@@ -460,6 +517,8 @@ export default function VoiceAssistant({
                   setTimeout(() => onOpenModal.addTask!(), 100);
                 } else if (modalType === 'profile' && onOpenModal.clientProfile && actionResult.clientId) {
                   setTimeout(() => onOpenModal.clientProfile!(actionResult.clientId!), 100);
+                } else if (modalType === 'edit_task' && onOpenModal.editTask && actionResult.taskId) {
+                  setTimeout(() => onOpenModal.editTask!(actionResult.taskId!), 100);
                 }
                 return null;
               })()

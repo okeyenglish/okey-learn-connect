@@ -473,7 +473,8 @@ serve(async (req) => {
               const tasksText = tasks.slice(0, 5).map(t => {
                 const date = t.due_date ? ` (к ${t.due_date})` : '';
                 const statusText = t.status === 'active' ? 'активна' : (t.status === 'completed' ? 'выполнена' : t.status);
-                return `"${t.title}"${date} — ${statusText}`;
+                const responsible = t.responsible ? ` — ${t.responsible}` : '';
+                return `"${t.title}"${date}${responsible} — ${statusText}`;
               }).join(', ');
               responseText = `Найдены задачи (${filterText}): ${tasksText}${tasks.length > 5 ? ` и ещё ${tasks.length - 5}` : ''}.`;
               actionResult = { type: 'tasks', data: tasks, filter: functionArgs.filter };
