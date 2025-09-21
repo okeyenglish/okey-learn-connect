@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,24 @@ export const AddStudentModal = ({ familyGroupId, parentLastName, onStudentAdded,
   });
   
   const { toast } = useToast();
+
+  // Calculate age from birth date
+  useEffect(() => {
+    if (formData.dateOfBirth) {
+      const birthDate = new Date(formData.dateOfBirth);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      
+      if (age >= 0 && age <= 100) {
+        setFormData(prev => ({ ...prev, age: age.toString() }));
+      }
+    }
+  }, [formData.dateOfBirth]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,7 +223,8 @@ export const AddStudentModal = ({ familyGroupId, parentLastName, onStudentAdded,
                       onChange={(e) => setFormData(prev => ({ ...prev, age: e.target.value }))}
                       placeholder="8 лет"
                       required
-                      className="transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled={!!formData.dateOfBirth}
+                      className="transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-70"
                     />
                   </div>
                   <div className="space-y-2">
