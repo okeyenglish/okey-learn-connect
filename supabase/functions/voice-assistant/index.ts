@@ -735,6 +735,78 @@ serve(async (req) => {
       }
     }
 
+    // Fallback: если инструмент не выбран моделью, но команда про задачу — создадим задачу для активного клиента
+    if ((!message.tool_calls || message.tool_calls.length === 0) && /задач|постав(ь|те)|созда(й|йте)/i.test(userCommand)) {
+      try {
+        let inferredTitle = 'задача';
+        if (/позвон/i.test(userCommand)) inferredTitle = 'позвонить';
+        else if (/связ/i.test(userCommand)) inferredTitle = 'связаться';
+        else if (/напис/i.test(userCommand)) inferredTitle = 'написать';
+
+        // Простая вычитка срока: сегодня/завтра
+        const now = new Date();
+        let dueDate: string | null = null;
+        if (/завтра/i.test(userCommand)) {
+          const t = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+          dueDate = t.toISOString().split('T')[0];
+        } else if (/сегодня/i.test(userCommand)) {
+          dueDate = now.toISOString().split('T')[0];
+        }
+
+        // Попробуем распознать время формата HH:MM
+        let dueTime: string | null = null;
+        const timeMatch = userCommand.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
+        if (timeMatch) {
+          dueTime = `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`;
+        } else if (/после часа/i.test(userCommand)) {
+          dueTime = '13:00';
+        }
+
+        // Принудительно используем активного клиента из контекста, если есть
+        let clientForTask = null;
+        if (context?.activeClientId) {
+          const { data: c } = await supabase
+            .from('clients')
+            .select('id, name')
+            .eq('id', context.activeClientId)
+            .eq('is_active', true)
+            .maybeSingle();
+          clientForTask = c;
+        } else if (context?.activeClientName) {
+          const { data: c } = await supabase
+            .from('clients')
+            .select('id, name')
+            .eq('is_active', true)
+            .ilike('name', `%${context.activeClientName}%`)
+            .maybeSingle();
+          clientForTask = c;
+        }
+
+        const taskData: any = {
+          title: inferredTitle,
+          description: '',
+          status: 'active',
+          priority: 'medium',
+          due_date: dueDate,
+          due_time: dueTime,
+          branch: userProfile?.branch || 'Окская',
+          responsible: `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim() || userProfile?.email || 'Менеджер'
+        };
+        if (clientForTask) taskData.client_id = clientForTask.id;
+
+        const { error: fallbackTaskError } = await supabase
+          .from('tasks')
+          .insert(taskData);
+
+        if (!fallbackTaskError) {
+          responseText = `Задача "${taskData.title}"${dueDate ? ` на ${dueDate}` : ''}${dueTime ? ` в ${dueTime}` : ''} создана${clientForTask ? ` для клиента ${clientForTask.name}` : ''}.`;
+          actionResult = { type: 'task_created', title: taskData.title, clientName: clientForTask?.name };
+        }
+      } catch (fbErr) {
+        console.error('Fallback create_task error:', fbErr);
+      }
+    }
+
     // Генерация голосового ответа
     let base64Audio = null;
     try {
