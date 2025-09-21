@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useTasks, useCompleteTask, useCancelTask } from "@/hooks/useTasks";
 import { EditTaskModal } from "./EditTaskModal";
+import { toast } from "@/hooks/use-toast";
 
 interface ClientTasksProps {
   clientId: string;
@@ -26,16 +27,30 @@ export const ClientTasks = ({ clientId, clientName }: ClientTasksProps) => {
   }
 
   const handleCompleteTask = async (taskId: string) => {
+    const task = activeTasks.find(t => t.id === taskId);
     try {
       await completeTask.mutateAsync(taskId);
+      if (task) {
+        toast({
+          title: "Задача завершена",
+          description: `Задача "${task.title}" успешно завершена`,
+        });
+      }
     } catch (error) {
       console.error('Error completing task:', error);
     }
   };
 
   const handleCloseTask = async (taskId: string) => {
+    const task = activeTasks.find(t => t.id === taskId);
     try {
       await cancelTask.mutateAsync(taskId);
+      if (task) {
+        toast({
+          title: "Задача отменена",
+          description: `Задача "${task.title}" отменена`,
+        });
+      }
     } catch (error) {
       console.error('Error cancelling task:', error);
     }

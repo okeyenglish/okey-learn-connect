@@ -9,7 +9,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Star, Calendar as CalendarIcon, Plus, X, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PinnableModalHeader, PinnableDialogContent } from "./PinnableModal";
-import { useUpdateTask, useTasks } from "@/hooks/useTasks";
+import { useUpdateTask, useTasks, useAllTasks } from "@/hooks/useTasks";
 import { useEmployees, getEmployeeFullName, type Employee } from "@/hooks/useEmployees";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
@@ -52,8 +52,10 @@ export const EditTaskModal = ({
   const { profile } = useAuth();
   const { data: employees = [] } = useEmployees(profile?.branch);
   const { tasks } = useTasks();
+  const { tasks: allTasksList } = useAllTasks();
 
-  const currentTask = tasks?.find(t => t.id === taskId);
+  // Try to find task in both task lists
+  const currentTask = tasks?.find(t => t.id === taskId) || allTasksList?.find(t => t.id === taskId);
 
   useEffect(() => {
     if (currentTask && open) {

@@ -77,6 +77,7 @@ import {
   Edit
 } from "lucide-react";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
+import { toast } from "@/hooks/use-toast";
 
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
 import VoiceAssistant from '@/components/VoiceAssistant';
@@ -238,16 +239,30 @@ const CRMContent = () => {
 
   // Обработчик переключения вкладок
   const handleCompleteTask = async (taskId: string) => {
+    const task = allTasks?.find(t => t.id === taskId);
     try {
       await completeTask.mutateAsync(taskId);
+      if (task) {
+        toast({
+          title: "Задача завершена",
+          description: `Задача "${task.title}" успешно завершена`,
+        });
+      }
     } catch (error) {
       console.error('Error completing task:', error);
     }
   };
 
   const handleCancelTask = async (taskId: string) => {
+    const task = allTasks?.find(t => t.id === taskId);
     try {
       await cancelTask.mutateAsync(taskId);
+      if (task) {
+        toast({
+          title: "Задача отменена", 
+          description: `Задача "${task.title}" отменена`,
+        });
+      }
     } catch (error) {
       console.error('Error cancelling task:', error);
     }
