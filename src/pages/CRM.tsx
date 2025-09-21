@@ -1118,8 +1118,8 @@ const CRMContent = () => {
                         {item.label === "Мои задачи" && (
                           <div className="space-y-4">
                             {/* Переключение между списком и календарем */}
-                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
-                              <div className="flex items-center gap-2">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <Button 
                                   size="sm"
                                   variant={tasksView === "list" ? "default" : "outline"}
@@ -1128,7 +1128,7 @@ const CRMContent = () => {
                                     e.stopPropagation();
                                     setTasksView("list");
                                   }}
-                                  className="gap-2"
+                                  className="gap-2 flex-1 sm:flex-none"
                                   type="button"
                                 >
                                   📋 Список
@@ -1141,7 +1141,7 @@ const CRMContent = () => {
                                     e.stopPropagation();
                                     setTasksView("calendar");
                                   }}
-                                  className="gap-2"
+                                  className="gap-2 flex-1 sm:flex-none"
                                   type="button"
                                 >
                                   📅 Календарь
@@ -1154,7 +1154,7 @@ const CRMContent = () => {
                                   e.stopPropagation();
                                   setShowAddTaskModal(true);
                                 }}
-                                className="gap-1"
+                                className="gap-1 w-full sm:w-auto"
                                 type="button"
                               >
                                 + Добавить
@@ -1251,69 +1251,69 @@ const CRMContent = () => {
                                                             draggable
                                                             onDragStart={(e) => handleDragStart(e, task.id)}
                                                             onDragEnd={handleDragEnd}
-                                                            className={`p-2.5 border-l-4 rounded-md cursor-grab hover:shadow-md transition-all ${
-                                                              task.priority === 'high' ? 'border-red-500 bg-red-50' :
-                                                              task.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
-                                                              'border-blue-500 bg-blue-50'
-                                                            } ${draggedTask === task.id ? 'opacity-50 cursor-grabbing' : ''}`}
-                                                            onClick={() => task.client_id && handleClientClick(task.client_id)}
-                                                          >
-                                                            <div className="flex items-start justify-between gap-2">
-                                                              <div className="flex-1 min-w-0">
-                                                                <p className="font-medium text-sm leading-tight mb-1">{task.title}</p>
-                                                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                                                  <span>
-                                                                    Клиент: <span className="text-primary font-medium">
-                                                                      {task.clients?.name || 'Неизвестен'}
-                                                                    </span>
-                                                                  </span>
-                                                                  {task.due_time && (
-                                                                    <span className="flex items-center gap-1">
-                                                                      <Clock className="h-3 w-3" />
-                                                                      {task.due_time.slice(0, 5)}
-                                                                    </span>
-                                                                  )}
-                                                                </div>
-                                                              </div>
-                                                              <div className="flex items-center gap-1 shrink-0">
-                                                                <Button 
-                                                                  size="sm" 
-                                                                  variant="ghost" 
-                                                                  className="h-6 w-6 p-0 text-blue-600 hover:bg-blue-50"
-                                                                  onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setEditingTaskId(task.id);
-                                                                  }}
-                                                                  title="Редактировать"
-                                                                >
-                                                                  <Edit className="h-3.5 w-3.5" />
-                                                                </Button>
-                                                                <Button 
-                                                                  size="sm" 
-                                                                  variant="ghost" 
-                                                                  className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
-                                                                  onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleCompleteTask(task.id);
-                                                                  }}
-                                                                  title="Отметить выполненной"
-                                                                >
-                                                                  <Check className="h-3.5 w-3.5" />
-                                                                </Button>
-                                                                <Button 
-                                                                  size="sm" 
-                                                                  variant="ghost" 
-                                                                  className="h-6 w-6 p-0 text-red-600 hover:bg-red-50"
-                                                                  onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleCancelTask(task.id);
-                                                                  }}
-                                                                  title="Отменить задачу"
-                                                                >
-                                                                  <X className="h-3.5 w-3.5" />
-                                                                </Button>
-                                                              </div>
-                                                            </div>
+                                           className={`p-3 sm:p-2.5 border-l-4 rounded-md cursor-grab hover:shadow-md transition-all ${
+                                             task.priority === 'high' ? 'border-red-500 bg-red-50' :
+                                             task.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
+                                             'border-blue-500 bg-blue-50'
+                                           } ${draggedTask === task.id ? 'opacity-50 cursor-grabbing' : ''}`}
+                                           onClick={() => task.client_id && handleClientClick(task.client_id)}
+                                         >
+                                           <div className="flex flex-col sm:flex-row items-start justify-between gap-2">
+                                             <div className="flex-1 min-w-0 w-full sm:w-auto">
+                                               <p className="font-medium text-sm leading-tight mb-1">{task.title}</p>
+                                               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                                 <span>
+                                                   Клиент: <span className="text-primary font-medium">
+                                                     {task.clients?.name || 'Неизвестен'}
+                                                   </span>
+                                                 </span>
+                                                 {task.due_time && (
+                                                   <span className="flex items-center gap-1">
+                                                     <Clock className="h-3 w-3" />
+                                                     {task.due_time.slice(0, 5)}
+                                                   </span>
+                                                 )}
+                                               </div>
+                                             </div>
+                                             <div className="flex items-center gap-1 shrink-0 mt-2 sm:mt-0">
+                                               <Button 
+                                                 size="sm" 
+                                                 variant="ghost" 
+                                                 className="h-8 w-8 sm:h-6 sm:w-6 p-0 text-blue-600 hover:bg-blue-50"
+                                                 onClick={(e) => {
+                                                   e.stopPropagation();
+                                                   setEditingTaskId(task.id);
+                                                 }}
+                                                 title="Редактировать"
+                                               >
+                                                 <Edit className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                                               </Button>
+                                               <Button 
+                                                 size="sm" 
+                                                 variant="ghost" 
+                                                 className="h-8 w-8 sm:h-6 sm:w-6 p-0 text-green-600 hover:bg-green-50"
+                                                 onClick={(e) => {
+                                                   e.stopPropagation();
+                                                   handleCompleteTask(task.id);
+                                                 }}
+                                                 title="Отметить выполненной"
+                                               >
+                                                 <Check className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                                               </Button>
+                                               <Button 
+                                                 size="sm" 
+                                                 variant="ghost" 
+                                                 className="h-8 w-8 sm:h-6 sm:w-6 p-0 text-red-600 hover:bg-red-50"
+                                                 onClick={(e) => {
+                                                   e.stopPropagation();
+                                                   handleCancelTask(task.id);
+                                                 }}
+                                                 title="Отменить задачу"
+                                               >
+                                                 <X className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                                               </Button>
+                                             </div>
+                                           </div>
                                                           </div>
                                                         ))}
                                                         {todayTasks.length > 5 && (
@@ -2139,47 +2139,59 @@ const CRMContent = () => {
                                        <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
                                          <GraduationCap className="h-5 w-5 text-purple-600" />
                                        </div>
-                                       ) : chat.avatar_url ? (
-                                         <div className="relative flex-shrink-0">
-                                            <img 
-                                              src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
-                                              alt={`${chat.name} avatar`} 
-                                              className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
-                                              loading="lazy"
-                                              decoding="async"
-                                              referrerPolicy="no-referrer"
-                                              crossOrigin="anonymous"
-                                              onError={(e) => {
-                                                const target = e.currentTarget as HTMLImageElement;
-                                                target.style.display = 'none';
-                                                const fallback = target.nextElementSibling as HTMLElement;
-                                                if (fallback) fallback.style.display = 'flex';
-                                              }}
-                                            />
-                                            <div 
-                                              className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center" 
-                                              style={{ display: 'none' }}
-                                            >
-                                              <User className="h-5 w-5 text-green-600" />
+                                        ) : chat.avatar_url ? (
+                                          <div className="relative flex-shrink-0">
+                                             <img 
+                                               src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
+                                               alt={`${chat.name} avatar`} 
+                                               className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
+                                               loading="lazy"
+                                               decoding="async"
+                                               referrerPolicy="no-referrer"
+                                               crossOrigin="anonymous"
+                                               onError={(e) => {
+                                                 const target = e.currentTarget as HTMLImageElement;
+                                                 target.style.display = 'none';
+                                                 const fallback = target.nextElementSibling as HTMLElement;
+                                                 if (fallback) fallback.style.display = 'flex';
+                                               }}
+                                             />
+                                             <div 
+                                               className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center" 
+                                               style={{ display: 'none' }}
+                                             >
+                                               <User className="h-5 w-5 text-green-600" />
                                              </div>
+                                             {/* Lead indicator */}
+                                             {(() => {
+                                               const chatInfo = chat as any;
+                                               if (chatInfo.type !== 'client') return null;
+                                               const clientStatus = getClientStatus(chatInfo.id);
+                                               return clientStatus.isLead ? (
+                                                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white z-10">
+                                                   <UserPlus className="w-2.5 h-2.5 text-white" />
+                                                 </div>
+                                               ) : null;
+                                             })()}
+                                          </div>
+                                        ) : (
+                                          <div className="relative flex-shrink-0">
+                                            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                                              <User className="h-5 w-5 text-green-600" />
                                             </div>
-                                          {/* Lead indicator */}
-                                           {(() => {
-                                             const chatInfo = chat as any;
-                                             if (chatInfo.type !== 'client') return null;
-                                             const clientStatus = getClientStatus(chatInfo.id);
-                                             return clientStatus.isLead ? (
-                                               <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white z-10">
-                                                 <UserPlus className="w-2.5 h-2.5 text-white" />
-                                               </div>
-                                             ) : null;
-                                           })()}
-                                        </div>
-                                     ) : (
-                                       <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                                         <User className="h-5 w-5 text-green-600" />
-                                       </div>
-                                     )}
+                                            {/* Lead indicator */}
+                                            {(() => {
+                                              const chatInfo = chat as any;
+                                              if (chatInfo.type !== 'client') return null;
+                                              const clientStatus = getClientStatus(chatInfo.id);
+                                              return clientStatus.isLead ? (
+                                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white z-10">
+                                                  <UserPlus className="w-2.5 h-2.5 text-white" />
+                                                </div>
+                                              ) : null;
+                                            })()}
+                                          </div>
+                                        )}
                                      
                                        <div className="flex-1 min-w-0">
                                          <div className="flex items-center gap-2">
