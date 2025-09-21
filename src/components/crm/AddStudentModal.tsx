@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { GraduationCap, Loader2, User, Calendar, BookOpen, CreditCard, FileText, Star, MapPin } from "lucide-react";
+import { GraduationCap, Loader2, User, Calendar, BookOpen, CreditCard, FileText, Star, MapPin, Clock, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { getBranchesForSelect } from "@/lib/branches";
@@ -19,9 +19,19 @@ interface AddStudentModalProps {
   children?: React.ReactNode;
 }
 
+interface SuggestedCourse {
+  name: string;
+  level: string;
+  schedule: string;
+  office_name: string;
+  age_range: string;
+}
+
 export const AddStudentModal = ({ familyGroupId, parentLastName, onStudentAdded, children }: AddStudentModalProps) => {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [suggestedCourses, setSuggestedCourses] = useState<SuggestedCourse[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     lastName: parentLastName || "",
@@ -54,6 +64,69 @@ export const AddStudentModal = ({ familyGroupId, parentLastName, onStudentAdded,
       }
     }
   }, [formData.dateOfBirth]);
+
+  // Get age-appropriate course level
+  const getAgeAppropriateLevel = (age: number): string[] => {
+    if (age >= 3 && age <= 5) return ['Super Safari 1', 'Super Safari 2', 'Super Safari 3'];
+    if (age >= 6 && age <= 8) return ['Kids Box Starter', 'Kids Box 1', 'Super Safari 3'];
+    if (age >= 9 && age <= 11) return ['Kids Box 1', 'Kids Box 2', 'Kids Box 3'];
+    if (age >= 12 && age <= 14) return ['Kids Box 3', 'Kids Box 4', 'Prepare 1', 'Prepare 2'];
+    if (age >= 15 && age <= 17) return ['Prepare 3', 'Prepare 4', 'Prepare 5', 'Empower 1', 'Empower 2'];
+    if (age >= 18) return ['Empower 1', 'Empower 2', 'Empower 3', 'Empower 4', 'Empower 5'];
+    return [];
+  };
+
+  // Fetch suggested courses when status is trial and age is provided
+  useEffect(() => {
+    const fetchSuggestedCourses = async () => {
+      if (formData.status === 'trial' && formData.age && parseInt(formData.age) > 0) {
+        setLoadingSuggestions(true);
+        try {
+          const age = parseInt(formData.age);
+          const appropriateLevels = getAgeAppropriateLevel(age);
+          
+          if (appropriateLevels.length > 0) {
+            const { data, error } = await supabase
+              .rpc('get_public_schedule')
+              .in('level', appropriateLevels)
+              .eq('is_active', true)
+              .limit(6);
+
+            if (error) throw error;
+
+            const suggestions: SuggestedCourse[] = data?.map((course: any) => ({
+              name: course.name,
+              level: course.level,
+              schedule: `${course.compact_days} ${course.compact_time}`,
+              office_name: course.office_name,
+              age_range: getAgeRangeForLevel(course.level)
+            })) || [];
+
+            setSuggestedCourses(suggestions);
+          }
+        } catch (error) {
+          console.error('Error fetching suggested courses:', error);
+        } finally {
+          setLoadingSuggestions(false);
+        }
+      } else {
+        setSuggestedCourses([]);
+      }
+    };
+
+    fetchSuggestedCourses();
+  }, [formData.status, formData.age]);
+
+  // Get age range description for course level
+  const getAgeRangeForLevel = (level: string): string => {
+    if (level.includes('Super Safari')) return '3-5 лет';
+    if (level.includes('Kids Box Starter') || level.includes('Kids Box 1')) return '6-8 лет';
+    if (level.includes('Kids Box 2') || level.includes('Kids Box 3')) return '9-11 лет';
+    if (level.includes('Kids Box 4') || level.includes('Prepare 1') || level.includes('Prepare 2')) return '12-14 лет';
+    if (level.includes('Prepare 3') || level.includes('Prepare 4') || level.includes('Prepare 5')) return '15-17 лет';
+    if (level.includes('Empower')) return '18+ лет';
+    return 'Все возрасты';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -318,6 +391,72 @@ export const AddStudentModal = ({ familyGroupId, parentLastName, onStudentAdded,
                 </div>
               </CardContent>
             </Card>
+
+            {/* Рекомендуемые курсы для пробного статуса */}
+            {formData.status === 'trial' && formData.age && (
+              <Card className="border-l-4 border-l-yellow-500 shadow-sm bg-yellow-50/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Star className="h-5 w-5 text-yellow-600" />
+                    Рекомендуемые курсы для возраста {formData.age} лет
+                    <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-700 border-yellow-300">
+                      Пробные занятия
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loadingSuggestions ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-yellow-600" />
+                      <span className="ml-2 text-sm text-gray-600">Подбираем подходящие курсы...</span>
+                    </div>
+                  ) : suggestedCourses.length > 0 ? (
+                    <div className="grid gap-3">
+                      {suggestedCourses.map((course, index) => (
+                        <div 
+                          key={index}
+                          onClick={() => setFormData(prev => ({ ...prev, courseName: course.level }))}
+                          className="p-4 border rounded-lg hover:bg-yellow-50 cursor-pointer transition-colors border-yellow-200 hover:border-yellow-300"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <BookOpen className="h-4 w-4 text-green-600" />
+                                <span className="font-medium text-gray-900">{course.level}</span>
+                                <Badge variant="secondary" className="text-xs">{course.age_range}</Badge>
+                              </div>
+                              <div className="flex items-center gap-4 text-sm text-gray-600">
+                                <div className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {course.schedule}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <MapPin className="h-3 w-3" />
+                                  {course.office_name}
+                                </div>
+                              </div>
+                            </div>
+                            <Button 
+                              type="button"
+                              size="sm" 
+                              variant="outline"
+                              className="ml-2 border-yellow-300 text-yellow-700 hover:bg-yellow-100"
+                            >
+                              Выбрать
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-gray-500">
+                      <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Курсы для данного возраста временно недоступны</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Информация о курсе */}
             <Card className="border-l-4 border-l-green-500 shadow-sm">
