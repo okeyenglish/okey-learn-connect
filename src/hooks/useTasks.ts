@@ -274,7 +274,10 @@ export const useUpdateTask = () => {
       return data;
     },
     onSuccess: (data) => {
+      // Инвалидируем все связанные кэши
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks-by-date'] });
       toast.success("Задача обновлена");
     },
     onError: (error) => {

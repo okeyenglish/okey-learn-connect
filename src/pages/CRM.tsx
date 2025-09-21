@@ -122,6 +122,9 @@ const CRMContent = () => {
   
   // Personal tasks tab state
   const [personalTasksTab, setPersonalTasksTab] = useState<"active" | "overdue">("active");
+  
+  // Client tasks tab state
+  const [clientTasksTab, setClientTasksTab] = useState<"active" | "overdue">("active");
   const [openModal, setOpenModal] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("chats");
   const [hasUnsavedChat, setHasUnsavedChat] = useState(false);
@@ -1044,7 +1047,21 @@ const CRMContent = () => {
                                 <Card>
                                   <CardHeader>
                                     <CardTitle className="flex items-center justify-between">
-                                      <span>Задачи по клиентам ({allTasks.filter(t => t.client_id).length})</span>
+                                      {(() => {
+                                        const today = new Date().toISOString().split('T')[0];
+                                        const clientTasks = allTasks.filter(t => t.client_id);
+                                        const overdueClientTasks = clientTasks.filter(t => t.due_date && t.due_date < today);
+                                        return (
+                                          <span>
+                                            Задачи по клиентам ({clientTasks.length})
+                                            {overdueClientTasks.length > 0 && (
+                                              <span className="text-red-600 ml-2">
+                                                · {overdueClientTasks.length} просрочено
+                                              </span>
+                                            )}
+                                          </span>
+                                        );
+                                      })()}
                                       <Button 
                                         size="sm"
                                         onClick={(e) => {
@@ -1062,183 +1079,281 @@ const CRMContent = () => {
                                     </CardTitle>
                                   </CardHeader>
                                   <CardContent>
-                                    {tasksLoading ? (
-                                      <div className="text-center py-4 text-muted-foreground">
-                                        Загрузка задач...
-                                      </div>
-                                    ) : allTasks.filter(t => t.client_id).length > 0 ? (
-                                      <div className="grid grid-cols-2 gap-4">
-                                        {/* Сегодня */}
-                                        <div 
-                                          onDragOver={(e) => handleDragOver(e, 'today')}
-                                          onDragLeave={handleDragLeave}
-                                          onDrop={(e) => handleDrop(e, 'today')}
-                                          className={`transition-colors ${dragOverColumn === 'today' ? 'bg-blue-50 border-2 border-dashed border-blue-300 rounded-lg p-2' : ''}`}
-                                        >
-                                          <h4 className="font-medium text-sm mb-2 text-primary">Сегодня:</h4>
-                                          <div className="space-y-1.5 max-h-96 overflow-y-auto">
-                                            {allTasks.filter(t => t.client_id && t.due_date === new Date().toISOString().split('T')[0]).map((task) => (
-                                              <div 
-                                                key={task.id}
-                                                draggable
-                                                onDragStart={(e) => handleDragStart(e, task.id)}
-                                                onDragEnd={handleDragEnd}
-                                                className={`p-2.5 border-l-4 rounded-md cursor-grab hover:shadow-md transition-all ${
-                                                  task.priority === 'high' ? 'border-red-500 bg-red-50' :
-                                                  task.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
-                                                  'border-blue-500 bg-blue-50'
-                                                } ${draggedTask === task.id ? 'opacity-50 cursor-grabbing' : ''}`}
-                                                onClick={() => task.client_id && handleClientClick(task.client_id)}
-                                              >
-                                                <div className="flex items-start justify-between gap-2">
-                                                  <div className="flex-1 min-w-0">
-                                                    <p className="font-medium text-sm leading-tight mb-1">{task.title}</p>
-                                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                                      <span>
-                                                        Клиент: <span className="text-primary font-medium">
-                                                          {task.clients?.name || 'Неизвестен'}
-                                                        </span>
-                                                      </span>
-                                                      {task.due_time && (
-                                                        <span className="flex items-center gap-1">
-                                                          <Clock className="h-3 w-3" />
-                                                          {task.due_time.slice(0, 5)}
-                                                        </span>
-                                                      )}
-                                                    </div>
-                                                  </div>
-                                                  <div className="flex items-center gap-1 shrink-0">
-                                                    <Button 
-                                                      size="sm" 
-                                                      variant="ghost" 
-                                                      className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleCompleteTask(task.id);
-                                                      }}
-                                                      title="Отметить выполненной"
-                                                    >
-                                                      <Check className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                    <Button 
-                                                      size="sm" 
-                                                      variant="ghost" 
-                                                      className="h-6 w-6 p-0 text-red-600 hover:bg-red-50"
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleCancelTask(task.id);
-                                                      }}
-                                                      title="Отменить задачу"
-                                                    >
-                                                      <X className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            ))}
-                                            {allTasks.filter(t => t.client_id && t.due_date === new Date().toISOString().split('T')[0]).length === 0 && (
-                                              <p className="text-xs text-muted-foreground">Нет задач на сегодня</p>
-                                            )}
+                                    {/* Tabs for Active and Overdue client tasks */}
+                                    <Tabs value={clientTasksTab} onValueChange={(value: any) => setClientTasksTab(value)} className="w-full">
+                                      <TabsList className="grid w-full grid-cols-2 mb-4">
+                                        <TabsTrigger value="active">Активные</TabsTrigger>
+                                        <TabsTrigger value="overdue" className="text-red-600">Просроченные</TabsTrigger>
+                                      </TabsList>
+                                      
+                                      <TabsContent value="active">
+                                        {tasksLoading ? (
+                                          <div className="text-center py-4 text-muted-foreground">
+                                            Загрузка задач...
                                           </div>
-                                        </div>
-                                        
-                                        {/* Завтра */}
-                                        <div 
-                                          onDragOver={(e) => handleDragOver(e, 'tomorrow')}
-                                          onDragLeave={handleDragLeave}
-                                          onDrop={(e) => handleDrop(e, 'tomorrow')}
-                                          className={`transition-colors ${dragOverColumn === 'tomorrow' ? 'bg-blue-50 border-2 border-dashed border-blue-300 rounded-lg p-2' : ''}`}
-                                        >
-                                          <h4 className="font-medium text-sm mb-2 text-primary">Завтра:</h4>
-                                          <div className="space-y-1.5 max-h-96 overflow-y-auto">
-                                            {(() => {
-                                              const tomorrow = new Date();
-                                              tomorrow.setDate(tomorrow.getDate() + 1);
-                                              const tomorrowStr = tomorrow.toISOString().split('T')[0];
-                                              return allTasks.filter(t => t.client_id && t.due_date === tomorrowStr).map((task) => (
-                                                <div 
-                                                  key={task.id}
-                                                  draggable
-                                                  onDragStart={(e) => handleDragStart(e, task.id)}
-                                                  onDragEnd={handleDragEnd}
-                                                  className={`p-2.5 border-l-4 rounded-md cursor-grab hover:shadow-md transition-all ${
-                                                    task.priority === 'high' ? 'border-red-500 bg-red-50' :
-                                                    task.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
-                                                    'border-blue-500 bg-blue-50'
-                                                  } ${draggedTask === task.id ? 'opacity-50 cursor-grabbing' : ''}`}
-                                                  onClick={() => task.client_id && handleClientClick(task.client_id)}
+                                        ) : (() => {
+                                          const today = new Date().toISOString().split('T')[0];
+                                          const activeClientTasks = allTasks.filter(t => t.client_id && (!t.due_date || t.due_date >= today));
+                                          
+                                          if (activeClientTasks.length === 0) {
+                                            return (
+                                              <div className="text-center py-4 text-muted-foreground">
+                                                <p>Нет активных задач по клиентам</p>
+                                                <Button
+                                                  variant="outline"
+                                                  size="sm"
+                                                  className="mt-2"
+                                                  onClick={() => setShowAddTaskModal(true)}
                                                 >
-                                                  <div className="flex items-start justify-between gap-2">
-                                                    <div className="flex-1 min-w-0">
-                                                      <p className="font-medium text-sm leading-tight mb-1">{task.title}</p>
-                                                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                                        <span>
-                                                          Клиент: <span className="text-primary font-medium">
-                                                            {task.clients?.name || 'Неизвестен'}
-                                                          </span>
-                                                        </span>
-                                                        {task.due_time && (
-                                                          <span className="flex items-center gap-1">
-                                                            <Clock className="h-3 w-3" />
-                                                            {task.due_time.slice(0, 5)}
-                                                          </span>
-                                                        )}
+                                                  Создать задачу
+                                                </Button>
+                                              </div>
+                                            );
+                                          }
+                                          
+                                          return (
+                                            <div className="grid grid-cols-2 gap-4">
+                                              {/* Сегодня */}
+                                              <div 
+                                                onDragOver={(e) => handleDragOver(e, 'today')}
+                                                onDragLeave={handleDragLeave}
+                                                onDrop={(e) => handleDrop(e, 'today')}
+                                                className={`transition-colors ${dragOverColumn === 'today' ? 'bg-blue-50 border-2 border-dashed border-blue-300 rounded-lg p-2' : ''}`}
+                                              >
+                                                <h4 className="font-medium text-sm mb-2 text-primary">Сегодня:</h4>
+                                                <div className="space-y-1.5 max-h-96 overflow-y-auto">
+                                                  {activeClientTasks.filter(t => t.due_date === today).map((task) => (
+                                                    <div 
+                                                      key={task.id}
+                                                      draggable
+                                                      onDragStart={(e) => handleDragStart(e, task.id)}
+                                                      onDragEnd={handleDragEnd}
+                                                      className={`p-2.5 border-l-4 rounded-md cursor-grab hover:shadow-md transition-all ${
+                                                        task.priority === 'high' ? 'border-red-500 bg-red-50' :
+                                                        task.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
+                                                        'border-blue-500 bg-blue-50'
+                                                      } ${draggedTask === task.id ? 'opacity-50 cursor-grabbing' : ''}`}
+                                                      onClick={() => task.client_id && handleClientClick(task.client_id)}
+                                                    >
+                                                      <div className="flex items-start justify-between gap-2">
+                                                        <div className="flex-1 min-w-0">
+                                                          <p className="font-medium text-sm leading-tight mb-1">{task.title}</p>
+                                                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                                            <span>
+                                                              Клиент: <span className="text-primary font-medium">
+                                                                {task.clients?.name || 'Неизвестен'}
+                                                              </span>
+                                                            </span>
+                                                            {task.due_time && (
+                                                              <span className="flex items-center gap-1">
+                                                                <Clock className="h-3 w-3" />
+                                                                {task.due_time.slice(0, 5)}
+                                                              </span>
+                                                            )}
+                                                          </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 shrink-0">
+                                                          <Button 
+                                                            size="sm" 
+                                                            variant="ghost" 
+                                                            className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              handleCompleteTask(task.id);
+                                                            }}
+                                                            title="Отметить выполненной"
+                                                          >
+                                                            <Check className="h-3.5 w-3.5" />
+                                                          </Button>
+                                                          <Button 
+                                                            size="sm" 
+                                                            variant="ghost" 
+                                                            className="h-6 w-6 p-0 text-red-600 hover:bg-red-50"
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              handleCancelTask(task.id);
+                                                            }}
+                                                            title="Отменить задачу"
+                                                          >
+                                                            <X className="h-3.5 w-3.5" />
+                                                          </Button>
+                                                        </div>
                                                       </div>
                                                     </div>
-                                                    <div className="flex items-center gap-1 shrink-0">
-                                                      <Button 
-                                                        size="sm" 
-                                                        variant="ghost" 
-                                                        className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
-                                                        onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          handleCompleteTask(task.id);
-                                                        }}
-                                                        title="Отметить выполненной"
+                                                  ))}
+                                                  {activeClientTasks.filter(t => t.due_date === today).length === 0 && (
+                                                    <p className="text-xs text-muted-foreground">Нет задач на сегодня</p>
+                                                  )}
+                                                </div>
+                                              </div>
+                                              
+                                              {/* Завтра */}
+                                              <div 
+                                                onDragOver={(e) => handleDragOver(e, 'tomorrow')}
+                                                onDragLeave={handleDragLeave}
+                                                onDrop={(e) => handleDrop(e, 'tomorrow')}
+                                                className={`transition-colors ${dragOverColumn === 'tomorrow' ? 'bg-blue-50 border-2 border-dashed border-blue-300 rounded-lg p-2' : ''}`}
+                                              >
+                                                <h4 className="font-medium text-sm mb-2 text-primary">Завтра:</h4>
+                                                <div className="space-y-1.5 max-h-96 overflow-y-auto">
+                                                  {(() => {
+                                                    const tomorrow = new Date();
+                                                    tomorrow.setDate(tomorrow.getDate() + 1);
+                                                    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+                                                    return activeClientTasks.filter(t => t.due_date === tomorrowStr).map((task) => (
+                                                      <div 
+                                                        key={task.id}
+                                                        draggable
+                                                        onDragStart={(e) => handleDragStart(e, task.id)}
+                                                        onDragEnd={handleDragEnd}
+                                                        className={`p-2.5 border-l-4 rounded-md cursor-grab hover:shadow-md transition-all ${
+                                                          task.priority === 'high' ? 'border-red-500 bg-red-50' :
+                                                          task.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
+                                                          'border-blue-500 bg-blue-50'
+                                                        } ${draggedTask === task.id ? 'opacity-50 cursor-grabbing' : ''}`}
+                                                        onClick={() => task.client_id && handleClientClick(task.client_id)}
                                                       >
-                                                        <Check className="h-3.5 w-3.5" />
-                                                      </Button>
-                                                      <Button 
-                                                        size="sm" 
-                                                        variant="ghost" 
-                                                        className="h-6 w-6 p-0 text-red-600 hover:bg-red-50"
-                                                        onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          handleCancelTask(task.id);
-                                                        }}
-                                                        title="Отменить задачу"
-                                                      >
-                                                        <X className="h-3.5 w-3.5" />
-                                                      </Button>
+                                                        <div className="flex items-start justify-between gap-2">
+                                                          <div className="flex-1 min-w-0">
+                                                            <p className="font-medium text-sm leading-tight mb-1">{task.title}</p>
+                                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                                              <span>
+                                                                Клиент: <span className="text-primary font-medium">
+                                                                  {task.clients?.name || 'Неизвестен'}
+                                                                </span>
+                                                              </span>
+                                                              {task.due_time && (
+                                                                <span className="flex items-center gap-1">
+                                                                  <Clock className="h-3 w-3" />
+                                                                  {task.due_time.slice(0, 5)}
+                                                                </span>
+                                                              )}
+                                                            </div>
+                                                          </div>
+                                                          <div className="flex items-center gap-1 shrink-0">
+                                                            <Button 
+                                                              size="sm" 
+                                                              variant="ghost" 
+                                                              className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
+                                                              onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleCompleteTask(task.id);
+                                                              }}
+                                                              title="Отметить выполненной"
+                                                            >
+                                                              <Check className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                            <Button 
+                                                              size="sm" 
+                                                              variant="ghost" 
+                                                              className="h-6 w-6 p-0 text-red-600 hover:bg-red-50"
+                                                              onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleCancelTask(task.id);
+                                                              }}
+                                                              title="Отменить задачу"
+                                                            >
+                                                              <X className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                          </div>
+                                                        </div>
+                                                      </div>
+                                                    ));
+                                                  })()}
+                                                  {(() => {
+                                                    const tomorrow = new Date();
+                                                    tomorrow.setDate(tomorrow.getDate() + 1);
+                                                    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+                                                    return activeClientTasks.filter(t => t.due_date === tomorrowStr).length === 0 && (
+                                                      <p className="text-xs text-muted-foreground">Нет задач на завтра</p>
+                                                    );
+                                                  })()}
+                                                </div>
+                                              </div>
+                                            </div>
+                                          );
+                                        })()}
+                                      </TabsContent>
+                                      
+                                      <TabsContent value="overdue">
+                                        {(() => {
+                                          const today = new Date().toISOString().split('T')[0];
+                                          const overdueClientTasks = allTasks.filter(t => t.client_id && t.due_date && t.due_date < today);
+                                          
+                                          if (overdueClientTasks.length === 0) {
+                                            return (
+                                              <div className="text-center py-4 text-muted-foreground">
+                                                <p>Нет просроченных задач по клиентам! 🎉</p>
+                                              </div>
+                                            );
+                                          }
+                                          
+                                          return (
+                                            <div className="space-y-1.5 max-h-96 overflow-y-auto">
+                                              {overdueClientTasks.map((task) => {
+                                                const daysPassed = Math.floor((new Date().getTime() - new Date(task.due_date!).getTime()) / (1000 * 60 * 60 * 24));
+                                                return (
+                                                  <div 
+                                                    key={task.id} 
+                                                    className="p-2.5 border-l-4 border-red-500 bg-red-50 rounded-md hover:shadow-md transition-shadow cursor-pointer"
+                                                    onClick={() => task.client_id && handleClientClick(task.client_id)}
+                                                  >
+                                                    <div className="flex items-start justify-between gap-2">
+                                                      <div className="flex-1 min-w-0">
+                                                        <p className="font-medium text-sm leading-tight mb-1">{task.title}</p>
+                                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                                          <span>
+                                                            Клиент: <span className="text-primary font-medium">
+                                                              {task.clients?.name || 'Неизвестен'}
+                                                            </span>
+                                                          </span>
+                                                          <span className="text-red-600 font-medium">
+                                                            Просрочено на {daysPassed} {daysPassed === 1 ? 'день' : daysPassed < 5 ? 'дня' : 'дней'}
+                                                          </span>
+                                                          {task.due_date && (
+                                                            <span className="flex items-center gap-1">
+                                                              <Clock className="h-3 w-3" />
+                                                              {new Date(task.due_date).toLocaleDateString('ru-RU')}
+                                                              {task.due_time && ` в ${task.due_time.slice(0, 5)}`}
+                                                            </span>
+                                                          )}
+                                                        </div>
+                                                      </div>
+                                                      <div className="flex items-center gap-1 shrink-0">
+                                                        <Button 
+                                                          size="sm" 
+                                                          variant="ghost" 
+                                                          className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleCompleteTask(task.id);
+                                                          }}
+                                                          title="Отметить выполненной"
+                                                        >
+                                                          <Check className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                        <Button 
+                                                          size="sm" 
+                                                          variant="ghost" 
+                                                          className="h-6 w-6 p-0 text-red-600 hover:bg-red-50"
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleCancelTask(task.id);
+                                                          }}
+                                                          title="Отменить задачу"
+                                                        >
+                                                          <X className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                      </div>
                                                     </div>
                                                   </div>
-                                                </div>
-                                              ));
-                                            })()}
-                                            {(() => {
-                                              const tomorrow = new Date();
-                                              tomorrow.setDate(tomorrow.getDate() + 1);
-                                              const tomorrowStr = tomorrow.toISOString().split('T')[0];
-                                              return allTasks.filter(t => t.client_id && t.due_date === tomorrowStr).length === 0 && (
-                                                <p className="text-xs text-muted-foreground">Нет задач на завтра</p>
-                                              );
-                                            })()}
-                                          </div>
-                                        </div>
-                                       </div>
-                                    ) : (
-                                      <div className="text-center py-4 text-muted-foreground">
-                                        <p>Нет задач по клиентам</p>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="mt-2"
-                                          onClick={() => setShowAddTaskModal(true)}
-                                        >
-                                          Создать задачу
-                                        </Button>
-                                      </div>
-                                    )}
+                                                );
+                                              })}
+                                            </div>
+                                          );
+                                        })()}
+                                      </TabsContent>
+                                    </Tabs>
                                   </CardContent>
                                 </Card>
 
