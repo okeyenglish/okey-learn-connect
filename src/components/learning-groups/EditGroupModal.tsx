@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Users, BookOpen, MapPin, Calendar } from "lucide-react";
+import { Loader2, Users, BookOpen, MapPin, Calendar, Clock } from "lucide-react";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
@@ -35,6 +35,7 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
     status: "forming" as "reserve" | "forming" | "active" | "suspended" | "finished",
     capacity: "10",
     academic_hours: "",
+    lesson_duration: "",
     period_start: null as Date | null,
     period_end: null as Date | null,
     schedule_days: [] as string[],
@@ -74,6 +75,7 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
         status: group.status || "forming",
         capacity: group.capacity?.toString() || "10",
         academic_hours: group.academic_hours?.toString() || "",
+        lesson_duration: "", // Will be set by level default or user selection
         period_start: group.period_start ? new Date(group.period_start) : null,
         period_end: group.period_end ? new Date(group.period_end) : null,
         schedule_days: group.schedule_days || [],
@@ -146,6 +148,21 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
     return "";
   };
 
+  // Function to get default lesson duration based on level
+  const getDefaultLessonDuration = (level: string): string => {
+    if (level.startsWith("Super Safari")) return "60";
+    return "80"; // Default for Kids Box, Prepare, Empower
+  };
+
+  // Function to get total lessons for course
+  const getTotalLessons = (level: string): number => {
+    if (level.startsWith("Super Safari")) return 80;
+    if (level.startsWith("Kids Box")) return 80;
+    if (level.startsWith("Prepare")) return 80;
+    if (level.startsWith("Empower")) return 60;
+    return 0;
+  };
+
   // Function to get next May 31st date
   const getNextMay31 = (): Date => {
     const now = new Date();
@@ -163,6 +180,21 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
   const shouldSetMay31End = (level: string): boolean => {
     const specialPrograms = ["Speaking Club", "Workshop", "Kindergarten"];
     return specialPrograms.some(program => level.includes(program));
+  };
+
+  // Function to calculate end date based on start date, schedule days and total lessons
+  const calculateEndDate = (startDate: Date, scheduleDays: string[], totalLessons: number): Date => {
+    if (!startDate || !scheduleDays || scheduleDays.length === 0 || totalLessons === 0) {
+      return startDate;
+    }
+
+    const daysPerWeek = scheduleDays.length;
+    const totalWeeks = Math.ceil(totalLessons / daysPerWeek);
+    
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + (totalWeeks * 7));
+    
+    return endDate;
   };
 
   const levels = [
@@ -300,13 +332,20 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
                     </Label>
                     <Select
                       value={formData.level}
-                      onValueChange={(value) => setFormData(prev => ({ 
-                        ...prev, 
-                        level: value, 
-                        category: getCategoryFromLevel(value),
-                        academic_hours: getDefaultAcademicHours(value),
-                        period_end: shouldSetMay31End(value) ? getNextMay31() : prev.period_end
-                      }))}
+                      onValueChange={(value) => setFormData(prev => {
+                        const newFormData = { 
+                          ...prev, 
+                          level: value, 
+                          category: getCategoryFromLevel(value),
+                          academic_hours: getDefaultAcademicHours(value),
+                          lesson_duration: getDefaultLessonDuration(value),
+                          period_end: shouldSetMay31End(value) ? getNextMay31() : 
+                            (prev.period_start && prev.schedule_days?.length > 0 ? 
+                              calculateEndDate(prev.period_start, prev.schedule_days, getTotalLessons(value)) : 
+                              prev.period_end)
+                        };
+                        return newFormData;
+                      })}
                       required
                     >
                       <SelectTrigger>
@@ -384,6 +423,27 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
                       onChange={(e) => setFormData(prev => ({ ...prev, academic_hours: e.target.value }))}
                       placeholder="117"
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-orange-600" />
+                      Продолжительность урока (мин.)
+                    </Label>
+                    <Select
+                      value={formData.lesson_duration}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, lesson_duration: value }))}
+                      required
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Выберите продолжительность" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="40">40 минут</SelectItem>
+                        <SelectItem value="60">60 минут</SelectItem>
+                        <SelectItem value="80">80 минут</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="space-y-2">
