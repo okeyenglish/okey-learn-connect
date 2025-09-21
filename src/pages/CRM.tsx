@@ -39,6 +39,7 @@ import { ManagerMenu } from "@/components/crm/ManagerMenu";
 import { usePinnedModalsDB, PinnedModal } from "@/hooks/usePinnedModalsDB";
 import { useChatStatesDB } from "@/hooks/useChatStatesDB";
 import { useSharedChatStates } from "@/hooks/useSharedChatStates";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAllTasks, useCompleteTask, useCancelTask, useUpdateTask } from "@/hooks/useTasks";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { 
@@ -118,7 +119,7 @@ const CRMContent = () => {
     markAsUnread,
     getChatState
   } = useChatStatesDB();
-  const { isInWorkByOthers, isPinnedByCurrentUser } = useSharedChatStates();
+  const { isInWorkByOthers, isPinnedByCurrentUser, isPinnedByAnyone, getPinnedByUserName, isLoading: sharedStatesLoading } = useSharedChatStates();
   const { tasks: allTasks, isLoading: tasksLoading } = useAllTasks();
   const completeTask = useCompleteTask();
   const cancelTask = useCancelTask();
@@ -872,7 +873,8 @@ const CRMContent = () => {
   }, 0);
 
   return (
-    <div className="h-screen bg-muted/30 flex flex-col overflow-hidden">
+    <TooltipProvider>
+      <div className="h-screen bg-muted/30 flex flex-col overflow-hidden">
       {/* Фиксированные вкладки сверху на мобильной версии */}
       {isMobile && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b shadow-sm">
@@ -2006,9 +2008,16 @@ const CRMContent = () => {
                                              <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
                                                {chat.name}
                                              </p>
-                                             <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300">
-                                               В работе
-                                             </Badge>
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                  <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300 cursor-help">
+                                                    В работе
+                                                  </Badge>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                  <p>Закреплен у: {getPinnedByUserName(chat.id)}</p>
+                                                </TooltipContent>
+                                              </Tooltip>
                                            </div>
                                           <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
                                             {chat.lastMessage || "Привет! Как дела?"}
@@ -2117,9 +2126,16 @@ const CRMContent = () => {
                                              {chat.name}
                                            </p>
                                            {isInWorkByOthers(chat.id) && (
-                                             <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300">
-                                               В работе
-                                             </Badge>
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                  <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300 cursor-help">
+                                                    В работе
+                                                  </Badge>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                  <p>Закреплен у: {getPinnedByUserName(chat.id)}</p>
+                                                </TooltipContent>
+                                              </Tooltip>
                                            )}
                                          </div>
                                          <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
@@ -2249,9 +2265,16 @@ const CRMContent = () => {
                                           <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
                                             {chat.name}
                                           </p>
-                                          <Badge variant="outline" className="text-xs h-5 bg-orange-100 text-orange-700 border-orange-300">
-                                            В работе
-                                          </Badge>
+                                           <Tooltip>
+                                             <TooltipTrigger asChild>
+                                               <Badge variant="outline" className="text-xs h-5 bg-orange-100 text-orange-700 border-orange-300 cursor-help">
+                                                 В работе
+                                               </Badge>
+                                             </TooltipTrigger>
+                                             <TooltipContent>
+                                               <p>Закреплен у: {getPinnedByUserName(chat.id)}</p>
+                                             </TooltipContent>
+                                           </Tooltip>
                                         </div>
                                         <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
                                           {(typingByClient[chat.id]?.count ?? 0) > 0
@@ -2352,9 +2375,16 @@ const CRMContent = () => {
                                                {chat.name}
                                              </p>
                                              {isInWorkByOthers(chat.id) && (
-                                               <Badge variant="outline" className="text-xs h-5 bg-orange-100 text-orange-700 border-orange-300">
-                                                 В работе
-                                               </Badge>
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <Badge variant="outline" className="text-xs h-5 bg-orange-100 text-orange-700 border-orange-300 cursor-help">
+                                                      В работе
+                                                    </Badge>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>
+                                                    <p>Закреплен у: {getPinnedByUserName(chat.id)}</p>
+                                                  </TooltipContent>
+                                                </Tooltip>
                                              )}
                                            </div>
                                            <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
@@ -2725,7 +2755,8 @@ const CRMContent = () => {
           taskId={editingTaskId}
         />
       )}
-    </div>
+      </div>
+    </TooltipProvider>
   );
 };
 

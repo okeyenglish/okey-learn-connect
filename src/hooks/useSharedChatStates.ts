@@ -7,6 +7,7 @@ interface SharedChatState {
   is_pinned: boolean;
   user_id: string;
   pinned_by_others: boolean;
+  pinned_by_user_name?: string;
 }
 
 export const useSharedChatStates = () => {
@@ -22,10 +23,15 @@ export const useSharedChatStates = () => {
 
     const fetchSharedStates = async () => {
       try {
-        // Получаем все закрепленные чаты всех пользователей
+        // Получаем все закрепленные чаты всех пользователей с информацией о пользователях
         const { data: allPinnedChats, error } = await supabase
           .from('chat_states')
-          .select('chat_id, user_id, is_pinned')
+          .select(`
+            chat_id, 
+            user_id, 
+            is_pinned,
+            profiles!inner(first_name, last_name)
+          `)
           .eq('is_pinned', true);
 
         if (error) {
@@ -38,13 +44,16 @@ export const useSharedChatStates = () => {
         
         allPinnedChats?.forEach(state => {
           const chatId = state.chat_id;
+          const profile = state.profiles as any;
+          const userName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : 'Неизвестный пользователь';
           
           if (!chatStatesMap[chatId]) {
             chatStatesMap[chatId] = {
               chat_id: chatId,
               is_pinned: state.user_id === user.id,
               user_id: state.user_id === user.id ? state.user_id : '',
-              pinned_by_others: state.user_id !== user.id
+              pinned_by_others: state.user_id !== user.id,
+              pinned_by_user_name: state.user_id !== user.id ? userName : undefined
             };
           } else {
             // Если чат уже есть в карте, обновляем флаги
@@ -53,6 +62,7 @@ export const useSharedChatStates = () => {
               chatStatesMap[chatId].user_id = state.user_id;
             } else {
               chatStatesMap[chatId].pinned_by_others = true;
+              chatStatesMap[chatId].pinned_by_user_name = userName;
             }
           }
         });
@@ -100,10 +110,16 @@ export const useSharedChatStates = () => {
     return state ? (state.is_pinned || state.pinned_by_others) : false;
   };
 
+  const getPinnedByUserName = (chatId: string): string => {
+    const state = sharedStates[chatId];
+    return state?.pinned_by_user_name || 'Неизвестный пользователь';
+  };
+
   return {
     isInWorkByOthers,
     isPinnedByCurrentUser,
     isPinnedByAnyone,
+    getPinnedByUserName,
     isLoading
   };
 };
