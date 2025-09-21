@@ -114,8 +114,8 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
         <div className="flex justify-center my-3">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 max-w-md">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                <Plus className="h-5 w-5 text-blue-600" />
+              <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <Plus className="h-3 w-3 text-blue-600" />
               </div>
               <div className="text-sm text-blue-800 font-medium">{message}</div>
             </div>
@@ -129,8 +129,8 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
         <div className="flex justify-center my-3">
           <div className="bg-green-50 border border-green-200 rounded-lg p-3 max-w-md">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                <CheckCircle className="h-5 w-5 text-green-600" />
+              <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <CheckCircle className="h-3 w-3 text-green-600" />
               </div>
               <div className="text-sm text-green-800 font-medium">{message}</div>
             </div>
@@ -144,8 +144,8 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
         <div className="flex justify-center my-3">
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 max-w-md">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
-                <XCircle className="h-5 w-5 text-orange-600" />
+              <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <XCircle className="h-3 w-3 text-orange-600" />
               </div>
               <div className="text-sm text-orange-800 font-medium">{message}</div>
             </div>
