@@ -59,6 +59,9 @@ import {
   Building2,
   ChevronDown,
   ChevronRight,
+  EyeOff,
+  Eye,
+  List,
   LogOut,
   Users,
   Menu,
@@ -125,6 +128,18 @@ const CRMContent = () => {
   
   // Client tasks tab state
   const [clientTasksTab, setClientTasksTab] = useState<"active" | "overdue">("active");
+  
+  // Tasks visibility state
+  const [showClientTasks, setShowClientTasks] = useState(true);
+  const [showPersonalTasks, setShowPersonalTasks] = useState(true);
+  
+  // Tasks modal state
+  const [allTasksModal, setAllTasksModal] = useState<{
+    open: boolean;
+    type: 'today' | 'tomorrow';
+    title: string;
+    tasks: any[];
+  }>({ open: false, type: 'today', title: '', tasks: [] });
   
   // Local view state for tasks section
   const [tasksView, setTasksView] = useState<"list" | "calendar">("list");
@@ -306,6 +321,17 @@ const CRMContent = () => {
       return () => clearTimeout(timeout);
     }
   }, [draggedTask]);
+
+  // Open all tasks modal for a specific day
+  const openAllTasksModal = (type: 'today' | 'tomorrow', tasks: any[]) => {
+    const title = type === 'today' ? 'Все задачи на сегодня' : 'Все задачи на завтра';
+    setAllTasksModal({
+      open: true,
+      type,
+      title,
+      tasks
+    });
+  };
 
   const handleClientClick = (clientId: string | null) => {
     if (clientId) {
@@ -1082,26 +1108,37 @@ const CRMContent = () => {
                             {tasksView === "list" ? (
                               <>
                                  {/* Клиентские задачи */}
-                                <Card>
-                                  <CardHeader>
-                                    <CardTitle>
-                                      {(() => {
-                                        const today = new Date().toISOString().split('T')[0];
-                                        const clientTasks = allTasks.filter(t => t.client_id);
-                                        const overdueClientTasks = clientTasks.filter(t => t.due_date && t.due_date < today);
-                                        return (
-                                          <span>
-                                            Задачи по клиентам ({clientTasks.length})
-                                            {overdueClientTasks.length > 0 && (
-                                              <span className="text-red-600 ml-2">
-                                                · {overdueClientTasks.length} просрочено
+                                {showClientTasks && (
+                                  <Card>
+                                    <CardHeader>
+                                      <CardTitle className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                          {(() => {
+                                            const today = new Date().toISOString().split('T')[0];
+                                            const clientTasks = allTasks.filter(t => t.client_id);
+                                            const overdueClientTasks = clientTasks.filter(t => t.due_date && t.due_date < today);
+                                            return (
+                                              <span>
+                                                Задачи по клиентам ({clientTasks.length})
+                                                {overdueClientTasks.length > 0 && (
+                                                  <span className="text-red-600 ml-2">
+                                                    · {overdueClientTasks.length} просрочено
+                                                  </span>
+                                                )}
                                               </span>
-                                            )}
-                                          </span>
-                                        );
-                                      })()}
-                                    </CardTitle>
-                                  </CardHeader>
+                                            );
+                                          })()}
+                                        </div>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => setShowClientTasks(false)}
+                                          className="text-muted-foreground"
+                                        >
+                                          <EyeOff className="h-4 w-4" />
+                                        </Button>
+                                      </CardTitle>
+                                    </CardHeader>
                                   <CardContent>
                                     {/* Tabs for Active and Overdue client tasks */}
                                     <Tabs value={clientTasksTab} onValueChange={(value: any) => setClientTasksTab(value)} className="w-full">
@@ -1146,68 +1183,88 @@ const CRMContent = () => {
                                               >
                                                 <h4 className="font-medium text-sm mb-2 text-primary">Сегодня:</h4>
                                                 <div className="space-y-1.5 max-h-96 overflow-y-auto">
-                                                  {activeClientTasks.filter(t => t.due_date === today).map((task) => (
-                                                    <div 
-                                                      key={task.id}
-                                                      draggable
-                                                      onDragStart={(e) => handleDragStart(e, task.id)}
-                                                      onDragEnd={handleDragEnd}
-                                                      className={`p-2.5 border-l-4 rounded-md cursor-grab hover:shadow-md transition-all ${
-                                                        task.priority === 'high' ? 'border-red-500 bg-red-50' :
-                                                        task.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
-                                                        'border-blue-500 bg-blue-50'
-                                                      } ${draggedTask === task.id ? 'opacity-50 cursor-grabbing' : ''}`}
-                                                      onClick={() => task.client_id && handleClientClick(task.client_id)}
-                                                    >
-                                                      <div className="flex items-start justify-between gap-2">
-                                                        <div className="flex-1 min-w-0">
-                                                          <p className="font-medium text-sm leading-tight mb-1">{task.title}</p>
-                                                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                                            <span>
-                                                              Клиент: <span className="text-primary font-medium">
-                                                                {task.clients?.name || 'Неизвестен'}
-                                                              </span>
-                                                            </span>
-                                                            {task.due_time && (
-                                                              <span className="flex items-center gap-1">
-                                                                <Clock className="h-3 w-3" />
-                                                                {task.due_time.slice(0, 5)}
-                                                              </span>
-                                                            )}
+                                                  {(() => {
+                                                    const todayTasks = activeClientTasks.filter(t => t.due_date === today);
+                                                    const displayTasks = todayTasks.slice(0, 5);
+                                                    
+                                                    return (
+                                                      <>
+                                                        {displayTasks.map((task) => (
+                                                          <div 
+                                                            key={task.id}
+                                                            draggable
+                                                            onDragStart={(e) => handleDragStart(e, task.id)}
+                                                            onDragEnd={handleDragEnd}
+                                                            className={`p-2.5 border-l-4 rounded-md cursor-grab hover:shadow-md transition-all ${
+                                                              task.priority === 'high' ? 'border-red-500 bg-red-50' :
+                                                              task.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
+                                                              'border-blue-500 bg-blue-50'
+                                                            } ${draggedTask === task.id ? 'opacity-50 cursor-grabbing' : ''}`}
+                                                            onClick={() => task.client_id && handleClientClick(task.client_id)}
+                                                          >
+                                                            <div className="flex items-start justify-between gap-2">
+                                                              <div className="flex-1 min-w-0">
+                                                                <p className="font-medium text-sm leading-tight mb-1">{task.title}</p>
+                                                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                                                  <span>
+                                                                    Клиент: <span className="text-primary font-medium">
+                                                                      {task.clients?.name || 'Неизвестен'}
+                                                                    </span>
+                                                                  </span>
+                                                                  {task.due_time && (
+                                                                    <span className="flex items-center gap-1">
+                                                                      <Clock className="h-3 w-3" />
+                                                                      {task.due_time.slice(0, 5)}
+                                                                    </span>
+                                                                  )}
+                                                                </div>
+                                                              </div>
+                                                              <div className="flex items-center gap-1 shrink-0">
+                                                                <Button 
+                                                                  size="sm" 
+                                                                  variant="ghost" 
+                                                                  className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
+                                                                  onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleCompleteTask(task.id);
+                                                                  }}
+                                                                  title="Отметить выполненной"
+                                                                >
+                                                                  <Check className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                                <Button 
+                                                                  size="sm" 
+                                                                  variant="ghost" 
+                                                                  className="h-6 w-6 p-0 text-red-600 hover:bg-red-50"
+                                                                  onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleCancelTask(task.id);
+                                                                  }}
+                                                                  title="Отменить задачу"
+                                                                >
+                                                                  <X className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                              </div>
+                                                            </div>
                                                           </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-1 shrink-0">
-                                                          <Button 
-                                                            size="sm" 
-                                                            variant="ghost" 
-                                                            className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
-                                                            onClick={(e) => {
-                                                              e.stopPropagation();
-                                                              handleCompleteTask(task.id);
-                                                            }}
-                                                            title="Отметить выполненной"
+                                                        ))}
+                                                        {todayTasks.length > 5 && (
+                                                          <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => openAllTasksModal('today', todayTasks)}
+                                                            className="w-full mt-2 text-xs"
                                                           >
-                                                            <Check className="h-3.5 w-3.5" />
+                                                            <List className="h-3 w-3 mr-1" />
+                                                            Показать все {todayTasks.length} задач
                                                           </Button>
-                                                          <Button 
-                                                            size="sm" 
-                                                            variant="ghost" 
-                                                            className="h-6 w-6 p-0 text-red-600 hover:bg-red-50"
-                                                            onClick={(e) => {
-                                                              e.stopPropagation();
-                                                              handleCancelTask(task.id);
-                                                            }}
-                                                            title="Отменить задачу"
-                                                          >
-                                                            <X className="h-3.5 w-3.5" />
-                                                          </Button>
-                                                        </div>
-                                                      </div>
-                                                    </div>
-                                                  ))}
-                                                  {activeClientTasks.filter(t => t.due_date === today).length === 0 && (
-                                                    <p className="text-xs text-muted-foreground">Нет задач на сегодня</p>
-                                                  )}
+                                                        )}
+                                                        {todayTasks.length === 0 && (
+                                                          <p className="text-xs text-muted-foreground">Нет задач на сегодня</p>
+                                                        )}
+                                                      </>
+                                                    );
+                                                  })()}
                                                 </div>
                                               </div>
                                               
@@ -1224,72 +1281,85 @@ const CRMContent = () => {
                                                     const tomorrow = new Date();
                                                     tomorrow.setDate(tomorrow.getDate() + 1);
                                                     const tomorrowStr = tomorrow.toISOString().split('T')[0];
-                                                    return activeClientTasks.filter(t => t.due_date === tomorrowStr).map((task) => (
-                                                      <div 
-                                                        key={task.id}
-                                                        draggable
-                                                        onDragStart={(e) => handleDragStart(e, task.id)}
-                                                        onDragEnd={handleDragEnd}
-                                                        className={`p-2.5 border-l-4 rounded-md cursor-grab hover:shadow-md transition-all ${
-                                                          task.priority === 'high' ? 'border-red-500 bg-red-50' :
-                                                          task.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
-                                                          'border-blue-500 bg-blue-50'
-                                                        } ${draggedTask === task.id ? 'opacity-50 cursor-grabbing' : ''}`}
-                                                        onClick={() => task.client_id && handleClientClick(task.client_id)}
-                                                      >
-                                                        <div className="flex items-start justify-between gap-2">
-                                                          <div className="flex-1 min-w-0">
-                                                            <p className="font-medium text-sm leading-tight mb-1">{task.title}</p>
-                                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                                              <span>
-                                                                Клиент: <span className="text-primary font-medium">
-                                                                  {task.clients?.name || 'Неизвестен'}
-                                                                </span>
-                                                              </span>
-                                                              {task.due_time && (
-                                                                <span className="flex items-center gap-1">
-                                                                  <Clock className="h-3 w-3" />
-                                                                  {task.due_time.slice(0, 5)}
-                                                                </span>
-                                                              )}
+                                                    const tomorrowTasks = activeClientTasks.filter(t => t.due_date === tomorrowStr);
+                                                    const displayTasks = tomorrowTasks.slice(0, 5);
+                                                    
+                                                    return (
+                                                      <>
+                                                        {displayTasks.map((task) => (
+                                                          <div 
+                                                            key={task.id}
+                                                            draggable
+                                                            onDragStart={(e) => handleDragStart(e, task.id)}
+                                                            onDragEnd={handleDragEnd}
+                                                            className={`p-2.5 border-l-4 rounded-md cursor-grab hover:shadow-md transition-all ${
+                                                              task.priority === 'high' ? 'border-red-500 bg-red-50' :
+                                                              task.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
+                                                              'border-blue-500 bg-blue-50'
+                                                            } ${draggedTask === task.id ? 'opacity-50 cursor-grabbing' : ''}`}
+                                                            onClick={() => task.client_id && handleClientClick(task.client_id)}
+                                                          >
+                                                            <div className="flex items-start justify-between gap-2">
+                                                              <div className="flex-1 min-w-0">
+                                                                <p className="font-medium text-sm leading-tight mb-1">{task.title}</p>
+                                                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                                                  <span>
+                                                                    Клиент: <span className="text-primary font-medium">
+                                                                      {task.clients?.name || 'Неизвестен'}
+                                                                    </span>
+                                                                  </span>
+                                                                  {task.due_time && (
+                                                                    <span className="flex items-center gap-1">
+                                                                      <Clock className="h-3 w-3" />
+                                                                      {task.due_time.slice(0, 5)}
+                                                                    </span>
+                                                                  )}
+                                                                </div>
+                                                              </div>
+                                                              <div className="flex items-center gap-1 shrink-0">
+                                                                <Button 
+                                                                  size="sm" 
+                                                                  variant="ghost" 
+                                                                  className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
+                                                                  onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleCompleteTask(task.id);
+                                                                  }}
+                                                                  title="Отметить выполненной"
+                                                                >
+                                                                  <Check className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                                <Button 
+                                                                  size="sm" 
+                                                                  variant="ghost" 
+                                                                  className="h-6 w-6 p-0 text-red-600 hover:bg-red-50"
+                                                                  onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleCancelTask(task.id);
+                                                                  }}
+                                                                  title="Отменить задачу"
+                                                                >
+                                                                  <X className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                              </div>
                                                             </div>
                                                           </div>
-                                                          <div className="flex items-center gap-1 shrink-0">
-                                                            <Button 
-                                                              size="sm" 
-                                                              variant="ghost" 
-                                                              className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
-                                                              onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleCompleteTask(task.id);
-                                                              }}
-                                                              title="Отметить выполненной"
-                                                            >
-                                                              <Check className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                            <Button 
-                                                              size="sm" 
-                                                              variant="ghost" 
-                                                              className="h-6 w-6 p-0 text-red-600 hover:bg-red-50"
-                                                              onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleCancelTask(task.id);
-                                                              }}
-                                                              title="Отменить задачу"
-                                                            >
-                                                              <X className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                          </div>
-                                                        </div>
-                                                      </div>
-                                                    ));
-                                                  })()}
-                                                  {(() => {
-                                                    const tomorrow = new Date();
-                                                    tomorrow.setDate(tomorrow.getDate() + 1);
-                                                    const tomorrowStr = tomorrow.toISOString().split('T')[0];
-                                                    return activeClientTasks.filter(t => t.due_date === tomorrowStr).length === 0 && (
-                                                      <p className="text-xs text-muted-foreground">Нет задач на завтра</p>
+                                                        ))}
+                                                        {tomorrowTasks.length > 5 && (
+                                                          <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => openAllTasksModal('tomorrow', tomorrowTasks)}
+                                                            className="w-full mt-2 text-xs"
+                                                          >
+                                                            <List className="h-3 w-3 mr-1" />
+                                                            Показать все {tomorrowTasks.length} задач
+                                                          </Button>
+                                                        )}
+                                                        {tomorrowTasks.length === 0 && (
+                                                          <p className="text-xs text-muted-foreground">Нет задач на завтра</p>
+                                                        )}
+                                                      </>
                                                     );
                                                   })()}
                                                 </div>
@@ -1380,14 +1450,40 @@ const CRMContent = () => {
                                     </Tabs>
                                   </CardContent>
                                 </Card>
+                                )}
+
+                                {/* Кнопка показать скрытые клиентские задачи */}
+                                {!showClientTasks && (
+                                  <Card className="border-dashed border-muted-foreground/30">
+                                    <CardContent className="flex items-center justify-center py-6">
+                                      <Button
+                                        variant="outline"
+                                        onClick={() => setShowClientTasks(true)}
+                                        className="gap-2"
+                                      >
+                                        <Eye className="h-4 w-4" />
+                                        Показать задачи по клиентам
+                                      </Button>
+                                    </CardContent>
+                                  </Card>
+                                )}
 
                                 {/* Личные задачи менеджера */}
-                                <Card className="border-purple-200 bg-purple-50/30">
-                                  <CardHeader>
-                                    <CardTitle className="text-purple-800">
-                                      📝 Мой личный планер ({allTasks.filter(t => !t.client_id).length})
-                                    </CardTitle>
-                                  </CardHeader>
+                                {showPersonalTasks && (
+                                  <Card className="border-purple-200 bg-purple-50/30">
+                                    <CardHeader>
+                                      <CardTitle className="flex items-center justify-between text-purple-800">
+                                        <span>📝 Мой личный планер ({allTasks.filter(t => !t.client_id).length})</span>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => setShowPersonalTasks(false)}
+                                          className="text-muted-foreground"
+                                        >
+                                          <EyeOff className="h-4 w-4" />
+                                        </Button>
+                                      </CardTitle>
+                                    </CardHeader>
                                   <CardContent>
                                     {/* Tabs for Active and Overdue tasks */}
                                     <Tabs value={personalTasksTab} onValueChange={(value: any) => setPersonalTasksTab(value)} className="w-full">
@@ -1646,6 +1742,23 @@ const CRMContent = () => {
                                     </Tabs>
                                   </CardContent>
                                 </Card>
+                                )}
+
+                                {/* Кнопка показать скрытые личные задачи */}
+                                {!showPersonalTasks && (
+                                  <Card className="border-dashed border-muted-foreground/30">
+                                    <CardContent className="flex items-center justify-center py-6">
+                                      <Button
+                                        variant="outline"
+                                        onClick={() => setShowPersonalTasks(true)}
+                                        className="gap-2"
+                                      >
+                                        <Eye className="h-4 w-4" />
+                                        Показать личные задачи
+                                      </Button>
+                                    </CardContent>
+                                  </Card>
+                                )}
                               </>
                             ) : (
                               <TaskCalendar 
@@ -2331,6 +2444,105 @@ const CRMContent = () => {
           setActiveChatType('client');
         }}
       />
+
+      {/* Modal для просмотра всех задач */}
+      <Dialog open={allTasksModal.open} onOpenChange={(open) => setAllTasksModal(prev => ({ ...prev, open }))}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              {allTasksModal.title}
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="mt-4 max-h-[60vh] overflow-y-auto">
+            <div className="space-y-3">
+              {allTasksModal.tasks.map((task) => (
+                <div 
+                  key={task.id}
+                  className={`p-3 border-l-4 rounded-md hover:shadow-md transition-shadow ${
+                    task.priority === 'high' ? 'border-red-500 bg-red-50' :
+                    task.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
+                    'border-blue-500 bg-blue-50'
+                  }`}
+                  onClick={() => task.client_id && handleClientClick(task.client_id)}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm mb-2">{task.title}</p>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+                        <span>
+                          Клиент: <span className="text-primary font-medium">
+                            {task.clients?.name || 'Неизвестен'}
+                          </span>
+                        </span>
+                        {task.due_time && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {task.due_time.slice(0, 5)}
+                          </span>
+                        )}
+                        <Badge variant={
+                          task.priority === 'high' ? 'destructive' : 
+                          task.priority === 'medium' ? 'default' : 'secondary'
+                        }>
+                          {task.priority === 'high' ? 'Высокий' : 
+                           task.priority === 'medium' ? 'Средний' : 'Низкий'}
+                        </Badge>
+                      </div>
+                      {task.description && (
+                        <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                          {task.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-8 w-8 p-0 text-green-600 hover:bg-green-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCompleteTask(task.id);
+                          // Remove completed task from modal
+                          setAllTasksModal(prev => ({
+                            ...prev,
+                            tasks: prev.tasks.filter(t => t.id !== task.id)
+                          }));
+                        }}
+                        title="Отметить выполненной"
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-8 w-8 p-0 text-red-600 hover:bg-red-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCancelTask(task.id);
+                          // Remove cancelled task from modal
+                          setAllTasksModal(prev => ({
+                            ...prev,
+                            tasks: prev.tasks.filter(t => t.id !== task.id)
+                          }));
+                        }}
+                        title="Отменить задачу"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {allTasksModal.tasks.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>Нет задач для отображения</p>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
