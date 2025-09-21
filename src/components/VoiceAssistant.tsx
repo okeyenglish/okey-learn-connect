@@ -341,7 +341,7 @@ export default function VoiceAssistant({
 
         // Инвалидируем задачи при создании новой
         const resultType = data.actionResult?.type;
-        if (resultType === 'task_created' || resultType === 'create_task' || resultType === 'multiple_tasks_created') {
+        if (resultType === 'task_created' || resultType === 'create_task' || resultType === 'multiple_tasks_created' || resultType === 'task_updated' || resultType === 'tasks_deleted') {
           // Конкретный клиент
           if (context?.activeClientId) {
             queryClient.invalidateQueries({ queryKey: ['tasks', context.activeClientId] });

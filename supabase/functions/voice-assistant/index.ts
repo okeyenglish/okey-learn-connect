@@ -175,6 +175,8 @@ serve(async (req) => {
 ВАЖНО: 
 - Если команда содержит "поставь задачу" или "создай задачу" - ВСЕГДА используй create_task, даже если упоминается клиент!
 - Если команда спрашивает про задачи ("мои задачи", "какие задачи", "покажи задачи") - ВСЕГДА используй get_tasks!
+- Если команда просит удалить задачи ("удали задачу", "убери задачу", "отмени задачу") - используй delete_task!
+- Если указан конкретный ID задачи - используй его, иначе ищи по имени клиента или заголовку задачи!
 
 Всегда отвечай дружелюбно и профессионально на русском языке.
 
@@ -248,6 +250,18 @@ serve(async (req) => {
             title: { type: "string", description: "Новый заголовок (опционально)" }
           },
           required: ["taskId", "status"]
+        }
+      },
+      {
+        name: "delete_task",
+        description: "Удалить задачу (устанавливает статус cancelled)",
+        parameters: {
+          type: "object",
+          properties: {
+            taskId: { type: "string", description: "ID задачи для удаления" },
+            clientName: { type: "string", description: "Имя клиента для поиска задач (опционально)" },
+            taskTitle: { type: "string", description: "Заголовок задачи для поиска (опционально)" }
+          }
         }
       },
       {
@@ -558,11 +572,7 @@ serve(async (req) => {
 
               let taskQuery = supabase
                 .from('tasks')
-                .select(`
-                  id, title, description, status, priority, due_date, due_time, 
-                  created_at, updated_at, responsible, branch, client_id,
-                  clients(name, phone, email)
-                `)
+                .select('id, title, description, status, priority, due_date, due_time, created_at, updated_at, responsible, branch, client_id')
                 .eq('status', 'active')
                 .in('branch', uniqueBranches);
 
@@ -585,8 +595,26 @@ serve(async (req) => {
                 console.error('Error fetching tasks:', tasksError);
                 singleResult = { type: 'tasks', text: 'Ошибка при получении задач.' };
               } else if (tasks && tasks.length > 0) {
+                // Получаем информацию о клиентах для задач с client_id
+                const clientIds = tasks.filter(t => t.client_id).map(t => t.client_id);
+                let clientsMap = {};
+                
+                if (clientIds.length > 0) {
+                  const { data: clientsData } = await supabase
+                    .from('clients')
+                    .select('id, name, phone, email')
+                    .in('id', clientIds);
+                  
+                  if (clientsData) {
+                    clientsMap = clientsData.reduce((acc, client) => {
+                      acc[client.id] = client;
+                      return acc;
+                    }, {});
+                  }
+                }
+
                 const tasksText = tasks.slice(0, 10).map(t => {
-                  const client = t.clients ? ` для ${t.clients.name}` : '';
+                  const client = t.client_id && clientsMap[t.client_id] ? ` для ${clientsMap[t.client_id].name}` : '';
                   const dueInfo = t.due_date ? ` до ${t.due_date}` : '';
                   const timeInfo = t.due_time ? ` в ${t.due_time}` : '';
                   return `"${t.title}"${client}${dueInfo}${timeInfo}`;
@@ -598,13 +626,129 @@ serve(async (req) => {
                 singleResult = { 
                   type: 'tasks', 
                   text: `У вас ${tasks.length} ${filterLabel} задач${tasks.length > 10 ? ' (показано 10)' : ''}: ${tasksText}`,
-                  data: tasks,
+                  data: tasks.map(t => ({...t, client: t.client_id ? clientsMap[t.client_id] : null})),
                   filter: functionArgs.filter || 'all'
                 };
               } else {
                 const filterLabel = functionArgs.filter === 'today' ? 'на сегодня' : 
                                    functionArgs.filter === 'overdue' ? 'просроченных' : 'активных';
                 singleResult = { type: 'tasks', text: `У вас нет ${filterLabel} задач.` };
+              }
+              break;
+
+            case 'update_task':
+              // Обновляем статус задачи (включая удаление через статус cancelled)
+              const { error: updateError } = await supabase
+                .from('tasks')
+                .update({ 
+                  status: functionArgs.status,
+                  ...(functionArgs.title && { title: functionArgs.title }),
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', functionArgs.taskId);
+
+              if (updateError) {
+                console.error('Error updating task:', updateError);
+                singleResult = { 
+                  type: 'task_update_error', 
+                  text: 'Ошибка при обновлении задачи.' 
+                };
+              } else {
+                const statusText = functionArgs.status === 'completed' ? 'завершена' : 
+                                 functionArgs.status === 'cancelled' ? 'удалена' : 
+                                 'обновлена';
+                singleResult = { 
+                  type: 'task_updated', 
+                  text: `Задача успешно ${statusText}.`,
+                  taskId: functionArgs.taskId,
+                  status: functionArgs.status
+                };
+              }
+              break;
+
+            case 'delete_task':
+              // Удаление задач (поиск по ID, имени клиента или заголовку)
+              let tasksToDelete = [];
+              const userBranchForDelete = userProfile?.branch || 'Окская';
+              
+              if (functionArgs.taskId) {
+                // Удаление по ID
+                const { data: taskById } = await supabase
+                  .from('tasks')
+                  .select('*')
+                  .eq('id', functionArgs.taskId)
+                  .eq('status', 'active')
+                  .maybeSingle();
+                
+                if (taskById) {
+                  tasksToDelete = [taskById];
+                }
+              } else {
+                // Поиск задач для удаления по критериям
+                let deleteQuery = supabase
+                  .from('tasks')
+                  .select('id, title, client_id, due_date, due_time')
+                  .eq('status', 'active')
+                  .eq('branch', userBranchForDelete);
+
+                // Если указан клиент
+                if (functionArgs.clientName) {
+                  // Найдем клиента и его задачи
+                  const { data: clientForDelete } = await supabase
+                    .from('clients')
+                    .select('id, name')
+                    .eq('is_active', true)
+                    .ilike('name', `%${functionArgs.clientName}%`)
+                    .maybeSingle();
+                  
+                  if (clientForDelete) {
+                    deleteQuery = deleteQuery.eq('client_id', clientForDelete.id);
+                  } else {
+                    singleResult = { type: 'delete_error', text: `Клиент "${functionArgs.clientName}" не найден.` };
+                    break;
+                  }
+                }
+
+                // Если указан заголовок задачи
+                if (functionArgs.taskTitle) {
+                  deleteQuery = deleteQuery.ilike('title', `%${functionArgs.taskTitle}%`);
+                }
+
+                const { data: foundTasks } = await deleteQuery.limit(20);
+                tasksToDelete = foundTasks || [];
+              }
+
+              if (tasksToDelete.length === 0) {
+                singleResult = { 
+                  type: 'delete_error', 
+                  text: 'Задачи для удаления не найдены.' 
+                };
+              } else {
+                // Удаляем найденные задачи (устанавливаем статус cancelled)
+                const taskIds = tasksToDelete.map(t => t.id);
+                const { error: deleteError } = await supabase
+                  .from('tasks')
+                  .update({ 
+                    status: 'cancelled',
+                    updated_at: new Date().toISOString()
+                  })
+                  .in('id', taskIds);
+
+                if (deleteError) {
+                  console.error('Error deleting tasks:', deleteError);
+                  singleResult = { 
+                    type: 'delete_error', 
+                    text: 'Ошибка при удалении задач.' 
+                  };
+                } else {
+                  const taskTitles = tasksToDelete.map(t => `"${t.title}"`).join(', ');
+                  singleResult = { 
+                    type: 'tasks_deleted', 
+                    text: `Удалено задач: ${tasksToDelete.length}. ${taskTitles}`,
+                    deletedCount: tasksToDelete.length,
+                    deletedTasks: tasksToDelete
+                  };
+                }
               }
               break;
 
