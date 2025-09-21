@@ -33,6 +33,10 @@ export const GroupsModal = ({ open, onOpenChange }: GroupsModalProps) => {
     // Refresh will happen automatically due to React Query
   };
 
+  const handleStatusFilter = (status: string) => {
+    setFilters({ status: [status] });
+  };
+
   // Calculate statistics
   const stats = {
     total: groups.length,
@@ -76,59 +80,36 @@ export const GroupsModal = ({ open, onOpenChange }: GroupsModalProps) => {
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Statistics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card 
+              className="cursor-pointer hover:shadow-md transition-shadow border-green-200 hover:border-green-300"
+              onClick={() => handleStatusFilter('active')}
+            >
+              <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Всего групп</p>
-                    <p className="text-xl font-bold text-gray-900">{stats.total}</p>
+                    <p className="text-lg font-medium text-gray-900">Активных групп</p>
+                    <p className="text-4xl font-bold text-green-600">{stats.active}</p>
                   </div>
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <Users className="h-5 w-5 text-blue-600" />
+                  <div className="p-3 bg-green-100 rounded-xl">
+                    <BookOpen className="h-8 w-8 text-green-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-4">
+            <Card 
+              className="cursor-pointer hover:shadow-md transition-shadow border-yellow-200 hover:border-yellow-300"
+              onClick={() => handleStatusFilter('forming')}
+            >
+              <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Активных групп</p>
-                    <p className="text-xl font-bold text-green-600">{stats.active}</p>
+                    <p className="text-lg font-medium text-gray-900">Формируется</p>
+                    <p className="text-4xl font-bold text-yellow-600">{stats.forming}</p>
                   </div>
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <BookOpen className="h-5 w-5 text-green-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Формируется</p>
-                    <p className="text-xl font-bold text-yellow-600">{stats.forming}</p>
-                  </div>
-                  <div className="p-2 bg-yellow-100 rounded-lg">
-                    <TrendingUp className="h-5 w-5 text-yellow-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Заполненность</p>
-                    <p className="text-xl font-bold text-purple-600">{utilizationRate}%</p>
-                    <p className="text-xs text-gray-500">{stats.totalStudents}/{stats.totalCapacity}</p>
-                  </div>
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <BarChart3 className="h-5 w-5 text-purple-600" />
+                  <div className="p-3 bg-yellow-100 rounded-xl">
+                    <TrendingUp className="h-8 w-8 text-yellow-600" />
                   </div>
                 </div>
               </CardContent>

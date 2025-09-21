@@ -22,6 +22,7 @@ interface GroupsFiltersProps {
 }
 
 export const GroupsFilters = ({ filters, onFiltersChange, onReset }: GroupsFiltersProps) => {
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 
   const branches = getBranchesForSelect();
@@ -73,186 +74,198 @@ export const GroupsFilters = ({ filters, onFiltersChange, onReset }: GroupsFilte
 
   return (
     <Card>
-      <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-blue-600" />
-            Фильтры
+      <Collapsible open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="flex items-center gap-2 p-0 h-auto text-blue-600 hover:text-blue-800">
+                <Filter className="h-5 w-5 text-blue-600" />
+                Фильтры
+                {activeFiltersCount > 0 && (
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                    {activeFiltersCount}
+                  </Badge>
+                )}
+                {isFiltersOpen ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+            </CollapsibleTrigger>
             {activeFiltersCount > 0 && (
-              <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                {activeFiltersCount}
-              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onReset}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Сбросить
+              </Button>
             )}
-          </CardTitle>
-          {activeFiltersCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onReset}
-              className="text-gray-600 hover:text-gray-900"
-            >
-              <X className="h-4 w-4 mr-1" />
-              Сбросить
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Basic Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="search" className="flex items-center gap-2">
-              <Search className="h-4 w-4 text-gray-500" />
-              Наименование
-            </Label>
-            <Input
-              id="search"
-              placeholder="Поиск по названию группы..."
-              value={filters.search || ""}
-              onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
-            />
           </div>
-
-          <div className="space-y-2">
-            <Label>Филиал</Label>
-            <Select
-              value={filters.branch || "all"}
-              onValueChange={(value) => onFiltersChange({ ...filters, branch: value === "all" ? undefined : value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Все филиалы" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Все филиалы</SelectItem>
-                {branches.map(branch => (
-                  <SelectItem key={branch.value} value={branch.label}>
-                    {branch.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Тип</Label>
-            <Select
-              value={filters.group_type || "all"}
-              onValueChange={(value) => onFiltersChange({ ...filters, group_type: value === "all" ? undefined : value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Все типы" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Все типы</SelectItem>
-                {types.map(type => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label>Дисциплина</Label>
-            <Select
-              value={filters.subject || "all"}
-              onValueChange={(value) => onFiltersChange({ ...filters, subject: value === "all" ? undefined : value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Все дисциплины" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Все дисциплины</SelectItem>
-                {subjects.map(subject => (
-                  <SelectItem key={subject} value={subject}>
-                    {subject}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Уровень</Label>
-            <Select
-              value={filters.level || "all"}
-              onValueChange={(value) => onFiltersChange({ ...filters, level: value === "all" ? undefined : value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Все уровни" />
-              </SelectTrigger>
-              <SelectContent className="max-h-60">
-                <SelectItem value="all">Все уровни</SelectItem>
-                {levels.map(level => (
-                  <SelectItem key={level} value={level}>
-                    {level}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Преподаватель</Label>
-            <Input
-              placeholder="Имя преподавателя..."
-              value={filters.responsible_teacher || ""}
-              onChange={(e) => onFiltersChange({ ...filters, responsible_teacher: e.target.value })}
-            />
-          </div>
-        </div>
-
-        {/* Status checkboxes */}
-        <div className="space-y-3">
-          <Label className="text-sm font-medium">Статус групп</Label>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {statusOptions.map((status) => (
-              <div key={status.value} className="flex items-center space-x-2">
-                <Checkbox
-                  id={status.value}
-                  checked={filters.status?.includes(status.value) || false}
-                  onCheckedChange={(checked) => handleStatusChange(status.value, checked as boolean)}
-                />
-                <Label
-                  htmlFor={status.value}
-                  className="text-sm font-normal cursor-pointer"
-                >
-                  {status.label}
+        </CardHeader>
+        
+        <CollapsibleContent>
+          <CardContent className="space-y-4">
+            {/* Basic Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="search" className="flex items-center gap-2">
+                  <Search className="h-4 w-4 text-gray-500" />
+                  Наименование
                 </Label>
+                <Input
+                  id="search"
+                  placeholder="Поиск по названию группы..."
+                  value={filters.search || ""}
+                  onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
+                />
               </div>
-            ))}
-          </div>
-        </div>
 
-        {/* Advanced Filters */}
-        <Collapsible open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 p-0 h-auto text-blue-600 hover:text-blue-800">
-              {isAdvancedOpen ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-              Дополнительные параметры
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-4 mt-4">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="debt"
-                checked={filters.only_with_debt || false}
-                onCheckedChange={(checked) => onFiltersChange({ ...filters, only_with_debt: checked as boolean })}
-              />
-              <Label htmlFor="debt" className="text-sm font-normal cursor-pointer">
-                Только с задолженностью
-              </Label>
+              <div className="space-y-2">
+                <Label>Филиал</Label>
+                <Select
+                  value={filters.branch || "all"}
+                  onValueChange={(value) => onFiltersChange({ ...filters, branch: value === "all" ? undefined : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Все филиалы" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Все филиалы</SelectItem>
+                    {branches.map(branch => (
+                      <SelectItem key={branch.value} value={branch.label}>
+                        {branch.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Тип</Label>
+                <Select
+                  value={filters.group_type || "all"}
+                  onValueChange={(value) => onFiltersChange({ ...filters, group_type: value === "all" ? undefined : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Все типы" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Все типы</SelectItem>
+                    {types.map(type => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </CollapsibleContent>
-        </Collapsible>
-      </CardContent>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Дисциплина</Label>
+                <Select
+                  value={filters.subject || "all"}
+                  onValueChange={(value) => onFiltersChange({ ...filters, subject: value === "all" ? undefined : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Все дисциплины" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Все дисциплины</SelectItem>
+                    {subjects.map(subject => (
+                      <SelectItem key={subject} value={subject}>
+                        {subject}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Уровень</Label>
+                <Select
+                  value={filters.level || "all"}
+                  onValueChange={(value) => onFiltersChange({ ...filters, level: value === "all" ? undefined : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Все уровни" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    <SelectItem value="all">Все уровни</SelectItem>
+                    {levels.map(level => (
+                      <SelectItem key={level} value={level}>
+                        {level}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Преподаватель</Label>
+                <Input
+                  placeholder="Имя преподавателя..."
+                  value={filters.responsible_teacher || ""}
+                  onChange={(e) => onFiltersChange({ ...filters, responsible_teacher: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {/* Status checkboxes */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Статус групп</Label>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                {statusOptions.map((status) => (
+                  <div key={status.value} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={status.value}
+                      checked={filters.status?.includes(status.value) || false}
+                      onCheckedChange={(checked) => handleStatusChange(status.value, checked as boolean)}
+                    />
+                    <Label
+                      htmlFor={status.value}
+                      className="text-sm font-normal cursor-pointer"
+                    >
+                      {status.label}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Advanced Filters */}
+            <Collapsible open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-2 p-0 h-auto text-blue-600 hover:text-blue-800">
+                  {isAdvancedOpen ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                  Дополнительные параметры
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-4 mt-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="debt"
+                    checked={filters.only_with_debt || false}
+                    onCheckedChange={(checked) => onFiltersChange({ ...filters, only_with_debt: checked as boolean })}
+                  />
+                  <Label htmlFor="debt" className="text-sm font-normal cursor-pointer">
+                    Только с задолженностью
+                  </Label>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
     </Card>
   );
 };
