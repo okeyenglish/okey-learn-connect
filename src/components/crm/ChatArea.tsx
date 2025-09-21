@@ -136,7 +136,7 @@ export const ChatArea = ({
 
       const formattedMessages = (data || []).map(msg => ({
         id: msg.id,
-        type: msg.message_type === 'comment' ? 'comment' : (msg.is_outgoing ? 'manager' : 'client'),
+        type: msg.message_type || (msg.is_outgoing ? 'manager' : 'client'),
         message: msg.message_text || '',
         time: new Date(msg.created_at).toLocaleTimeString('ru-RU', { 
           hour: '2-digit', 
@@ -206,7 +206,7 @@ export const ChatArea = ({
             
             const newMessage = {
               id: payload.new.id,
-              type: payload.new.message_type === 'comment' ? 'comment' : (payload.new.is_outgoing ? 'manager' : 'client'),
+              type: payload.new.message_type || (payload.new.is_outgoing ? 'manager' : 'client'),
               message: payload.new.message_text || '',
               time: new Date(payload.new.created_at).toLocaleTimeString('ru-RU', { 
                 hour: '2-digit', 
