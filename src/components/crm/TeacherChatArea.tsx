@@ -311,9 +311,13 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     // Use prefixed name for teacher chats to match RLS policy
     const chatName = name.includes('Чат педагогов') ? name : `Преподаватель: ${name}`;
     
+    // Generate unique pseudo-phone to satisfy unique "clients_phone_key" constraint
+    const slug = (s: string) => s.toLowerCase().replace(/[^a-zа-я0-9]+/gi, '-').replace(/^-+|-+$/g, '');
+    const pseudoPhone = `-teachers-${slug(branch)}-${slug(chatName)}`.slice(0, 50);
+    
     const { data: inserted, error } = await supabase
       .from('clients')
-      .insert({ name: chatName, phone: '-', branch })
+      .insert({ name: chatName, phone: pseudoPhone, branch })
       .select('id')
       .maybeSingle();
     if (error) {
@@ -846,65 +850,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                 </ScrollArea>
               </div>
               
-              {/* Message Input - Fixed height */}
-              <div className="border-t p-3 shrink-0">
-                <div className="flex items-end gap-2">
-                  <div className="flex-1">
-                    <Textarea
-                      placeholder={isGroupChat ? "Написать в общий чат..." : "Написать сообщение..."}
-                      value={message}
-                      onChange={(e) => handleMessageChange(e.target.value)}
-                      className="min-h-[40px] max-h-[120px] resize-none text-sm"
-                      rows={1}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage();
-                        }
-                      }}
-                    />
-                    <div className="flex items-center gap-1 mt-2">
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setShowQuickResponsesModal(true)}>
-                        <Zap className="h-4 w-4" />
-                      </Button>
-                      <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
-                        <DialogTrigger asChild>
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!message.trim()}>
-                            <Clock className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Запланировать сообщение</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-3">
-                            <div className="space-y-1">
-                              <label className="text-sm">Дата</label>
-                              <Input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} />
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-sm">Время</label>
-                              <Input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} />
-                            </div>
-                            <div className="flex justify-end gap-2">
-                              <Button variant="outline" onClick={() => setShowScheduleDialog(false)}>Отмена</Button>
-                              <Button onClick={handleScheduleMessage} disabled={!scheduleDate || !scheduleTime || !message.trim()}>Запланировать</Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </div>
-                  <Button size="icon" className="rounded-full h-10 w-10 shrink-0" onClick={handleSendMessage} disabled={!message.trim() || !clientId}>
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-                <QuickResponsesModal
-                  open={showQuickResponsesModal}
-                  onOpenChange={setShowQuickResponsesModal}
-                  onSelectResponse={(text) => setMessage((prev) => (prev ? `${prev} ${text}` : text))}
-                />
-              </div>
+              {/* Message input moved below Tabs for sticky bottom */}
             </TabsContent>
 
             {/* Schedule tab - only for individual teachers */}
@@ -1063,6 +1009,66 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             )}
           </div>
         </Tabs>
+        {activeTab === 'диалог' && (
+          <div className="border-t p-3 shrink-0">
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Textarea
+                  placeholder={isGroupChat ? "Написать в общий чат..." : "Написать сообщение..."}
+                  value={message}
+                  onChange={(e) => handleMessageChange(e.target.value)}
+                  className="min-h-[40px] max-h-[120px] resize-none text-sm"
+                  rows={1}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                />
+                <div className="flex items-center gap-1 mt-2">
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setShowQuickResponsesModal(true)}>
+                    <Zap className="h-4 w-4" />
+                  </Button>
+                  <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!message.trim()}>
+                        <Clock className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Запланировать сообщение</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <label className="text-sm">Дата</label>
+                          <Input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-sm">Время</label>
+                          <Input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" onClick={() => setShowScheduleDialog(false)}>Отмена</Button>
+                          <Button onClick={handleScheduleMessage} disabled={!scheduleDate || !scheduleTime || !message.trim()}>Запланировать</Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
+              <Button size="icon" className="rounded-full h-10 w-10 shrink-0" onClick={handleSendMessage} disabled={!message.trim() || !clientId}>
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+            <QuickResponsesModal
+              open={showQuickResponsesModal}
+              onOpenChange={setShowQuickResponsesModal}
+              onSelectResponse={(text) => setMessage((prev) => (prev ? `${prev} ${text}` : text))}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
