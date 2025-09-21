@@ -312,33 +312,13 @@ const CRMContent = () => {
     }
   };
 
-  // Системные чаты из БД - показываем корпоративные чаты отдельно по филиалам
-  const corporateChatsByBranch = (corporateChats || []).reduce((acc: Record<string, any>, chat: any) => {
-    const branchKey = chat.branch;
-    if (!acc[branchKey]) {
-      acc[branchKey] = {
-        id: `corporate-${branchKey}`,
-        name: `Корпоративный чат - ${branchKey}`,
-        phone: `Команда ${branchKey}`,
-        lastMessage: chat.lastMessage || 'Нет сообщений',
-        time: chat.lastMessageTime ? formatTime(chat.lastMessageTime) : '',
-        unread: chat.unreadCount || 0,
-        type: 'corporate' as const,
-        timestamp: chat.lastMessageTime ? new Date(chat.lastMessageTime).getTime() : 0,
-        avatar_url: null,
-        branch: branchKey
-      };
-    } else {
-      // Обновляем если это сообщение более новое
-      if (chat.lastMessageTime && new Date(chat.lastMessageTime) > new Date(acc[branchKey].timestamp)) {
-        acc[branchKey].lastMessage = chat.lastMessage || 'Нет сообщений';
-        acc[branchKey].time = formatTime(chat.lastMessageTime);
-        acc[branchKey].timestamp = new Date(chat.lastMessageTime).getTime();
-      }
-      acc[branchKey].unread += chat.unreadCount || 0;
-    }
-    return acc;
-  }, {});
+  // Системные чаты из БД - агрегируем корпоративные в одну "папку"
+  const corporateUnread = (corporateChats || []).reduce((sum: number, c: any) => sum + (c.unreadCount || 0), 0);
+  const latestCorporate = (corporateChats || []).reduce((latest: any, c: any) => {
+    if (!c?.lastMessageTime) return latest;
+    if (!latest) return c;
+    return new Date(c.lastMessageTime) > new Date(latest.lastMessageTime) ? c : latest;
+  }, null as any);
 
   const teacherUnread = (teacherChats || []).reduce((sum: number, c: any) => sum + (c.unreadCount || 0), 0);
   const latestTeacher = (teacherChats || []).reduce((latest: any, c: any) => {
@@ -347,9 +327,19 @@ const CRMContent = () => {
     return new Date(c.lastMessageTime) > new Date(latest.lastMessageTime) ? c : latest;
   }, null as any);
 
-  // Системные чаты
+  // Системные чаты (корпоративные как одна запись)
   const systemChats = [
-    ...(Object.values(corporateChatsByBranch) as any[]),
+    {
+      id: 'corporate',
+      name: 'Корпоративный чат',
+      phone: 'Внутренние чаты по филиалам',
+      lastMessage: latestCorporate?.lastMessage || 'Нет сообщений',
+      time: latestCorporate?.lastMessageTime ? formatTime(latestCorporate.lastMessageTime) : '',
+      unread: corporateUnread,
+      type: 'corporate' as const,
+      timestamp: latestCorporate?.lastMessageTime ? new Date(latestCorporate.lastMessageTime).getTime() : 0,
+      avatar_url: null,
+    },
     {
       id: 'teachers',
       name: 'Преподаватели',
@@ -570,14 +560,7 @@ const CRMContent = () => {
           // Помечаем чат как прочитанный в состоянии чата
           markAsRead(chatId);
         } else if (chatType === 'corporate') {
-          // Для корпоративных чатов выбираем самый свежий чат по филиалу
-          const branchName = chatId.replace('corporate-', '');
-          const matches = corporateChats.filter((c: any) => c.branch === branchName);
-          const corporateChat = matches.sort((a: any, b: any) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime())[0];
-          if (corporateChat?.id) {
-            markAsReadMutation.mutate(corporateChat.id);
-            markAsRead(corporateChat.id);
-          }
+          // Папка корпоративных чатов — не отмечаем прочитанным на этом уровне
         } else if (chatType === 'teachers') {
           // Для преподавательских чатов
           teacherChats.forEach((chat: any) => {
@@ -1476,9 +1459,7 @@ const CRMContent = () => {
             />
           ) : activeChatType === 'corporate' ? (
             <CorporateChatArea 
-              onMessageChange={setHasUnsavedChat} 
-              selectedBranchId={activeChatId?.startsWith('corporate-') ? activeChatId.replace('corporate-', '') : null}
-              embedded
+              onMessageChange={setHasUnsavedChat}
             />
           ) : activeChatType === 'teachers' ? (
             <TeacherChatArea 
