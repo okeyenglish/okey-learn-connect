@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface VoiceAssistantProps {
   isOpen: boolean;
@@ -58,6 +59,8 @@ export default function VoiceAssistant({
   const [lastResponse, setLastResponse] = useState<string>('');
   const [actionResult, setActionResult] = useState<ActionResult | null>(null);
   const [audioEnabled, setAudioEnabled] = useState(true);
+  
+  const isMobile = useIsMobile();
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -585,7 +588,11 @@ export default function VoiceAssistant({
       <Button
         onClick={onToggle}
         size="lg"
-        className="fixed bottom-6 right-6 rounded-full h-14 w-14 shadow-lg bg-gradient-primary hover:shadow-elevated z-50"
+        className={`fixed shadow-lg bg-gradient-primary hover:shadow-elevated z-50 rounded-full h-14 w-14 ${
+          isMobile 
+            ? 'bottom-20 right-4' // На мобильных выше, чтобы не перекрывать поле ввода
+            : 'bottom-6 right-6'   // На десктопе как было
+        }`}
       >
         <Mic className="h-6 w-6" />
       </Button>
@@ -593,7 +600,11 @@ export default function VoiceAssistant({
   }
 
   return (
-    <Card className="fixed bottom-6 right-6 w-80 p-4 shadow-xl bg-background border z-50">
+    <Card className={`fixed shadow-xl bg-background border z-50 ${
+      isMobile 
+        ? 'bottom-20 right-2 left-2 w-auto' // На мобильных растягиваем на всю ширину с отступами
+        : 'bottom-6 right-6 w-80'           // На десктопе фиксированная ширина
+    } p-4`}>
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold">Голосовой ассистент</h3>
         <div className="flex gap-2">
