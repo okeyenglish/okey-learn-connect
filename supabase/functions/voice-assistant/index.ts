@@ -401,12 +401,28 @@ serve(async (req) => {
             let clientForTask = null;
             let taskClientName = functionArgs.clientName;
             
-            if (!taskClientName && context?.activeClientName) {
+            // Приоритет: сначала используем activeClientId из контекста (точное совпадение),
+            // потом activeClientName, и только потом клиента по имени из команды
+            if (!taskClientName && context?.activeClientId) {
+              console.log('Using active client ID from context:', context.activeClientId);
+              const { data: foundClient } = await supabase
+                .from('clients')
+                .select('id, name')
+                .eq('id', context.activeClientId)
+                .eq('is_active', true)
+                .maybeSingle();
+              
+              if (foundClient) {
+                clientForTask = foundClient;
+                console.log('Found active client:', foundClient.name);
+              }
+            } else if (!taskClientName && context?.activeClientName) {
               taskClientName = context.activeClientName;
-              console.log('Using active client from context for task:', taskClientName);
+              console.log('Using active client name from context for task:', taskClientName);
             }
             
-            if (taskClientName) {
+            // Поиск по имени только если не нашли по ID
+            if (!clientForTask && taskClientName) {
               const { data: foundClient } = await supabase
                 .from('clients')
                 .select('id, name')
