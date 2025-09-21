@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { CalendarIcon, Plus, Clock, User } from 'lucide-react';
+import { CalendarIcon, Plus, Clock, User, Edit } from 'lucide-react';
 import { useTasksByDate, useAllTasks } from '@/hooks/useTasks';
 import { TaskDayView } from './TaskDayView';
 import { AddTaskModal } from './AddTaskModal';
+import { EditTaskModal } from './EditTaskModal';
 import { cn } from '@/lib/utils';
 
 interface TaskCalendarProps {
@@ -23,6 +24,7 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDayView, setShowDayView] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   
   const { tasks: allTasks } = useAllTasks();
   const { tasks: dayTasks } = useTasksByDate(format(selectedDate, 'yyyy-MM-dd'));
@@ -126,11 +128,10 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
                 {dayTasks.map((task) => (
                   <div
                     key={task.id}
-                    className="p-3 border rounded-md cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => onTaskClick?.(task.id)}
+                    className="p-3 border rounded-md cursor-pointer hover:shadow-md transition-shadow relative group"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0" onClick={() => onTaskClick?.(task.id)}>
                         <p className="font-medium text-sm truncate">{task.title}</p>
                         {task.due_time && (
                           <div className="flex items-center gap-1 mt-1">
@@ -149,10 +150,24 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
                           </div>
                         )}
                       </div>
-                      <Badge variant={getPriorityColor(task.priority)} className="text-xs">
-                        {task.priority === 'high' ? 'Высокий' : 
-                         task.priority === 'medium' ? 'Средний' : 'Низкий'}
-                      </Badge>
+                      <div className="flex items-start gap-1">
+                        <Badge variant={getPriorityColor(task.priority)} className="text-xs">
+                          {task.priority === 'high' ? 'Высокий' : 
+                           task.priority === 'medium' ? 'Средний' : 'Низкий'}
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0 text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingTaskId(task.id);
+                          }}
+                          title="Редактировать"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -192,6 +207,14 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
         date={selectedDate}
         onTaskClick={onTaskClick}
       />
+
+      {editingTaskId && (
+        <EditTaskModal
+          open={!!editingTaskId}
+          onOpenChange={(open) => !open && setEditingTaskId(null)}
+          taskId={editingTaskId}
+        />
+      )}
     </div>
   );
 };

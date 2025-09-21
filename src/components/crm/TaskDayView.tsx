@@ -9,9 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { Clock, User, Check, X, Plus } from 'lucide-react';
+import { Clock, User, Check, X, Plus, Edit } from 'lucide-react';
 import { useTasksByDate, useCompleteTask, useCancelTask } from '@/hooks/useTasks';
 import { AddTaskModal } from './AddTaskModal';
+import { EditTaskModal } from './EditTaskModal';
 
 interface TaskDayViewProps {
   open: boolean;
@@ -27,6 +28,7 @@ export const TaskDayView: React.FC<TaskDayViewProps> = ({
   onTaskClick
 }) => {
   const [showAddModal, setShowAddModal] = React.useState(false);
+  const [editingTaskId, setEditingTaskId] = React.useState<string | null>(null);
   const { tasks, isLoading } = useTasksByDate(format(date, 'yyyy-MM-dd'));
   const { mutate: completeTask } = useCompleteTask();
   const { mutate: cancelTask } = useCancelTask();
@@ -133,6 +135,18 @@ export const TaskDayView: React.FC<TaskDayViewProps> = ({
                             <Button
                               size="sm"
                               variant="ghost"
+                              className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingTaskId(task.id);
+                              }}
+                              title="Редактировать"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
                               className="h-8 w-8 p-0 text-green-600 hover:bg-green-50"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -207,6 +221,18 @@ export const TaskDayView: React.FC<TaskDayViewProps> = ({
                             <Button
                               size="sm"
                               variant="ghost"
+                              className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingTaskId(task.id);
+                              }}
+                              title="Редактировать"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
                               className="h-8 w-8 p-0 text-green-600 hover:bg-green-50"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -257,6 +283,14 @@ export const TaskDayView: React.FC<TaskDayViewProps> = ({
         onOpenChange={setShowAddModal}
         preselectedDate={format(date, 'yyyy-MM-dd')}
       />
+
+      {editingTaskId && (
+        <EditTaskModal
+          open={!!editingTaskId}
+          onOpenChange={(open) => !open && setEditingTaskId(null)}
+          taskId={editingTaskId}
+        />
+      )}
     </>
   );
 };

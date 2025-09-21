@@ -1,9 +1,10 @@
-import { AlertCircle, Clock, User, Check, X, ChevronDown, ChevronRight } from "lucide-react";
+import { AlertCircle, Clock, User, Check, X, ChevronDown, ChevronRight, Edit } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useTasks, useCompleteTask, useCancelTask } from "@/hooks/useTasks";
+import { EditTaskModal } from "./EditTaskModal";
 
 interface ClientTasksProps {
   clientId: string;
@@ -12,6 +13,7 @@ interface ClientTasksProps {
 
 export const ClientTasks = ({ clientId, clientName }: ClientTasksProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const { tasks, isLoading } = useTasks(clientId);
   const completeTask = useCompleteTask();
   const cancelTask = useCancelTask();
@@ -96,8 +98,21 @@ export const ClientTasks = ({ clientId, clientName }: ClientTasksProps) => {
                     <Button 
                       size="sm" 
                       variant="ghost" 
+                      className="h-6 w-6 p-0 text-blue-600 hover:bg-blue-50"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingTaskId(task.id);
+                      }}
+                      title="Редактировать"
+                    >
+                      <Edit className="h-3 w-3" />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
                       className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
                       onClick={() => handleCompleteTask(task.id)}
+                      title="Завершить"
                     >
                       <Check className="h-3 w-3" />
                     </Button>
@@ -106,6 +121,7 @@ export const ClientTasks = ({ clientId, clientName }: ClientTasksProps) => {
                       variant="ghost" 
                       className="h-6 w-6 p-0 text-red-600 hover:bg-red-50"
                       onClick={() => handleCloseTask(task.id)}
+                      title="Отменить"
                     >
                       <X className="h-3 w-3" />
                     </Button>
@@ -115,6 +131,14 @@ export const ClientTasks = ({ clientId, clientName }: ClientTasksProps) => {
             ))}
           </div>
         </CardContent>
+      )}
+      
+      {editingTaskId && (
+        <EditTaskModal
+          open={!!editingTaskId}
+          onOpenChange={(open) => !open && setEditingTaskId(null)}
+          taskId={editingTaskId}
+        />
       )}
     </Card>
   );

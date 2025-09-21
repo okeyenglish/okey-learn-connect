@@ -73,7 +73,8 @@ import {
   BellOff,
   Check,
   Clock,
-  Lock
+  Lock,
+  Edit
 } from "lucide-react";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 
@@ -139,7 +140,15 @@ const CRMContent = () => {
     type: 'today' | 'tomorrow';
     title: string;
     tasks: any[];
-  }>({ open: false, type: 'today', title: '', tasks: [] });
+  }>({
+    open: false,
+    type: 'today',
+    title: '',
+    tasks: []
+  });
+
+  // Task editing state
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   
   // Local view state for tasks section
   const [tasksView, setTasksView] = useState<"list" | "calendar">("list");
@@ -1223,6 +1232,18 @@ const CRMContent = () => {
                                                                 <Button 
                                                                   size="sm" 
                                                                   variant="ghost" 
+                                                                  className="h-6 w-6 p-0 text-blue-600 hover:bg-blue-50"
+                                                                  onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setEditingTaskId(task.id);
+                                                                  }}
+                                                                  title="Редактировать"
+                                                                >
+                                                                  <Edit className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                                <Button 
+                                                                  size="sm" 
+                                                                  variant="ghost" 
                                                                   className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
                                                                   onClick={(e) => {
                                                                     e.stopPropagation();
@@ -1320,6 +1341,18 @@ const CRMContent = () => {
                                                                 <Button 
                                                                   size="sm" 
                                                                   variant="ghost" 
+                                                                  className="h-6 w-6 p-0 text-blue-600 hover:bg-blue-50"
+                                                                  onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setEditingTaskId(task.id);
+                                                                  }}
+                                                                  title="Редактировать"
+                                                                >
+                                                                  <Edit className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                                <Button 
+                                                                  size="sm" 
+                                                                  variant="ghost" 
                                                                   className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
                                                                   onClick={(e) => {
                                                                     e.stopPropagation();
@@ -1414,6 +1447,18 @@ const CRMContent = () => {
                                                         </div>
                                                       </div>
                                                       <div className="flex items-center gap-1 shrink-0">
+                                                        <Button 
+                                                          size="sm" 
+                                                          variant="ghost" 
+                                                          className="h-6 w-6 p-0 text-blue-600 hover:bg-blue-50"
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setEditingTaskId(task.id);
+                                                          }}
+                                                          title="Редактировать"
+                                                        >
+                                                          <Edit className="h-3.5 w-3.5" />
+                                                        </Button>
                                                         <Button 
                                                           size="sm" 
                                                           variant="ghost" 
@@ -1563,6 +1608,18 @@ const CRMContent = () => {
                                                           <Button 
                                                             size="sm" 
                                                             variant="ghost" 
+                                                            className="h-6 w-6 p-0 text-blue-600 hover:bg-blue-50"
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              setEditingTaskId(task.id);
+                                                            }}
+                                                            title="Редактировать"
+                                                          >
+                                                            <Edit className="h-3.5 w-3.5" />
+                                                          </Button>
+                                                          <Button 
+                                                            size="sm" 
+                                                            variant="ghost" 
                                                             className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
                                                             onClick={(e) => {
                                                               e.stopPropagation();
@@ -1629,6 +1686,18 @@ const CRMContent = () => {
                                                           </div>
                                                         </div>
                                                         <div className="flex items-center gap-1 shrink-0">
+                                                          <Button 
+                                                            size="sm" 
+                                                            variant="ghost" 
+                                                            className="h-6 w-6 p-0 text-blue-600 hover:bg-blue-50"
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              setEditingTaskId(task.id);
+                                                            }}
+                                                            title="Редактировать"
+                                                          >
+                                                            <Edit className="h-3.5 w-3.5" />
+                                                          </Button>
                                                           <Button 
                                                             size="sm" 
                                                             variant="ghost" 
@@ -1706,6 +1775,18 @@ const CRMContent = () => {
                                                         </div>
                                                       </div>
                                                       <div className="flex items-center gap-1 shrink-0">
+                                                        <Button 
+                                                          size="sm" 
+                                                          variant="ghost" 
+                                                          className="h-6 w-6 p-0 text-blue-600 hover:bg-blue-50"
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setEditingTaskId(task.id);
+                                                          }}
+                                                          title="Редактировать"
+                                                        >
+                                                          <Edit className="h-3.5 w-3.5" />
+                                                        </Button>
                                                         <Button 
                                                           size="sm" 
                                                           variant="ghost" 
@@ -2499,6 +2580,18 @@ const CRMContent = () => {
                       <Button 
                         size="sm" 
                         variant="ghost" 
+                        className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingTaskId(task.id);
+                        }}
+                        title="Редактировать"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
                         className="h-8 w-8 p-0 text-green-600 hover:bg-green-50"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -2543,6 +2636,15 @@ const CRMContent = () => {
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Task Modal */}
+      {editingTaskId && (
+        <EditTaskModal
+          open={!!editingTaskId}
+          onOpenChange={(open) => !open && setEditingTaskId(null)}
+          taskId={editingTaskId}
+        />
+      )}
     </div>
   );
 };
