@@ -107,17 +107,10 @@ export const useTypingStatus = (clientId: string) => {
       last_activity: new Date().toISOString(),
     } as any;
 
-    // Try update first
-    const { data: updated, error: updErr } = await supabase
+    // Upsert to avoid duplicate key errors on rapid updates
+    await supabase
       .from('typing_status')
-      .update(payload)
-      .eq('user_id', userId)
-      .eq('client_id', clientId)
-      .select();
-
-    if (updErr || (updated?.length ?? 0) === 0) {
-      await supabase.from('typing_status').insert(payload);
-    }
+      .upsert(payload, { onConflict: 'user_id,client_id' });
 
     // Auto set false after 5s of inactivity when typing
     if (isTyping) {

@@ -849,7 +849,7 @@ export const ChatArea = ({
       }}
     >
       {/* Chat Header */}
-      <div className={`border-b shrink-0 ${isMobile ? 'bg-background sticky top-12 z-10' : 'p-3'}`}>
+      <div className={`border-b shrink-0 ${isMobile ? 'bg-background sticky top-0 z-20' : 'p-3'}`}>
         {/* Mobile: Compact header with contact info and actions on the same line */}
         {isMobile && (
           <div className="flex items-center justify-between p-3 bg-background border-b">
@@ -1225,6 +1225,9 @@ export const ChatArea = ({
                 value={message}
                 onChange={(e) => handleMessageChange(e.target.value)}
                 onKeyPress={handleKeyPress}
+                onKeyDown={() => updateTypingStatus(true)}
+                onFocus={() => updateTypingStatus(true)}
+                onBlur={() => updateTypingStatus(false)}
                 className={`min-h-[48px] max-h-[120px] resize-none text-base ${
                   commentMode ? "bg-yellow-50 border-yellow-300" : ""
                 } ${isOtherUserTyping ? "bg-orange-50 border-orange-200" : ""}`}
