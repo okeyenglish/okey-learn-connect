@@ -29,31 +29,21 @@ serve(async (req) => {
     // Если передан аудио, конвертируем его в текст
     if (audio) {
       try {
-        // Process base64 in chunks to prevent stack overflow
-        const chunkSize = 8192;
-        const chunks: Uint8Array[] = [];
-        let position = 0;
+        console.log('Processing audio, base64 length:', audio.length);
         
-        while (position < audio.length) {
-          const chunk = audio.slice(position, position + chunkSize);
-          const binaryChunk = atob(chunk);
-          const bytes = new Uint8Array(binaryChunk.length);
-          
-          for (let i = 0; i < binaryChunk.length; i++) {
-            bytes[i] = binaryChunk.charCodeAt(i);
+        // Process base64 directly without chunking for now to isolate the issue
+        let binaryAudio: Uint8Array;
+        
+        try {
+          const binaryString = atob(audio);
+          binaryAudio = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            binaryAudio[i] = binaryString.charCodeAt(i);
           }
-          
-          chunks.push(bytes);
-          position += chunkSize;
-        }
-
-        const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-        const binaryAudio = new Uint8Array(totalLength);
-        let offset = 0;
-
-        for (const chunk of chunks) {
-          binaryAudio.set(chunk, offset);
-          offset += chunk.length;
+          console.log('Audio converted successfully, size:', binaryAudio.length);
+        } catch (decodeError) {
+          console.error('Base64 decode error:', decodeError);
+          throw new Error('Неверный формат аудио данных');
         }
 
         const formData = new FormData();
@@ -62,6 +52,7 @@ serve(async (req) => {
         formData.append('model', 'whisper-1');
         formData.append('language', 'ru');
 
+        console.log('Sending to OpenAI Whisper API...');
         const transcriptionResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
           method: 'POST',
           headers: {
@@ -70,18 +61,27 @@ serve(async (req) => {
           body: formData,
         });
 
+        console.log('Whisper response status:', transcriptionResponse.status);
+        
         if (!transcriptionResponse.ok) {
           const errorText = await transcriptionResponse.text();
-          console.error('Transcription error:', errorText);
-          throw new Error(`Failed to transcribe audio: ${transcriptionResponse.status}`);
+          console.error('Transcription error response:', errorText);
+          throw new Error(`Ошибка транскрипции: ${transcriptionResponse.status}`);
         }
 
         const transcription = await transcriptionResponse.json();
         userCommand = transcription.text;
         console.log('Transcribed command:', userCommand);
+        
+        if (!userCommand || userCommand.trim().length === 0) {
+          throw new Error('Пустая команда после транскрипции');
+        }
       } catch (error) {
-        console.error('Audio processing error:', error);
-        throw new Error('Ошибка обработки аудио');
+        console.error('Audio processing error details:', error);
+        if (error.message.includes('транскрипции') || error.message.includes('формат')) {
+          throw error;
+        }
+        throw new Error('Ошибка обработки аудио: ' + error.message);
       }
     } else if (command) {
       userCommand = command;
