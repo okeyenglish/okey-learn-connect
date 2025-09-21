@@ -559,6 +559,62 @@ export type Database = {
         }
         Relationships: []
       }
+      lesson_sessions: {
+        Row: {
+          branch: string
+          classroom: string
+          created_at: string
+          day_of_week: Database["public"]["Enums"]["day_of_week"]
+          end_time: string
+          group_id: string | null
+          id: string
+          lesson_date: string
+          notes: string | null
+          start_time: string
+          status: Database["public"]["Enums"]["lesson_status"]
+          teacher_name: string
+          updated_at: string
+        }
+        Insert: {
+          branch: string
+          classroom: string
+          created_at?: string
+          day_of_week: Database["public"]["Enums"]["day_of_week"]
+          end_time: string
+          group_id?: string | null
+          id?: string
+          lesson_date: string
+          notes?: string | null
+          start_time: string
+          status?: Database["public"]["Enums"]["lesson_status"]
+          teacher_name: string
+          updated_at?: string
+        }
+        Update: {
+          branch?: string
+          classroom?: string
+          created_at?: string
+          day_of_week?: Database["public"]["Enums"]["day_of_week"]
+          end_time?: string
+          group_id?: string | null
+          id?: string
+          lesson_date?: string
+          notes?: string | null
+          start_time?: string
+          status?: Database["public"]["Enums"]["lesson_status"]
+          teacher_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_sessions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "learning_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       manager_branches: {
         Row: {
           branch: string
@@ -1071,6 +1127,27 @@ export type Database = {
         Args: { "": string } | { "": unknown }
         Returns: unknown
       }
+      check_classroom_conflict: {
+        Args: {
+          p_branch: string
+          p_classroom: string
+          p_end_time: string
+          p_exclude_session_id?: string
+          p_lesson_date: string
+          p_start_time: string
+        }
+        Returns: boolean
+      }
+      check_teacher_conflict: {
+        Args: {
+          p_end_time: string
+          p_exclude_session_id?: string
+          p_lesson_date: string
+          p_start_time: string
+          p_teacher_name: string
+        }
+        Returns: boolean
+      }
       cleanup_old_typing_status: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -1107,6 +1184,24 @@ export type Database = {
           updated_at: string
           vacancies: number
           Возраст: string
+        }[]
+      }
+      get_schedule_conflicts: {
+        Args: {
+          p_branch: string
+          p_classroom: string
+          p_end_time: string
+          p_exclude_session_id?: string
+          p_lesson_date: string
+          p_start_time: string
+          p_teacher_name: string
+        }
+        Returns: {
+          conflict_type: string
+          conflicting_classroom: string
+          conflicting_group_id: string
+          conflicting_teacher: string
+          conflicting_time_range: string
         }[]
       }
       get_user_branches: {
@@ -1233,9 +1328,18 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "manager" | "teacher"
+      day_of_week:
+        | "monday"
+        | "tuesday"
+        | "wednesday"
+        | "thursday"
+        | "friday"
+        | "saturday"
+        | "sunday"
       group_category: "preschool" | "school" | "adult" | "all"
       group_status: "reserve" | "forming" | "active" | "suspended" | "finished"
       group_type: "general" | "individual" | "mini" | "corporate"
+      lesson_status: "scheduled" | "cancelled" | "completed" | "rescheduled"
       message_status:
         | "queued"
         | "sent"
@@ -1375,9 +1479,19 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "manager", "teacher"],
+      day_of_week: [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday",
+      ],
       group_category: ["preschool", "school", "adult", "all"],
       group_status: ["reserve", "forming", "active", "suspended", "finished"],
       group_type: ["general", "individual", "mini", "corporate"],
+      lesson_status: ["scheduled", "cancelled", "completed", "rescheduled"],
       message_status: [
         "queued",
         "sent",
