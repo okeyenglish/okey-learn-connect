@@ -397,41 +397,44 @@ serve(async (req) => {
     }
 
     // Генерация голосового ответа
-    const ttsResponse = await fetch('https://api.openai.com/v1/audio/speech', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'tts-1',
-        input: responseText,
-        voice: 'nova',
-        response_format: 'mp3',
-      }),
-    });
-
-    if (!ttsResponse.ok) {
-      console.error('TTS error:', await ttsResponse.text());
-      // Продолжаем без голосового ответа
-    }
-
     let base64Audio = null;
-    if (ttsResponse.ok) {
-      const audioBuffer = await ttsResponse.arrayBuffer();
-      const uint8Array = new Uint8Array(audioBuffer);
+    try {
+      console.log('Generating TTS for response:', responseText);
+      const ttsResponse = await fetch('https://api.openai.com/v1/audio/speech', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'tts-1',
+          input: responseText,
+          voice: 'nova',
+          response_format: 'mp3',
+        }),
+      });
+
+      console.log('TTS response status:', ttsResponse.status);
       
-      // Convert to base64 in chunks to prevent stack overflow
-      const chunkSize = 8192;
-      let base64String = '';
-      
-      for (let i = 0; i < uint8Array.length; i += chunkSize) {
-        const chunk = uint8Array.slice(i, i + chunkSize);
-        const chunkString = String.fromCharCode.apply(null, Array.from(chunk));
-        base64String += btoa(chunkString);
+      if (ttsResponse.ok) {
+        const audioBuffer = await ttsResponse.arrayBuffer();
+        const uint8Array = new Uint8Array(audioBuffer);
+        
+        // Convert to base64 safely
+        const chunkSize = 8192;
+        let binaryString = '';
+        for (let i = 0; i < uint8Array.length; i += chunkSize) {
+          const chunk = uint8Array.subarray(i, i + chunkSize);
+          binaryString += String.fromCharCode.apply(null, Array.from(chunk));
+        }
+        base64Audio = btoa(binaryString);
+        console.log('TTS audio generated successfully, base64 length:', base64Audio.length);
+      } else {
+        const errorText = await ttsResponse.text();
+        console.error('TTS error response:', errorText);
       }
-      
-      base64Audio = base64String;
+    } catch (ttsError) {
+      console.error('TTS generation error:', ttsError);
     }
 
     return new Response(JSON.stringify({

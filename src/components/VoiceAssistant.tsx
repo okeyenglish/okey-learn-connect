@@ -243,15 +243,24 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
         currentAudioRef.current = null;
       }
       
-      const binaryString = atob(base64Audio);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
+      console.log('Playing audio response, base64 length:', base64Audio.length);
+      
+      // Безопасное декодирование base64
+      let audioBlob: Blob;
+      try {
+        const binaryString = atob(base64Audio);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        audioBlob = new Blob([bytes], { type: 'audio/mpeg' });
+        console.log('Audio blob created, size:', audioBlob.size);
+      } catch (decodeError) {
+        console.error('Base64 decode error:', decodeError);
+        throw new Error('Ошибка декодирования аудио');
       }
       
-      const audioBlob = new Blob([bytes], { type: 'audio/mpeg' });
       const audioUrl = URL.createObjectURL(audioBlob);
-      
       const audio = new Audio(audioUrl);
       currentAudioRef.current = audio;
       
@@ -259,21 +268,25 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
         setIsSpeaking(false);
         URL.revokeObjectURL(audioUrl);
         currentAudioRef.current = null;
+        console.log('Audio playback ended');
       };
       
-      audio.onerror = () => {
+      audio.onerror = (error) => {
+        console.error('Audio playback error:', error);
         setIsSpeaking(false);
         URL.revokeObjectURL(audioUrl);
         currentAudioRef.current = null;
         toast.error('Ошибка воспроизведения ответа');
       };
       
+      console.log('Starting audio playback');
       await audio.play();
       
     } catch (error) {
       console.error('Error playing audio response:', error);
       setIsSpeaking(false);
-      toast.error('Ошибка воспроизведения голосового ответа');
+      const errorMessage = error instanceof Error ? error.message : 'Ошибка воспроизведения голосового ответа';
+      toast.error(errorMessage);
     }
   };
 
