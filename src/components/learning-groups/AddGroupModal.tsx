@@ -4,12 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Loader2, Users, BookOpen, MapPin, Calendar } from "lucide-react";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { ru } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { useCreateLearningGroup, LearningGroup } from "@/hooks/useLearningGroups";
+import { useCreateLearningGroup, LearningGroup, useLearningGroups } from "@/hooks/useLearningGroups";
 import { getBranchesForSelect } from "@/lib/branches";
 
 interface AddGroupModalProps {
@@ -27,16 +31,23 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
     category: "all" as "preschool" | "school" | "adult" | "all",
     group_type: "general" as "general" | "mini",
     status: "forming" as "reserve" | "forming" | "active" | "suspended" | "finished",
-    capacity: "12",
+    capacity: "10",
     academic_hours: "",
+    period_start: null as Date | null,
+    period_end: null as Date | null,
     schedule_days: [] as string[],
     schedule_room: "",
     lesson_start_hour: "",
     lesson_start_minute: "",
     lesson_end_hour: "",
-    lesson_end_minute: "",
-    description: ""
+    lesson_end_minute: ""
   });
+  
+  const { toast } = useToast();
+  const createGroup = useCreateLearningGroup();
+  
+  // Get all groups for auto-naming
+  const { groups: allGroups } = useLearningGroups();
 
   // Function to automatically set category based on level
   const getCategoryFromLevel = (level: string): "preschool" | "school" | "adult" | "all" => {
@@ -46,9 +57,73 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
     if (level.startsWith("Empower")) return "adult";
     return "all";
   };
-  
-  const { toast } = useToast();
-  const createGroup = useCreateLearningGroup();
+
+  // Function to generate branch abbreviation
+  const getBranchAbbreviation = (branch: string): string => {
+    const abbreviations: Record<string, string> = {
+      "Окская": "ОК",
+      "Котельники": "КТ",
+      "Люберцы-1": "Л1",
+      "Люберцы-2": "Л2", 
+      "Мытищи": "МТ",
+      "Новокосино": "НК",
+      "Солнцево": "СЛ",
+      "Стахановская": "СТ",
+      "Онлайн": "ОН"
+    };
+    return abbreviations[branch] || "ОК";
+  };
+
+  // Function to generate custom name automatically
+  const generateCustomName = (branch: string) => {
+    if (!branch || !allGroups) return "";
+    
+    const branchAbbr = getBranchAbbreviation(branch);
+    const existingGroups = allGroups.filter(g => 
+      g.custom_name?.startsWith(branchAbbr) && g.branch === branch
+    );
+    
+    // Find next available number
+    let nextNumber = 1;
+    while (existingGroups.some(g => g.custom_name === `${branchAbbr}${nextNumber}`)) {
+      nextNumber++;
+    }
+    
+    return `${branchAbbr}${nextNumber}`;
+  };
+
+  // Calculate academic hours based on dates, schedule and time
+  const calculateAcademicHours = (startDate: Date | null, endDate: Date | null, scheduleDays: string[], lessonDuration: number) => {
+    if (!startDate || !endDate || scheduleDays.length === 0 || lessonDuration === 0) return 0;
+    
+    const totalWeeks = Math.ceil((endDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    const lessonsPerWeek = scheduleDays.length;
+    const totalLessons = totalWeeks * lessonsPerWeek;
+    const academicHoursPerLesson = lessonDuration / 45; // 45 minutes = 1 academic hour
+    
+    return Math.round(totalLessons * academicHoursPerLesson);
+  };
+
+  // Get lesson duration in minutes
+  const getLessonDuration = () => {
+    if (!formData.lesson_start_hour || !formData.lesson_start_minute || 
+        !formData.lesson_end_hour || !formData.lesson_end_minute) return 0;
+    
+    const startMinutes = parseInt(formData.lesson_start_hour) * 60 + parseInt(formData.lesson_start_minute);
+    const endMinutes = parseInt(formData.lesson_end_hour) * 60 + parseInt(formData.lesson_end_minute);
+    
+    return endMinutes - startMinutes;
+  };
+
+  // Auto-calculate academic hours when relevant fields change
+  const updateAcademicHours = () => {
+    const lessonDuration = getLessonDuration();
+    const hours = calculateAcademicHours(formData.period_start, formData.period_end, formData.schedule_days, lessonDuration);
+    
+    if (hours > 0) {
+      setFormData(prev => ({ ...prev, academic_hours: hours.toString() }));
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,10 +147,11 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
         capacity: parseInt(formData.capacity),
         current_students: 0,
         academic_hours: formData.academic_hours ? parseFloat(formData.academic_hours) : undefined,
+        period_start: formData.period_start?.toISOString().split('T')[0] || undefined,
+        period_end: formData.period_end?.toISOString().split('T')[0] || undefined,
         schedule_days: formData.schedule_days.length > 0 ? formData.schedule_days : undefined,
         schedule_time: schedule_time,
         schedule_room: formData.schedule_room || undefined,
-        description: formData.description || undefined,
         debt_count: 0,
         is_active: true
       };
@@ -97,15 +173,16 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
         category: "all",
         group_type: "general",
         status: "forming",
-        capacity: "12",
+        capacity: "10",
         academic_hours: "",
+        period_start: null,
+        period_end: null,
         schedule_days: [],
         schedule_room: "",
         lesson_start_hour: "",
         lesson_start_minute: "",
         lesson_end_hour: "",
-        lesson_end_minute: "",
-        description: ""
+        lesson_end_minute: ""
       });
       
       setOpen(false);
@@ -193,7 +270,13 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                     </Label>
                     <Select
                       value={formData.branch}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, branch: value }))}
+                      onValueChange={(value) => {
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          branch: value,
+                          custom_name: generateCustomName(value)
+                        }));
+                      }}
                       required
                     >
                       <SelectTrigger>
@@ -241,7 +324,7 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Дисциплина</Label>
+                    <Label>Язык</Label>
                     <Select
                       value={formData.subject}
                       onValueChange={(value) => setFormData(prev => ({ ...prev, subject: value }))}
@@ -342,7 +425,9 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                       type="number"
                       value={formData.academic_hours}
                       onChange={(e) => setFormData(prev => ({ ...prev, academic_hours: e.target.value }))}
-                      placeholder="117"
+                      placeholder="Рассчитается автоматически"
+                      readOnly
+                      className="bg-gray-50"
                     />
                   </div>
 
@@ -370,6 +455,84 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                   </div>
                 </div>
 
+                {/* Period dates */}
+                <div className="space-y-3">
+                  <Label className="flex items-center gap-2 font-medium">
+                    <Calendar className="h-4 w-4 text-green-600" />
+                    Период обучения *
+                  </Label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm text-gray-600">Дата начала</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !formData.period_start && "text-muted-foreground"
+                            )}
+                          >
+                            <Calendar className="mr-2 h-4 w-4" />
+                            {formData.period_start ? (
+                              format(formData.period_start, "dd.MM.yyyy", { locale: ru })
+                            ) : (
+                              <span>Выберите дату</span>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={formData.period_start || undefined}
+                            onSelect={(date) => {
+                              setFormData(prev => ({ ...prev, period_start: date || null }));
+                              setTimeout(updateAcademicHours, 100);
+                            }}
+                            className="p-3 pointer-events-auto"
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm text-gray-600">Дата окончания</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !formData.period_end && "text-muted-foreground"
+                            )}
+                          >
+                            <Calendar className="mr-2 h-4 w-4" />
+                            {formData.period_end ? (
+                              format(formData.period_end, "dd.MM.yyyy", { locale: ru })
+                            ) : (
+                              <span>Выберите дату</span>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={formData.period_end || undefined}
+                            onSelect={(date) => {
+                              setFormData(prev => ({ ...prev, period_end: date || null }));
+                              setTimeout(updateAcademicHours, 100);
+                            }}
+                            className="p-3 pointer-events-auto"
+                            disabled={(date) => formData.period_start ? date < formData.period_start : false}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-3">
                   <Label className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-orange-600" />
@@ -382,7 +545,10 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                         type="button"
                         variant={formData.schedule_days.includes(day) ? "default" : "outline"}
                         size="sm"
-                        onClick={() => toggleDay(day)}
+                        onClick={() => {
+                          toggleDay(day);
+                          setTimeout(updateAcademicHours, 100);
+                        }}
                         className={formData.schedule_days.includes(day) ? "bg-blue-600 text-white" : ""}
                       >
                         {day.charAt(0).toUpperCase() + day.slice(1)}
@@ -402,7 +568,10 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                       <div className="grid grid-cols-2 gap-2">
                         <Select
                           value={formData.lesson_start_hour}
-                          onValueChange={(value) => setFormData(prev => ({ ...prev, lesson_start_hour: value }))}
+                          onValueChange={(value) => {
+                            setFormData(prev => ({ ...prev, lesson_start_hour: value }));
+                            setTimeout(updateAcademicHours, 100);
+                          }}
                           required
                         >
                           <SelectTrigger>
@@ -418,7 +587,10 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                         </Select>
                         <Select
                           value={formData.lesson_start_minute}
-                          onValueChange={(value) => setFormData(prev => ({ ...prev, lesson_start_minute: value }))}
+                          onValueChange={(value) => {
+                            setFormData(prev => ({ ...prev, lesson_start_minute: value }));
+                            setTimeout(updateAcademicHours, 100);
+                          }}
                           required
                         >
                           <SelectTrigger>
@@ -440,7 +612,10 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                       <div className="grid grid-cols-2 gap-2">
                         <Select
                           value={formData.lesson_end_hour}
-                          onValueChange={(value) => setFormData(prev => ({ ...prev, lesson_end_hour: value }))}
+                          onValueChange={(value) => {
+                            setFormData(prev => ({ ...prev, lesson_end_hour: value }));
+                            setTimeout(updateAcademicHours, 100);
+                          }}
                           required
                         >
                           <SelectTrigger>
@@ -456,7 +631,10 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                         </Select>
                         <Select
                           value={formData.lesson_end_minute}
-                          onValueChange={(value) => setFormData(prev => ({ ...prev, lesson_end_minute: value }))}
+                          onValueChange={(value) => {
+                            setFormData(prev => ({ ...prev, lesson_end_minute: value }));
+                            setTimeout(updateAcademicHours, 100);
+                          }}
                           required
                         >
                           <SelectTrigger>
@@ -490,17 +668,9 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                   <Input
                     value={formData.custom_name}
                     onChange={(e) => setFormData(prev => ({ ...prev, custom_name: e.target.value }))}
-                    placeholder="Дополнительное название группы"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Описание</Label>
-                  <Textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Дополнительная информация о группе"
-                    rows={3}
+                    placeholder="Генерируется автоматически"
+                    readOnly
+                    className="bg-gray-50"
                   />
                 </div>
               </CardContent>

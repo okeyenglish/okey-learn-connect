@@ -4,10 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Users, BookOpen, MapPin, Calendar } from "lucide-react";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { ru } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useUpdateLearningGroup, LearningGroup } from "@/hooks/useLearningGroups";
 import { getBranchesForSelect } from "@/lib/branches";
@@ -29,15 +33,16 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
     category: "all" as "preschool" | "school" | "adult" | "all",
     group_type: "general" as "general" | "mini",
     status: "forming" as "reserve" | "forming" | "active" | "suspended" | "finished",
-    capacity: "12",
+    capacity: "10",
     academic_hours: "",
+    period_start: null as Date | null,
+    period_end: null as Date | null,
     schedule_days: [] as string[],
     schedule_room: "",
     lesson_start_hour: "",
     lesson_start_minute: "",
     lesson_end_hour: "",
-    lesson_end_minute: "",
-    description: ""
+    lesson_end_minute: ""
   });
   
   const { toast } = useToast();
@@ -67,15 +72,16 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
         category: group.category || "all",
         group_type: group.group_type || "general",
         status: group.status || "forming",
-        capacity: group.capacity?.toString() || "12",
+        capacity: group.capacity?.toString() || "10",
         academic_hours: group.academic_hours?.toString() || "",
+        period_start: group.period_start ? new Date(group.period_start) : null,
+        period_end: group.period_end ? new Date(group.period_end) : null,
         schedule_days: group.schedule_days || [],
         schedule_room: group.schedule_room || "",
         lesson_start_hour: startHour,
         lesson_start_minute: startMinute,
         lesson_end_hour: endHour,
-        lesson_end_minute: endMinute,
-        description: group.description || ""
+        lesson_end_minute: endMinute
       });
     }
   }, [group, open]);
@@ -103,10 +109,11 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
         status: formData.status,
         capacity: parseInt(formData.capacity),
         academic_hours: formData.academic_hours ? parseFloat(formData.academic_hours) : undefined,
+        period_start: formData.period_start?.toISOString().split('T')[0] || undefined,
+        period_end: formData.period_end?.toISOString().split('T')[0] || undefined,
         schedule_days: formData.schedule_days.length > 0 ? formData.schedule_days : undefined,
         schedule_time: schedule_time,
-        schedule_room: formData.schedule_room || undefined,
-        description: formData.description || undefined
+        schedule_room: formData.schedule_room || undefined
       };
 
       await updateGroup.mutateAsync({ id: group.id, data: groupData });
@@ -243,7 +250,7 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Дисциплина</Label>
+                    <Label>Язык</Label>
                     <Select
                       value={formData.subject}
                       onValueChange={(value) => setFormData(prev => ({ ...prev, subject: value }))}
@@ -372,6 +379,78 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
                   </div>
                 </div>
 
+                {/* Period dates */}
+                <div className="space-y-3">
+                  <Label className="flex items-center gap-2 font-medium">
+                    <Calendar className="h-4 w-4 text-green-600" />
+                    Период обучения
+                  </Label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm text-gray-600">Дата начала</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !formData.period_start && "text-muted-foreground"
+                            )}
+                          >
+                            <Calendar className="mr-2 h-4 w-4" />
+                            {formData.period_start ? (
+                              format(formData.period_start, "dd.MM.yyyy", { locale: ru })
+                            ) : (
+                              <span>Выберите дату</span>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={formData.period_start || undefined}
+                            onSelect={(date) => setFormData(prev => ({ ...prev, period_start: date || null }))}
+                            className="p-3 pointer-events-auto"
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm text-gray-600">Дата окончания</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !formData.period_end && "text-muted-foreground"
+                            )}
+                          >
+                            <Calendar className="mr-2 h-4 w-4" />
+                            {formData.period_end ? (
+                              format(formData.period_end, "dd.MM.yyyy", { locale: ru })
+                            ) : (
+                              <span>Выберите дату</span>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={formData.period_end || undefined}
+                            onSelect={(date) => setFormData(prev => ({ ...prev, period_end: date || null }))}
+                            className="p-3 pointer-events-auto"
+                            disabled={(date) => formData.period_start ? date < formData.period_start : false}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-3">
                   <Label className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-orange-600" />
@@ -493,16 +572,6 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
                     value={formData.custom_name}
                     onChange={(e) => setFormData(prev => ({ ...prev, custom_name: e.target.value }))}
                     placeholder="Дополнительное название группы"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Описание</Label>
-                  <Textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Дополнительная информация о группе"
-                    rows={3}
                   />
                 </div>
               </CardContent>
