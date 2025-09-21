@@ -10,6 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { ChatMessage } from './ChatMessage';
 import { toast } from "sonner";
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useChatMessages, useSendMessage, useMarkAsRead, useRealtimeMessages } from '@/hooks/useChatMessages';
+import { useTypingStatus } from '@/hooks/useTypingStatus';
 
 interface TeacherGroup {
   id: string;
@@ -245,6 +247,15 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const [message, setMessage] = useState('');
   const isMobile = useIsMobile();
 
+  // Hooks for real chat functionality
+  const clientId = selectedTeacherId || '';
+  const { messages } = useChatMessages(clientId);
+  const sendMessage = useSendMessage();
+  const markAsRead = useMarkAsRead();
+  const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
+  
+  useRealtimeMessages(clientId);
+
   const filteredTeachers = mockTeachers.filter(teacher =>
     teacher.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     teacher.branch.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -275,61 +286,39 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     }
   };
 
-  // Mock chat messages for individual teacher
-  const teacherMessages = [
-    {
-      type: 'client' as const,
-      message: 'Добрый день! Как дела с домашним заданием у Павла?',
-      time: '10:15'
-    },
-    {
-      type: 'manager' as const,
-      message: 'Здравствуйте! Все отлично, Павел очень старается',
-      time: '10:18'
-    },
-    {
-      type: 'client' as const,
-      message: 'Замечательно! Завтра на уроке будем проходить новую тему',
-      time: '10:20'
-    },
-    {
-      type: 'manager' as const,
-      message: 'Отлично! Павел готов к новому материалу. Есть ли что-то особенное, на что стоит обратить внимание?',
-      time: '10:22'
-    }
-  ];
+  const handleSendMessage = async () => {
+    if (!message.trim() || !selectedTeacherId) return;
 
-  // Mock group chat messages for all teachers
-  const groupChatMessages = [
-    {
-      type: 'client' as const,
-      message: 'Коллеги, напоминаю про методическое собрание завтра в 14:00',
-      time: '09:30'
-    },
-    {
-      type: 'manager' as const,
-      message: 'Семён, я буду! Подготовлю отчет по новым учебникам',
-      time: '09:32'
-    },
-    {
-      type: 'client' as const,
-      message: 'Отлично! А кто-нибудь может поделиться презентацией по грамматике для уровня B1?',
-      time: '09:35'
-    },
-    {
-      type: 'manager' as const,
-      message: 'У меня есть хорошая презентация, скину в чат после урока',
-      time: '09:37'
-    },
-    {
-      type: 'client' as const,
-      message: 'Спасибо, Маргарита! Очень поможет для завтрашних занятий',
-      time: '09:40'
+    try {
+      await sendMessage.mutateAsync({
+        clientId: selectedTeacherId,
+        messageText: message.trim(),
+        messageType: 'manager'
+      });
+      setMessage('');
+      updateTypingStatus(false);
+    } catch (error) {
+      toast.error('Ошибка отправки сообщения');
     }
-  ];
+  };
+
+  const handleMarkAsRead = async () => {
+    if (!selectedTeacherId) return;
+    try {
+      await markAsRead.mutateAsync(selectedTeacherId);
+      toast.success('Отмечено как прочитанное');
+    } catch (error) {
+      toast.error('Ошибка отметки прочитанным');
+    }
+  };
+
+  const handleMessageChange = (value: string) => {
+    setMessage(value);
+    updateTypingStatus(value.length > 0);
+  };
 
   const isGroupChat = selectedTeacherId === 'teachers-group';
-  const currentMessages = isGroupChat ? groupChatMessages : teacherMessages;
+  const currentMessages = messages;
   const currentTeacher = isGroupChat ? null : selectedTeacher;
 
   // На мобильных показываем либо список преподавателей, либо чат
@@ -469,12 +458,13 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         {/* Chat Messages */}
         <ScrollArea className="flex-1 p-3">
           <div className="space-y-3">
-            {currentMessages.map((msg, index) => (
+            {currentMessages.map((msg) => (
               <ChatMessage
-                key={index}
-                type={msg.type}
-                message={msg.message}
-                time={msg.time}
+                key={msg.id}
+                type={msg.message_type}
+                message={msg.message_text}
+                time={new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                managerName={msg.message_type === 'manager' ? 'Вы' : currentTeacher?.fullName}
               />
             ))}
           </div>
@@ -680,12 +670,13 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
               <div className="flex-1 min-h-0">
                 <ScrollArea className="h-full">
                   <div className="p-3 space-y-1">
-                    {currentMessages.map((msg, index) => (
+                    {currentMessages.map((msg) => (
                       <ChatMessage
-                        key={index}
-                        type={msg.type}
-                        message={msg.message}
-                        time={msg.time}
+                        key={msg.id}
+                        type={msg.message_type}
+                        message={msg.message_text}
+                        time={new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                        managerName={msg.message_type === 'manager' ? 'Вы' : currentTeacher?.fullName}
                       />
                     ))}
                   </div>

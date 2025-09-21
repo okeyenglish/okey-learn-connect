@@ -7,6 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ChatMessage } from "./ChatMessage";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useChatMessages, useSendMessage, useMarkAsRead, useRealtimeMessages } from '@/hooks/useChatMessages';
+import { useTypingStatus } from '@/hooks/useTypingStatus';
+import { toast } from "sonner";
 
 interface CorporateChatAreaProps {
   onMessageChange?: (hasUnsaved: boolean) => void;
@@ -107,9 +110,46 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
   const [activeBranch, setActiveBranch] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
+  // Hooks for real chat functionality
+  const clientId = activeBranch || 'corporate-general';
+  const { messages } = useChatMessages(clientId);
+  const sendMessage = useSendMessage();
+  const markAsRead = useMarkAsRead();
+  const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
+  
+  useRealtimeMessages(clientId);
+
   const handleMessageChange = (value: string) => {
     setMessage(value);
     onMessageChange?.(value.trim().length > 0);
+    updateTypingStatus(value.length > 0);
+  };
+
+  const handleSendMessage = async () => {
+    if (!message.trim()) return;
+
+    try {
+      await sendMessage.mutateAsync({
+        clientId,
+        messageText: message.trim(),
+        messageType: 'manager'
+      });
+      setMessage('');
+      updateTypingStatus(false);
+      onMessageChange?.(false);
+    } catch (error) {
+      toast.error('Ошибка отправки сообщения');
+    }
+  };
+
+  const handleMarkAsRead = async () => {
+    if (!activeBranch) return;
+    try {
+      await markAsRead.mutateAsync(clientId);
+      toast.success('Отмечено как прочитанное');
+    } catch (error) {
+      toast.error('Ошибка отметки прочитанным');
+    }
   };
 
   const handleSearchToggle = () => {
@@ -127,12 +167,9 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
     setActiveBranch(null);
   };
 
-  const messages = activeBranch ? mockCorporateChats[activeBranch] || [] : [];
-
   // Filter messages based on search query
   const filteredMessages = messages.filter(msg => 
-    msg.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    msg.sender.toLowerCase().includes(searchQuery.toLowerCase())
+    msg.message_text.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const getActiveBranch = () => {
@@ -268,24 +305,20 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
             
             <TabsContent value="main" className="flex-1 p-3 overflow-y-auto mt-0">
               <div className="space-y-1">
-                {filteredMessages.map((msg, index) => (
-                  <div key={index} className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-6 h-6 bg-slate-200 rounded-full flex items-center justify-center">
-                        <span className="text-xs font-medium text-slate-600">
-                          {msg.sender.split(' ').map(n => n[0]).join('')}
-                        </span>
-                      </div>
-                      <span className="text-xs font-medium text-slate-700">{msg.sender}</span>
-                      <span className="text-xs text-muted-foreground">{msg.time}</span>
-                    </div>
-                    <div className="ml-8">
-                      <div className="bg-slate-50 rounded-lg p-2 text-sm">
-                        {msg.message}
-                      </div>
-                    </div>
-                  </div>
+                {filteredMessages.map((msg) => (
+                  <ChatMessage
+                    key={msg.id}
+                    type={msg.message_type}
+                    message={msg.message_text}
+                    time={new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                    managerName={msg.message_type === 'manager' ? 'Вы' : 'Сотрудник'}
+                  />
                 ))}
+                {isOtherUserTyping && (
+                  <div className="text-sm text-muted-foreground italic">
+                    {getTypingMessage()}
+                  </div>
+                )}
                 {searchQuery && filteredMessages.length === 0 && (
                   <div className="text-center text-muted-foreground text-sm py-4">
                     Сообщения не найдены
@@ -324,6 +357,12 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
                 onChange={(e) => handleMessageChange(e.target.value)}
                 className="min-h-[40px] max-h-[120px] resize-none"
                 rows={1}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
               />
               <div className="flex items-center gap-1 mt-2">
                 <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
@@ -340,7 +379,12 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
                 </Button>
               </div>
             </div>
-            <Button size="icon" className="rounded-full h-10 w-10">
+            <Button 
+              size="icon" 
+              className="rounded-full h-10 w-10"
+              onClick={handleSendMessage}
+              disabled={!message.trim()}
+            >
               <Send className="h-4 w-4" />
             </Button>
           </div>
@@ -472,24 +516,28 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
                 
                 <TabsContent value="main" className="flex-1 p-3 overflow-y-auto mt-0">
                   <div className="space-y-1">
-                    {filteredMessages.map((msg, index) => (
-                      <div key={index} className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <div className="w-6 h-6 bg-slate-200 rounded-full flex items-center justify-center">
-                            <span className="text-xs font-medium text-slate-600">
-                              {msg.sender.split(' ').map(n => n[0]).join('')}
-                            </span>
-                          </div>
-                          <span className="text-xs font-medium text-slate-700">{msg.sender}</span>
-                          <span className="text-xs text-muted-foreground">{msg.time}</span>
-                        </div>
-                        <div className="ml-8">
-                          <div className="bg-slate-50 rounded-lg p-2 text-sm">
-                            {msg.message}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                     {filteredMessages.map((msg, index) => (
+                       <div key={msg.id} className="flex flex-col gap-1">
+                         <div className="flex items-center gap-2 mb-1">
+                           <div className="w-6 h-6 bg-slate-200 rounded-full flex items-center justify-center">
+                             <span className="text-xs font-medium text-slate-600">
+                               {msg.message_type === 'manager' ? 'M' : 'C'}
+                             </span>
+                           </div>
+                           <span className="text-xs font-medium text-slate-700">
+                             {msg.message_type === 'manager' ? 'Вы' : 'Сотрудник'}
+                           </span>
+                           <span className="text-xs text-muted-foreground">
+                             {new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                           </span>
+                         </div>
+                         <div className="ml-8">
+                           <div className="bg-slate-50 rounded-lg p-2 text-sm">
+                             {msg.message_text}
+                           </div>
+                         </div>
+                       </div>
+                     ))}
                     {searchQuery && filteredMessages.length === 0 && (
                       <div className="text-center text-muted-foreground text-sm py-4">
                         Сообщения не найдены
