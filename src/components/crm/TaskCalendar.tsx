@@ -97,33 +97,6 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
               onSelect={handleDateSelect}
               locale={ru}
               className="rounded-md border p-3 pointer-events-auto"
-              components={{
-                Day: ({ date, ...props }) => {
-                  const dateStr = format(date, 'yyyy-MM-dd');
-                  const taskCount = tasksCountByDate.get(dateStr) || 0;
-                  const isSelected = selectedDate && format(selectedDate, 'yyyy-MM-dd') === dateStr;
-                  
-                  return (
-                    <div className="relative w-full">
-                      <button
-                        {...props}
-                        className={cn(
-                          "h-9 w-9 p-0 font-normal aria-selected:opacity-100 relative",
-                          isSelected && "bg-primary text-primary-foreground",
-                          taskCount > 0 && "font-semibold"
-                        )}
-                      >
-                        {date.getDate()}
-                        {taskCount > 0 && (
-                          <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                            {taskCount}
-                          </div>
-                        )}
-                      </button>
-                    </div>
-                  );
-                }
-              }}
             />
           </CardContent>
         </Card>
