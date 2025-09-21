@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { audio, action, userId } = await req.json();
+    const { audio, command, userId } = await req.json();
     
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
@@ -28,28 +28,41 @@ serve(async (req) => {
 
     // Если передан аудио, конвертируем его в текст
     if (audio) {
-      const binaryAudio = Uint8Array.from(atob(audio), c => c.charCodeAt(0));
-      const formData = new FormData();
-      const blob = new Blob([binaryAudio], { type: 'audio/webm' });
-      formData.append('file', blob, 'audio.webm');
-      formData.append('model', 'whisper-1');
-      formData.append('language', 'ru');
+      try {
+        const binaryAudio = Uint8Array.from(atob(audio), c => c.charCodeAt(0));
+        const formData = new FormData();
+        const blob = new Blob([binaryAudio], { type: 'audio/webm' });
+        formData.append('file', blob, 'audio.webm');
+        formData.append('model', 'whisper-1');
+        formData.append('language', 'ru');
 
-      const transcriptionResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
-        },
-        body: formData,
-      });
+        const transcriptionResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openAIApiKey}`,
+          },
+          body: formData,
+        });
 
-      if (!transcriptionResponse.ok) {
-        throw new Error('Failed to transcribe audio');
+        if (!transcriptionResponse.ok) {
+          const errorText = await transcriptionResponse.text();
+          console.error('Transcription error:', errorText);
+          throw new Error(`Failed to transcribe audio: ${transcriptionResponse.status}`);
+        }
+
+        const transcription = await transcriptionResponse.json();
+        userCommand = transcription.text;
+        console.log('Transcribed command:', userCommand);
+      } catch (error) {
+        console.error('Audio processing error:', error);
+        throw new Error('Ошибка обработки аудио');
       }
+    } else if (command) {
+      userCommand = command;
+    }
 
-      const transcription = await transcriptionResponse.json();
-      userCommand = transcription.text;
-      console.log('Transcribed command:', userCommand);
+    if (!userCommand.trim()) {
+      throw new Error('Команда не распознана');
     }
 
     // Получаем контекст пользователя
@@ -89,7 +102,7 @@ serve(async (req) => {
 
 Команда пользователя: "${userCommand}"`;
 
-    // Функции для GPT
+    // Функции для GPT в новом формате Tools API
     const functions = [
       {
         name: "search_clients",
@@ -174,14 +187,19 @@ serve(async (req) => {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userCommand }
         ],
-        functions: functions,
-        function_call: 'auto',
+        tools: functions.map(func => ({
+          type: 'function',
+          function: func
+        })),
+        tool_choice: 'auto',
         temperature: 0.7,
         max_tokens: 300
       }),
     });
 
     if (!gptResponse.ok) {
+      const errorText = await gptResponse.text();
+      console.error('GPT API error:', errorText);
       throw new Error('Failed to get GPT response');
     }
 
@@ -193,9 +211,10 @@ serve(async (req) => {
     let actionResult = null;
 
     // Если GPT вызвал функцию, выполняем её
-    if (message.function_call) {
-      const functionName = message.function_call.name;
-      const functionArgs = JSON.parse(message.function_call.arguments);
+    if (message.tool_calls && message.tool_calls.length > 0) {
+      const toolCall = message.tool_calls[0];
+      const functionName = toolCall.function.name;
+      const functionArgs = JSON.parse(toolCall.function.arguments);
       console.log('Function call:', functionName, functionArgs);
 
       try {
@@ -365,11 +384,15 @@ serve(async (req) => {
     });
 
     if (!ttsResponse.ok) {
-      throw new Error('Failed to generate speech');
+      console.error('TTS error:', await ttsResponse.text());
+      // Продолжаем без голосового ответа
     }
 
-    const audioBuffer = await ttsResponse.arrayBuffer();
-    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
+    let base64Audio = null;
+    if (ttsResponse.ok) {
+      const audioBuffer = await ttsResponse.arrayBuffer();
+      base64Audio = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
+    }
 
     return new Response(JSON.stringify({
       success: true,

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -32,8 +32,26 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
   
   const { user } = useAuth();
+
+  // Очистка ресурсов при размонтировании
+  useEffect(() => {
+    return () => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    };
+  }, []);
 
   const startRecording = useCallback(async () => {
     try {
@@ -46,6 +64,13 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
           autoGainControl: true
         }
       });
+      
+      // Создаем аудио контекст для определения тишины
+      audioContextRef.current = new AudioContext();
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      analyserRef.current.fftSize = 256;
+      source.connect(analyserRef.current);
       
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'audio/webm;codecs=opus'
@@ -64,13 +89,20 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         await processAudio(audioBlob);
         
-        // Останавливаем все треки
+        // Останавливаем все треки и очищаем ресурсы
         stream.getTracks().forEach(track => track.stop());
+        if (audioContextRef.current) {
+          audioContextRef.current.close();
+          audioContextRef.current = null;
+        }
       };
       
-      mediaRecorder.start(1000); // Записываем чанками по 1 секунде
+      mediaRecorder.start(100); // Записываем чанками по 100мс для лучшего отклика
       setIsRecording(true);
       toast.success('Запись начата. Говорите...');
+      
+      // Запускаем мониторинг тишины
+      startSilenceDetection();
       
     } catch (error) {
       console.error('Error starting recording:', error);
@@ -78,8 +110,58 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
     }
   }, []);
 
+  // Определение тишины для автоматической остановки записи
+  const startSilenceDetection = useCallback(() => {
+    if (!analyserRef.current) return;
+    
+    const bufferLength = analyserRef.current.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    
+    const checkAudioLevel = () => {
+      if (!analyserRef.current || !isRecording) return;
+      
+      analyserRef.current.getByteFrequencyData(dataArray);
+      
+      // Вычисляем средний уровень звука
+      const average = dataArray.reduce((sum, value) => sum + value, 0) / bufferLength;
+      
+      // Порог тишины (можно настроить)
+      const silenceThreshold = 20;
+      
+      if (average < silenceThreshold) {
+        // Если тишина, запускаем таймер
+        if (!silenceTimerRef.current) {
+          silenceTimerRef.current = setTimeout(() => {
+            if (isRecording) {
+              stopRecording();
+            }
+          }, 2000); // Останавливаем через 2 секунды тишины
+        }
+      } else {
+        // Если есть звук, сбрасываем таймер
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = null;
+        }
+      }
+      
+      // Продолжаем мониторинг
+      if (isRecording) {
+        requestAnimationFrame(checkAudioLevel);
+      }
+    };
+    
+    checkAudioLevel();
+  }, [isRecording]);
+
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
+      // Очищаем таймер тишины
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+      
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       setIsProcessing(true);
@@ -89,6 +171,12 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
 
   const processAudio = async (audioBlob: Blob) => {
     try {
+      // Проверяем минимальный размер аудио
+      if (audioBlob.size < 1000) {
+        toast.error('Слишком короткая запись');
+        return;
+      }
+      
       // Конвертируем аудио в base64
       const arrayBuffer = await audioBlob.arrayBuffer();
       const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
@@ -101,12 +189,13 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
       });
       
       if (error) {
-        throw error;
+        console.error('Supabase function error:', error);
+        throw new Error('Ошибка сервера');
       }
       
-      if (data.success) {
-        setLastCommand(data.transcription);
-        setLastResponse(data.response);
+      if (data?.success) {
+        setLastCommand(data.transcription || 'Команда не распознана');
+        setLastResponse(data.response || 'Нет ответа');
         setActionResult(data.actionResult);
         
         toast.success(`Команда выполнена: ${data.response}`);
@@ -116,12 +205,13 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
           await playAudioResponse(data.audioResponse);
         }
       } else {
-        throw new Error(data.error);
+        throw new Error(data?.error || 'Неизвестная ошибка');
       }
       
     } catch (error) {
       console.error('Error processing audio:', error);
-      toast.error('Ошибка обработки голосовой команды');
+      const errorMessage = error instanceof Error ? error.message : 'Ошибка обработки команды';
+      toast.error(errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -332,9 +422,14 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
 
           <div className="text-center">
             {isRecording && (
-              <Badge variant="destructive" className="animate-pulse">
-                Запись...
-              </Badge>
+              <div className="space-y-2">
+                <Badge variant="destructive" className="animate-pulse">
+                  Запись... Говорите сейчас
+                </Badge>
+                <p className="text-xs text-muted-foreground">
+                  Остановится автоматически через 2 сек тишины
+                </p>
+              </div>
             )}
             {isProcessing && (
               <Badge variant="secondary">
@@ -381,6 +476,8 @@ export default function VoiceAssistant({ isOpen, onToggle }: VoiceAssistantProps
             <li>• "Отправь сообщение Анне что урок переносится"</li>
             <li>• "Создай задачу позвонить клиенту"</li>
             <li>• "Покажи расписание на сегодня"</li>
+            <li>• "Закрепи чат с Марией"</li>
+            <li>• "Найди преподавателя Елена"</li>
           </ul>
         </div>
       </div>
