@@ -1,18 +1,24 @@
-import { Check, CheckCheck, Eye } from "lucide-react";
+import { Check, CheckCheck } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useMessageReadStatus } from "@/hooks/useMessageReadStatus";
+import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 
 interface MessageReadIndicatorProps {
   messageId: string;
   isOutgoing: boolean;
+  authorName?: string;
+  authorAvatar?: string;
   className?: string;
 }
 
 export const MessageReadIndicator = ({ 
   messageId, 
-  isOutgoing, 
+  isOutgoing,
+  authorName,
+  authorAvatar,
   className = "" 
 }: MessageReadIndicatorProps) => {
   const { data: readStatuses, isLoading } = useMessageReadStatus(messageId);
@@ -24,10 +30,18 @@ export const MessageReadIndicator = ({
 
   const readCount = readStatuses?.length || 0;
   
-  // If no one read it yet, show single gray check
+  // If no one read it yet, show "1" with author avatar
   if (readCount === 0) {
     return (
-      <Check className={`h-3 w-3 text-muted-foreground ${className}`} />
+      <div className={`flex items-center gap-1 ${className}`}>
+        <Avatar className="h-4 w-4">
+          <AvatarImage src={authorAvatar} alt={authorName} />
+          <AvatarFallback className="text-[8px] bg-muted">
+            {authorName?.charAt(0)?.toUpperCase() || "?"}
+          </AvatarFallback>
+        </Avatar>
+        <span className="text-xs text-muted-foreground font-medium">1</span>
+      </div>
     );
   }
 

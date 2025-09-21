@@ -373,6 +373,8 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
                 <MessageReadIndicator 
                   messageId={messageId} 
                   isOutgoing={true}
+                  authorName={managerName || "Менеджер"}
+                  authorAvatar={undefined}
                 />
               </div>
             )}
