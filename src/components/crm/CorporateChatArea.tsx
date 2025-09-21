@@ -111,10 +111,28 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
   const [showSearchInput, setShowSearchInput] = useState(false);
   const [activeBranch, setActiveBranch] = useState<string | null>(null);
   const [allowedBranches, setAllowedBranches] = useState<string[]>([]);
+  const [pinCounts, setPinCounts] = useState<Record<string, number>>({});
   const isMobile = useIsMobile();
-  
-  // Get pin counts for all branches
-  const { pinCounts } = usePinCounts(branches.map(b => b.id));
+
+  // Load pin counts for visualization
+  useEffect(() => {
+    const loadPinCounts = async () => {
+      try {
+        const allChatIds = branches.map(b => `corporate-${b.id}`);
+        const { data, error } = await supabase.rpc('get_chat_pin_counts', { _chat_ids: allChatIds });
+        if (!error && data) {
+          const counts = data.reduce((acc: Record<string, number>, item: any) => {
+            acc[item.chat_id] = item.pin_count;
+            return acc;
+          }, {});
+          setPinCounts(counts);
+        }
+      } catch (error) {
+        console.error('Error loading pin counts:', error);
+      }
+    };
+    loadPinCounts();
+  }, []);
 
   // Load allowed branches for current user
   useEffect(() => {
@@ -483,10 +501,15 @@ export const CorporateChatArea = ({ onMessageChange }: CorporateChatAreaProps) =
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-slate-500" />
-                      <span className="font-medium text-sm">{branch.name}</span>
-                    </div>
+                   <div className="flex items-center gap-2">
+                     <Building2 className="h-4 w-4 text-slate-500" />
+                     <span className="font-medium text-sm flex items-center gap-1">
+                       {branch.name}
+                       {pinCounts[`corporate-${branch.id}`] > 0 && (
+                         <Pin className="h-3 w-3 text-muted-foreground opacity-70" />
+                       )}
+                     </span>
+                   </div>
                     <div className="flex items-center gap-1">
                       {pinCounts[branch.id] > 0 && (
                         <Pin className="h-3 w-3 text-muted-foreground" />

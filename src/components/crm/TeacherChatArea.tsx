@@ -253,18 +253,36 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleTime, setScheduleTime] = useState('');
+  const [pinCounts, setPinCounts] = useState<Record<string, number>>({});
   const isMobile = useIsMobile();
 
   // Resolve real client UUID for the selected teacher or group
   const [resolvedClientId, setResolvedClientId] = useState<string | null>(null);
   const [userBranch, setUserBranch] = useState<string | null>(null);
-  
-  // Get pin counts for all chats
-  const allChatIds = [
-    'teachers-group',
-    ...mockTeachers.map(t => t.id)
-  ];
-  const { pinCounts } = usePinCounts(allChatIds);
+
+  // Load pin counts for visualization
+  useEffect(() => {
+    const loadPinCounts = async () => {
+      try {
+        // Use resolved client IDs where possible, fallback to placeholder IDs
+        const allChatIds = [
+          'teachers-group',
+          ...mockTeachers.map(t => `teacher-${t.id}`)
+        ];
+        const { data, error } = await supabase.rpc('get_chat_pin_counts', { _chat_ids: allChatIds });
+        if (!error && data) {
+          const counts = data.reduce((acc: Record<string, number>, item: any) => {
+            acc[item.chat_id] = item.pin_count;
+            return acc;
+          }, {});
+          setPinCounts(counts);
+        }
+      } catch (error) {
+        console.error('Error loading pin counts:', error);
+      }
+    };
+    loadPinCounts();
+  }, []);
 
   useEffect(() => {
     const loadProfile = async () => {
