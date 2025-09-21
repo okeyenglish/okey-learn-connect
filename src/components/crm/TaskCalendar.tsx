@@ -67,7 +67,15 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Календарь задач</h2>
-        <Button onClick={handleAddTask} className="gap-2">
+        <Button 
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleAddTask();
+          }} 
+          className="gap-2"
+          type="button"
+        >
           <Plus className="h-4 w-4" />
           Добавить задачу
         </Button>
@@ -128,7 +136,12 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowDayView(true)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowDayView(true);
+                }}
+                type="button"
               >
                 Подробнее
               </Button>
@@ -178,7 +191,12 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
                   variant="outline"
                   size="sm"
                   className="mt-2"
-                  onClick={handleAddTask}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleAddTask();
+                  }}
+                  type="button"
                 >
                   Создать задачу
                 </Button>

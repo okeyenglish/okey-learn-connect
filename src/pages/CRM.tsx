@@ -948,7 +948,11 @@ const CRMContent = () => {
                               <Button 
                                 size="sm"
                                 variant={activeTab !== "tasks-calendar" ? "default" : "outline"}
-                                onClick={() => setActiveTab("menu")}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setActiveTab("menu");
+                                }}
                                 className="gap-2"
                                 type="button"
                               >
@@ -957,7 +961,11 @@ const CRMContent = () => {
                               <Button 
                                 size="sm"
                                 variant={activeTab === "tasks-calendar" ? "default" : "outline"}
-                                onClick={() => setActiveTab("tasks-calendar")}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setActiveTab("tasks-calendar");
+                                }}
                                 className="gap-2"
                                 type="button"
                               >
@@ -974,7 +982,9 @@ const CRMContent = () => {
                                       <span>Задачи по клиентам ({allTasks.filter(t => t.client_id).length})</span>
                                       <Button 
                                         size="sm"
-                                        onClick={() => {
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
                                           // Очищаем привязку к клиенту для задач по клиентам
                                           setPinnedTaskClientId('');
                                           setShowAddTaskModal(true);
@@ -1159,7 +1169,9 @@ const CRMContent = () => {
                                           variant="outline"
                                           size="sm"
                                           className="mt-2 border-purple-300 text-purple-700 hover:bg-purple-100"
-                                          onClick={() => {
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
                                             // Очищаем привязку к клиенту для личных задач
                                             setPinnedTaskClientId('');
                                             setShowAddTaskModal(true);
