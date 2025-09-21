@@ -76,6 +76,24 @@ export const AddTaskModal = ({
   const { profile } = useAuth();
   const { data: employees = [] } = useEmployees(profile?.branch);
 
+  // Set current user as responsible when employees load
+  useEffect(() => {
+    if (employees.length > 0 && profile && !formData.responsible) {
+      // Find current user among employees by email or name
+      const currentEmployee = employees.find(emp => 
+        emp.email === profile.email || 
+        (emp.first_name === profile.first_name && emp.last_name === profile.last_name)
+      );
+      
+      if (currentEmployee) {
+        setFormData(prev => ({ ...prev, responsible: currentEmployee.id }));
+      } else if (employees.length > 0) {
+        // Fallback to first employee if current user not found
+        setFormData(prev => ({ ...prev, responsible: employees[0].id }));
+      }
+    }
+  }, [employees, profile, formData.responsible]);
+
   const handleSave = async () => {
     if (!formData.description.trim()) {
       return;
@@ -111,11 +129,16 @@ export const AddTaskModal = ({
       await createTask.mutateAsync(taskData);
 
       // Reset form
+      const currentEmployee = employees.find(emp => 
+        emp.email === profile?.email || 
+        (emp.first_name === profile?.first_name && emp.last_name === profile?.last_name)
+      );
+
       setFormData({
         date: new Date(),
         time: "",
         isHighPriority: false,
-        responsible: employees.length > 0 ? employees[0].id : "",
+        responsible: currentEmployee?.id || (employees.length > 0 ? employees[0].id : ""),
         selectedStudent: "",
         description: "",
         additionalResponsible: []
