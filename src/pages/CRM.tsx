@@ -1002,66 +1002,64 @@ const CRMContent = () => {
                                         Загрузка задач...
                                       </div>
                                     ) : allTasks.filter(t => t.client_id).length > 0 ? (
-                                      <div className="space-y-2 max-h-96 overflow-y-auto">
-                                        {allTasks.filter(t => t.client_id).map((task) => (
-                                          <div 
-                                            key={task.id} 
-                                            className={`p-3 border-l-4 rounded-md cursor-pointer hover:shadow-md transition-shadow ${
-                                              task.priority === 'high' ? 'border-red-500 bg-red-50' :
-                                              task.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
-                                              'border-blue-500 bg-blue-50'
-                                            }`}
-                                            onClick={() => task.client_id && handleClientClick(task.client_id)}
-                                          >
-                                            <div className="flex items-start justify-between gap-3">
-                                              <div className="flex-1 min-w-0">
-                                                <p className="font-medium text-sm leading-tight">{task.title}</p>
-                                                <div className="mt-2 space-y-1">
-                                                  <p className="text-sm">
-                                                    Клиент: <span className="text-primary">
-                                                      {task.clients?.name || 'Неизвестен'}
-                                                    </span>
-                                                  </p>
-                                                  {task.due_date && (
-                                                    <div className="flex items-center gap-1">
-                                                      <Clock className="h-3 w-3 text-muted-foreground" />
-                                                      <span className="text-xs text-muted-foreground">
-                                                        Срок: {new Date(task.due_date).toLocaleDateString('ru-RU')}
-                                                        {task.due_time && ` в ${task.due_time.slice(0, 5)}`}
-                                                      </span>
-                                                    </div>
-                                                  )}
-                                                  {task.responsible && (
-                                                    <p className="text-xs text-muted-foreground">
-                                                      Ответственный: {task.responsible}
-                                                    </p>
-                                                  )}
-                                                </div>
-                                              </div>
-                                              <div className="flex items-center gap-1 shrink-0">
-                                                <Button 
-                                                  size="sm" 
-                                                  variant="ghost" 
-                                                  className="h-7 w-7 p-0 text-green-600 hover:bg-green-50"
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleCompleteTask(task.id);
-                                                  }}
-                                                  title="Отметить выполненной"
-                                                >
-                                                  <Check className="h-4 w-4" />
-                                                </Button>
-                                                <Button 
-                                                  size="sm" 
-                                                  variant="ghost" 
-                                                  className="h-7 w-7 p-0 text-red-600 hover:bg-red-50"
+                                       <div className="space-y-1.5 max-h-96 overflow-y-auto">
+                                         {allTasks.filter(t => t.client_id).map((task) => (
+                                           <div 
+                                             key={task.id} 
+                                             className={`p-2.5 border-l-4 rounded-md cursor-pointer hover:shadow-md transition-shadow ${
+                                               task.priority === 'high' ? 'border-red-500 bg-red-50' :
+                                               task.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
+                                               'border-blue-500 bg-blue-50'
+                                             }`}
+                                             onClick={() => task.client_id && handleClientClick(task.client_id)}
+                                           >
+                                             <div className="flex items-start justify-between gap-2">
+                                               <div className="flex-1 min-w-0">
+                                                 <p className="font-medium text-sm leading-tight mb-1">{task.title}</p>
+                                                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                                   <span>
+                                                     Клиент: <span className="text-primary font-medium">
+                                                       {task.clients?.name || 'Неизвестен'}
+                                                     </span>
+                                                   </span>
+                                                   {task.due_date && (
+                                                     <span className="flex items-center gap-1">
+                                                       <Clock className="h-3 w-3" />
+                                                       {new Date(task.due_date).toLocaleDateString('ru-RU')}
+                                                       {task.due_time && ` в ${task.due_time.slice(0, 5)}`}
+                                                     </span>
+                                                   )}
+                                                   {task.responsible && (
+                                                     <span>
+                                                       Ответственный: {task.responsible}
+                                                     </span>
+                                                   )}
+                                                 </div>
+                                               </div>
+                                               <div className="flex items-center gap-1 shrink-0">
+                                                 <Button 
+                                                   size="sm" 
+                                                   variant="ghost" 
+                                                   className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
+                                                   onClick={(e) => {
+                                                     e.stopPropagation();
+                                                     handleCompleteTask(task.id);
+                                                   }}
+                                                   title="Отметить выполненной"
+                                                 >
+                                                   <Check className="h-3.5 w-3.5" />
+                                                 </Button>
+                                                 <Button 
+                                                   size="sm" 
+                                                   variant="ghost" 
+                                                   className="h-6 w-6 p-0 text-red-600 hover:bg-red-50"
                                                   onClick={(e) => {
                                                     e.stopPropagation();
                                                     handleCancelTask(task.id);
                                                   }}
                                                   title="Отменить задачу"
                                                 >
-                                                  <X className="h-4 w-4" />
+                                                   <X className="h-3.5 w-3.5" />
                                                 </Button>
                                               </div>
                                             </div>
@@ -1101,61 +1099,59 @@ const CRMContent = () => {
                                   </CardHeader>
                                   <CardContent>
                                     {allTasks.filter(t => !t.client_id).length > 0 ? (
-                                      <div className="space-y-2 max-h-64 overflow-y-auto">
-                                        {allTasks.filter(t => !t.client_id).map((task) => (
-                                          <div 
-                                            key={task.id} 
-                                            className={`p-3 border-l-4 rounded-md hover:shadow-md transition-shadow bg-white ${
-                                              task.priority === 'high' ? 'border-red-500' :
-                                              task.priority === 'medium' ? 'border-yellow-500' :
-                                              'border-purple-400'
-                                            }`}
-                                          >
-                                            <div className="flex items-start justify-between gap-3">
-                                              <div className="flex-1 min-w-0">
-                                                <p className="font-medium text-sm leading-tight">{task.title}</p>
-                                                <div className="mt-2 space-y-1">
-                                                  <p className="text-sm text-purple-600 font-medium">Личная задача</p>
-                                                  {task.due_date && (
-                                                    <div className="flex items-center gap-1">
-                                                      <Clock className="h-3 w-3 text-muted-foreground" />
-                                                      <span className="text-xs text-muted-foreground">
-                                                        Срок: {new Date(task.due_date).toLocaleDateString('ru-RU')}
-                                                        {task.due_time && ` в ${task.due_time.slice(0, 5)}`}
-                                                      </span>
-                                                    </div>
-                                                  )}
-                                                  {task.responsible && (
-                                                    <p className="text-xs text-muted-foreground">
-                                                      Ответственный: {task.responsible}
-                                                    </p>
-                                                  )}
-                                                </div>
-                                              </div>
-                                              <div className="flex items-center gap-1 shrink-0">
-                                                <Button 
-                                                  size="sm" 
-                                                  variant="ghost" 
-                                                  className="h-7 w-7 p-0 text-green-600 hover:bg-green-50"
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleCompleteTask(task.id);
-                                                  }}
-                                                  title="Отметить выполненной"
-                                                >
-                                                  <Check className="h-4 w-4" />
-                                                </Button>
-                                                <Button 
-                                                  size="sm" 
-                                                  variant="ghost" 
-                                                  className="h-7 w-7 p-0 text-red-600 hover:bg-red-50"
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleCancelTask(task.id);
-                                                  }}
-                                                  title="Отменить задачу"
-                                                >
-                                                  <X className="h-4 w-4" />
+                                       <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                                         {allTasks.filter(t => !t.client_id).map((task) => (
+                                           <div 
+                                             key={task.id} 
+                                             className={`p-2.5 border-l-4 rounded-md hover:shadow-md transition-shadow bg-white ${
+                                               task.priority === 'high' ? 'border-red-500' :
+                                               task.priority === 'medium' ? 'border-yellow-500' :
+                                               'border-purple-400'
+                                             }`}
+                                           >
+                                             <div className="flex items-start justify-between gap-2">
+                                               <div className="flex-1 min-w-0">
+                                                 <p className="font-medium text-sm leading-tight mb-1">{task.title}</p>
+                                                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                                   <span className="text-purple-600 font-medium">Личная задача</span>
+                                                   {task.due_date && (
+                                                     <span className="flex items-center gap-1">
+                                                       <Clock className="h-3 w-3" />
+                                                       {new Date(task.due_date).toLocaleDateString('ru-RU')}
+                                                       {task.due_time && ` в ${task.due_time.slice(0, 5)}`}
+                                                     </span>
+                                                   )}
+                                                   {task.responsible && (
+                                                     <span>
+                                                       Ответственный: {task.responsible}
+                                                     </span>
+                                                   )}
+                                                 </div>
+                                               </div>
+                                               <div className="flex items-center gap-1 shrink-0">
+                                                 <Button 
+                                                   size="sm" 
+                                                   variant="ghost" 
+                                                   className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
+                                                   onClick={(e) => {
+                                                     e.stopPropagation();
+                                                     handleCompleteTask(task.id);
+                                                   }}
+                                                   title="Отметить выполненной"
+                                                 >
+                                                   <Check className="h-3.5 w-3.5" />
+                                                 </Button>
+                                                 <Button 
+                                                   size="sm" 
+                                                   variant="ghost" 
+                                                   className="h-6 w-6 p-0 text-red-600 hover:bg-red-50"
+                                                   onClick={(e) => {
+                                                     e.stopPropagation();
+                                                     handleCancelTask(task.id);
+                                                   }}
+                                                   title="Отменить задачу"
+                                                 >
+                                                   <X className="h-3.5 w-3.5" />
                                                 </Button>
                                               </div>
                                             </div>
