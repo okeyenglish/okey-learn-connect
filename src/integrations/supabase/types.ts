@@ -367,6 +367,96 @@ export type Database = {
         }
         Relationships: []
       }
+      individual_lessons: {
+        Row: {
+          academic_hours: number | null
+          audit_location: string | null
+          branch: string
+          category: Database["public"]["Enums"]["group_category"]
+          created_at: string
+          debt_hours: number | null
+          description: string | null
+          id: string
+          is_active: boolean
+          is_skype_only: boolean | null
+          lesson_end_month: string | null
+          lesson_location: string | null
+          lesson_start_month: string | null
+          lesson_type: string
+          level: string
+          notes: string | null
+          period_end: string | null
+          period_start: string | null
+          price_per_lesson: number | null
+          schedule_days: string[] | null
+          schedule_time: string | null
+          status: Database["public"]["Enums"]["group_status"]
+          student_id: string | null
+          student_name: string
+          subject: string
+          teacher_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          academic_hours?: number | null
+          audit_location?: string | null
+          branch?: string
+          category?: Database["public"]["Enums"]["group_category"]
+          created_at?: string
+          debt_hours?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_skype_only?: boolean | null
+          lesson_end_month?: string | null
+          lesson_location?: string | null
+          lesson_start_month?: string | null
+          lesson_type?: string
+          level: string
+          notes?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          price_per_lesson?: number | null
+          schedule_days?: string[] | null
+          schedule_time?: string | null
+          status?: Database["public"]["Enums"]["group_status"]
+          student_id?: string | null
+          student_name: string
+          subject?: string
+          teacher_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          academic_hours?: number | null
+          audit_location?: string | null
+          branch?: string
+          category?: Database["public"]["Enums"]["group_category"]
+          created_at?: string
+          debt_hours?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_skype_only?: boolean | null
+          lesson_end_month?: string | null
+          lesson_location?: string | null
+          lesson_start_month?: string | null
+          lesson_type?: string
+          level?: string
+          notes?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          price_per_lesson?: number | null
+          schedule_days?: string[] | null
+          schedule_time?: string | null
+          status?: Database["public"]["Enums"]["group_status"]
+          student_id?: string | null
+          student_name?: string
+          subject?: string
+          teacher_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       learning_groups: {
         Row: {
           academic_hours: number | null

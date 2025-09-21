@@ -37,7 +37,6 @@ import Contacts from "./pages/Contacts";
 import ContactMethod from "./pages/ContactMethod";
 import Admin from "./pages/Admin";
 import CRM from "./pages/CRM";
-import Groups from "./pages/Groups";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -78,7 +77,6 @@ const AppContent = () => {
         <Route path="/contact-method" element={<ContactMethod />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/newcrm" element={<CRM />} />
-        <Route path="/groups" element={<Groups />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     );
@@ -118,7 +116,6 @@ const AppContent = () => {
           <Route path="/contact-method" element={<ContactMethod />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/newcrm" element={<CRM />} />
-          <Route path="/groups" element={<Groups />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

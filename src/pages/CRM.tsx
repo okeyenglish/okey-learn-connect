@@ -39,6 +39,9 @@ import { TaskCalendar } from "@/components/crm/TaskCalendar";
 import { CreateInvoiceModal } from "@/components/crm/CreateInvoiceModal";
 import { PinnableModalHeader, PinnableDialogContent } from "@/components/crm/PinnableModal";
 import { ManagerMenu } from "@/components/crm/ManagerMenu";
+import { GroupsModal } from "@/components/learning-groups/GroupsModal";
+import { IndividualLessonsModal } from "@/components/individual-lessons/IndividualLessonsModal";
+import { EducationSubmenu } from "@/components/learning-groups/EducationSubmenu";
 import { usePinnedModalsDB, PinnedModal } from "@/hooks/usePinnedModalsDB";
 import { useChatStatesDB } from "@/hooks/useChatStatesDB";
 import useSharedChatStates from "@/hooks/useSharedChatStates";
@@ -193,6 +196,9 @@ const CRMContent = () => {
   const [editTaskId, setEditTaskId] = useState<string>('');
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [activeClientName, setActiveClientName] = useState('');
+  const [showGroupsModal, setShowGroupsModal] = useState(false);
+  const [showIndividualLessonsModal, setShowIndividualLessonsModal] = useState(false);
+  const [showEducationSubmenu, setShowEducationSubmenu] = useState(false);
   
   // Состояния для закрепленных модальных окон
   const [pinnedTaskClientId, setPinnedTaskClientId] = useState<string>('');
@@ -391,9 +397,9 @@ const CRMContent = () => {
   };
 
   const handleMenuClick = (action: string) => {
-    // Special handling for "Обучение" - navigate to Groups page
+    // Special handling for education modules
     if (action === "Обучение") {
-      navigate("/groups");
+      setShowEducationSubmenu(true);
       return;
     }
     
@@ -2874,6 +2880,37 @@ const CRMContent = () => {
           taskId={editingTaskId}
         />
       )}
+
+      {/* Groups Management Modal */}
+      <GroupsModal
+        open={showGroupsModal}
+        onOpenChange={setShowGroupsModal}
+      />
+
+      {/* Individual Lessons Management Modal */}
+      <IndividualLessonsModal
+        open={showIndividualLessonsModal}
+        onOpenChange={setShowIndividualLessonsModal}
+      />
+      {/* Groups Management Modal */}
+      <GroupsModal
+        open={showGroupsModal}
+        onOpenChange={setShowGroupsModal}
+      />
+
+      {/* Individual Lessons Management Modal */}
+      <IndividualLessonsModal
+        open={showIndividualLessonsModal}
+        onOpenChange={setShowIndividualLessonsModal}
+      />
+
+      {/* Education Submenu */}
+      <EducationSubmenu
+        open={showEducationSubmenu}
+        onOpenChange={setShowEducationSubmenu}
+        onGroupsClick={() => setShowGroupsModal(true)}
+        onIndividualClick={() => setShowIndividualLessonsModal(true)}
+      />
       </div>
     </TooltipProvider>
   );
