@@ -30,7 +30,7 @@ export const useSharedChatStates = () => {
             chat_id, 
             user_id, 
             is_pinned,
-            profiles!inner(first_name, last_name)
+            profiles(first_name, last_name)
           `)
           .eq('is_pinned', true);
 
@@ -44,7 +44,7 @@ export const useSharedChatStates = () => {
         
         allPinnedChats?.forEach(state => {
           const chatId = state.chat_id;
-          const profile = state.profiles as any;
+          const profile = (state as any).profiles;
           const userName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : 'Неизвестный пользователь';
           
           if (!chatStatesMap[chatId]) {
@@ -62,7 +62,9 @@ export const useSharedChatStates = () => {
               chatStatesMap[chatId].user_id = state.user_id;
             } else {
               chatStatesMap[chatId].pinned_by_others = true;
-              chatStatesMap[chatId].pinned_by_user_name = userName;
+              if (!chatStatesMap[chatId].pinned_by_user_name) {
+                chatStatesMap[chatId].pinned_by_user_name = userName;
+              }
             }
           }
         });

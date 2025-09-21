@@ -119,7 +119,7 @@ const CRMContent = () => {
     markAsUnread,
     getChatState
   } = useChatStatesDB();
-  const { isInWorkByOthers, isPinnedByCurrentUser, isPinnedByAnyone, getPinnedByUserName, isLoading: sharedStatesLoading } = useSharedChatStates();
+  const { isInWorkByOthers, isPinnedByCurrentUser, isPinnedByAnyone, getPinnedByUserName = () => 'Неизвестный пользователь', isLoading: sharedStatesLoading } = useSharedChatStates();
   const { tasks: allTasks, isLoading: tasksLoading } = useAllTasks();
   const completeTask = useCompleteTask();
   const cancelTask = useCancelTask();
