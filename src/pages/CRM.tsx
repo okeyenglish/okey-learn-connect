@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -2084,9 +2085,19 @@ const CRMContent = () => {
                                       <Pin className="h-3 w-3 text-orange-600 mb-1" />
                                       <span className="text-xs text-muted-foreground">{chat.time}</span>
                                        {displayUnread && (
-                                          <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full mt-1 flex items-center justify-center">
-                                              {showEye ? <Eye className="h-2.5 w-2.5" /> : chat.unread}
-                                          </span>
+      <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full mt-1 flex items-center gap-1">
+        {showEye ? (
+          <>
+            <Avatar className="h-4 w-4">
+              <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
+              <AvatarFallback className="text-[8px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
+            </Avatar>
+            <span>1</span>
+          </>
+        ) : (
+          chat.unread
+        )}
+      </span>
                                        )}
                                     </div>
                                   </div>
@@ -2225,9 +2236,19 @@ const CRMContent = () => {
                                   <div className="flex flex-col items-end">
                                     <span className="text-xs text-muted-foreground">{chat.time}</span>
                                      {displayUnread && (
-                                        <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full flex items-center justify-center">
-                                          {showEye ? <Eye className="h-2.5 w-2.5" /> : chat.unread}
-                                        </span>
+                    <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                      {showEye ? (
+                        <>
+                          <Avatar className="h-4 w-4">
+                            <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
+                            <AvatarFallback className="text-[8px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
+                          </Avatar>
+                          <span>1</span>
+                        </>
+                      ) : (
+                        chat.unread
+                      )}
+                    </span>
                                      )}
                                   </div>
                                 </div>
@@ -2395,8 +2416,18 @@ const CRMContent = () => {
                                       </div>
                                       
                                        {displayUnread && (
-                                          <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded-full flex items-center justify-center">
-                                            {showEye ? <Eye className="h-2.5 w-2.5" /> : chat.unread}
+                                          <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                                            {showEye ? (
+                                              <>
+                                                <Avatar className="h-4 w-4">
+                                                  <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
+                                                  <AvatarFallback className="text-[8px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
+                                                </Avatar>
+                                                <span>1</span>
+                                              </>
+                                            ) : (
+                                              chat.unread
+                                            )}
                                           </span>
                                        )}
                                     </div>
@@ -2504,8 +2535,18 @@ const CRMContent = () => {
                                    </div>
                                    
                                     {displayUnread && (
-                                       <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full flex items-center justify-center">
-                                         {showEye ? <Eye className="h-2.5 w-2.5" /> : chat.unread}
+                                       <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                                         {showEye ? (
+                                           <>
+                                             <Avatar className="h-4 w-4">
+                                               <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
+                                               <AvatarFallback className="text-[8px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
+                                             </Avatar>
+                                             <span>1</span>
+                                           </>
+                                         ) : (
+                                           chat.unread
+                                         )}
                                        </span>
                                     )}
                                  </div>
