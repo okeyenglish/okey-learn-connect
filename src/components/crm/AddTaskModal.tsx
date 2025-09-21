@@ -223,44 +223,51 @@ export const AddTaskModal = ({
             <div className="space-y-2">
               <Label>Выбор клиента:</Label>
               <div className="space-y-2">
-                <Input
-                  placeholder="Поиск по имени клиента..."
-                  value={clientSearch}
-                  onChange={(e) => setClientSearch(e.target.value)}
-                />
-                {clientSearch && (
-                  <div className="border rounded-lg max-h-40 overflow-y-auto">
-                    {clients
-                      .filter(client => 
-                        client.name.toLowerCase().includes(clientSearch.toLowerCase())
-                      )
-                      .slice(0, 5)
-                      .map(client => (
-                        <div 
-                          key={client.id}
-                          className="p-2 hover:bg-muted cursor-pointer border-b last:border-b-0"
-                          onClick={() => {
-                            setSelectedClientId(client.id);
-                            setSelectedClientName(client.name);
-                            setClientSearch(client.name);
-                          }}
-                        >
-                          <div className="font-medium">{client.name}</div>
-                          {client.phone && (
-                            <div className="text-sm text-muted-foreground">{client.phone}</div>
-                          )}
-                        </div>
-                      ))
-                    }
-                    {clients.filter(client => 
-                      client.name.toLowerCase().includes(clientSearch.toLowerCase())
-                    ).length === 0 && (
-                      <div className="p-2 text-sm text-muted-foreground">
-                        Клиенты не найдены
+                {/* Show search input only if no client is selected */}
+                {!selectedClientId && (
+                  <>
+                    <Input
+                      placeholder="Поиск по имени клиента..."
+                      value={clientSearch}
+                      onChange={(e) => setClientSearch(e.target.value)}
+                    />
+                    {clientSearch && (
+                      <div className="border rounded-lg max-h-40 overflow-y-auto">
+                        {clients
+                          .filter(client => 
+                            client.name.toLowerCase().includes(clientSearch.toLowerCase())
+                          )
+                          .slice(0, 5)
+                          .map(client => (
+                            <div 
+                              key={client.id}
+                              className="p-2 hover:bg-muted cursor-pointer border-b last:border-b-0"
+                              onClick={() => {
+                                setSelectedClientId(client.id);
+                                setSelectedClientName(client.name);
+                                setClientSearch("");
+                              }}
+                            >
+                              <div className="font-medium">{client.name}</div>
+                              {client.phone && (
+                                <div className="text-sm text-muted-foreground">{client.phone}</div>
+                              )}
+                            </div>
+                          ))
+                        }
+                        {clients.filter(client => 
+                          client.name.toLowerCase().includes(clientSearch.toLowerCase())
+                        ).length === 0 && (
+                          <div className="p-2 text-sm text-muted-foreground">
+                            Клиенты не найдены
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
+                  </>
                 )}
+                
+                {/* Show selected client */}
                 {selectedClientId && selectedClientName && (
                   <div className="flex items-center gap-2 p-2 bg-muted rounded">
                     <span className="text-sm">Выбран клиент: <strong>{selectedClientName}</strong></span>
