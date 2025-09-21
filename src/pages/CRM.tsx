@@ -1730,10 +1730,30 @@ const CRMContent = () => {
         <AddTaskModal 
           open={showAddTaskModal}
           onOpenChange={handleTaskModalClose}
-          clientName={getActiveClientInfo(pinnedTaskClientId || activeChatId).name}
-          clientId={pinnedTaskClientId || activeChatId || ''}
-          familyGroupId={getFamilyGroupId(pinnedTaskClientId || activeChatId)}
-          isPinned={isPinned(pinnedTaskClientId || activeChatId, 'task')}
+          clientName={
+            (pinnedTaskClientId || activeChatId) && 
+            getActiveClientInfo(pinnedTaskClientId || activeChatId).name !== 'Выберите чат' 
+              ? getActiveClientInfo(pinnedTaskClientId || activeChatId).name 
+              : undefined
+          }
+          clientId={
+            (pinnedTaskClientId || activeChatId) && 
+            getActiveClientInfo(pinnedTaskClientId || activeChatId).name !== 'Выберите чат' 
+              ? (pinnedTaskClientId || activeChatId) 
+              : undefined
+          }
+          familyGroupId={
+            (pinnedTaskClientId || activeChatId) && 
+            getActiveClientInfo(pinnedTaskClientId || activeChatId).name !== 'Выберите чат' 
+              ? getFamilyGroupId(pinnedTaskClientId || activeChatId)
+              : undefined
+          }
+          isPinned={
+            (pinnedTaskClientId || activeChatId) && 
+            getActiveClientInfo(pinnedTaskClientId || activeChatId).name !== 'Выберите чат' 
+              ? isPinned(pinnedTaskClientId || activeChatId, 'task')
+              : false
+          }
           onPin={handlePinTaskModal}
           onUnpin={() => unpinModal(pinnedTaskClientId || activeChatId || '', 'task')}
         />
