@@ -128,16 +128,13 @@ export const useUpdateLearningGroup = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<LearningGroup> & { id: string }) => {
-      const { data, error } = await supabase
+    mutationFn: async ({ id, data }: { id: string; data: Partial<LearningGroup> }) => {
+      const { error } = await supabase
         .from('learning_groups')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
+        .update(data)
+        .eq('id', id);
       
       if (error) throw error;
-      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['learning-groups'] });

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,17 +7,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Loader2, Users, BookOpen, MapPin, Calendar } from "lucide-react";
+import { Loader2, Users, BookOpen, MapPin, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useCreateLearningGroup, LearningGroup } from "@/hooks/useLearningGroups";
+import { useUpdateLearningGroup, LearningGroup } from "@/hooks/useLearningGroups";
 import { getBranchesForSelect } from "@/lib/branches";
 
-interface AddGroupModalProps {
-  onGroupAdded?: () => void;
+interface EditGroupModalProps {
+  group: LearningGroup | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onGroupUpdated?: () => void;
 }
 
-export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
-  const [open, setOpen] = useState(false);
+export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: EditGroupModalProps) => {
   const [formData, setFormData] = useState({
     name: "",
     custom_name: "",
@@ -37,6 +39,9 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
     lesson_end_minute: "",
     description: ""
   });
+  
+  const { toast } = useToast();
+  const updateGroup = useUpdateLearningGroup();
 
   // Function to automatically set category based on level
   const getCategoryFromLevel = (level: string): "preschool" | "school" | "adult" | "all" => {
@@ -46,12 +51,39 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
     if (level.startsWith("Empower")) return "adult";
     return "all";
   };
-  
-  const { toast } = useToast();
-  const createGroup = useCreateLearningGroup();
+
+  // Load group data when modal opens
+  useEffect(() => {
+    if (group && open) {
+      const [startHour = "", startMinute = ""] = group.schedule_time?.split('-')[0]?.split(':') || [];
+      const [endHour = "", endMinute = ""] = group.schedule_time?.split('-')[1]?.split(':') || [];
+      
+      setFormData({
+        name: group.name || "",
+        custom_name: group.custom_name || "",
+        branch: group.branch || "",
+        subject: group.subject || "Английский",
+        level: group.level || "",
+        category: group.category || "all",
+        group_type: group.group_type || "general",
+        status: group.status || "forming",
+        capacity: group.capacity?.toString() || "12",
+        academic_hours: group.academic_hours?.toString() || "",
+        schedule_days: group.schedule_days || [],
+        schedule_room: group.schedule_room || "",
+        lesson_start_hour: startHour,
+        lesson_start_minute: startMinute,
+        lesson_end_hour: endHour,
+        lesson_end_minute: endMinute,
+        description: group.description || ""
+      });
+    }
+  }, [group, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!group) return;
     
     try {
       // Create schedule_time from start and end times
@@ -60,7 +92,7 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
         ? `${formData.lesson_start_hour.padStart(2, '0')}:${formData.lesson_start_minute.padStart(2, '0')}-${formData.lesson_end_hour.padStart(2, '0')}:${formData.lesson_end_minute.padStart(2, '0')}`
         : undefined;
 
-      const groupData: Omit<LearningGroup, 'id' | 'created_at' | 'updated_at'> = {
+      const groupData = {
         name: formData.name,
         custom_name: formData.custom_name || undefined,
         branch: formData.branch,
@@ -70,52 +102,28 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
         group_type: formData.group_type,
         status: formData.status,
         capacity: parseInt(formData.capacity),
-        current_students: 0,
         academic_hours: formData.academic_hours ? parseFloat(formData.academic_hours) : undefined,
         schedule_days: formData.schedule_days.length > 0 ? formData.schedule_days : undefined,
         schedule_time: schedule_time,
         schedule_room: formData.schedule_room || undefined,
-        description: formData.description || undefined,
-        debt_count: 0,
-        is_active: true
+        description: formData.description || undefined
       };
 
-      await createGroup.mutateAsync(groupData);
+      await updateGroup.mutateAsync({ id: group.id, data: groupData });
 
       toast({
         title: "Успешно",
-        description: "Новая группа добавлена"
-      });
-
-      // Reset form
-      setFormData({
-        name: "",
-        custom_name: "",
-        branch: "",
-        subject: "Английский",
-        level: "",
-        category: "all",
-        group_type: "general",
-        status: "forming",
-        capacity: "12",
-        academic_hours: "",
-        schedule_days: [],
-        schedule_room: "",
-        lesson_start_hour: "",
-        lesson_start_minute: "",
-        lesson_end_hour: "",
-        lesson_end_minute: "",
-        description: ""
+        description: "Данные группы обновлены"
       });
       
-      setOpen(false);
-      onGroupAdded?.();
+      onOpenChange(false);
+      onGroupUpdated?.();
 
     } catch (error) {
-      console.error('Error adding group:', error);
+      console.error('Error updating group:', error);
       toast({
         title: "Ошибка",
-        description: "Не удалось добавить группу",
+        description: "Не удалось обновить группу",
         variant: "destructive"
       });
     }
@@ -162,13 +170,7 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
-          <Plus className="h-4 w-4" />
-          Добавить группу
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-hidden p-0">
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6">
           <DialogHeader>
@@ -176,7 +178,7 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
               <div className="p-2 bg-white/20 rounded-lg">
                 <Users className="h-6 w-6" />
               </div>
-              Добавить группу
+              Редактировать группу
             </DialogTitle>
           </DialogHeader>
         </div>
@@ -510,16 +512,16 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setOpen(false)}
+                onClick={() => onOpenChange(false)}
               >
                 Отменить
               </Button>
               <Button
                 type="submit"
-                disabled={createGroup.isPending}
+                disabled={updateGroup.isPending}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
               >
-                {createGroup.isPending ? (
+                {updateGroup.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                     Сохранение...
