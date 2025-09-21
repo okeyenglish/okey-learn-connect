@@ -1016,13 +1016,13 @@ const CRMContent = () => {
         <div className={`${
           isMobile ? 'hidden' : 'flex'
         } w-80 lg:w-96 bg-background border-r flex-col h-full min-h-0 transition-all duration-300`}>
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-full">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-full min-h-0">
             <TabsList className="grid w-full grid-cols-2 m-2 shrink-0">
               <TabsTrigger value="menu">Меню</TabsTrigger>
               <TabsTrigger value="chats">Чаты</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="menu" className="flex-1 mt-0 flex flex-col h-0">
+            <TabsContent value="menu" className="mt-0 flex-1 min-h-0 flex flex-col">
               <div className="p-2 space-y-1 overflow-y-auto flex-1">
                 {menuItems.map((item, index) => (
                   <Dialog key={index} open={openModal === item.label} onOpenChange={(open) => !open && handleMenuModalClose()}>
@@ -1909,7 +1909,7 @@ const CRMContent = () => {
               </div>
             </TabsContent>
             
-            <TabsContent value="chats" className="flex-1 mt-0 flex flex-col h-0">
+            <TabsContent value="chats" className="mt-0 flex-1 min-h-0 flex flex-col">
               <div className="p-2 border-b space-y-2 shrink-0">
                 <SearchInput
                   placeholder="Поиск по чатам..."
