@@ -367,11 +367,10 @@ serve(async (req) => {
             const { error: taskError } = await supabase
               .from('tasks')
               .insert({
-                user_id: userId,
                 client_id: clientForTask?.id || '00000000-0000-0000-0000-000000000000', // Default UUID
                 title: functionArgs.title,
                 description: functionArgs.description || '',
-                status: 'pending',
+                status: 'active',
                 priority: functionArgs.priority || 'medium',
                 due_date: functionArgs.dueDate || null,
                 branch: userProfile?.branch || 'Окская'
@@ -389,20 +388,20 @@ serve(async (req) => {
           case 'get_tasks':
             let tasksQuery = supabase
               .from('tasks')
-              .select('id, title, description, status, priority, due_date, created_at, client_id, clients(name)')
-              .eq('user_id', userId);
+              .select('id, title, description, status, priority, due_date, created_at, client_id, clients(name)');
 
             // Применяем фильтры
             const today = new Date().toISOString().split('T')[0];
             switch (functionArgs.filter) {
               case 'today':
-                tasksQuery = tasksQuery.eq('due_date', today);
+                tasksQuery = tasksQuery.eq('due_date', today).eq('status', 'active');
                 break;
               case 'overdue':
-                tasksQuery = tasksQuery.lt('due_date', today).eq('status', 'pending');
+                tasksQuery = tasksQuery.lt('due_date', today).eq('status', 'active');
                 break;
               case 'pending':
-                tasksQuery = tasksQuery.eq('status', 'pending');
+              case 'all':
+                tasksQuery = tasksQuery.eq('status', 'active');
                 break;
               case 'completed':
                 tasksQuery = tasksQuery.eq('status', 'completed');
@@ -429,7 +428,7 @@ serve(async (req) => {
               }
               
               const tasksText = tasks.slice(0, 5).map(t => 
-                `"${t.title}"${t.clients?.name ? ` (${t.clients.name})` : ''} - ${t.status === 'pending' ? 'активна' : 'выполнена'}`
+                `"${t.title}"${t.clients?.name ? ` (${t.clients.name})` : ''} - ${t.status === 'active' ? 'активна' : 'выполнена'}`
               ).join(', ');
               responseText = `Найдены задачи (${filterText}): ${tasksText}${tasks.length > 5 ? ` и ещё ${tasks.length - 5}` : ''}.`;
               actionResult = { type: 'tasks', data: tasks, filter: functionArgs.filter };
@@ -445,8 +444,7 @@ serve(async (req) => {
                 status: functionArgs.status,
                 ...(functionArgs.title && { title: functionArgs.title })
               })
-              .eq('id', functionArgs.taskId)
-              .eq('user_id', userId);
+              .eq('id', functionArgs.taskId);
 
             if (updateError) {
               responseText = 'Ошибка при обновлении задачи.';
