@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { audio, command, userId } = await req.json();
+    const { audio, command, userId, context } = await req.json();
     
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
