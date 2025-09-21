@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface VoiceAssistantState {
   isRecording: boolean;
@@ -27,6 +28,7 @@ export const useVoiceAssistant = () => {
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const updateState = useCallback((updates: Partial<VoiceAssistantState>) => {
     setState(prev => ({ ...prev, ...updates }));
@@ -107,6 +109,19 @@ export const useVoiceAssistant = () => {
         });
         
         toast.success(`Команда выполнена: ${data.response}`);
+        
+        // Инвалидируем кэш задач если была создана задача
+        if (data.actionResult?.type === 'task_created' || data.actionResult?.type === 'multiple_tasks_created') {
+          queryClient.invalidateQueries({ queryKey: ['tasks'] });
+          queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+          queryClient.invalidateQueries({ queryKey: ['tasks-by-date'] });
+        }
+        
+        // Инвалидируем кэш сообщений если было отправлено сообщение
+        if (data.actionResult?.type === 'message_sent') {
+          queryClient.invalidateQueries({ queryKey: ['chat-messages'] });
+          queryClient.invalidateQueries({ queryKey: ['system-chats'] });
+        }
         
         // Воспроизводим голосовой ответ
         if (data.audioResponse) {
@@ -198,6 +213,19 @@ export const useVoiceAssistant = () => {
         });
         
         toast.success(`Команда выполнена: ${data.response}`);
+        
+        // Инвалидируем кэш задач если была создана задача
+        if (data.actionResult?.type === 'task_created' || data.actionResult?.type === 'multiple_tasks_created') {
+          queryClient.invalidateQueries({ queryKey: ['tasks'] });
+          queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+          queryClient.invalidateQueries({ queryKey: ['tasks-by-date'] });
+        }
+        
+        // Инвалидируем кэш сообщений если было отправлено сообщение
+        if (data.actionResult?.type === 'message_sent') {
+          queryClient.invalidateQueries({ queryKey: ['chat-messages'] });
+          queryClient.invalidateQueries({ queryKey: ['system-chats'] });
+        }
         
         if (data.audioResponse) {
           await playAudioResponse(data.audioResponse);
