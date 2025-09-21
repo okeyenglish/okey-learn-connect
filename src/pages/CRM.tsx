@@ -2078,11 +2078,11 @@ const CRMContent = () => {
                                     <div className="flex flex-col items-end">
                                       <Pin className="h-3 w-3 text-orange-600 mb-1" />
                                       <span className="text-xs text-muted-foreground">{chat.time}</span>
-                                      {displayUnread && (
-                                         <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full mt-1">
-                                             {isUnreadGlobally ? '1' : chat.unread}
-                                         </span>
-                                      )}
+                                       {displayUnread && (
+                                          <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full mt-1 flex items-center justify-center">
+                                              {isUnreadGlobally ? <Eye className="h-2.5 w-2.5" /> : chat.unread}
+                                          </span>
+                                       )}
                                     </div>
                                   </div>
                                 </button>
@@ -2218,11 +2218,11 @@ const CRMContent = () => {
                                    </div>
                                   <div className="flex flex-col items-end">
                                     <span className="text-xs text-muted-foreground">{chat.time}</span>
-                                    {displayUnread && (
-                                       <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
-                                         {isUnreadGlobally ? '1' : chat.unread}
-                                       </span>
-                                    )}
+                                     {displayUnread && (
+                                        <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full flex items-center justify-center">
+                                          {isUnreadGlobally ? <Eye className="h-2.5 w-2.5" /> : chat.unread}
+                                        </span>
+                                     )}
                                   </div>
                                 </div>
                               </button>
@@ -2389,11 +2389,11 @@ const CRMContent = () => {
                                         </DropdownMenu>
                                       </div>
                                       
-                                      {displayUnread && (
-                                         <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded-full">
-                                           {isUnreadGlobally ? '1' : chat.unread}
-                                         </span>
-                                      )}
+                                       {displayUnread && (
+                                          <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded-full flex items-center justify-center">
+                                            {isUnreadGlobally ? <Eye className="h-2.5 w-2.5" /> : chat.unread}
+                                          </span>
+                                       )}
                                     </div>
                                   </div>
                                 </div>
@@ -2499,11 +2499,11 @@ const CRMContent = () => {
                                      </DropdownMenu>
                                    </div>
                                    
-                                   {displayUnread && (
-                                      <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full">
-                                        {isUnreadGlobally ? '1' : chat.unread}
-                                      </span>
-                                   )}
+                                    {displayUnread && (
+                                       <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full flex items-center justify-center">
+                                         {isUnreadGlobally ? <Eye className="h-2.5 w-2.5" /> : chat.unread}
+                                       </span>
+                                    )}
                                  </div>
                                </div>
                             </div>
