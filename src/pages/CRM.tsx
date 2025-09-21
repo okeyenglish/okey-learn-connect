@@ -2248,7 +2248,6 @@ const CRMContent = () => {
                                          <span className="w-2 h-2 rounded-full bg-primary" aria-label="Непрочитанные сообщения"></span>
                                        )
                                      )}
-                                     )}
                                   </div>
                                 </div>
                               </button>
