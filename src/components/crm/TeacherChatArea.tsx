@@ -184,6 +184,12 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
           setUserBranch((b) => b);
         }
       })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages' }, () => {
+        if (userBranch) {
+          // trigger refetch when messages are marked as read
+          setUserBranch((b) => b);
+        }
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [userBranch]);
@@ -246,6 +252,10 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   useEffect(() => {
     if (clientId && messages.length > 0) {
       markAsRead.mutate(clientId);
+      // Обновляем список преподавателей после пометки как прочитанное
+      setTimeout(() => {
+        setUserBranch(prev => prev); // Принудительно перезапустить useEffect
+      }, 100);
     }
   }, [clientId, messages.length]);
 
@@ -293,6 +303,11 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         messageText: messageText,
         messageType: 'manager'
       });
+      
+      // Обновляем список преподавателей чтобы убрать счетчик непрочитанных
+      setTimeout(() => {
+        setUserBranch(prev => prev); // Принудительно перезапустить useEffect
+      }, 500);
       
       // Then send via WhatsApp if teacher has phone
       if (currentTeacher?.phone) {
@@ -368,6 +383,8 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     if (!clientId) return;
     try {
       await markAsRead.mutateAsync(clientId);
+      // Обновляем список преподавателей после пометки
+      setUserBranch(prev => prev); // Принудительно перезапустить useEffect
       toast.success('Отмечено как прочитанное');
     } catch (error) {
       toast.error('Ошибка отметки прочитанным');
