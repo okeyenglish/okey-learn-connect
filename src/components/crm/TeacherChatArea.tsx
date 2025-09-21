@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { ChatMessage } from './ChatMessage';
+import { QuickResponsesModal } from './QuickResponsesModal';
 import { toast } from "sonner";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useChatMessages, useSendMessage, useMarkAsRead, useRealtimeMessages } from '@/hooks/useChatMessages';
@@ -246,6 +247,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('диалог');
   const [message, setMessage] = useState('');
+  const [showQuickResponsesModal, setShowQuickResponsesModal] = useState(false);
   const isMobile = useIsMobile();
 
   // Resolve real client UUID for the selected teacher or group
