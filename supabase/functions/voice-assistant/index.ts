@@ -356,11 +356,22 @@ serve(async (req) => {
             break;
 
           case 'send_message':
-            // Поиск клиента
+            // Поиск клиента - используем активного, если не указан в команде
+            let targetClientName = functionArgs.clientName;
+            if (!targetClientName && context?.activeClientName) {
+              targetClientName = context.activeClientName;
+              console.log('Using active client from context:', targetClientName);
+            }
+
+            if (!targetClientName) {
+              responseText = 'Не указан клиент для отправки сообщения.';
+              break;
+            }
+
             const { data: client } = await supabase
               .from('clients')
               .select('*')
-              .ilike('name', `%${functionArgs.clientName}%`)
+              .ilike('name', `%${targetClientName}%`)
               .maybeSingle();
 
             if (client && client.phone) {
@@ -381,14 +392,21 @@ serve(async (req) => {
                 actionResult = { type: 'message_sent', clientName: client.name };
               }
             } else {
-              responseText = `Клиент "${functionArgs.clientName}" не найден или у него нет номера телефона.`;
+              responseText = `Клиент "${targetClientName}" не найден или у него нет номера телефона.`;
             }
             break;
 
           case 'create_task':
-            // Найдем клиента если указан
+            // Найдем клиента если указан, иначе используем активного из контекста
             let clientForTask = null;
-            if (functionArgs.clientName) {
+            let taskClientName = functionArgs.clientName;
+            
+            if (!taskClientName && context?.activeClientName) {
+              taskClientName = context.activeClientName;
+              console.log('Using active client from context for task:', taskClientName);
+            }
+            
+            if (taskClientName) {
               const { data: foundClient } = await supabase
                 .from('clients')
                 .select('id, name')
@@ -397,7 +415,7 @@ serve(async (req) => {
                 .not('name', 'ilike', 'Teacher:%')
                 .not('name', 'ilike', 'Чат педагогов - %')
                 .not('name', 'ilike', 'Корпоративный чат - %')
-                .ilike('name', `%${functionArgs.clientName}%`)
+                .ilike('name', `%${taskClientName}%`)
                 .maybeSingle();
               clientForTask = foundClient;
             }
@@ -554,11 +572,22 @@ serve(async (req) => {
             break;
 
           case 'manage_chat':
-            // Поиск клиента для управления чатом
+            // Поиск клиента для управления чатом - используем активного, если не указан
+            let chatClientName = functionArgs.clientName;
+            if (!chatClientName && context?.activeClientName) {
+              chatClientName = context.activeClientName;
+              console.log('Using active client from context for chat management:', chatClientName);
+            }
+
+            if (!chatClientName) {
+              responseText = 'Не указан клиент для управления чатом.';
+              break;
+            }
+
             const { data: chatClient } = await supabase
               .from('clients')
               .select('*')
-              .ilike('name', `%${functionArgs.clientName}%`)
+              .ilike('name', `%${chatClientName}%`)
               .maybeSingle();
 
             if (chatClient) {
@@ -604,7 +633,7 @@ serve(async (req) => {
                 }
               }
             } else {
-              responseText = `Клиент "${functionArgs.clientName}" не найден.`;
+              responseText = `Клиент "${chatClientName}" не найден.`;
             }
             break;
 
@@ -629,6 +658,18 @@ serve(async (req) => {
             break;
 
           case 'get_client_info':
+            // Получаем информацию о клиенте - используем активного, если не указан
+            let infoClientName = functionArgs.clientName;
+            if (!infoClientName && context?.activeClientName) {
+              infoClientName = context.activeClientName;
+              console.log('Using active client from context for info:', infoClientName);
+            }
+
+            if (!infoClientName) {
+              responseText = 'Не указан клиент для получения информации.';
+              break;
+            }
+
             const { data: clientInfo } = await supabase
               .from('clients')
               .select(`
@@ -636,7 +677,7 @@ serve(async (req) => {
                 students(name, age, status),
                 student_courses(course_name, start_date, end_date, is_active)
               `)
-              .ilike('name', `%${functionArgs.clientName}%`)
+              .ilike('name', `%${infoClientName}%`)
               .maybeSingle();
 
             if (clientInfo) {
@@ -651,7 +692,7 @@ serve(async (req) => {
               responseText = info;
               actionResult = { type: 'client_info', data: clientInfo };
             } else {
-              responseText = `Информация о клиенте "${functionArgs.clientName}" не найдена.`;
+              responseText = `Информация о клиенте "${infoClientName}" не найдена.`;
             }
             break;
 
