@@ -58,13 +58,14 @@ export default function Contacts() {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        const errorText = await response.text();
+        console.error('Response error:', errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
       
-      const result = await response.json();
-      if (!result.ok) {
-        throw new Error(result.error || 'Webhook request failed');
-      }
+      // For n8n webhook, just check if request was successful
+      const result = await response.text();
+      console.log('Webhook response:', result);
       
       toast({
         title: "Заявка отправлена!",

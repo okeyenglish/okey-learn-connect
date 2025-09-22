@@ -133,19 +133,26 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
         source: "Price Calculator",
       };
 
-      // Use Supabase edge function to proxy webhook data
+      // Use n8n webhook directly
       const response = await fetch("https://n8n.okey-english.ru/webhook/okeyenglish.ru", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtib2p1amZ3dHZtc2d1ZHVtb3duIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxOTQ5MzksImV4cCI6MjA3Mzc3MDkzOX0.4SZggdlllMM8SYUo9yZKR-fR-nK4fIL4ZMciQW2EaNY`
+          "Content-Type": "application/json"
         },
         body: JSON.stringify(webhookData),
       });
 
+      console.log('Price calculator response status:', response.status);
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Price calculator response error:', errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
+
+      // For n8n webhook, just check if request was successful
+      const result = await response.text();
+      console.log('Price calculator webhook response:', result);
 
       toast({
         title: "Заявка отправлена!",

@@ -284,9 +284,17 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
         body: JSON.stringify(enrollmentData)
       });
 
+      console.log('Schedule table response status:', response.status);
+
       if (!response.ok) {
-        throw new Error('Failed to send enrollment data');
+        const errorText = await response.text();
+        console.error('Schedule table response error:', errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
+
+      // For n8n webhook, just check if request was successful
+      const result = await response.text();
+      console.log('Schedule table webhook response:', result);
 
       toast({
         title: "Заявка отправлена!",
