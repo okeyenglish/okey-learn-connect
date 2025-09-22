@@ -5,10 +5,14 @@ import { GraduationCap, Users, Clock, Target, ArrowRight } from "lucide-react";
 import OptimizedImage from "@/components/OptimizedImage";
 
 // Import program images
-import superSafariImg from "@/assets/super-safari.png";
-import kidsBoxImg from "@/assets/kids-box.png";
-import prepareImg from "@/assets/prepare.png";
-import empowerImg from "@/assets/empower.png";
+import kidsCircleImg from "@/assets/programs/kids-circle.jpg";
+import teacherWithKidsImg from "@/assets/programs/teacher-with-kids.jpg";
+import studentWithBookImg from "@/assets/programs/student-with-book.jpg";
+import adultClassroomImg from "@/assets/programs/adult-classroom.jpg";
+import englishLessonImg from "@/assets/programs/english-lesson.jpg";
+import workshopTeachersImg from "@/assets/programs/workshop-teachers.jpg";
+import readingCircleImg from "@/assets/programs/reading-circle.jpg";
+import maleTeacherImg from "@/assets/programs/male-teacher.jpg";
 
 const programs = [
   {
@@ -19,7 +23,7 @@ const programs = [
     description: "Английский через игры, песни и сказки. Мягкое погружение в язык с первых шагов.",
     features: ["Игровая методика", "Развитие речи", "Подготовка к школе"],
     color: "bg-gradient-to-r from-pink-500 to-rose-500",
-    image: superSafariImg,
+    image: kidsCircleImg,
     href: "/programs/supersafari"
   },
   {
@@ -30,7 +34,7 @@ const programs = [
     description: "Читаем, говорим, понемногу пишем. Движемся к уверенному базовому уровню.",
     features: ["Cambridge материалы", "YLE подготовка", "Развитие навыков"],
     color: "bg-gradient-to-r from-blue-500 to-cyan-500",
-    image: kidsBoxImg,
+    image: teacherWithKidsImg,
     href: "/programs/kidsbox"
   },
   {
@@ -41,7 +45,7 @@ const programs = [
     description: "Подростковые темы, уверенная речь, подготовка к KET/PET/FCE, ОГЭ/ЕГЭ.",
     features: ["7 уровней", "Экзамены Cambridge", "Speaking Club"],
     color: "bg-gradient-to-r from-purple-500 to-indigo-500",
-    image: prepareImg,
+    image: studentWithBookImg,
     href: "/programs/prepare"
   },
   {
@@ -52,7 +56,7 @@ const programs = [
     description: "Английский для жизни и работы. Комбинированный формат и speaking-клуб.",
     features: ["Для работы и жизни", "Гибкий график", "Workshop 56 ситуаций"],
     color: "bg-gradient-to-r from-emerald-500 to-teal-500",
-    image: empowerImg,
+    image: maleTeacherImg,
     href: "/programs/empower"
   },
   {
@@ -63,7 +67,7 @@ const programs = [
     description: "Весёлые занятия по субботам: игры, творчество, песни и сказки на английском.",
     features: ["Субботы утром", "Игровой формат", "Перекусы включены"],
     color: "bg-gradient-to-r from-orange-400 to-pink-500",
-    image: superSafariImg, // Используем временно изображение Super Safari
+    image: englishLessonImg,
     href: "/programs/minisadik"
   },
   {
@@ -74,7 +78,7 @@ const programs = [
     description: "Живые мастер-классы по английскому. Разговорная практика через темы, задания и ролевые игры.",
     features: ["Оффлайн формат", "60 минут", "Тематические встречи", "Мини-группы"],
     color: "bg-gradient-to-r from-violet-500 to-purple-500",
-    image: empowerImg, // Используем временно изображение Empower
+    image: workshopTeachersImg,
     href: "/programs/workshop"
   },
   {
@@ -85,7 +89,7 @@ const programs = [
     description: "Онлайн разговорный клуб с носителем языка. Живые дискуссии и темы Cambridge по субботам.",
     features: ["Онлайн формат", "Носитель языка", "Суббота 10:00-13:30 МСК", "Темы Cambridge"],
     color: "bg-gradient-to-r from-blue-500 to-indigo-500",
-    image: empowerImg, // Используем временно изображение Empower
+    image: readingCircleImg,
     href: "/programs/speaking-club"
   }
 ];
@@ -129,20 +133,26 @@ export default function Programs() {
           {programs.map((program) => (
             <Card key={program.name} className="card-elevated group hover:border-primary/50 transition-all overflow-hidden">
               <CardContent className="p-0">
-                <div className="relative h-64">
-                  <OptimizedImage
-                    src={program.image} 
-                    alt={`${program.name} - ${program.description}`}
-                    width={400}
-                    height={256}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
+                <Link to={program.href} className="block">
+                  <div className="relative h-64 cursor-pointer">
+                    <OptimizedImage
+                      src={program.image} 
+                      alt={`${program.name} - ${program.description}`}
+                      width={400}
+                      height={256}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                </Link>
                 <div className="p-6">
-                  <h3 className="text-xl font-bold mb-2">{program.ageCategory}</h3>
+                  <Link to={program.href} className="cursor-pointer">
+                    <h3 className="text-xl font-bold mb-2 hover:text-primary transition-colors">{program.ageCategory}</h3>
+                  </Link>
                   <div className="flex items-center gap-2 mb-3">
                     <Target className="w-5 h-5 text-primary" />
-                    <span className="font-semibold text-primary">{program.name} ({program.level})</span>
+                    <Link to={program.href} className="cursor-pointer">
+                      <span className="font-semibold text-primary hover:text-primary/80 transition-colors">{program.name} ({program.level})</span>
+                    </Link>
                   </div>
                   
                   <p className="text-muted-foreground mb-4">{program.description}</p>
