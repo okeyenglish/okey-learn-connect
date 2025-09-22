@@ -135,7 +135,7 @@ export default function SpeakingClub() {
                 </CardHeader>
                 <CardContent>
                   <SpeakingClubSignupModal level="A1">
-                    <Button className="w-full">Записаться</Button>
+                    <Button className="w-full" aria-label="Записаться в Speaking Club уровня A1">Записаться</Button>
                   </SpeakingClubSignupModal>
                 </CardContent>
               </Card>
@@ -149,7 +149,7 @@ export default function SpeakingClub() {
                 </CardHeader>
                 <CardContent>
                   <SpeakingClubSignupModal level="A2">
-                    <Button className="w-full">Записаться</Button>
+                    <Button className="w-full" aria-label="Записаться в Speaking Club уровня A2">Записаться</Button>
                   </SpeakingClubSignupModal>
                 </CardContent>
               </Card>
@@ -163,7 +163,7 @@ export default function SpeakingClub() {
                 </CardHeader>
                 <CardContent>
                   <SpeakingClubSignupModal level="B1">
-                    <Button className="w-full">Записаться</Button>
+                    <Button className="w-full" aria-label="Записаться в Speaking Club уровня B1">Записаться</Button>
                   </SpeakingClubSignupModal>
                 </CardContent>
               </Card>
@@ -177,7 +177,7 @@ export default function SpeakingClub() {
                 </CardHeader>
                 <CardContent>
                   <SpeakingClubSignupModal level="B2+">
-                    <Button className="w-full">Записаться</Button>
+                    <Button className="w-full" aria-label="Записаться в Speaking Club уровня B2+">Записаться</Button>
                   </SpeakingClubSignupModal>
                 </CardContent>
               </Card>

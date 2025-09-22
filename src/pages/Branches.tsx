@@ -426,7 +426,7 @@ export default function Locations() {
           <h2 className="text-3xl font-bold mb-4">
             Выберите удобный филиал
           </h2>
-          <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
+          <p className="text-xl text-primary-foreground mb-8 max-w-2xl mx-auto">
             Запишитесь на бесплатный пробный урок в любом из наших филиалов
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">

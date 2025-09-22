@@ -15,7 +15,7 @@
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         background: hsl(220 14% 96%);
         line-height: 1.5;
-        color: hsl(210 24% 16%);
+        color: hsl(222.2 84% 4.9%);
       }
       .hero-section {
         background: linear-gradient(135deg, hsl(220 14% 96%) 0%, hsl(220 13% 91%) 100%);
@@ -31,15 +31,15 @@
         text-align: center; 
         line-height: 1.1;
         margin-bottom: 1.5rem;
-        color: hsl(210 24% 16%);
+        color: hsl(222.2 84% 4.9%);
       }
       .hero-subtitle { 
         font-size: clamp(1.1rem, 4vw, 1.5rem); 
-        opacity: 0.8; 
+        opacity: 0.9; 
         text-align: center; 
         max-width: 600px; 
         margin: 0 auto 2rem;
-        color: hsl(210 22% 32%);
+        color: hsl(215.4 16.3% 46.9%);
       }
       /* Prevent layout shift */
       .container { max-width: 1200px; margin: 0 auto; padding: 0 1rem; }
@@ -49,14 +49,33 @@
         padding: 0.75rem 1.5rem; 
         border-radius: 0.5rem; 
         font-weight: 600; 
-        background: hsl(0 84% 60%);
-        color: white;
-        border: 2px solid hsl(0 84% 60%);
+        font-size: 0.875rem;
+        background: hsl(221.2 83.2% 53.3%);
+        color: hsl(210 40% 98%);
+        border: 2px solid hsl(221.2 83.2% 53.3%);
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
       }
       .btn:hover {
-        background: hsl(0 84% 52%);
-        border-color: hsl(0 84% 52%);
+        background: hsl(221.2 83.2% 48%);
+        border-color: hsl(221.2 83.2% 48%);
       }
+      .btn-outline {
+        background: transparent;
+        color: hsl(221.2 83.2% 53.3%);
+        border: 2px solid hsl(221.2 83.2% 53.3%);
+      }
+      .btn-outline:hover {
+        background: hsl(221.2 83.2% 53.3%);
+        color: hsl(210 40% 98%);
+      }
+      /* High contrast text colors for accessibility */
+      .text-high-contrast { color: hsl(222.2 84% 4.9%); }
+      .text-medium-contrast { color: hsl(215.4 16.3% 35%); }
+      .bg-high-contrast { background: hsl(0 0% 100%); }
       /* Loading spinner */
       .loading-spinner {
         animation: spin 1s linear infinite;
@@ -71,11 +90,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://kbojujfwtvmsgudumown.supabase.co" crossorigin>
+    <link rel="preconnect" href="https://api.telegram.org" crossorigin>
+    <link rel="preconnect" href="https://wa.me" crossorigin>
     <link rel="dns-prefetch" href="https://storage.googleapis.com">
+    <link rel="dns-prefetch" href="https://web.whatsapp.com">
     
     <!-- Optimized font loading - critical fonts -->
     <link rel="preload" as="font" href="https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff2" type="font/woff2" crossorigin>
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Montserrat:wght@400;600;700&display=swap" onload="this.rel='stylesheet'">
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Montserrat:wght@400;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Montserrat:wght@400;600;700&display=swap"></noscript>
 
     <meta property="og:title" content="O'KEY ENGLISH SCHOOL - Английский язык в Москве и Московской области" />
@@ -95,9 +117,11 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx" defer></script>
     <!-- Cache service worker for better caching -->
-    <script>
+    <script defer>
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
       }
     </script>
   </body>

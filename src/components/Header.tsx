@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Menu, Phone, MessageCircle, BookOpen, UserCheck, Send, Gift, MapPin } from "lucide-react";
-import logoImage from "@/assets/okey-english-logo.jpg";
+import logoImage from "@/assets/okey-english-logo-optimized.jpg";
 import OptimizedImage from "@/components/OptimizedImage";
 import { getBranchesForSelect } from "@/lib/branches";
 

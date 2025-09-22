@@ -489,7 +489,7 @@ export default function Index() {
                   <h3 className={`text-xl font-semibold mb-3 ${
                     advantage.isHighlighted ? 'text-white' : ''
                   }`}>{advantage.title}</h3>
-                  <p className={advantage.isHighlighted ? 'text-white/90' : 'text-muted-foreground'}>
+                  <p className={advantage.isHighlighted ? 'text-primary-foreground' : 'text-muted-foreground'}>
                     {advantage.text}
                   </p>
                   {advantage.isHighlighted && (
@@ -675,7 +675,7 @@ export default function Index() {
           <h2 className="text-3xl lg:text-4xl font-bold text-white mb-4">
             Готовы начать изучение английского?
           </h2>
-          <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
+          <p className="text-xl text-primary-foreground mb-8 max-w-2xl mx-auto">
             Пройдите бесплатный тест уровня или запишитесь на пробный урок уже сегодня
           </p>
         </div>

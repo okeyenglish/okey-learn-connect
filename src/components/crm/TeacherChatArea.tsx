@@ -967,8 +967,8 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                           <Input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} />
                         </div>
                         <div className="flex justify-end gap-2">
-                          <Button variant="outline" onClick={() => setShowScheduleDialog(false)}>Отмена</Button>
-                          <Button onClick={handleScheduleMessage} disabled={!scheduleDate || !scheduleTime || !message.trim()}>Запланировать</Button>
+                          <Button variant="outline" onClick={() => setShowScheduleDialog(false)} aria-label="Отменить планирование сообщения">Отмена</Button>
+                          <Button onClick={handleScheduleMessage} disabled={!scheduleDate || !scheduleTime || !message.trim()} aria-label="Запланировать отправку сообщения">Запланировать</Button>
                         </div>
                       </div>
                     </DialogContent>

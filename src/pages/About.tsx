@@ -148,7 +148,7 @@ export default function About() {
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
               O'KEY ENGLISH — сеть языковых центров
             </h1>
-            <p className="text-xl md:text-2xl mb-8 text-white/90">
+            <p className="text-xl md:text-2xl mb-8 text-primary-foreground">
               Изучайте английский и другие иностранные языки для детей и взрослых
             </p>
             <Button 
@@ -247,7 +247,7 @@ export default function About() {
                   <h3 className={`text-xl font-semibold mb-3 ${
                     feature.isHighlighted ? 'text-white' : ''
                   }`}>{feature.title}</h3>
-                  <p className={feature.isHighlighted ? 'text-white/90' : 'text-muted-foreground'}>
+                  <p className={feature.isHighlighted ? 'text-primary-foreground' : 'text-muted-foreground'}>
                     {feature.text}
                   </p>
                   {feature.isHighlighted && (
