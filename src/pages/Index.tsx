@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import AnimatedLanguage from "@/components/AnimatedLanguage";
+import { lazy, Suspense } from "react";
 import SEOHead from "@/components/SEOHead";
+import OptimizedImage from "@/components/OptimizedImage";
+import DeferredAnimatedLanguage from "@/components/DeferredAnimatedLanguage";
 import { getBranchesForIndex, BranchForIndex } from "@/lib/branches";
 import { mainPageSEO } from "@/data/seoData";
 import { 
@@ -132,7 +134,12 @@ export default function Index() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchScheduleData();
+    // Defer data fetching to after initial render for better FCP
+    const timer = setTimeout(() => {
+      fetchScheduleData();
+    }, 100);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   const fetchScheduleData = async () => {
@@ -406,7 +413,7 @@ export default function Index() {
           <div className="text-center max-w-4xl mx-auto">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
               <span className="inline-flex items-baseline justify-center gap-2">
-                <AnimatedLanguage />
+                <DeferredAnimatedLanguage />
               </span>
               <br />
               для детей, подростков и взрослых
@@ -433,32 +440,32 @@ export default function Index() {
               </Link>
             </div>
 
-            <div className="flex flex-wrap justify-center items-center gap-6 text-center">
-              <div className="flex items-center gap-3 p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 hover-scale">
-                <div className="w-14 h-14 bg-gradient-primary rounded-full flex items-center justify-center shadow-lg">
-                  <Award className="w-7 h-7 text-white" />
+            <div className="flex flex-wrap justify-center items-center gap-4 text-center">
+              <div className="flex items-center gap-3 p-3 bg-white/10 rounded-lg border border-white/20 hover-scale">
+                <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center">
+                  <Award className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <div className="text-3xl font-black text-primary drop-shadow-lg">10 лет</div>
-                  <div className="text-sm text-primary/80 font-medium">на рынке</div>
+                  <div className="text-2xl font-black text-primary">10 лет</div>
+                  <div className="text-xs text-primary/80 font-medium">на рынке</div>
                 </div>
               </div>
-              <div className="flex items-center gap-3 p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 hover-scale">
-                <div className="w-14 h-14 bg-gradient-primary rounded-full flex items-center justify-center shadow-lg">
-                  <GraduationCap className="w-7 h-7 text-white" />
+              <div className="flex items-center gap-3 p-3 bg-white/10 rounded-lg border border-white/20 hover-scale">
+                <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center">
+                  <GraduationCap className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <div className="text-3xl font-black text-primary drop-shadow-lg">10000+</div>
-                  <div className="text-sm text-primary/80 font-medium">выпускников</div>
+                  <div className="text-2xl font-black text-primary">10000+</div>
+                  <div className="text-xs text-primary/80 font-medium">выпускников</div>
                 </div>
               </div>
-              <div className="flex items-center gap-3 p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 hover-scale">
-                <div className="w-14 h-14 bg-gradient-primary rounded-full flex items-center justify-center shadow-lg">
-                  <BookOpen className="w-7 h-7 text-white" />
+              <div className="flex items-center gap-3 p-3 bg-white/10 rounded-lg border border-white/20 hover-scale">
+                <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center">
+                  <BookOpen className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <div className="text-3xl font-black text-primary drop-shadow-lg">10+</div>
-                  <div className="text-sm text-primary/80 font-medium">языков преподаём</div>
+                  <div className="text-2xl font-black text-primary">10+</div>
+                  <div className="text-xs text-primary/80 font-medium">языков</div>
                 </div>
               </div>
             </div>
@@ -546,10 +553,14 @@ export default function Index() {
                 <Card key={branch.slug} className="card-elevated hover:border-primary/50 transition-all overflow-hidden">
                   <div className="aspect-[16/9] bg-gradient-subtle flex items-center justify-center overflow-hidden">
                     {branch.image ? (
-                      <img 
+                      <OptimizedImage 
                         src={branch.image} 
                         alt={`Интерьер филиала O'KEY English ${branch.name}`}
                         className="w-full h-full object-cover"
+                        loading="lazy"
+                        width={400}
+                        height={225}
+                        sizes="(max-width: 768px) 100vw, 50vw"
                       />
                     ) : (
                       <span className="text-muted-foreground">Фото филиала {branch.name}</span>
