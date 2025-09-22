@@ -8,11 +8,11 @@ import { branches } from "@/lib/branches";
 
 const Workshop = () => {
   const handleWhatsApp = () => {
-    window.open('https://wa.me/XXXXXXXXXXX?text=Хочу записаться на Workshop', '_blank');
+    window.open('https://wa.me/79999999999?text=Хочу записаться на Workshop', '_blank');
   };
 
   const handleTelegram = () => {
-    window.open('https://t.me/XXXXXXXX', '_blank');
+    window.open('https://t.me/okeyenglish', '_blank');
   };
 
   const handleSignup = () => {
@@ -22,7 +22,7 @@ const Workshop = () => {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-primary/10 to-secondary/10 py-16 md:py-24">
+      <section className="bg-gradient-to-br from-primary/10 to-secondary/10 py-12 md:py-20">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
             <div className="flex flex-wrap gap-2 justify-center mb-6">
@@ -61,7 +61,7 @@ const Workshop = () => {
       </section>
 
       {/* Why it works */}
-      <section className="py-16 bg-background">
+      <section className="py-12 bg-background">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 text-primary">
@@ -91,7 +91,7 @@ const Workshop = () => {
       </section>
 
       {/* How Workshop works */}
-      <section className="py-16 bg-muted/50">
+      <section className="py-12 bg-muted/50">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="text-3xl md:text-4xl font-bold mb-8 text-primary">
@@ -105,7 +105,7 @@ const Workshop = () => {
       </section>
 
       {/* Format and Organization */}
-      <section className="py-16 bg-background">
+      <section className="py-12 bg-background">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 text-primary">
@@ -136,7 +136,7 @@ const Workshop = () => {
       </section>
 
       {/* Popular Topics */}
-      <section className="py-16 bg-muted/50">
+      <section className="py-12 bg-muted/50">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 text-primary">
@@ -159,7 +159,7 @@ const Workshop = () => {
       </section>
 
       {/* Branches and Workshops */}
-      <section className="py-16 bg-background">
+      <section className="py-12 bg-background">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-12">
@@ -206,7 +206,7 @@ const Workshop = () => {
       </section>
 
       {/* Who is it for */}
-      <section className="py-16 bg-muted/50">
+      <section className="py-12 bg-muted/50">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="text-3xl md:text-4xl font-bold mb-8 text-primary">
@@ -220,7 +220,7 @@ const Workshop = () => {
       </section>
 
       {/* What you get */}
-      <section className="py-16 bg-background">
+      <section className="py-12 bg-background">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 text-primary">
@@ -249,7 +249,7 @@ const Workshop = () => {
       </section>
 
       {/* FAQ */}
-      <section className="py-16 bg-muted/50">
+      <section className="py-12 bg-muted/50">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 text-primary">
@@ -279,9 +279,9 @@ const Workshop = () => {
       </section>
 
       {/* Final CTA */}
-      <section className="py-16 bg-primary/5">
+      <section className="py-12 bg-primary/5">
         <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto text-center">
+          <div className="max-w-2xl mx-auto text-center">
             <h2 className="text-3xl md:text-4xl font-bold mb-4 text-primary">
               Записаться на Workshop
             </h2>
@@ -289,21 +289,19 @@ const Workshop = () => {
               Оставьте контакты — подберём тему, филиал и время, пришлём памятку к занятию.
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="text-lg" onClick={handleSignup}>
+            <div className="flex flex-col gap-4 max-w-md mx-auto">
+              <Button size="lg" className="text-lg w-full" onClick={handleSignup}>
                 Оставить заявку
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
-              <div className="flex gap-2 justify-center">
-                <Button variant="outline" size="lg" onClick={handleWhatsApp}>
-                  <MessageSquare className="mr-2 h-5 w-5" />
-                  Написать в WhatsApp
-                </Button>
-                <Button variant="outline" size="lg" onClick={handleTelegram}>
-                  <Send className="mr-2 h-5 w-5" />
-                  Написать в Telegram
-                </Button>
-              </div>
+              <Button variant="outline" size="lg" className="w-full" onClick={handleWhatsApp}>
+                <MessageSquare className="mr-2 h-5 w-5" />
+                Написать в WhatsApp
+              </Button>
+              <Button variant="outline" size="lg" className="w-full" onClick={handleTelegram}>
+                <Send className="mr-2 h-5 w-5" />
+                Написать в Telegram
+              </Button>
             </div>
           </div>
         </div>
