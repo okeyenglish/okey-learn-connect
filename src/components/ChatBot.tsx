@@ -247,7 +247,7 @@ export default function ChatBot() {
                         size="sm"
                         variant="outline"
                         className="text-xs flex items-center gap-1 px-2 py-1"
-                        onClick={() => window.open('https://wa.me/79000000000', '_blank')}
+                        onClick={() => window.open('https://wa.me/79937073553', '_blank')}
                       >
                         <MessageCircle className="w-3 h-3 text-green-600" />
                         <span className="hidden sm:inline">WhatsApp</span>
@@ -323,7 +323,7 @@ export default function ChatBot() {
               size="sm"
               variant="outline"
               className="text-xs flex items-center gap-1 flex-1 px-2 py-1"
-              onClick={() => window.open('https://wa.me/79000000000', '_blank')}
+              onClick={() => window.open('https://wa.me/79937073553', '_blank')}
             >
               <MessageCircle className="w-3 h-3 text-green-600" />
               <span className="hidden sm:inline">WhatsApp</span>

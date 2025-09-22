@@ -14,7 +14,7 @@ import {
 const MiniSadik = () => {
   const handleWhatsApp = () => {
     const message = encodeURIComponent("Здравствуйте! Интересует мини-садик для дошкольников. Можно узнать подробности?");
-    window.open(`https://wa.me/79254049595?text=${message}`, '_blank');
+    window.open(`https://wa.me/79937073553?text=${message}`, '_blank');
   };
 
   return (

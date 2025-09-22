@@ -52,7 +52,7 @@ export default function About() {
 
   const handleWhatsApp = () => {
     sendToWebhook('whatsapp');
-    window.open('https://wa.me/79999999999', '_blank');
+    window.open('https://wa.me/79937073553', '_blank');
   };
 
   const handleTelegram = () => {
