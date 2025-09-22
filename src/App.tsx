@@ -2,7 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { AuthProvider } from "@/hooks/useAuth";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ChatBot from "@/components/ChatBot";
@@ -34,11 +35,52 @@ import LocationLyubertsy2 from "./pages/branches/Lyubertsy2";
 import LocationOnline from "./pages/branches/Online";
 import Contacts from "./pages/Contacts";
 import ContactMethod from "./pages/ContactMethod";
+import Admin from "./pages/Admin";
+import CRM from "./pages/CRM";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 const AppContent = () => {
+  const location = useLocation();
+  const isCRMPage = location.pathname === '/newcrm';
+
+  if (isCRMPage) {
+    return (
+      <Routes>
+        <Route path="/" element={<Index />} />
+        <Route path="/programs" element={<Programs />} />
+        <Route path="/programs/supersafari" element={<SuperSafari />} />
+        <Route path="/programs/kidsbox" element={<KidsBox />} />
+        <Route path="/programs/prepare" element={<Prepare />} />
+        <Route path="/programs/empower" element={<Empower />} />
+        <Route path="/programs/minisadik" element={<MiniSadik />} />
+        <Route path="/programs/workshop" element={<Workshop />} />
+        <Route path="/programs/speaking-club" element={<SpeakingClub />} />
+        <Route path="/branches" element={<Branches />} />
+        <Route path="/branches/kotelniki" element={<LocationKotelniki />} />
+        <Route path="/branches/novokosino" element={<LocationNovokosino />} />
+        <Route path="/branches/okskaya" element={<LocationOkskaya />} />
+        <Route path="/branches/stakhanovskaya" element={<LocationStakhanovskaya />} />
+        <Route path="/branches/solntsevo" element={<LocationSolntsevo />} />
+        <Route path="/branches/mytishchi" element={<LocationMytishchi />} />
+        <Route path="/branches/lyubertsy-1" element={<LocationLyubertsy1 />} />
+        <Route path="/branches/lyubertsy-2" element={<LocationLyubertsy2 />} />
+        <Route path="/branches/online" element={<LocationOnline />} />
+        <Route path="/test" element={<Test />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/teachers" element={<Teachers />} />
+        <Route path="/reviews" element={<Reviews />} />
+        <Route path="/pricing" element={<Pricing />} />
+        <Route path="/faq" element={<FAQ />} />
+        <Route path="/contacts" element={<Contacts />} />
+        <Route path="/contact-method" element={<ContactMethod />} />
+        <Route path="/admin" element={<Admin />} />
+        <Route path="/newcrm" element={<CRM />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -72,6 +114,8 @@ const AppContent = () => {
           <Route path="/faq" element={<FAQ />} />
           <Route path="/contacts" element={<Contacts />} />
           <Route path="/contact-method" element={<ContactMethod />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="/newcrm" element={<CRM />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
@@ -83,14 +127,16 @@ const AppContent = () => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <ScrollToTop />
-        <AppContent />
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <ScrollToTop />
+          <AppContent />
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
