@@ -33,19 +33,24 @@ export default function AnimatedLanguage() {
   const [isMobile, setIsMobile] = useState(false);
   const containerRef = useRef<HTMLSpanElement>(null);
 
-  const nextIndex = (currentIndex + 1) % languageCombinations.length;
   const currentLanguages = isMobile ? mobileLanguages : languageCombinations;
+  const nextIndex = (currentIndex + 1) % currentLanguages.length;
+
+  // Reset index when switching between mobile/desktop to avoid out of bounds
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [isMobile]);
 
   useEffect(() => {
     const tick = setInterval(() => {
       setIsAnimating(true);
       setTimeout(() => {
-        setCurrentIndex((prev) => (prev + 1) % languageCombinations.length);
+        setCurrentIndex((prev) => (prev + 1) % currentLanguages.length);
         setIsAnimating(false);
       }, 500);
     }, 2000);
     return () => clearInterval(tick);
-  }, []);
+  }, [currentLanguages.length]);
 
   // Responsive width measuring to avoid overflow on mobile
   useEffect(() => {
