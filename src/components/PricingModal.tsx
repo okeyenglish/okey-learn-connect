@@ -78,14 +78,14 @@ export default function PricingModal({
 
   const handleWhatsApp = () => {
     const message = encodeURIComponent(
-      `Здравствуйте! Хочу узнать стоимость обучения в формате "${formatName}". Меня зовут ${name || '[Имя]'}, мой телефон ${phone || '[Телефон]'}.`
+      `Здравствуйте! Хочу узнать стоимость обучения в формате "${formatName}". Меня зовут ${name || '[Имя]'}.`
     );
     window.open(`https://wa.me/79937073553?text=${message}`, '_blank');
   };
 
   const handleTelegram = () => {
     const message = encodeURIComponent(
-      `Здравствуйте! Хочу узнать стоимость обучения в формате "${formatName}". Меня зовут ${name || '[Имя]'}, мой телефон ${phone || '[Телефон]'}.`
+      `Здравствуйте! Хочу узнать стоимость обучения в формате "${formatName}". Меня зовут ${name || '[Имя]'}.`
     );
     window.open(`https://t.me/englishmanager?text=${message}`, '_blank');
   };

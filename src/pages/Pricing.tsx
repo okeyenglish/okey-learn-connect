@@ -144,7 +144,7 @@ export default function Pricing() {
   return (
     <div className="w-full">
       {/* Hero Section */}
-      <section className="bg-gradient-hero py-20 text-white">
+      <section className="bg-gradient-hero py-12 text-white">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
             Гибкая стоимость обучения
@@ -185,7 +185,7 @@ export default function Pricing() {
       </section>
 
       {/* Price Calculator Section */}
-      <section id="calculator" className="py-20">
+      <section id="calculator" className="py-12">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
@@ -203,7 +203,7 @@ export default function Pricing() {
       </section>
 
       {/* Plans Section */}
-      <section className="py-20 bg-gradient-subtle">
+      <section className="py-12 bg-gradient-subtle">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
@@ -348,7 +348,7 @@ export default function Pricing() {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-20">
+      <section className="py-12">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
@@ -375,7 +375,7 @@ export default function Pricing() {
 
       {/* Final CTA Section */}
       <section className="bg-gradient-primary text-white">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center py-20">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center py-12">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
             Хочу персональный расчёт
           </h2>

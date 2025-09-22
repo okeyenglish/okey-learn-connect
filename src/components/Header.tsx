@@ -30,7 +30,7 @@ export default function Header() {
   };
 
   const handleTelegram = () => {
-    window.open("https://t.me/okeyenglish", "_blank");
+    window.open("https://t.me/englishmanager", "_blank");
   };
 
   const handleCall = () => {
