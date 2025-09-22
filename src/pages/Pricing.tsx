@@ -1,8 +1,8 @@
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import PriceCalculator from "@/components/PriceCalculator";
+import PricingModal from "@/components/PricingModal";
 import { 
   Users, 
   UserCheck, 
@@ -39,8 +39,7 @@ const plans = [
       "2–3 раза в неделю",
       "Отлично для системного прогресса"
     ],
-    icon: Users,
-    link: "/contacts?format=group"
+    icon: Users
   },
   {
     name: "Мини-группа",
@@ -50,8 +49,7 @@ const plans = [
       "Гибкое расписание",
       "Баланс цены и персонализации"
     ],
-    icon: UserCheck,
-    link: "/contacts?format=minigroup"
+    icon: UserCheck
   },
   {
     name: "Индивидуально",
@@ -61,8 +59,7 @@ const plans = [
       "Любой график",
       "Быстрая обратная связь"
     ],
-    icon: User,
-    link: "/contacts?format=1to1"
+    icon: User
   },
   {
     name: "Интенсив / Экспресс",
@@ -72,8 +69,7 @@ const plans = [
       "Подготовка к экзаменам",
       "Подходит для дедлайнов"
     ],
-    icon: Zap,
-    link: "/contacts?format=intensive"
+    icon: Zap
   },
   {
     name: "Онлайн / Очно",
@@ -83,8 +79,7 @@ const plans = [
       "Или приходите в филиал «Окская»",
       "Можно комбинировать"
     ],
-    icon: Monitor,
-    link: "/contacts?format=online"
+    icon: Monitor
   },
   {
     name: "Корпоративное обучение",
@@ -94,8 +89,7 @@ const plans = [
       "График под отделы",
       "Отчётность и KPI"
     ],
-    icon: Building2,
-    link: "/contacts?format=corporate"
+    icon: Building2
   }
 ];
 
@@ -225,9 +219,15 @@ export default function Pricing() {
                         </li>
                       ))}
                     </ul>
-                    <Button asChild className="w-full" variant="outline">
-                      <Link to={plan.link}>Узнать стоимость</Link>
-                    </Button>
+                    <PricingModal
+                      formatName={plan.name}
+                      formatDescription={plan.tag}
+                      formatIcon={plan.icon}
+                    >
+                      <Button className="w-full" variant="outline">
+                        Узнать стоимость
+                      </Button>
+                    </PricingModal>
                   </CardContent>
                 </Card>
               );
