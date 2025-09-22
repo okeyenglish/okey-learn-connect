@@ -137,13 +137,13 @@ export default function LocationStakhanovskaya() {
                 <div>
                   <h4 className="font-semibold mb-2">От метро Стахановская:</h4>
                   <p className="text-muted-foreground">
-                    Пешком 5 минут. Выйти из метро и пройти по 2-му Грайвороновскому проезду до дома 42к1.
+                    (розовая Некрасовская линия) пешком около 6–8 минут. Выйдите из метро к 2-му Грайвороновскому проезду, двигайтесь прямо до дома 42к1.
                   </p>
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">На автобусе:</h4>
                   <p className="text-muted-foreground">
-                    Автобусы до остановки "Стахановская"
+                    Также удобно подъехать автобусами № 30, 159, 725 до остановки «2-й Грайвороновский проезд».
                   </p>
                 </div>
               </CardContent>
@@ -155,15 +155,21 @@ export default function LocationStakhanovskaya() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
+                  <h4 className="font-semibold mb-2">Адрес:</h4>
+                  <p className="text-muted-foreground">
+                    2-й Грайвороновский проезд, д. 42, корп. 1.
+                  </p>
+                </div>
+                <div>
                   <h4 className="font-semibold mb-2">Парковка:</h4>
                   <p className="text-muted-foreground">
-                    Бесплатная парковка возле здания
+                    Бесплатные карманы вдоль проезда, рядом с домом.
                   </p>
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Ориентиры:</h4>
                   <p className="text-muted-foreground">
-                    Рядом с метро Стахановская, в жилом районе
+                    Напротив бизнес-центра, недалеко от ТТК.
                   </p>
                 </div>
               </CardContent>

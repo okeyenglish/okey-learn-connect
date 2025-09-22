@@ -191,14 +191,13 @@ export default function LocationKotelniki() {
                 <div>
                   <h4 className="font-semibold mb-2">От метро Котельники:</h4>
                   <p className="text-muted-foreground">
-                    Пешком 5 минут. Выйти из метро в сторону ул. Кузьминская, 
-                    повернуть направо на 2-й Покровский проезд.
+                    (фиолетовая линия) пешком около 7–10 минут. Выйдите из последнего вагона из центра, двигайтесь к 2-му Покровскому проезду.
                   </p>
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">На автобусе:</h4>
                   <p className="text-muted-foreground">
-                    Автобусы №347, №348 до остановки "2-й Покровский проезд"
+                    Также можно доехать на автобусах № 347, 169, 120, 471 и выйти на остановке «2-й Покровский проезд», далее пройти несколько минут пешком.
                   </p>
                 </div>
               </CardContent>
@@ -210,16 +209,21 @@ export default function LocationKotelniki() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
+                  <h4 className="font-semibold mb-2">Адрес:</h4>
+                  <p className="text-muted-foreground">
+                    2-й Покровский проезд, д. 14, корп. 2.
+                  </p>
+                </div>
+                <div>
                   <h4 className="font-semibold mb-2">Парковка:</h4>
                   <p className="text-muted-foreground">
-                    Бесплатная парковка возле здания
+                    Придомовая, есть свободные места возле здания.
                   </p>
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Ориентиры:</h4>
                   <p className="text-muted-foreground">
-                    Рядом с торговым центром "Остров Мечты", 
-                    недалеко от станции метро Котельники
+                    Рядом ТЦ «Outlet Village Белая Дача» и Мега, удобный съезд с Новорязанского шоссе.
                   </p>
                 </div>
               </CardContent>

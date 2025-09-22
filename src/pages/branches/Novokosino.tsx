@@ -137,13 +137,19 @@ export default function LocationNovokosino() {
                 <div>
                   <h4 className="font-semibold mb-2">От метро Новокосино:</h4>
                   <p className="text-muted-foreground">
-                    На автобусе №20 до остановки "Юбилейный проспект", затем пешком до дома 60.
+                    (жёлтая линия) пешком примерно 12–15 минут по Юбилейному проспекту.
                   </p>
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">На автобусе:</h4>
                   <p className="text-muted-foreground">
-                    Автобусы №20, №677 до остановки "Юбилейный проспект"
+                    Также можно доехать на автобусах № 142, 773, 15к до остановки «Юбилейный проспект, 60».
+                  </p>
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-2">Ориентир:</h4>
+                  <p className="text-muted-foreground">
+                    Пересечение с улицей Академика Челомея, здание бизнес-центра.
                   </p>
                 </div>
               </CardContent>
@@ -155,15 +161,21 @@ export default function LocationNovokosino() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
+                  <h4 className="font-semibold mb-2">Адрес:</h4>
+                  <p className="text-muted-foreground">
+                    г. Реутов, Юбилейный проспект, д. 60.
+                  </p>
+                </div>
+                <div>
                   <h4 className="font-semibold mb-2">Парковка:</h4>
                   <p className="text-muted-foreground">
-                    Бесплатная парковка возле здания
+                    Бесплатная придомовая вдоль проспекта.
                   </p>
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Ориентиры:</h4>
                   <p className="text-muted-foreground">
-                    Рядом с метро Новокосино, на Юбилейном проспекте в Реутове
+                    Рядом ТЦ «Реутов Парк», виден с МКАД.
                   </p>
                 </div>
               </CardContent>
