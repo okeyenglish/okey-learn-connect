@@ -5,7 +5,7 @@ import { MapPin, Phone, MessageCircle, Send, Clock, UserCheck } from "lucide-rea
 import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
-import mytishchiImage from "@/assets/mytishchi-branch-updated.webp";
+import mytishchiImage from "@/assets/mytishchi-classroom.webp";
 import SEOHead from "@/components/SEOHead";
 import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
 
@@ -54,7 +54,7 @@ export default function LocationMytishchi() {
             <CardContent className="p-0">
               <img 
                 src={mytishchiImage} 
-                alt="Внешний вид здания филиала O'KEY English в Мытищах с синей вывеской и парковкой"
+                alt="Детский класс в филиале O'KEY English в Мытищах с яркими стульчиками и интерактивной доской"
                 className="w-full h-[400px] object-cover"
               />
             </CardContent>
