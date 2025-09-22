@@ -80,7 +80,7 @@ export default function ContactMethod() {
                 Открыть Telegram
               </Button>
               <p className="text-sm text-muted-foreground mt-2">
-                @okeyenglish_bot
+                @englishmanager
               </p>
             </CardContent>
           </Card>

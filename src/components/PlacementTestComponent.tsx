@@ -247,6 +247,15 @@ export default function PlacementTestComponent() {
     };
 
     setTestState(newState);
+
+    // Hard stop: send webhook immediately after the very last question
+    const maxQuestions = newState.track === 'kids' ? 16 : 20;
+    if (newState.totalQuestions >= maxQuestions) {
+      console.log('Max questions reached, finishing test now');
+      finishTest(newState, newState.currentLevel);
+      return;
+    }
+
     loadNextQuestion(newState);
   };
 
