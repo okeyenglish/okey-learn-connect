@@ -187,20 +187,34 @@ export default function LocationStakhanovskaya() {
           <div className="mt-8">
             <Card>
               <CardContent className="p-0">
-                <div className="w-full h-[800px] overflow-hidden relative">
-                  <iframe 
-                    className="w-full h-full border border-gray-200 rounded-lg box-border"
-                    src="https://yandex.ru/maps-reviews-widget/228340951550?comments"
-                    title="Отзывы о филиале на Стахановской"
-                  />
+                <div className="relative overflow-hidden rounded-lg">
                   <a 
-                    href="https://yandex.ru/maps/org/o_key_english/228340951550/" 
-                    target="_blank" 
-                    className="box-border no-underline text-gray-400 text-xs font-sans px-4 absolute bottom-2 w-full text-center left-0 overflow-hidden text-ellipsis block max-h-4 whitespace-nowrap"
-                    rel="noopener noreferrer"
+                    href="https://yandex.ru/maps/org/o_key_english/228340951550/?utm_medium=mapframe&utm_source=maps" 
+                    className="absolute top-0 left-0 text-gray-200 text-xs z-10 bg-black/20 px-2 py-1 rounded-br"
                   >
-                    O'key English на карте Москвы — Яндекс Карты
+                    O'key English
                   </a>
+                  <a 
+                    href="https://yandex.ru/maps/213/moscow/category/foreign_language_courses/184106160/?utm_medium=mapframe&utm_source=maps" 
+                    className="absolute top-4 left-0 text-gray-200 text-xs z-10 bg-black/20 px-2 py-1 rounded-br"
+                  >
+                    Курсы иностранных языков в Москве
+                  </a>
+                  <a 
+                    href="https://yandex.ru/maps/213/moscow/category/further_education/184106162/?utm_medium=mapframe&utm_source=maps" 
+                    className="absolute top-8 left-0 text-gray-200 text-xs z-10 bg-black/20 px-2 py-1 rounded-br"
+                  >
+                    Дополнительное образование в Москве
+                  </a>
+                  <iframe 
+                    src="https://yandex.ru/map-widget/v1/org/o_key_english/228340951550/?ll=37.743067%2C55.724728&z=16" 
+                    width="100%" 
+                    height="400" 
+                    frameBorder="0" 
+                    allowFullScreen
+                    className="relative rounded-lg"
+                    title="Карта филиала на Стахановской"
+                  />
                 </div>
               </CardContent>
             </Card>
