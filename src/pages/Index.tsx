@@ -670,7 +670,7 @@ export default function Index() {
         </div>
       </section>
 
-      <section className="py-20 bg-primary">
+      <section className="py-12 bg-primary">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl lg:text-4xl font-bold text-white mb-4">
             Готовы начать изучение английского?
@@ -678,6 +678,27 @@ export default function Index() {
           <p className="text-xl text-primary-foreground mb-8 max-w-2xl mx-auto">
             Пройдите бесплатный тест уровня или запишитесь на пробный урок уже сегодня
           </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
+            <Link to="/contacts" className="w-full sm:w-auto">
+              <Button 
+                variant="outline" 
+                size="touch" 
+                className="w-full sm:w-auto bg-white text-primary hover:bg-primary-foreground hover:text-primary border-2 border-white font-semibold text-lg"
+              >
+                Записаться
+              </Button>
+            </Link>
+            <Link to="/test" className="w-full sm:w-auto">
+              <Button 
+                variant="outline" 
+                size="touch" 
+                className="w-full sm:w-auto bg-transparent text-white border-2 border-white hover:bg-white hover:text-primary font-semibold text-lg"
+              >
+                Пройти тестирование
+              </Button>
+            </Link>
+          </div>
         </div>
       </section>
     </div>
