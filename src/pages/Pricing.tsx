@@ -156,7 +156,7 @@ export default function Pricing() {
             <Button asChild size="lg" className="btn-hero">
               <a href="#calculator">Рассчитать мою стоимость</a>
             </Button>
-            <div className="flex gap-3">
+            <div className="flex gap-3 justify-center">
               <Button 
                 asChild
                 variant="outline" 
@@ -386,7 +386,7 @@ export default function Pricing() {
             <Button asChild size="lg" variant="secondary">
               <a href="#calculator">Рассчитать стоимость</a>
             </Button>
-            <div className="flex gap-3">
+            <div className="flex gap-3 justify-center">
               <Button 
                 asChild
                 variant="outline" 
