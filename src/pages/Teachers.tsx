@@ -74,7 +74,7 @@ export default function Teachers() {
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
               <div className="text-center p-6 bg-card rounded-lg shadow-sm">
-                <div className="text-3xl font-bold text-primary mb-2">50+</div>
+                <div className="text-3xl font-bold text-primary mb-2">250+</div>
                 <p className="text-muted-foreground">Преподавателей в команде</p>
               </div>
               <div className="text-center p-6 bg-card rounded-lg shadow-sm">
@@ -83,7 +83,7 @@ export default function Teachers() {
               </div>
               <div className="text-center p-6 bg-card rounded-lg shadow-sm">
                 <div className="text-3xl font-bold text-primary mb-2">100%</div>
-                <p className="text-muted-foreground">С международными сертификатами</p>
+                <p className="text-muted-foreground">Педагогическое образование</p>
               </div>
             </div>
           </div>
