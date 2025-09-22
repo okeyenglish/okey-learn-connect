@@ -214,6 +214,11 @@ const AppContent = () => {
               <CRM />
             </Suspense>
           } />
+          <Route path="/5000" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <NotFound />
+            </Suspense>
+          } />
           <Route path="*" element={
             <Suspense fallback={<LoadingComponent />}>
               <NotFound />
