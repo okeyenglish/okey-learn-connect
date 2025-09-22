@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Menu, Phone, MessageCircle, BookOpen, UserCheck, Send, Gift, MapPin } from "lucide-react";
-import logoImage from "@/assets/okey-english-logo-optimized.jpg";
+import logoImage from "@/assets/okey-english-logo.jpg";
 import OptimizedImage from "@/components/OptimizedImage";
 import { getBranchesForSelect } from "@/lib/branches";
 
@@ -24,6 +24,8 @@ export default function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const branchesForSelect = getBranchesForSelect();
+
+  console.log("Header is rendering, location:", location.pathname);
 
   const handleWhatsApp = () => {
     window.open("https://wa.me/79937073553", "_blank");
@@ -52,15 +54,17 @@ export default function Header() {
               <OptimizedImage
                 src={logoImage} 
                 alt="O'KEY ENGLISH - Школа английского языка" 
-                width={64}
-                height={64}
+                width={105}
+                height={105}
                 priority={true}
-                className="h-16 w-16 rounded-full object-cover border-2 border-white shadow-lg"
+                className="h-[105px] w-[105px] rounded-full object-cover border-2 border-white shadow-lg absolute left-0 top-0"
               />
+              {/* Invisible spacer to maintain layout space */}
+              <div className="h-16 w-[105px]"></div>
             </Link>
 
             {/* Desktop Navigation */}
-            <nav className="hidden xl:flex items-center space-x-6 flex-1 justify-center mx-8">
+            <nav className="hidden lg:flex items-center space-x-6 flex-1 justify-center mx-8">
               {navigation.map((item) => (
                 <Link
                   key={item.name}

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Phone, Mail, MapPin, MessageCircle, Send } from "lucide-react";
-import okeyLogo from "@/assets/okey-english-logo-optimized.jpg";
+import okeyLogo from "@/assets/okey-english-logo.jpg";
 import OptimizedImage from "@/components/OptimizedImage";
 import { getBranchesForFooter } from "@/lib/branches";
 

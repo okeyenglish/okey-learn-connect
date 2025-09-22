@@ -60,6 +60,8 @@ const AppContent = () => {
   const location = useLocation();
   const isCRMPage = location.pathname === '/newcrm';
 
+  console.log("AppContent rendering, location:", location.pathname, "isCRMPage:", isCRMPage);
+
   if (isCRMPage) {
     return (
       <Suspense fallback={<LoadingComponent />}>
