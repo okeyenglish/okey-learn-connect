@@ -25,8 +25,6 @@ export default function Header() {
   const navigate = useNavigate();
   const branchesForSelect = getBranchesForSelect();
 
-  console.log("Header is rendering, location:", location.pathname);
-
   const handleWhatsApp = () => {
     window.open("https://wa.me/79937073553", "_blank");
   };
