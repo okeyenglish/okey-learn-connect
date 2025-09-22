@@ -13,6 +13,8 @@ import englishLessonImg from "@/assets/programs/english-lesson.jpg";
 import workshopTeachersImg from "@/assets/programs/workshop-teachers.jpg";
 import readingCircleImg from "@/assets/programs/reading-circle.jpg";
 import maleTeacherImg from "@/assets/programs/male-teacher.jpg";
+import onlineFacesImg from "@/assets/programs/online-faces.jpg";
+import kindergartenClassImg from "@/assets/programs/kindergarten-class.jpg";
 
 const programs = [
   {
@@ -67,7 +69,7 @@ const programs = [
     description: "Весёлые занятия по субботам: игры, творчество, песни и сказки на английском.",
     features: ["Субботы утром", "Игровой формат", "Перекусы включены"],
     color: "bg-gradient-to-r from-orange-400 to-pink-500",
-    image: englishLessonImg,
+    image: kindergartenClassImg,
     href: "/programs/minisadik"
   },
   {
@@ -89,7 +91,7 @@ const programs = [
     description: "Онлайн разговорный клуб с носителем языка. Живые дискуссии и темы Cambridge по субботам.",
     features: ["Онлайн формат", "Носитель языка", "Суббота 10:00-13:30 МСК", "Темы Cambridge"],
     color: "bg-gradient-to-r from-blue-500 to-indigo-500",
-    image: readingCircleImg,
+    image: onlineFacesImg,
     href: "/programs/speaking-club"
   }
 ];
