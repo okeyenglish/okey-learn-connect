@@ -552,28 +552,32 @@ export default function Index() {
             ) : (
               branchesWithSchedule.map((branch) => (
                 <Card key={branch.slug} className="card-elevated hover:border-primary/50 transition-all overflow-hidden">
-                  <div className="aspect-[16/9] bg-gradient-subtle flex items-center justify-center overflow-hidden">
-                    {branch.image ? (
-                      <OptimizedImage 
-                        src={branch.image} 
-                        alt={`Интерьер филиала O'KEY English ${branch.name}`}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                        width={400}
-                        height={225}
-                        sizes="(max-width: 768px) 100vw, 50vw"
-                      />
-                    ) : (
-                      <span className="text-muted-foreground">Фото филиала {branch.name}</span>
-                    )}
-                  </div>
+                  <Link to={`/branches/${branch.slug}`} className="block">
+                    <div className="aspect-[16/9] bg-gradient-subtle flex items-center justify-center overflow-hidden cursor-pointer hover:opacity-90 transition-opacity">
+                      {branch.image ? (
+                        <OptimizedImage 
+                          src={branch.image} 
+                          alt={`Интерьер филиала O'KEY English ${branch.name}`}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          width={400}
+                          height={225}
+                          sizes="(max-width: 768px) 100vw, 50vw"
+                        />
+                      ) : (
+                        <span className="text-muted-foreground">Фото филиала {branch.name}</span>
+                      )}
+                    </div>
+                  </Link>
                   
                   <CardContent className="p-6 space-y-4">
                     <div className="flex justify-between items-start">
                       <div>
                         <div className="flex items-center gap-2">
                           <MapPin className="w-5 h-5 text-primary" />
-                          <h3 className="font-semibold text-xl">{branch.name}</h3>
+                          <Link to={`/branches/${branch.slug}`} className="hover:text-primary transition-colors">
+                            <h3 className="font-semibold text-xl cursor-pointer">{branch.name}</h3>
+                          </Link>
                         </div>
                         <p className="text-sm text-muted-foreground mt-2">{branch.address}</p>
                       </div>
