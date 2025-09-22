@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Gift, Phone, User, MapPin, BookOpen, Calendar, Check, Sparkles, MessageCircle, Clock } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { getBranchesForSelect } from "@/lib/branches";
+import { supabase } from "@/integrations/supabase/client";
 
 interface PriceCalculatorProps {
   preSelectedBranch?: string;
@@ -133,26 +134,16 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
         source: "Price Calculator",
       };
 
-      // Use n8n webhook directly
-      const response = await fetch("https://n8n.okey-english.ru/webhook/okeyenglish.ru", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(webhookData),
+      const { data, error } = await supabase.functions.invoke('webhook-proxy', {
+        body: webhookData,
       });
 
-      console.log('Price calculator response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Price calculator response error:', errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      if (error) {
+        console.error('Price calculator proxy error:', error);
+        throw new Error(typeof error === 'string' ? error : (error.message || 'Webhook error'));
       }
 
-      // For n8n webhook, just check if request was successful
-      const result = await response.text();
-      console.log('Price calculator webhook response:', result);
+      console.log('Price calculator proxy success:', data);
 
       toast({
         title: "Заявка отправлена!",

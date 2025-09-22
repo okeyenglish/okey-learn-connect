@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { BookOpen, Globe, Users, Laptop, GraduationCap, Star, BookMarked, Heart, MessageCircle, Calendar, Phone, Send, Video } from "lucide-react";
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function About() {
   const { toast } = useToast();
@@ -12,28 +13,23 @@ export default function About() {
     setIsLoading(true);
     
     try {
-      const response = await fetch('https://n8n.okey-english.ru/webhook/okeyenglish.ru', {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          timestamp: new Date().toISOString(),
-          source: source,
-          page: "about",
-          triggered_from: window.location.origin,
-        }),
+      const payload = {
+        timestamp: new Date().toISOString(),
+        source: source,
+        page: "about",
+        triggered_from: window.location.origin,
+      };
+
+      const { data, error } = await supabase.functions.invoke('webhook-proxy', {
+        body: payload,
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('About page response error:', errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      if (error) {
+        console.error('About page proxy error:', error);
+        throw new Error(typeof error === 'string' ? error : (error.message || 'Webhook error'));
       }
-      
-      // For n8n webhook, just check if request was successful
-      const result = await response.text();
-      console.log('About page webhook response:', result);
+
+      console.log('About page webhook response:', data);
 
       toast({
         title: "Заявка отправлена",

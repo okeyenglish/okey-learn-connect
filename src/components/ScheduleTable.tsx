@@ -276,25 +276,16 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
         timestamp: new Date().toISOString()
       };
 
-      const response = await fetch('https://n8n.okey-english.ru/webhook/okeyenglish.ru', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(enrollmentData)
+      const { data, error } = await supabase.functions.invoke('webhook-proxy', {
+        body: enrollmentData,
       });
 
-      console.log('Schedule table response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Schedule table response error:', errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      if (error) {
+        console.error('Schedule table proxy error:', error);
+        throw new Error(typeof error === 'string' ? error : (error.message || 'Webhook error'));
       }
 
-      // For n8n webhook, just check if request was successful
-      const result = await response.text();
-      console.log('Schedule table webhook response:', result);
+      console.log('Schedule table proxy success:', data);
 
       toast({
         title: "Заявка отправлена!",
