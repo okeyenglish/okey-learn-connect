@@ -174,7 +174,7 @@ export default function Pricing() {
                 size="lg" 
                 className="bg-white/10 border-white/30 text-white hover:bg-white/20"
               >
-                <a href="https://t.me/okeyenglish" target="_blank" rel="noopener noreferrer">
+                <a href="https://t.me/englishmanager" target="_blank" rel="noopener noreferrer">
                   <MessageSquare className="w-4 h-4 mr-2" />
                   Telegram
                 </a>
@@ -404,7 +404,7 @@ export default function Pricing() {
                 size="lg" 
                 className="bg-white/10 border-white/30 text-white hover:bg-white/20"
               >
-                <a href="https://t.me/okeyenglish" target="_blank" rel="noopener noreferrer">
+                <a href="https://t.me/englishmanager" target="_blank" rel="noopener noreferrer">
                   <MessageSquare className="w-4 h-4 mr-2" />
                   Написать в Telegram
                 </a>

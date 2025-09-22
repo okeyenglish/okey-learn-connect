@@ -87,7 +87,7 @@ export default function PricingModal({
     const message = encodeURIComponent(
       `Здравствуйте! Хочу узнать стоимость обучения в формате "${formatName}". Меня зовут ${name || '[Имя]'}, мой телефон ${phone || '[Телефон]'}.`
     );
-    window.open(`https://t.me/okeyenglish?text=${message}`, '_blank');
+    window.open(`https://t.me/englishmanager?text=${message}`, '_blank');
   };
 
   return (
