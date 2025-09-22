@@ -5,6 +5,7 @@ import { MapPin, Phone, MessageCircle, Send, Clock, UserCheck } from "lucide-rea
 import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
+import { TeachersSection } from "@/components/TeachersSection";
 import mytishchiImage from "@/assets/mytishchi-classroom.webp";
 import SEOHead from "@/components/SEOHead";
 import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
@@ -216,6 +217,8 @@ export default function LocationMytishchi() {
         </div>
 
         {/* Price Calculator Section */}
+        <TeachersSection branchName="Мытищи" />
+        
         <div className="mt-16">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Рассчитайте стоимость обучения</h2>

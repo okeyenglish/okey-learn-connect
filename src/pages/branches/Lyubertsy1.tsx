@@ -5,6 +5,7 @@ import { MapPin, Phone, MessageCircle, Send, Clock, UserCheck } from "lucide-rea
 import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
+import { TeachersSection } from "@/components/TeachersSection";
 import lyubertsyImage from "@/assets/lyubertsy-branch.jpg";
 import SEOHead from "@/components/SEOHead";
 import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
@@ -195,6 +196,8 @@ export default function LocationLyubertsy1() {
         </div>
 
         {/* Price Calculator Section */}
+        <TeachersSection branchName="Люберцы" />
+        
         <div className="mt-16">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Рассчитайте стоимость обучения</h2>
