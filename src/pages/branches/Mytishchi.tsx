@@ -187,7 +187,7 @@ export default function LocationMytishchi() {
             <Card>
               <CardContent className="p-0">
                 <iframe
-                  src="https://yandex.ru/map-widget/v1/?um=constructor%3Ab8e1f4a7b3c0c5b6e5d4f3e2a1b9c8d7f6e5&amp;source=constructor"
+                  src="https://yandex.ru/search?text=O%27key+English&oid=b%3A45748069943&lr=213"
                   width="100%"
                   height="400"
                   frameBorder="0"

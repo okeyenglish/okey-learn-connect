@@ -192,7 +192,7 @@ export default function LocationStakhanovskaya() {
             <Card>
               <CardContent className="p-0">
                 <iframe
-                  src="https://yandex.ru/map-widget/v1/?um=constructor%3Ab8e1f4a7b3c0c5b6e5d4f3e2a1b9c8d7f6e5&amp;source=constructor"
+                  src="https://yandex.ru/maps/org/o_key_english/228340951550/?ll=37.743067%2C55.724728&z=16"
                   width="100%"
                   height="400"
                   frameBorder="0"
