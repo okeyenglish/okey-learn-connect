@@ -207,9 +207,10 @@ export default function LocationStakhanovskaya() {
           </div>
         </div>
 
-        {/* Price Calculator Section */}
+        {/* Teachers Section */}
         <TeachersSection branchName="Стахановская" />
-        
+
+        {/* Price Calculator Section */}
         <div className="mt-16">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Рассчитайте стоимость обучения</h2>

@@ -2,7 +2,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import OptimizedImage from "@/components/OptimizedImage";
 import teacherFemale1 from "@/assets/teacher-female-1.png";
 import teacherFemale2 from "@/assets/teacher-female-2.png";
-import teacherFemale3 from "@/assets/teacher-female-3.png";
 import teacherFemale4 from "@/assets/teacher-female-4.png";
 import teacherFemale5 from "@/assets/teacher-female-5.png";
 import teacherFemale6 from "@/assets/teacher-female-6.png";
@@ -33,12 +32,6 @@ const teachers: Teacher[] = [
     image: teacherFemale2
   },
   {
-    id: "3",
-    name: "Мария Иванова",
-    specialization: "Преподаватель английского и немецкого языков",
-    image: teacherFemale3
-  },
-  {
     id: "4",
     name: "Александр Козлов",
     specialization: "Преподаватель разговорного английского",
@@ -64,8 +57,8 @@ const teachers: Teacher[] = [
   },
   {
     id: "8",
-    name: "Михаил Петров",
-    specialization: "Преподаватель бизнес-английского",
+    name: "Emmanuel Mwazo",
+    specialization: "Спикинг тренер",
     image: teacherMale5
   },
   {
