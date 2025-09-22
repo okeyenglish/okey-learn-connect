@@ -145,4 +145,91 @@
   .text-gradient {
     @apply bg-gradient-primary bg-clip-text text-transparent;
   }
+
+  /* ========== PERFORMANCE OPTIMIZATIONS ========== */
+  
+  /* Optimize font rendering */
+  * {
+    font-display: swap;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Progressive image loading with blur-up effect */
+  .blur-up {
+    filter: blur(5px);
+    transition: filter 0.4s ease;
+    will-change: filter;
+  }
+
+  .blur-up.loaded {
+    filter: blur(0);
+  }
+
+  /* Smooth scrolling optimization */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Optimize animations for 60fps */
+  .hover-scale {
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
+  }
+
+  .hover-scale:hover {
+    transform: scale(1.02);
+  }
+
+  /* Optimize repaints and reflows */
+  .card-elevated {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+  }
+
+  /* Lazy loading shimmer effect */
+  .loading-shimmer {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  /* Optimize images for mobile */
+  img {
+    height: auto;
+    max-width: 100%;
+  }
+
+  /* Optimize scrolling on mobile */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Reduce motion for accessibility while maintaining performance */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Critical loading states */
+  .loading-skeleton {
+    background: linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--muted-foreground) / 0.1) 50%, hsl(var(--muted)) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+  }
+
+  @keyframes skeleton-loading {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
 }

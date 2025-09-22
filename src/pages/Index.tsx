@@ -9,6 +9,7 @@ import SEOHead from "@/components/SEOHead";
 import OptimizedImage from "@/components/OptimizedImage";
 import DeferredAnimatedLanguage from "@/components/DeferredAnimatedLanguage";
 import { getBranchesForIndex, BranchForIndex } from "@/lib/branches";
+import BranchCardSkeleton from "@/components/BranchCardSkeleton";
 import { mainPageSEO } from "@/data/seoData";
 import { 
   GraduationCap, 
@@ -134,12 +135,8 @@ export default function Index() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Defer data fetching to after initial render for better FCP
-    const timer = setTimeout(() => {
-      fetchScheduleData();
-    }, 100);
-    
-    return () => clearTimeout(timer);
+    // Fetch data immediately for better performance
+    fetchScheduleData();
   }, []);
 
   const fetchScheduleData = async () => {
@@ -540,14 +537,7 @@ export default function Index() {
             {isLoading ? (
               // Loading skeleton
               Array.from({ length: 8 }).map((_, index) => (
-                <Card key={index} className="card-elevated overflow-hidden">
-                  <div className="aspect-[16/9] bg-muted animate-pulse"></div>
-                  <CardContent className="p-6 space-y-4">
-                    <div className="h-6 bg-muted animate-pulse rounded"></div>
-                    <div className="h-4 bg-muted animate-pulse rounded w-3/4"></div>
-                    <div className="h-20 bg-muted animate-pulse rounded"></div>
-                  </CardContent>
-                </Card>
+                <BranchCardSkeleton key={index} />
               ))
             ) : (
               branchesWithSchedule.map((branch) => (
@@ -559,9 +549,11 @@ export default function Index() {
                         alt={`Интерьер филиала O'KEY English ${branch.name}`}
                         className="w-full h-full object-cover"
                         loading="lazy"
-                        width={400}
-                        height={225}
-                        sizes="(max-width: 768px) 100vw, 50vw"
+                        width={320}
+                        height={180}
+                        sizes="(max-width: 480px) 100vw, (max-width: 768px) 50vw, 33vw"
+                        quality={80}
+                        placeholderBlur={true}
                       />
                     ) : (
                       <span className="text-muted-foreground">Фото филиала {branch.name}</span>
