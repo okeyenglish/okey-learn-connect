@@ -276,12 +276,16 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
         timestamp: new Date().toISOString()
       };
 
-      const { error } = await supabase.functions.invoke('webhook-proxy', {
-        body: enrollmentData
+      const response = await fetch('https://n8n.okey-english.ru/webhook/okeyenglish.ru', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(enrollmentData)
       });
 
-      if (error) {
-        throw error;
+      if (!response.ok) {
+        throw new Error('Failed to send enrollment data');
       }
 
       toast({

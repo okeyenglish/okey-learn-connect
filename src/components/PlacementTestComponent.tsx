@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Clock, Users, GraduationCap, Phone, Mail } from "lucide-react";
 import { questionBank } from "@/lib/questionBank";
-import { supabase } from "@/integrations/supabase/client";
 
 interface TestState {
   track: 'kids' | 'teens' | 'adults';
@@ -212,15 +211,19 @@ export default function PlacementTestComponent() {
 
     try {
       console.log('Sending webhook data:', webhookData);
-      const { error } = await supabase.functions.invoke('webhook-proxy', {
-        body: webhookData
+      const response = await fetch('https://n8n.okey-english.ru/webhook/okeyenglish.ru', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(webhookData)
       });
 
-      if (error) {
-        console.error('Failed to send webhook:', error);
-      } else {
-        console.log('Test results sent successfully');
+      if (!response.ok) {
+        throw new Error('Failed to send webhook');
       }
+
+      console.log('Test results sent successfully');
     } catch (error) {
       console.error('Webhook error:', error);
     }

@@ -12,7 +12,7 @@ export default function About() {
     setIsLoading(true);
     
     try {
-      const response = await fetch('https://kbojujfwtvmsgudumown.supabase.co/functions/v1/webhook-proxy', {
+      const response = await fetch('https://n8n.okey-english.ru/webhook/okeyenglish.ru', {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

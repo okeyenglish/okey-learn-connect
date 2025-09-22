@@ -134,7 +134,7 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
       };
 
       // Use Supabase edge function to proxy webhook data
-      const response = await fetch("https://kbojujfwtvmsgudumown.supabase.co/functions/v1/webhook-proxy", {
+      const response = await fetch("https://n8n.okey-english.ru/webhook/okeyenglish.ru", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
