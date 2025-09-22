@@ -84,22 +84,26 @@ const teachers: Teacher[] = [
 interface TeachersSectionProps {
   branchName?: string;
   showTitle?: boolean;
+  showAllTeachers?: boolean;
 }
 
 export const TeachersSection: React.FC<TeachersSectionProps> = ({ 
   branchName, 
-  showTitle = true 
+  showTitle = true,
+  showAllTeachers = false
 }) => {
-  // Show random 4-6 teachers for each branch
-  const displayedTeachers = teachers
-    .sort(() => Math.random() - 0.5)
-    .slice(0, Math.floor(Math.random() * 3) + 4);
+  // Show all teachers or random 4-6 teachers for each branch
+  const displayedTeachers = showAllTeachers 
+    ? teachers
+    : teachers
+        .sort(() => Math.random() - 0.5)
+        .slice(0, Math.floor(Math.random() * 3) + 4);
 
   return (
-    <section className="py-16 bg-muted/20">
+    <section className="py-12 bg-muted/20">
       <div className="container mx-auto px-4">
         {showTitle && (
-          <div className="text-center mb-12">
+          <div className="text-center mb-8">
             <h2 className="text-3xl font-bold mb-4">Наши преподаватели</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               Сертифицированные специалисты с опытом от 5 лет

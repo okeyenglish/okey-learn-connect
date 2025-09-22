@@ -62,7 +62,7 @@ export default function Teachers() {
       />
       
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-20">
+      <section className="bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-16">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-4xl mx-auto">
             <h1 className="text-4xl lg:text-6xl font-bold mb-6">
@@ -91,10 +91,10 @@ export default function Teachers() {
       </section>
 
       {/* Teachers Section */}
-      <TeachersSection showTitle={false} />
+      <TeachersSection showTitle={false} showAllTeachers={true} />
 
       {/* Qualifications Section */}
-      <section className="py-16 bg-muted/10">
+      <section className="py-12 bg-muted/10">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="text-3xl font-bold mb-8">Квалификация и сертификаты</h2>
