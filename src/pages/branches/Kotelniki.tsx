@@ -256,14 +256,35 @@ export default function LocationKotelniki() {
           <div className="mt-8">
             <Card>
               <CardContent className="p-0">
-                <iframe
-                  src="https://yandex.ru/maps/org/o_key_english/1599363543/?ll=37.856811%2C55.663538&z=16"
-                  width="100%"
-                  height="400"
-                  frameBorder="0"
-                  className="rounded-lg"
-                  title="Карта филиала в Котельниках"
-                ></iframe>
+                <div className="relative overflow-hidden rounded-lg">
+                  <a 
+                    href="https://yandex.ru/maps/org/o_key_english/1599363543/?utm_medium=mapframe&utm_source=maps" 
+                    className="absolute top-0 left-0 text-gray-200 text-xs z-10 bg-black/20 px-2 py-1 rounded-br"
+                  >
+                    O'key English
+                  </a>
+                  <a 
+                    href="https://yandex.ru/maps/21651/kotelniki/category/foreign_language_courses/184106160/?utm_medium=mapframe&utm_source=maps" 
+                    className="absolute top-4 left-0 text-gray-200 text-xs z-10 bg-black/20 px-2 py-1 rounded-br"
+                  >
+                    Курсы иностранных языков в Котельниках
+                  </a>
+                  <a 
+                    href="https://yandex.ru/maps/21651/kotelniki/category/further_education/184106162/?utm_medium=mapframe&utm_source=maps" 
+                    className="absolute top-8 left-0 text-gray-200 text-xs z-10 bg-black/20 px-2 py-1 rounded-br"
+                  >
+                    Дополнительное образование в Котельниках
+                  </a>
+                  <iframe 
+                    src="https://yandex.ru/map-widget/v1/org/o_key_english/1599363543/?ll=37.856811%2C55.663538&z=16" 
+                    width="100%" 
+                    height="400" 
+                    frameBorder="0" 
+                    allowFullScreen
+                    className="relative rounded-lg"
+                    title="Карта филиала в Котельниках"
+                  />
+                </div>
               </CardContent>
             </Card>
           </div>
