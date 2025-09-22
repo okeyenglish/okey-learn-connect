@@ -45,7 +45,7 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
       alt={alt}
       width={width}
       height={height}
-      className={`${className} ${placeholderBlur && loading === 'lazy' ? 'blur-up' : ''}`}
+      className={`${className} ${placeholderBlur && loading === 'lazy' && !priority ? 'blur-up' : ''}`}
       loading={loadingAttr}
       fetchPriority={fetchPriority as any}
       sizes={responsiveSizes}
