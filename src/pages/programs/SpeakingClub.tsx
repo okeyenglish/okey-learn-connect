@@ -18,10 +18,18 @@ import {
   UserCheck,
   Shield,
   Briefcase,
-  Plane
+  Plane,
+  Send
 } from "lucide-react";
 
 export default function SpeakingClub() {
+  const handleWhatsApp = () => {
+    window.open('https://wa.me/79999999999?text=Хочу записаться в Speaking Club', '_blank');
+  };
+
+  const handleTelegram = () => {
+    window.open('https://t.me/okeyenglish', '_blank');
+  };
   return (
     <div className="min-h-screen py-20">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -58,12 +66,12 @@ export default function SpeakingClub() {
                   Записаться в Speaking Club
                 </Button>
               </SpeakingClubSignupModal>
-              <Button variant="outline" size="lg">
+              <Button variant="outline" size="lg" onClick={handleWhatsApp}>
                 <MessageCircle className="w-5 h-5 mr-2" />
                 WhatsApp
               </Button>
-              <Button variant="outline" size="lg">
-                <MessageCircle className="w-5 h-5 mr-2" />
+              <Button variant="outline" size="lg" onClick={handleTelegram}>
+                <Send className="w-5 h-5 mr-2" />
                 Telegram
               </Button>
             </div>
@@ -302,12 +310,12 @@ export default function SpeakingClub() {
                   Записаться в Speaking Club
                 </Button>
               </SpeakingClubSignupModal>
-              <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-primary">
+              <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-primary" onClick={handleWhatsApp}>
                 <MessageCircle className="w-5 h-5 mr-2" />
                 Написать в WhatsApp
               </Button>
-              <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-primary">
-                <MessageCircle className="w-5 h-5 mr-2" />
+              <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-primary" onClick={handleTelegram}>
+                <Send className="w-5 h-5 mr-2" />
                 Написать в Telegram
               </Button>
             </div>
