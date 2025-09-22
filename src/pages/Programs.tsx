@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { GraduationCap, Users, Clock, Target, ArrowRight } from "lucide-react";
+import OptimizedImage from "@/components/OptimizedImage";
 
 // Import program images
 import superSafariImg from "@/assets/super-safari.png";
@@ -129,9 +130,11 @@ export default function Programs() {
             <Card key={program.name} className="card-elevated group hover:border-primary/50 transition-all overflow-hidden">
               <CardContent className="p-0">
                 <div className="relative h-64">
-                  <img 
+                  <OptimizedImage
                     src={program.image} 
                     alt={`${program.name} - ${program.description}`}
+                    width={400}
+                    height={256}
                     className="w-full h-full object-cover"
                   />
                 </div>

@@ -6,6 +6,7 @@ import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
 import SEOHead from "@/components/SEOHead";
 import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
+import OptimizedImage from "@/components/OptimizedImage";
 import classroomImage from "@/assets/kotelniki-classroom.png";
 import kotelnikiImage from "@/assets/kotelniki-branch.jpg";
 import teacherMale1 from "@/assets/teacher-male-1.png";
@@ -130,18 +131,22 @@ export default function LocationKotelniki() {
           <div className="grid md:grid-cols-2 gap-6">
             <Card>
               <CardContent className="p-0">
-                <img 
+                <OptimizedImage
                   src={kotelnikiImage} 
                   alt="Интерьер филиала O'KEY English в Котельниках - зона ресепшн с брендингом" 
+                  width={400}
+                  height={384}
                   className="w-full h-96 object-cover rounded-lg"
                 />
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-0">
-                <img 
+                <OptimizedImage
                   src={classroomImage} 
                   alt="Учебный класс в филиале Котельники" 
+                  width={400}
+                  height={384}
                   className="w-full h-96 object-cover rounded-lg"
                 />
               </CardContent>
@@ -155,9 +160,11 @@ export default function LocationKotelniki() {
           <div className="grid md:grid-cols-3 gap-6">
             <Card>
               <CardContent className="p-6 text-center">
-                <img 
+                <OptimizedImage
                   src={teacherMale1} 
                   alt="Преподаватель английского языка" 
+                  width={128}
+                  height={128}
                   className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
                 />
                 <h3 className="text-xl font-semibold mb-2">Дмитрий</h3>
@@ -167,9 +174,11 @@ export default function LocationKotelniki() {
 
             <Card>
               <CardContent className="p-6 text-center">
-                <img 
+                <OptimizedImage
                   src={teacherMale2} 
                   alt="Преподаватель английского языка" 
+                  width={128}
+                  height={128}
                   className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
                 />
                 <h3 className="text-xl font-semibold mb-2">Александр</h3>
@@ -179,9 +188,11 @@ export default function LocationKotelniki() {
 
             <Card>
               <CardContent className="p-6 text-center">
-                <img 
+                <OptimizedImage
                   src={teacherFemale1} 
                   alt="Преподаватель английского языка" 
+                  width={128}
+                  height={128}
                   className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
                 />
                 <h3 className="text-xl font-semibold mb-2">Анна</h3>

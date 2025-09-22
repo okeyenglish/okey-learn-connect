@@ -4,8 +4,6 @@
 
 /* O'KEY ENGLISH Design System - All colors MUST be HSL */
 
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&display=swap');
-
 @layer base {
   :root {
     /* Brand Colors - O'KEY ENGLISH */

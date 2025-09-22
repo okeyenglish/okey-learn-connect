@@ -5,6 +5,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Menu, Phone, MessageCircle, BookOpen, UserCheck, Send, Gift, MapPin } from "lucide-react";
 import logoImage from "@/assets/okey-english-logo.jpg";
+import OptimizedImage from "@/components/OptimizedImage";
 import { getBranchesForSelect } from "@/lib/branches";
 
 const navigation = [
@@ -48,9 +49,12 @@ export default function Header() {
           <div className="flex justify-between items-center h-18 min-h-[72px]">
             {/* Logo */}
             <Link to="/" className="relative flex items-center flex-shrink-0 min-w-0 z-50">
-              <img 
+              <OptimizedImage
                 src={logoImage} 
-                alt="O'KEY ENGLISH" 
+                alt="O'KEY ENGLISH - Школа английского языка" 
+                width={105}
+                height={105}
+                priority={true}
                 className="h-[105px] w-[105px] rounded-full object-cover border-2 border-white shadow-lg absolute left-0 top-0"
               />
               {/* Invisible spacer to maintain layout space */}

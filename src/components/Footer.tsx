@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Phone, Mail, MapPin, MessageCircle, Send } from "lucide-react";
 import okeyLogo from "@/assets/okey-english-logo.jpg";
+import OptimizedImage from "@/components/OptimizedImage";
 import { getBranchesForFooter } from "@/lib/branches";
 
 const branches = getBranchesForFooter();
@@ -15,9 +16,11 @@ export default function Footer() {
           {/* Company Info */}
           <div className="space-y-4">
             <div className="flex items-center space-x-3">
-              <img 
+              <OptimizedImage
                 src={okeyLogo} 
-                alt="O'KEY ENGLISH" 
+                alt="O'KEY ENGLISH - Школа английского языка" 
+                width={48}
+                height={48}
                 className="w-12 h-12 object-cover rounded-full"
               />
               <span className="font-heading font-bold text-lg text-white">
