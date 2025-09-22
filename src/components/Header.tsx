@@ -201,10 +201,12 @@ export default function Header() {
                             Пробный урок
                           </Button>
                         </Link>
-                        <Button className="w-full justify-center gap-2 h-10 bg-gradient-to-r from-primary to-primary/80 text-white">
-                          <Gift className="w-4 h-4" />
-                          Купон 5000₽
-                        </Button>
+                        <Link to="/5000" onClick={() => setIsOpen(false)}>
+                          <Button className="w-full justify-center gap-2 h-10 bg-gradient-to-r from-primary to-primary/80 text-white">
+                            <Gift className="w-4 h-4" />
+                            Купон 5000₽
+                          </Button>
+                        </Link>
                       </div>
                     </div>
                   </div>
