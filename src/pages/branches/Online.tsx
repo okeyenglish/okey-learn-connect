@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Globe, Monitor, Headphones, Clock, Users, Award } from "lucide-react";
 import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
-import onlineSchoolImage from "@/assets/online-school-branch.jpg";
+import onlineSchoolImage from "@/assets/online-learning-new.png";
 import SEOHead from "@/components/SEOHead";
 import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
 
