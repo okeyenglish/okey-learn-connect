@@ -66,13 +66,17 @@ export default function SpeakingClub() {
                   Записаться в Speaking Club
                 </Button>
               </SpeakingClubSignupModal>
-              <Button variant="outline" size="lg" onClick={handleWhatsApp}>
-                <MessageCircle className="w-5 h-5 mr-2" />
-                WhatsApp
+              <Button asChild variant="outline" size="lg">
+                <a href="https://wa.me/79999999999?text=Хочу записаться в Speaking Club" target="_blank" rel="noopener noreferrer">
+                  <MessageCircle className="w-5 h-5 mr-2" />
+                  WhatsApp
+                </a>
               </Button>
-              <Button variant="outline" size="lg" onClick={handleTelegram}>
-                <Send className="w-5 h-5 mr-2" />
-                Telegram
+              <Button asChild variant="outline" size="lg">
+                <a href="https://t.me/okeyenglish" target="_blank" rel="noopener noreferrer">
+                  <Send className="w-5 h-5 mr-2" />
+                  Telegram
+                </a>
               </Button>
             </div>
 
@@ -310,13 +314,17 @@ export default function SpeakingClub() {
                   Записаться в Speaking Club
                 </Button>
               </SpeakingClubSignupModal>
-              <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-primary" onClick={handleWhatsApp}>
-                <MessageCircle className="w-5 h-5 mr-2" />
-                Написать в WhatsApp
+              <Button asChild variant="outline" size="lg">
+                <a href="https://wa.me/79999999999?text=Хочу записаться в Speaking Club" target="_blank" rel="noopener noreferrer">
+                  <MessageCircle className="w-5 h-5 mr-2" />
+                  Написать в WhatsApp
+                </a>
               </Button>
-              <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-primary" onClick={handleTelegram}>
-                <Send className="w-5 h-5 mr-2" />
-                Написать в Telegram
+              <Button asChild variant="outline" size="lg">
+                <a href="https://t.me/okeyenglish" target="_blank" rel="noopener noreferrer">
+                  <Send className="w-5 h-5 mr-2" />
+                  Написать в Telegram
+                </a>
               </Button>
             </div>
           </div>
