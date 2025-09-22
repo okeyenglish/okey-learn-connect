@@ -16,6 +16,7 @@ import {
   CheckCircle
 } from "lucide-react";
 import { getBranchesForSelect } from "@/lib/branches";
+import { supabase } from "@/integrations/supabase/client";
 
 const courses = [
   "Super Safari (3-6 лет)",
@@ -40,13 +41,9 @@ export default function Contacts() {
     setIsLoading(true);
 
     try {
-      // Submit form data to webhook
-      const response = await fetch('https://n8n.okey-english.ru/webhook/okeyenglish.ru', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Submit form data via Supabase Edge Function proxy
+      const { data, error } = await supabase.functions.invoke('webhook-proxy', {
+        body: {
           source: "website",
           page: window.location.pathname,
           utm: new URLSearchParams(window.location.search).toString(),
@@ -54,18 +51,16 @@ export default function Contacts() {
           phone: formData.phone,
           branch: formData.branch,
           age: formData.age
-        }),
+        }
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Response error:', errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+
+      if (error) {
+        console.error('Webhook proxy error details:', error);
+        throw new Error(typeof error === 'string' ? error : (error.message || 'Webhook error'));
       }
-      
-      // For n8n webhook, just check if request was successful
-      const result = await response.text();
-      console.log('Webhook response:', result);
+
+      console.log('Webhook proxy success:', data);
       
       toast({
         title: "Заявка отправлена!",

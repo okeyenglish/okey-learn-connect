@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Send, Clock } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SpeakingClubSignupModalProps {
   level?: string;
@@ -39,12 +40,8 @@ export default function SpeakingClubSignupModal({ level, children }: SpeakingClu
     setIsLoading(true);
 
     try {
-      const response = await fetch('https://n8n.okey-english.ru/webhook/okeyenglish.ru', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('webhook-proxy', {
+        body: {
           source: "speaking_club_signup",
           page: window.location.pathname,
           utm: new URLSearchParams(window.location.search).toString(),
@@ -55,18 +52,15 @@ export default function SpeakingClubSignupModal({ level, children }: SpeakingClu
           name: formData.name || "Не указано",
           parentType: formData.parentType,
           message: `Заявка на Speaking Club Online. Уровень: ${formData.level || "Не указан"}. Время: ${formData.timeSlot || "Не выбрано"}. Телефон ${formData.parentType}: ${formData.phone}${formData.name ? `. Имя: ${formData.name}` : ""}`
-        }),
+        }
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Speaking club response error:', errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      if (error) {
+        console.error('Speaking club webhook proxy error:', error);
+        throw error;
       }
-      
-      // For n8n webhook, just check if request was successful
-      const result = await response.text();
-      console.log('Speaking club webhook response:', result);
+
+      console.log('Speaking club webhook proxy response:', data);
+
       
       toast({
         title: "Заявка отправлена!",

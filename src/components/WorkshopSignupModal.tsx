@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Send } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface WorkshopSignupModalProps {
   branchId: string;
@@ -27,12 +28,8 @@ export default function WorkshopSignupModal({ branchId, branchName, children }: 
     setIsLoading(true);
 
     try {
-      const response = await fetch('https://n8n.okey-english.ru/webhook/okeyenglish.ru', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('webhook-proxy', {
+        body: {
           source: "workshop_signup",
           page: window.location.pathname,
           utm: new URLSearchParams(window.location.search).toString(),
@@ -43,18 +40,16 @@ export default function WorkshopSignupModal({ branchId, branchName, children }: 
           childName: formData.childName || "Не указано",
           parentType: formData.parentType,
           message: `Заявка на Workshop в филиале ${branchName}. Телефон ${formData.parentType}: ${formData.phone}${formData.childName ? `. Имя ребенка: ${formData.childName}` : ""}`
-        }),
+        }
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Workshop response error:', errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      if (error) {
+        console.error('Workshop webhook proxy error:', error);
+        throw error;
       }
-      
-      // For n8n webhook, just check if request was successful
-      const result = await response.text();
-      console.log('Workshop webhook response:', result);
+
+      console.log('Workshop webhook proxy response:', data);
+
       
       toast({
         title: "Заявка отправлена!",
