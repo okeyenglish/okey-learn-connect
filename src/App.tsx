@@ -8,36 +8,51 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ChatBot from "@/components/ChatBot";
 import ScrollToTop from "@/components/ScrollToTop";
+import { lazy, Suspense } from "react";
+
+// Immediate load for critical pages
 import Index from "./pages/Index";
-import SuperSafari from "./pages/programs/SuperSafari";
-import KidsBox from "./pages/programs/KidsBox";
-import Prepare from "./pages/programs/Prepare";
-import Empower from "./pages/programs/Empower";
-import Programs from "./pages/Programs";
-import MiniSadik from "./pages/programs/MiniSadik";
-import Workshop from "./pages/programs/Workshop";
-import SpeakingClub from "./pages/programs/SpeakingClub";
-import Branches from "./pages/Branches";
-import LocationKotelniki from "./pages/branches/Kotelniki";
-import LocationNovokosino from "./pages/branches/Novokosino";
-import LocationOkskaya from "./pages/branches/Okskaya";
-import LocationStakhanovskaya from "./pages/branches/Stakhanovskaya";
-import Test from "./pages/Test";
-import About from "./pages/About";
-import Teachers from "./pages/Teachers";
-import Reviews from "./pages/Reviews";
-import Pricing from "./pages/Pricing";
-import FAQ from "./pages/FAQ";
-import LocationSolntsevo from "./pages/branches/Solntsevo";
-import LocationMytishchi from "./pages/branches/Mytishchi";
-import LocationLyubertsy1 from "./pages/branches/Lyubertsy1";
-import LocationLyubertsy2 from "./pages/branches/Lyubertsy2";
-import LocationOnline from "./pages/branches/Online";
-import Contacts from "./pages/Contacts";
-import ContactMethod from "./pages/ContactMethod";
-import Admin from "./pages/Admin";
-import CRM from "./pages/CRM";
-import NotFound from "./pages/NotFound";
+
+// Lazy load all other pages for better code splitting
+const SuperSafari = lazy(() => import("./pages/programs/SuperSafari"));
+const KidsBox = lazy(() => import("./pages/programs/KidsBox"));
+const Prepare = lazy(() => import("./pages/programs/Prepare"));
+const Empower = lazy(() => import("./pages/programs/Empower"));
+const Programs = lazy(() => import("./pages/Programs"));
+const MiniSadik = lazy(() => import("./pages/programs/MiniSadik"));
+const Workshop = lazy(() => import("./pages/programs/Workshop"));
+const SpeakingClub = lazy(() => import("./pages/programs/SpeakingClub"));
+const Branches = lazy(() => import("./pages/Branches"));
+const LocationKotelniki = lazy(() => import("./pages/branches/Kotelniki"));
+const LocationNovokosino = lazy(() => import("./pages/branches/Novokosino"));
+const LocationOkskaya = lazy(() => import("./pages/branches/Okskaya"));
+const LocationStakhanovskaya = lazy(() => import("./pages/branches/Stakhanovskaya"));
+const Test = lazy(() => import("./pages/Test"));
+const About = lazy(() => import("./pages/About"));
+const Teachers = lazy(() => import("./pages/Teachers"));
+const Reviews = lazy(() => import("./pages/Reviews"));
+const Pricing = lazy(() => import("./pages/Pricing"));
+const FAQ = lazy(() => import("./pages/FAQ"));
+const LocationSolntsevo = lazy(() => import("./pages/branches/Solntsevo"));
+const LocationMytishchi = lazy(() => import("./pages/branches/Mytishchi"));
+const LocationLyubertsy1 = lazy(() => import("./pages/branches/Lyubertsy1"));
+const LocationLyubertsy2 = lazy(() => import("./pages/branches/Lyubertsy2"));
+const LocationOnline = lazy(() => import("./pages/branches/Online"));
+const Contacts = lazy(() => import("./pages/Contacts"));
+const ContactMethod = lazy(() => import("./pages/ContactMethod"));
+const Admin = lazy(() => import("./pages/Admin"));
+const CRM = lazy(() => import("./pages/CRM"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
+// Loading component for better UX
+const LoadingComponent = () => (
+  <div className="flex items-center justify-center min-h-[400px]">
+    <div className="text-center">
+      <div className="loading-spinner rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+      <p className="text-muted-foreground">Загрузка...</p>
+    </div>
+  </div>
+);
 
 const queryClient = new QueryClient();
 
@@ -49,35 +64,151 @@ const AppContent = () => {
     return (
       <Routes>
         <Route path="/" element={<Index />} />
-        <Route path="/programs" element={<Programs />} />
-        <Route path="/programs/supersafari" element={<SuperSafari />} />
-        <Route path="/programs/kidsbox" element={<KidsBox />} />
-        <Route path="/programs/prepare" element={<Prepare />} />
-        <Route path="/programs/empower" element={<Empower />} />
-        <Route path="/programs/minisadik" element={<MiniSadik />} />
-        <Route path="/programs/workshop" element={<Workshop />} />
-        <Route path="/programs/speaking-club" element={<SpeakingClub />} />
-        <Route path="/branches" element={<Branches />} />
-        <Route path="/branches/kotelniki" element={<LocationKotelniki />} />
-        <Route path="/branches/novokosino" element={<LocationNovokosino />} />
-        <Route path="/branches/okskaya" element={<LocationOkskaya />} />
-        <Route path="/branches/stakhanovskaya" element={<LocationStakhanovskaya />} />
-        <Route path="/branches/solntsevo" element={<LocationSolntsevo />} />
-        <Route path="/branches/mytishchi" element={<LocationMytishchi />} />
-        <Route path="/branches/lyubertsy-1" element={<LocationLyubertsy1 />} />
-        <Route path="/branches/lyubertsy-2" element={<LocationLyubertsy2 />} />
-        <Route path="/branches/online" element={<LocationOnline />} />
-        <Route path="/test" element={<Test />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/teachers" element={<Teachers />} />
-        <Route path="/reviews" element={<Reviews />} />
-        <Route path="/pricing" element={<Pricing />} />
-        <Route path="/faq" element={<FAQ />} />
-        <Route path="/contacts" element={<Contacts />} />
-        <Route path="/contact-method" element={<ContactMethod />} />
-        <Route path="/admin" element={<Admin />} />
-        <Route path="/newcrm" element={<CRM />} />
-        <Route path="*" element={<NotFound />} />
+        <Route path="/programs" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <Programs />
+          </Suspense>
+        } />
+        <Route path="/programs/supersafari" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <SuperSafari />
+          </Suspense>
+        } />
+        <Route path="/programs/kidsbox" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <KidsBox />
+          </Suspense>
+        } />
+        <Route path="/programs/prepare" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <Prepare />
+          </Suspense>
+        } />
+        <Route path="/programs/empower" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <Empower />
+          </Suspense>
+        } />
+        <Route path="/programs/minisadik" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <MiniSadik />
+          </Suspense>
+        } />
+        <Route path="/programs/workshop" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <Workshop />
+          </Suspense>
+        } />
+        <Route path="/programs/speaking-club" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <SpeakingClub />
+          </Suspense>
+        } />
+        <Route path="/branches" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <Branches />
+          </Suspense>
+        } />
+        <Route path="/branches/kotelniki" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <LocationKotelniki />
+          </Suspense>
+        } />
+        <Route path="/branches/novokosino" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <LocationNovokosino />
+          </Suspense>
+        } />
+        <Route path="/branches/okskaya" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <LocationOkskaya />
+          </Suspense>
+        } />
+        <Route path="/branches/stakhanovskaya" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <LocationStakhanovskaya />
+          </Suspense>
+        } />
+        <Route path="/branches/solntsevo" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <LocationSolntsevo />
+          </Suspense>
+        } />
+        <Route path="/branches/mytishchi" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <LocationMytishchi />
+          </Suspense>
+        } />
+        <Route path="/branches/lyubertsy-1" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <LocationLyubertsy1 />
+          </Suspense>
+        } />
+        <Route path="/branches/lyubertsy-2" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <LocationLyubertsy2 />
+          </Suspense>
+        } />
+        <Route path="/branches/online" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <LocationOnline />
+          </Suspense>
+        } />
+        <Route path="/test" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <Test />
+          </Suspense>
+        } />
+        <Route path="/about" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <About />
+          </Suspense>
+        } />
+        <Route path="/teachers" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <Teachers />
+          </Suspense>
+        } />
+        <Route path="/reviews" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <Reviews />
+          </Suspense>
+        } />
+        <Route path="/pricing" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <Pricing />
+          </Suspense>
+        } />
+        <Route path="/faq" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <FAQ />
+          </Suspense>
+        } />
+        <Route path="/contacts" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <Contacts />
+          </Suspense>
+        } />
+        <Route path="/contact-method" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <ContactMethod />
+          </Suspense>
+        } />
+        <Route path="/admin" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <Admin />
+          </Suspense>
+        } />
+        <Route path="/newcrm" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <CRM />
+          </Suspense>
+        } />
+        <Route path="*" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <NotFound />
+          </Suspense>
+        } />
       </Routes>
     );
   }
@@ -88,35 +219,151 @@ const AppContent = () => {
       <main className="flex-1 pb-16 lg:pb-0">
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/programs" element={<Programs />} />
-          <Route path="/programs/supersafari" element={<SuperSafari />} />
-          <Route path="/programs/kidsbox" element={<KidsBox />} />
-          <Route path="/programs/prepare" element={<Prepare />} />
-          <Route path="/programs/empower" element={<Empower />} />
-          <Route path="/programs/minisadik" element={<MiniSadik />} />
-          <Route path="/programs/workshop" element={<Workshop />} />
-          <Route path="/programs/speaking-club" element={<SpeakingClub />} />
-          <Route path="/branches" element={<Branches />} />
-          <Route path="/branches/kotelniki" element={<LocationKotelniki />} />
-          <Route path="/branches/novokosino" element={<LocationNovokosino />} />
-          <Route path="/branches/okskaya" element={<LocationOkskaya />} />
-          <Route path="/branches/stakhanovskaya" element={<LocationStakhanovskaya />} />
-          <Route path="/branches/solntsevo" element={<LocationSolntsevo />} />
-          <Route path="/branches/mytishchi" element={<LocationMytishchi />} />
-          <Route path="/branches/lyubertsy-1" element={<LocationLyubertsy1 />} />
-          <Route path="/branches/lyubertsy-2" element={<LocationLyubertsy2 />} />
-          <Route path="/branches/online" element={<LocationOnline />} />
-          <Route path="/test" element={<Test />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/teachers" element={<Teachers />} />
-          <Route path="/reviews" element={<Reviews />} />
-          <Route path="/pricing" element={<Pricing />} />
-          <Route path="/faq" element={<FAQ />} />
-          <Route path="/contacts" element={<Contacts />} />
-          <Route path="/contact-method" element={<ContactMethod />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/newcrm" element={<CRM />} />
-          <Route path="*" element={<NotFound />} />
+          <Route path="/programs" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <Programs />
+            </Suspense>
+          } />
+          <Route path="/programs/supersafari" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <SuperSafari />
+            </Suspense>
+          } />
+          <Route path="/programs/kidsbox" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <KidsBox />
+            </Suspense>
+          } />
+          <Route path="/programs/prepare" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <Prepare />
+            </Suspense>
+          } />
+          <Route path="/programs/empower" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <Empower />
+            </Suspense>
+          } />
+          <Route path="/programs/minisadik" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <MiniSadik />
+            </Suspense>
+          } />
+          <Route path="/programs/workshop" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <Workshop />
+            </Suspense>
+          } />
+          <Route path="/programs/speaking-club" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <SpeakingClub />
+            </Suspense>
+          } />
+          <Route path="/branches" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <Branches />
+            </Suspense>
+          } />
+          <Route path="/branches/kotelniki" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <LocationKotelniki />
+            </Suspense>
+          } />
+          <Route path="/branches/novokosino" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <LocationNovokosino />
+            </Suspense>
+          } />
+          <Route path="/branches/okskaya" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <LocationOkskaya />
+            </Suspense>
+          } />
+          <Route path="/branches/stakhanovskaya" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <LocationStakhanovskaya />
+            </Suspense>
+          } />
+          <Route path="/branches/solntsevo" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <LocationSolntsevo />
+            </Suspense>
+          } />
+          <Route path="/branches/mytishchi" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <LocationMytishchi />
+            </Suspense>
+          } />
+          <Route path="/branches/lyubertsy-1" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <LocationLyubertsy1 />
+            </Suspense>
+          } />
+          <Route path="/branches/lyubertsy-2" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <LocationLyubertsy2 />
+            </Suspense>
+          } />
+          <Route path="/branches/online" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <LocationOnline />
+            </Suspense>
+          } />
+          <Route path="/test" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <Test />
+            </Suspense>
+          } />
+          <Route path="/about" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <About />
+            </Suspense>
+          } />
+          <Route path="/teachers" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <Teachers />
+            </Suspense>
+          } />
+          <Route path="/reviews" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <Reviews />
+            </Suspense>
+          } />
+          <Route path="/pricing" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <Pricing />
+            </Suspense>
+          } />
+          <Route path="/faq" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <FAQ />
+            </Suspense>
+          } />
+          <Route path="/contacts" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <Contacts />
+            </Suspense>
+          } />
+          <Route path="/contact-method" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <ContactMethod />
+            </Suspense>
+          } />
+          <Route path="/admin" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <Admin />
+            </Suspense>
+          } />
+          <Route path="/newcrm" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <CRM />
+            </Suspense>
+          } />
+          <Route path="*" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <NotFound />
+            </Suspense>
+          } />
         </Routes>
       </main>
       <Footer />

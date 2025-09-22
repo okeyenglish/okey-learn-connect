@@ -44,7 +44,7 @@ export default function Footer() {
 
           {/* Contact Info */}
           <div className="space-y-4">
-            <h4 className="font-heading font-semibold text-white">Контакты</h4>
+            <h2 className="font-heading font-semibold text-white">Контакты</h2>
             <div className="space-y-3">
               <a
                 href="tel:+74997073535"
@@ -83,7 +83,7 @@ export default function Footer() {
 
           {/* Branches */}
           <div className="space-y-4">
-            <h4 className="font-heading font-semibold text-white">Филиалы</h4>
+            <h2 className="font-heading font-semibold text-white">Филиалы</h2>
             <div className="space-y-2">
               {branches.map((branch) => (
                 <Link
@@ -102,7 +102,7 @@ export default function Footer() {
 
           {/* Quick Links */}
           <div className="space-y-4">
-            <h4 className="font-heading font-semibold text-white">Разделы</h4>
+            <h2 className="font-heading font-semibold text-white">Разделы</h2>
             <div className="space-y-2">
               <Link
                 to="/programs"

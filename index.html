@@ -7,56 +7,64 @@
     <meta name="description" content="O'KEY ENGLISH SCHOOL - Изучение английского языка для детей и взрослых в Москве, Московской области и онлайн. Профессиональные преподаватели, современные методики обучения.">
     <meta name="author" content="O'KEY ENGLISH SCHOOL" />
 
-    <!-- Critical CSS inlined for fastest first paint -->
+    <!-- Optimized critical CSS for immediate rendering -->
     <style>
-        /* Critical above-the-fold styles for better FCP/LCP */
-        body { 
-          margin: 0; 
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-          background: hsl(220 14% 96%);
-          line-height: 1.5;
-          color: hsl(210 24% 16%);
-        }
-        .hero-section {
-          background: linear-gradient(135deg, hsl(220 14% 96%) 0%, hsl(220 13% 91%) 100%);
-          min-height: 80vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 2rem 1rem;
-        }
-        .hero-title { 
-          font-size: clamp(2rem, 8vw, 4rem); 
-          font-weight: 700; 
-          text-align: center; 
-          line-height: 1.1;
-          margin-bottom: 1.5rem;
-          color: hsl(210 24% 16%);
-        }
-        .hero-subtitle { 
-          font-size: clamp(1.1rem, 4vw, 1.5rem); 
-          opacity: 0.8; 
-          text-align: center; 
-          max-width: 600px; 
-          margin: 0 auto 2rem;
-          color: hsl(210 22% 32%);
-        }
-        /* Prevent layout shift */
-        .container { max-width: 1200px; margin: 0 auto; padding: 0 1rem; }
-        .btn { 
-          min-height: 48px; 
-          min-width: 48px; 
-          padding: 0.75rem 1.5rem; 
-          border-radius: 0.5rem; 
-          font-weight: 600; 
-          background: hsl(0 84% 60%);
-          color: white;
-          border: 2px solid hsl(0 84% 60%);
-        }
-        .btn:hover {
-          background: hsl(0 84% 52%);
-          border-color: hsl(0 84% 52%);
-        }
+      /* Critical above-the-fold styles for better FCP/LCP */
+      body { 
+        margin: 0; 
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: hsl(220 14% 96%);
+        line-height: 1.5;
+        color: hsl(210 24% 16%);
+      }
+      .hero-section {
+        background: linear-gradient(135deg, hsl(220 14% 96%) 0%, hsl(220 13% 91%) 100%);
+        min-height: 80vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1rem;
+      }
+      .hero-title { 
+        font-size: clamp(2rem, 8vw, 4rem); 
+        font-weight: 700; 
+        text-align: center; 
+        line-height: 1.1;
+        margin-bottom: 1.5rem;
+        color: hsl(210 24% 16%);
+      }
+      .hero-subtitle { 
+        font-size: clamp(1.1rem, 4vw, 1.5rem); 
+        opacity: 0.8; 
+        text-align: center; 
+        max-width: 600px; 
+        margin: 0 auto 2rem;
+        color: hsl(210 22% 32%);
+      }
+      /* Prevent layout shift */
+      .container { max-width: 1200px; margin: 0 auto; padding: 0 1rem; }
+      .btn { 
+        min-height: 48px; 
+        min-width: 48px; 
+        padding: 0.75rem 1.5rem; 
+        border-radius: 0.5rem; 
+        font-weight: 600; 
+        background: hsl(0 84% 60%);
+        color: white;
+        border: 2px solid hsl(0 84% 60%);
+      }
+      .btn:hover {
+        background: hsl(0 84% 52%);
+        border-color: hsl(0 84% 52%);
+      }
+      /* Loading spinner */
+      .loading-spinner {
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
     </style>
 
     <!-- Performance optimizations -->

@@ -86,18 +86,19 @@ export default function Header() {
                 size="sm"
                 onClick={handleWhatsApp}
                 className="flex items-center gap-1 px-3"
+                aria-label="Связаться через WhatsApp"
               >
                 <MessageCircle className="w-4 h-4" />
                 <span className="hidden xl:inline">WhatsApp</span>
               </Button>
               <Link to="/test">
-                <Button variant="outline" size="sm" className="flex items-center gap-1 px-3">
+                <Button variant="outline" size="sm" className="flex items-center gap-1 px-3" aria-label="Пройти тест уровня английского">
                   <BookOpen className="w-4 h-4" />
                   <span className="hidden xl:inline">Тест</span>
                 </Button>
               </Link>
               <Link to="/contacts">
-                <Button className="btn-hero flex items-center gap-1 px-4">
+                <Button className="btn-hero flex items-center gap-1 px-4" aria-label="Записаться на пробный урок">
                   <UserCheck className="w-4 h-4" />
                   <span className="text-sm">Пробный урок</span>
                 </Button>
@@ -125,7 +126,7 @@ export default function Header() {
               
               <Sheet open={isOpen} onOpenChange={setIsOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="ghost" size="sm" className="flex-shrink-0">
+                  <Button variant="ghost" size="sm" className="flex-shrink-0" aria-label="Открыть меню навигации">
                     <Menu className="w-5 h-5" />
                   </Button>
                 </SheetTrigger>
@@ -157,6 +158,7 @@ export default function Header() {
                           size="sm"
                           className="flex flex-col items-center gap-1 py-2 h-auto bg-muted/30 hover:bg-muted/50"
                           onClick={handleWhatsApp}
+                          aria-label="Связаться через WhatsApp"
                         >
                           <MessageCircle className="w-4 h-4 text-green-600" />
                           <span className="text-xs">WhatsApp</span>
@@ -166,6 +168,7 @@ export default function Header() {
                           size="sm"
                           className="flex flex-col items-center gap-1 py-2 h-auto bg-muted/30 hover:bg-muted/50"
                           onClick={handleTelegram}
+                          aria-label="Связаться через Telegram"
                         >
                           <Send className="w-4 h-4 text-blue-500" />
                           <span className="text-xs">Telegram</span>
@@ -175,6 +178,7 @@ export default function Header() {
                           size="sm"
                           className="flex flex-col items-center gap-1 py-2 h-auto bg-muted/30 hover:bg-muted/50"
                           onClick={handleCall}
+                          aria-label="Позвонить в школу"
                         >
                           <Phone className="w-4 h-4 text-orange-500" />
                           <span className="text-xs">Позвонить</span>
@@ -219,6 +223,7 @@ export default function Header() {
             size="sm"
             className="flex flex-col items-center gap-1 h-auto py-2"
             onClick={() => window.open("tel:+74997073535")}
+            aria-label="Позвонить в школу"
           >
             <Phone className="w-5 h-5" />
             <span className="text-xs">Позвонить</span>
@@ -228,6 +233,7 @@ export default function Header() {
             size="sm"
             className="flex flex-col items-center gap-1 h-auto py-2"
             onClick={handleWhatsApp}
+            aria-label="Связаться через WhatsApp"
           >
             <MessageCircle className="w-5 h-5" />
             <span className="text-xs">WhatsApp</span>
@@ -237,6 +243,7 @@ export default function Header() {
               variant="ghost"
               size="sm"
               className="flex flex-col items-center gap-1 h-auto py-2 w-full"
+              aria-label="Пройти тест уровня английского"
             >
               <BookOpen className="w-5 h-5" />
               <span className="text-xs">Тест</span>
@@ -246,6 +253,7 @@ export default function Header() {
             <Button
               size="sm"
               className="btn-hero flex flex-col items-center gap-1 h-auto py-2"
+              aria-label="Записаться на пробный урок"
             >
               <UserCheck className="w-5 h-5" />
               <span className="text-xs">Записаться</span>
