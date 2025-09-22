@@ -6,7 +6,7 @@ import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
 import SEOHead from "@/components/SEOHead";
 import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
-import stakhanovskayaImage from "@/assets/stakhanovskaya-branch.jpg";
+import stakhanovskayaImage from "@/assets/stakhanovskaya-branch-new.webp";
 
 export default function LocationStakhanovskaya() {
   const seoData = branchSEOData.stakhanovskaya;
@@ -53,7 +53,7 @@ export default function LocationStakhanovskaya() {
             <CardContent className="p-0">
               <img 
                 src={stakhanovskayaImage} 
-                alt="Интерактивный урок английского в филиале O'KEY English на Стахановской - дети играют в образовательные игры"
+                alt="Современный интерьер филиала O'KEY English на Стахановской с рабочими местами и библиотекой"
                 className="w-full h-[400px] object-cover"
               />
             </CardContent>
