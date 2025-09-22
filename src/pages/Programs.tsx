@@ -6,7 +6,7 @@ import OptimizedImage from "@/components/OptimizedImage";
 
 // Import program images
 import superSafariImg from "@/assets/programs/super-safari-classroom.jpg";
-import kidsBoxClassroomImg from "@/assets/programs/kids-box-classroom.jpg";
+import kidsBoxNewImg from "@/assets/programs/kids-box-new.jpg";
 import prepareClassroomImg from "@/assets/programs/prepare-classroom.jpg";
 import adultClassroomImg from "@/assets/programs/adult-classroom.jpg";
 import englishLessonImg from "@/assets/programs/english-lesson.jpg";
@@ -36,7 +36,7 @@ const programs = [
     description: "Читаем, говорим, понемногу пишем. Движемся к уверенному базовому уровню.",
     features: ["Cambridge материалы", "YLE подготовка", "Развитие навыков"],
     color: "bg-gradient-to-r from-blue-500 to-cyan-500",
-    image: kidsBoxClassroomImg,
+    image: kidsBoxNewImg,
     href: "/programs/kidsbox"
   },
   {
@@ -115,7 +115,7 @@ export default function Programs() {
               </div>
               <div>
                 <div className="text-2xl font-bold text-primary">7</div>
-                <div className="text-sm text-muted-foreground">программы</div>
+                <div className="text-sm text-muted-foreground">программ</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
