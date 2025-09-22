@@ -142,7 +142,7 @@ const faqItems = [
 
 export default function Pricing() {
   return (
-    <div className="min-h-screen py-20">
+    <div className="w-full">
       {/* Hero Section */}
       <section className="bg-gradient-hero py-20 text-white">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -374,8 +374,8 @@ export default function Pricing() {
       </section>
 
       {/* Final CTA Section */}
-      <section className="py-20 bg-gradient-primary text-white">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="bg-gradient-primary text-white">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center py-20">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
             Хочу персональный расчёт
           </h2>
