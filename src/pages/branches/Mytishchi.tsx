@@ -1,3 +1,4 @@
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Phone, MessageCircle, Send, Clock, UserCheck } from "lucide-react";
@@ -26,8 +27,8 @@ export default function LocationMytishchi() {
   const seoData = branchSEOData.mytishchi;
   
   return (
-    <>
-      <SEOHead 
+    <React.Fragment>
+      <SEOHead
         title={seoData.title}
         description={seoData.description}
         keywords={seoData.keywords}
@@ -256,6 +257,7 @@ export default function LocationMytishchi() {
           </div>
         </div>
       </div>
-    </>
+    </div>
+    </React.Fragment>
   );
 }

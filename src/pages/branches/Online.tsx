@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { Globe, Monitor, Headphones, Clock, Users, Award } from "lucide-react";
 import ScheduleTable from "@/components/ScheduleTable";
@@ -11,8 +12,8 @@ const LocationOnline = () => {
   const seoData = branchSEOData.online;
   
   return (
-    <>
-      <SEOHead 
+    <React.Fragment>
+      <SEOHead
         title={seoData.title}
         description={seoData.description}
         keywords={seoData.keywords}
@@ -226,11 +227,12 @@ const LocationOnline = () => {
                   </p>
                 </div>
               </CardContent>
-            </Card>
-          </div>
+          </Card>
         </div>
       </div>
-    </>
+      </div>
+    </div>
+    </React.Fragment>
   );
 };
 

@@ -1,3 +1,4 @@
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Phone, MessageCircle, Send, Clock, UserCheck } from "lucide-react";
@@ -26,14 +27,15 @@ export default function LocationLyubertsy1() {
   const seoData = branchSEOData.lyubertsy1;
   
   return (
-    <div className="min-h-screen py-20">
-      <SEOHead 
+    <React.Fragment>
+      <SEOHead
         title={seoData.title}
         description={seoData.description}
         keywords={seoData.keywords}
         canonicalUrl="https://okeyenglish.ru/branches/lyubertsy1"
         jsonLd={generateBranchJsonLd('lyubertsy1')}
       />
+      <div className="min-h-screen py-20">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-12">
@@ -250,6 +252,8 @@ export default function LocationLyubertsy1() {
             </Card>
           </div>
         </div>
+      </div>
     </div>
+    </React.Fragment>
   );
 }
