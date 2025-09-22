@@ -191,14 +191,21 @@ export default function LocationStakhanovskaya() {
           <div className="mt-8">
             <Card>
               <CardContent className="p-0">
-                <iframe
-                  src="https://yandex.ru/maps/org/o_key_english/228340951550/?ll=37.743067%2C55.724728&z=16"
-                  width="100%"
-                  height="400"
-                  frameBorder="0"
-                  className="rounded-lg"
-                  title="Карта филиала на Стахановской"
-                ></iframe>
+                <div className="w-full h-[800px] overflow-hidden relative">
+                  <iframe 
+                    className="w-full h-full border border-gray-200 rounded-lg box-border"
+                    src="https://yandex.ru/maps-reviews-widget/228340951550?comments"
+                    title="Отзывы о филиале на Стахановской"
+                  />
+                  <a 
+                    href="https://yandex.ru/maps/org/o_key_english/228340951550/" 
+                    target="_blank" 
+                    className="box-border no-underline text-gray-400 text-xs font-sans px-4 absolute bottom-2 w-full text-center left-0 overflow-hidden text-ellipsis block max-h-4 whitespace-nowrap"
+                    rel="noopener noreferrer"
+                  >
+                    O'key English на карте Москвы — Яндекс Карты
+                  </a>
+                </div>
               </CardContent>
             </Card>
           </div>

@@ -186,14 +186,35 @@ export default function LocationSolntsevo() {
           <div className="mt-8">
             <Card>
               <CardContent className="p-0">
-                <iframe
-                  src="https://yandex.ru/maps/org/o_key_english/178121909150/?ll=37.400998%2C55.655859&z=16"
-                  width="100%"
-                  height="400"
-                  frameBorder="0"
-                  className="rounded-lg"
-                  title="Карта филиала в Солнцево"
-                ></iframe>
+                <div className="relative overflow-hidden rounded-lg">
+                  <a 
+                    href="https://yandex.ru/maps/org/o_key_english/178121909150/?utm_medium=mapframe&utm_source=maps" 
+                    className="absolute top-0 left-0 text-gray-200 text-xs z-10 bg-black/20 px-2 py-1 rounded-br"
+                  >
+                    O'key English
+                  </a>
+                  <a 
+                    href="https://yandex.ru/maps/213/moscow/category/foreign_language_courses/184106160/?utm_medium=mapframe&utm_source=maps" 
+                    className="absolute top-4 left-0 text-gray-200 text-xs z-10 bg-black/20 px-2 py-1 rounded-br"
+                  >
+                    Курсы иностранных языков в Москве
+                  </a>
+                  <a 
+                    href="https://yandex.ru/maps/213/moscow/category/courses_and_master_classes/184106220/?utm_medium=mapframe&utm_source=maps" 
+                    className="absolute top-8 left-0 text-gray-200 text-xs z-10 bg-black/20 px-2 py-1 rounded-br"
+                  >
+                    Курсы и мастер-классы в Москве
+                  </a>
+                  <iframe 
+                    src="https://yandex.ru/map-widget/v1/org/o_key_english/178121909150/?ll=37.400998%2C55.655859&z=16" 
+                    width="100%" 
+                    height="400" 
+                    frameBorder="0" 
+                    allowFullScreen
+                    className="relative rounded-lg"
+                    title="Карта филиала в Солнцево"
+                  />
+                </div>
               </CardContent>
             </Card>
           </div>

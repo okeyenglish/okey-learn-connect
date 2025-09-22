@@ -191,14 +191,35 @@ export default function LocationOkskaya() {
           <div className="mt-8">
             <Card>
               <CardContent className="p-0">
-                <iframe
-                  src="https://yandex.ru/maps/org/set_yazykovykh_tsentrov_o_key_english/1276487501/?ll=37.754386%2C55.712553&z=16"
-                  width="100%"
-                  height="400"
-                  frameBorder="0"
-                  className="rounded-lg"
-                  title="Карта филиала на Окской"
-                ></iframe>
+                <div className="relative overflow-hidden rounded-lg">
+                  <a 
+                    href="https://yandex.ru/maps/org/set_yazykovykh_tsentrov_o_key_english/1276487501/?utm_medium=mapframe&utm_source=maps" 
+                    className="absolute top-0 left-0 text-gray-200 text-xs z-10 bg-black/20 px-2 py-1 rounded-br"
+                  >
+                    Сеть языковых центров O'key English
+                  </a>
+                  <a 
+                    href="https://yandex.ru/maps/213/moscow/category/foreign_language_courses/184106160/?utm_medium=mapframe&utm_source=maps" 
+                    className="absolute top-4 left-0 text-gray-200 text-xs z-10 bg-black/20 px-2 py-1 rounded-br"
+                  >
+                    Курсы иностранных языков в Москве
+                  </a>
+                  <a 
+                    href="https://yandex.ru/maps/213/moscow/category/further_education/184106162/?utm_medium=mapframe&utm_source=maps" 
+                    className="absolute top-8 left-0 text-gray-200 text-xs z-10 bg-black/20 px-2 py-1 rounded-br"
+                  >
+                    Дополнительное образование в Москве
+                  </a>
+                  <iframe 
+                    src="https://yandex.ru/map-widget/v1/org/set_yazykovykh_tsentrov_o_key_english/1276487501/?ll=37.754386%2C55.712553&z=16" 
+                    width="100%" 
+                    height="400" 
+                    frameBorder="0" 
+                    allowFullScreen
+                    className="relative rounded-lg"
+                    title="Карта филиала на Окской"
+                  />
+                </div>
               </CardContent>
             </Card>
           </div>
