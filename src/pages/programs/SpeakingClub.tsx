@@ -23,13 +23,9 @@ import {
 } from "lucide-react";
 
 export default function SpeakingClub() {
-  const handleWhatsApp = () => {
-    window.open('https://wa.me/79999999999?text=Хочу записаться в Speaking Club', '_blank');
-  };
+  const waMessage = encodeURIComponent('Хочу записаться в Speaking Club');
+  const tgMessage = encodeURIComponent('Хочу записаться в Speaking Club');
 
-  const handleTelegram = () => {
-    window.open('https://t.me/okeyenglish', '_blank');
-  };
   return (
     <div className="min-h-screen py-20">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -66,14 +62,14 @@ export default function SpeakingClub() {
                   Записаться в Speaking Club
                 </Button>
               </SpeakingClubSignupModal>
-              <Button asChild variant="outline" size="lg">
-                <a href="https://wa.me/79999999999?text=Хочу записаться в Speaking Club" target="_blank" rel="noopener noreferrer">
+              <Button asChild variant="default" size="lg">
+                <a href={`https://wa.me/79937073553?text=${waMessage}`} target="_blank" rel="noopener noreferrer">
                   <MessageCircle className="w-5 h-5 mr-2" />
                   WhatsApp
                 </a>
               </Button>
-              <Button asChild variant="outline" size="lg">
-                <a href="https://t.me/okeyenglish" target="_blank" rel="noopener noreferrer">
+              <Button asChild variant="default" size="lg">
+                <a href={`https://t.me/englishmanager?start=${tgMessage}`} target="_blank" rel="noopener noreferrer">
                   <Send className="w-5 h-5 mr-2" />
                   Telegram
                 </a>
@@ -314,14 +310,14 @@ export default function SpeakingClub() {
                   Записаться в Speaking Club
                 </Button>
               </SpeakingClubSignupModal>
-              <Button asChild variant="outline" size="lg">
-                <a href="https://wa.me/79999999999?text=Хочу записаться в Speaking Club" target="_blank" rel="noopener noreferrer">
+              <Button asChild variant="default" size="lg">
+                <a href={`https://wa.me/79937073553?text=${waMessage}`} target="_blank" rel="noopener noreferrer">
                   <MessageCircle className="w-5 h-5 mr-2" />
                   Написать в WhatsApp
                 </a>
               </Button>
-              <Button asChild variant="outline" size="lg">
-                <a href="https://t.me/okeyenglish" target="_blank" rel="noopener noreferrer">
+              <Button asChild variant="default" size="lg">
+                <a href={`https://t.me/englishmanager?start=${tgMessage}`} target="_blank" rel="noopener noreferrer">
                   <Send className="w-5 h-5 mr-2" />
                   Написать в Telegram
                 </a>

@@ -8,11 +8,13 @@ import { branches } from "@/lib/branches";
 
 const Workshop = () => {
   const handleWhatsApp = () => {
-    window.open('https://wa.me/79999999999?text=Хочу записаться на Workshop', '_blank');
+    const msg = encodeURIComponent('Хочу записаться на Workshop');
+    window.open(`https://wa.me/79937073553?text=${msg}`, '_blank');
   };
 
   const handleTelegram = () => {
-    window.open('https://t.me/okeyenglish', '_blank');
+    const msg = encodeURIComponent('Хочу записаться на Workshop');
+    window.open(`https://t.me/englishmanager?start=${msg}`, '_blank');
   };
 
   const handleSignup = () => {
@@ -46,11 +48,11 @@ const Workshop = () => {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               <div className="flex gap-2">
-                <Button variant="outline" size="lg" onClick={handleWhatsApp}>
+                <Button variant="default" size="lg" onClick={handleWhatsApp}>
                   <MessageSquare className="mr-2 h-5 w-5" />
                   WhatsApp
                 </Button>
-                <Button variant="outline" size="lg" onClick={handleTelegram}>
+                <Button variant="default" size="lg" onClick={handleTelegram}>
                   <Send className="mr-2 h-5 w-5" />
                   Telegram
                 </Button>
@@ -294,11 +296,11 @@ const Workshop = () => {
                 Оставить заявку
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
-              <Button variant="outline" size="lg" className="w-full" onClick={handleWhatsApp}>
+              <Button variant="default" size="lg" className="w-full" onClick={handleWhatsApp}>
                 <MessageSquare className="mr-2 h-5 w-5" />
                 Написать в WhatsApp
               </Button>
-              <Button variant="outline" size="lg" className="w-full" onClick={handleTelegram}>
+              <Button variant="default" size="lg" className="w-full" onClick={handleTelegram}>
                 <Send className="mr-2 h-5 w-5" />
                 Написать в Telegram
               </Button>
