@@ -52,13 +52,11 @@ export default function Header() {
               <OptimizedImage
                 src={logoImage} 
                 alt="O'KEY ENGLISH - Школа английского языка" 
-                width={105}
-                height={105}
+                width={64}
+                height={64}
                 priority={true}
-                className="h-[105px] w-[105px] rounded-full object-cover border-2 border-white shadow-lg absolute left-0 top-0"
+                className="h-16 w-16 rounded-full object-cover border-2 border-white shadow-lg"
               />
-              {/* Invisible spacer to maintain layout space */}
-              <div className="h-16 w-[105px]"></div>
             </Link>
 
             {/* Desktop Navigation */}
