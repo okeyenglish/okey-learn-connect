@@ -7,7 +7,7 @@ import stakhanovskayaImage from "@/assets/stakhanovskaya-branch.jpg";
 import mytishchiImage from "@/assets/mytishchi-branch.jpg";
 import krasnayaGorkaImage from "@/assets/krasnaya-gorka-branch.jpg";
 import solntsevoImage from "@/assets/solntsevo-branch.jpg";
-import onlineSchoolImage from "@/assets/online-school-branch.jpg";
+import onlineSchoolImage from "@/assets/online-learning-new.png";
 
 export interface Branch {
   id: string;
