@@ -157,13 +157,27 @@ export default function Pricing() {
               <a href="#calculator">Рассчитать мою стоимость</a>
             </Button>
             <div className="flex gap-3">
-              <Button variant="outline" size="lg" className="bg-white/10 border-white/30 text-white hover:bg-white/20">
-                <Phone className="w-4 h-4 mr-2" />
-                WhatsApp
+              <Button 
+                asChild
+                variant="outline" 
+                size="lg" 
+                className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+              >
+                <a href="https://wa.me/79937073553?text=Здравствуйте! Хочу узнать стоимость обучения английским языком." target="_blank" rel="noopener noreferrer">
+                  <Phone className="w-4 h-4 mr-2" />
+                  WhatsApp
+                </a>
               </Button>
-              <Button variant="outline" size="lg" className="bg-white/10 border-white/30 text-white hover:bg-white/20">
-                <MessageSquare className="w-4 h-4 mr-2" />
-                Telegram
+              <Button 
+                asChild
+                variant="outline" 
+                size="lg" 
+                className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+              >
+                <a href="https://t.me/okeyenglish" target="_blank" rel="noopener noreferrer">
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Telegram
+                </a>
               </Button>
             </div>
           </div>
@@ -373,13 +387,27 @@ export default function Pricing() {
               <a href="#calculator">Рассчитать стоимость</a>
             </Button>
             <div className="flex gap-3">
-              <Button variant="outline" size="lg" className="bg-white/10 border-white/30 text-white hover:bg-white/20">
-                <Phone className="w-4 h-4 mr-2" />
-                Написать в WhatsApp
+              <Button 
+                asChild
+                variant="outline" 
+                size="lg" 
+                className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+              >
+                <a href="https://wa.me/79937073553?text=Здравствуйте! Хочу персональный расчет стоимости обучения." target="_blank" rel="noopener noreferrer">
+                  <Phone className="w-4 h-4 mr-2" />
+                  Написать в WhatsApp
+                </a>
               </Button>
-              <Button variant="outline" size="lg" className="bg-white/10 border-white/30 text-white hover:bg-white/20">
-                <MessageSquare className="w-4 h-4 mr-2" />
-                Написать в Telegram
+              <Button 
+                asChild
+                variant="outline" 
+                size="lg" 
+                className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+              >
+                <a href="https://t.me/okeyenglish" target="_blank" rel="noopener noreferrer">
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Написать в Telegram
+                </a>
               </Button>
             </div>
           </div>

@@ -80,7 +80,7 @@ export default function PricingModal({
     const message = encodeURIComponent(
       `Здравствуйте! Хочу узнать стоимость обучения в формате "${formatName}". Меня зовут ${name || '[Имя]'}, мой телефон ${phone || '[Телефон]'}.`
     );
-    window.open(`https://wa.me/79854088855?text=${message}`, '_blank');
+    window.open(`https://wa.me/79937073553?text=${message}`, '_blank');
   };
 
   const handleTelegram = () => {
