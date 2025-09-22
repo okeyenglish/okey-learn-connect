@@ -5,6 +5,8 @@ import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
 import solntsevoImage from "@/assets/solntsevo-branch.jpg";
+import SEOHead from "@/components/SEOHead";
+import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
 
 export default function LocationSolntsevo() {
   const handleWhatsApp = () => {
@@ -21,13 +23,23 @@ export default function LocationSolntsevo() {
     window.open(`https://t.me/79937073553?text=${message}`, '_blank');
   };
 
+  const seoData = branchSEOData.solntsevo;
+  
   return (
-    <div className="min-h-screen py-20">
+    <>
+      <SEOHead 
+        title={seoData.title}
+        description={seoData.description}
+        keywords={seoData.keywords}
+        canonicalUrl="https://okeyenglish.ru/branches/solntsevo"
+        jsonLd={generateBranchJsonLd('solntsevo')}
+      />
+      <div className="min-h-screen py-20">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl lg:text-5xl font-bold mb-4">
-            Филиал <span className="text-gradient">Солнцево</span>
+            Английский язык в <span className="text-gradient">Солнцево</span> - O'KEY ENGLISH
           </h1>
           <div className="flex items-center justify-center gap-2 text-lg text-muted-foreground mb-6">
             <MapPin className="w-5 h-5 text-primary" />
@@ -213,7 +225,36 @@ export default function LocationSolntsevo() {
             maxWidth={800}
           />
         </div>
+        
+        {/* Unique Content for Solntsevo Branch */}
+        <div className="mt-16">
+          <div className="container mx-auto px-4">
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="text-2xl font-bold mb-4 text-center">Курсы английского в Солнцево</h2>
+                <div className="prose max-w-none text-muted-foreground">
+                  <p className="mb-4">
+                    Школа английского языка O'KEY ENGLISH в Солнцево расположена всего в 7 минутах 
+                    ходьбы от метро Солнцево по адресу ул. Богданова, 6к1. Наш филиал в ЗАО Москвы 
+                    предлагает удобное расположение для жителей района и прилегающих территорий.
+                  </p>
+                  <p className="mb-4">
+                    Курсы английского языка в Солнцево включают программы для детей и взрослых 
+                    с использованием современных Cambridge методик. Близость к метро Солнцево 
+                    и бесплатная парковка делают обучение максимально комфортным для всей семьи. 
+                    Активные методы изучения помогают быстро освоить разговорный английский.
+                  </p>
+                  <p>
+                    В нашем филиале в Солнцево работают опытные преподаватели, создающие 
+                    дружелюбную атмосферу для изучения английского языка. Запишитесь на 
+                    бесплатную консультацию и узнайте о наших программах обучения!
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

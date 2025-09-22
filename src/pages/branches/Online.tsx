@@ -4,10 +4,22 @@ import { Globe, Monitor, Headphones, Clock, Users, Award } from "lucide-react";
 import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import onlineSchoolImage from "@/assets/online-school-branch.jpg";
+import SEOHead from "@/components/SEOHead";
+import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
 
 const LocationOnline = () => {
+  const seoData = branchSEOData.online;
+  
   return (
-    <div className="min-h-screen bg-gradient-subtle">
+    <>
+      <SEOHead 
+        title={seoData.title}
+        description={seoData.description}
+        keywords={seoData.keywords}
+        canonicalUrl="https://okeyenglish.ru/branches/online"
+        jsonLd={generateBranchJsonLd('online')}
+      />
+      <div className="min-h-screen bg-gradient-subtle">
       <div className="container mx-auto px-4 py-8">
         {/* Hero Section */}
         <div className="text-center mb-12">
@@ -17,7 +29,7 @@ const LocationOnline = () => {
             </div>
           </div>
           <h1 className="text-4xl md:text-5xl font-bold text-primary mb-4">
-            Онлайн школа O'KEY ENGLISH
+            <span className="text-gradient">Онлайн курсы английского</span> - O'KEY ENGLISH
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Изучайте английский язык из любой точки планеты на современной платформе Cambridge One
@@ -187,8 +199,38 @@ const LocationOnline = () => {
             </CardContent>
           </Card>
         </div>
+        
+        {/* Unique Content for Online Learning */}
+        <div className="mt-16">
+          <div className="container mx-auto px-4">
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="text-2xl font-bold mb-4 text-center">Дистанционное обучение английскому языку</h2>
+                <div className="prose max-w-none text-muted-foreground">
+                  <p className="mb-4">
+                    Онлайн курсы английского языка O'KEY ENGLISH предлагают качественное дистанционное 
+                    обучение для студентов из любой точки мира. Наши онлайн занятия английским 
+                    проводятся с использованием интерактивных платформ и Cambridge методик, 
+                    обеспечивая эффективность, сравнимую с очным обучением.
+                  </p>
+                  <p className="mb-4">
+                    Английский через интернет в O'KEY ENGLISH включает индивидуальные и групповые 
+                    занятия для детей и взрослых. Опытные преподаватели-носители языка 
+                    и сертифицированные русскоязычные педагоги используют современные технологии 
+                    для создания увлекательного процесса изучения языка онлайн.
+                  </p>
+                  <p>
+                    Преимущества онлайн обучения: гибкое расписание, экономия времени на дорогу, 
+                    индивидуальный подход и доступ к лучшим преподавателям независимо от географии. 
+                    Запишитесь на бесплатный пробный онлайн урок уже сегодня!
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

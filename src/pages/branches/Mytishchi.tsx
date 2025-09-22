@@ -5,6 +5,8 @@ import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
 import mytishchiImage from "@/assets/mytishchi-branch.jpg";
+import SEOHead from "@/components/SEOHead";
+import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
 
 export default function LocationMytishchi() {
   const handleWhatsApp = () => {
@@ -21,13 +23,23 @@ export default function LocationMytishchi() {
     window.open(`https://t.me/79937073553?text=${message}`, '_blank');
   };
 
+  const seoData = branchSEOData.mytishchi;
+  
   return (
-    <div className="min-h-screen py-20">
+    <>
+      <SEOHead 
+        title={seoData.title}
+        description={seoData.description}
+        keywords={seoData.keywords}
+        canonicalUrl="https://okeyenglish.ru/branches/mytishchi"
+        jsonLd={generateBranchJsonLd('mytishchi')}
+      />
+      <div className="min-h-screen py-20">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl lg:text-5xl font-bold mb-4">
-            Филиал <span className="text-gradient">Мытищи</span>
+            Английский язык в <span className="text-gradient">Мытищах</span> - O'KEY ENGLISH
           </h1>
           <div className="flex items-center justify-center gap-2 text-lg text-muted-foreground mb-6">
             <MapPin className="w-5 h-5 text-primary" />
@@ -213,7 +225,37 @@ export default function LocationMytishchi() {
             maxWidth={800}
           />
         </div>
+        
+        {/* Unique Content for Mytishchi Branch */}
+        <div className="mt-16">
+          <div className="container mx-auto px-4">
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="text-2xl font-bold mb-4 text-center">Школа английского языка в Мытищах</h2>
+                <div className="prose max-w-none text-muted-foreground">
+                  <p className="mb-4">
+                    Курсы английского языка в Мытищах от O'KEY ENGLISH расположены в центре города 
+                    по адресу ул. Борисовка, 16А. Наша школа английского в Мытищах предлагает 
+                    жителям Московской области качественное образование с применением современных 
+                    методик Cambridge English Assessment.
+                  </p>
+                  <p className="mb-4">
+                    Филиал в Мытищах оснащен яркими детскими классами и современным оборудованием 
+                    для эффективного изучения английского языка. Близкое расположение к 
+                    железнодорожной станции Мытищи делает нашу школу доступной для студентов 
+                    из разных районов города и области.
+                  </p>
+                  <p>
+                    Преподаватели нашего филиала в Мытищах имеют международные сертификаты 
+                    и многолетний опыт работы. Приводите детей на пробный урок и убедитесь 
+                    в качестве нашего обучения! Удобная парковка и гибкое расписание.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

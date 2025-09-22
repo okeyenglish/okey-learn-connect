@@ -5,6 +5,8 @@ import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
 import krasnayaGorkaImage from "@/assets/krasnaya-gorka-branch.jpg";
+import SEOHead from "@/components/SEOHead";
+import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
 
 export default function LocationLyubertsy2() {
   const handleWhatsApp = () => {
@@ -21,13 +23,23 @@ export default function LocationLyubertsy2() {
     window.open(`https://t.me/79937073553?text=${message}`, '_blank');
   };
 
+  const seoData = branchSEOData.lyubertsy2;
+  
   return (
-    <div className="min-h-screen py-20">
+    <>
+      <SEOHead 
+        title={seoData.title}
+        description={seoData.description}
+        keywords={seoData.keywords}
+        canonicalUrl="https://okeyenglish.ru/branches/lyubertsy2"
+        jsonLd={generateBranchJsonLd('lyubertsy2')}
+      />
+      <div className="min-h-screen py-20">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl lg:text-5xl font-bold mb-4">
-            Филиал <span className="text-gradient">Красная горка</span>
+            Английский язык в <span className="text-gradient">Люберцах</span> - Красная Горка
           </h1>
           <div className="flex items-center justify-center gap-2 text-lg text-muted-foreground mb-6">
             <MapPin className="w-5 h-5 text-primary" />
@@ -210,7 +222,37 @@ export default function LocationLyubertsy2() {
             <p>Отзывы для этого филиала будут добавлены после получения ID организации на Яндекс.Картах</p>
           </div>
         </div>
+        
+        {/* Unique Content for Red Hill Branch */}
+        <div className="mt-16">
+          <div className="container mx-auto px-4">
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="text-2xl font-bold mb-4 text-center">Курсы английского в Красной Горке</h2>
+                <div className="prose max-w-none text-muted-foreground">
+                  <p className="mb-4">
+                    Филиал O'KEY ENGLISH в микрорайоне Красная Горка предлагает жителям Люберцы 
+                    удобное расположение на проспекте Гагарина. Наша школа английского языка 
+                    в Красной Горке известна высоким качеством преподавания и индивидуальным 
+                    подходом к каждому студенту.
+                  </p>
+                  <p className="mb-4">
+                    Курсы английского языка в Люберцах (Красная Горка) включают программы для всех возрастов. 
+                    Особое внимание уделяется созданию комфортной атмосферы для изучения языка. 
+                    Современные классы с Cambridge-сертифицированным оборудованием обеспечивают 
+                    эффективное обучение в удобной обстановке.
+                  </p>
+                  <p>
+                    Преподаватели-носители языка и опытные русскоязычные педагоги помогут достичь 
+                    ваших целей в изучении английского. Запишитесь на бесплатное тестирование 
+                    в нашем филиале в Красной Горке!
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

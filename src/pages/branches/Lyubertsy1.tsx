@@ -5,6 +5,8 @@ import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
 import lyubertsyImage from "@/assets/lyubertsy-branch.jpg";
+import SEOHead from "@/components/SEOHead";
+import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
 
 export default function LocationLyubertsy1() {
   const handleWhatsApp = () => {
@@ -21,13 +23,22 @@ export default function LocationLyubertsy1() {
     window.open(`https://t.me/79937073553?text=${message}`, '_blank');
   };
 
+  const seoData = branchSEOData.lyubertsy1;
+  
   return (
     <div className="min-h-screen py-20">
+      <SEOHead 
+        title={seoData.title}
+        description={seoData.description}
+        keywords={seoData.keywords}
+        canonicalUrl="https://okeyenglish.ru/branches/lyubertsy1"
+        jsonLd={generateBranchJsonLd('lyubertsy1')}
+      />
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl lg:text-5xl font-bold mb-4">
-            Филиал <span className="text-gradient">Люберцы</span>
+            Английский язык в <span className="text-gradient">Люберцах</span> - O'KEY ENGLISH
           </h1>
           <div className="flex items-center justify-center gap-2 text-lg text-muted-foreground mb-6">
             <MapPin className="w-5 h-5 text-primary" />
@@ -210,7 +221,35 @@ export default function LocationLyubertsy1() {
             <p>Отзывы для этого филиала будут добавлены после получения ID организации на Яндекс.Картах</p>
           </div>
         </div>
-      </div>
+        
+        {/* Unique Content for Lyubertsy Branch */}
+        <div className="mt-16">
+          <div className="container mx-auto px-4">
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="text-2xl font-bold mb-4 text-center">Школа английского языка в Люберцах</h2>
+                <div className="prose max-w-none text-muted-foreground">
+                  <p className="mb-4">
+                    Наш филиал в Люберцах расположен в удобном районе рядом с 3 Почтовым отделением. 
+                    Школа O'KEY ENGLISH в Люберцах предлагает качественное изучение английского языка 
+                    для жителей Московской области. Наши опытные преподаватели, включая носителей языка, 
+                    помогут освоить английский быстро и эффективно.
+                  </p>
+                  <p className="mb-4">
+                    Курсы английского в Люберцах доступны для всех возрастов: от малышей 3-6 лет 
+                    до взрослых студентов. Мы используем современные методики Cambridge English, 
+                    что гарантирует высокое качество образования. Удобная транспортная доступность 
+                    и бесплатная парковка делают обучение комфортным для всей семьи.
+                  </p>
+                  <p>
+                    Запишитесь на бесплатный пробный урок и убедитесь в эффективности нашей методики! 
+                    Средняя стоимость занятия в филиале Люберцы - от 740 рублей.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
     </div>
   );
 }
