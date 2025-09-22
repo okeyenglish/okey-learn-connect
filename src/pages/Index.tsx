@@ -635,6 +635,7 @@ export default function Index() {
                           size="touch"
                           onClick={() => window.open("tel:+74997073535", "_blank")}
                           className="rounded-full w-16 h-16 border-2 border-primary text-primary hover:bg-primary hover:text-white"
+                          aria-label="Позвонить в O'KEY ENGLISH"
                         >
                           <Phone className="w-5 h-5" />
                         </Button>
@@ -643,6 +644,7 @@ export default function Index() {
                           size="touch"
                           onClick={() => handleWhatsApp(branch.name)}
                           className="rounded-full w-16 h-16 border-2 border-primary text-primary hover:bg-primary hover:text-white"
+                          aria-label={`Написать в WhatsApp по поводу филиала ${branch.name}`}
                         >
                           <MessageCircle className="w-5 h-5" />
                         </Button>
@@ -654,6 +656,7 @@ export default function Index() {
                             window.open(`https://t.me/englishmanager?start=${encodeURIComponent(message)}`, "_blank");
                           }}
                           className="rounded-full w-16 h-16 border-2 border-primary text-primary hover:bg-primary hover:text-white"
+                          aria-label={`Написать в Telegram по поводу филиала ${branch.name}`}
                         >
                           <Send className="w-5 h-5" />
                         </Button>
