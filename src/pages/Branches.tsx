@@ -179,7 +179,7 @@ export default function Locations() {
 
   const handleTelegram = (branchName: string) => {
     const message = `Здравствуйте! Интересует обучение в филиале ${branchName}.`;
-    window.open(`https://t.me/okeyenglish_bot?start=${encodeURIComponent(message)}`, "_blank");
+    window.open(`https://t.me/englishmanager?start=${encodeURIComponent(message)}`, "_blank");
   };
 
   const handleCall = () => {

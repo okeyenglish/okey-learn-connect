@@ -12,7 +12,7 @@ export default function ContactMethod() {
   };
 
   const handleTelegram = () => {
-    window.open("https://t.me/okeyenglish_bot", "_blank");
+    window.open("https://t.me/englishmanager", "_blank");
   };
 
   const handlePhone = () => {

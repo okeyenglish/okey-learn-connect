@@ -585,7 +585,7 @@ export default function Index() {
                           size="icon"
                           onClick={() => {
                             const message = `Здравствуйте! Интересует обучение в филиале ${branch.name}.`;
-                            window.open(`https://t.me/okeyenglish_bot?start=${encodeURIComponent(message)}`, "_blank");
+                            window.open(`https://t.me/englishmanager?start=${encodeURIComponent(message)}`, "_blank");
                           }}
                           className="rounded-full"
                         >
