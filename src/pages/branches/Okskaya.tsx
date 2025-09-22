@@ -135,15 +135,15 @@ export default function LocationOkskaya() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <h4 className="font-semibold mb-2">От метро Окская:</h4>
+                  <h4 className="font-semibold mb-2">От метро Кузьминки:</h4>
                   <p className="text-muted-foreground">
-                    Пешком 3 минуты. Выйти из метро и пройти по ул. Окская до дома 3к1.
+                    Выйти из метро и идти пешком по улице Окская около 10 минут до дома 3, корпус 1.
                   </p>
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">На автобусе:</h4>
                   <p className="text-muted-foreground">
-                    Автобусы до остановки "Окская"
+                    Можно сесть на автобус № 334 или № 443, выйти на остановке «Окская улица», далее пешком до дома.
                   </p>
                 </div>
               </CardContent>
@@ -155,15 +155,21 @@ export default function LocationOkskaya() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
+                  <h4 className="font-semibold mb-2">Адрес:</h4>
+                  <p className="text-muted-foreground">
+                    ул. Окская, дом 3, корпус 1, ЮВАО, Москва.
+                  </p>
+                </div>
+                <div>
                   <h4 className="font-semibold mb-2">Парковка:</h4>
                   <p className="text-muted-foreground">
-                    Бесплатная парковка возле здания
+                    Парковка возможна на прилегающих улицах (парковочные карманы).
                   </p>
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Ориентиры:</h4>
                   <p className="text-muted-foreground">
-                    Рядом с метро Окская, недалеко от торгового центра
+                    Метро Кузьминки — ближайшая станция метро.
                   </p>
                 </div>
               </CardContent>
