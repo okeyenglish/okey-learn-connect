@@ -4,6 +4,8 @@ import { MapPin, Phone, MessageCircle, Send, Clock } from "lucide-react";
 import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
+import SEOHead from "@/components/SEOHead";
+import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
 import classroomImage from "@/assets/kotelniki-classroom.png";
 import kotelnikiImage from "@/assets/kotelniki-branch.jpg";
 import teacherMale1 from "@/assets/teacher-male-1.png";
@@ -11,6 +13,8 @@ import teacherMale2 from "@/assets/teacher-male-2.png";
 import teacherFemale1 from "@/assets/teacher-female-1.png";
 
 export default function LocationKotelniki() {
+  const seoData = branchSEOData.kotelniki;
+  const jsonLd = generateBranchJsonLd('kotelniki');
 
   const handleWhatsApp = () => {
     const message = encodeURIComponent("Здравствуйте! Хочу узнать подробнее об обучении в филиале Котельники");
@@ -28,11 +32,19 @@ export default function LocationKotelniki() {
 
   return (
     <div className="min-h-screen py-20">
+      <SEOHead 
+        title={seoData.title}
+        description={seoData.description}
+        keywords={seoData.keywords}
+        canonicalUrl="https://okeyenglish.ru/branches/kotelniki"
+        jsonLd={jsonLd}
+      />
+      
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl lg:text-5xl font-bold mb-4">
-            Филиал <span className="text-gradient">Котельники</span>
+            Английский язык в <span className="text-gradient">Котельниках</span> - O'KEY ENGLISH
           </h1>
           <div className="flex items-center justify-center gap-2 text-lg text-muted-foreground mb-6">
             <MapPin className="w-5 h-5 text-primary" />

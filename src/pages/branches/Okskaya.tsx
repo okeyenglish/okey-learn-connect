@@ -4,9 +4,13 @@ import { MapPin, Phone, MessageCircle, Send, Clock, UserCheck } from "lucide-rea
 import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
+import SEOHead from "@/components/SEOHead";
+import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
 import okskayaImage from "@/assets/okskaya-branch.jpg";
 
 export default function LocationOkskaya() {
+  const seoData = branchSEOData.okskaya;
+  const jsonLd = generateBranchJsonLd('okskaya');
   const handleWhatsApp = () => {
     const message = encodeURIComponent("Здравствуйте! Хочу узнать подробнее об обучении в филиале Окская");
     window.open(`https://wa.me/79937073553?text=${message}`, '_blank');
@@ -23,11 +27,19 @@ export default function LocationOkskaya() {
 
   return (
     <div className="min-h-screen py-20">
+      <SEOHead 
+        title={seoData.title}
+        description={seoData.description}
+        keywords={seoData.keywords}
+        canonicalUrl="https://okeyenglish.ru/branches/okskaya"
+        jsonLd={jsonLd}
+      />
+      
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl lg:text-5xl font-bold mb-4">
-            Филиал <span className="text-gradient">Окская</span>
+            Английский язык на <span className="text-gradient">Окской</span> - O'KEY ENGLISH
           </h1>
           <div className="flex items-center justify-center gap-2 text-lg text-muted-foreground mb-6">
             <MapPin className="w-5 h-5 text-primary" />

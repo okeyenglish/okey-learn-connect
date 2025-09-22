@@ -5,7 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import AnimatedLanguage from "@/components/AnimatedLanguage";
+import SEOHead from "@/components/SEOHead";
 import { getBranchesForIndex, BranchForIndex } from "@/lib/branches";
+import { mainPageSEO } from "@/data/seoData";
 import { 
   GraduationCap, 
   Users, 
@@ -345,8 +347,60 @@ export default function Index() {
     window.open(`https://wa.me/79937073553?text=${encodeURIComponent(message)}`, "_blank");
   };
 
+  const mainJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "EducationalOrganization",
+    "name": "O'KEY ENGLISH SCHOOL",
+    "description": "Школа английского языка с 9 филиалами в Москве и Московской области, а также онлайн обучением",
+    "url": "https://okeyenglish.ru",
+    "telephone": "+7 (499) 707-35-35",
+    "email": "info@okeyenglish.ru",
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "Москва",
+      "addressCountry": "RU"
+    },
+    "areaServed": ["Москва", "Московская область"],
+    "serviceType": "Обучение английскому языку",
+    "hasOfferCatalog": {
+      "@type": "OfferCatalog",
+      "name": "Программы обучения",
+      "itemListElement": [
+        {
+          "@type": "Offer",
+          "name": "Super Safari (3-6 лет)",
+          "description": "Английский для дошкольников"
+        },
+        {
+          "@type": "Offer",
+          "name": "Kids Box (6-11 лет)", 
+          "description": "Английский для младших школьников"
+        },
+        {
+          "@type": "Offer",
+          "name": "Prepare (11-15 лет)",
+          "description": "Подготовка к экзаменам для подростков"
+        },
+        {
+          "@type": "Offer",
+          "name": "Empower (16+ лет)",
+          "description": "Английский для взрослых"
+        }
+      ]
+    },
+    "hasCredential": "Лицензия на образовательную деятельность и аккредитация Cambridge"
+  };
+
   return (
     <div className="min-h-screen">
+      <SEOHead 
+        title={mainPageSEO.title}
+        description={mainPageSEO.description}
+        keywords={mainPageSEO.keywords}
+        canonicalUrl="https://okeyenglish.ru"
+        jsonLd={mainJsonLd}
+      />
+      
       <section className="relative bg-gradient-subtle py-20 lg:py-32 overflow-hidden">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="text-center max-w-4xl mx-auto">
