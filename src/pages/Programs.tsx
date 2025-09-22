@@ -5,9 +5,9 @@ import { GraduationCap, Users, Clock, Target, ArrowRight } from "lucide-react";
 import OptimizedImage from "@/components/OptimizedImage";
 
 // Import program images
-import kidsCircleImg from "@/assets/programs/kids-circle.jpg";
+import superSafariImg from "@/assets/programs/super-safari-classroom.jpg";
 import teacherWithKidsImg from "@/assets/programs/teacher-with-kids.jpg";
-import studentWithBookImg from "@/assets/programs/student-with-book.jpg";
+import prepareClassroomImg from "@/assets/programs/prepare-classroom.jpg";
 import adultClassroomImg from "@/assets/programs/adult-classroom.jpg";
 import englishLessonImg from "@/assets/programs/english-lesson.jpg";
 import workshopTeachersImg from "@/assets/programs/workshop-teachers.jpg";
@@ -25,7 +25,7 @@ const programs = [
     description: "Английский через игры, песни и сказки. Мягкое погружение в язык с первых шагов.",
     features: ["Игровая методика", "Развитие речи", "Подготовка к школе"],
     color: "bg-gradient-to-r from-pink-500 to-rose-500",
-    image: kidsCircleImg,
+    image: superSafariImg,
     href: "/programs/supersafari"
   },
   {
@@ -47,7 +47,7 @@ const programs = [
     description: "Подростковые темы, уверенная речь, подготовка к KET/PET/FCE, ОГЭ/ЕГЭ.",
     features: ["7 уровней", "Экзамены Cambridge", "Speaking Club"],
     color: "bg-gradient-to-r from-purple-500 to-indigo-500",
-    image: studentWithBookImg,
+    image: prepareClassroomImg,
     href: "/programs/prepare"
   },
   {
