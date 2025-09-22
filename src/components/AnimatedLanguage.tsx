@@ -89,11 +89,11 @@ export default function AnimatedLanguage() {
   return (
     <span
       ref={containerRef}
-      className="inline-block align-baseline overflow-hidden"
+      className="inline-block align-baseline"
       style={{ 
         height: '1em', 
         width: width ?? undefined,
-        maxWidth: '100%',
+        minWidth: 'fit-content',
         verticalAlign: 'baseline',
         lineHeight: 'inherit'
       }}
@@ -105,19 +105,17 @@ export default function AnimatedLanguage() {
         style={{ lineHeight: 'inherit' }}
       >
         <span 
-          className="block text-gradient text-center overflow-hidden whitespace-nowrap" 
+          className="block text-gradient text-center" 
           style={{ 
-            lineHeight: 'inherit',
-            textOverflow: 'ellipsis'
+            lineHeight: 'inherit'
           }}
         >
           {currentLanguages[currentIndex]}
         </span>
         <span 
-          className="block text-gradient text-center overflow-hidden whitespace-nowrap" 
+          className="block text-gradient text-center" 
           style={{ 
-            lineHeight: 'inherit',
-            textOverflow: 'ellipsis'
+            lineHeight: 'inherit'
           }}
         >
           {currentLanguages[nextIndex]}
