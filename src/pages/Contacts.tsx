@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -268,13 +269,17 @@ export default function Contacts() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {branches.map((branch) => (
-                  <div key={branch.value} className="flex items-start gap-3 p-3 rounded-lg border">
+                  <Link 
+                    key={branch.value} 
+                    to={`/branches/${branch.value}`}
+                    className="flex items-start gap-3 p-3 rounded-lg border hover:border-primary/50 hover:bg-muted/50 transition-all cursor-pointer"
+                  >
                     <MapPin className="w-5 h-5 text-primary mt-1 flex-shrink-0" />
                     <div>
                       <div className="font-medium">{branch.label}</div>
                       <div className="text-sm text-muted-foreground">{branch.address}</div>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </CardContent>
             </Card>

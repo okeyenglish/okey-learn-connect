@@ -45,11 +45,6 @@ export default function LocationStakhanovskaya() {
             <MapPin className="w-5 h-5 text-primary" />
             <span>2-й Грайвороновский пр-д, 42к1</span>
           </div>
-          
-          <Button variant="hero" className="flex items-center gap-2">
-            <UserCheck className="w-4 h-4" />
-            Пробный урок
-          </Button>
         </div>
 
         {/* Branch Photo */}

@@ -251,24 +251,28 @@ export default function Locations() {
           ) : (
             branchesWithSchedule.map((branch) => (
             <Card key={branch.id} className="card-elevated hover:border-primary/50 transition-all overflow-hidden">
-              <div className="aspect-[16/9] bg-gradient-subtle flex items-center justify-center overflow-hidden">
-                {branch.image ? (
-                  <img 
-                    src={branch.image} 
-                    alt={`Интерьер филиала O'KEY English ${branch.name}`}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span className="text-muted-foreground">Фото филиала {branch.name}</span>
-                )}
-              </div>
+              <Link to={`/branches/${branch.id}`} className="block">
+                <div className="aspect-[16/9] bg-gradient-subtle flex items-center justify-center overflow-hidden cursor-pointer hover:opacity-90 transition-opacity">
+                  {branch.image ? (
+                    <img 
+                      src={branch.image} 
+                      alt={`Интерьер филиала O'KEY English ${branch.name}`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-muted-foreground">Фото филиала {branch.name}</span>
+                  )}
+                </div>
+              </Link>
               
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>
                     <CardTitle className="text-xl flex items-center gap-2">
                       <MapPin className="w-5 h-5 text-primary" />
-                      {branch.name}
+                      <Link to={`/branches/${branch.id}`} className="hover:text-primary transition-colors cursor-pointer">
+                        {branch.name}
+                      </Link>
                     </CardTitle>
                     <CardDescription className="mt-2">
                       {branch.address}

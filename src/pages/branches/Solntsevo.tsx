@@ -46,11 +46,6 @@ export default function LocationSolntsevo() {
             <MapPin className="w-5 h-5 text-primary" />
             <span>ул. Богданова, 6к1</span>
           </div>
-          
-          <Button variant="hero" className="flex items-center gap-2">
-            <UserCheck className="w-4 h-4" />
-            Пробный урок
-          </Button>
         </div>
 
         {/* Branch Photo */}

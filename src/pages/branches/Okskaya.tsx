@@ -45,11 +45,6 @@ export default function LocationOkskaya() {
             <MapPin className="w-5 h-5 text-primary" />
             <span>ул. Окская, д. 3, корп. 1</span>
           </div>
-          
-          <Button variant="hero" className="flex items-center gap-2">
-            <UserCheck className="w-4 h-4" />
-            Пробный урок
-          </Button>
         </div>
 
         {/* Branch Photo */}
