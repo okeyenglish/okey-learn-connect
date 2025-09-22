@@ -9,40 +9,54 @@
 
     <!-- Critical CSS inlined for fastest first paint -->
     <style>
-      /* Critical above-the-fold styles for better FCP/LCP */
-      body { 
-        margin: 0; 
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        background: hsl(220 14% 96%);
-        line-height: 1.5;
-      }
-      .hero-section {
-        background: linear-gradient(135deg, hsl(220 14% 96%) 0%, hsl(220 13% 91%) 100%);
-        min-height: 80vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 2rem 1rem;
-      }
-      .hero-title { 
-        font-size: clamp(2rem, 8vw, 4rem); 
-        font-weight: 700; 
-        text-align: center; 
-        line-height: 1.1;
-        margin-bottom: 1.5rem;
-        color: hsl(220 9% 46%);
-      }
-      .hero-subtitle { 
-        font-size: clamp(1.1rem, 4vw, 1.5rem); 
-        opacity: 0.8; 
-        text-align: center; 
-        max-width: 600px; 
-        margin: 0 auto 2rem;
-        color: hsl(220 9% 46%);
-      }
-      /* Prevent layout shift */
-      .container { max-width: 1200px; margin: 0 auto; padding: 0 1rem; }
-      .btn { padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; }
+        /* Critical above-the-fold styles for better FCP/LCP */
+        body { 
+          margin: 0; 
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          background: hsl(220 14% 96%);
+          line-height: 1.5;
+          color: hsl(210 24% 16%);
+        }
+        .hero-section {
+          background: linear-gradient(135deg, hsl(220 14% 96%) 0%, hsl(220 13% 91%) 100%);
+          min-height: 80vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 2rem 1rem;
+        }
+        .hero-title { 
+          font-size: clamp(2rem, 8vw, 4rem); 
+          font-weight: 700; 
+          text-align: center; 
+          line-height: 1.1;
+          margin-bottom: 1.5rem;
+          color: hsl(210 24% 16%);
+        }
+        .hero-subtitle { 
+          font-size: clamp(1.1rem, 4vw, 1.5rem); 
+          opacity: 0.8; 
+          text-align: center; 
+          max-width: 600px; 
+          margin: 0 auto 2rem;
+          color: hsl(210 22% 32%);
+        }
+        /* Prevent layout shift */
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 1rem; }
+        .btn { 
+          min-height: 48px; 
+          min-width: 48px; 
+          padding: 0.75rem 1.5rem; 
+          border-radius: 0.5rem; 
+          font-weight: 600; 
+          background: hsl(0 84% 60%);
+          color: white;
+          border: 2px solid hsl(0 84% 60%);
+        }
+        .btn:hover {
+          background: hsl(0 84% 52%);
+          border-color: hsl(0 84% 52%);
+        }
     </style>
 
     <!-- Performance optimizations -->
@@ -50,9 +64,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="dns-prefetch" href="https://storage.googleapis.com">
     
-    <!-- Optimized font loading - only essential weights -->
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" onload="this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"></noscript>
+    <!-- Optimized font loading - critical fonts -->
+    <link rel="preload" as="font" href="https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff2" type="font/woff2" crossorigin>
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Montserrat:wght@400;600;700&display=swap" onload="this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Montserrat:wght@400;600;700&display=swap"></noscript>
 
     <meta property="og:title" content="O'KEY ENGLISH SCHOOL - Английский язык в Москве и Московской области" />
     <meta property="og:description" content="Изучение английского языка для детей и взрослых. Профессиональные преподаватели, современные методики обучения в Москве, МО и онлайн." />
@@ -68,5 +83,11 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx" defer></script>
+    <!-- Cache service worker for better caching -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      }
+    </script>
   </body>
 </html>

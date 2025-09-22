@@ -427,13 +427,13 @@ export default function Index() {
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16 px-4">
               <Link to="/test" className="w-full sm:w-auto">
-                <Button variant="hero" size="lg" className="flex items-center justify-center gap-2 w-full sm:w-auto">
+                <Button variant="hero" size="touch" className="flex items-center justify-center gap-2 w-full sm:w-auto text-lg font-bold">
                   <BookOpen className="w-5 h-5" />
                   Пройти онлайн-тест уровня
                 </Button>
               </Link>
               <Link to="/contacts" className="w-full sm:w-auto">
-                <Button variant="outline" size="lg" className="flex items-center justify-center gap-2 w-full sm:w-auto">
+                <Button variant="outline" size="touch" className="flex items-center justify-center gap-2 w-full sm:w-auto border-2 border-primary text-primary hover:bg-primary hover:text-white font-semibold">
                   <UserCheck className="w-5 h-5" />
                   Записаться на пробный урок
                 </Button>
@@ -496,7 +496,8 @@ export default function Index() {
                     <Link to="/contacts" className="inline-block mt-4">
                       <Button 
                         variant="secondary"
-                        className="bg-white text-primary hover:bg-white/90"
+                        size="touch"
+                        className="bg-white text-primary hover:bg-white/90 font-semibold"
                       >
                         Записаться
                       </Button>
@@ -622,7 +623,7 @@ export default function Index() {
                     {/* Actions */}
                     <div className="flex flex-col gap-3">
                       <Link to={`/branches/${branch.slug}`}>
-                        <Button variant="hero" className="w-full">
+                        <Button variant="hero" size="touch" className="w-full font-semibold">
                           <ArrowRight className="w-4 h-4 mr-2" />
                           Подробнее о филиале
                         </Button>
@@ -631,30 +632,30 @@ export default function Index() {
                       <div className="flex justify-center gap-3">
                         <Button 
                           variant="outline" 
-                          size="icon"
+                          size="touch"
                           onClick={() => window.open("tel:+74997073535", "_blank")}
-                          className="rounded-full"
+                          className="rounded-full w-16 h-16 border-2 border-primary text-primary hover:bg-primary hover:text-white"
                         >
-                          <Phone className="w-4 h-4" />
+                          <Phone className="w-5 h-5" />
                         </Button>
                         <Button 
                           variant="outline" 
-                          size="icon"
+                          size="touch"
                           onClick={() => handleWhatsApp(branch.name)}
-                          className="rounded-full"
+                          className="rounded-full w-16 h-16 border-2 border-primary text-primary hover:bg-primary hover:text-white"
                         >
-                          <MessageCircle className="w-4 h-4" />
+                          <MessageCircle className="w-5 h-5" />
                         </Button>
                         <Button 
                           variant="outline" 
-                          size="icon"
+                          size="touch"
                           onClick={() => {
                             const message = `Здравствуйте! Интересует обучение в филиале ${branch.name}.`;
                             window.open(`https://t.me/englishmanager?start=${encodeURIComponent(message)}`, "_blank");
                           }}
-                          className="rounded-full"
+                          className="rounded-full w-16 h-16 border-2 border-primary text-primary hover:bg-primary hover:text-white"
                         >
-                          <Send className="w-4 h-4" />
+                          <Send className="w-5 h-5" />
                         </Button>
                       </div>
                     </div>

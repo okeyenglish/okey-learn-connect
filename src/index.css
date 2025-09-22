@@ -22,7 +22,7 @@
     --primary-hover: 0 84% 52%;
 
     /* Secondary - Brand Blue from logo */
-    --secondary: 220 70% 50%;
+    --secondary: 220 70% 45%;
     --secondary-foreground: 0 0% 100%;
 
     /* Accent - Brand Purple/Blue border from logo */
@@ -30,7 +30,7 @@
     --accent-foreground: 0 0% 100%;
 
     --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted-foreground: 210 22% 32%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
@@ -42,7 +42,7 @@
     --radius: 8px;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(0 84% 60%), hsl(220 70% 50%));
+    --gradient-primary: linear-gradient(135deg, hsl(0 84% 60%), hsl(220 70% 45%));
     --gradient-hero: linear-gradient(135deg, hsl(0 84% 60%) 0%, hsl(0 84% 52%) 50%, hsl(250 60% 65%) 100%);
     --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(250 60% 98%) 100%);
 

@@ -18,10 +18,11 @@ const buttonVariants = cva(
         hero: "bg-gradient-primary text-white font-semibold shadow-primary hover:shadow-elevated transform hover:scale-105 transition-all duration-300",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-md px-8",
-        icon: "h-10 w-10",
+        default: "h-12 px-6 py-3 min-w-[44px]",
+        sm: "h-11 rounded-md px-4 py-2 min-w-[44px]",
+        lg: "h-14 rounded-md px-8 py-4 min-w-[44px]",
+        icon: "h-12 w-12 min-w-[44px]",
+        touch: "h-16 px-8 py-4 min-w-[60px] text-base",
       },
     },
     defaultVariants: {
