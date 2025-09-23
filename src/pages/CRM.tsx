@@ -39,6 +39,7 @@ import { TaskCalendar } from "@/components/crm/TaskCalendar";
 import { CreateInvoiceModal } from "@/components/crm/CreateInvoiceModal";
 import { PinnableModalHeader, PinnableDialogContent } from "@/components/crm/PinnableModal";
 import { ManagerMenu } from "@/components/crm/ManagerMenu";
+import { ScriptsModal } from "@/components/crm/ScriptsModal";
 import { GroupsModal } from "@/components/learning-groups/GroupsModal";
 import { IndividualLessonsModal } from "@/components/individual-lessons/IndividualLessonsModal";
 import { MobileBottomNavigation } from "@/components/crm/MobileBottomNavigation";
@@ -223,6 +224,7 @@ const CRMContent = () => {
   
   // Мобильные модальные окна
   const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [showScriptsModal, setShowScriptsModal] = useState(false);
   
   // Мобильные состояния для адаптивности
   const isMobile = useIsMobile();
@@ -1039,8 +1041,17 @@ const CRMContent = () => {
                 </SheetTrigger>
               </Sheet>
             )}
-            {/* Только аватарка менеджера на мобильной версии */}
-            <div className="flex items-center px-4 h-12 border-l bg-background">
+            {/* Скрипты и аватарка менеджера на мобильной версии */}
+            <div className="flex items-center px-4 h-12 border-l bg-background gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowScriptsModal(true)}
+                className="flex items-center gap-2 px-2 h-8"
+              >
+                <MessageCircle className="h-4 w-4" />
+                <span className="hidden sm:inline text-sm">Скрипты</span>
+              </Button>
               <ManagerMenu
                 managerName={profile && profile.first_name && profile.last_name 
                   ? `${profile.first_name} ${profile.last_name}` 
@@ -1080,6 +1091,15 @@ const CRMContent = () => {
                   <span className="hidden sm:inline">Загрузка данных...</span>
                 </div>
               )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowScriptsModal(true)}
+                className="flex items-center gap-2 px-3 h-9 mr-2"
+              >
+                <MessageCircle className="h-4 w-4" />
+                <span className="text-sm">Скрипты</span>
+              </Button>
               <ManagerMenu
                 managerName={profile && profile.first_name && profile.last_name 
                   ? `${profile.first_name} ${profile.last_name}` 
@@ -3099,6 +3119,12 @@ const CRMContent = () => {
           activeChatType={activeChatType}
         />
       )}
+
+      {/* Модальное окно скриптов */}
+      <ScriptsModal
+        open={showScriptsModal}
+        onOpenChange={setShowScriptsModal}
+      />
 
       {/* Модальное окно нового чата */}
       <MobileNewChatModal
