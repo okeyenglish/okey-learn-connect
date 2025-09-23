@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Phone, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -964,43 +964,33 @@ export const ChatArea = ({
             </div>
             
             {/* Action buttons moved to the right */}
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <WebRTCPhone phoneNumber={clientPhone} />
+            <div className="flex items-center gap-2 flex-shrink-0">
               <Button 
                 size="sm" 
                 variant="outline" 
-                className="h-8 w-8 p-0"
+                className="crm-btn h-10 w-10 p-0"
                 title="Добавить задачу"
                 onClick={() => (onOpenTaskModal ? onOpenTaskModal() : setShowAddTaskModal(true))}
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-5 w-5" />
               </Button>
               <Button 
                 size="sm" 
                 variant="outline" 
-                className="h-8 w-8 p-0"
+                className="crm-btn h-10 w-10 p-0"
                 title="Выставить счёт"
                 onClick={() => (onOpenInvoiceModal ? onOpenInvoiceModal() : setShowInvoiceModal(true))}
               >
-                <FileText className="h-4 w-4" />
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="h-8 w-8 p-0"
-                title="Позвонить"
-                onClick={handlePhoneCall}
-              >
-                <Phone className="h-4 w-4" />
+                <FileText className="h-5 w-5" />
               </Button>
               <Button 
                 size="sm" 
                 variant={showSearchInput ? "default" : "outline"}
-                className="h-8 w-8 p-0"
+                className="crm-btn h-10 w-10 p-0"
                 title="Поиск в чате"
                 onClick={handleSearchToggle}
               >
-                <Search className="h-4 w-4" />
+                <Search className="h-5 w-5" />
               </Button>
               <Button 
                 size="sm" 
@@ -1059,51 +1049,32 @@ export const ChatArea = ({
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <WebRTCPhone phoneNumber={clientPhone} />
               <Button 
                 size="sm" 
                 variant="outline" 
-                className="h-8 w-8 p-0"
+                className="crm-btn h-10 w-10 p-0"
                 title="Добавить задачу"
                 onClick={() => (onOpenTaskModal ? onOpenTaskModal() : setShowAddTaskModal(true))}
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-5 w-5" />
               </Button>
               <Button 
                 size="sm" 
                 variant="outline" 
-                className="h-8 w-8 p-0"
+                className="crm-btn h-10 w-10 p-0"
                 title="Выставить счёт"
                 onClick={() => (onOpenInvoiceModal ? onOpenInvoiceModal() : setShowInvoiceModal(true))}
               >
-                <FileText className="h-4 w-4" />
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="h-8 w-8 p-0"
-                title="Позвонить"
-                onClick={handlePhoneCall}
-              >
-                <Phone className="h-4 w-4" />
+                <FileText className="h-5 w-5" />
               </Button>
               <Button 
                 size="sm" 
                 variant={showSearchInput ? "default" : "outline"}
-                className="h-8 w-8 p-0"
+                className="crm-btn h-10 w-10 p-0"
                 title="Поиск в чате"
                 onClick={handleSearchToggle}
               >
-                <Search className="h-4 w-4" />
-              </Button>
-              <Button 
-                size="sm" 
-                variant={isSelectionMode ? "default" : "outline"}
-                className="h-8 w-8 p-0"
-                title="Выделить сообщения"
-                onClick={handleToggleSelectionMode}
-              >
-                <Forward className="h-4 w-4" />
+                <Search className="h-5 w-5" />
               </Button>
               
               {showSearchInput && (
@@ -1558,17 +1529,19 @@ export const ChatArea = ({
 
       {/* Phone Modal */}
       {showWebRTCPhone && (
-        isMobile ? (
-          <MobilePhoneHelper 
-            phoneNumber={webRTCPhoneNumber}
-            onCallEnd={() => setShowWebRTCPhone(false)}
-          />
-        ) : (
-          <WebRTCPhone 
-            phoneNumber={webRTCPhoneNumber}
-            onCallEnd={() => setShowWebRTCPhone(false)}
-          />
-        )
+        <div>
+          {isMobile ? (
+            <MobilePhoneHelper 
+              phoneNumber={webRTCPhoneNumber}
+              onCallEnd={() => setShowWebRTCPhone(false)}
+            />
+          ) : (
+            <WebRTCPhone 
+              phoneNumber={webRTCPhoneNumber}
+              onCallEnd={() => setShowWebRTCPhone(false)}
+            />
+          )}
+        </div>
       )}
     </div>
   );

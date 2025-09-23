@@ -248,37 +248,32 @@
   background: var(--crm-bg-alt);
 }
 
-/* Remove heavy borders and add spacing */
-.crm-container * {
-  border-color: #E5E7EB;
-}
-
-.crm-container .space-y-4 > * + * {
-  margin-top: 16px;
-}
-
-.crm-container .space-y-6 > * + * {
-  margin-top: 24px;
-}
-
-/* CRM specific overrides for shadcn components */
-.crm-container .border {
-  border-color: #E5E7EB;
-}
-
-.crm-container [data-radix-collection-item] {
-  border-radius: var(--crm-radius-button);
-}
-
-/* Hide default shadows and borders in favor of CRM design */
-.crm-container .shadow-sm {
-  box-shadow: var(--crm-shadow-card);
-}
-
-.crm-container .rounded-lg {
+/* Update CRM modal styles */
+.crm-container .crm-modal {
+  background: var(--crm-bg);
   border-radius: var(--crm-radius-card);
+  box-shadow: var(--crm-shadow-elevated);
+  border: 1px solid #E5E7EB;
+  padding: 0;
 }
 
-.crm-container .rounded-md {
-  border-radius: var(--crm-radius-button);
+.crm-container .crm-modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #E5E7EB;
+  background: var(--crm-bg);
+}
+
+.crm-container .crm-modal-content {
+  padding: 24px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.crm-container .crm-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #E5E7EB;
+  background: var(--crm-bg-alt);
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
 }
