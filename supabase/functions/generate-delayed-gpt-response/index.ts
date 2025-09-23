@@ -29,18 +29,56 @@ serve(async (req) => {
     
     console.log(`Starting delayed GPT response processing for client: ${clientId}`);
     
-    // Wait for the specified delay to collect all messages
-    await new Promise(resolve => setTimeout(resolve, maxWaitTimeMs));
-    
-    // Get the latest unprocessed messages from the last 30 seconds
-    const thirtySecondsAgo = new Date(Date.now() - maxWaitTimeMs);
-    
+    // Wait until there is 30 seconds of silence (restart timer on new messages)
+    const quietPeriodMs = maxWaitTimeMs;
+    const invokedAt = new Date();
+    let lastIncomingAt: number | null = null;
+    let safetyDeadline = Date.now() + 2 * 60 * 1000; // safety cap: 2 minutes
+
+    while (Date.now() < safetyDeadline) {
+      // Get the latest incoming (client) message timestamp
+      const { data: latestIncoming, error: latestIncomingError } = await supabase
+        .from('chat_messages')
+        .select('created_at')
+        .eq('client_id', clientId)
+        .eq('is_outgoing', false)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (latestIncomingError) {
+        console.error('Error fetching latest incoming message:', latestIncomingError);
+        throw latestIncomingError;
+      }
+
+      if (!latestIncoming || latestIncoming.length === 0) {
+        // No incoming messages at all – wait once and proceed
+        await new Promise((r) => setTimeout(r, quietPeriodMs));
+        break;
+      }
+
+      lastIncomingAt = new Date(latestIncoming[0].created_at as string).getTime();
+      const silenceFor = Date.now() - lastIncomingAt;
+      if (silenceFor >= quietPeriodMs) {
+        // Quiet period achieved
+        break;
+      }
+
+      // Sleep only the remaining time (up to 5s chunks)
+      const sleepMs = Math.min(quietPeriodMs - silenceFor, 5000);
+      await new Promise((r) => setTimeout(r, sleepMs));
+    }
+
+    const windowStartISO = invokedAt.toISOString();
+    const windowEndISO = new Date().toISOString();
+
+    // Get the incoming messages collected during the quiet window
     const { data: recentMessages, error: messagesError } = await supabase
       .from('chat_messages')
       .select('*')
       .eq('client_id', clientId)
       .eq('is_outgoing', false)
-      .gte('created_at', thirtySecondsAgo.toISOString())
+      .gte('created_at', windowStartISO)
+      .lte('created_at', windowEndISO)
       .order('created_at', { ascending: true });
 
     if (messagesError) {
@@ -56,6 +94,51 @@ serve(async (req) => {
     }
 
     console.log(`Found ${recentMessages.length} recent messages to process`);
+
+    // If manager has already replied after invocation, don't suggest anything
+    const { data: managerReply, error: managerReplyError } = await supabase
+      .from('chat_messages')
+      .select('id, created_at')
+      .eq('client_id', clientId)
+      .eq('is_outgoing', true)
+      .gte('created_at', windowStartISO)
+      .lte('created_at', windowEndISO)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (managerReplyError) {
+      console.error('Error checking manager reply:', managerReplyError);
+      throw managerReplyError;
+    }
+
+    if (managerReply && managerReply.length > 0) {
+      console.log('Manager has replied during the waiting window. Skipping suggestion.');
+      return new Response(JSON.stringify({ success: false, message: 'Manager replied, skipping suggestion' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Avoid duplicates: if a pending suggestion already exists for this window
+    const { data: existingPending, error: existingPendingError } = await supabase
+      .from('pending_gpt_responses')
+      .select('id')
+      .eq('client_id', clientId)
+      .eq('status', 'pending')
+      .gte('created_at', windowStartISO)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (existingPendingError) {
+      console.error('Error checking existing pending suggestion:', existingPendingError);
+      throw existingPendingError;
+    }
+
+    if (existingPending && existingPending.length > 0) {
+      console.log('Pending suggestion already exists for this window. Skipping.');
+      return new Response(JSON.stringify({ success: true, message: 'Pending suggestion already exists' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Get client info for context
     const { data: client, error: clientError } = await supabase
