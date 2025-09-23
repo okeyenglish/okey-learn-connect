@@ -68,7 +68,9 @@ serve(async (req) => {
       await new Promise((r) => setTimeout(r, sleepMs));
     }
 
-    const windowStartISO = invokedAt.toISOString();
+    // Use a wider window to catch messages that came before function invocation
+    // Look back 5 minutes to ensure we don't miss any recent messages
+    const windowStartISO = new Date(invokedAt.getTime() - 5 * 60 * 1000).toISOString();
     const windowEndISO = new Date().toISOString();
 
     // Get the incoming messages collected during the quiet window
@@ -129,14 +131,21 @@ serve(async (req) => {
       });
     }
 
-    // If manager has already replied after invocation, don't suggest anything
+    // If manager has already replied after the recent messages, don't suggest anything
+    // Check for manager replies after the most recent client message
+    let checkFromTime = windowStartISO;
+    if (recentMessages && recentMessages.length > 0) {
+      // Use the time of the most recent client message as starting point
+      const mostRecentMessage = recentMessages[recentMessages.length - 1];
+      checkFromTime = mostRecentMessage.created_at;
+    }
+    
     const { data: managerReply, error: managerReplyError } = await supabase
       .from('chat_messages')
       .select('id, created_at')
       .eq('client_id', clientId)
       .eq('is_outgoing', true)
-      .gte('created_at', windowStartISO)
-      .lte('created_at', windowEndISO)
+      .gte('created_at', checkFromTime)
       .order('created_at', { ascending: false })
       .limit(1);
 
