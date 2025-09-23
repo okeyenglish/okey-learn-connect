@@ -23,12 +23,15 @@ export const usePendingGPTResponses = (clientId?: string) => {
   const query = useQuery({
     queryKey: ['pending-gpt-responses', clientId],
     queryFn: async () => {
+      console.log('=== FETCHING GPT RESPONSES ===');
       console.log('Fetching pending GPT responses for client:', clientId);
+      console.log('Current time:', new Date().toISOString());
+      
       let queryBuilder = supabase
         .from('pending_gpt_responses')
         .select('*')
         .eq('status', 'pending')
-        .gte('expires_at', new Date().toISOString()) // Only get non-expired responses
+        .gt('expires_at', new Date().toISOString()) // Only get non-expired responses
         .order('created_at', { ascending: false });
 
       if (clientId) {
@@ -37,17 +40,21 @@ export const usePendingGPTResponses = (clientId?: string) => {
 
       const { data, error } = await queryBuilder;
       
+      console.log('Raw query result:', { data, error });
+      
       if (error) {
         console.error('Error fetching pending GPT responses:', error);
         throw error;
       }
       
-      console.log('Fetched pending GPT responses:', data);
+      console.log('Fetched pending GPT responses count:', data?.length || 0);
+      console.log('=== FETCH COMPLETE ===');
       return data as PendingGPTResponse[];
     },
     enabled: !!clientId,
-    staleTime: 30000, // Consider data stale after 30 seconds
-    gcTime: 60000, // Keep in cache for 1 minute
+    staleTime: 10000, // Consider data stale after 10 seconds 
+    gcTime: 30000, // Keep in cache for 30 seconds
+    refetchInterval: 15000, // Refetch every 15 seconds to clean up expired
   });
 
   // Set up realtime subscription
@@ -173,14 +180,19 @@ export const useDismissPendingResponse = () => {
 
   return useMutation({
     mutationFn: async (responseId: string) => {
+      console.log('=== DISMISS START ===');
       console.log('Dismissing pending response:', responseId);
+      console.log('Current user:', user);
+      
       if (!user) {
         console.error('No authenticated user');
         throw new Error('User not authenticated');
       }
       console.log('User ID:', user.id);
 
-      const { data, error } = await supabase
+      // Try to update status first
+      console.log('Attempting to update status to dismissed...');
+      const { data: updateData, error: updateError } = await supabase
         .from('pending_gpt_responses')
         .update({
           status: 'dismissed',
@@ -189,20 +201,37 @@ export const useDismissPendingResponse = () => {
         .eq('id', responseId)
         .select();
 
-      console.log('Dismiss result:', { data, error });
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
+      console.log('Update result:', { updateData, updateError });
+      
+      if (updateError) {
+        console.log('Update failed, trying delete...');
+        // If update fails, try delete
+        const { data: deleteData, error: deleteError } = await supabase
+          .from('pending_gpt_responses')
+          .delete()
+          .eq('id', responseId)
+          .select();
+          
+        console.log('Delete result:', { deleteData, deleteError });
+        
+        if (deleteError) {
+          console.error('Both update and delete failed:', deleteError);
+          throw deleteError;
+        }
+        
+        return deleteData;
       }
       
-      return data;
+      console.log('=== DISMISS SUCCESS ===');
+      return updateData;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Dismiss mutation success, invalidating queries...', data);
       queryClient.invalidateQueries({ queryKey: ['pending-gpt-responses'] });
+      queryClient.refetchQueries({ queryKey: ['pending-gpt-responses'] });
     },
     onError: (error: Error) => {
-      console.error('Error dismissing response:', error);
-      // Don't spam the user with toasts for dismiss action
+      console.error('=== DISMISS ERROR ===', error);
     },
   });
 };
