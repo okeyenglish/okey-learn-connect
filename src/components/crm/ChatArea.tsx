@@ -1242,8 +1242,8 @@ export const ChatArea = ({
       </div>
 
       {/* Chat Messages with Tabs */}
-      <div className="flex-1 overflow-hidden min-h-0">
-        <Tabs defaultValue="whatsapp" value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col min-h-0">
+      <div className="flex-1 overflow-hidden">
+        <Tabs defaultValue="whatsapp" value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
           <TabsList className="grid w-full grid-cols-5 rounded-none bg-orange-50/30 border-orange-200 border-t rounded-t-none">
             <TabsTrigger value="whatsapp" className="text-xs">WhatsApp</TabsTrigger>
             <TabsTrigger value="telegram" className="text-xs">Telegram</TabsTrigger>
@@ -1401,7 +1401,7 @@ export const ChatArea = ({
 
       {/* Message Input - Hidden when on calls tab */}
       {activeTab !== "calls" && (
-        <div className="border-t p-3 shrink-0">
+        <div className="border-t p-4 bg-background flex-shrink-0">
         {/* Pending message with countdown */}
         {pendingMessage && (
           <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between">
