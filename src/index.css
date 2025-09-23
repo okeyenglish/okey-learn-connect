@@ -1,3 +1,21 @@
+/* Ensure all avatar images are circular */
+img[alt*="avatar"], 
+.avatar img,
+[class*="avatar"] img {
+  border-radius: 50% !important;
+}
+
+/* Ensure all avatar containers are circular */
+.avatar,
+[class*="avatar"] {
+  border-radius: 50%;
+}
+
+/* Ensure rounded-full class is always circular */
+.rounded-full {
+  border-radius: 50% !important;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

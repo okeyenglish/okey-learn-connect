@@ -235,6 +235,7 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
                 src={(clientAvatar || '').replace(/^http:\/\//i, 'https://')} 
                 alt="Client avatar" 
                 className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
+                style={{ borderRadius: '50%' }}
                 loading="lazy"
                 referrerPolicy="no-referrer"
                 crossOrigin="anonymous"
@@ -244,9 +245,9 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
                 }}
               />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                <div className="w-6 h-6 rounded-full bg-green-200 flex items-center justify-center">
-                  <div className="w-3 h-3 rounded-full bg-green-400"></div>
+              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0" style={{ borderRadius: '50%' }}>
+                <div className="w-6 h-6 rounded-full bg-green-200 flex items-center justify-center" style={{ borderRadius: '50%' }}>
+                  <div className="w-3 h-3 rounded-full bg-green-400" style={{ borderRadius: '50%' }}></div>
                 </div>
               </div>
             )}

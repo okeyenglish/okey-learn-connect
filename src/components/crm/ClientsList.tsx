@@ -100,6 +100,7 @@ export const ClientsList = ({ onSelectClient, selectedClientId }: ClientsListPro
                             src={getSafeUrl(client.avatar_url)} 
                             alt={`${client.name} avatar`} 
                             className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
+                            style={{ borderRadius: '50%' }}
                             loading="lazy"
                             referrerPolicy="no-referrer"
                             crossOrigin="anonymous"
@@ -109,7 +110,7 @@ export const ClientsList = ({ onSelectClient, selectedClientId }: ClientsListPro
                             }}
                           />
                         ) : (
-                          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center" style={{ borderRadius: '50%' }}>
                             <User className="w-6 h-6 text-green-600" />
                           </div>
                         )}

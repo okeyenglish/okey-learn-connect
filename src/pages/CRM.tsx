@@ -2124,14 +2124,15 @@ const CRMContent = () => {
                                          </div>
                                            ) : chat.avatar_url ? (
                                              <div className="relative flex-shrink-0">
-                                               <img 
-                                                 src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
-                                                 alt={`${chat.name} avatar`} 
-                                                 className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
-                                                 loading="lazy"
-                                                 decoding="async"
-                                                 referrerPolicy="no-referrer"
-                                                 crossOrigin="anonymous"
+                                                <img 
+                                                  src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
+                                                  alt={`${chat.name} avatar`} 
+                                                  className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
+                                                  style={{ borderRadius: '50%' }}
+                                                  loading="lazy"
+                                                  decoding="async"
+                                                  referrerPolicy="no-referrer"
+                                                  crossOrigin="anonymous"
                                                  onError={(e) => {
                                                    const target = e.currentTarget as HTMLImageElement;
                                                    target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
@@ -2295,14 +2296,15 @@ const CRMContent = () => {
                                        </div>
                                          ) : chat.avatar_url ? (
                                             <div className="relative flex-shrink-0">
-                                               <img 
-                                                 src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
-                                                 alt={`${chat.name} avatar`} 
-                                                 className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
-                                                 loading="lazy"
-                                                 decoding="async"
-                                                 referrerPolicy="no-referrer"
-                                                 crossOrigin="anonymous"
+                                                <img 
+                                                  src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
+                                                  alt={`${chat.name} avatar`} 
+                                                  className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
+                                                  style={{ borderRadius: '50%' }}
+                                                  loading="lazy"
+                                                  decoding="async"
+                                                  referrerPolicy="no-referrer"
+                                                  crossOrigin="anonymous"
                                                  onError={(e) => {
                                                    const target = e.currentTarget as HTMLImageElement;
                                                    target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
@@ -2570,14 +2572,15 @@ const CRMContent = () => {
                                          </div>
                                        ) : chat.avatar_url ? (
                                          <div className="relative flex-shrink-0">
-                                           <img 
-                                             src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
-                                             alt={`${chat.name} avatar`} 
-                                             className="w-12 h-12 rounded-full object-cover border-2 border-green-200"
-                                             loading="lazy"
-                                             decoding="async"
-                                             referrerPolicy="no-referrer"
-                                             crossOrigin="anonymous"
+                                            <img 
+                                              src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
+                                              alt={`${chat.name} avatar`} 
+                                              className="w-12 h-12 rounded-full object-cover border-2 border-green-200"
+                                              style={{ borderRadius: '50%' }}
+                                              loading="lazy"
+                                              decoding="async"
+                                              referrerPolicy="no-referrer"
+                                              crossOrigin="anonymous"
                                              onError={(e) => {
                                                const target = e.currentTarget as HTMLImageElement;
                                                target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
@@ -2726,13 +2729,14 @@ const CRMContent = () => {
                                       </div>
                                     ) : chat.avatar_url ? (
                                       <div className="relative flex-shrink-0">
-                                        <img 
-                                          src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
-                                          alt={`${chat.name} avatar`} 
-                                          className="w-12 h-12 rounded-full object-cover border-2 border-green-200"
-                                          loading="lazy"
-                                          decoding="async"
-                                          referrerPolicy="no-referrer"
+                                         <img 
+                                           src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
+                                           alt={`${chat.name} avatar`} 
+                                           className="w-12 h-12 rounded-full object-cover border-2 border-green-200"
+                                           style={{ borderRadius: '50%' }}
+                                           loading="lazy"
+                                           decoding="async"
+                                           referrerPolicy="no-referrer"
                                           crossOrigin="anonymous"
                                           onError={(e) => {
                                             const target = e.currentTarget as HTMLImageElement;
