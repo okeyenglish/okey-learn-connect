@@ -479,15 +479,190 @@
   animation: scale-in 0.2s ease-out !important;
 }
 
-/* Modal Headers */
-.crm-container [role="dialog"] h1,
-.crm-container [role="dialog"] h2,
-.crm-container [role="dialog"] .font-semibold {
+/* Complete Modal Color Overrides for CRM */
+
+/* Remove all red colors and replace with primary */
+.crm-container [role="dialog"] .text-red-500,
+.crm-container [role="dialog"] .text-red-600,
+.crm-container [role="dialog"] .text-red-700 {
+  color: var(--crm-text-muted) !important;
+}
+
+.crm-container [role="dialog"] .bg-red-500,
+.crm-container [role="dialog"] .bg-red-600,
+.crm-container [role="dialog"] .bg-red-700 {
+  background: var(--crm-primary) !important;
+  color: white !important;
+  border: 1px solid var(--crm-primary) !important;
+}
+
+.crm-container [role="dialog"] .border-red-500,
+.crm-container [role="dialog"] .border-red-600 {
+  background: var(--crm-bg) !important;
+  color: var(--crm-primary) !important;
+  border: 1px solid var(--crm-primary) !important;
+}
+
+.crm-container [role="dialog"] .border-red-500:hover,
+.crm-container [role="dialog"] .border-red-600:hover {
+  background: var(--crm-primary) !important;
+  color: white !important;
+}
+
+/* Tab System in Modals */
+.crm-container [role="dialog"] .bg-muted,
+.crm-container [role="dialog"] .bg-gray-50,
+.crm-container [role="dialog"] .bg-gray-100 {
+  background: var(--crm-bg-subtle) !important;
+  border: 1px solid var(--crm-border) !important;
+  border-radius: var(--crm-radius-lg) !important;
+  padding: 4px !important;
+}
+
+/* Active Tab States */
+.crm-container [role="dialog"] .data-\[state\=active\]:bg-background,
+.crm-container [role="dialog"] [data-state="active"],
+.crm-container [role="dialog"] [aria-selected="true"],
+.crm-container [role="dialog"] .bg-white {
+  background: var(--crm-primary) !important;
+  color: white !important;
+  border-radius: var(--crm-radius) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Inactive Tab States */
+.crm-container [role="dialog"] [data-state="inactive"],
+.crm-container [role="dialog"] [aria-selected="false"] {
+  background: transparent !important;
+  color: var(--crm-text-light) !important;
+  border: none !important;
+}
+
+.crm-container [role="dialog"] [data-state="inactive"]:hover {
+  background: var(--crm-bg-muted) !important;
   color: var(--crm-text) !important;
-  font-size: 18px !important;
+}
+
+/* Section Headers in Modals */
+.crm-container [role="dialog"] h2,
+.crm-container [role="dialog"] h3 {
+  color: var(--crm-text) !important;
   font-weight: 600 !important;
-  letter-spacing: -0.025em !important;
+  margin-bottom: 16px !important;
+}
+
+/* Status Text Overrides */
+.crm-container [role="dialog"] .text-orange-500,
+.crm-container [role="dialog"] .text-yellow-500,
+.crm-container [role="dialog"] .text-amber-500 {
+  color: var(--crm-warning) !important;
+}
+
+.crm-container [role="dialog"] .text-green-500,
+.crm-container [role="dialog"] .text-green-600 {
+  color: var(--crm-success) !important;
+}
+
+/* Empty State Styling */
+.crm-container [role="dialog"] .text-center {
+  padding: 40px 20px !important;
+}
+
+.crm-container [role="dialog"] .text-center .text-gray-500,
+.crm-container [role="dialog"] .text-center .text-muted-foreground {
+  color: var(--crm-text-muted) !important;
+  font-size: 14px !important;
   margin-bottom: 20px !important;
+}
+
+/* Action Buttons in Empty States */
+.crm-container [role="dialog"] .text-center button {
+  background: var(--crm-bg) !important;
+  color: var(--crm-primary) !important;
+  border: 1px solid var(--crm-primary) !important;
+  border-radius: var(--crm-radius) !important;
+  padding: 10px 20px !important;
+  font-weight: 500 !important;
+}
+
+.crm-container [role="dialog"] .text-center button:hover {
+  background: var(--crm-primary) !important;
+  color: white !important;
+}
+
+/* Modal Header Actions */
+.crm-container [role="dialog"] .flex.items-center.justify-between {
+  margin-bottom: 24px !important;
+  padding-bottom: 16px !important;
+  border-bottom: 1px solid var(--crm-border-light) !important;
+}
+
+/* Add/Create Buttons */
+.crm-container [role="dialog"] button:has-text("Добавить"),
+.crm-container [role="dialog"] button:has-text("Создать"),
+.crm-container [role="dialog"] button[class*="bg-red"] {
+  background: var(--crm-primary) !important;
+  color: white !important;
+  border: 1px solid var(--crm-primary) !important;
+}
+
+/* Pin and Status Icons */
+.crm-container [role="dialog"] svg[data-lucide="pin"],
+.crm-container [role="dialog"] svg[data-lucide="eye-off"] {
+  color: var(--crm-text-muted) !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+
+/* Card Content in Modals */
+.crm-container [role="dialog"] .space-y-4 > div,
+.crm-container [role="dialog"] .grid > div {
+  background: var(--crm-bg) !important;
+  border: 1px solid var(--crm-border-light) !important;
+  border-radius: var(--crm-radius-lg) !important;
+  padding: 16px !important;
+}
+
+/* List Items in Modals */
+.crm-container [role="dialog"] .space-y-2 > div,
+.crm-container [role="dialog"] .divide-y > div {
+  padding: 12px 0 !important;
+  border-color: var(--crm-border-light) !important;
+}
+
+/* Date and Time Text */
+.crm-container [role="dialog"] .text-xs,
+.crm-container [role="dialog"] .text-sm.text-gray-500 {
+  color: var(--crm-text-muted) !important;
+  font-size: 12px !important;
+}
+
+/* Progress Indicators */
+.crm-container [role="dialog"] .bg-blue-500,
+.crm-container [role="dialog"] .bg-blue-600 {
+  background: var(--crm-primary) !important;
+}
+
+/* Success States */
+.crm-container [role="dialog"] .bg-green-100,
+.crm-container [role="dialog"] .bg-green-50 {
+  background: rgba(16, 185, 129, 0.05) !important;
+  border: 1px solid rgba(16, 185, 129, 0.2) !important;
+}
+
+/* Warning States */
+.crm-container [role="dialog"] .bg-yellow-100,
+.crm-container [role="dialog"] .bg-orange-50 {
+  background: rgba(245, 158, 11, 0.05) !important;
+  border: 1px solid rgba(245, 158, 11, 0.2) !important;
+}
+
+/* Danger States - Keep subtle */
+.crm-container [role="dialog"] .bg-red-100,
+.crm-container [role="dialog"] .bg-red-50 {
+  background: rgba(239, 68, 68, 0.05) !important;
+  border: 1px solid rgba(239, 68, 68, 0.2) !important;
 }
 
 /* Modal Close Buttons */
@@ -939,6 +1114,147 @@
   color: var(--crm-text) !important;
 }
 
-.crm-container .text-muted-foreground {
+/* Specific Text Color Overrides */
+
+/* "Просроченные" and other status texts */
+.crm-container [role="dialog"] *:contains("Просроченные"),
+.crm-container [role="dialog"] .text-red-500:not(button),
+.crm-container [role="dialog"] .text-destructive {
   color: var(--crm-text-muted) !important;
+}
+
+/* All button text corrections */
+.crm-container [role="dialog"] button * {
+  color: inherit !important;
+}
+
+/* Force override for any remaining red elements */
+.crm-container [role="dialog"] *[class*="red-"] {
+  color: var(--crm-text-muted) !important;
+  background: var(--crm-bg) !important;
+  border-color: var(--crm-border) !important;
+}
+
+/* Button specific overrides */
+.crm-container [role="dialog"] *[class*="red-"]:is(button) {
+  background: var(--crm-primary) !important;
+  color: white !important;
+  border-color: var(--crm-primary) !important;
+}
+
+/* Tab button text colors */
+.crm-container [role="dialog"] .inline-flex button span,
+.crm-container [role="dialog"] .inline-flex button {
+  font-weight: 500 !important;
+}
+
+/* Ensure primary buttons are properly styled */
+.crm-container [role="dialog"] button:not([data-variant]) {
+  background: var(--crm-primary) !important;
+  color: white !important;
+  border: 1px solid var(--crm-primary) !important;
+}
+
+/* Secondary/outline button styling */
+.crm-container [role="dialog"] button[data-variant="outline"] {
+  background: var(--crm-bg) !important;
+  color: var(--crm-primary) !important;
+  border: 1px solid var(--crm-primary) !important;
+}
+
+/* Icon colors in modals */
+.crm-container [role="dialog"] svg {
+  color: inherit !important;
+}
+
+/* Make sure all red backgrounds become primary */
+.crm-container [role="dialog"] .bg-red-500,
+.crm-container [role="dialog"] .bg-red-600,
+.crm-container [role="dialog"] .hover\:bg-red-600:hover {
+  background: var(--crm-primary) !important;
+}
+
+/* Override any lingering destructive styling */
+.crm-container [role="dialog"] .destructive {
+  background: var(--crm-primary) !important;
+  color: white !important;
+  border-color: var(--crm-primary) !important;
+}
+
+/* Aggressive Color Overrides - Final Pass */
+
+/* Force all red/destructive colors to be primary or muted */
+.crm-container [role="dialog"] *[style*="color: rgb(239, 68, 68)"],
+.crm-container [role="dialog"] *[style*="background-color: rgb(239, 68, 68)"] {
+  color: var(--crm-text-muted) !important;
+  background-color: var(--crm-primary) !important;
+}
+
+/* Ensure all buttons use consistent styling */
+.crm-container [role="dialog"] button,
+.crm-container [role="dialog"] [role="button"] {
+  border-radius: var(--crm-radius) !important;
+  font-weight: 500 !important;
+  transition: all 0.15s ease !important;
+  min-height: 36px !important;
+  padding: 8px 16px !important;
+}
+
+/* Primary button appearance */
+.crm-container [role="dialog"] button:not([data-variant="outline"]):not([data-variant="ghost"]):not([data-variant="secondary"]) {
+  background: var(--crm-primary) !important;
+  color: white !important;
+  border: 1px solid var(--crm-primary) !important;
+}
+
+.crm-container [role="dialog"] button:not([data-variant="outline"]):not([data-variant="ghost"]):not([data-variant="secondary"]):hover {
+  background: var(--crm-primary-dark) !important;
+  border-color: var(--crm-primary-dark) !important;
+}
+
+/* Universal text color fix */
+.crm-container [role="dialog"] * {
+  --tw-text-opacity: 1 !important;
+}
+
+/* Fix any CSS custom properties that might be setting red colors */
+.crm-container [role="dialog"] {
+  --destructive: var(--crm-primary) !important;
+  --destructive-foreground: white !important;
+  --red-500: var(--crm-primary) !important;
+  --red-600: var(--crm-primary-dark) !important;
+}
+
+/* Last resort - nuclear option for stubborn red elements */
+.crm-container [role="dialog"] .text-red-500,
+.crm-container [role="dialog"] .text-red-600,
+.crm-container [role="dialog"] .border-red-500,
+.crm-container [role="dialog"] .border-red-600,
+.crm-container [role="dialog"] .bg-red-500,
+.crm-container [role="dialog"] .bg-red-600 {
+  color: var(--crm-text-muted) !important;
+  background-color: var(--crm-primary) !important;
+  border-color: var(--crm-primary) !important;
+}
+
+/* Specific element targeting */
+.crm-container [role="dialog"] button:has-text("Список"),
+.crm-container [role="dialog"] button:has-text("Календарь"), 
+.crm-container [role="dialog"] button:has-text("Добавить"),
+.crm-container [role="dialog"] button:has-text("Создать") {
+  background: var(--crm-primary) !important;
+  color: white !important;
+  border: 1px solid var(--crm-primary) !important;
+}
+
+/* Status text overrides */
+.crm-container [role="dialog"] .overdue,
+.crm-container [role="dialog"] *[class*="overdue"] {
+  color: var(--crm-text-muted) !important;
+}
+
+/* Ensure no inline styles can override */
+.crm-container [role="dialog"] *[style] {
+  color: inherit !important;
+  background-color: inherit !important;
 }
