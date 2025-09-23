@@ -21,8 +21,7 @@ export default function LocationSolntsevo() {
   };
 
   const handleTelegram = () => {
-    const message = encodeURIComponent("Здравствуйте! Хочу узнать подробнее об обучении в филиале Солнцево");
-    window.open(`https://t.me/79937073553?text=${message}`, '_blank');
+    window.open('https://t.me/englishmanager', '_blank');
   };
 
   const seoData = branchSEOData.solntsevo;

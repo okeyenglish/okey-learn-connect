@@ -22,8 +22,7 @@ export default function LocationStakhanovskaya() {
   };
 
   const handleTelegram = () => {
-    const message = encodeURIComponent("Здравствуйте! Хочу узнать подробнее об обучении в филиале Стахановская");
-    window.open(`https://t.me/79937073553?text=${message}`, '_blank');
+    window.open('https://t.me/englishmanager', '_blank');
   };
 
   return (
