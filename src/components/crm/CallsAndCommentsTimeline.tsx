@@ -9,8 +9,7 @@ import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useCallHistory } from "@/hooks/useCallHistory";
-import { useChatMessages } from "@/hooks/useChatMessages";
-import { supabase } from "@/integrations/supabase/client";
+import { useCallComments, useCreateCallComment } from "@/hooks/useCallComments";
 import { useToast } from "@/hooks/use-toast";
 
 interface CallsAndCommentsTimelineProps {
@@ -27,16 +26,16 @@ interface TimelineEvent {
   duration_seconds?: number | null;
   phone_number?: string;
   // Comment properties
-  message?: string;
-  managerName?: string;
+  comment_text?: string;
+  call_log_id?: string | null;
 }
 
 export const CallsAndCommentsTimeline: React.FC<CallsAndCommentsTimelineProps> = ({ clientId }) => {
   const [commentText, setCommentText] = useState("");
-  const [saving, setSaving] = useState(false);
   
   const { data: calls = [], isLoading: callsLoading } = useCallHistory(clientId);
-  const { messages = [], isLoading: messagesLoading } = useChatMessages(clientId);
+  const { data: comments = [], isLoading: commentsLoading } = useCallComments(clientId);
+  const createCommentMutation = useCreateCallComment();
   const { toast } = useToast();
 
   const getCallIcon = (call: TimelineEvent) => {
@@ -98,23 +97,14 @@ export const CallsAndCommentsTimeline: React.FC<CallsAndCommentsTimelineProps> =
   };
 
   const saveComment = async () => {
-    if (!commentText.trim() || saving) return;
+    if (!commentText.trim()) return;
     
-    setSaving(true);
     try {
-      // Save comment as a chat message
-      const { error } = await supabase
-        .from('chat_messages')
-        .insert({
-          client_id: clientId,
-          message_text: commentText.trim(),
-          message_type: 'system',
-          system_type: 'comment',
-          is_outgoing: true,
-          messenger_type: 'system'
-        });
-
-      if (error) throw error;
+      await createCommentMutation.mutateAsync({
+        clientId,
+        commentText: commentText.trim(),
+        callLogId: null, // General comment not tied to specific call
+      });
 
       toast({
         title: "Комментарий сохранен",
@@ -128,8 +118,6 @@ export const CallsAndCommentsTimeline: React.FC<CallsAndCommentsTimelineProps> =
         description: error.message || "Не удалось сохранить комментарий",
         variant: "destructive",
       });
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -145,19 +133,17 @@ export const CallsAndCommentsTimeline: React.FC<CallsAndCommentsTimelineProps> =
       duration_seconds: call.duration_seconds,
       phone_number: call.phone_number
     })),
-    // Add comment messages (they are system messages with system_type 'comment')
-    ...messages
-      .filter(msg => msg.message_type === 'system')
-      .map(msg => ({
-        id: msg.id,
-        type: 'comment' as const,
-        timestamp: new Date(msg.created_at),
-        message: msg.message_text,
-        managerName: 'Менеджер'
-      }))
+    // Add call comments
+    ...comments.map(comment => ({
+      id: comment.id,
+      type: 'comment' as const,
+      timestamp: new Date(comment.created_at),
+      comment_text: comment.comment_text,
+      call_log_id: comment.call_log_id
+    }))
   ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()); // Sort by newest first
 
-  if (callsLoading || messagesLoading) {
+  if (callsLoading || commentsLoading) {
     return (
       <Card className="w-full">
         <CardHeader className="pb-3">
@@ -197,11 +183,11 @@ export const CallsAndCommentsTimeline: React.FC<CallsAndCommentsTimelineProps> =
                 <div className="flex justify-end">
                   <Button 
                     onClick={saveComment}
-                    disabled={!commentText.trim() || saving}
+                    disabled={!commentText.trim() || createCommentMutation.isPending}
                     size="sm"
                     className="bg-yellow-500 hover:bg-yellow-600 text-white"
                   >
-                    {saving ? "Сохранение..." : "Сохранить комментарий"}
+                    {createCommentMutation.isPending ? "Сохранение..." : "Сохранить комментарий"}
                   </Button>
                 </div>
               </div>
@@ -261,7 +247,7 @@ export const CallsAndCommentsTimeline: React.FC<CallsAndCommentsTimelineProps> =
                           </div>
                           
                           <div className="text-sm bg-yellow-50 border border-yellow-200 rounded p-2 mt-1">
-                            {event.message}
+                            {event.comment_text}
                           </div>
                         </div>
                       )}
