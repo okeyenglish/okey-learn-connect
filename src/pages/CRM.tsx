@@ -1975,7 +1975,7 @@ const CRMContent = () => {
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        className={cn("h-8 px-2", (selectedBranch !== "all" || selectedClientType !== "all") && "bg-primary text-primary-foreground")}
+                        className={cn("h-8 px-2", (selectedBranch !== "all" || selectedClientType !== "all") && "bg-accent text-accent-foreground")}
                       >
                         <Filter className="h-4 w-4" />
                       </Button>
@@ -2074,7 +2074,7 @@ const CRMContent = () => {
                           ) : (
                             <ChevronRight className="h-3 w-3 text-muted-foreground" />
                           )}
-                          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          <h3 className="text-xs font-normal text-muted-foreground uppercase tracking-wide">
                             Закрепленные (в работе)
                           </h3>
                         </div>
@@ -2232,9 +2232,9 @@ const CRMContent = () => {
                   {/* Активные чаты */}
                   <div>
                      <div className="flex items-center justify-between px-2 py-1 mb-2">
-                       <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide pl-1">
-                         Активные чаты
-                       </h3>
+                        <h3 className="text-xs font-normal text-muted-foreground uppercase tracking-wide pl-1">
+                          Активные чаты
+                        </h3>
                        <div className="flex items-center gap-2">
                          {/* Unread filter button - only show if there are unread chats */}
                          {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id) && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length > 0 && (
@@ -2439,7 +2439,7 @@ const CRMContent = () => {
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        className={cn("h-8 px-2", (selectedBranch !== "all" || selectedClientType !== "all") && "bg-primary text-primary-foreground")}
+                        className={cn("h-8 px-2", (selectedBranch !== "all" || selectedClientType !== "all") && "bg-accent text-accent-foreground")}
                       >
                         <Filter className="h-4 w-4" />
                       </Button>
@@ -2538,7 +2538,7 @@ const CRMContent = () => {
                           ) : (
                             <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           )}
-                          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                          <h3 className="text-sm font-normal text-muted-foreground uppercase tracking-wide">
                             Закрепленные (в работе)
                           </h3>
                         </div>
@@ -2679,9 +2679,9 @@ const CRMContent = () => {
                   {/* Активные чаты */}
                   <div>
                      <div className="flex items-center justify-between px-2 py-2 mb-3">
-                        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide pl-1">
-                          Активные чаты
-                        </h3>
+                         <h3 className="text-sm font-normal text-muted-foreground uppercase tracking-wide pl-1">
+                           Активные чаты
+                         </h3>
                        <div className="flex items-center gap-2">
                          {/* Unread filter button - only show if there are unread chats */}
                          {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id) && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length > 0 && (
