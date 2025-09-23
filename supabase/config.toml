@@ -26,3 +26,6 @@ verify_jwt = true
 
 [functions.onlinepbx-webhook]
 verify_jwt = false
+
+[functions.generate-call-summary]
+verify_jwt = false

@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, Clock, Calendar } from "lucide-react";
+import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, Clock, Calendar, Eye, MessageSquare, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useCallHistory } from "@/hooks/useCallHistory";
+import { CallDetailModal } from "./CallDetailModal";
 
 interface CallHistoryProps {
   clientId: string;
@@ -14,6 +16,8 @@ interface CallHistoryProps {
 
 export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
   const { data: calls = [], isLoading } = useCallHistory(clientId);
+  const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const getCallIcon = (call: any) => {
     if (call.direction === 'incoming') {
@@ -69,6 +73,11 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
 
   const getDirectionLabel = (direction: string) => {
     return direction === 'incoming' ? 'Входящий' : 'Исходящий';
+  };
+
+  const openCallDetail = (callId: string) => {
+    setSelectedCallId(callId);
+    setModalOpen(true);
   };
 
   if (isLoading) {
@@ -149,6 +158,34 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
                       <div className="text-xs text-muted-foreground truncate">
                         {call.phone_number}
                       </div>
+                      
+                      {/* Summary Preview */}
+                      {call.summary && (
+                        <div className="flex items-start gap-1 text-xs text-muted-foreground mt-1">
+                          <Sparkles className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                          <span className="line-clamp-2">{call.summary}</span>
+                        </div>
+                      )}
+                      
+                      {/* Notes Preview */}
+                      {call.notes && (
+                        <div className="flex items-start gap-1 text-xs text-muted-foreground mt-1">
+                          <MessageSquare className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                          <span className="line-clamp-1">{call.notes}</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Action Button */}
+                    <div className="flex-shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openCallDetail(call.id)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -158,6 +195,12 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
             ))}
           </div>
         </ScrollArea>
+        
+        <CallDetailModal 
+          callId={selectedCallId}
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+        />
       </CardContent>
     </Card>
   );

@@ -9,6 +9,8 @@ interface CallLog {
   duration_seconds: number | null;
   started_at: string;
   ended_at: string | null;
+  summary: string | null;
+  notes: string | null;
 }
 
 export const useCallHistory = (clientId: string) => {
