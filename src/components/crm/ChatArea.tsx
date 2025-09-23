@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone, Filter } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone, Filter, MessageSquare, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -717,6 +717,14 @@ export const ChatArea = ({
         }
       }, 0);
     }
+  };
+
+  const handleFileUpload = (fileInfo: { url: string; name: string; type: string; size: number }) => {
+    setAttachedFiles(prev => [...prev, fileInfo]);
+    toast({
+      title: "Файл прикреплен",
+      description: `Файл "${fileInfo.name}" готов к отправке`,
+    });
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -1460,8 +1468,52 @@ export const ChatArea = ({
             
             {/* Bottom row: Icons on left, Send button on right */}
             <div className="flex items-center justify-between gap-2">
-              {/* Left side - Action icons - SIMPLIFIED FOR COMMENTS ONLY */}
+              {/* Left side - Action icons */}
               <div className="flex items-center gap-1">
+                <FileUpload onFileUpload={handleFileUpload} />
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!!pendingMessage}>
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-8 w-8 p-0" 
+                  onClick={() => setShowQuickResponsesModal(true)}
+                  disabled={!!pendingMessage}
+                  title="Быстрые ответы"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-8 w-8 p-0" 
+                  onClick={generateGPTResponse}
+                  disabled={!!pendingMessage}
+                  title="Сгенерировать ответ с помощью ИИ"
+                >
+                  <Sparkles className="h-4 w-4" />
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-8 w-8 p-0" 
+                  onClick={() => setShowScheduleDialog(true)}
+                  disabled={!!pendingMessage}
+                  title="Запланировать сообщение"
+                >
+                  <Clock className="h-4 w-4" />
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-8 w-8 p-0" 
+                  onClick={() => setShowScheduledMessagesDialog(true)}
+                  disabled={!!pendingMessage}
+                  title="Запланированные сообщения"
+                >
+                  <Calendar className="h-4 w-4" />
+                </Button>
                 <Button 
                   size="sm" 
                   variant="ghost" 
