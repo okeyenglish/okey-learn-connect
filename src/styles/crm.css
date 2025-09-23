@@ -11,8 +11,8 @@
   --crm-danger: #FF3B30;
   
   /* Border Radius */
-  --crm-radius-card: 12px;
-  --crm-radius-chat: 20px;
+  --crm-radius-card: 16px;
+  --crm-radius-chat: 24px;
   --crm-radius-button: 12px;
   
   /* Shadows - soft and subtle */
@@ -248,32 +248,201 @@
   background: var(--crm-bg-alt);
 }
 
-/* Update CRM modal styles */
-.crm-container .crm-modal {
-  background: var(--crm-bg);
-  border-radius: var(--crm-radius-card);
-  box-shadow: var(--crm-shadow-elevated);
-  border: 1px solid #E5E7EB;
-  padding: 0;
+/* Override Shadcn UI components within CRM */
+
+/* Buttons */
+.crm-container button {
+  border-radius: var(--crm-radius-button) !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
 }
 
-.crm-container .crm-modal-header {
-  padding: 20px 24px;
-  border-bottom: 1px solid #E5E7EB;
-  background: var(--crm-bg);
+.crm-container button[data-variant="default"],
+.crm-container .bg-primary {
+  background: var(--crm-primary) !important;
+  color: white !important;
+  border: none !important;
 }
 
-.crm-container .crm-modal-content {
-  padding: 24px;
-  max-height: 70vh;
-  overflow-y: auto;
+.crm-container button[data-variant="default"]:hover,
+.crm-container .bg-primary:hover {
+  background: #2196d9 !important;
+  transform: translateY(-1px);
 }
 
-.crm-container .crm-modal-footer {
-  padding: 16px 24px;
-  border-top: 1px solid #E5E7EB;
-  background: var(--crm-bg-alt);
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
+.crm-container button[data-variant="outline"] {
+  background: transparent !important;
+  border: 1px solid var(--crm-primary) !important;
+  color: var(--crm-primary) !important;
+}
+
+.crm-container button[data-variant="outline"]:hover {
+  background: var(--crm-primary) !important;
+  color: white !important;
+}
+
+.crm-container button[data-variant="ghost"] {
+  background: transparent !important;
+  border: none !important;
+  color: var(--crm-ink) !important;
+}
+
+.crm-container button[data-variant="ghost"]:hover {
+  background: var(--crm-bg-alt) !important;
+}
+
+.crm-container button[data-variant="secondary"] {
+  background: var(--crm-bg-alt) !important;
+  color: var(--crm-ink) !important;
+  border: 1px solid #E5E7EB !important;
+}
+
+.crm-container button[data-variant="destructive"] {
+  background: var(--crm-danger) !important;
+  color: white !important;
+}
+
+/* Cards */
+.crm-container [data-shadcn="card"],
+.crm-container .bg-card {
+  background: var(--crm-bg) !important;
+  border-radius: var(--crm-radius-card) !important;
+  box-shadow: var(--crm-shadow-card) !important;
+  border: none !important;
+  padding: 20px !important;
+}
+
+.crm-container [data-shadcn="card"]:hover {
+  box-shadow: var(--crm-shadow-elevated) !important;
+  transform: translateY(-1px);
+}
+
+/* Dialogs and Modals */
+.crm-container [role="dialog"],
+.crm-container .fixed.inset-0 > div,
+.crm-container .bg-background {
+  background: var(--crm-bg) !important;
+  border-radius: var(--crm-radius-card) !important;
+  box-shadow: var(--crm-shadow-elevated) !important;
+  border: 1px solid #E5E7EB !important;
+}
+
+/* Inputs */
+.crm-container input,
+.crm-container textarea {
+  border-radius: var(--crm-radius-button) !important;
+  border: 1px solid #E5E7EB !important;
+  background: var(--crm-bg) !important;
+  color: var(--crm-ink) !important;
+  font-size: 14px !important;
+  padding: 12px 16px !important;
+}
+
+.crm-container input:focus,
+.crm-container textarea:focus {
+  outline: none !important;
+  border-color: var(--crm-primary) !important;
+  box-shadow: 0 0 0 3px rgba(42, 171, 238, 0.1) !important;
+}
+
+/* Avatars */
+.crm-container [data-shadcn="avatar"] img,
+.crm-container img[alt*="avatar"],
+.crm-container .rounded-full {
+  border-radius: 50% !important;
+  border: none !important;
+  object-fit: cover;
+}
+
+/* Badges */
+.crm-container [data-shadcn="badge"] {
+  border-radius: 6px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  padding: 4px 8px !important;
+}
+
+/* Tabs */
+.crm-container [role="tablist"] {
+  background: var(--crm-bg) !important;
+  border-radius: var(--crm-radius-card) !important;
+  border: 1px solid #E5E7EB !important;
+  padding: 4px !important;
+}
+
+.crm-container [role="tab"] {
+  border-radius: calc(var(--crm-radius-button) - 4px) !important;
+  padding: 8px 16px !important;
+  color: var(--crm-muted) !important;
+  font-weight: 500 !important;
+}
+
+.crm-container [role="tab"][aria-selected="true"] {
+  background: var(--crm-primary) !important;
+  color: white !important;
+}
+
+/* ScrollArea */
+.crm-container [data-radix-scroll-area-viewport] {
+  background: var(--crm-bg) !important;
+}
+
+/* Dropdown and Select */
+.crm-container [role="menu"],
+.crm-container [role="listbox"] {
+  background: var(--crm-bg) !important;
+  border-radius: var(--crm-radius-button) !important;
+  box-shadow: var(--crm-shadow-elevated) !important;
+  border: 1px solid #E5E7EB !important;
+  padding: 4px !important;
+}
+
+.crm-container [role="menuitem"],
+.crm-container [role="option"] {
+  border-radius: calc(var(--crm-radius-button) - 4px) !important;
+  padding: 8px 12px !important;
+  color: var(--crm-ink) !important;
+}
+
+.crm-container [role="menuitem"]:hover,
+.crm-container [role="option"]:hover {
+  background: var(--crm-bg-alt) !important;
+}
+
+/* Sheet/Drawer */
+.crm-container [data-radix-dialog-content] {
+  background: var(--crm-bg) !important;
+  border-radius: var(--crm-radius-card) !important;
+}
+
+/* Typography overrides */
+.crm-container h1 {
+  font-size: 24px !important;
+  font-weight: 600 !important;
+  color: var(--crm-ink) !important;
+  margin-bottom: 16px;
+}
+
+.crm-container h2 {
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  color: var(--crm-ink) !important;
+  margin-bottom: 12px;
+}
+
+.crm-container h3 {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: var(--crm-ink) !important;
+  margin-bottom: 8px;
+}
+
+.crm-container p {
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  color: var(--crm-ink) !important;
+}
+
+.crm-container .text-muted-foreground {
+  color: var(--crm-muted) !important;
 }
