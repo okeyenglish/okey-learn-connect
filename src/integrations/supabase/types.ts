@@ -62,9 +62,11 @@ export type Database = {
           external_call_id: string | null
           id: string
           initiated_by: string | null
+          notes: string | null
           phone_number: string
           started_at: string
           status: string
+          summary: string | null
           updated_at: string
         }
         Insert: {
@@ -76,9 +78,11 @@ export type Database = {
           external_call_id?: string | null
           id?: string
           initiated_by?: string | null
+          notes?: string | null
           phone_number: string
           started_at?: string
           status?: string
+          summary?: string | null
           updated_at?: string
         }
         Update: {
@@ -90,9 +94,11 @@ export type Database = {
           external_call_id?: string | null
           id?: string
           initiated_by?: string | null
+          notes?: string | null
           phone_number?: string
           started_at?: string
           status?: string
+          summary?: string | null
           updated_at?: string
         }
         Relationships: []
