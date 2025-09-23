@@ -401,7 +401,6 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
               <MessageReactions 
                 messageId={messageId} 
                 showAddButton={true}
-                showOnHover={true}
                 className="flex-row-reverse"
               />
             </div>

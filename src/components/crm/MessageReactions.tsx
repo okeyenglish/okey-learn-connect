@@ -4,18 +4,18 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useGroupedReactions, useAddReaction, useRemoveReaction } from "@/hooks/useMessageReactions";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface MessageReactionsProps {
   messageId: string;
   showAddButton?: boolean;
   className?: string;
-  showOnHover?: boolean;
 }
 
 // Популярные эмодзи для быстрого выбора
 const POPULAR_EMOJIS = ['👍', '👎', '❤️', '😂', '😮', '😢', '🔥', '👏'];
 
-export const MessageReactions = ({ messageId, showAddButton = true, className, showOnHover = false }: MessageReactionsProps) => {
+export const MessageReactions = ({ messageId, showAddButton = true, className }: MessageReactionsProps) => {
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   
   const { groupedReactions, isLoading } = useGroupedReactions(messageId);
@@ -24,22 +24,25 @@ export const MessageReactions = ({ messageId, showAddButton = true, className, s
 
   const handleEmojiClick = async (emoji: string) => {
     try {
-      // Проверяем, есть ли уже реакция пользователя с этим эмодзи
-      const existingReaction = groupedReactions?.find(r => 
-        r.emoji === emoji && r.hasUserReaction
+      const { data: { user } } = await supabase.auth.getUser();
+      const myUserId = user?.id;
+
+      // Проверяем, есть ли какая-то реакция текущего пользователя
+      const myReactionGroup = groupedReactions?.find(r =>
+        r.users.some(u => u.type === 'manager' && u.id === myUserId)
       );
 
-      if (existingReaction) {
-        // Если реакция уже есть - удаляем её
+      if (myReactionGroup && myReactionGroup.emoji === emoji) {
+        // Нажали на тот же эмодзи — убираем реакцию
         await removeReactionMutation.mutateAsync(messageId);
       } else {
-        // Если реакции нет - добавляем
+        // Ставим/меняем реакцию на выбранный эмодзи
         await addReactionMutation.mutateAsync({
           messageId,
           emoji,
         });
       }
-      
+
       setIsEmojiPickerOpen(false);
     } catch (error) {
       console.error('Error handling emoji click:', error);
@@ -53,8 +56,7 @@ export const MessageReactions = ({ messageId, showAddButton = true, className, s
   return (
     <div className={cn(
       "flex items-center gap-1 flex-wrap", 
-      className,
-      showOnHover && "opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+      className
     )}>
       {/* Отображение существующих реакций */}
       {groupedReactions?.map((reaction) => (
@@ -98,7 +100,7 @@ export const MessageReactions = ({ messageId, showAddButton = true, className, s
         <Popover open={isEmojiPickerOpen} onOpenChange={setIsEmojiPickerOpen}>
           <PopoverTrigger asChild>
             <button
-              className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/50"
+              className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/50 opacity-0 group-hover:opacity-100"
               disabled={addReactionMutation.isPending}
             >
               <span className="text-sm">😊</span>
