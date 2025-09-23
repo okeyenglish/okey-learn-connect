@@ -1,50 +1,55 @@
 /* CRM Telegram-style Design System */
 
 .crm-container {
-  /* Minimal Color Palette */
-  --crm-primary: #374151;
-  --crm-primary-light: #6B7280;
-  --crm-ink: #111827;
-  --crm-muted: #9CA3AF;
+  /* Modern Soft Color Palette */
+  --crm-primary: #3B82F6;
+  --crm-primary-dark: #2563EB;
+  --crm-text: #1F2937;
+  --crm-text-light: #6B7280;
+  --crm-text-muted: #9CA3AF;
   --crm-bg: #FFFFFF;
-  --crm-bg-alt: #F9FAFB;
-  --crm-border: #E5E7EB;
-  --crm-border-light: #F3F4F6;
-  --crm-success: #059669;
-  --crm-danger: #DC2626;
+  --crm-bg-subtle: #F8FAFC;
+  --crm-bg-muted: #F1F5F9;
+  --crm-border: #E2E8F0;
+  --crm-border-light: #F1F5F9;
+  --crm-success: #10B981;
+  --crm-danger: #EF4444;
+  --crm-warning: #F59E0B;
   
-  /* Minimal Border Radius */
-  --crm-radius-card: 8px;
-  --crm-radius-chat: 12px;
-  --crm-radius-button: 6px;
+  /* Clean Modern Radius */
+  --crm-radius-sm: 4px;
+  --crm-radius: 6px;
+  --crm-radius-lg: 8px;
   
-  /* Subtle Shadows */
-  --crm-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05);
-  --crm-shadow-elevated: 0 2px 8px rgba(0, 0, 0, 0.08);
+  /* Minimal Shadows */
+  --crm-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --crm-shadow-md: 0 2px 4px rgba(0, 0, 0, 0.06);
   
   /* Typography */
-  font-family: system-ui, -apple-system, 'Inter', 'Roboto', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   font-size: 14px;
   line-height: 1.5;
-  color: var(--crm-ink);
-  background-color: var(--crm-bg);
+  color: var(--crm-text);
+  background-color: var(--crm-bg-subtle);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* CRM Cards */
 .crm-container .crm-card {
   background: var(--crm-bg);
-  border-radius: var(--crm-radius-card);
-  border: 1px solid var(--crm-border-light);
+  border-radius: var(--crm-radius-lg);
+  border: 1px solid var(--crm-border);
   padding: 16px;
   margin-bottom: 8px;
 }
 
 /* CRM Chat Bubbles */
 .crm-container .crm-chat-bubble {
-  border-radius: var(--crm-radius-chat);
-  padding: 8px 12px;
+  border-radius: var(--crm-radius);
+  padding: 10px 14px;
   max-width: 70%;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .crm-container .crm-chat-bubble.sent {
@@ -54,22 +59,23 @@
 }
 
 .crm-container .crm-chat-bubble.received {
-  background: var(--crm-bg-alt);
-  color: var(--crm-ink);
+  background: var(--crm-bg-muted);
+  color: var(--crm-text);
   border: 1px solid var(--crm-border-light);
 }
 
 /* CRM Buttons */
 .crm-container .crm-btn {
-  border-radius: var(--crm-radius-button);
-  font-weight: 400;
+  border-radius: var(--crm-radius);
+  font-weight: 500;
   font-size: 14px;
-  padding: 8px 12px;
+  padding: 10px 16px;
   border: 1px solid var(--crm-border);
   cursor: pointer;
-  min-height: 32px;
+  min-height: 36px;
   background: var(--crm-bg);
-  color: var(--crm-ink);
+  color: var(--crm-text);
+  transition: all 0.15s ease;
 }
 
 .crm-container .crm-btn-primary {
@@ -78,10 +84,19 @@
   border-color: var(--crm-primary);
 }
 
+.crm-container .crm-btn-primary:hover {
+  background: var(--crm-primary-dark);
+  border-color: var(--crm-primary-dark);
+}
+
 .crm-container .crm-btn-secondary {
   background: var(--crm-bg);
-  color: var(--crm-ink);
+  color: var(--crm-text);
   border: 1px solid var(--crm-border);
+}
+
+.crm-container .crm-btn-secondary:hover {
+  background: var(--crm-bg-subtle);
 }
 
 .crm-container .crm-btn-danger {
@@ -98,22 +113,23 @@
 
 /* CRM Input Fields */
 .crm-container .crm-input {
-  border-radius: var(--crm-radius-button);
+  border-radius: var(--crm-radius);
   border: 1px solid var(--crm-border);
-  padding: 8px 12px;
+  padding: 10px 12px;
   font-size: 14px;
   background: var(--crm-bg);
-  color: var(--crm-ink);
+  color: var(--crm-text);
 }
 
 .crm-container .crm-input:focus {
   outline: none;
   border-color: var(--crm-primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
 /* CRM Avatars */
 .crm-container .crm-avatar {
-  border-radius: 50%;
+  border-radius: var(--crm-radius);
   border: none;
   object-fit: cover;
 }
@@ -122,22 +138,23 @@
 .crm-container .crm-sidebar {
   background: var(--crm-bg);
   border-right: 1px solid var(--crm-border);
-  padding: 12px;
+  padding: 16px;
 }
 
 .crm-container .crm-sidebar-item {
-  padding: 8px 12px;
-  border-radius: var(--crm-radius-button);
+  padding: 10px 12px;
+  border-radius: var(--crm-radius);
   margin-bottom: 2px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: var(--crm-ink);
+  gap: 10px;
+  color: var(--crm-text);
+  font-weight: 500;
 }
 
 .crm-container .crm-sidebar-item:hover {
-  background: var(--crm-bg-alt);
+  background: var(--crm-bg-subtle);
 }
 
 .crm-container .crm-sidebar-item.active {
@@ -147,81 +164,88 @@
 
 /* CRM Typography */
 .crm-container h1 {
-  font-size: 20px;
-  font-weight: 500;
-  color: var(--crm-ink);
-  margin-bottom: 12px;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--crm-text);
+  margin-bottom: 16px;
+  letter-spacing: -0.025em;
 }
 
 .crm-container h2 {
-  font-size: 18px;
-  font-weight: 500;
-  color: var(--crm-ink);
-  margin-bottom: 8px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--crm-text);
+  margin-bottom: 12px;
+  letter-spacing: -0.025em;
 }
 
 .crm-container h3 {
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--crm-ink);
-  margin-bottom: 6px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--crm-text);
+  margin-bottom: 8px;
+  letter-spacing: -0.025em;
 }
 
 .crm-container .crm-text-muted {
-  color: var(--crm-muted);
+  color: var(--crm-text-muted);
 }
 
 /* CRM Badges */
 .crm-container .crm-badge {
-  border-radius: 4px;
-  padding: 2px 6px;
+  border-radius: var(--crm-radius-sm);
+  padding: 4px 8px;
   font-size: 12px;
-  font-weight: 400;
+  font-weight: 500;
 }
 
 .crm-container .crm-badge-success {
-  background: rgba(5, 150, 105, 0.1);
+  background: rgba(16, 185, 129, 0.1);
   color: var(--crm-success);
 }
 
 .crm-container .crm-badge-danger {
-  background: rgba(220, 38, 38, 0.1);
+  background: rgba(239, 68, 68, 0.1);
   color: var(--crm-danger);
 }
 
 .crm-container .crm-badge-primary {
-  background: rgba(55, 65, 81, 0.1);
+  background: rgba(59, 130, 246, 0.1);
   color: var(--crm-primary);
 }
 
 /* CRM List Items */
 .crm-container .crm-list-item {
   background: var(--crm-bg);
-  border-radius: var(--crm-radius-button);
-  padding: 12px;
-  margin-bottom: 4px;
+  border-radius: var(--crm-radius);
+  padding: 14px 16px;
+  margin-bottom: 6px;
   border: 1px solid var(--crm-border-light);
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .crm-container .crm-list-item:hover {
-  background: var(--crm-bg-alt);
+  background: var(--crm-bg-subtle);
+  border-color: var(--crm-border);
 }
 
 /* CRM Tabs */
 .crm-container .crm-tabs {
   background: var(--crm-bg);
-  border-radius: var(--crm-radius-card);
+  border-radius: var(--crm-radius-lg);
   border: 1px solid var(--crm-border);
+  overflow: hidden;
 }
 
 .crm-container .crm-tab-button {
   background: transparent;
   border: none;
-  padding: 8px 16px;
+  padding: 12px 20px;
   cursor: pointer;
-  font-weight: 400;
-  color: var(--crm-muted);
+  font-weight: 500;
+  color: var(--crm-text-light);
+  transition: all 0.15s ease;
 }
 
 .crm-container .crm-tab-button.active {
@@ -230,15 +254,17 @@
 }
 
 .crm-container .crm-tab-button:hover:not(.active) {
-  background: var(--crm-bg-alt);
+  background: var(--crm-bg-subtle);
+  color: var(--crm-text);
 }
 
 /* Override Shadcn UI components within CRM */
 
 /* Buttons */
 .crm-container button {
-  border-radius: var(--crm-radius-button) !important;
-  font-weight: 400 !important;
+  border-radius: var(--crm-radius) !important;
+  font-weight: 500 !important;
+  transition: all 0.15s ease !important;
 }
 
 .crm-container button[data-variant="default"],
@@ -248,26 +274,40 @@
   border: 1px solid var(--crm-primary) !important;
 }
 
+.crm-container button[data-variant="default"]:hover,
+.crm-container .bg-primary:hover {
+  background: var(--crm-primary-dark) !important;
+  border-color: var(--crm-primary-dark) !important;
+}
+
 .crm-container button[data-variant="outline"] {
   background: var(--crm-bg) !important;
   border: 1px solid var(--crm-border) !important;
-  color: var(--crm-ink) !important;
+  color: var(--crm-text) !important;
+}
+
+.crm-container button[data-variant="outline"]:hover {
+  background: var(--crm-bg-subtle) !important;
 }
 
 .crm-container button[data-variant="ghost"] {
   background: transparent !important;
   border: none !important;
-  color: var(--crm-ink) !important;
+  color: var(--crm-text) !important;
 }
 
 .crm-container button[data-variant="ghost"]:hover {
-  background: var(--crm-bg-alt) !important;
+  background: var(--crm-bg-subtle) !important;
 }
 
 .crm-container button[data-variant="secondary"] {
   background: var(--crm-bg) !important;
-  color: var(--crm-ink) !important;
+  color: var(--crm-text) !important;
   border: 1px solid var(--crm-border) !important;
+}
+
+.crm-container button[data-variant="secondary"]:hover {
+  background: var(--crm-bg-subtle) !important;
 }
 
 .crm-container button[data-variant="destructive"] {
@@ -280,10 +320,10 @@
 .crm-container [data-shadcn="card"],
 .crm-container .bg-card {
   background: var(--crm-bg) !important;
-  border-radius: var(--crm-radius-card) !important;
-  border: 1px solid var(--crm-border-light) !important;
+  border-radius: var(--crm-radius-lg) !important;
+  border: 1px solid var(--crm-border) !important;
   padding: 16px !important;
-  box-shadow: none !important;
+  box-shadow: var(--crm-shadow) !important;
 }
 
 /* Dialogs and Modals */
@@ -291,59 +331,59 @@
 .crm-container .fixed.inset-0 > div,
 .crm-container .bg-background {
   background: var(--crm-bg) !important;
-  border-radius: var(--crm-radius-card) !important;
+  border-radius: var(--crm-radius-lg) !important;
   border: 1px solid var(--crm-border) !important;
-  box-shadow: var(--crm-shadow-card) !important;
+  box-shadow: var(--crm-shadow-md) !important;
 }
 
 /* Inputs */
 .crm-container input,
 .crm-container textarea {
-  border-radius: var(--crm-radius-button) !important;
+  border-radius: var(--crm-radius) !important;
   border: 1px solid var(--crm-border) !important;
   background: var(--crm-bg) !important;
-  color: var(--crm-ink) !important;
+  color: var(--crm-text) !important;
   font-size: 14px !important;
-  padding: 8px 12px !important;
+  padding: 10px 12px !important;
 }
 
 .crm-container input:focus,
 .crm-container textarea:focus {
   outline: none !important;
   border-color: var(--crm-primary) !important;
-  box-shadow: none !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1) !important;
 }
 
-/* Avatars */
+/* Avatars - rectangular modern style */
 .crm-container [data-shadcn="avatar"] img,
 .crm-container img[alt*="avatar"],
 .crm-container .rounded-full {
-  border-radius: 50% !important;
+  border-radius: var(--crm-radius) !important;
   border: none !important;
   object-fit: cover;
 }
 
 /* Badges */
 .crm-container [data-shadcn="badge"] {
-  border-radius: 4px !important;
+  border-radius: var(--crm-radius-sm) !important;
   font-size: 12px !important;
-  font-weight: 400 !important;
-  padding: 2px 6px !important;
+  font-weight: 500 !important;
+  padding: 4px 8px !important;
 }
 
 /* Tabs */
 .crm-container [role="tablist"] {
   background: var(--crm-bg) !important;
-  border-radius: var(--crm-radius-card) !important;
+  border-radius: var(--crm-radius-lg) !important;
   border: 1px solid var(--crm-border) !important;
-  padding: 2px !important;
+  padding: 4px !important;
 }
 
 .crm-container [role="tab"] {
-  border-radius: calc(var(--crm-radius-button) - 2px) !important;
-  padding: 6px 12px !important;
-  color: var(--crm-muted) !important;
-  font-weight: 400 !important;
+  border-radius: var(--crm-radius) !important;
+  padding: 10px 16px !important;
+  color: var(--crm-text-light) !important;
+  font-weight: 500 !important;
 }
 
 .crm-container [role="tab"][aria-selected="true"] {
@@ -360,58 +400,61 @@
 .crm-container [role="menu"],
 .crm-container [role="listbox"] {
   background: var(--crm-bg) !important;
-  border-radius: var(--crm-radius-button) !important;
+  border-radius: var(--crm-radius) !important;
   border: 1px solid var(--crm-border) !important;
-  box-shadow: var(--crm-shadow-card) !important;
+  box-shadow: var(--crm-shadow-md) !important;
   padding: 4px !important;
 }
 
 .crm-container [role="menuitem"],
 .crm-container [role="option"] {
-  border-radius: calc(var(--crm-radius-button) - 2px) !important;
-  padding: 6px 8px !important;
-  color: var(--crm-ink) !important;
+  border-radius: var(--crm-radius-sm) !important;
+  padding: 8px 12px !important;
+  color: var(--crm-text) !important;
 }
 
 .crm-container [role="menuitem"]:hover,
 .crm-container [role="option"]:hover {
-  background: var(--crm-bg-alt) !important;
+  background: var(--crm-bg-subtle) !important;
 }
 
 /* Sheet/Drawer */
 .crm-container [data-radix-dialog-content] {
   background: var(--crm-bg) !important;
-  border-radius: var(--crm-radius-card) !important;
+  border-radius: var(--crm-radius-lg) !important;
 }
 
 /* Typography overrides */
 .crm-container h1 {
-  font-size: 20px !important;
-  font-weight: 500 !important;
-  color: var(--crm-ink) !important;
-  margin-bottom: 12px;
+  font-size: 24px !important;
+  font-weight: 600 !important;
+  color: var(--crm-text) !important;
+  margin-bottom: 16px !important;
+  letter-spacing: -0.025em !important;
 }
 
 .crm-container h2 {
-  font-size: 18px !important;
-  font-weight: 500 !important;
-  color: var(--crm-ink) !important;
-  margin-bottom: 8px;
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  color: var(--crm-text) !important;
+  margin-bottom: 12px !important;
+  letter-spacing: -0.025em !important;
 }
 
 .crm-container h3 {
-  font-size: 16px !important;
-  font-weight: 500 !important;
-  color: var(--crm-ink) !important;
-  margin-bottom: 6px;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: var(--crm-text) !important;
+  margin-bottom: 8px !important;
+  letter-spacing: -0.025em !important;
 }
 
 .crm-container p {
   font-size: 14px !important;
   line-height: 1.5 !important;
-  color: var(--crm-ink) !important;
+  color: var(--crm-text) !important;
 }
 
 .crm-container .text-muted-foreground {
-  color: var(--crm-muted) !important;
+  color: var(--crm-text-muted) !important;
 }
