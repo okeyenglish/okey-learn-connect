@@ -968,38 +968,38 @@ export const ChatArea = ({
               <Button 
                 size="sm" 
                 variant="outline" 
-                className="crm-btn h-10 w-10 p-0"
+                className="crm-btn h-10 w-10 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                 title="Добавить задачу"
                 onClick={() => (onOpenTaskModal ? onOpenTaskModal() : setShowAddTaskModal(true))}
               >
-                <Plus className="h-5 w-5" />
+                <Plus className="h-5 w-5 stroke-1" />
               </Button>
               <Button 
                 size="sm" 
                 variant="outline" 
-                className="crm-btn h-10 w-10 p-0"
+                className="crm-btn h-10 w-10 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                 title="Выставить счёт"
                 onClick={() => (onOpenInvoiceModal ? onOpenInvoiceModal() : setShowInvoiceModal(true))}
               >
-                <FileText className="h-5 w-5" />
+                <FileText className="h-5 w-5 stroke-1" />
               </Button>
               <Button 
                 size="sm" 
-                variant={showSearchInput ? "default" : "outline"}
-                className="crm-btn h-10 w-10 p-0"
+                variant="outline"
+                className="crm-btn h-10 w-10 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                 title="Поиск в чате"
                 onClick={handleSearchToggle}
               >
-                <Search className="h-5 w-5" />
+                <Search className="h-5 w-5 stroke-1" />
               </Button>
               <Button 
                 size="sm" 
-                variant={isSelectionMode ? "default" : "outline"}
-                className="h-8 w-8 p-0"
+                variant="outline"
+                className="h-8 w-8 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                 title="Выделить сообщения"
                 onClick={handleToggleSelectionMode}
               >
-                <Forward className="h-4 w-4" />
+                <Forward className="h-4 w-4 stroke-1" />
               </Button>
               
               {/* Settings dropdown with all the removed options */}
@@ -1052,38 +1052,38 @@ export const ChatArea = ({
               <Button 
                 size="sm" 
                 variant="outline" 
-                className="crm-btn h-10 w-10 p-0"
+                className="crm-btn h-10 w-10 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                 title="Добавить задачу"
                 onClick={() => (onOpenTaskModal ? onOpenTaskModal() : setShowAddTaskModal(true))}
               >
-                <Plus className="h-5 w-5" />
+                <Plus className="h-5 w-5 stroke-1" />
               </Button>
               <Button 
                 size="sm" 
                 variant="outline" 
-                className="crm-btn h-10 w-10 p-0"
+                className="crm-btn h-10 w-10 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                 title="Выставить счёт"
                 onClick={() => (onOpenInvoiceModal ? onOpenInvoiceModal() : setShowInvoiceModal(true))}
               >
-                <FileText className="h-5 w-5" />
-              </Button>
-              <Button 
-                size="sm" 
-                variant={showSearchInput ? "default" : "outline"}
-                className="crm-btn h-10 w-10 p-0"
-                title="Поиск в чате"
-                onClick={handleSearchToggle}
-              >
-                <Search className="h-5 w-5" />
+                <FileText className="h-5 w-5 stroke-1" />
               </Button>
               <Button 
                 size="sm" 
                 variant="outline"
-                className="crm-btn h-10 w-10 p-0"
+                className="crm-btn h-10 w-10 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                title="Поиск в чате"
+                onClick={handleSearchToggle}
+              >
+                <Search className="h-5 w-5 stroke-1" />
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                className="crm-btn h-10 w-10 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                 title="Переслать сообщения"
                 onClick={handleToggleSelectionMode}
               >
-                <Forward className="h-5 w-5" />
+                <Forward className="h-5 w-5 stroke-1" />
               </Button>
               
               {showSearchInput && (
