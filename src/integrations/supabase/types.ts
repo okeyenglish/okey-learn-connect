@@ -14,44 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      call_comments: {
-        Row: {
-          call_log_id: string | null
-          client_id: string
-          comment_text: string
-          created_at: string
-          created_by: string
-          id: string
-          updated_at: string
-        }
-        Insert: {
-          call_log_id?: string | null
-          client_id: string
-          comment_text: string
-          created_at?: string
-          created_by: string
-          id?: string
-          updated_at?: string
-        }
-        Update: {
-          call_log_id?: string | null
-          client_id?: string
-          comment_text?: string
-          created_at?: string
-          created_by?: string
-          id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "call_comments_call_log_id_fkey"
-            columns: ["call_log_id"]
-            isOneToOne: false
-            referencedRelation: "call_logs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       call_logs: {
         Row: {
           client_id: string

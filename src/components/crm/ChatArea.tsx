@@ -22,8 +22,7 @@ import { QuickResponsesModal } from "./QuickResponsesModal";
 import { FileUpload } from "./FileUpload";
 import { AttachedFile } from "./AttachedFile";
 import { InlinePendingGPTResponse } from "./InlinePendingGPTResponse";
-import { CallsAndCommentsTimeline } from "./CallsAndCommentsTimeline";
-import { useCallComments, useCreateCallComment } from "@/hooks/useCallComments";
+import { CallHistory } from "./CallHistory";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -70,7 +69,6 @@ export const ChatArea = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchInput, setShowSearchInput] = useState(false);
   const [showOnlyCalls, setShowOnlyCalls] = useState(false);
-  const [activeTab, setActiveTab] = useState("whatsapp");
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
@@ -108,13 +106,9 @@ export const ChatArea = ({
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
   const markChatMessagesAsReadMutation = useMarkChatMessagesAsRead();
   const queryClient = useQueryClient();
-  const createCallCommentMutation = useCreateCallComment();
   
   // Get pending GPT responses for this client
   const { data: pendingGPTResponses, isLoading: pendingGPTLoading, error: pendingGPTError } = usePendingGPTResponses(clientId);
-  
-  // Get call comments for this client to show in main chat
-  const { data: callComments = [] } = useCallComments(clientId);
   
   // Set up real-time message updates
   useRealtimeMessages(clientId);
@@ -180,43 +174,14 @@ export const ChatArea = ({
         fileName: msg.file_name,
         fileType: msg.file_type,
         whatsappChatId: msg.clients?.whatsapp_chat_id,
-        greenApiMessageId: msg.green_api_message_id,
-        created_at: msg.created_at // Add created_at for sorting
+        greenApiMessageId: msg.green_api_message_id
       }));
 
-      // Add call comments as system messages in the main chat
-      const callCommentsAsMessages = callComments.map(comment => ({
-        id: `comment-${comment.id}`,
-        type: 'system',
-        message: comment.comment_text,
-        time: new Date(comment.created_at).toLocaleTimeString('ru-RU', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        }),
-        systemType: 'call-comment',
-        callDuration: undefined,
-        messageStatus: undefined,
-        clientAvatar: null,
-        managerName: managerName,
-        fileUrl: undefined,
-        fileName: undefined,
-        fileType: undefined,
-        whatsappChatId: undefined,
-        greenApiMessageId: undefined,
-        created_at: comment.created_at
-      }));
-
-      // Combine and sort all messages by timestamp
-      const allMessages = [...formattedMessages, ...callCommentsAsMessages]
-        .sort((a, b) => {
-          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        });
-
-      console.log('Formatted messages:', allMessages);
-      setMessages(allMessages);
+      console.log('Formatted messages:', formattedMessages);
+      setMessages(formattedMessages);
       
       // Мгновенная прокрутка к концу при первой загрузке
-      if (allMessages.length > 0) {
+      if (formattedMessages.length > 0) {
         setTimeout(() => scrollToBottom(false), 50);
         setIsInitialLoad(false);
         
@@ -234,7 +199,7 @@ export const ChatArea = ({
   useEffect(() => {
     setIsInitialLoad(true);
     loadMessages();
-  }, [clientId, callComments]); // Also reload when call comments change
+  }, [clientId]);
 
   // Set up real-time message updates when client changes
   useEffect(() => {
@@ -341,7 +306,7 @@ export const ChatArea = ({
 
     // If in comment mode, save as comment instead of sending
     if (commentMode) {
-      await saveCallComment();
+      await saveComment(messageText);
       setCommentMode(false); // Exit comment mode after saving
       return;
     }
@@ -437,27 +402,47 @@ export const ChatArea = ({
     }
   };
 
-  const saveCallComment = async () => {
-    if (!message.trim()) return;
-    
+  const saveComment = async (commentText: string) => {
     try {
-      await createCallCommentMutation.mutateAsync({
-        clientId,
-        commentText: message.trim(),
-        callLogId: null, // General comment not tied to specific call
-      });
+      // Save comment to client's notes field
+      const { error: clientError } = await supabase
+        .from('clients')
+        .update({
+          notes: commentText,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', clientId);
 
-      toast({
-        title: "Комментарий сохранен",
-        description: "Комментарий успешно добавлен в историю звонков",
-      });
-      
-      setMessage("");
-      onMessageChange?.(false);
-      
-      // Reset textarea height
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
+      if (clientError) throw clientError;
+
+      // Also add comment as a chat message
+      const { error: messageError } = await supabase
+        .from('chat_messages')
+        .insert({
+          client_id: clientId,
+          message_text: commentText,
+          message_type: 'comment',
+          is_outgoing: true,
+          messenger_type: 'system'
+        });
+
+      if (messageError) {
+        console.error('Error saving comment message:', messageError);
+      }
+
+      // Don't show success toast - just log success
+      console.log('Comment saved successfully');
+
+      // Remove any pending GPT suggestions for this client after saving a comment
+      try {
+        await supabase
+          .from('pending_gpt_responses')
+          .delete()
+          .eq('client_id', clientId)
+          .eq('status', 'pending');
+        console.log('Cleared pending GPT responses after comment');
+      } catch (e) {
+        console.warn('Failed to clear pending GPT responses after comment:', e);
       }
     } catch (error: any) {
       toast({
@@ -1243,7 +1228,7 @@ export const ChatArea = ({
 
       {/* Chat Messages with Tabs */}
       <div className="flex-1 overflow-hidden min-h-0">
-        <Tabs defaultValue="whatsapp" value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col min-h-0">
+        <Tabs defaultValue="whatsapp" className="h-full flex flex-col min-h-0">
           <TabsList className="grid w-full grid-cols-5 rounded-none bg-orange-50/30 border-orange-200 border-t rounded-t-none">
             <TabsTrigger value="whatsapp" className="text-xs">WhatsApp</TabsTrigger>
             <TabsTrigger value="telegram" className="text-xs">Telegram</TabsTrigger>
@@ -1368,40 +1353,14 @@ export const ChatArea = ({
             </div>
           </TabsContent>
           
-          <TabsContent value="calls" className="flex-1 flex flex-col overflow-hidden mt-0">
-            <div className="flex-1 p-3 overflow-y-auto">
-              <CallsAndCommentsTimeline clientId={clientId} />
-            </div>
-            
-            {/* Comment input at the bottom */}
-            <div className="border-t p-3 bg-background">
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-foreground">Добавить комментарий к звонку</label>
-                <Textarea
-                  placeholder="Комментарий о разговоре или звонке..."
-                  value={message}
-                  onChange={(e) => handleMessageChange(e.target.value)}
-                  className="min-h-[80px] bg-yellow-50 border-yellow-300"
-                />
-                <div className="flex justify-end">
-                  <Button 
-                    onClick={saveCallComment}
-                    disabled={!message.trim() || createCallCommentMutation.isPending}
-                    size="sm"
-                    className="bg-yellow-500 hover:bg-yellow-600 text-white"
-                  >
-                    {createCallCommentMutation.isPending ? "Сохранение..." : "Сохранить комментарий"}
-                  </Button>
-                </div>
-              </div>
-            </div>
+          <TabsContent value="calls" className="flex-1 p-3 overflow-y-auto mt-0">
+            <CallHistory clientId={clientId} />
           </TabsContent>
         </Tabs>
       </div>
 
-      {/* Message Input - Hidden when on calls tab */}
-      {activeTab !== "calls" && (
-        <div className="border-t p-3 shrink-0">
+      {/* Message Input */}
+      <div className="border-t p-3 shrink-0">
         {/* Pending message with countdown */}
         {pendingMessage && (
           <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between">
@@ -1653,9 +1612,8 @@ export const ChatArea = ({
               </Button>
             </div>
           </div>
-         </div>
-       </div>
-      )}
+        </div>
+      </div>
 
       {/* Модальные окна (только если не используются внешние обработчики) */}
       {!onOpenTaskModal && (
