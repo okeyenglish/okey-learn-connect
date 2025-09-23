@@ -34,9 +34,12 @@ interface ChatMessageProps {
   fileType?: string;
   whatsappChatId?: string;
   greenApiMessageId?: string;
+  showAvatar?: boolean;
+  showName?: boolean;
+  isLastInGroup?: boolean;
 }
 
-export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, whatsappChatId, greenApiMessageId }: ChatMessageProps) => {
+export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, whatsappChatId, greenApiMessageId, showAvatar = true, showName = true, isLastInGroup = true }: ChatMessageProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message);
 
@@ -214,7 +217,7 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
   }
 
   return (
-    <div className={`flex ${type === 'manager' ? 'justify-end' : 'justify-start'} mb-4 ${isSelectionMode ? 'hover:bg-muted/20 p-2 rounded-lg' : ''}`}>
+    <div className={`flex ${type === 'manager' ? 'justify-end' : 'justify-start'} ${isLastInGroup ? 'mb-4' : 'mb-1'} ${isSelectionMode ? 'hover:bg-muted/20 p-2 rounded-lg' : ''}`}>
       <div className="flex items-start gap-3 max-w-xs lg:max-w-md xl:max-w-lg">
         {/* Чекбокс для выделения сообщений */}
         {isSelectionMode && (
@@ -227,8 +230,8 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
           </div>
         )}
         
-        {/* Аватарка клиента (только для сообщений клиента) */}
-        {type === 'client' && (
+        {/* Аватарка клиента (только для сообщений клиента и если showAvatar = true) */}
+        {type === 'client' && showAvatar && (
           <div className="flex-shrink-0">
             {clientAvatar ? (
               <img 
@@ -253,8 +256,13 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
             )}
           </div>
         )}
+
+        {/* Пустое место для выравнивания, если аватарка не показывается */}
+        {type === 'client' && !showAvatar && (
+          <div className="w-10 flex-shrink-0"></div>
+        )}
         
-        {type === 'manager' && (
+        {type === 'manager' && showAvatar && (
           <div className="order-2">
             <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
               <div className="w-6 h-6 rounded-full bg-blue-200 flex items-center justify-center">
@@ -263,6 +271,12 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
             </div>
           </div>
         )}
+
+        {/* Пустое место для выравнивания менеджера, если аватарка не показывается */}
+        {type === 'manager' && !showAvatar && (
+          <div className="w-10 flex-shrink-0 order-2"></div>
+        )}
+
         <div className={`relative group ${type === 'manager' ? 'order-1' : ''}`}>
           {/* Индикатор пересланного сообщения */}
           {isForwarded && (
@@ -279,7 +293,7 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
             </div>
           )}
           
-          {type === 'manager' && !isEditing && (
+          {type === 'manager' && !isEditing && showName && (
             <div className="text-xs text-muted-foreground mb-1 text-right">
               Менеджер поддержки
             </div>

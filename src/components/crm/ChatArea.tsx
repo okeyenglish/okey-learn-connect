@@ -1159,33 +1159,55 @@ export const ChatArea = ({
                 </div>
               ) : filteredMessages.length > 0 ? (
                 <>
-                  {filteredMessages.map((msg, index) => (
-                    <ChatMessage
-                      key={msg.id || index}
-                      messageId={msg.id}
-                      type={msg.type}
-                      message={msg.message}
-                      time={msg.time}
-                      systemType={msg.systemType}
-                      callDuration={msg.callDuration}
-                      isSelectionMode={isSelectionMode}
-                      isSelected={selectedMessages.has(msg.id)}
-                      onSelectionChange={(selected) => handleMessageSelectionChange(msg.id, selected)}
-                      isForwarded={msg.isForwarded}
-                      forwardedFrom={msg.forwardedFrom}
-                      forwardedFromType={msg.forwardedFromType}
-                      onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
-                      onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
-                      messageStatus={msg.messageStatus}
-                      clientAvatar={msg.clientAvatar}
-                      managerName={msg.managerName}
-                      fileUrl={msg.fileUrl}
-                      fileName={msg.fileName}
-                      fileType={msg.fileType}
-                      whatsappChatId={msg.whatsappChatId}
-                      greenApiMessageId={msg.greenApiMessageId}
-                    />
-                  ))}
+                  {filteredMessages.map((msg, index) => {
+                    const prevMessage = filteredMessages[index - 1];
+                    const nextMessage = filteredMessages[index + 1];
+                    
+                    // Определяем нужно ли показывать аватарку и имя
+                    const showAvatar = !prevMessage || 
+                      prevMessage.type !== msg.type || 
+                      msg.type === 'system' || 
+                      msg.type === 'comment';
+                      
+                    const showName = showAvatar;
+                    
+                    // Определяем нужно ли добавлять отступ снизу
+                    const isLastInGroup = !nextMessage || 
+                      nextMessage.type !== msg.type || 
+                      nextMessage.type === 'system' || 
+                      nextMessage.type === 'comment';
+                    
+                    return (
+                      <ChatMessage
+                        key={msg.id || index}
+                        messageId={msg.id}
+                        type={msg.type}
+                        message={msg.message}
+                        time={msg.time}
+                        systemType={msg.systemType}
+                        callDuration={msg.callDuration}
+                        isSelectionMode={isSelectionMode}
+                        isSelected={selectedMessages.has(msg.id)}
+                        onSelectionChange={(selected) => handleMessageSelectionChange(msg.id, selected)}
+                        isForwarded={msg.isForwarded}
+                        forwardedFrom={msg.forwardedFrom}
+                        forwardedFromType={msg.forwardedFromType}
+                        onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
+                        onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
+                        messageStatus={msg.messageStatus}
+                        clientAvatar={msg.clientAvatar}
+                        managerName={msg.managerName}
+                        fileUrl={msg.fileUrl}
+                        fileName={msg.fileName}
+                        fileType={msg.fileType}
+                        whatsappChatId={msg.whatsappChatId}
+                        greenApiMessageId={msg.greenApiMessageId}
+                        showAvatar={showAvatar}
+                        showName={showName}
+                        isLastInGroup={isLastInGroup}
+                      />
+                    );
+                  })}
                   
                   {/* Inline Pending GPT Responses after messages */}
                   {Array.isArray(pendingGPTResponses) && pendingGPTResponses.length > 0 && (
