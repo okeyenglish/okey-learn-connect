@@ -1066,7 +1066,17 @@ const CRMContent = () => {
           <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-full min-h-0">
             <TabsList className="grid w-full grid-cols-2 m-2 shrink-0">
               <TabsTrigger value="menu">Меню</TabsTrigger>
-              <TabsTrigger value="chats">Чаты</TabsTrigger>
+              <TabsTrigger value="chats" className="flex items-center gap-2">
+                Чаты 
+                <NewChatModal 
+                  onCreateChat={handleCreateNewChat}
+                  onExistingClientFound={handleExistingClientFound}
+                >
+                  <Button size="sm" variant="ghost" className="h-5 w-5 p-0 ml-1">
+                    <MessageCirclePlus className="h-3 w-3" />
+                  </Button>
+                </NewChatModal>
+              </TabsTrigger>
             </TabsList>
             
             <TabsContent value="menu" className="mt-0 flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col">
@@ -2046,15 +2056,6 @@ const CRMContent = () => {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-                <NewChatModal 
-                  onCreateChat={handleCreateNewChat}
-                  onExistingClientFound={handleExistingClientFound}
-                >
-                  <Button size="sm" className="w-full gap-2" variant="outline">
-                    <MessageCirclePlus className="h-4 w-4" />
-                    Новый чат
-                  </Button>
-                </NewChatModal>
               </div>
               <ScrollArea className="flex-1 min-h-0">
                 <div className="p-2">
@@ -2510,15 +2511,6 @@ const CRMContent = () => {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-                <NewChatModal 
-                  onCreateChat={handleCreateNewChat}
-                  onExistingClientFound={handleExistingClientFound}
-                >
-                  <Button size="sm" className="w-full gap-2" variant="outline">
-                    <MessageCirclePlus className="h-4 w-4" />
-                    Новый чат
-                  </Button>
-                </NewChatModal>
               </div>
               <ScrollArea className="flex-1">
                 <div className="p-3">
