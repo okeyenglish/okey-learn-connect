@@ -20,7 +20,7 @@ import { ForwardMessageModal } from "./ForwardMessageModal";
 import { QuickResponsesModal } from "./QuickResponsesModal";
 import { FileUpload } from "./FileUpload";
 import { AttachedFile } from "./AttachedFile";
-import { PendingGPTResponseComponent } from "./PendingGPTResponse";
+import { InlinePendingGPTResponse } from "./InlinePendingGPTResponse";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -1109,48 +1109,50 @@ export const ChatArea = ({
           
           <TabsContent value="whatsapp" className="flex-1 p-3 overflow-y-auto mt-0">
             <div className="space-y-1">
-              {/* Pending GPT Responses */}
-              {Array.isArray(pendingGPTResponses) && pendingGPTResponses.length > 0 && (
-                <div className="space-y-3 mb-4">
-                  {pendingGPTResponses.map((response) => (
-                    <PendingGPTResponseComponent
-                      key={response.id}
-                      response={response}
-                    />
-                  ))}
-                </div>
-              )}
-              
               {loadingMessages ? (
                 <div className="text-center text-muted-foreground text-sm py-4">
                   Загрузка сообщений...
                 </div>
               ) : filteredMessages.length > 0 ? (
-                filteredMessages.map((msg, index) => (
-                  <ChatMessage
-                    key={msg.id || index}
-                    messageId={msg.id}
-                    type={msg.type}
-                    message={msg.message}
-                    time={msg.time}
-                    systemType={msg.systemType}
-                    callDuration={msg.callDuration}
-                    isSelectionMode={isSelectionMode}
-                    isSelected={selectedMessages.has(msg.id)}
-                    onSelectionChange={(selected) => handleMessageSelectionChange(msg.id, selected)}
-                    isForwarded={msg.isForwarded}
-                    forwardedFrom={msg.forwardedFrom}
-                    forwardedFromType={msg.forwardedFromType}
-                    onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
-                    onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
-                    messageStatus={msg.messageStatus}
-                    clientAvatar={msg.clientAvatar}
-                    managerName={msg.managerName}
-                    fileUrl={msg.fileUrl}
-                    fileName={msg.fileName}
-                    fileType={msg.fileType}
-                  />
-                ))
+                <>
+                  {filteredMessages.map((msg, index) => (
+                    <ChatMessage
+                      key={msg.id || index}
+                      messageId={msg.id}
+                      type={msg.type}
+                      message={msg.message}
+                      time={msg.time}
+                      systemType={msg.systemType}
+                      callDuration={msg.callDuration}
+                      isSelectionMode={isSelectionMode}
+                      isSelected={selectedMessages.has(msg.id)}
+                      onSelectionChange={(selected) => handleMessageSelectionChange(msg.id, selected)}
+                      isForwarded={msg.isForwarded}
+                      forwardedFrom={msg.forwardedFrom}
+                      forwardedFromType={msg.forwardedFromType}
+                      onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
+                      onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
+                      messageStatus={msg.messageStatus}
+                      clientAvatar={msg.clientAvatar}
+                      managerName={msg.managerName}
+                      fileUrl={msg.fileUrl}
+                      fileName={msg.fileName}
+                      fileType={msg.fileType}
+                    />
+                  ))}
+                  
+                  {/* Inline Pending GPT Responses after messages */}
+                  {Array.isArray(pendingGPTResponses) && pendingGPTResponses.length > 0 && (
+                    <>
+                      {pendingGPTResponses.map((response) => (
+                        <InlinePendingGPTResponse
+                          key={response.id}
+                          response={response}
+                        />
+                      ))}
+                    </>
+                  )}
+                </>
               ) : (
                   <div className="text-center text-muted-foreground text-sm py-4">
                     {searchQuery ? 'Сообщения не найдены' : 'Нет сообщений'}

@@ -45,8 +45,8 @@ export const usePendingGPTResponses = (clientId?: string) => {
       return data as PendingGPTResponse[];
     },
     enabled: !!clientId,
-    staleTime: 1000, // Consider data stale after 1 second
-    gcTime: 5000, // Keep in cache for 5 seconds (replaces cacheTime)
+    staleTime: 30000, // Consider data stale after 30 seconds
+    gcTime: 60000, // Keep in cache for 1 minute
   });
 
   // Set up realtime subscription
