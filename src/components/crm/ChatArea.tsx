@@ -25,10 +25,11 @@ import { InlinePendingGPTResponse } from "./InlinePendingGPTResponse";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { usePendingGPTResponses, useDismissPendingResponse } from "@/hooks/usePendingGPTResponses";
+import { usePendingGPTResponses } from "@/hooks/usePendingGPTResponses";
 import { useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
 import { WebRTCPhone } from "../WebRTCPhone";
 import { MobilePhoneHelper } from "../MobilePhoneHelper";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ChatAreaProps {
   clientId: string;
@@ -106,10 +107,10 @@ export const ChatArea = ({
   const isMobile = useIsMobile();
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
   const markChatMessagesAsReadMutation = useMarkChatMessagesAsRead();
+  const queryClient = useQueryClient();
   
   // Get pending GPT responses for this client
   const { data: pendingGPTResponses, isLoading: pendingGPTLoading, error: pendingGPTError } = usePendingGPTResponses(clientId);
-  const dismissPendingResponse = useDismissPendingResponse();
   
   // Set up real-time message updates
   useRealtimeMessages(clientId);
@@ -278,9 +279,22 @@ export const ChatArea = ({
 
     // Immediately dismiss any pending GPT responses when manager starts sending a message
     if (pendingGPTResponses && pendingGPTResponses.length > 0) {
-      pendingGPTResponses.forEach(response => {
-        dismissPendingResponse.mutate(response.id);
-      });
+      try {
+        // Delete all pending responses for this client immediately
+        await supabase
+          .from('pending_gpt_responses')
+          .delete()
+          .eq('client_id', clientId)
+          .in('status', ['pending', 'processing']);
+        
+        console.log('Immediately cleared all pending GPT responses for client:', clientId);
+        
+        // Force refresh the pending responses query
+        queryClient.invalidateQueries({ queryKey: ['pending-gpt-responses', clientId] });
+        queryClient.refetchQueries({ queryKey: ['pending-gpt-responses', clientId] });
+      } catch (error) {
+        console.error('Failed to clear pending GPT responses:', error);
+      }
     }
 
     // If in comment mode, save as comment instead of sending
