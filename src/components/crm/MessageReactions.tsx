@@ -9,12 +9,13 @@ interface MessageReactionsProps {
   messageId: string;
   showAddButton?: boolean;
   className?: string;
+  showOnHover?: boolean;
 }
 
 // Популярные эмодзи для быстрого выбора
 const POPULAR_EMOJIS = ['👍', '👎', '❤️', '😂', '😮', '😢', '🔥', '👏'];
 
-export const MessageReactions = ({ messageId, showAddButton = true, className }: MessageReactionsProps) => {
+export const MessageReactions = ({ messageId, showAddButton = true, className, showOnHover = false }: MessageReactionsProps) => {
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   
   const { groupedReactions, isLoading } = useGroupedReactions(messageId);
@@ -50,7 +51,11 @@ export const MessageReactions = ({ messageId, showAddButton = true, className }:
   }
 
   return (
-    <div className={cn("flex items-center gap-1 flex-wrap", className)}>
+    <div className={cn(
+      "flex items-center gap-1 flex-wrap", 
+      className,
+      showOnHover && "opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+    )}>
       {/* Отображение существующих реакций */}
       {groupedReactions?.map((reaction) => (
         <TooltipProvider key={reaction.emoji}>
@@ -58,16 +63,20 @@ export const MessageReactions = ({ messageId, showAddButton = true, className }:
             <TooltipTrigger asChild>
               <button
                 className={cn(
-                  "group relative h-6 px-1.5 py-0.5 rounded-full text-xs transition-all duration-200 hover:scale-110",
-                  "bg-background/80 backdrop-blur-sm border border-border/50 shadow-sm",
-                  "hover:bg-background/90 hover:shadow-md",
-                  reaction.hasUserReaction && "bg-primary/20 border-primary/50 shadow-primary/20"
+                  "relative w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110",
+                  "bg-muted/80 backdrop-blur-sm border border-border/50 shadow-sm",
+                  "hover:bg-muted hover:shadow-md",
+                  reaction.hasUserReaction && "bg-primary/20 border-primary/40 shadow-primary/20"
                 )}
                 onClick={() => handleEmojiClick(reaction.emoji)}
                 disabled={addReactionMutation.isPending || removeReactionMutation.isPending}
               >
-                <span className="text-sm mr-0.5">{reaction.emoji}</span>
-                <span className="text-xs text-muted-foreground font-medium">{reaction.count}</span>
+                <span className="text-base">{reaction.emoji}</span>
+                {reaction.count > 1 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center font-medium">
+                    {reaction.count}
+                  </span>
+                )}
               </button>
             </TooltipTrigger>
             <TooltipContent>
@@ -88,14 +97,12 @@ export const MessageReactions = ({ messageId, showAddButton = true, className }:
       {showAddButton && (
         <Popover open={isEmojiPickerOpen} onOpenChange={setIsEmojiPickerOpen}>
           <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0 rounded-full hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+            <button
+              className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/50"
               disabled={addReactionMutation.isPending}
             >
               <span className="text-sm">😊</span>
-            </Button>
+            </button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-2" align="start">
             <div className="grid grid-cols-4 gap-1">

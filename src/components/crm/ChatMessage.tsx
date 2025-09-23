@@ -397,11 +397,12 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
           
           {/* Реакции на сообщения */}
           {messageId && (type === 'client' || type === 'manager') && (
-            <div className="mt-2">
+            <div className="absolute -bottom-3 left-2">
               <MessageReactions 
                 messageId={messageId} 
                 showAddButton={true}
-                className="justify-start"
+                showOnHover={true}
+                className="flex-row-reverse"
               />
             </div>
           )}
