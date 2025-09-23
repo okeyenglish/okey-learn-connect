@@ -1067,9 +1067,9 @@ const CRMContent = () => {
           <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-full min-h-0">
             <TabsList className="grid w-full grid-cols-2 m-2 shrink-0">
               <TabsTrigger value="menu">Меню</TabsTrigger>
-              <TabsTrigger value="chats" className="relative flex items-center justify-center">
+              <TabsTrigger value="chats" className="relative flex items-center justify-center pr-8">
                 <span>Чаты</span>
-                <div className="absolute right-2">
+                <div className="absolute right-3">
                   <NewChatModal 
                     onCreateChat={handleCreateNewChat}
                     onExistingClientFound={handleExistingClientFound}
