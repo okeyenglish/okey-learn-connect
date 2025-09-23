@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Clock } from "lucide-react";
+import { Send, Clock, MessageSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface SpeakingClubSignupModalProps {
@@ -105,7 +105,10 @@ export default function SpeakingClubSignupModal({ level, children }: SpeakingClu
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Записаться в Speaking Club</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            <span>Записаться в Speaking Club</span>
+          </DialogTitle>
           <DialogDescription>
             Онлайн разговорный клуб с носителем языка • Суббота {
               formData.timeSlot 

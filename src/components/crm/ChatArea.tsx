@@ -1408,9 +1408,10 @@ export const ChatArea = ({
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>
-                        {editingScheduledMessage ? "Редактировать запланированное сообщение" : "Запланировать сообщение"}
-                      </DialogTitle>
+                       <DialogTitle className="flex items-center gap-2">
+                         <Clock className="h-5 w-5" />
+                         <span>{editingScheduledMessage ? "Редактировать запланированное сообщение" : "Запланировать сообщение"}</span>
+                       </DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
                       <div className="space-y-2">
@@ -1468,7 +1469,10 @@ export const ChatArea = ({
                     </DialogTrigger>
                     <DialogContent className="max-w-md">
                       <DialogHeader>
-                        <DialogTitle>Запланированные сообщения ({scheduledMessages.length})</DialogTitle>
+                        <DialogTitle className="flex items-center gap-2">
+                          <Calendar className="h-5 w-5" />
+                          <span>Запланированные сообщения ({scheduledMessages.length})</span>
+                        </DialogTitle>
                       </DialogHeader>
                       <div className="space-y-3 max-h-96 overflow-y-auto">
                         {scheduledMessages.map((scheduledMsg) => (

@@ -955,7 +955,10 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Запланировать сообщение</DialogTitle>
+                         <DialogTitle className="flex items-center gap-2">
+                           <Clock className="h-5 w-5" />
+                           <span>Запланировать сообщение</span>
+                         </DialogTitle>
                       </DialogHeader>
                       <div className="space-y-3">
                         <div className="space-y-1">

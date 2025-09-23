@@ -75,7 +75,10 @@ export const AddClientModal = ({ children, onClientCreated, open: externalOpen, 
       )}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Добавить нового клиента</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5" />
+            <span>Добавить нового клиента</span>
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">

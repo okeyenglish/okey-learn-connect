@@ -68,7 +68,10 @@ export const EditContactModal = ({ contactData, onSave, children }: EditContactM
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle>Редактировать контакт</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Edit2 className="h-5 w-5" />
+            <span>Редактировать контакт</span>
+          </DialogTitle>
         </DialogHeader>
         
         <ScrollArea className="max-h-[70vh] pr-4">

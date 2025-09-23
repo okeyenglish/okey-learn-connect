@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { User, BookOpen, Clock, TrendingUp, Download, X } from "lucide-react";
+import { User, BookOpen, Clock, TrendingUp, Download, X, GraduationCap } from "lucide-react";
 import { useIndividualLessons, IndividualLessonFilters } from "@/hooks/useIndividualLessons";
 import { IndividualLessonsTable } from "./IndividualLessonsTable";
 import { IndividualLessonsFilters } from "./IndividualLessonsFilters";
@@ -47,7 +47,10 @@ export const IndividualLessonsModal = ({ open, onOpenChange }: IndividualLessons
           <DialogHeader>
             <div className="flex items-center justify-between">
               <div>
-                <DialogTitle className="text-2xl font-bold mb-2">Индивидуальные занятия</DialogTitle>
+                <DialogTitle className="text-2xl font-bold mb-2 flex items-center gap-2">
+                  <GraduationCap className="h-6 w-6" />
+                  <span>Индивидуальные занятия</span>
+                </DialogTitle>
                 <p className="text-green-100">Управляйте индивидуальными занятиями учеников</p>
               </div>
               <div className="flex items-center gap-3">

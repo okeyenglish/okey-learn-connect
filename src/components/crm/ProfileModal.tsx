@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Edit2, Mail, Phone, MapPin, Calendar, Building, Settings } from "lucide-react";
+import { Edit2, Mail, Phone, MapPin, Calendar, Building, Settings, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { SipSettings } from "../SipSettings";
 
@@ -33,7 +33,10 @@ export const ProfileModal = ({ open, onOpenChange }: ProfileModalProps) => {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Профиль пользователя</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            <span>Профиль пользователя</span>
+          </DialogTitle>
         </DialogHeader>
         
         <div className="space-y-6">

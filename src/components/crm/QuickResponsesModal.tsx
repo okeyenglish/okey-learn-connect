@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Search, Plus, Edit2, MoreHorizontal, X } from "lucide-react";
+import { ArrowLeft, Search, Plus, Edit2, MoreHorizontal, X, Zap } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -223,8 +223,9 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse }: Qu
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             )}
-            <DialogTitle>
-              {selectedCategory ? selectedCategory.name : "Быстрые ответы"}
+            <DialogTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5" />
+              <span>{selectedCategory ? selectedCategory.name : "Быстрые ответы"}</span>
             </DialogTitle>
           </div>
         </DialogHeader>

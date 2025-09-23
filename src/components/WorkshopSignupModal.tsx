@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Send } from "lucide-react";
+import { Send, Wrench } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface WorkshopSignupModalProps {
@@ -83,7 +83,10 @@ export default function WorkshopSignupModal({ branchId, branchName, children }: 
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Попробовать Workshop бесплатно</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Wrench className="h-5 w-5" />
+            <span>Попробовать Workshop бесплатно</span>
+          </DialogTitle>
           <DialogDescription>
             Филиал: {branchName} • Курс: Workshop
           </DialogDescription>

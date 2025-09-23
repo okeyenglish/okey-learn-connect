@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { Clock, User, Check, X, Plus, Edit } from 'lucide-react';
+import { Clock, User, Check, X, Plus, Edit, CheckSquare } from 'lucide-react';
 import { useTasksByDate, useCompleteTask, useCancelTask } from '@/hooks/useTasks';
 import { AddTaskModal } from './AddTaskModal';
 import { EditTaskModal } from './EditTaskModal';
@@ -78,7 +78,10 @@ export const TaskDayView: React.FC<TaskDayViewProps> = ({
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
-              <span>Задачи на {format(date, 'dd MMMM yyyy', { locale: ru })}</span>
+              <div className="flex items-center gap-2">
+                <CheckSquare className="h-5 w-5" />
+                <span>Задачи на {format(date, 'dd MMMM yyyy', { locale: ru })}</span>
+              </div>
               <Button 
                 onClick={() => setShowAddModal(true)}
                 size="sm"
