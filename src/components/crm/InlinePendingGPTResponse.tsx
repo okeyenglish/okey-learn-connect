@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Bot, Edit3, Send, X } from 'lucide-react';
-import { PendingGPTResponse, useApprovePendingResponse, useRejectPendingResponse } from '@/hooks/usePendingGPTResponses';
+import { PendingGPTResponse, useApprovePendingResponse, useRejectPendingResponse, useDismissPendingResponse } from '@/hooks/usePendingGPTResponses';
 
 interface InlinePendingGPTResponseProps {
   response: PendingGPTResponse;
@@ -14,6 +14,7 @@ export const InlinePendingGPTResponse: React.FC<InlinePendingGPTResponseProps> =
 
   const approveMutation = useApprovePendingResponse();
   const rejectMutation = useRejectPendingResponse();
+  const dismissMutation = useDismissPendingResponse();
 
   const handleApprove = () => {
     const messageToSend = isEditing && customMessage !== response.suggested_response 
@@ -28,6 +29,10 @@ export const InlinePendingGPTResponse: React.FC<InlinePendingGPTResponseProps> =
 
   const handleReject = () => {
     rejectMutation.mutate(response.id);
+  };
+
+  const handleDismiss = () => {
+    dismissMutation.mutate(response.id);
   };
 
   if (isEditing) {
@@ -67,8 +72,8 @@ export const InlinePendingGPTResponse: React.FC<InlinePendingGPTResponseProps> =
           <Button
             size="sm"
             variant="ghost"
-            onClick={handleReject}
-            disabled={rejectMutation.isPending}
+            onClick={handleDismiss}
+            disabled={dismissMutation.isPending}
             className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
           >
             <X className="h-3 w-3" />
@@ -111,8 +116,8 @@ export const InlinePendingGPTResponse: React.FC<InlinePendingGPTResponseProps> =
           <Button
             size="sm"
             variant="ghost"
-            onClick={handleReject}
-            disabled={rejectMutation.isPending}
+            onClick={handleDismiss}
+            disabled={dismissMutation.isPending}
             className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
           >
             <X className="h-3 w-3" />

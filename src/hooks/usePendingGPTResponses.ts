@@ -28,6 +28,7 @@ export const usePendingGPTResponses = (clientId?: string) => {
         .from('pending_gpt_responses')
         .select('*')
         .eq('status', 'pending')
+        .gte('expires_at', new Date().toISOString()) // Only get non-expired responses
         .order('created_at', { ascending: false });
 
       if (clientId) {
@@ -116,7 +117,7 @@ export const useApprovePendingResponse = () => {
       // Send the message via WhatsApp
       const { data: sendResult, error: sendError } = await supabase.functions.invoke('whatsapp-send', {
         body: {
-          client_id: pendingResponse.client_id,
+          clientId: pendingResponse.client_id,  // Fix: use clientId instead of client_id
           message: messageToSend
         }
       });
@@ -160,6 +161,50 @@ export const useApprovePendingResponse = () => {
       toast({
         title: "Ошибка отправки",
         description: "Не удалось отправить сообщение клиенту",
+        variant: "destructive",
+      });
+    },
+  });
+};
+
+export const useDismissPendingResponse = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (responseId: string) => {
+      console.log('Dismissing pending response:', responseId);
+      if (!user) {
+        console.error('No authenticated user');
+        throw new Error('User not authenticated');
+      }
+
+      const { data, error } = await supabase
+        .from('pending_gpt_responses')
+        .update({
+          status: 'dismissed',
+          approved_by: user.id
+        })
+        .eq('id', responseId)
+        .select();
+
+      console.log('Dismiss result:', { data, error });
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+      
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pending-gpt-responses'] });
+    },
+    onError: (error: Error) => {
+      console.error('Error dismissing response:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось скрыть предложение",
         variant: "destructive",
       });
     },
