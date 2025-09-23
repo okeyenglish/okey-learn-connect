@@ -48,36 +48,36 @@ export const PinnedModalTabs = ({ pinnedModals, onOpenModal, onUnpinModal }: Pin
   if (pinnedModals.length === 0) return null;
 
   return (
-    <div className="mb-2">
-      <div className="flex flex-wrap gap-1.5">
+    <div className="flex items-center">
+      <div className="flex flex-wrap gap-1.5 items-center">
         {pinnedModals.map((modal) => (
           <Card
             key={`${modal.type}-${modal.id}`}
             className={`p-0 border rounded shadow-none ${getModalColor(modal.type)}`}
           >
-            <div className="flex items-center">
+            <div className="flex items-center h-8">
               <Button
                 variant="ghost"
                 size="sm"
-                className="flex items-center gap-1 px-2 py-1 h-6 leading-none hover:bg-transparent"
+                className="flex items-center gap-1 px-2 py-1 h-8 leading-none hover:bg-transparent rounded-l rounded-r-none"
                 onClick={() => onOpenModal(modal.id, modal.type)}
               >
                 {getModalIcon(modal.type)}
-                <span className="text-[11px] font-medium truncate max-w-[90px]">
+                <span className="text-xs font-medium truncate max-w-[90px]">
                   {modal.title}
                 </span>
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-5 w-5 p-0.5 hover:bg-muted rounded"
+                className="h-8 w-6 p-0.5 hover:bg-muted rounded-r rounded-l-none border-l"
                 onClick={(e) => {
                   e.stopPropagation();
                   onUnpinModal(modal.id, modal.type);
                 }}
                 aria-label="Открепить"
               >
-                <X className="h-2.5 w-2.5" />
+                <X className="h-3 w-3" />
               </Button>
             </div>
           </Card>

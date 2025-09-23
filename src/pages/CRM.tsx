@@ -1042,12 +1042,12 @@ const CRMContent = () => {
               </Sheet>
             )}
             {/* Скрипты и аватарка менеджера на мобильной версии */}
-            <div className="flex items-center px-4 h-12 border-l bg-background gap-2">
+            <div className="flex items-center px-4 h-14 border-l bg-background gap-2">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowScriptsModal(true)}
-                className="flex items-center gap-2 px-2 h-8"
+                className="flex items-center gap-2 px-2 h-10"
               >
                 <MessageCircle className="h-4 w-4" />
                 <span className="hidden sm:inline text-sm">Скрипты</span>
@@ -1066,8 +1066,8 @@ const CRMContent = () => {
       
       {/* User Header - скрыт на мобильной версии */}
       {!isMobile && (
-        <div className="bg-background border-b p-4 shrink-0">
-          <div className="flex items-center justify-between w-full mx-auto px-2 sm:px-4">
+        <div className="bg-background border-b shrink-0">
+          <div className="flex items-center justify-between w-full mx-auto px-4 h-14">
             <div className="flex items-center gap-3 flex-1">
               <Building2 className="h-6 w-6 text-primary flex-shrink-0" />
               <div className="min-w-0">
@@ -1075,7 +1075,7 @@ const CRMContent = () => {
               </div>
               
               {pinnedModals && pinnedModals.length > 0 && (
-                <div className="ml-4 flex">
+                <div className="ml-4 flex items-center">
                   <PinnedModalTabs 
                     pinnedModals={pinnedModals}
                     onOpenModal={handleOpenPinnedModal}
@@ -1084,7 +1084,7 @@ const CRMContent = () => {
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 h-14">
               {(clientsLoading || threadsLoading || studentsLoading || pinnedLoading || chatStatesLoading || systemChatsLoading) && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
@@ -1095,7 +1095,7 @@ const CRMContent = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowScriptsModal(true)}
-                className="flex items-center gap-2 px-3 h-9 mr-2"
+                className="flex items-center gap-2 px-3 h-10"
               >
                 <MessageCircle className="h-4 w-4" />
                 <span className="text-sm">Скрипты</span>

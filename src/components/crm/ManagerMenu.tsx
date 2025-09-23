@@ -64,7 +64,7 @@ export const ManagerMenu = ({
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            className={`flex items-center gap-2 px-3 py-2 h-auto hover:bg-muted/50 ${isMobile ? 'px-1' : ''}`}
+            className={`flex items-center gap-2 px-3 py-2 h-10 hover:bg-muted/50 ${isMobile ? 'px-1' : ''}`}
           >
             <Avatar className="h-8 w-8">
               <AvatarImage src={avatarUrl} alt={displayName} />
