@@ -76,30 +76,37 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
 
       setSipProfile(profile);
 
-      // Try multiple WebSocket ports that work with SIP servers
-      const wsPorts = [8088, 8089, 7443, 5060];
-      let socket = null;
-      
-      for (const port of wsPorts) {
+      // Build a list of candidate WebSocket URLs (WebRTC requires WS/WSS, not UDP/TCP)
+      const candidates = [
+        `wss://${profile.sip_domain}:7443`,
+        `wss://${profile.sip_domain}:7443/ws`,
+        `wss://${profile.sip_domain}:8089`,
+        `wss://${profile.sip_domain}:8089/ws`,
+        `wss://${profile.sip_domain}/ws`,
+        `wss://${profile.sip_domain}`,
+        // Non-secure fallbacks (some PBXs expose ws on 8088)
+        `ws://${profile.sip_domain}:8088`,
+        `ws://${profile.sip_domain}:8088/ws`,
+        `ws://${profile.sip_domain}/ws`,
+      ];
+
+      console.log('SIP WS candidates:', candidates);
+
+      const sockets = candidates.map((url) => {
         try {
-          const wsUrl = `wss://${profile.sip_domain}:${port}`;
-          console.log(`Trying WebSocket connection to: ${wsUrl}`);
-          socket = new JsSIP.WebSocketInterface(wsUrl);
-          break;
-        } catch (error) {
-          console.log(`Failed to create WebSocket on port ${port}:`, error);
+          return new JsSIP.WebSocketInterface(url);
+        } catch (e) {
+          console.warn('Failed to create WS interface for', url, e);
+          return null;
         }
-      }
-      
-      if (!socket) {
-        // Fallback to ws:// instead of wss://
-        const wsUrl = `ws://${profile.sip_domain}:5060`;
-        console.log(`Fallback: trying non-secure WebSocket: ${wsUrl}`);
-        socket = new JsSIP.WebSocketInterface(wsUrl);
+      }).filter(Boolean) as any[];
+
+      if (!sockets.length) {
+        throw new Error('Не удалось создать WebSocket интерфейс для SIP');
       }
 
       const configuration = {
-        sockets: [socket],
+        sockets,
         uri: `sip:${profile.extension_number}@${profile.sip_domain}`,
         authorization_user: profile.extension_number,
         password: profile.sip_password,
@@ -118,6 +125,22 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
       });
 
       uaRef.current = new JsSIP.UA(configuration);
+
+      // Attach remote audio when a new RTC session is created
+      uaRef.current.on('newRTCSession', (data: any) => {
+        sessionRef.current = data.session;
+        const connection = sessionRef.current.connection;
+        if (connection) {
+          connection.addEventListener('track', (e: any) => {
+            if (!audioRef.current) return;
+            const [stream] = e.streams;
+            if (stream) {
+              // Attach remote stream to hidden audio element
+              (audioRef.current as HTMLAudioElement).srcObject = stream;
+            }
+          });
+        }
+      });
 
       uaRef.current.on('connecting', () => {
         console.log('SIP UA connecting...');
@@ -301,6 +324,8 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-md">
+          {/* Hidden audio element for remote stream */}
+          <audio ref={audioRef} autoPlay style={{ display: 'none' }} />
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Phone className="h-5 w-5" />
