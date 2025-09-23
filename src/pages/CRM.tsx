@@ -2253,19 +2253,19 @@ const CRMContent = () => {
                                       <Pin className="h-3 w-3 text-orange-600 mb-1" />
                                       <span className="text-xs text-muted-foreground">{chat.time}</span>
                                        {displayUnread && (
-      <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-sm mt-1 flex items-center gap-1">
-        {showEye ? (
-          <>
-            <Avatar className="h-4 w-4">
-              <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
-              <AvatarFallback className="text-[8px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
-            </Avatar>
-            <span>1</span>
-          </>
-        ) : (
-          chat.unread
-        )}
-      </span>
+       <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-sm mt-1 flex items-center gap-1">
+         {showEye ? (
+           <>
+             <Avatar className="h-4 w-4">
+               <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
+               <AvatarFallback className="text-[8px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
+             </Avatar>
+             <span>1</span>
+           </>
+         ) : (
+           1
+         )}
+       </span>
                                        )}
                                     </div>
                                   </div>
@@ -2880,7 +2880,7 @@ const CRMContent = () => {
                                               <span>1</span>
                                             </>
                                           ) : (
-                                            chat.unread
+                                            1
                                           )}
                                         </span>
                                     )}
