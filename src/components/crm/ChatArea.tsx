@@ -110,6 +110,9 @@ export const ChatArea = ({
   // Get pending GPT responses for this client
   const { data: pendingGPTResponses, isLoading: pendingGPTLoading, error: pendingGPTError } = usePendingGPTResponses(clientId);
   
+  // Set up real-time message updates
+  useRealtimeMessages(clientId);
+  
   // Log pending responses for debugging
   useEffect(() => {
     console.log('ChatArea - clientId:', clientId);
@@ -198,12 +201,34 @@ export const ChatArea = ({
     loadMessages();
   }, [clientId]);
 
-  // Set up real-time message reload when messages change
+  // Set up real-time message updates when client changes
   useEffect(() => {
     if (!clientId || clientId === '1') return;
     
-    // Only reload messages when component mounts or clientId changes
+    // Load messages initially and when client changes
     loadMessages();
+    
+    // Set up real-time subscription for new messages
+    const channel = supabase
+      .channel(`chat_messages_${clientId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `client_id=eq.${clientId}`
+        },
+        (payload) => {
+          console.log('Received new message via real-time:', payload);
+          loadMessages(); // Reload messages when new one arrives
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [clientId]);
 
   // Cleanup pending message interval and scheduled messages on unmount
