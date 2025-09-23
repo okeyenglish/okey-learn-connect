@@ -258,20 +258,25 @@
   color: var(--crm-text);
 }
 
-/* Override Shadcn UI components within CRM */
+/* CRM Button System Overrides */
 
-/* Buttons */
+/* Main Navigation Buttons */
 .crm-container button {
   border-radius: var(--crm-radius) !important;
   font-weight: 500 !important;
   transition: all 0.15s ease !important;
+  font-size: 14px !important;
+  min-height: 40px !important;
 }
 
+/* Primary Buttons */
 .crm-container button[data-variant="default"],
-.crm-container .bg-primary {
+.crm-container .bg-primary,
+.crm-container .text-primary-foreground {
   background: var(--crm-primary) !important;
   color: white !important;
   border: 1px solid var(--crm-primary) !important;
+  padding: 10px 16px !important;
 }
 
 .crm-container button[data-variant="default"]:hover,
@@ -280,40 +285,177 @@
   border-color: var(--crm-primary-dark) !important;
 }
 
-.crm-container button[data-variant="outline"] {
+/* Secondary/Outline Buttons */
+.crm-container button[data-variant="outline"],
+.crm-container button[data-variant="secondary"] {
   background: var(--crm-bg) !important;
   border: 1px solid var(--crm-border) !important;
   color: var(--crm-text) !important;
+  padding: 10px 16px !important;
 }
 
-.crm-container button[data-variant="outline"]:hover {
+.crm-container button[data-variant="outline"]:hover,
+.crm-container button[data-variant="secondary"]:hover {
   background: var(--crm-bg-subtle) !important;
+  border-color: var(--crm-primary) !important;
+  color: var(--crm-primary) !important;
 }
 
+/* Ghost Buttons */
 .crm-container button[data-variant="ghost"] {
   background: transparent !important;
   border: none !important;
   color: var(--crm-text) !important;
+  padding: 10px 16px !important;
 }
 
 .crm-container button[data-variant="ghost"]:hover {
   background: var(--crm-bg-subtle) !important;
 }
 
-.crm-container button[data-variant="secondary"] {
+/* Icon Buttons */
+.crm-container button[data-variant="outline"][class*="h-10 w-10"],
+.crm-container button[class*="h-12 w-12"] {
+  width: 40px !important;
+  height: 40px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Tab Navigation Buttons */
+.crm-container .flex-1.rounded-none,
+.crm-container .bg-primary.text-primary-foreground {
+  border-radius: var(--crm-radius) !important;
+  margin: 2px !important;
+}
+
+/* Send Button Styling */
+.crm-container button[type="submit"],
+.crm-container button:has(svg[data-lucide="send"]) {
+  background: var(--crm-primary) !important;
+  color: white !important;
+  border: 1px solid var(--crm-primary) !important;
+  border-radius: var(--crm-radius) !important;
+  width: 44px !important;
+  height: 44px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+/* Messenger Platform Buttons */
+.crm-container .bg-green-600,
+.crm-container .bg-blue-500,
+.crm-container .bg-gray-600,
+.crm-container .bg-red-500 {
+  border-radius: var(--crm-radius) !important;
+  font-weight: 500 !important;
+  padding: 8px 16px !important;
+  min-height: 36px !important;
+  border: none !important;
+}
+
+/* WhatsApp Button */
+.crm-container .bg-green-600 {
+  background: #25D366 !important;
+  color: white !important;
+}
+
+.crm-container .bg-green-600:hover {
+  background: #128C7E !important;
+}
+
+/* Telegram Button */
+.crm-container .bg-blue-500 {
+  background: #0088cc !important;
+  color: white !important;
+}
+
+/* Email Button */
+.crm-container .bg-gray-600 {
+  background: var(--crm-text-light) !important;
+  color: white !important;
+}
+
+/* Max Button */
+.crm-container .bg-red-500 {
+  background: var(--crm-text) !important;
+  color: white !important;
+}
+
+/* Platform Button Inactive State */
+.crm-container button:not(.bg-green-600):not(.bg-blue-500):not(.bg-gray-600):not(.bg-red-500)[class*="border-"] {
   background: var(--crm-bg) !important;
-  color: var(--crm-text) !important;
   border: 1px solid var(--crm-border) !important;
+  color: var(--crm-text-light) !important;
 }
 
-.crm-container button[data-variant="secondary"]:hover {
-  background: var(--crm-bg-subtle) !important;
+/* Family Management Buttons */
+.crm-container .inline-flex.items-center.gap-2 button {
+  border-radius: var(--crm-radius) !important;
+  padding: 8px 12px !important;
+  min-height: 36px !important;
 }
 
+/* Add Button (Plus) */
+.crm-container button:has(svg[data-lucide="plus"]) {
+  background: var(--crm-text) !important;
+  color: white !important;
+  border: 1px solid var(--crm-text) !important;
+  border-radius: var(--crm-radius) !important;
+  width: 36px !important;
+  height: 36px !important;
+  padding: 0 !important;
+  margin: 0 8px !important;
+}
+
+/* Counter Badges in Buttons */
+.crm-container button .bg-red-500,
+.crm-container button .bg-blue-500 {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+  border-radius: 12px !important;
+  padding: 2px 8px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  margin-left: 6px !important;
+}
+
+/* Button Groups */
+.crm-container .flex.gap-2 button,
+.crm-container .flex.space-x-2 button {
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+
+/* Destructive Buttons */
 .crm-container button[data-variant="destructive"] {
   background: var(--crm-danger) !important;
   color: white !important;
   border: 1px solid var(--crm-danger) !important;
+}
+
+.crm-container button[data-variant="destructive"]:hover {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+}
+
+/* Mobile Tab Buttons */
+@media (max-width: 768px) {
+  .crm-container .fixed.top-0 button {
+    border-radius: 0 !important;
+    border-bottom: 3px solid transparent !important;
+  }
+  
+  .crm-container .fixed.top-0 button.bg-primary {
+    border-bottom-color: var(--crm-primary) !important;
+    background: var(--crm-bg) !important;
+    color: var(--crm-primary) !important;
+  }
 }
 
 /* Cards */
@@ -603,14 +745,79 @@
   background: var(--crm-bg-subtle) !important;
 }
 
-/* Code and Monospace Text */
-.crm-container [role="dialog"] code,
-.crm-container [role="dialog"] .font-mono {
+/* Chat Input Area Styling */
+.crm-container .flex.items-end.gap-2,
+.crm-container .flex.items-center.gap-2 {
+  padding: 12px !important;
+  background: var(--crm-bg) !important;
+  border-top: 1px solid var(--crm-border-light) !important;
+  border-radius: 0 !important;
+}
+
+.crm-container .flex.items-end.gap-2 .flex-1,
+.crm-container .flex.items-center.gap-2 .flex-1 {
+  margin-right: 8px !important;
+}
+
+.crm-container .flex.items-end.gap-2 input,
+.crm-container .flex.items-end.gap-2 textarea {
+  border: 1px solid var(--crm-border) !important;
+  border-radius: var(--crm-radius) !important;
+  padding: 12px 16px !important;
+  background: var(--crm-bg) !important;
+  resize: none !important;
+  min-height: 44px !important;
+  max-height: 120px !important;
+}
+
+.crm-container .flex.items-end.gap-2 input:focus,
+.crm-container .flex.items-end.gap-2 textarea:focus {
+  border-color: var(--crm-primary) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1) !important;
+}
+
+/* Action Buttons Row */
+.crm-container .flex.items-center.space-x-2,
+.crm-container .flex.gap-1 {
+  padding: 0 !important;
+  margin-top: 8px !important;
+}
+
+.crm-container .flex.items-center.space-x-2 button,
+.crm-container .flex.gap-1 button {
+  width: 36px !important;
+  height: 36px !important;
+  padding: 0 !important;
+  border-radius: var(--crm-radius) !important;
+  background: var(--crm-bg-subtle) !important;
+  border: 1px solid var(--crm-border) !important;
+  color: var(--crm-text-light) !important;
+}
+
+.crm-container .flex.items-center.space-x-2 button:hover,
+.crm-container .flex.gap-1 button:hover {
   background: var(--crm-bg-muted) !important;
   color: var(--crm-text) !important;
-  padding: 2px 4px !important;
-  border-radius: var(--crm-radius-sm) !important;
-  font-size: 13px !important;
+}
+
+/* Voice Assistant Button */
+.crm-container button:has(.animate-pulse) {
+  background: var(--crm-danger) !important;
+  color: white !important;
+  border-color: var(--crm-danger) !important;
+}
+
+/* File Upload Button */
+.crm-container button:has(svg[data-lucide="paperclip"]) {
+  background: var(--crm-bg-subtle) !important;
+  color: var(--crm-text-light) !important;
+}
+
+/* Response Time Indicator */
+.crm-container .text-xs.text-gray-500 {
+  color: var(--crm-text-muted) !important;
+  font-size: 12px !important;
 }
 
 /* Inputs */
