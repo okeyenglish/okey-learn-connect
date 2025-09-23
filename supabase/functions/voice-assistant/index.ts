@@ -97,7 +97,7 @@ serve(async (req) => {
       userCommand = command || text;
     }
 
-    if (!userCommand.trim()) {
+    if (!userCommand || !userCommand.trim()) {
       throw new Error('Команда не распознана');
     }
 
