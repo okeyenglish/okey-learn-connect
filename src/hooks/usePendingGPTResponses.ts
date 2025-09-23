@@ -153,14 +153,22 @@ export const useApprovePendingResponse = () => {
         throw updateError;
       }
 
-      return { success: true, messageId: sendResult?.messageId };
+      return { success: true, messageId: sendResult?.messageId, clientId: pendingResponse.client_id, responseId };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: "Сообщение отправлено",
         description: "GPT ответ успешно отправлен клиенту",
       });
-      queryClient.invalidateQueries({ queryKey: ['pending-gpt-responses'] });
+      // Optimistically remove the card from cache
+      if (data?.clientId) {
+        queryClient.setQueryData<PendingGPTResponse[]>(['pending-gpt-responses', data.clientId], (old) =>
+          (old || []).filter((r) => r.id !== data.responseId)
+        );
+        queryClient.invalidateQueries({ queryKey: ['pending-gpt-responses', data.clientId] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['pending-gpt-responses'] });
+      }
       queryClient.invalidateQueries({ queryKey: ['chat-messages'] });
     },
     onError: (error: Error) => {
