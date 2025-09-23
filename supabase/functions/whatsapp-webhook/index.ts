@@ -546,23 +546,30 @@ async function fetchAndSaveAvatar(phoneNumber: string, clientId: string): Promis
 async function handleReactionMessage(webhook: GreenAPIWebhook, client: any) {
   const { senderData, messageData, idMessage } = webhook
   
-  if (!messageData?.reactionMessageData) {
+  if (!messageData) {
     console.log('Missing reaction message data')
     return
   }
 
-  const { messageId, reaction } = messageData.reactionMessageData
+  // Реакции приходят в формате reactionMessage с данными в extendedTextMessageData и quotedMessage
+  const reaction = messageData.extendedTextMessageData?.text
+  const originalMessageId = messageData.quotedMessage?.stanzaId
+  
+  if (!originalMessageId) {
+    console.log('Missing original message ID in reaction')
+    return
+  }
   
   try {
     // Находим оригинальное сообщение по Green API message ID
     const { data: originalMessage, error: messageError } = await supabase
       .from('chat_messages')
       .select('id')
-      .eq('green_api_message_id', messageId)
+      .eq('green_api_message_id', originalMessageId)
       .single()
 
     if (messageError || !originalMessage) {
-      console.log('Original message not found for reaction:', messageId)
+      console.log('Original message not found for reaction:', originalMessageId)
       return
     }
 
