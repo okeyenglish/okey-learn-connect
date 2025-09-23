@@ -23,6 +23,10 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   background-color: var(--crm-bg-secondary);
   color: var(--crm-text);
+  
+  /* Ensure full width */
+  width: 100% !important;
+  max-width: none !important;
 }
 
 /* Reset aggressive overrides */

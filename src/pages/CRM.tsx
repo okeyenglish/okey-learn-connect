@@ -1113,7 +1113,7 @@ const CRMContent = () => {
       )}
 
       {/* Основная область */}
-      <div className={`relative z-0 isolate flex flex-1 w-full overflow-hidden ${isMobile ? 'pt-12' : ''}`}>
+      <div className={`relative z-0 isolate flex flex-1 w-full max-w-none overflow-hidden ${isMobile ? 'pt-12' : ''}`}>
         {/* Left Unified Sidebar - Desktop */}
         <div className={`${
           isMobile ? 'hidden' : 'flex'
@@ -2471,7 +2471,7 @@ const CRMContent = () => {
         </div>
 
         {/* Center - Chat Area или Мобильный контент */}
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-background">
+        <div className="flex-1 w-full max-w-none min-w-0 min-h-0 flex flex-col bg-background">
           {/* Показываем меню на мобильной версии когда активна вкладка menu */}
           {isMobile && activeTab === 'menu' ? (
             <div className="p-4 space-y-2 overflow-y-auto">
