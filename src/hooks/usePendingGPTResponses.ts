@@ -11,7 +11,7 @@ export interface PendingGPTResponse {
   suggested_response: string;
   created_at: string;
   expires_at: string;
-  status: 'pending' | 'approved' | 'rejected' | 'expired';
+  status: 'pending' | 'approved' | 'rejected' | 'expired' | 'failed' | 'dismissed';
   approved_by?: string;
   sent_at?: string;
   original_response?: string;
@@ -119,12 +119,17 @@ export const useApprovePendingResponse = () => {
         throw new Error('Pending response not found');
       }
 
+      // Optimistically hide the response immediately
+      queryClient.setQueryData<PendingGPTResponse[]>(['pending-gpt-responses', pendingResponse.client_id], (old) =>
+        (old || []).filter((r) => r.id !== responseId)
+      );
+
       const messageToSend = customMessage || pendingResponse.suggested_response;
 
       // Send the message via WhatsApp
       const { data: sendResult, error: sendError } = await supabase.functions.invoke('whatsapp-send', {
         body: {
-          clientId: pendingResponse.client_id,  // Fix: use clientId instead of client_id
+          clientId: pendingResponse.client_id,
           message: messageToSend
         }
       });
@@ -160,24 +165,44 @@ export const useApprovePendingResponse = () => {
         title: "Сообщение отправлено",
         description: "GPT ответ успешно отправлен клиенту",
       });
-      // Optimistically remove the card from cache
+      // Ensure the response is removed and refresh the data
       if (data?.clientId) {
-        queryClient.setQueryData<PendingGPTResponse[]>(['pending-gpt-responses', data.clientId], (old) =>
-          (old || []).filter((r) => r.id !== data.responseId)
-        );
         queryClient.invalidateQueries({ queryKey: ['pending-gpt-responses', data.clientId] });
-      } else {
-        queryClient.invalidateQueries({ queryKey: ['pending-gpt-responses'] });
       }
       queryClient.invalidateQueries({ queryKey: ['chat-messages'] });
     },
-    onError: (error: Error) => {
+    onError: (error: Error, variables) => {
       console.error('Error approving response:', error);
       toast({
         title: "Ошибка отправки",
         description: "Не удалось отправить сообщение клиенту",
         variant: "destructive",
       });
+      
+      // Try to mark the response as failed in database so it doesn't show up again
+      if (user) {
+        (async () => {
+          try {
+            const { error: updateError } = await supabase
+              .from('pending_gpt_responses')
+              .update({
+                status: 'failed'
+              })
+              .eq('id', variables.responseId);
+            
+            if (updateError) {
+              console.error('Error marking response as failed:', updateError);
+            } else {
+              console.log('Marked response as failed');
+            }
+          } catch (error) {
+            console.error('Error marking response as failed:', error);
+          } finally {
+            // Invalidate queries to remove failed responses from UI
+            queryClient.invalidateQueries({ queryKey: ['pending-gpt-responses'] });
+          }
+        })();
+      }
     },
   });
 };
