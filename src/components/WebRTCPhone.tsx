@@ -50,12 +50,20 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
 
   const initializeSIP = async () => {
     try {
+      console.log('Initializing SIP connection...');
+      
       // Get user profile with SIP credentials
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('extension_number, sip_domain, sip_password')
         .eq('id', user?.id)
         .single();
+
+      console.log('Profile data:', { 
+        extension_number: profile?.extension_number, 
+        sip_domain: profile?.sip_domain, 
+        hasPassword: !!profile?.sip_password 
+      });
 
       if (!profile?.extension_number || !profile?.sip_password) {
         toast({
@@ -68,8 +76,12 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
 
       setSipProfile(profile);
 
-      const socket = new JsSIP.WebSocketInterface(`wss://${profile.sip_domain}:7443`);
+      // Try common WebSocket ports for SIP servers
+      const wsUrl = `wss://${profile.sip_domain}:8089`;
+      console.log('Connecting to WebSocket:', wsUrl);
       
+      const socket = new JsSIP.WebSocketInterface(wsUrl);
+
       const configuration = {
         sockets: [socket],
         uri: `sip:${profile.extension_number}@${profile.sip_domain}`,
@@ -78,13 +90,38 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
         session_timers: false,
         register: true,
         register_expires: 600,
+        user_agent: 'WebRTC-SIP-Client/1.0.0',
       };
 
+      console.log('SIP Configuration:', {
+        uri: configuration.uri,
+        authorization_user: configuration.authorization_user,
+        hasPassword: !!configuration.password
+      });
+
       uaRef.current = new JsSIP.UA(configuration);
+
+      uaRef.current.on('connecting', () => {
+        console.log('SIP UA connecting...');
+      });
+
+      uaRef.current.on('connected', () => {
+        console.log('SIP UA connected');
+      });
+
+      uaRef.current.on('disconnected', () => {
+        console.log('SIP UA disconnected');
+        setIsConnected(false);
+      });
 
       uaRef.current.on('registered', () => {
         setIsConnected(true);
         console.log('SIP registered successfully');
+        toast({
+          title: "Подключено",
+          description: "SIP соединение установлено",
+          variant: "default",
+        });
       });
 
       uaRef.current.on('unregistered', () => {
@@ -95,13 +132,20 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
       uaRef.current.on('registrationFailed', (e) => {
         setIsConnected(false);
         console.error('SIP registration failed:', e);
+        console.error('Registration failure details:', {
+          cause: e.cause,
+          code: e.response?.status_code,
+          reason: e.response?.reason_phrase
+        });
+        
         toast({
           title: "Ошибка подключения",
-          description: "Не удалось подключиться к SIP серверу",
+          description: `Не удалось подключиться: ${e.cause || 'неизвестная ошибка'}`,
           variant: "destructive",
         });
       });
 
+      console.log('Starting SIP UA...');
       uaRef.current.start();
 
     } catch (error) {
