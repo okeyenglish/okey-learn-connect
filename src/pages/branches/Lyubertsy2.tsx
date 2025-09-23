@@ -207,20 +207,6 @@ export default function LocationLyubertsy2() {
           <PriceCalculator preSelectedBranch="lyubertsy-2" />
         </div>
 
-        {/* Schedule Section */}
-        <div className="mt-16">
-          <ScheduleTable branchName="Красная горка" />
-        </div>
-
-        {/* Reviews from Yandex Maps */}
-        <div className="mt-16">
-          <h2 className="text-3xl font-bold text-center mb-8">Отзывы с Яндекс.Карт</h2>
-          {/* TODO: Добавить ID организации для Люберцы-2 (Красная горка) */}
-          <div className="text-center text-muted-foreground">
-            <p>Отзывы для этого филиала будут добавлены после получения ID организации на Яндекс.Картах</p>
-          </div>
-        </div>
-        
         {/* Unique Content for Red Hill Branch */}
         <div className="mt-16">
           <div className="container mx-auto px-4">

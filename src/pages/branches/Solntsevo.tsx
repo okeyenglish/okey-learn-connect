@@ -228,11 +228,6 @@ export default function LocationSolntsevo() {
           <PriceCalculator preSelectedBranch="solntsevo" />
         </div>
 
-        {/* Schedule Section */}
-        <div className="mt-16">
-          <ScheduleTable branchName="Солнцево" />
-        </div>
-
         {/* Reviews from Yandex Maps */}
         <div className="mt-16">
           <h2 className="text-3xl font-bold text-center mb-8">Отзывы с Яндекс.Карт</h2>
