@@ -326,14 +326,291 @@
   box-shadow: var(--crm-shadow) !important;
 }
 
-/* Dialogs and Modals */
-.crm-container [role="dialog"],
-.crm-container .fixed.inset-0 > div,
-.crm-container .bg-background {
+/* CRM Modal Enhancements */
+.crm-container [role="dialog"] {
   background: var(--crm-bg) !important;
   border-radius: var(--crm-radius-lg) !important;
   border: 1px solid var(--crm-border) !important;
-  box-shadow: var(--crm-shadow-md) !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08) !important;
+  max-width: 90vw !important;
+  max-height: 90vh !important;
+  animation: scale-in 0.2s ease-out !important;
+}
+
+/* Modal Headers */
+.crm-container [role="dialog"] h1,
+.crm-container [role="dialog"] h2,
+.crm-container [role="dialog"] .font-semibold {
+  color: var(--crm-text) !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.025em !important;
+  margin-bottom: 20px !important;
+}
+
+/* Modal Close Buttons */
+.crm-container [role="dialog"] button[aria-label*="Close"],
+.crm-container [role="dialog"] button:has(svg[stroke-width]),
+.crm-container [role="dialog"] .absolute.right-4.top-4 button {
+  background: var(--crm-bg-subtle) !important;
+  color: var(--crm-text-light) !important;
+  border: 1px solid var(--crm-border) !important;
+  border-radius: var(--crm-radius) !important;
+  width: 32px !important;
+  height: 32px !important;
+  padding: 0 !important;
+  transition: all 0.15s ease !important;
+}
+
+.crm-container [role="dialog"] button[aria-label*="Close"]:hover,
+.crm-container [role="dialog"] button:has(svg[stroke-width]):hover {
+  background: var(--crm-bg-muted) !important;
+  color: var(--crm-text) !important;
+  transform: none !important;
+}
+
+/* Modal Content Areas */
+.crm-container [role="dialog"] .p-6,
+.crm-container [role="dialog"] .p-4 {
+  padding: 24px !important;
+}
+
+/* Tab Buttons in Modals */
+.crm-container [role="dialog"] .inline-flex.h-10,
+.crm-container [role="dialog"] .bg-red-500,
+.crm-container [role="dialog"] .text-red-500 {
+  background: var(--crm-primary) !important;
+  color: white !important;
+  border: 1px solid var(--crm-primary) !important;
+  border-radius: var(--crm-radius) !important;
+  padding: 8px 16px !important;
+  font-weight: 500 !important;
+  font-size: 14px !important;
+  height: auto !important;
+  min-height: 36px !important;
+  transition: all 0.15s ease !important;
+}
+
+.crm-container [role="dialog"] .border-red-500,
+.crm-container [role="dialog"] .text-red-600 {
+  background: var(--crm-bg) !important;
+  color: var(--crm-text) !important;
+  border: 1px solid var(--crm-border) !important;
+}
+
+.crm-container [role="dialog"] .border-red-500:hover {
+  background: var(--crm-bg-subtle) !important;
+  border-color: var(--crm-primary) !important;
+  color: var(--crm-primary) !important;
+}
+
+/* Primary Action Buttons in Modals */
+.crm-container [role="dialog"] .bg-red-600,
+.crm-container [role="dialog"] .bg-primary {
+  background: var(--crm-primary) !important;
+  color: white !important;
+  border: 1px solid var(--crm-primary) !important;
+  border-radius: var(--crm-radius) !important;
+  padding: 10px 20px !important;
+  font-weight: 500 !important;
+  transition: all 0.15s ease !important;
+}
+
+.crm-container [role="dialog"] .bg-red-600:hover,
+.crm-container [role="dialog"] .bg-primary:hover {
+  background: var(--crm-primary-dark) !important;
+  border-color: var(--crm-primary-dark) !important;
+  transform: none !important;
+}
+
+/* Secondary Buttons in Modals */
+.crm-container [role="dialog"] .bg-gray-100,
+.crm-container [role="dialog"] .border-gray-300 {
+  background: var(--crm-bg) !important;
+  color: var(--crm-text) !important;
+  border: 1px solid var(--crm-border) !important;
+  border-radius: var(--crm-radius) !important;
+}
+
+.crm-container [role="dialog"] .bg-gray-100:hover {
+  background: var(--crm-bg-subtle) !important;
+}
+
+/* Modal Sections and Cards */
+.crm-container [role="dialog"] .border,
+.crm-container [role="dialog"] .rounded-lg {
+  border: 1px solid var(--crm-border-light) !important;
+  border-radius: var(--crm-radius-lg) !important;
+  background: var(--crm-bg) !important;
+}
+
+/* Empty States in Modals */
+.crm-container [role="dialog"] .text-gray-500,
+.crm-container [role="dialog"] .text-muted-foreground {
+  color: var(--crm-text-muted) !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+}
+
+/* Modal Form Inputs */
+.crm-container [role="dialog"] input[type="text"],
+.crm-container [role="dialog"] input[type="email"],
+.crm-container [role="dialog"] input[type="tel"],
+.crm-container [role="dialog"] textarea,
+.crm-container [role="dialog"] select {
+  border: 1px solid var(--crm-border) !important;
+  border-radius: var(--crm-radius) !important;
+  padding: 10px 12px !important;
+  background: var(--crm-bg) !important;
+  color: var(--crm-text) !important;
+  font-size: 14px !important;
+}
+
+.crm-container [role="dialog"] input:focus,
+.crm-container [role="dialog"] textarea:focus,
+.crm-container [role="dialog"] select:focus {
+  border-color: var(--crm-primary) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1) !important;
+}
+
+/* Modal Labels */
+.crm-container [role="dialog"] label {
+  color: var(--crm-text) !important;
+  font-weight: 500 !important;
+  font-size: 14px !important;
+  margin-bottom: 6px !important;
+  display: block !important;
+}
+
+/* Danger/Delete Buttons */
+.crm-container [role="dialog"] .text-red-600:not(.border-red-500),
+.crm-container [role="dialog"] .bg-red-50 {
+  background: rgba(239, 68, 68, 0.05) !important;
+  color: var(--crm-danger) !important;
+  border: 1px solid rgba(239, 68, 68, 0.2) !important;
+}
+
+/* Success States */
+.crm-container [role="dialog"] .text-green-600,
+.crm-container [role="dialog"] .bg-green-50 {
+  background: rgba(16, 185, 129, 0.05) !important;
+  color: var(--crm-success) !important;
+  border: 1px solid rgba(16, 185, 129, 0.2) !important;
+}
+
+/* Modal Backdrop */
+.crm-container [data-radix-dialog-overlay] {
+  background: rgba(0, 0, 0, 0.4) !important;
+  animation: fade-in 0.2s ease-out !important;
+}
+
+/* Tab Navigation in Modals - Improved Styling */
+.crm-container [role="dialog"] .flex.bg-muted,
+.crm-container [role="dialog"] .bg-gray-50 {
+  background: var(--crm-bg-subtle) !important;
+  border: 1px solid var(--crm-border) !important;
+  border-radius: var(--crm-radius-lg) !important;
+  padding: 4px !important;
+}
+
+.crm-container [role="dialog"] .data-\[state\=active\]:bg-background,
+.crm-container [role="dialog"] [aria-selected="true"] {
+  background: white !important;
+  color: var(--crm-text) !important;
+  border-radius: var(--crm-radius) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Task Status Indicators */
+.crm-container [role="dialog"] .text-red-500:not(button) {
+  color: var(--crm-text-muted) !important;
+}
+
+/* Subtle Dividers */
+.crm-container [role="dialog"] .border-t,
+.crm-container [role="dialog"] .border-b {
+  border-color: var(--crm-border-light) !important;
+}
+
+/* Pin Icons and Status Indicators */
+.crm-container [role="dialog"] .text-orange-500,
+.crm-container [role="dialog"] .text-yellow-500 {
+  color: var(--crm-warning) !important;
+}
+
+/* Calendar and Date Elements */
+.crm-container [role="dialog"] .calendar,
+.crm-container [role="dialog"] [data-radix-calendar] {
+  border: 1px solid var(--crm-border) !important;
+  border-radius: var(--crm-radius-lg) !important;
+  background: var(--crm-bg) !important;
+}
+
+/* Dropdown Menus in Modals */
+.crm-container [role="dialog"] [role="combobox"],
+.crm-container [role="dialog"] .select-trigger {
+  background: var(--crm-bg) !important;
+  border: 1px solid var(--crm-border) !important;
+  color: var(--crm-text) !important;
+}
+
+/* Loading States */
+.crm-container [role="dialog"] .animate-pulse {
+  background: var(--crm-bg-subtle) !important;
+}
+
+/* Checkboxes and Radio Buttons */
+.crm-container [role="dialog"] input[type="checkbox"],
+.crm-container [role="dialog"] input[type="radio"] {
+  accent-color: var(--crm-primary) !important;
+}
+
+/* Search Inputs */
+.crm-container [role="dialog"] input[type="search"] {
+  background: var(--crm-bg-subtle) !important;
+  border: 1px solid var(--crm-border) !important;
+  border-radius: var(--crm-radius) !important;
+}
+
+/* Progress Indicators */
+.crm-container [role="dialog"] .bg-blue-500,
+.crm-container [role="dialog"] .bg-blue-600 {
+  background: var(--crm-primary) !important;
+}
+
+/* Modal Footer Actions */
+.crm-container [role="dialog"] .border-t.bg-gray-50,
+.crm-container [role="dialog"] .bg-muted {
+  background: var(--crm-bg-subtle) !important;
+  border-color: var(--crm-border-light) !important;
+}
+
+/* Tooltips in Modals */
+.crm-container [role="dialog"] [role="tooltip"] {
+  background: var(--crm-text) !important;
+  color: var(--crm-bg) !important;
+  border-radius: var(--crm-radius) !important;
+  font-size: 12px !important;
+  padding: 6px 10px !important;
+}
+
+/* File Upload Areas */
+.crm-container [role="dialog"] .border-dashed {
+  border-color: var(--crm-border) !important;
+  border-style: dashed !important;
+  border-radius: var(--crm-radius-lg) !important;
+  background: var(--crm-bg-subtle) !important;
+}
+
+/* Code and Monospace Text */
+.crm-container [role="dialog"] code,
+.crm-container [role="dialog"] .font-mono {
+  background: var(--crm-bg-muted) !important;
+  color: var(--crm-text) !important;
+  padding: 2px 4px !important;
+  border-radius: var(--crm-radius-sm) !important;
+  font-size: 13px !important;
 }
 
 /* Inputs */
