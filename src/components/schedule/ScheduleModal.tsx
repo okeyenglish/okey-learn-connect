@@ -38,14 +38,6 @@ export const ScheduleModal = ({ open, onOpenChange, children }: ScheduleModalPro
             {children}
           </DialogTrigger>
         )}
-        {!children && (
-          <DialogTrigger asChild>
-            <Button className="gap-2" variant="outline">
-              <Calendar className="h-4 w-4" />
-              Расписание занятий
-            </Button>
-          </DialogTrigger>
-        )}
         <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden">
           <DialogHeader className="px-6 py-4 border-b">
             <div className="flex items-center justify-between">

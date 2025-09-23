@@ -3104,7 +3104,7 @@ const CRMContent = () => {
       )}
 
       {/* Мобильная нижняя навигация */}
-      {isMobile && (
+      {isMobile && !activeChatId && (
         <MobileBottomNavigation
           onCorporateClick={handleMobileCorporateClick}
           onTeachersClick={handleMobileTeachersClick}
@@ -3132,10 +3132,12 @@ const CRMContent = () => {
       />
 
       {/* Модальное окно расписания */}
-      <ScheduleModal
-        open={showScheduleModal}
-        onOpenChange={setShowScheduleModal}
-      />
+      {showScheduleModal && (
+        <ScheduleModal
+          open={showScheduleModal}
+          onOpenChange={setShowScheduleModal}
+        />
+      )}
 
       {/* Modal для просмотра всех задач */}
       <Dialog open={allTasksModal.open} onOpenChange={(open) => setAllTasksModal(prev => ({ ...prev, open }))}>
