@@ -13,11 +13,11 @@ import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
 export default function LocationLyubertsy1() {
   const handleWhatsApp = () => {
     const message = encodeURIComponent("Здравствуйте! Хочу узнать подробнее об обучении в филиале Люберцы");
-    window.open(`https://wa.me/79937073553?text=${message}`, '_blank');
+    window.open(`https://wa.me/79777816299?text=${message}`, '_blank');
   };
 
   const handlePhone = () => {
-    window.open('tel:+74997073535', '_self');
+    window.open('tel:+74959465555', '_self');
   };
 
   const handleTelegram = () => {
@@ -83,7 +83,7 @@ export default function LocationLyubertsy1() {
                   className="flex items-center gap-2"
                 >
                   <Phone className="w-4 h-4" />
-                  +7 (499) 707-35-35
+                  +7 495 946 55 55
                 </Button>
                 <Button 
                   variant="outline" 
