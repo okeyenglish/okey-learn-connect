@@ -141,7 +141,7 @@ export const CallsAndCommentsTimeline: React.FC<CallsAndCommentsTimelineProps> =
       comment_text: comment.comment_text,
       call_log_id: comment.call_log_id
     }))
-  ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()); // Sort by newest first
+  ].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime()); // Sort by oldest first (like chat)
 
   if (callsLoading || commentsLoading) {
     return (
@@ -170,29 +170,6 @@ export const CallsAndCommentsTimeline: React.FC<CallsAndCommentsTimelineProps> =
       <CardContent className="px-0">
         <ScrollArea className="h-96 px-4">
           <div className="space-y-4">
-            {/* Comment input at the top */}
-            <div className="border rounded-lg p-3 bg-yellow-50 border-yellow-200">
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-foreground">Добавить комментарий</label>
-                <Textarea
-                  placeholder="Комментарий о разговоре или звонке..."
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  className="min-h-[80px] bg-white border-yellow-300"
-                />
-                <div className="flex justify-end">
-                  <Button 
-                    onClick={saveComment}
-                    disabled={!commentText.trim() || createCommentMutation.isPending}
-                    size="sm"
-                    className="bg-yellow-500 hover:bg-yellow-600 text-white"
-                  >
-                    {createCommentMutation.isPending ? "Сохранение..." : "Сохранить комментарий"}
-                  </Button>
-                </div>
-              </div>
-            </div>
-
             {/* Timeline events */}
             {timelineEvents.length > 0 ? (
               timelineEvents.map((event, index) => (
