@@ -6,6 +6,13 @@ import { Button } from "@/components/ui/button";
 import YandexReviews from "@/components/YandexReviews";
 import SEOHead from "@/components/SEOHead";
 import { useState } from "react";
+import { 
+  Carousel, 
+  CarouselContent, 
+  CarouselItem, 
+  CarouselPrevious, 
+  CarouselNext 
+} from "@/components/ui/carousel";
 
 // Данные для виджетов Яндекса по филиалам (в указанном порядке)
 const yandexBranches = [
@@ -95,87 +102,41 @@ const studentReviews = [
 
 // Carousel component for Yandex Reviews
 function YandexReviewsCarousel() {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  
-  const nextSlide = () => {
-    setCurrentIndex((prev) => (prev + 1) % yandexBranches.length);
-  };
-  
-  const prevSlide = () => {
-    setCurrentIndex((prev) => (prev - 1 + yandexBranches.length) % yandexBranches.length);
-  };
-  
-  const goToSlide = (index: number) => {
-    setCurrentIndex(index);
-  };
-
   return (
-    <div className="relative max-w-4xl mx-auto">
-      {/* Carousel Container */}
-      <div className="relative overflow-hidden rounded-lg">
-        <div 
-          className="flex transition-transform duration-300 ease-in-out"
-          style={{ transform: `translateX(-${currentIndex * 100}%)` }}
-        >
-          {yandexBranches.map((branch, index) => (
-            <div key={branch.name} className="w-full flex-shrink-0">
-              <Card className="mx-4">
+    <div className="max-w-7xl mx-auto px-4">
+      <Carousel
+        opts={{
+          align: "start",
+          slidesToScroll: 1,
+        }}
+        className="w-full"
+      >
+        <CarouselContent className="-ml-2 md:-ml-4">
+          {yandexBranches.map((branch) => (
+            <CarouselItem key={branch.name} className="pl-2 md:pl-4 md:basis-1/3">
+              <Card>
                 <CardHeader>
-                  <CardTitle className="text-center text-2xl">{branch.name}</CardTitle>
+                  <CardTitle className="text-center text-xl">{branch.name}</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                   <YandexReviews 
                     orgId={branch.orgId}
                     orgUrl={branch.orgUrl}
                     orgTitle={`Отзывы о филиале ${branch.name}`}
-                    height={500}
-                    maxWidth={800}
+                    height={400}
+                    maxWidth={400}
                   />
                 </CardContent>
               </Card>
-            </div>
+            </CarouselItem>
           ))}
-        </div>
-      </div>
-
-      {/* Navigation Arrows */}
-      <Button
-        variant="outline"
-        size="icon"
-        className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/90 hover:bg-white shadow-lg"
-        onClick={prevSlide}
-      >
-        <ChevronLeft className="w-5 h-5" />
-      </Button>
+        </CarouselContent>
+        <CarouselPrevious className="left-2" />
+        <CarouselNext className="right-2" />
+      </Carousel>
       
-      <Button
-        variant="outline" 
-        size="icon"
-        className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/90 hover:bg-white shadow-lg"
-        onClick={nextSlide}
-      >
-        <ChevronRight className="w-5 h-5" />
-      </Button>
-
-      {/* Dots Navigation */}
-      <div className="flex justify-center mt-6 space-x-2">
-        {yandexBranches.map((_, index) => (
-          <button
-            key={index}
-            className={`w-3 h-3 rounded-full transition-colors ${
-              index === currentIndex ? 'bg-primary' : 'bg-muted-foreground/30'
-            }`}
-            onClick={() => goToSlide(index)}
-          />
-        ))}
-      </div>
-
-      {/* Branch Name Indicator */}
-      <div className="text-center mt-4">
-        <p className="text-muted-foreground">
-          Филиал {currentIndex + 1} из {yandexBranches.length}: {yandexBranches[currentIndex].name}
-        </p>
-        <p className="text-sm text-muted-foreground mt-2">
+      <div className="text-center mt-6">
+        <p className="text-sm text-muted-foreground">
           Виджеты отзывов загружаются с Яндекс.Карт для обеспечения максимальной достоверности
         </p>
       </div>
