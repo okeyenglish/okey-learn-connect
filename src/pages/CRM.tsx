@@ -613,16 +613,13 @@ const CRMContent = () => {
       // Skip filtering for corporate and teacher chats as they don't have client_id
       if (chat.type === "corporate" || chat.type === "teachers") return true;
       
-      // Filter by branch - for now we'll keep all chats since branch filtering needs proper client schema
-      if (selectedBranch !== "all") {
-        // Branch filtering would be implemented here when client schema includes branch
-        return true;
-      }
-      
-      // Filter by client type - for now we'll keep all chats since client type filtering needs proper schema
-      if (selectedClientType !== "all") {
-        // Client type filtering would be implemented here when client schema includes status/type
-        return true;
+      // Filter by client type using getClientStatus
+      if (selectedClientType !== "all" && 'client_id' in chat && typeof chat.client_id === 'string') {
+        const status = getClientStatus(chat.client_id);
+        if (!status) return false;
+        
+        if (selectedClientType === "lead" && !status.isLead) return false;
+        if (selectedClientType === "student" && status.isLead) return false;
       }
       
       return true;
