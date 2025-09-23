@@ -118,13 +118,13 @@ serve(async (req) => {
       });
     }
 
-    // Avoid duplicates: if a pending suggestion already exists for this window
+    // Check for ANY pending suggestion for this client to avoid duplicates
     const { data: existingPending, error: existingPendingError } = await supabase
       .from('pending_gpt_responses')
-      .select('id')
+      .select('id, created_at')
       .eq('client_id', clientId)
       .eq('status', 'pending')
-      .gte('created_at', windowStartISO)
+      .gt('expires_at', new Date().toISOString()) // Not expired
       .order('created_at', { ascending: false })
       .limit(1);
 
@@ -134,8 +134,31 @@ serve(async (req) => {
     }
 
     if (existingPending && existingPending.length > 0) {
-      console.log('Pending suggestion already exists for this window. Skipping.');
+      console.log('Pending suggestion already exists for this client. Skipping duplicate.');
       return new Response(JSON.stringify({ success: true, message: 'Pending suggestion already exists' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Double check - if a pending suggestion exists for this client in the last 5 minutes, skip
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { data: recentPending, error: recentPendingError } = await supabase
+      .from('pending_gpt_responses')
+      .select('id, created_at')
+      .eq('client_id', clientId)
+      .eq('status', 'pending')
+      .gte('created_at', fiveMinutesAgo)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (recentPendingError) {
+      console.error('Error checking recent pending suggestions:', recentPendingError);
+      throw recentPendingError;
+    }
+
+    if (recentPending && recentPending.length > 0) {
+      console.log('Recent pending suggestion exists (last 5 minutes). Avoiding spam.');
+      return new Response(JSON.stringify({ success: true, message: 'Recent pending suggestion exists' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -152,18 +175,32 @@ serve(async (req) => {
       throw clientError;
     }
 
-    // Get conversation history for context (last 10 messages)
+    // Get conversation history for context (last 20 messages)
     const { data: contextMessages, error: contextError } = await supabase
       .from('chat_messages')
       .select('message_text, is_outgoing, created_at')
       .eq('client_id', clientId)
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(20);
 
     if (contextError) {
       console.error('Error fetching context messages:', contextError);
       throw contextError;
     }
+
+    // Check if we already greeted today
+    const today = new Date().toDateString();
+    const todaysMessages = contextMessages?.filter(msg => {
+      const msgDate = new Date(msg.created_at).toDateString();
+      return msgDate === today && msg.is_outgoing;
+    }) || [];
+    
+    const alreadyGreetedToday = todaysMessages.some(msg => 
+      msg.message_text.toLowerCase().includes('привет') || 
+      msg.message_text.toLowerCase().includes('здравствуйте') ||
+      msg.message_text.toLowerCase().includes('добрый') ||
+      msg.message_text.toLowerCase().includes('доброе')
+    );
 
     // Prepare context for GPT
     const conversationContext = contextMessages
@@ -179,6 +216,7 @@ serve(async (req) => {
     const gptPrompt = `
 Ты менеджер школы английского языка "OK English". 
 Клиент: ${client.name} (${client.phone})
+${alreadyGreetedToday ? 'ВАЖНО: Сегодня уже здоровались с клиентом, НЕ здоровайся повторно!' : ''}
 
 Контекст предыдущих сообщений:
 ${conversationContext}
@@ -186,12 +224,14 @@ ${conversationContext}
 Новые сообщения от клиента:
 ${newMessages}
 
-ВАЖНО: Отвечай КРАТКО и ПО ДЕЛУ как профессиональный менеджер:
-- Максимум 5 предложений для развернутых ответов
-- Для простых вопросов - краткий факт (например: "Изучаем английский, немецкий, французский. Какой интересует?")
-- Будь вежливым, но без лишних слов
-- Конкретные вопросы = конкретные ответы
-- При необходимости предложи связаться для деталей
+Отвечай как обычный сотрудник школы, простым человеческим языком:
+- НЕ подписывайся ("С уважением, команда OK English" и т.п.)
+- Говори от первого лица как сотрудник школы
+- Будь дружелюбным, но естественным
+- Максимум 3-4 предложения
+- Если уже здоровались сегодня - сразу к делу
+- На конкретные вопросы давай конкретные ответы
+- Предлагай связаться по телефону для деталей
 `;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -203,10 +243,10 @@ ${newMessages}
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'Ты краткий и профессиональный менеджер школы английского языка. Отвечаешь четко, по делу, без лишних слов.' },
+          { role: 'system', content: 'Ты обычный сотрудник школы английского языка. Отвечаешь естественно, по-человечески, как живой человек. Никаких формальностей и подписей.' },
           { role: 'user', content: gptPrompt }
         ],
-        temperature: 0.3,
+        temperature: 0.4,
         max_tokens: 300,
       }),
     });

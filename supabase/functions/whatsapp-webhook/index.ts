@@ -220,10 +220,10 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook) {
 
   console.log(`Saved incoming message from ${phoneNumber}: ${messageText}`)
   
-  // Trigger delayed GPT response generation (30 seconds delay)
-  console.log('Triggering delayed GPT response for client:', client.id);
+  // Trigger delayed GPT response generation
+  console.log('Scheduling delayed GPT response for client:', client.id);
   
-  // Use background task to avoid blocking the webhook response
+  // Use setTimeout with minimal delay to avoid blocking webhook
   setTimeout(async () => {
     try {
       const { data: gptResult, error: gptError } = await supabase.functions.invoke('generate-delayed-gpt-response', {
@@ -241,7 +241,7 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook) {
     } catch (error) {
       console.error('Error triggering delayed GPT response:', error);
     }
-  }, 1000); // Small delay to allow webhook to respond first
+  }, 500); // 0.5 second delay to allow webhook to respond first
 }
 
 async function handleMessageStatus(webhook: GreenAPIWebhook) {
