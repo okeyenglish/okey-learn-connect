@@ -14,8 +14,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        'heading': ['Roboto', 'Inter', 'sans-serif'],
-        'body': ['Roboto', 'Inter', 'sans-serif'],
+        'system': ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Inter', 'Helvetica Neue', 'Arial', 'sans-serif'],
+        'heading': ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Inter', 'Helvetica Neue', 'Arial', 'sans-serif'],
+        'body': ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Inter', 'Helvetica Neue', 'Arial', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -35,6 +36,10 @@ export default {
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
         },
         muted: {
           DEFAULT: "hsl(var(--muted))",
@@ -64,17 +69,19 @@ export default {
         },
       },
       borderRadius: {
+        'telegram': 'var(--radius)',
+        'telegram-lg': 'var(--radius-lg)', 
+        'telegram-chat': 'var(--radius-chat)',
+        'telegram-btn': 'var(--radius-btn)',
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
-      backgroundImage: {
-        'gradient-primary': 'var(--gradient-primary)',
-        'gradient-hero': 'var(--gradient-hero)',
-        'gradient-subtle': 'var(--gradient-subtle)',
-      },
       boxShadow: {
-        'primary': 'var(--shadow-primary)',
+        'telegram': 'var(--shadow-soft)',
+        'telegram-card': 'var(--shadow-card)',
+        'telegram-elevated': 'var(--shadow-elevated)',
+        'soft': 'var(--shadow-soft)',
         'card': 'var(--shadow-card)',
         'elevated': 'var(--shadow-elevated)',
       },
