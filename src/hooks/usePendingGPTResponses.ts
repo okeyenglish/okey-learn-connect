@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
+import { useEffect } from 'react';
 
 export interface PendingGPTResponse {
   id: string;
@@ -17,30 +18,64 @@ export interface PendingGPTResponse {
 }
 
 export const usePendingGPTResponses = (clientId?: string) => {
-  return useQuery({
+  const queryClient = useQueryClient();
+  
+  const query = useQuery({
     queryKey: ['pending-gpt-responses', clientId],
     queryFn: async () => {
-      let query = supabase
+      console.log('Fetching pending GPT responses for client:', clientId);
+      let queryBuilder = supabase
         .from('pending_gpt_responses')
         .select('*')
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
       if (clientId) {
-        query = query.eq('client_id', clientId);
+        queryBuilder = queryBuilder.eq('client_id', clientId);
       }
 
-      const { data, error } = await query;
+      const { data, error } = await queryBuilder;
       
       if (error) {
         console.error('Error fetching pending GPT responses:', error);
         throw error;
       }
       
+      console.log('Fetched pending GPT responses:', data);
       return data as PendingGPTResponse[];
     },
     enabled: true,
+    refetchInterval: 5000, // Refetch every 5 seconds as fallback
   });
+
+  // Set up realtime subscription
+  useEffect(() => {
+    console.log('Setting up realtime subscription for pending GPT responses');
+    
+    let channel = supabase
+      .channel('pending-gpt-responses-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pending_gpt_responses',
+          filter: clientId ? `client_id=eq.${clientId}` : undefined,
+        },
+        (payload) => {
+          console.log('Received realtime update for pending GPT responses:', payload);
+          queryClient.invalidateQueries({ queryKey: ['pending-gpt-responses', clientId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('Cleaning up realtime subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [clientId, queryClient]);
+
+  return query;
 };
 
 export const useApprovePendingResponse = () => {

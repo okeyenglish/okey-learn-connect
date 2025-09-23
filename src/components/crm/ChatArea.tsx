@@ -103,7 +103,15 @@ export const ChatArea = ({
   const markChatMessagesAsReadMutation = useMarkChatMessagesAsRead();
   
   // Get pending GPT responses for this client
-  const { data: pendingGPTResponses, isLoading: pendingGPTLoading } = usePendingGPTResponses(clientId);
+  const { data: pendingGPTResponses, isLoading: pendingGPTLoading, error: pendingGPTError } = usePendingGPTResponses(clientId);
+  
+  // Log pending responses for debugging
+  useEffect(() => {
+    console.log('ChatArea - clientId:', clientId);
+    console.log('ChatArea - pendingGPTResponses:', pendingGPTResponses);
+    console.log('ChatArea - pendingGPTLoading:', pendingGPTLoading);
+    console.log('ChatArea - pendingGPTError:', pendingGPTError);
+  }, [clientId, pendingGPTResponses, pendingGPTLoading, pendingGPTError]);
 
   // Функция для прокрутки к концу чата
   const scrollToBottom = (smooth = true) => {
@@ -1102,14 +1110,30 @@ export const ChatArea = ({
           <TabsContent value="whatsapp" className="flex-1 p-3 overflow-y-auto mt-0">
             <div className="space-y-1">
               {/* Pending GPT Responses */}
-              {!pendingGPTLoading && pendingGPTResponses && pendingGPTResponses.length > 0 && (
+              {pendingGPTResponses && pendingGPTResponses.length > 0 && (
                 <div className="space-y-3 mb-4">
+                  <div className="text-sm font-medium text-muted-foreground px-2">
+                    📤 Предложенные GPT ответы ({pendingGPTResponses.length})
+                  </div>
                   {pendingGPTResponses.map((response) => (
                     <PendingGPTResponseComponent
                       key={response.id}
                       response={response}
                     />
                   ))}
+                </div>
+              )}
+              
+              {/* Debug info */}
+              {pendingGPTLoading && (
+                <div className="text-sm text-muted-foreground px-2">
+                  Загружаются предложенные ответы...
+                </div>
+              )}
+              
+              {pendingGPTError && (
+                <div className="text-sm text-red-500 px-2">
+                  Ошибка загрузки предложенных ответов: {pendingGPTError.message}
                 </div>
               )}
               
