@@ -311,7 +311,7 @@ export const AddStudentModal = ({ familyGroupId, parentLastName, onStudentAdded,
 
                 <div className="space-y-2">
                   <Label htmlFor="status" className="flex items-center gap-2 font-medium">
-                    <Badge className="h-4 w-4 rounded-full p-0" />
+                    <Badge className="h-4 w-4 rounded-sm p-0" />
                     Статус обучения
                   </Label>
                   <Select

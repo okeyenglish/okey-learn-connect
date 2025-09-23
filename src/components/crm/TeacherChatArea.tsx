@@ -452,7 +452,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                         {pinCounts['teachers-group'] > 0 && (
                           <Pin className="h-3 w-3 text-muted-foreground" />
                         )}
-                        <Badge variant="destructive" className="h-5 w-5 p-0 flex items-center justify-center text-xs">
+                        <Badge variant="destructive" className="h-5 w-5 p-0 flex items-center justify-center text-xs rounded-sm">
                           4
                         </Badge>
                       </div>
@@ -496,7 +496,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                             <Pin className="h-3 w-3 text-muted-foreground" />
                           )}
                           {teacher.unreadMessages > 0 && (
-                            <Badge variant="destructive" className="h-5 w-5 p-0 flex items-center justify-center text-xs">
+                            <Badge variant="destructive" className="h-5 w-5 p-0 flex items-center justify-center text-xs rounded-sm">
                               {teacher.unreadMessages}
                             </Badge>
                           )}
@@ -655,7 +655,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                       {pinCounts['teachers-group'] > 0 && (
                         <Pin className="h-3 w-3 text-muted-foreground" />
                       )}
-                      <Badge variant="destructive" className="h-4 w-4 p-0 flex items-center justify-center text-xs">
+                      <Badge variant="destructive" className="h-4 w-4 p-0 flex items-center justify-center text-xs rounded-sm">
                         4
                       </Badge>
                     </div>
@@ -703,7 +703,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                           <Pin className="h-3 w-3 text-muted-foreground" />
                         )}
                         {teacher.unreadMessages > 0 && (
-                          <Badge variant="destructive" className="h-4 w-4 p-0 flex items-center justify-center text-xs">
+                          <Badge variant="destructive" className="h-4 w-4 p-0 flex items-center justify-center text-xs rounded-sm">
                             {teacher.unreadMessages}
                           </Badge>
                         )}

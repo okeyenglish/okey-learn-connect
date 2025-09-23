@@ -468,7 +468,7 @@ export const FamilyCard = ({
                         </div>
                         <div className="flex items-center gap-1">
                           {member.unreadMessages && member.unreadMessages > 0 && (
-                            <Badge variant="destructive" className="text-xs px-1">
+                            <Badge variant="destructive" className="text-xs px-1 rounded-sm">
                               {member.unreadMessages}
                             </Badge>
                           )}

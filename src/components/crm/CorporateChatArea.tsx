@@ -213,7 +213,7 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
                           <div className="flex items-center gap-2">
                             <p className="font-medium text-sm truncate">{branch.name}</p>
                             {branch.unread > 0 && (
-                              <Badge variant="destructive" className="text-xs h-5">
+                              <Badge variant="destructive" className="text-xs h-5 rounded-sm">
                                 {branch.unread}
                               </Badge>
                             )}
@@ -356,7 +356,7 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
                           <div className="flex items-center gap-2">
                             <p className="font-medium text-sm truncate">{branch.name}</p>
                             {branch.unread > 0 && (
-                              <Badge variant="destructive" className="text-xs h-4">
+                              <Badge variant="destructive" className="text-xs h-4 rounded-sm">
                                 {branch.unread}
                               </Badge>
                             )}

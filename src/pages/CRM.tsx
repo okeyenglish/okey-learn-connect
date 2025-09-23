@@ -2119,9 +2119,16 @@ const CRMContent = () => {
                             Закрепленные (в работе)
                           </h3>
                         </div>
-                        <Badge variant="secondary" className="text-xs h-4">
-                          {filteredChats.filter(chat => isPinnedByCurrentUser(chat.id)).length}
-                        </Badge>
+                        {(() => {
+                          const pinnedUnreadCount = filteredChats
+                            .filter(chat => isPinnedByCurrentUser(chat.id))
+                            .reduce((sum, chat) => sum + (chat.unread || 0), 0);
+                          return pinnedUnreadCount > 0 ? (
+                            <Badge variant="destructive" className="text-xs h-4 rounded-sm">
+                              {pinnedUnreadCount}
+                            </Badge>
+                          ) : null;
+                        })()}
                       </button>
                       {isPinnedSectionOpen && (
                          <div className="space-y-0.5">
@@ -2576,9 +2583,16 @@ const CRMContent = () => {
                             Закрепленные (в работе)
                           </h3>
                         </div>
-                        <Badge variant="secondary" className="text-xs h-5">
-                          {filteredChats.filter(chat => isPinnedByCurrentUser(chat.id)).length}
-                        </Badge>
+                        {(() => {
+                          const pinnedUnreadCount = filteredChats
+                            .filter(chat => isPinnedByCurrentUser(chat.id))
+                            .reduce((sum, chat) => sum + (chat.unread || 0), 0);
+                          return pinnedUnreadCount > 0 ? (
+                            <Badge variant="destructive" className="text-xs h-5 rounded-sm">
+                              {pinnedUnreadCount}
+                            </Badge>
+                          ) : null;
+                        })()}
                       </button>
                       {isPinnedSectionOpen && (
                         <div className="space-y-1 mb-6">

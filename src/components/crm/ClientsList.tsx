@@ -133,7 +133,7 @@ export const ClientsList = ({ onSelectClient, selectedClientId }: ClientsListPro
                            {(() => {
                              const s = getClientStatus(client.id);
                              return s.isLead ? (
-                               <Badge variant="destructive" className="sm:hidden flex-shrink-0">Лид</Badge>
+                               <Badge variant="destructive" className="sm:hidden flex-shrink-0 rounded-sm">Лид</Badge>
                              ) : null;
                            })()}
                          </h4>

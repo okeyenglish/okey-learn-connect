@@ -117,7 +117,7 @@ export const LinkedContacts = ({
                     </div>
                     <div className="flex items-center gap-1">
                       {contact.unreadMessages && contact.unreadMessages > 0 && (
-                        <Badge variant="destructive" className="text-xs px-1">
+                        <Badge variant="destructive" className="text-xs px-1 rounded-sm">
                           {contact.unreadMessages}
                         </Badge>
                       )}
