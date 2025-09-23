@@ -44,8 +44,9 @@ export const usePendingGPTResponses = (clientId?: string) => {
       console.log('Fetched pending GPT responses:', data);
       return data as PendingGPTResponse[];
     },
-    enabled: true,
-    refetchInterval: 5000, // Refetch every 5 seconds as fallback
+    enabled: !!clientId,
+    staleTime: 1000, // Consider data stale after 1 second
+    gcTime: 5000, // Keep in cache for 5 seconds (replaces cacheTime)
   });
 
   // Set up realtime subscription

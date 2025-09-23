@@ -1110,30 +1110,14 @@ export const ChatArea = ({
           <TabsContent value="whatsapp" className="flex-1 p-3 overflow-y-auto mt-0">
             <div className="space-y-1">
               {/* Pending GPT Responses */}
-              {pendingGPTResponses && pendingGPTResponses.length > 0 && (
+              {Array.isArray(pendingGPTResponses) && pendingGPTResponses.length > 0 && (
                 <div className="space-y-3 mb-4">
-                  <div className="text-sm font-medium text-muted-foreground px-2">
-                    📤 Предложенные GPT ответы ({pendingGPTResponses.length})
-                  </div>
                   {pendingGPTResponses.map((response) => (
                     <PendingGPTResponseComponent
                       key={response.id}
                       response={response}
                     />
                   ))}
-                </div>
-              )}
-              
-              {/* Debug info */}
-              {pendingGPTLoading && (
-                <div className="text-sm text-muted-foreground px-2">
-                  Загружаются предложенные ответы...
-                </div>
-              )}
-              
-              {pendingGPTError && (
-                <div className="text-sm text-red-500 px-2">
-                  Ошибка загрузки предложенных ответов: {pendingGPTError.message}
                 </div>
               )}
               
