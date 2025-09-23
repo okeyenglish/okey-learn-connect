@@ -2013,31 +2013,21 @@ const CRMContent = () => {
                                          <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
                                            <GraduationCap className="h-5 w-5 text-purple-600" />
                                          </div>
-                                          ) : chat.avatar_url ? (
-                                            <div className="relative flex-shrink-0">
-                                              <img 
-                                                src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
-                                                alt={`${chat.name} avatar`} 
-                                                className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
-                                                loading="lazy"
-                                                decoding="async"
-                                                referrerPolicy="no-referrer"
-                                                crossOrigin="anonymous"
-                                                onError={(e) => {
-                                                  const target = e.currentTarget as HTMLImageElement;
-                                                  target.style.display = 'none';
-                                                  const fallback = target.nextElementSibling as HTMLElement;
-                                                  if (fallback) {
-                                                    fallback.style.display = 'flex';
-                                                    fallback.classList.remove('hidden');
-                                                  }
-                                                }}
-                                              />
-                                              <div 
-                                                className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center hidden" 
-                                              >
-                                                <User className="h-5 w-5 text-green-600" />
-                                               </div>
+                                           ) : chat.avatar_url ? (
+                                             <div className="relative flex-shrink-0">
+                                               <img 
+                                                 src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
+                                                 alt={`${chat.name} avatar`} 
+                                                 className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
+                                                 loading="lazy"
+                                                 decoding="async"
+                                                 referrerPolicy="no-referrer"
+                                                 crossOrigin="anonymous"
+                                                 onError={(e) => {
+                                                   const target = e.currentTarget as HTMLImageElement;
+                                                   target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
+                                                 }}
+                                               />
                                            {/* Lead indicator */}
                                              {(() => {
                                                const chatInfo = chat as any;
@@ -2177,31 +2167,21 @@ const CRMContent = () => {
                                        <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
                                          <GraduationCap className="h-5 w-5 text-purple-600" />
                                        </div>
-                                        ) : chat.avatar_url ? (
-                                           <div className="relative flex-shrink-0">
-                                              <img 
-                                                src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
-                                                alt={`${chat.name} avatar`} 
-                                                className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
-                                                loading="lazy"
-                                                decoding="async"
-                                                referrerPolicy="no-referrer"
-                                                crossOrigin="anonymous"
-                                                onError={(e) => {
-                                                  const target = e.currentTarget as HTMLImageElement;
-                                                  target.style.display = 'none';
-                                                  const fallback = target.nextElementSibling as HTMLElement;
-                                                  if (fallback) {
-                                                    fallback.style.display = 'flex';
-                                                    fallback.classList.remove('hidden');
-                                                  }
-                                                }}
-                                              />
-                                               <div 
-                                                 className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center hidden" 
-                                               >
-                                                 <User className="h-5 w-5 text-green-600" />
-                                               </div>
+                                         ) : chat.avatar_url ? (
+                                            <div className="relative flex-shrink-0">
+                                               <img 
+                                                 src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
+                                                 alt={`${chat.name} avatar`} 
+                                                 className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
+                                                 loading="lazy"
+                                                 decoding="async"
+                                                 referrerPolicy="no-referrer"
+                                                 crossOrigin="anonymous"
+                                                 onError={(e) => {
+                                                   const target = e.currentTarget as HTMLImageElement;
+                                                   target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
+                                                 }}
+                                               />
                                               {/* Lead indicator */}
                                               {(() => {
                                                 const chatInfo = chat as any;
@@ -2379,9 +2359,35 @@ const CRMContent = () => {
                                          handleChatClick(chat.id, chat.type as any);
                                        }}
                                      >
-                                      <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                                        <User className="h-6 w-6 text-green-600" />
-                                      </div>
+                                       {chat.type === 'corporate' ? (
+                                         <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                           <Building2 className="h-6 w-6 text-blue-600" />
+                                         </div>
+                                       ) : chat.type === 'teachers' ? (
+                                         <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                                           <GraduationCap className="h-6 w-6 text-purple-600" />
+                                         </div>
+                                       ) : chat.avatar_url ? (
+                                         <div className="relative flex-shrink-0">
+                                           <img 
+                                             src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
+                                             alt={`${chat.name} avatar`} 
+                                             className="w-12 h-12 rounded-full object-cover border-2 border-green-200"
+                                             loading="lazy"
+                                             decoding="async"
+                                             referrerPolicy="no-referrer"
+                                             crossOrigin="anonymous"
+                                             onError={(e) => {
+                                               const target = e.currentTarget as HTMLImageElement;
+                                               target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
+                                             }}
+                                           />
+                                         </div>
+                                       ) : (
+                                         <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                                           <User className="h-6 w-6 text-green-600" />
+                                         </div>
+                                       )}
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2">
                                           <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
@@ -2492,9 +2498,35 @@ const CRMContent = () => {
                                       handleChatClick(chat.id, chat.type as any);
                                     }}
                                   >
-                                   <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                                     <User className="h-6 w-6 text-green-600" />
-                                   </div>
+                                    {chat.type === 'corporate' ? (
+                                      <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                        <Building2 className="h-6 w-6 text-blue-600" />
+                                      </div>
+                                    ) : chat.type === 'teachers' ? (
+                                      <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                                        <GraduationCap className="h-6 w-6 text-purple-600" />
+                                      </div>
+                                    ) : chat.avatar_url ? (
+                                      <div className="relative flex-shrink-0">
+                                        <img 
+                                          src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
+                                          alt={`${chat.name} avatar`} 
+                                          className="w-12 h-12 rounded-full object-cover border-2 border-green-200"
+                                          loading="lazy"
+                                          decoding="async"
+                                          referrerPolicy="no-referrer"
+                                          crossOrigin="anonymous"
+                                          onError={(e) => {
+                                            const target = e.currentTarget as HTMLImageElement;
+                                            target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
+                                          }}
+                                        />
+                                      </div>
+                                    ) : (
+                                      <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                                        <User className="h-6 w-6 text-green-600" />
+                                      </div>
+                                    )}
                                           <div className="flex-1 min-w-0 overflow-hidden">
                                             <div className="flex items-center gap-2">
                                               <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
