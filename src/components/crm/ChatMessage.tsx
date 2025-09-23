@@ -368,11 +368,11 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
                       </div>
                     )}
                   </div>
-                </div>
-                
-                 {/* Эмодзи реакции внизу справа с минимальным заходом */}
+                 </div>
+                 
+                 {/* Эмодзи реакции под временем с небольшим заходом на bubble */}
                  {messageId && (type === 'client' || type === 'manager') && (
-                   <div className="absolute -bottom-0.5 right-1 z-10">
+                   <div className="absolute -bottom-2 right-1 z-10">
                      <MessageReactions 
                        messageId={messageId} 
                        showAddButton={true}
