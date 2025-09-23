@@ -1,8 +1,9 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
-import { File, Image, Video, Music, FileText, Download, ExternalLink, Play, Pause, Volume2, VolumeX, Maximize2 } from 'lucide-react';
+import { File, Image, Video, Music, FileText, Download, ExternalLink, Play, Pause, Volume2, VolumeX, Maximize2, Loader2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { useWhatsAppFile } from '@/hooks/useWhatsAppFile';
 
 interface AttachedFileProps {
   url: string;
@@ -10,16 +11,21 @@ interface AttachedFileProps {
   type: string;
   size?: number;
   className?: string;
+  chatId?: string;
+  messageId?: string;
 }
 
-export const AttachedFile = ({ url, name, type, size, className }: AttachedFileProps) => {
+export const AttachedFile = ({ url, name, type, size, className, chatId, messageId }: AttachedFileProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const [realUrl, setRealUrl] = useState<string>(url);
+  const [urlError, setUrlError] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const { downloadFile, loading: downloadLoading } = useWhatsAppFile();
 
   const getFileIcon = () => {
     if (type.startsWith('image/')) return <Image className="h-4 w-4" />;
@@ -48,25 +54,54 @@ export const AttachedFile = ({ url, name, type, size, className }: AttachedFileP
 
   const handleDownload = async () => {
     try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = name;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrl);
+      let downloadUrl = realUrl;
+      
+      // If we have WhatsApp message info and the current URL failed, try to get fresh URL
+      if ((urlError || !realUrl) && chatId && messageId) {
+        const freshUrl = await downloadFile(chatId, messageId);
+        if (freshUrl) {
+          downloadUrl = freshUrl;
+          setRealUrl(freshUrl);
+          setUrlError(false);
+        }
+      }
+
+      if (downloadUrl) {
+        const response = await fetch(downloadUrl);
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+      }
     } catch (error) {
       console.error('Error downloading file:', error);
       // Fallback to opening in new tab
-      window.open(url, '_blank');
+      if (realUrl) {
+        window.open(realUrl, '_blank');
+      }
+    }
+  };
+
+  const handleMediaError = async () => {
+    console.log('Media error, trying to refresh URL...');
+    setUrlError(true);
+    
+    if (chatId && messageId) {
+      const freshUrl = await downloadFile(chatId, messageId);
+      if (freshUrl) {
+        setRealUrl(freshUrl);
+        setUrlError(false);
+      }
     }
   };
 
   const handlePreview = () => {
-    window.open(url, '_blank');
+    window.open(realUrl, '_blank');
   };
 
   const toggleAudioPlayback = () => {
@@ -204,8 +239,13 @@ export const AttachedFile = ({ url, name, type, size, className }: AttachedFileP
               className="h-6 w-6 p-0"
               onClick={handleDownload}
               title="Скачать"
+              disabled={downloadLoading}
             >
-              <Download className="h-3 w-3" />
+              {downloadLoading ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Download className="h-3 w-3" />
+              )}
             </Button>
           </div>
         </div>
@@ -214,13 +254,10 @@ export const AttachedFile = ({ url, name, type, size, className }: AttachedFileP
           <Dialog>
             <DialogTrigger asChild>
               <img
-                src={url}
+                src={realUrl}
                 alt={name}
                 className="max-w-full max-h-32 rounded cursor-pointer object-cover hover:opacity-80 transition-opacity"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDIwMCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMTI4IiBmaWxsPSIjRjNGNEY2Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iNjQiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzlDQTNBRiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+SW1hZ2UgTm90IEF2YWlsYWJsZTwvdGV4dD4KPC9zdmc+Cg==';
-                }}
+                onError={handleMediaError}
               />
             </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh] p-0">

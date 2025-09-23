@@ -3,6 +3,9 @@ project_id = "kbojujfwtvmsgudumown"
 [functions.ask]
 verify_jwt = false
 
+[functions.download-whatsapp-file]
+verify_jwt = false
+
 [functions.generate-delayed-gpt-response]
 verify_jwt = false
 

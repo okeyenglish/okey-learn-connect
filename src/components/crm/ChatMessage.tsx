@@ -31,9 +31,11 @@ interface ChatMessageProps {
   fileUrl?: string;
   fileName?: string;
   fileType?: string;
+  whatsappChatId?: string;
+  greenApiMessageId?: string;
 }
 
-export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType }: ChatMessageProps) => {
+export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, whatsappChatId, greenApiMessageId }: ChatMessageProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message);
 
@@ -328,6 +330,8 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
                       name={fileName}
                       type={fileType}
                       className="max-w-xs"
+                      chatId={whatsappChatId}
+                      messageId={greenApiMessageId}
                     />
                   </div>
                 )}

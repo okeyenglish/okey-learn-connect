@@ -137,7 +137,7 @@ export const ChatArea = ({
         .from('chat_messages')
         .select(`
           *,
-          clients!inner(avatar_url)
+          clients!inner(avatar_url, whatsapp_chat_id)
         `)
         .eq('client_id', clientId)
         .order('created_at', { ascending: true });
@@ -161,7 +161,12 @@ export const ChatArea = ({
         callDuration: msg.call_duration,
         messageStatus: msg.message_status,
         clientAvatar: msg.clients?.avatar_url || null,
-        managerName: managerName // Pass manager name for comments
+        managerName: managerName, // Pass manager name for comments
+        fileUrl: msg.file_url,
+        fileName: msg.file_name,
+        fileType: msg.file_type,
+        whatsappChatId: msg.clients?.whatsapp_chat_id,
+        greenApiMessageId: msg.green_api_message_id
       }));
 
       console.log('Formatted messages:', formattedMessages);
@@ -1194,6 +1199,8 @@ export const ChatArea = ({
                       fileUrl={msg.fileUrl}
                       fileName={msg.fileName}
                       fileType={msg.fileType}
+                      whatsappChatId={msg.whatsappChatId}
+                      greenApiMessageId={msg.greenApiMessageId}
                     />
                   ))}
                   

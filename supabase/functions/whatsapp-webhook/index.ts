@@ -177,7 +177,35 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook) {
       } else {
         messageText = messageData.fileMessageData?.caption || '[Файл]'
       }
-      fileUrl = messageData.fileMessageData?.downloadUrl
+      
+      // For media files, we need to call downloadFile API to get the real URL
+      if (messageData.fileMessageData?.downloadUrl) {
+        try {
+          console.log('Getting download URL for media file:', idMessage);
+          const { data: downloadResult, error: downloadError } = await supabase.functions.invoke('download-whatsapp-file', {
+            body: { 
+              chatId: chatId,
+              idMessage: idMessage 
+            }
+          });
+
+          if (downloadError) {
+            console.error('Error getting download URL:', downloadError);
+            fileUrl = messageData.fileMessageData.downloadUrl; // fallback to original
+          } else if (downloadResult?.downloadUrl) {
+            fileUrl = downloadResult.downloadUrl;
+            console.log('Got real download URL:', fileUrl);
+          } else {
+            fileUrl = messageData.fileMessageData.downloadUrl; // fallback to original
+          }
+        } catch (error) {
+          console.error('Error calling download-whatsapp-file:', error);
+          fileUrl = messageData.fileMessageData.downloadUrl; // fallback to original
+        }
+      } else {
+        fileUrl = messageData.fileMessageData?.downloadUrl;
+      }
+      
       fileName = messageData.fileMessageData?.fileName
       fileType = messageData.fileMessageData?.mimeType
       break

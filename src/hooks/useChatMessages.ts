@@ -12,6 +12,11 @@ export interface ChatMessage {
   is_read: boolean;
   call_duration?: string;
   created_at: string;
+  file_url?: string;
+  file_name?: string;
+  file_type?: string;
+  green_api_message_id?: string;
+  whatsapp_chat_id?: string;
 }
 
 export interface ChatThread {
