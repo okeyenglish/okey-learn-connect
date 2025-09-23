@@ -184,30 +184,8 @@ export const ChatArea = ({
         created_at: msg.created_at // Add created_at for sorting
       }));
 
-      // Add call comments as system messages in the main chat
-      const callCommentsAsMessages = callComments.map(comment => ({
-        id: `comment-${comment.id}`,
-        type: 'system',
-        message: comment.comment_text,
-        time: new Date(comment.created_at).toLocaleTimeString('ru-RU', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        }),
-        systemType: 'call-comment',
-        callDuration: undefined,
-        messageStatus: undefined,
-        clientAvatar: null,
-        managerName: managerName,
-        fileUrl: undefined,
-        fileName: undefined,
-        fileType: undefined,
-        whatsappChatId: undefined,
-        greenApiMessageId: undefined,
-        created_at: comment.created_at
-      }));
-
-      // Combine and sort all messages by timestamp
-      const allMessages = [...formattedMessages, ...callCommentsAsMessages]
+      // NOTE: Temporarily do not inject call comments into the main chat feed to avoid layout issues
+      const allMessages = [...formattedMessages]
         .sort((a, b) => {
           return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
         });
