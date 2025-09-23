@@ -1252,8 +1252,8 @@ export const ChatArea = ({
             <TabsTrigger value="calls" className="text-xs">Звонки</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="whatsapp" className="flex-1 p-3 overflow-y-auto mt-0">
-            <div className="flex flex-col justify-end min-h-full space-y-1">
+          <TabsContent value="whatsapp" className="flex-1 overflow-y-auto mt-0">
+            <div className="space-y-1">
               {loadingMessages ? (
                 <div className="text-center text-muted-foreground text-sm py-4">
                   Загрузка сообщений...
