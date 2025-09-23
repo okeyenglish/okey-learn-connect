@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.onlinepbx-call]
 verify_jwt = true
+
+[functions.onlinepbx-webhook]
+verify_jwt = false
