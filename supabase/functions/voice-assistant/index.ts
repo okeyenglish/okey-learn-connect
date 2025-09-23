@@ -23,7 +23,7 @@ serve(async (req) => {
   }
 
   try {
-    const { audio, command, userId, context } = await req.json();
+    const { audio, text, command, userId, context } = await req.json();
     
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
@@ -93,8 +93,8 @@ serve(async (req) => {
         }
         throw new Error('Ошибка обработки аудио: ' + error.message);
       }
-    } else if (command) {
-      userCommand = command;
+    } else if (command || text) {
+      userCommand = command || text;
     }
 
     if (!userCommand.trim()) {
