@@ -342,9 +342,9 @@ export const FamilyCard = ({
                 <Button 
                   size="sm" 
                   variant="ghost" 
-                  className="h-6 w-6 p-0 bg-slate-600 text-white hover:bg-slate-700 rounded-full"
+                  className="h-5 w-5 p-0 bg-slate-600 text-white hover:bg-slate-700 rounded-full"
                 >
-                  <Plus className="h-3 w-3" />
+                  <Plus className="h-2.5 w-2.5" />
                 </Button>
               </AddStudentModal>
             ) : (
@@ -355,9 +355,9 @@ export const FamilyCard = ({
                 <Button 
                   size="sm" 
                   variant="ghost" 
-                  className="h-6 w-6 p-0 bg-slate-600 text-white hover:bg-slate-700 rounded-full"
+                  className="h-5 w-5 p-0 bg-slate-600 text-white hover:bg-slate-700 rounded-full"
                 >
-                  <Plus className="h-3 w-3" />
+                  <Plus className="h-2.5 w-2.5" />
                 </Button>
               </AddFamilyMemberModal>
             )}
