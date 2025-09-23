@@ -1975,7 +1975,7 @@ const CRMContent = () => {
                         </Badge>
                       </button>
                       {isPinnedSectionOpen && (
-                        <div className="space-y-1">
+                         <div className="space-y-0.5">
                         {filteredChats
                           .filter(chat => isPinnedByCurrentUser(chat.id))
                           .map((chat) => {
@@ -1994,14 +1994,14 @@ const CRMContent = () => {
                                 isPinned={chatState.isPinned}
                                 isArchived={chatState.isArchived}
                               >
-                                <button 
-                                  className={`w-full p-3 text-left rounded-lg transition-colors relative border-l-2 border-orange-400 ${
-                                    chat.id === activeChatId 
-                                      ? 'bg-orange-50 hover:bg-orange-100 dark:bg-orange-950 dark:hover:bg-orange-900' 
-                                      : 'bg-orange-25 hover:bg-orange-50 dark:bg-orange-975 dark:hover:bg-orange-950'
-                                  }`}
-                                  onClick={() => handleChatClick(chat.id, chat.type)}
-                                >
+                                 <button 
+                                   className={`w-full p-2 text-left rounded-lg transition-colors relative border-l-2 border-orange-400 ${
+                                     chat.id === activeChatId 
+                                       ? 'bg-orange-50 hover:bg-orange-100 dark:bg-orange-950 dark:hover:bg-orange-900' 
+                                       : 'bg-orange-25 hover:bg-orange-50 dark:bg-orange-975 dark:hover:bg-orange-950'
+                                   }`}
+                                   onClick={() => handleChatClick(chat.id, chat.type)}
+                                 >
                                    <div className="flex items-center justify-between">
                                      <div className="flex items-center gap-3">
                                        {/* Avatar or icon */}
@@ -2013,29 +2013,31 @@ const CRMContent = () => {
                                          <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
                                            <GraduationCap className="h-5 w-5 text-purple-600" />
                                          </div>
-                                         ) : chat.avatar_url ? (
-                                           <div className="relative flex-shrink-0">
-                                             <img 
-                                               src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
-                                               alt={`${chat.name} avatar`} 
-                                               className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
-                                               loading="lazy"
-                                               decoding="async"
-                                               referrerPolicy="no-referrer"
-                                               crossOrigin="anonymous"
-                                               onError={(e) => {
-                                                 const target = e.currentTarget as HTMLImageElement;
-                                                 target.style.display = 'none';
-                                                 const fallback = target.nextElementSibling as HTMLElement;
-                                                 if (fallback) fallback.style.display = 'flex';
-                                               }}
-                                             />
-                                             <div 
-                                               className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center" 
-                                               style={{ display: 'none' }}
-                                             >
-                                               <User className="h-5 w-5 text-green-600" />
-                                              </div>
+                                          ) : chat.avatar_url ? (
+                                            <div className="relative flex-shrink-0">
+                                              <img 
+                                                src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
+                                                alt={`${chat.name} avatar`} 
+                                                className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
+                                                loading="lazy"
+                                                decoding="async"
+                                                referrerPolicy="no-referrer"
+                                                crossOrigin="anonymous"
+                                                onError={(e) => {
+                                                  const target = e.currentTarget as HTMLImageElement;
+                                                  target.style.display = 'none';
+                                                  const fallback = target.nextElementSibling as HTMLElement;
+                                                  if (fallback) {
+                                                    fallback.style.display = 'flex';
+                                                    fallback.classList.remove('hidden');
+                                                  }
+                                                }}
+                                              />
+                                              <div 
+                                                className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center hidden" 
+                                              >
+                                                <User className="h-5 w-5 text-green-600" />
+                                               </div>
                                            {/* Lead indicator */}
                                              {(() => {
                                                const chatInfo = chat as any;
@@ -2086,18 +2088,18 @@ const CRMContent = () => {
                                           </div>
                                        )}
                                        
-                                         <div className="flex-1 min-w-0">
-                                           <div className="flex items-center gap-2">
-                                             <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
-                                               {chat.name}
-                                             </p>
-                                                <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300">
-                                                  В работе
-                                                </Badge>
-                                           </div>
-                                          <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
-                                            {chat.lastMessage || "Привет! Как дела?"}
-                                          </p>
+                                          <div className="flex-1 min-w-0 overflow-hidden">
+                                            <div className="flex items-center gap-2">
+                                              <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
+                                                {chat.name}
+                                              </p>
+                                                 <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300">
+                                                   В работе
+                                                 </Badge>
+                                            </div>
+                                           <p className="text-xs text-muted-foreground line-clamp-2 leading-snug break-words overflow-hidden">
+                                             {chat.lastMessage || "Привет! Как дела?"}
+                                           </p>
                                          </div>
                                      </div>
                                     <div className="flex flex-col items-end">
@@ -2176,40 +2178,42 @@ const CRMContent = () => {
                                          <GraduationCap className="h-5 w-5 text-purple-600" />
                                        </div>
                                         ) : chat.avatar_url ? (
-                                          <div className="relative flex-shrink-0">
-                                             <img 
-                                               src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
-                                               alt={`${chat.name} avatar`} 
-                                               className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
-                                               loading="lazy"
-                                               decoding="async"
-                                               referrerPolicy="no-referrer"
-                                               crossOrigin="anonymous"
-                                               onError={(e) => {
-                                                 const target = e.currentTarget as HTMLImageElement;
-                                                 target.style.display = 'none';
-                                                 const fallback = target.nextElementSibling as HTMLElement;
-                                                 if (fallback) fallback.style.display = 'flex';
-                                               }}
-                                             />
-                                             <div 
-                                               className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center" 
-                                               style={{ display: 'none' }}
-                                             >
-                                               <User className="h-5 w-5 text-green-600" />
-                                             </div>
-                                             {/* Lead indicator */}
-                                             {(() => {
-                                               const chatInfo = chat as any;
-                                               if (chatInfo.type !== 'client') return null;
-                                               const clientStatus = getClientStatus(chatInfo.id);
-                                               return clientStatus.isLead ? (
-                                                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white z-10">
-                                                   <UserPlus className="w-2.5 h-2.5 text-white" />
-                                                 </div>
-                                               ) : null;
-                                             })()}
-                                          </div>
+                                           <div className="relative flex-shrink-0">
+                                              <img 
+                                                src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
+                                                alt={`${chat.name} avatar`} 
+                                                className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
+                                                loading="lazy"
+                                                decoding="async"
+                                                referrerPolicy="no-referrer"
+                                                crossOrigin="anonymous"
+                                                onError={(e) => {
+                                                  const target = e.currentTarget as HTMLImageElement;
+                                                  target.style.display = 'none';
+                                                  const fallback = target.nextElementSibling as HTMLElement;
+                                                  if (fallback) {
+                                                    fallback.style.display = 'flex';
+                                                    fallback.classList.remove('hidden');
+                                                  }
+                                                }}
+                                              />
+                                               <div 
+                                                 className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center hidden" 
+                                               >
+                                                 <User className="h-5 w-5 text-green-600" />
+                                               </div>
+                                              {/* Lead indicator */}
+                                              {(() => {
+                                                const chatInfo = chat as any;
+                                                if (chatInfo.type !== 'client') return null;
+                                                const clientStatus = getClientStatus(chatInfo.id);
+                                                return clientStatus.isLead ? (
+                                                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white z-10">
+                                                    <UserPlus className="w-2.5 h-2.5 text-white" />
+                                                  </div>
+                                                ) : null;
+                                              })()}
+                                           </div>
                                         ) : (
                                           <div className="relative flex-shrink-0">
                                             <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
@@ -2228,7 +2232,7 @@ const CRMContent = () => {
                                             })()}
                                           </div>
                                         )}
-                                     
+                        
                         <div className="flex-1 min-w-0 overflow-hidden">
                           <div className="flex items-center gap-2">
                             <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
@@ -2354,7 +2358,7 @@ const CRMContent = () => {
                         </Badge>
                       </button>
                       {isPinnedSectionOpen && (
-                        <div className="space-y-2 mb-6">
+                        <div className="space-y-1 mb-6">
                           {filteredChats
                             .filter(chat => isPinnedByCurrentUser(chat.id))
                             .map((chat) => {
@@ -2366,7 +2370,7 @@ const CRMContent = () => {
                               return (
                                 <div 
                                   key={chat.id}
-                                  className="w-full p-3 text-left rounded-lg transition-colors bg-card border hover:bg-muted/50 shadow-sm"
+                                  className="w-full p-2 text-left rounded-lg transition-colors bg-card border hover:bg-muted/50 shadow-sm"
                                 >
                                   <div className="flex items-center justify-between">
                                      <div 
