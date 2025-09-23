@@ -21,26 +21,17 @@ serve(async (req) => {
     
     console.log(`Downloading WhatsApp file for chatId: ${chatId}, messageId: ${idMessage}`);
     
-    // Get WhatsApp API credentials
-    const { data: settings } = await supabase
-      .from('messenger_settings')
-      .select('settings')
-      .eq('messenger_type', 'whatsapp')
-      .eq('is_enabled', true)
-      .single();
-
-    if (!settings?.settings) {
-      throw new Error('WhatsApp settings not found');
-    }
-
-    const { api_url, id_instance, api_token } = settings.settings;
+    // Get Green API credentials from environment variables
+    const greenApiUrl = Deno.env.get('GREEN_API_URL');
+    const greenApiIdInstance = Deno.env.get('GREEN_API_ID_INSTANCE');
+    const greenApiToken = Deno.env.get('GREEN_API_TOKEN_INSTANCE');
     
-    if (!api_url || !id_instance || !api_token) {
-      throw new Error('Missing WhatsApp API credentials');
+    if (!greenApiUrl || !greenApiIdInstance || !greenApiToken) {
+      throw new Error('Missing Green API credentials: GREEN_API_URL, GREEN_API_ID_INSTANCE, or GREEN_API_TOKEN_INSTANCE');
     }
 
-    // Call WhatsApp downloadFile API
-    const downloadResponse = await fetch(`${api_url}/waInstance${id_instance}/downloadFile/${api_token}`, {
+    // Call Green API downloadFile endpoint
+    const downloadResponse = await fetch(`${greenApiUrl}/waInstance${greenApiIdInstance}/downloadFile/${greenApiToken}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
