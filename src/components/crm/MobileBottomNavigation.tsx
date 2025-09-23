@@ -66,21 +66,21 @@ export const MobileBottomNavigation = ({
       <div className="flex items-center justify-around h-16 px-2">
         <NavButton
           icon={Building2}
-          label="Корпоративный"
+          label="Корпчат"
           onClick={onCorporateClick}
           unreadCount={corporateUnreadCount}
           isActive={activeChatType === 'corporate'}
         />
         <NavButton
           icon={GraduationCap}
-          label="Преподаватели"
+          label="Преподы"
           onClick={onTeachersClick}
           unreadCount={teachersUnreadCount}
           isActive={activeChatType === 'teachers'}
         />
         <Button
           className={cn(
-            "flex flex-col items-center justify-center h-12 w-12 rounded-full",
+            "flex flex-col items-center justify-center h-16 w-12 rounded-full",
             "bg-primary text-primary-foreground hover:bg-primary-hover",
             "shadow-lg transform hover:scale-105 transition-all duration-200"
           )}

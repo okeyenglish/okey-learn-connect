@@ -40,6 +40,7 @@ import { CreateInvoiceModal } from "@/components/crm/CreateInvoiceModal";
 import { PinnableModalHeader, PinnableDialogContent } from "@/components/crm/PinnableModal";
 import { ManagerMenu } from "@/components/crm/ManagerMenu";
 import { ScriptsModal } from "@/components/crm/ScriptsModal";
+import { ScheduleModal } from "@/components/schedule/ScheduleModal";
 import { GroupsModal } from "@/components/learning-groups/GroupsModal";
 import { IndividualLessonsModal } from "@/components/individual-lessons/IndividualLessonsModal";
 import { MobileBottomNavigation } from "@/components/crm/MobileBottomNavigation";
@@ -225,6 +226,7 @@ const CRMContent = () => {
   // Мобильные модальные окна
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [showScriptsModal, setShowScriptsModal] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
   
   // Мобильные состояния для адаптивности
   const isMobile = useIsMobile();
@@ -824,6 +826,10 @@ const CRMContent = () => {
     setVoiceAssistantOpen(true);
   };
 
+  const handleMobileScheduleClick = () => {
+    setShowScheduleModal(true);
+  };
+
   const handleChatClick = async (chatId: string, chatType: 'client' | 'corporate' | 'teachers') => {
     console.log('Переключение на чат:', { chatId, chatType });
     
@@ -1041,17 +1047,8 @@ const CRMContent = () => {
                 </SheetTrigger>
               </Sheet>
             )}
-            {/* Скрипты и аватарка менеджера на мобильной версии */}
+            {/* Скрипты и аватарка менеджера на мобильной версии - убираем скрипты */}
             <div className="flex items-center px-4 h-14 border-l bg-background gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowScriptsModal(true)}
-                className="flex items-center gap-2 px-2 h-10"
-              >
-                <MessageCircle className="h-4 w-4" />
-                <span className="hidden sm:inline text-sm">Скрипты</span>
-              </Button>
               <ManagerMenu
                 managerName={profile && profile.first_name && profile.last_name 
                   ? `${profile.first_name} ${profile.last_name}` 
@@ -3112,7 +3109,7 @@ const CRMContent = () => {
           onCorporateClick={handleMobileCorporateClick}
           onTeachersClick={handleMobileTeachersClick}
           onNewChatClick={handleMobileNewChatClick}
-          onScheduleClick={() => {}} // Пустая функция, так как расписание удалено
+          onScheduleClick={handleMobileScheduleClick}
           onAssistantClick={handleMobileAssistantClick}
           corporateUnreadCount={corporateChats?.reduce((sum, chat) => sum + (chat.unread_count || 0), 0) || 0}
           teachersUnreadCount={teacherChats?.reduce((sum, chat) => sum + (chat.unread_count || 0), 0) || 0}
@@ -3132,6 +3129,12 @@ const CRMContent = () => {
         onOpenChange={setShowNewChatModal}
         onCreateChat={handleCreateNewChat}
         onExistingClientFound={handleExistingClientFound}
+      />
+
+      {/* Модальное окно расписания */}
+      <ScheduleModal
+        open={showScheduleModal}
+        onOpenChange={setShowScheduleModal}
       />
 
       {/* Modal для просмотра всех задач */}
