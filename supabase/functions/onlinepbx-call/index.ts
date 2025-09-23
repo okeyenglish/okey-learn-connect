@@ -33,6 +33,34 @@ serve(async (req) => {
       throw new Error('User profile not found');
     }
 
+    // Get client ID from phone number
+    const { data: client, error: clientError } = await supabaseClient
+      .from('clients')
+      .select('id')
+      .eq('phone', to_number)
+      .single();
+
+    if (clientError) {
+      console.log('Client not found for phone number:', to_number);
+    }
+
+    // Create call log entry
+    const { data: callLog, error: callLogError } = await supabaseClient
+      .from('call_logs')
+      .insert({
+        client_id: client?.id,
+        phone_number: to_number,
+        direction: 'outgoing',
+        status: 'initiated',
+        initiated_by: from_user
+      })
+      .select()
+      .single();
+
+    if (callLogError) {
+      console.error('Failed to create call log:', callLogError);
+    }
+
     // Get OnlinePBX credentials
     const onlinePbxKeyId = Deno.env.get('ONLINEPBX_KEY_ID');
     const onlinePbxKey = Deno.env.get('ONLINEPBX_KEY');
@@ -72,14 +100,32 @@ serve(async (req) => {
 
     const responseData = await response.json();
     
+    console.log('OnlinePBX call successful:', responseData);
+
+    // Update call log with result
+    if (callLog) {
+      let callStatus = 'failed';
+      if (response.ok && responseData.status === '1') {
+        callStatus = 'answered';
+      } else if (response.ok && responseData.status === '0') {
+        callStatus = responseData.errorCode === 'API_KEY_CHECK_FAILED' ? 'failed' : 'busy';
+      }
+
+      await supabaseClient
+        .from('call_logs')
+        .update({ 
+          status: callStatus,
+          ended_at: new Date().toISOString()
+        })
+        .eq('id', callLog.id);
+    }
+
     if (!response.ok) {
       console.error('OnlinePBX API error:', responseData);
       throw new Error(`OnlinePBX API error: ${responseData.message || 'Unknown error'}`);
     }
 
-    console.log('OnlinePBX call successful:', responseData);
-
-    // Log the call request
+    // Log the call request in webhook_logs
     await supabaseClient
       .from('webhook_logs')
       .insert({
@@ -90,6 +136,7 @@ serve(async (req) => {
           from_extension: operatorExtension,
           to_number: to_number,
           response: responseData,
+          call_log_id: callLog?.id,
           timestamp: new Date().toISOString()
         },
         processed: true
@@ -100,7 +147,8 @@ serve(async (req) => {
       message: 'Звонок инициирован через OnlinePBX',
       from_extension: operatorExtension,
       to_number: to_number,
-      call_id: responseData.call_id || null
+      call_id: responseData.call_id || null,
+      call_log_id: callLog?.id
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

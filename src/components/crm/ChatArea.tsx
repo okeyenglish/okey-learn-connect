@@ -22,6 +22,7 @@ import { QuickResponsesModal } from "./QuickResponsesModal";
 import { FileUpload } from "./FileUpload";
 import { AttachedFile } from "./AttachedFile";
 import { InlinePendingGPTResponse } from "./InlinePendingGPTResponse";
+import { CallHistory } from "./CallHistory";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -747,6 +748,9 @@ export const ChatArea = ({
           title: "Звонок совершён",
           description: "Звонок инициирован через OnlinePBX. Поднимите трубку.",
         });
+        
+        // Refresh call history to show the new call
+        queryClient.invalidateQueries({ queryKey: ['call-logs', clientId] });
       } else {
         throw new Error(data?.error || 'Не удалось совершить звонок');
       }
@@ -1193,12 +1197,13 @@ export const ChatArea = ({
         </div>
       )}
 
-      {/* Client Tasks */}
-      <div className="shrink-0">
+      {/* Client Tasks and Call History */}
+      <div className="shrink-0 space-y-3">
         <ClientTasks 
           clientName={clientName}
           clientId={clientId}
         />
+        <CallHistory clientId={clientId} />
       </div>
 
       {/* Chat Messages with Tabs */}
