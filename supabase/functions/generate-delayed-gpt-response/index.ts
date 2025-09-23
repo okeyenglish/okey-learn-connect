@@ -217,17 +217,17 @@ serve(async (req) => {
       const pendingResponseId = insertResult.id;
       console.log('Created pending response with ID:', pendingResponseId);
 
-    // Get client info for context
-    const { data: client, error: clientError } = await supabase
-      .from('clients')
-      .select('name, phone')
-      .eq('id', clientId)
-      .single();
+      // Get client info for context
+      const { data: client, error: clientError } = await supabase
+        .from('clients')
+        .select('name, phone')
+        .eq('id', clientId)
+        .single();
 
-    if (clientError) {
-      console.error('Error fetching client:', clientError);
-      throw clientError;
-    }
+      if (clientError) {
+        console.error('Error fetching client:', clientError);
+        throw clientError;
+      }
 
     // Get conversation history for context (last 20 messages)
     const { data: contextMessages, error: contextError } = await supabase
@@ -386,7 +386,7 @@ ${newMessages}
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+    } catch (error) {
     console.error('Error in generate-delayed-gpt-response:', error);
     return new Response(JSON.stringify({ 
       success: false, 
