@@ -86,7 +86,8 @@ import {
   Lock,
   Edit,
   UserPlus,
-  Filter
+  Filter,
+  Plus
 } from "lucide-react";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
@@ -1072,8 +1073,9 @@ const CRMContent = () => {
                   onCreateChat={handleCreateNewChat}
                   onExistingClientFound={handleExistingClientFound}
                 >
-                  <Button size="sm" variant="ghost" className="h-5 w-5 p-0 ml-1">
-                    <MessageCirclePlus className="h-3 w-3" />
+                  <Button size="sm" variant="ghost" className="h-5 w-5 p-0 ml-1 relative">
+                    <MessageCircle className="h-3 w-3" />
+                    <Plus className="h-2 w-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                   </Button>
                 </NewChatModal>
               </TabsTrigger>
