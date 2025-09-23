@@ -10,11 +10,21 @@ import { ScheduleFilters } from "./ScheduleFilters";
 import { AddLessonModal } from "./AddLessonModal";
 import { SessionFilters } from "@/hooks/useLessonSessions";
 
-export const ScheduleModal = () => {
-  const [open, setOpen] = useState(false);
+interface ScheduleModalProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  children?: React.ReactNode;
+}
+
+export const ScheduleModal = ({ open, onOpenChange, children }: ScheduleModalProps) => {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [addLessonOpen, setAddLessonOpen] = useState(false);
   const [filters, setFilters] = useState<SessionFilters>({});
   const [currentView, setCurrentView] = useState<'grid' | 'calendar' | 'table'>('grid');
+
+  const isControlled = open !== undefined && onOpenChange !== undefined;
+  const modalOpen = isControlled ? open : internalOpen;
+  const handleOpenChange = isControlled ? onOpenChange : setInternalOpen;
 
   const resetFilters = () => {
     setFilters({});
@@ -22,13 +32,20 @@ export const ScheduleModal = () => {
 
   return (
     <>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button className="gap-2 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white">
-            <Calendar className="h-4 w-4" />
-            Расписание занятий
-          </Button>
-        </DialogTrigger>
+      <Dialog open={modalOpen} onOpenChange={handleOpenChange}>
+        {children && (
+          <DialogTrigger asChild>
+            {children}
+          </DialogTrigger>
+        )}
+        {!children && (
+          <DialogTrigger asChild>
+            <Button className="gap-2 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white">
+              <Calendar className="h-4 w-4" />
+              Расписание занятий
+            </Button>
+          </DialogTrigger>
+        )}
         <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden p-0">
           <div className="bg-gradient-to-r from-green-600 to-blue-600 text-white p-6">
             <DialogHeader>

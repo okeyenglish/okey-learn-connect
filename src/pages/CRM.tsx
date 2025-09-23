@@ -41,6 +41,9 @@ import { PinnableModalHeader, PinnableDialogContent } from "@/components/crm/Pin
 import { ManagerMenu } from "@/components/crm/ManagerMenu";
 import { GroupsModal } from "@/components/learning-groups/GroupsModal";
 import { IndividualLessonsModal } from "@/components/individual-lessons/IndividualLessonsModal";
+import { MobileBottomNavigation } from "@/components/crm/MobileBottomNavigation";
+import { MobileNewChatModal } from "@/components/crm/MobileNewChatModal";
+import { ScheduleModal } from "@/components/schedule/ScheduleModal";
 import { EducationSubmenu } from "@/components/learning-groups/EducationSubmenu";
 import { usePinnedModalsDB, PinnedModal } from "@/hooks/usePinnedModalsDB";
 import { useChatStatesDB } from "@/hooks/useChatStatesDB";
@@ -218,6 +221,10 @@ const CRMContent = () => {
   const [pinnedTaskClientId, setPinnedTaskClientId] = useState<string>('');
   const [pinnedInvoiceClientId, setPinnedInvoiceClientId] = useState<string>('');
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  
+  // Мобильные модальные окна
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [showNewChatModal, setShowNewChatModal] = useState(false);
   
   // Мобильные состояния для адаптивности
   const isMobile = useIsMobile();
@@ -792,6 +799,35 @@ const CRMContent = () => {
     console.log(`${action} для чата:`, chatId);
   };
 
+  // Обработчики для мобильной навигации
+  const handleMobileCorporateClick = () => {
+    handleChatClick('corporate', 'corporate');
+    if (isMobile) {
+      setLeftSidebarOpen(false);
+      setRightSidebarOpen(false);
+    }
+  };
+
+  const handleMobileTeachersClick = () => {
+    setActiveChatType('teachers');
+    if (isMobile) {
+      setLeftSidebarOpen(false);
+      setRightSidebarOpen(false);
+    }
+  };
+
+  const handleMobileNewChatClick = () => {
+    setShowNewChatModal(true);
+  };
+
+  const handleMobileScheduleClick = () => {
+    setShowScheduleModal(true);
+  };
+
+  const handleMobileAssistantClick = () => {
+    setVoiceAssistantOpen(true);
+  };
+
   const handleChatClick = async (chatId: string, chatType: 'client' | 'corporate' | 'teachers') => {
     console.log('Переключение на чат:', { chatId, chatType });
     
@@ -952,7 +988,10 @@ const CRMContent = () => {
 
   return (
     <TooltipProvider>
-      <div className="crm-container h-screen flex flex-col overflow-hidden">
+      <div className={cn(
+        "crm-container h-screen flex flex-col overflow-hidden",
+        isMobile && "pb-16" // Добавляем отступ снизу для мобильной навигации
+      )}>
       {/* Фиксированные вкладки сверху на мобильной версии */}
       {isMobile && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b shadow-sm">
@@ -3022,6 +3061,34 @@ const CRMContent = () => {
         onOpenChat={(clientId: string) => {
           handleChatClick(clientId, 'client');
         }}
+      />
+
+      {/* Мобильная нижняя навигация */}
+      {isMobile && (
+        <MobileBottomNavigation
+          onCorporateClick={handleMobileCorporateClick}
+          onTeachersClick={handleMobileTeachersClick}
+          onNewChatClick={handleMobileNewChatClick}
+          onScheduleClick={handleMobileScheduleClick}
+          onAssistantClick={handleMobileAssistantClick}
+          corporateUnreadCount={corporateChats?.reduce((sum, chat) => sum + (chat.unread_count || 0), 0) || 0}
+          teachersUnreadCount={teacherChats?.reduce((sum, chat) => sum + (chat.unread_count || 0), 0) || 0}
+          activeChatType={activeChatType}
+        />
+      )}
+
+      {/* Модальное окно расписания */}
+      <ScheduleModal
+        open={showScheduleModal}
+        onOpenChange={setShowScheduleModal}
+      />
+
+      {/* Модальное окно нового чата */}
+      <MobileNewChatModal
+        open={showNewChatModal}
+        onOpenChange={setShowNewChatModal}
+        onCreateChat={handleCreateNewChat}
+        onExistingClientFound={handleExistingClientFound}
       />
 
       {/* Modal для просмотра всех задач */}
