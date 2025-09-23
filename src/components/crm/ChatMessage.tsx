@@ -367,44 +367,68 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
           <div className={`flex items-center mt-1 text-xs text-muted-foreground ${
             type === 'manager' ? 'justify-end' : 'justify-start'
           }`}>
-            <span>
-              {time}
-              {isEdited && editedTime && (
-                <span className="ml-2">отредактировано {editedTime}</span>
-              )}
-            </span>
-            {type === 'manager' && messageId && message !== '[Сообщение удалено]' && (
-              <div className="ml-2 flex items-center">
-                <MessageReadIndicator 
-                  messageId={messageId} 
-                  isOutgoing={true}
-                  authorName={managerName || "Менеджер"}
-                  authorAvatar={undefined}
-                />
+            {/* Для исходящих - реакции перед временем */}
+            {type === 'manager' && (
+              <div className="flex items-center gap-1">
+                {messageId && (
+                  <div className="relative -mt-3 mr-1">
+                    <MessageReactions 
+                      messageId={messageId} 
+                      showAddButton={true}
+                      className=""
+                    />
+                  </div>
+                )}
+                <span>
+                  {time}
+                  {isEdited && editedTime && (
+                    <span className="ml-2">отредактировано {editedTime}</span>
+                  )}
+                </span>
+                {messageId && message !== '[Сообщение удалено]' && (
+                  <div className="ml-2 flex items-center">
+                    <MessageReadIndicator 
+                      messageId={messageId} 
+                      isOutgoing={true}
+                      authorName={managerName || "Менеджер"}
+                      authorAvatar={undefined}
+                    />
+                  </div>
+                )}
               </div>
             )}
-            {type === 'client' && messageId && (
-              <div className="ml-2 flex items-center">
-                <MessageReadIndicator 
-                  messageId={messageId} 
-                  isOutgoing={false}
-                  authorName="Клиент"
-                  authorAvatar={clientAvatar}
-                />
+            
+            {/* Для входящих - реакции после галочки */}
+            {type === 'client' && (
+              <div className="flex items-center gap-1">
+                <span>
+                  {time}
+                  {isEdited && editedTime && (
+                    <span className="ml-2">отредактировано {editedTime}</span>
+                  )}
+                </span>
+                {messageId && (
+                  <div className="ml-2 flex items-center">
+                    <MessageReadIndicator 
+                      messageId={messageId} 
+                      isOutgoing={false}
+                      authorName="Клиент"
+                      authorAvatar={clientAvatar}
+                    />
+                  </div>
+                )}
+                {messageId && (
+                  <div className="relative -mt-3 ml-1">
+                    <MessageReactions 
+                      messageId={messageId} 
+                      showAddButton={true}
+                      className=""
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>
-          
-          {/* Реакции на сообщения - перекрывают bubble */}
-          {messageId && (type === 'client' || type === 'manager') && (
-            <div className={`absolute -bottom-2 ${type === 'manager' ? 'right-2' : 'left-2'} z-10`}>
-              <MessageReactions 
-                messageId={messageId} 
-                showAddButton={true}
-                className=""
-              />
-            </div>
-          )}
         </div>
       </div>
     </div>
