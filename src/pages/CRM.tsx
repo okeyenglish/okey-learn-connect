@@ -2946,7 +2946,7 @@ const CRMContent = () => {
             />
           ) : (
             <div className="flex-1 bg-background flex items-center justify-center p-4">
-              <div className="text-center text-muted-foreground max-w-sm mx-auto">
+              <div className="text-center text-muted-foreground w-full">
                 <MessageCircle className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 opacity-50" />
                 <h3 className="text-base sm:text-lg font-semibold mb-2">Выберите чат</h3>
                 <p className="text-xs sm:text-sm">

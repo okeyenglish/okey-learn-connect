@@ -195,11 +195,15 @@
   white-space: normal !important;
 }
 
-/* Ensure preview text wraps nicely */
-.crm-container .line-clamp-2 { 
-  overflow: hidden !important;
-  display: -webkit-box !important;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  word-break: break-word;
+/* Ensure full width containers for CRM */
+.crm-container .container {
+  max-width: none !important;
+  width: 100% !important;
+}
+
+/* Full width chat area */
+.crm-container [data-component="chat-area"],
+.crm-container .chat-area {
+  width: 100% !important;
+  max-width: none !important;
 }
