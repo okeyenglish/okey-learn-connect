@@ -590,7 +590,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             </div>
             <Button 
               size="icon" 
-              className="rounded-full h-10 w-10"
+              className="rounded-sm h-10 w-10"
               onClick={handleSendMessage} 
               disabled={!message.trim() || !clientId || whatsappLoading}
             >
@@ -975,7 +975,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                   </Dialog>
                 </div>
               </div>
-              <Button size="icon" className="rounded-full h-10 w-10 shrink-0" onClick={handleSendMessage} disabled={!message.trim() || !clientId || whatsappLoading}>
+              <Button size="icon" className="rounded-sm h-10 w-10 shrink-0" onClick={handleSendMessage} disabled={!message.trim() || !clientId || whatsappLoading}>
                 <Send className="h-4 w-4" />
               </Button>
             </div>

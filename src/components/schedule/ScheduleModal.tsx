@@ -40,7 +40,7 @@ export const ScheduleModal = ({ open, onOpenChange, children }: ScheduleModalPro
         )}
         {!children && (
           <DialogTrigger asChild>
-            <Button className="gap-2 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white">
+            <Button className="gap-2" variant="outline">
               <Calendar className="h-4 w-4" />
               Расписание занятий
             </Button>

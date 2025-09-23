@@ -43,7 +43,6 @@ import { GroupsModal } from "@/components/learning-groups/GroupsModal";
 import { IndividualLessonsModal } from "@/components/individual-lessons/IndividualLessonsModal";
 import { MobileBottomNavigation } from "@/components/crm/MobileBottomNavigation";
 import { MobileNewChatModal } from "@/components/crm/MobileNewChatModal";
-import { ScheduleModal } from "@/components/schedule/ScheduleModal";
 import { EducationSubmenu } from "@/components/learning-groups/EducationSubmenu";
 import { usePinnedModalsDB, PinnedModal } from "@/hooks/usePinnedModalsDB";
 import { useChatStatesDB } from "@/hooks/useChatStatesDB";
@@ -223,7 +222,6 @@ const CRMContent = () => {
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   
   // Мобильные модальные окна
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   
   // Мобильные состояния для адаптивности
@@ -818,10 +816,6 @@ const CRMContent = () => {
 
   const handleMobileNewChatClick = () => {
     setShowNewChatModal(true);
-  };
-
-  const handleMobileScheduleClick = () => {
-    setShowScheduleModal(true);
   };
 
   const handleMobileAssistantClick = () => {
@@ -2122,7 +2116,8 @@ const CRMContent = () => {
                         {(() => {
                           const pinnedUnreadCount = filteredChats
                             .filter(chat => isPinnedByCurrentUser(chat.id))
-                            .reduce((sum, chat) => sum + (chat.unread || 0), 0);
+                            .filter(chat => !isChatReadGlobally(chat.id))
+                            .length;
                           return pinnedUnreadCount > 0 ? (
                             <Badge variant="destructive" className="text-xs h-4 rounded-sm">
                               {pinnedUnreadCount}
@@ -2253,7 +2248,7 @@ const CRMContent = () => {
                                       <Pin className="h-3 w-3 text-orange-600 mb-1" />
                                       <span className="text-xs text-muted-foreground">{chat.time}</span>
                                        {displayUnread && (
-      <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full mt-1 flex items-center gap-1">
+      <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-sm mt-1 flex items-center gap-1">
         {showEye ? (
           <>
             <Avatar className="h-4 w-4">
@@ -2415,7 +2410,7 @@ const CRMContent = () => {
                                     <span className="text-xs text-muted-foreground">{chat.time}</span>
                                      {displayUnread && (
                                        showEye ? (
-                                          <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full flex items-center gap-1 min-w-[20px] h-5 justify-center">
+                                           <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-sm flex items-center gap-1 min-w-[20px] h-5 justify-center">
                                             <Avatar className="h-3 w-3">
                                               <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
                                               <AvatarFallback className="text-[8px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
@@ -2586,7 +2581,8 @@ const CRMContent = () => {
                         {(() => {
                           const pinnedUnreadCount = filteredChats
                             .filter(chat => isPinnedByCurrentUser(chat.id))
-                            .reduce((sum, chat) => sum + (chat.unread || 0), 0);
+                            .filter(chat => !isChatReadGlobally(chat.id))
+                            .length;
                           return pinnedUnreadCount > 0 ? (
                             <Badge variant="destructive" className="text-xs h-5 rounded-sm">
                               {pinnedUnreadCount}
@@ -2701,7 +2697,7 @@ const CRMContent = () => {
                                       </div>
                                       
                                        {displayUnread && (
-                                           <span className="bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1 min-w-[20px] h-5 justify-center">
+                                           <span className="bg-orange-500 text-white text-xs px-2 py-0.5 rounded-sm flex items-center gap-1 min-w-[20px] h-5 justify-center">
                                              {showEye ? (
                                                <>
                                                  <Avatar className="h-3 w-3">
@@ -2864,7 +2860,7 @@ const CRMContent = () => {
                                    </div>
                                    
                                     {displayUnread && (
-                                        <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full flex items-center gap-1 min-w-[20px] h-5 justify-center">
+                                        <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-sm flex items-center gap-1 min-w-[20px] h-5 justify-center">
                                           {showEye ? (
                                             <>
                                               <Avatar className="h-3 w-3">
@@ -3086,19 +3082,13 @@ const CRMContent = () => {
           onCorporateClick={handleMobileCorporateClick}
           onTeachersClick={handleMobileTeachersClick}
           onNewChatClick={handleMobileNewChatClick}
-          onScheduleClick={handleMobileScheduleClick}
+          onScheduleClick={() => {}} // Пустая функция, так как расписание удалено
           onAssistantClick={handleMobileAssistantClick}
           corporateUnreadCount={corporateChats?.reduce((sum, chat) => sum + (chat.unread_count || 0), 0) || 0}
           teachersUnreadCount={teacherChats?.reduce((sum, chat) => sum + (chat.unread_count || 0), 0) || 0}
           activeChatType={activeChatType}
         />
       )}
-
-      {/* Модальное окно расписания */}
-      <ScheduleModal
-        open={showScheduleModal}
-        onOpenChange={setShowScheduleModal}
-      />
 
       {/* Модальное окно нового чата */}
       <MobileNewChatModal
