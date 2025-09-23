@@ -65,17 +65,17 @@ export const MessageReactions = ({ messageId, showAddButton = true, className }:
             <TooltipTrigger asChild>
               <button
                 className={cn(
-                  "relative w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110",
-                  "bg-white/90 backdrop-blur-sm border border-border/50 shadow-md",
-                  "hover:bg-white hover:shadow-lg",
-                  reaction.hasUserReaction && "bg-primary/20 border-primary/40 shadow-primary/20"
+                  "relative w-5 h-5 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110",
+                  "bg-background/95 backdrop-blur-sm border border-border/40 shadow-sm",
+                  "hover:bg-background hover:shadow-md",
+                  reaction.hasUserReaction && "bg-primary/15 border-primary/30"
                 )}
                 onClick={() => handleEmojiClick(reaction.emoji)}
                 disabled={addReactionMutation.isPending || removeReactionMutation.isPending}
               >
-                <span className="text-xs">{reaction.emoji}</span>
+                <span className="text-[10px] leading-none">{reaction.emoji}</span>
                 {reaction.count > 1 && (
-                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-primary text-primary-foreground text-[9px] rounded-full flex items-center justify-center font-medium">
+                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-primary text-primary-foreground text-[7px] rounded-full flex items-center justify-center font-medium leading-none">
                     {reaction.count}
                   </span>
                 )}

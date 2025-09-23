@@ -36,7 +36,7 @@ export const MessageReadIndicator = ({
     if (isOutgoing) {
       return (
         <div className={`flex items-center gap-0.5 ${className}`}>
-          <Check className="h-3 w-3 text-muted-foreground" />
+          <Check className="h-2.5 w-2.5 text-muted-foreground/50" />
         </div>
       );
     }
@@ -63,7 +63,7 @@ export const MessageReadIndicator = ({
     <Tooltip>
       <TooltipTrigger asChild>
         <div className={`flex items-center gap-0.5 ${className}`}>
-          <CheckCheck className="h-3 w-3 text-primary" />
+          <CheckCheck className="h-2.5 w-2.5 text-blue-500" />
         </div>
       </TooltipTrigger>
       <TooltipContent side="left" className="max-w-xs">

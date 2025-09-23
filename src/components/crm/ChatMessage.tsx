@@ -337,49 +337,46 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
                   </div>
                 )}
                 
-                {/* Время и галочки внутри bubble */}
-                <div className={`flex items-center justify-between mt-1 pt-0.5`}>
-                  <div className="flex-1"></div>
-                  <div className={`flex items-center gap-1 text-xs text-muted-foreground/70`}>
-                    <span>
+                {/* Время и галочки в WhatsApp стиле */}
+                <div className="flex items-end justify-end mt-0.5">
+                  <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground/60 font-normal">
+                    <span className="leading-none">
                       {time}
                       {isEdited && editedTime && (
-                        <span className="ml-2">отредактировано {editedTime}</span>
+                        <span className="ml-1 text-[9px]">ред.</span>
                       )}
                     </span>
                     {type === 'manager' && messageId && message !== '[Сообщение удалено]' && (
-                      <div className="ml-1 flex items-center">
-                        <MessageReadIndicator 
-                          messageId={messageId} 
-                          isOutgoing={true}
-                          authorName={managerName || "Менеджер"}
-                          authorAvatar={undefined}
-                        />
-                      </div>
+                      <MessageReadIndicator 
+                        messageId={messageId} 
+                        isOutgoing={true}
+                        authorName={managerName || "Менеджер"}
+                        authorAvatar={undefined}
+                        className="ml-0.5"
+                      />
                     )}
                     {type === 'client' && messageId && (
-                      <div className="ml-1 flex items-center">
-                        <MessageReadIndicator 
-                          messageId={messageId} 
-                          isOutgoing={false}
-                          authorName="Клиент"
-                          authorAvatar={clientAvatar}
-                        />
-                      </div>
+                      <MessageReadIndicator 
+                        messageId={messageId} 
+                        isOutgoing={false}
+                        authorName="Клиент"
+                        authorAvatar={clientAvatar}
+                        className="ml-0.5"
+                      />
                     )}
                   </div>
-                 </div>
+                </div>
                  
-                 {/* Эмодзи реакции под временем с небольшим заходом на bubble */}
-                 {messageId && (type === 'client' || type === 'manager') && (
-                   <div className="absolute -bottom-2 right-1 z-10">
-                     <MessageReactions 
-                       messageId={messageId} 
-                       showAddButton={true}
-                       className=""
-                     />
-                   </div>
-                 )}
+                {/* Эмодзи реакции в WhatsApp стиле */}
+                {messageId && (type === 'client' || type === 'manager') && (
+                  <div className="absolute -bottom-2 right-2 z-10">
+                    <MessageReactions 
+                      messageId={messageId} 
+                      showAddButton={true}
+                      className="whatsapp-reactions"
+                    />
+                  </div>
+                )}
                 
                 {type === 'manager' && message !== '[Сообщение удалено]' && (
                   <div className="absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
