@@ -39,85 +39,77 @@ export const PendingGPTResponseComponent: React.FC<PendingGPTResponseProps> = ({
   });
 
   return (
-    <div className="group relative mb-3 bg-gradient-to-r from-primary/5 to-background border border-border/50 rounded-lg p-3">
-      {/* Header с минимальной информацией */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+    <div className="group relative mb-2 bg-gradient-to-r from-primary/3 to-background/50 border border-border/30 rounded-md p-2">
+      {/* Компактный заголовок */}
+      <div className="flex items-center justify-between text-xs">
+        <div className="flex items-center gap-1.5 text-muted-foreground">
           <Bot className="h-3 w-3 text-primary" />
-          <span className="text-xs">GPT предложение</span>
-          <Badge variant="secondary" className="text-xs px-1 py-0">
+          <span className="text-[10px]">GPT</span>
+          <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">
             {timeAgo}
           </Badge>
         </div>
         
-        {/* Кнопки действий - показываются при hover */}
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Компактные кнопки - показываются при hover */}
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setIsEditing(!isEditing)}
-            className="h-6 w-6 p-0 hover:bg-muted"
+            className="h-5 w-5 p-0 hover:bg-muted"
             title="Редактировать"
           >
-            <Edit3 className="h-3 w-3" />
+            <Edit3 className="h-2.5 w-2.5" />
           </Button>
           <Button
             onClick={handleApprove}
             disabled={approveMutation.isPending || rejectMutation.isPending}
-            className="h-6 px-2 text-xs"
+            className="h-5 px-1.5 text-[9px] bg-primary hover:bg-primary/90"
             size="sm"
             title="Отправить"
           >
-            <CheckCircle className="h-3 w-3" />
+            <CheckCircle className="h-2.5 w-2.5" />
           </Button>
           <Button
             variant="ghost"
             onClick={handleReject}
             disabled={approveMutation.isPending || rejectMutation.isPending}
-            className="h-6 w-6 p-0 hover:bg-destructive/10 text-destructive"
+            className="h-5 w-5 p-0 hover:bg-destructive/10 text-destructive"
             size="sm"
             title="Отклонить"
           >
-            <XCircle className="h-3 w-3" />
+            <XCircle className="h-2.5 w-2.5" />
           </Button>
         </div>
       </div>
       
-      {/* Контент сообщения */}
-      <div className="space-y-2">
-        {/* Context Messages - компактно */}
+      {/* Контент - максимально компактный */}
+      <div className="mt-1">
+        {/* Context - свернутый */}
         {response.messages_context && response.messages_context.length > 0 && (
-          <details className="text-xs">
+          <details className="text-[10px] mb-1">
             <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-              Контекст ({response.messages_context.length} сообщений)
+              Контекст ({response.messages_context.length})
             </summary>
-            <div className="mt-2 space-y-1 pl-3 border-l-2 border-border">
-              {response.messages_context.map((msg: any, index: number) => (
-                <div key={index} className="text-xs text-muted-foreground">
-                  <span className="font-medium">Клиент:</span> {msg.message_text}
-                </div>
-              ))}
-            </div>
           </details>
         )}
 
-        {/* Предложенный ответ */}
+        {/* Ответ */}
         {isEditing ? (
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Textarea
               value={customMessage}
               onChange={(e) => setCustomMessage(e.target.value)}
-              className="min-h-[60px] text-sm resize-none"
+              className="min-h-[40px] text-xs resize-none p-1.5"
               placeholder="Отредактируйте ответ..."
             />
-            <div className="flex gap-1">
+            <div className="flex gap-0.5">
               <Button
                 onClick={handleApprove}
                 disabled={approveMutation.isPending}
                 size="sm"
-                className="h-6 px-2 text-xs"
+                className="h-5 px-1.5 text-[9px]"
               >
-                <CheckCircle className="h-3 w-3 mr-1" />
                 {approveMutation.isPending ? 'Отправка...' : 'Отправить'}
               </Button>
               <Button
@@ -127,23 +119,16 @@ export const PendingGPTResponseComponent: React.FC<PendingGPTResponseProps> = ({
                   setIsEditing(false);
                 }}
                 size="sm"
-                className="h-6 px-2 text-xs"
+                className="h-5 px-1.5 text-[9px]"
               >
                 Отменить
               </Button>
             </div>
           </div>
         ) : (
-          <div className="p-2 bg-muted/30 rounded text-sm leading-relaxed">
-            <p className="whitespace-pre-wrap">{customMessage}</p>
+          <div className="p-1.5 bg-muted/20 rounded text-xs leading-relaxed border border-border/20">
+            <p className="whitespace-pre-wrap line-clamp-3">{customMessage}</p>
           </div>
-        )}
-        
-        {/* Индикатор изменений */}
-        {isEditing && customMessage !== response.suggested_response && (
-          <Badge variant="outline" className="text-[10px] px-1 py-0">
-            Изменено
-          </Badge>
         )}
       </div>
     </div>

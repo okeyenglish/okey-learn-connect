@@ -110,23 +110,6 @@ export const ChatArea = ({
   // Get pending GPT responses for this client
   const { data: pendingGPTResponses, isLoading: pendingGPTLoading, error: pendingGPTError } = usePendingGPTResponses(clientId);
   
-  // Set up real-time message updates
-  useRealtimeMessages(clientId);
-  
-  // Reload messages when real-time updates happen
-  useEffect(() => {
-    if (!clientId || clientId === '1') return;
-    
-    // Set up interval to check for new messages periodically
-    const interval = setInterval(() => {
-      loadMessages();
-    }, 5000); // Check every 5 seconds
-    
-    return () => {
-      clearInterval(interval);
-    };
-  }, [clientId]);
-  
   // Log pending responses for debugging
   useEffect(() => {
     console.log('ChatArea - clientId:', clientId);
@@ -219,20 +202,8 @@ export const ChatArea = ({
   useEffect(() => {
     if (!clientId || clientId === '1') return;
     
-    // Set up a listener to reload messages when real-time updates trigger
-    const handleRealtimeUpdate = () => {
-      console.log('Real-time update detected, reloading messages for client:', clientId);
-      loadMessages();
-    };
-    
-    // Listen for invalidation events (this is triggered by useRealtimeMessages)
-    const checkForUpdates = setInterval(() => {
-      // This will be triggered by the useRealtimeMessages hook via query invalidation
-    }, 1000);
-    
-    return () => {
-      clearInterval(checkForUpdates);
-    };
+    // Only reload messages when component mounts or clientId changes
+    loadMessages();
   }, [clientId]);
 
   // Cleanup pending message interval and scheduled messages on unmount
