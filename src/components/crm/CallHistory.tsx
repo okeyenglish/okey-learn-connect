@@ -1,12 +1,15 @@
 import { useState } from "react";
-import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, Clock, Calendar } from "lucide-react";
+import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, Clock, Calendar, MessageCircle, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useCallHistory } from "@/hooks/useCallHistory";
+import { useCallComments, useAddCallComment } from "@/hooks/useCallComments";
 
 interface CallHistoryProps {
   clientId: string;
@@ -14,6 +17,9 @@ interface CallHistoryProps {
 
 export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
   const { data: calls = [], isLoading } = useCallHistory(clientId);
+  const { data: comments = [] } = useCallComments(clientId);
+  const addCommentMutation = useAddCallComment();
+  const [newComment, setNewComment] = useState("");
 
   const getCallIcon = (call: any) => {
     if (call.direction === 'incoming') {
@@ -71,94 +77,120 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
     return direction === 'incoming' ? 'Входящий' : 'Исходящий';
   };
 
+  const handleAddComment = async () => {
+    if (!newComment.trim()) return;
+    
+    try {
+      await addCommentMutation.mutateAsync({
+        clientId,
+        commentText: newComment.trim()
+      });
+      setNewComment("");
+    } catch (error) {
+      console.error('Error adding comment:', error);
+    }
+  };
+
+  // Создаем объединенный список звонков и комментариев, отсортированный по времени
+  const callsAndComments = [
+    ...calls.map(call => ({ type: 'call', data: call, timestamp: call.started_at })),
+    ...comments.map(comment => ({ type: 'comment', data: comment, timestamp: comment.created_at }))
+  ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
   if (isLoading) {
     return (
-      <Card className="w-full">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Phone className="h-4 w-4" />
-            История звонков
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-sm text-muted-foreground">Загружаем историю звонков...</div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (calls.length === 0) {
-    return (
-      <Card className="w-full">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Phone className="h-4 w-4" />
-            История звонков
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-sm text-muted-foreground text-center py-4">
-            Звонков пока не было
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center h-32">
+        <div className="text-muted-foreground">Загрузка истории звонков...</div>
+      </div>
     );
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <Phone className="h-4 w-4" />
-          История звонков ({calls.length})
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="px-0">
-        <ScrollArea className="h-64 px-4">
-          <div className="space-y-3">
-            {calls.map((call, index) => (
-              <div key={call.id}>
-                <div className="flex items-start justify-between space-x-3">
-                  <div className="flex items-start space-x-3 flex-1 min-w-0">
-                    <div className="flex-shrink-0 pt-0.5">
-                      {getCallIcon(call)}
-                    </div>
-                    
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-foreground">
-                            {getDirectionLabel(call.direction)}
-                          </span>
-                          {getCallStatusBadge(call)}
-                        </div>
-                        
-                        {call.duration_seconds !== null && call.status === 'answered' && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            {formatDuration(call.duration_seconds)}
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        {format(new Date(call.started_at), "dd MMM, HH:mm", { locale: ru })}
-                      </div>
-                      
-                      <div className="text-xs text-muted-foreground truncate">
-                        {call.phone_number}
-                      </div>
-                    </div>
-                  </div>
+    <div className="flex flex-col h-full">
+      <ScrollArea className="flex-1">
+        <div className="space-y-4 p-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Phone className="h-5 w-5" />
+                История звонков и комментариев ({callsAndComments.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {callsAndComments.length === 0 ? (
+                <div className="text-center text-muted-foreground py-8">
+                  История звонков и комментариев пуста
                 </div>
-                
-                {index < calls.length - 1 && <Separator className="mt-3" />}
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
-      </CardContent>
-    </Card>
+              ) : (
+                callsAndComments.map((item, index) => (
+                  <div key={`${item.type}-${item.data.id}`}>
+                    {item.type === 'call' ? (
+                      <div className="flex items-center justify-between p-3 rounded-lg border bg-card/50">
+                        <div className="flex items-center gap-3">
+                          {getCallIcon(item.data as any)}
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{getDirectionLabel((item.data as any).direction)}</span>
+                              {getCallStatusBadge(item.data as any)}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {(item.data as any).phone_number}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Clock className="h-4 w-4" />
+                            {formatDuration((item.data as any).duration_seconds)}
+                          </div>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            {format(new Date((item.data as any).started_at), 'dd.MM.yyyy HH:mm', { locale: ru })}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 rounded-lg border bg-amber-50 border-amber-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <MessageCircle className="h-4 w-4 text-amber-600" />
+                          <span className="text-sm font-medium text-amber-700">Комментарий менеджера</span>
+                        </div>
+                        <p className="text-sm text-amber-800 mb-2">{(item.data as any).comment_text}</p>
+                        <div className="flex items-center gap-1 text-xs text-amber-600">
+                          <Calendar className="h-3 w-3" />
+                          {format(new Date((item.data as any).created_at), 'dd.MM.yyyy HH:mm', { locale: ru })}
+                        </div>
+                      </div>
+                    )}
+                    {index < callsAndComments.length - 1 && <Separator className="my-3" />}
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </ScrollArea>
+      
+      {/* Форма добавления комментария */}
+      <div className="border-t p-4 bg-background">
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium">Добавить комментарий к звонку</h3>
+          <Textarea
+            placeholder="Комментарий о разговоре или звонке..."
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            className="min-h-[80px] resize-none"
+          />
+          <Button 
+            onClick={handleAddComment}
+            disabled={!newComment.trim() || addCommentMutation.isPending}
+            className="w-full"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            {addCommentMutation.isPending ? 'Добавление...' : 'Добавить комментарий'}
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 };
