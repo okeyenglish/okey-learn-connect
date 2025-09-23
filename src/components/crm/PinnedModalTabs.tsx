@@ -53,7 +53,7 @@ export const PinnedModalTabs = ({ pinnedModals, onOpenModal, onUnpinModal }: Pin
         {pinnedModals.map((modal) => (
           <Card
             key={`${modal.type}-${modal.id}`}
-            className={`p-0 border rounded-full shadow-none ${getModalColor(modal.type)}`}
+            className={`p-0 border rounded shadow-none ${getModalColor(modal.type)}`}
           >
             <div className="flex items-center">
               <Button
@@ -70,7 +70,7 @@ export const PinnedModalTabs = ({ pinnedModals, onOpenModal, onUnpinModal }: Pin
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-5 w-5 p-0.5 hover:bg-muted rounded-full"
+                className="h-5 w-5 p-0.5 hover:bg-muted rounded"
                 onClick={(e) => {
                   e.stopPropagation();
                   onUnpinModal(modal.id, modal.type);
