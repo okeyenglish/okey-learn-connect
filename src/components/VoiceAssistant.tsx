@@ -1,9 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Mic, MicOff, Volume2, VolumeX, Loader2 } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Mic, MicOff, Volume2, VolumeX, Loader2, Send, Bot, User, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -33,6 +35,14 @@ interface VoiceAssistantProps {
   onOpenChat?: (clientId: string) => void;
 }
 
+interface ChatMessage {
+  id: string;
+  type: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  isVoice?: boolean;
+}
+
 interface ActionResult {
   type: string;
   data?: any;
@@ -55,12 +65,11 @@ export default function VoiceAssistant({
   onOpenModal,
   onOpenChat 
 }: VoiceAssistantProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputText, setInputText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [lastCommand, setLastCommand] = useState<string>('');
-  const [lastResponse, setLastResponse] = useState<string>('');
-  const [actionResult, setActionResult] = useState<ActionResult | null>(null);
   const [audioEnabled, setAudioEnabled] = useState(true);
   
   const isMobile = useIsMobile();
@@ -74,6 +83,7 @@ export default function VoiceAssistant({
   const analyserRef = useRef<AnalyserNode | null>(null);
   const processAudioRef = useRef<((blob: Blob) => Promise<void>) | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -93,28 +103,60 @@ export default function VoiceAssistant({
     };
   }, []);
 
+  // Автоматическая прокрутка при новых сообщениях
+  useEffect(() => {
+    if (scrollAreaRef.current && messages.length > 0) {
+      setTimeout(() => {
+        const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+        if (scrollContainer) {
+          scrollContainer.scrollTo({
+            top: scrollContainer.scrollHeight,
+            behavior: 'smooth'
+          });
+        }
+      }, 100);
+    }
+  }, [messages]);
+
+  // Фокус на поле ввода при открытии
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+  }, [isOpen]);
+
+  const addMessage = (content: string, type: 'user' | 'assistant', isVoice = false) => {
+    const newMessage: ChatMessage = {
+      id: Date.now().toString(),
+      type,
+      content,
+      timestamp: new Date(),
+      isVoice
+    };
+    setMessages(prev => [...prev, newMessage]);
+  };
+
   const startRecording = useCallback(async () => {
     try {
       console.log('Requesting microphone access...');
       
-      // Проверяем поддержку медиа API
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('Ваш браузер не поддерживает запись аудио');
       }
 
-      // Дополнительно проверяем поддержку MediaRecorder
       if (typeof (window as any).MediaRecorder === 'undefined') {
         throw new Error('Ваш браузер не поддерживает запись аудио (MediaRecorder). Обновите браузер.');
       }
 
-      // Специальная обработка для мобильных устройств  
       const constraints = {
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
           ...(isMobile ? {
-            sampleRate: 16000, // Меньше для мобильных
+            sampleRate: 16000,
             channelCount: 1
           } : {
             sampleRate: 16000,
@@ -126,7 +168,6 @@ export default function VoiceAssistant({
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       console.log('Microphone access granted');
       
-      // Создаем аудио контекст для определения тишины
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       if (audioContextRef.current.state === 'suspended') {
         try { await audioContextRef.current.resume(); } catch {}
@@ -136,7 +177,6 @@ export default function VoiceAssistant({
       analyserRef.current.fftSize = 256;
       source.connect(analyserRef.current);
       
-      // Проверяем поддержку различных форматов (особенно для iOS)
       let mimeType = 'audio/webm;codecs=opus';
       try {
         if (isIOS) {
@@ -159,6 +199,7 @@ export default function VoiceAssistant({
           }
         }
       } catch {}
+      
       const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -181,7 +222,6 @@ export default function VoiceAssistant({
           setIsProcessing(false);
         }
         
-        // Останавливаем все треки и очищаем ресурсы
         stream.getTracks().forEach(track => track.stop());
         if (audioContextRef.current) {
           audioContextRef.current.close();
@@ -189,14 +229,11 @@ export default function VoiceAssistant({
         }
       };
       
-      mediaRecorder.start(500); // Записываем чанками по 500мс для лучшего отклика
+      mediaRecorder.start(500);
       setIsRecording(true);
-      toast.success('Запись начата. Говорите...');
       
-      // Запускаем мониторинг тишины
       startSilenceDetection();
       
-      // Автоматическая остановка через 15 секунд для мобильных
       if (isMobile) {
         setTimeout(() => {
           if (isRecording && mediaRecorderRef.current?.state === 'recording') {
@@ -234,7 +271,6 @@ export default function VoiceAssistant({
     if (mediaRecorderRef.current && isRecording) {
       console.log('Stopping recording...');
       
-      // Очищаем таймер тишины
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = null;
@@ -243,59 +279,141 @@ export default function VoiceAssistant({
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       setIsProcessing(true);
-      toast.info('Обработка команды...');
     }
   }, [isRecording]);
 
-  // Определение тишины для автоматической остановки записи
   const startSilenceDetection = useCallback(() => {
     if (!analyserRef.current || !isRecording) return;
     
     const bufferLength = analyserRef.current.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
     let consecutiveSilenceChecks = 0;
-    const maxSilenceChecks = 20; // ~2 секунды при 100мс интервалах
+    const maxSilenceChecks = 20;
     
     const checkAudioLevel = () => {
       if (!analyserRef.current || !isRecording) return;
       
       analyserRef.current.getByteFrequencyData(dataArray);
-      
-      // Вычисляем средний уровень звука
       const average = dataArray.reduce((sum, value) => sum + value, 0) / bufferLength;
-      
-      // Порог тишины (можно настроить)
       const silenceThreshold = 25;
-      
-      console.log('Audio level:', average); // Для отладки
       
       if (average < silenceThreshold) {
         consecutiveSilenceChecks++;
-        console.log('Silence detected, count:', consecutiveSilenceChecks);
-        
         if (consecutiveSilenceChecks >= maxSilenceChecks) {
           console.log('Stopping recording due to silence');
           stopRecording();
           return;
         }
       } else {
-        // Если есть звук, сбрасываем счетчик
         consecutiveSilenceChecks = 0;
       }
       
-      // Продолжаем мониторинг каждые 100мс только если запись активна
       if (isRecording) {
         silenceTimerRef.current = setTimeout(checkAudioLevel, 100);
       }
     };
     
-    // Начинаем проверку через 1 секунду (даем время для начала речи)
     silenceTimerRef.current = setTimeout(checkAudioLevel, 1000);
   }, [isRecording, stopRecording]);
 
+  const processMessage = useCallback(async (message: string, isVoice = false) => {
+    if (!message.trim()) return;
+    
+    try {
+      setIsProcessing(true);
+      
+      // Добавляем сообщение пользователя
+      addMessage(message, 'user', isVoice);
+      
+      const { data, error } = await supabase.functions.invoke('voice-assistant', {
+        body: {
+          text: message,
+          userId: user?.id,
+          context: context ? {
+            currentPage: context.currentPage,
+            activeClientId: context.activeClientId || undefined,
+            activeClientName: context.activeClientName || undefined,
+            userRole: context.userRole,
+            userBranch: context.userBranch,
+            activeChatType: context.activeChatType
+          } : undefined
+        }
+      });
+      
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw new Error('Ошибка сервера');
+      }
+      
+      if (data?.success) {
+        const response = data.response || 'Нет ответа';
+        addMessage(response, 'assistant');
+
+        // Выполняем действия если есть
+        if (data.actionResult) {
+          executeActionResult(data.actionResult);
+        }
+
+        // Инвалидируем задачи при любых изменениях с задачами
+        const resultType = data.actionResult?.type;
+        if (resultType === 'task_created' || resultType === 'create_task' || resultType === 'multiple_tasks_created' || 
+            resultType === 'task_updated' || resultType === 'tasks_deleted' || resultType === 'delete_error') {
+          
+          if (Array.isArray(data.actionResult?.deletedTasks) && data.actionResult.deletedTasks.length > 0) {
+            const deletedIds = data.actionResult.deletedTasks.map((t: any) => t.id);
+            const updateFn = (old: any) => {
+              if (!old) return old;
+              if (Array.isArray(old)) return old.filter((task: any) => !deletedIds.includes(task.id));
+              return old;
+            };
+            const keys: any[] = [ ['tasks'], ['all-tasks'] ];
+            if (context?.activeClientId) keys.push(['tasks', context.activeClientId]);
+            keys.forEach((key) => queryClient.setQueriesData({ queryKey: key }, updateFn));
+            queryClient.setQueriesData({
+              predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'tasks-by-date'
+            }, updateFn);
+          }
+          
+          queryClient.invalidateQueries({ queryKey: ['tasks'] });
+          queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+          
+          const today = new Date().toISOString().split('T')[0];
+          const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          queryClient.invalidateQueries({ queryKey: ['tasks-by-date', today] });
+          queryClient.invalidateQueries({ queryKey: ['tasks-by-date', tomorrow] });
+          queryClient.invalidateQueries({ queryKey: ['tasks-by-date'] });
+          
+          if (context?.activeClientId) {
+            queryClient.invalidateQueries({ queryKey: ['tasks', context.activeClientId] });
+          }
+          
+          queryClient.invalidateQueries({ 
+            predicate: (query) => {
+              const key = query.queryKey[0];
+              return typeof key === 'string' && key.includes('task');
+            }
+          });
+        }
+        
+        // Воспроизводим голосовой ответ
+        if (audioEnabled && data.audioResponse) {
+          await playAudioResponse(data.audioResponse);
+        }
+      } else {
+        throw new Error(data?.error || 'Неизвестная ошибка');
+      }
+      
+    } catch (error) {
+      console.error('Error processing message:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Ошибка обработки сообщения';
+      addMessage(`Извините, произошла ошибка: ${errorMessage}`, 'assistant');
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [user?.id, context, audioEnabled, queryClient]);
+
   const processAudio = useCallback(async (audioBlob: Blob) => {
     try {
-      // Проверяем минимальный размер аудио
       if (audioBlob.size < 1000) {
         toast.error('Слишком короткая запись');
         setIsProcessing(false);
@@ -303,12 +421,10 @@ export default function VoiceAssistant({
       }
       
       console.log('Processing audio blob size:', audioBlob.size);
-      console.log('VA context to send:', context);
       
-      // Конвертируем аудио в base64 безопасно: собираем бинарную строку чанками, затем один раз btoa
       const arrayBuffer = await audioBlob.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
-      const chunkSize = 0x8000; // 32KB
+      const chunkSize = 0x8000;
       let binaryString = '';
       for (let i = 0; i < uint8Array.length; i += chunkSize) {
         const chunk = uint8Array.subarray(i, i + chunkSize);
@@ -339,74 +455,18 @@ export default function VoiceAssistant({
       }
       
       if (data?.success) {
-        setLastCommand(data.transcription || 'Команда не распознана');
-        setLastResponse(data.response || 'Нет ответа');
-        setActionResult(data.actionResult);
+        const userMessage = data.transcription || 'Команда не распознана';
+        const response = data.response || 'Нет ответа';
+        
+        // Добавляем сообщения в чат
+        addMessage(userMessage, 'user', true);
+        addMessage(response, 'assistant');
 
-        // Автоматически прокручиваем вниз после получения нового ответа
-        setTimeout(() => {
-          if (scrollAreaRef.current) {
-            const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-            if (scrollContainer) {
-              scrollContainer.scrollTo({
-                top: scrollContainer.scrollHeight,
-                behavior: 'smooth'
-              });
-            }
-          }
-        }, 100);
-
-        // Инвалидируем задачи при любых изменениях с задачами
-        const resultType = data.actionResult?.type;
-        if (resultType === 'task_created' || resultType === 'create_task' || resultType === 'multiple_tasks_created' || 
-            resultType === 'task_updated' || resultType === 'tasks_deleted' || resultType === 'delete_error') {
-          
-          // Оптимистично удаляем задачи из кэша, если ассистент вернул их список
-          if (Array.isArray(data.actionResult?.deletedTasks) && data.actionResult.deletedTasks.length > 0) {
-            const deletedIds = data.actionResult.deletedTasks.map((t: any) => t.id);
-            const updateFn = (old: any) => {
-              if (!old) return old;
-              if (Array.isArray(old)) return old.filter((task: any) => !deletedIds.includes(task.id));
-              return old;
-            };
-            const keys: any[] = [ ['tasks'], ['all-tasks'] ];
-            if (context?.activeClientId) keys.push(['tasks', context.activeClientId]);
-            keys.forEach((key) => queryClient.setQueriesData({ queryKey: key }, updateFn));
-            // Все запросы вида ['tasks-by-date', *]
-            queryClient.setQueriesData({
-              predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'tasks-by-date'
-            }, updateFn);
-          }
-          
-          console.log('Invalidating task queries after:', resultType);
-          
-          // Инвалидируем все возможные ключи задач
-          queryClient.invalidateQueries({ queryKey: ['tasks'] });
-          queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
-          
-          // Инвалидируем задачи по датам (сегодня и завтра)
-          const today = new Date().toISOString().split('T')[0];
-          const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-          queryClient.invalidateQueries({ queryKey: ['tasks-by-date', today] });
-          queryClient.invalidateQueries({ queryKey: ['tasks-by-date', tomorrow] });
-          queryClient.invalidateQueries({ queryKey: ['tasks-by-date'] });
-          
-          // Инвалидируем задачи для конкретного клиента если есть контекст
-          if (context?.activeClientId) {
-            queryClient.invalidateQueries({ queryKey: ['tasks', context.activeClientId] });
-          }
-          
-          // Дополнительно инвалидируем общие запросы
-          queryClient.invalidateQueries({ 
-            predicate: (query) => {
-              const key = query.queryKey[0];
-              return typeof key === 'string' && key.includes('task');
-            }
-          });
+        // Выполняем действия если есть
+        if (data.actionResult) {
+          executeActionResult(data.actionResult);
         }
-        
-        toast.success(`Команда выполнена: ${data.response}`);
-        
+
         // Воспроизводим голосовой ответ
         if (audioEnabled && data.audioResponse) {
           await playAudioResponse(data.audioResponse);
@@ -418,7 +478,7 @@ export default function VoiceAssistant({
     } catch (error) {
       console.error('Error processing audio:', error);
       const errorMessage = error instanceof Error ? error.message : 'Ошибка обработки команды';
-      toast.error(errorMessage);
+      addMessage(`Извините, произошла ошибка: ${errorMessage}`, 'assistant');
     } finally {
       setIsProcessing(false);
     }
@@ -428,11 +488,38 @@ export default function VoiceAssistant({
     processAudioRef.current = processAudio;
   }, [processAudio]);
 
+  const executeActionResult = (actionResult: ActionResult) => {
+    switch (actionResult.type) {
+      case 'chat_opened':
+        if (actionResult.clientId && onOpenChat) {
+          setTimeout(() => onOpenChat(actionResult.clientId!), 100);
+        }
+        break;
+      case 'modal_opened':
+        if (actionResult.modalType && onOpenModal) {
+          const modalType = actionResult.modalType;
+          if (modalType === 'add_client' && onOpenModal.addClient) {
+            setTimeout(() => onOpenModal.addClient!(), 100);
+          } else if (modalType === 'add_teacher' && onOpenModal.addTeacher) {
+            setTimeout(() => onOpenModal.addTeacher!(), 100);
+          } else if (modalType === 'add_student' && onOpenModal.addStudent) {
+            setTimeout(() => onOpenModal.addStudent!(), 100);
+          } else if (modalType === 'add_task' && onOpenModal.addTask) {
+            setTimeout(() => onOpenModal.addTask!(), 100);
+          } else if (modalType === 'profile' && onOpenModal.clientProfile && actionResult.clientId) {
+            setTimeout(() => onOpenModal.clientProfile!(actionResult.clientId!), 100);
+          } else if (modalType === 'edit_task' && onOpenModal.editTask && actionResult.taskId) {
+            setTimeout(() => onOpenModal.editTask!(actionResult.taskId!), 100);
+          }
+        }
+        break;
+    }
+  };
+
   const playAudioResponse = async (base64Audio: string) => {
     try {
       setIsSpeaking(true);
       
-      // Останавливаем предыдущий аудио если играет
       if (currentAudioRef.current) {
         currentAudioRef.current.pause();
         currentAudioRef.current = null;
@@ -440,7 +527,6 @@ export default function VoiceAssistant({
       
       console.log('Playing audio response, base64 length:', base64Audio.length);
       
-      // Безопасное декодирование base64
       let audioBlob: Blob;
       try {
         const binaryString = atob(base64Audio);
@@ -493,287 +579,39 @@ export default function VoiceAssistant({
     }
   };
 
-  const renderActionResult = () => {
-    if (!actionResult) return null;
-
-    switch (actionResult.type) {
-      case 'clients':
-        return (
-          <div className="mt-4">
-            <p className="text-sm text-muted-foreground mb-2">Найденные клиенты:</p>
-            <div className="space-y-1">
-              {(actionResult.data || []).slice(0, 5).map((client: any) => (
-                <div
-                  key={client.id}
-                  className="flex items-center justify-between cursor-pointer hover:bg-muted/50 p-2 rounded transition-colors"
-                  onClick={() => {
-                    if (onOpenModal?.clientProfile) {
-                      onOpenModal.clientProfile(client.id);
-                    }
-                  }}
-                >
-                  <Badge variant="secondary" className="mr-1">
-                    {client.name} ({client.branch})
-                  </Badge>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-xs"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onOpenChat) {
-                        onOpenChat(client.id);
-                      }
-                    }}
-                  >
-                    💬 Чат
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      
-      case 'teachers':
-        return (
-          <div className="mt-4">
-            <p className="text-sm text-muted-foreground mb-2">Найденные преподаватели:</p>
-            <div className="space-y-1">
-              {(actionResult.data || []).map((teacher: any) => (
-                <Badge key={teacher.id} variant="secondary" className="mr-1">
-                  {teacher.name.replace(/^(преподаватель:|teacher:)/i, '')}
-                </Badge>
-              ))}
-            </div>
-          </div>
-        );
-      
-      case 'message_sent':
-        return (
-          <div className="mt-4">
-            <Badge variant="default" className="bg-green-100 text-green-800">
-              ✓ Сообщение отправлено клиенту {actionResult.clientName}
-            </Badge>
-          </div>
-        );
-      
-      case 'task_created':
-        return (
-          <div className="mt-4">
-            <Badge variant="default" className="bg-blue-100 text-blue-800">
-              ✓ Задача "{actionResult.title}" создана
-              {actionResult.clientName && ` для ${actionResult.clientName}`}
-            </Badge>
-          </div>
-        );
-
-      case 'tasks':
-        return (
-          <div className="mt-4">
-            <p className="text-sm text-muted-foreground mb-2">
-              Задачи ({actionResult.filter}): {(actionResult.data || []).length}
-            </p>
-            <div className="space-y-1 max-h-32 overflow-y-auto">
-              {(actionResult.data || []).slice(0, 5).map((task: any) => (
-                <div 
-                  key={task.id} 
-                  className="text-xs bg-muted p-2 rounded cursor-pointer hover:bg-muted/80 transition-colors border-l-2 border-l-primary/50"
-                  onClick={() => {
-                    if (onOpenModal?.editTask) {
-                      onOpenModal.editTask(task.id);
-                    }
-                  }}
-                >
-                  <div className="font-medium text-primary">{task.title}</div>
-                  <div className="text-muted-foreground flex items-center justify-between">
-                    <div>
-                      <span className={`inline-block w-2 h-2 rounded-full mr-1 ${
-                        task.status === 'active' ? 'bg-green-500' : 'bg-gray-400'
-                      }`} />
-                      {task.status === 'active' ? 'Активна' : 'Выполнена'}
-                      {task.due_date && ` • ${task.due_date}`}
-                    </div>
-                    {task.client_id && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-4 px-2 text-xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (onOpenChat) {
-                            onOpenChat(task.client_id);
-                          }
-                        }}
-                      >
-                        💬
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-            {(actionResult.data || []).length > 5 && (
-              <p className="text-xs text-muted-foreground mt-1">
-                И ещё {(actionResult.data || []).length - 5} задач...
-              </p>
-            )}
-          </div>
-        );
-
-      case 'task_updated':
-        return (
-          <div className="mt-4">
-            <Badge variant="default" className="bg-green-100 text-green-800">
-              ✓ Задача {actionResult.status === 'completed' ? 'выполнена' : 'обновлена'}
-            </Badge>
-          </div>
-        );
-
-      case 'tasks_deleted':
-        return (
-          <div className="mt-4">
-            <Badge variant="default" className="bg-red-100 text-red-800">
-              ✓ Удалено задач: {actionResult.deletedCount}
-            </Badge>
-            {actionResult.deletedTasks && actionResult.deletedTasks.length > 0 && (
-              <div className="mt-2 text-xs text-muted-foreground max-h-20 overflow-y-auto">
-                {actionResult.deletedTasks.slice(0, 3).map((task: any, index: number) => (
-                  <div key={index} className="truncate">"{task.title}"</div>
-                ))}
-                {actionResult.deletedTasks.length > 3 && (
-                  <div>и ещё {actionResult.deletedTasks.length - 3} задач...</div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      
-      case 'delete_error':
-        return (
-          <div className="mt-4">
-            <Badge variant="destructive" className="bg-red-100 text-red-800">
-              ❌ Ошибка удаления
-            </Badge>
-          </div>
-        );
-      
-      case 'chat_managed':
-        return (
-          <div className="mt-4">
-            <Badge variant="default" className="bg-purple-100 text-purple-800">
-              ✓ Чат с {actionResult.clientName} {actionResult.action === 'pin' ? 'закреплён' : 
-                actionResult.action === 'archive' ? 'архивирован' : 'отмечен прочитанным'}
-            </Badge>
-          </div>
-        );
-
-      case 'chat_opened':
-        return (
-          <div className="mt-4">
-            <Badge variant="default" className="bg-green-100 text-green-800">
-              ✓ Открыт чат с {actionResult.clientName}
-            </Badge>
-            {/* Реально открываем чат */}
-            {actionResult.clientId && onOpenChat && (
-              (() => {
-                setTimeout(() => onOpenChat(actionResult.clientId!), 100);
-                return null;
-              })()
-            )}
-          </div>
-        );
-
-      case 'modal_opened':
-        return (
-          <div className="mt-4">
-            <Badge variant="default" className="bg-blue-100 text-blue-800">
-              ✓ Открыто модальное окно
-            </Badge>
-            {/* Реально открываем модальное окно */}
-            {actionResult.modalType && onOpenModal && (
-              (() => {
-                const modalType = actionResult.modalType;
-                if (modalType === 'add_client' && onOpenModal.addClient) {
-                  setTimeout(() => onOpenModal.addClient!(), 100);
-                } else if (modalType === 'add_teacher' && onOpenModal.addTeacher) {
-                  setTimeout(() => onOpenModal.addTeacher!(), 100);
-                } else if (modalType === 'add_student' && onOpenModal.addStudent) {
-                  setTimeout(() => onOpenModal.addStudent!(), 100);
-                } else if (modalType === 'add_task' && onOpenModal.addTask) {
-                  setTimeout(() => onOpenModal.addTask!(), 100);
-                } else if (modalType === 'profile' && onOpenModal.clientProfile && actionResult.clientId) {
-                  setTimeout(() => onOpenModal.clientProfile!(actionResult.clientId!), 100);
-                } else if (modalType === 'edit_task' && onOpenModal.editTask && actionResult.taskId) {
-                  setTimeout(() => onOpenModal.editTask!(actionResult.taskId!), 100);
-                }
-                return null;
-              })()
-            )}
-          </div>
-        );
-
-      case 'client_info':
-        return (
-          <div className="mt-4">
-            <p className="text-sm text-muted-foreground mb-2">Информация о клиенте:</p>
-            <div className="text-sm bg-muted p-2 rounded max-h-32 overflow-y-auto">
-              {actionResult.data && (
-                <>
-                  <div><strong>{actionResult.data.name}</strong></div>
-                  <div>Филиал: {actionResult.data.branch}</div>
-                  {actionResult.data.phone && <div>Телефон: {actionResult.data.phone}</div>}
-                  {actionResult.data.students?.length > 0 && (
-                    <div>Студенты: {actionResult.data.students.map((s: any) => s.name).join(', ')}</div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        );
-      
-      case 'schedule':
-        return (
-          <div className="mt-4">
-            <p className="text-sm text-muted-foreground mb-2">Расписание:</p>
-            <div className="space-y-2 max-h-32 overflow-y-auto">
-              {(actionResult.data || []).slice(0, 5).map((item: any, index: number) => (
-                <div key={index} className="text-sm bg-muted p-2 rounded">
-                  <strong>{item.name}</strong> ({item.office_name})<br />
-                  {item.compact_days} {item.compact_time}
-                  {item.vacancies > 0 && <span className="text-green-600"> • {item.vacancies} мест</span>}
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      
-      default:
-        return null;
+  const handleSendMessage = () => {
+    if (inputText.trim()) {
+      processMessage(inputText);
+      setInputText('');
     }
   };
 
-  const handleMicrophoneClick = async () => {
-    onToggle(); // Открываем окно ассистента
-    // Небольшая задержка, чтобы окно успело открыться
-    setTimeout(() => {
-      if (!isRecording && !isProcessing && !isSpeaking) {
-        startRecording();
-      }
-    }, 100);
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('ru-RU', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
   };
 
   if (!isOpen) {
     return (
       <Button
-        onClick={handleMicrophoneClick}
+        onClick={onToggle}
         size="lg"
         className={`fixed shadow-lg bg-gradient-primary hover:shadow-elevated z-50 rounded-full h-14 w-14 ${
           isMobile 
-            ? 'bottom-20 right-4' // На мобильных выше, чтобы не перекрывать поле ввода
-            : 'bottom-6 right-6'   // На десктопе как было
+            ? 'bottom-20 right-4'
+            : 'bottom-6 right-6'
         }`}
       >
-        <Mic className="h-6 w-6" />
+        <Bot className="h-6 w-6" />
       </Button>
     );
   }
@@ -781,16 +619,21 @@ export default function VoiceAssistant({
   return (
     <Card className={`fixed shadow-xl bg-background border z-50 ${
       isMobile 
-        ? 'bottom-20 right-2 left-2 w-auto max-h-[70vh]' // На мобильных растягиваем на всю ширину с отступами и ограничиваем высоту
-        : 'bottom-6 right-6 w-80 max-h-[80vh]'           // На десктопе фиксированная ширина и высота
+        ? 'bottom-20 right-2 left-2 w-auto h-[70vh]'
+        : 'bottom-6 right-6 w-96 h-[80vh]'
     } flex flex-col`}>
-      <div className="flex items-center justify-between p-4 pb-2 shrink-0">
-        <h3 className="font-semibold">Голосовой ассистент</h3>
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b shrink-0">
+        <div className="flex items-center gap-2">
+          <Bot className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold">AI Ассистент</h3>
+        </div>
         <div className="flex gap-2">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setAudioEnabled(!audioEnabled)}
+            className="h-8 w-8 p-0"
           >
             {audioEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
           </Button>
@@ -798,124 +641,137 @@ export default function VoiceAssistant({
             variant="ghost" 
             size="sm"
             onClick={onToggle}
+            className="h-8 w-8 p-0"
           >
-            ✕
+            <X className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 pt-0">
+      {/* Chat Messages */}
+      <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
         <div className="space-y-4">
-          {/* Статус и управление */}
-          <div className="flex flex-col items-center gap-3">
-            <div className="flex gap-2">
-              {!isProcessing && !isSpeaking && (
-                <Button
-                  onClick={isRecording ? stopRecording : startRecording}
-                  size="lg"
-                  variant={isRecording ? "destructive" : "default"}
-                  className="rounded-full h-12 w-12"
-                >
-                  {isRecording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-                </Button>
-              )}
-              
-              {isSpeaking && (
-                <Button
-                  onClick={stopSpeaking}
-                  size="lg"
-                  variant="secondary"
-                  className="rounded-full h-12 w-12"
-                >
-                  <VolumeX className="h-5 w-5" />
-                </Button>
-              )}
-              
-              {isProcessing && (
-                <Button
-                  disabled
-                  size="lg"
-                  className="rounded-full h-12 w-12"
-                >
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                </Button>
-              )}
-            </div>
-
-            <div className="text-center">
-              {isRecording && (
-                <div className="space-y-2">
-                  <Badge variant="destructive" className="animate-pulse">
-                    🎤 Запись... Говорите сейчас
-                  </Badge>
-                  <p className="text-xs text-muted-foreground">
-                    Остановится автоматически при тишине или нажмите кнопку
-                  </p>
-                </div>
-              )}
-              {isProcessing && (
-                <Badge variant="secondary">
-                  Обработка...
-                </Badge>
-              )}
-              {isSpeaking && (
-                <Badge variant="default" className="animate-pulse">
-                  Воспроизведение...
-                </Badge>
-              )}
-              {!isRecording && !isProcessing && !isSpeaking && (
-                <Badge variant="outline">
-                  Готов к команде
-                </Badge>
-              )}
-            </div>
-          </div>
-
-          {/* Последняя команда и ответ */}
-          {lastCommand && (
-            <div className="space-y-2">
-              <div>
-                <p className="text-xs text-muted-foreground">Команда:</p>
-                <p className="text-sm bg-muted p-2 rounded">{lastCommand}</p>
-              </div>
-              
-              {lastResponse && (
-                <div>
-                  <p className="text-xs text-muted-foreground">Ответ:</p>
-                  <p className="text-sm bg-primary/10 p-2 rounded">{lastResponse}</p>
-                </div>
-              )}
-              
-              {renderActionResult()}
+          {messages.length === 0 && (
+            <div className="text-center text-muted-foreground py-8">
+              <Bot className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p className="text-sm">Привет! Я ваш AI-ассистент.</p>
+              <p className="text-xs mt-1">Напишите сообщение или нажмите на микрофон</p>
             </div>
           )}
-
-          {/* Подсказки */}
-          <div className="text-xs text-muted-foreground">
-            {isMobile && (
-              <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded text-amber-800">
-                <p className="font-medium mb-1">📱 Для работы на мобильном:</p>
-                <p>• Разрешите доступ к микрофону в браузере</p>
-                <p>• Используйте HTTPS соединение</p>
-                <p>• Говорите четко и громко</p>
+          
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className={`flex gap-3 ${
+                message.type === 'user' ? 'flex-row-reverse' : 'flex-row'
+              }`}
+            >
+              <Avatar className="h-8 w-8 shrink-0">
+                <AvatarFallback className={`text-xs ${
+                  message.type === 'user' 
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'bg-muted text-muted-foreground'
+                }`}>
+                  {message.type === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                </AvatarFallback>
+              </Avatar>
+              
+              <div className={`flex-1 space-y-1 ${
+                message.type === 'user' ? 'text-right' : 'text-left'
+              }`}>
+                <div className={`inline-block px-3 py-2 rounded-lg max-w-[85%] text-sm ${
+                  message.type === 'user'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-foreground'
+                }`}>
+                  <div className="flex items-center gap-1 mb-1">
+                    {message.isVoice && (
+                      <Mic className="h-3 w-3 opacity-70" />
+                    )}
+                    <span className="text-xs opacity-70">
+                      {formatTime(message.timestamp)}
+                    </span>
+                  </div>
+                  {message.content}
+                </div>
               </div>
-            )}
-            <p className="font-medium mb-1">Примеры команд:</p>
-            <ul className="space-y-1">
-              <li>• "Найди клиента Иван"</li>
-              <li>• "Отправь сообщение Анне что урок переносится"</li>
-              <li>• "Создай задачу позвонить клиенту"</li>
-              <li>• "Покажи мои задачи на сегодня"</li>
-              <li>• "Какие у меня просроченные задачи?"</li>
-              <li>• "Покажи расписание на сегодня"</li>
-              <li>• "Открой чат с Марией"</li>
-              <li>• "Найди преподавателя Елена"</li>
-              <li>• "Открой окно добавления клиента"</li>
-              <li>• "Покажи информацию о клиенте Иван"</li>
-            </ul>
-          </div>
+            </div>
+          ))}
+          
+          {isProcessing && (
+            <div className="flex gap-3">
+              <Avatar className="h-8 w-8 shrink-0">
+                <AvatarFallback className="bg-muted text-muted-foreground">
+                  <Bot className="h-4 w-4" />
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <div className="inline-block px-3 py-2 rounded-lg bg-muted text-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </ScrollArea>
+
+      {/* Input Area */}
+      <div className="p-4 border-t shrink-0">
+        <div className="flex gap-2">
+          <div className="flex-1 flex gap-2">
+            <Input
+              ref={inputRef}
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Напишите сообщение..."
+              disabled={isProcessing}
+              className="flex-1"
+            />
+            <Button
+              onClick={handleSendMessage}
+              disabled={!inputText.trim() || isProcessing}
+              size="sm"
+              className="px-3"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          <Separator orientation="vertical" className="h-9" />
+          
+          <div className="flex gap-1">
+            {isSpeaking && (
+              <Button
+                onClick={stopSpeaking}
+                size="sm"
+                variant="secondary"
+                className="px-3"
+              >
+                <VolumeX className="h-4 w-4" />
+              </Button>
+            )}
+            
+            <Button
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={isProcessing && !isRecording}
+              size="sm"
+              variant={isRecording ? "destructive" : "outline"}
+              className="px-3"
+            >
+              {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
+        
+        {isRecording && (
+          <div className="mt-2 text-center">
+            <div className="text-xs text-muted-foreground animate-pulse">
+              🎤 Запись... Говорите сейчас
+            </div>
+          </div>
+        )}
+      </div>
     </Card>
   );
 }
