@@ -1113,7 +1113,7 @@ const CRMContent = () => {
       )}
 
       {/* Основная область */}
-      <div className={`relative z-0 isolate flex flex-1 w-full max-w-none overflow-hidden ${isMobile ? 'pt-12' : ''}`}>
+      <div className={`relative z-0 isolate flex flex-1 w-full overflow-hidden ${isMobile ? 'pt-12' : ''}`}>
         {/* Left Unified Sidebar - Desktop */}
         <div className={`${
           isMobile ? 'hidden' : 'flex'
@@ -2471,7 +2471,7 @@ const CRMContent = () => {
         </div>
 
         {/* Center - Chat Area или Мобильный контент */}
-        <div className="flex-1 w-full max-w-none min-w-0 min-h-0 flex flex-col bg-background">
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-background">
           {/* Показываем меню на мобильной версии когда активна вкладка menu */}
           {isMobile && activeTab === 'menu' ? (
             <div className="p-4 space-y-2 overflow-y-auto">
@@ -2946,7 +2946,7 @@ const CRMContent = () => {
             />
           ) : (
             <div className="flex-1 bg-background flex items-center justify-center p-4">
-              <div className="text-center text-muted-foreground w-full">
+              <div className="text-center text-muted-foreground max-w-sm mx-auto">
                 <MessageCircle className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 opacity-50" />
                 <h3 className="text-base sm:text-lg font-semibold mb-2">Выберите чат</h3>
                 <p className="text-xs sm:text-sm">

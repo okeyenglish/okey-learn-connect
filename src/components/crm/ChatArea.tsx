@@ -184,8 +184,30 @@ export const ChatArea = ({
         created_at: msg.created_at // Add created_at for sorting
       }));
 
-      // NOTE: Temporarily do not inject call comments into the main chat feed to avoid layout issues
-      const allMessages = [...formattedMessages]
+      // Add call comments as system messages in the main chat
+      const callCommentsAsMessages = callComments.map(comment => ({
+        id: `comment-${comment.id}`,
+        type: 'system',
+        message: comment.comment_text,
+        time: new Date(comment.created_at).toLocaleTimeString('ru-RU', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }),
+        systemType: 'call-comment',
+        callDuration: undefined,
+        messageStatus: undefined,
+        clientAvatar: null,
+        managerName: managerName,
+        fileUrl: undefined,
+        fileName: undefined,
+        fileType: undefined,
+        whatsappChatId: undefined,
+        greenApiMessageId: undefined,
+        created_at: comment.created_at
+      }));
+
+      // Combine and sort all messages by timestamp
+      const allMessages = [...formattedMessages, ...callCommentsAsMessages]
         .sort((a, b) => {
           return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
         });
@@ -1230,7 +1252,7 @@ export const ChatArea = ({
             <TabsTrigger value="calls" className="text-xs">Звонки</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="whatsapp" className="flex-1 overflow-y-auto mt-0">
+          <TabsContent value="whatsapp" className="flex-1 p-3 overflow-y-auto mt-0">
             <div className="space-y-1">
               {loadingMessages ? (
                 <div className="text-center text-muted-foreground text-sm py-4">
@@ -1379,7 +1401,7 @@ export const ChatArea = ({
 
       {/* Message Input - Hidden when on calls tab */}
       {activeTab !== "calls" && (
-        <div className="border-t p-4 bg-background flex-shrink-0">
+        <div className="border-t p-3 shrink-0">
         {/* Pending message with countdown */}
         {pendingMessage && (
           <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between">
