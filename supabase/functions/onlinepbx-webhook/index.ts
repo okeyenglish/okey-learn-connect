@@ -109,6 +109,13 @@ serve(async (req) => {
         if (digits.length === 10) return '7' + digits;
         return digits;
       };
+      
+      const formatPhoneForSearch = (digits: string) => {
+        if (digits.length === 11 && digits.startsWith('7')) {
+          return `+7 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7, 9)}-${digits.slice(9, 11)}`;
+        }
+        return digits;
+      };
       const normalizedPhone = normalizePhone(selectedPhone);
       const durationSeconds = (typeof webhookData.duration === 'string' ? parseInt(webhookData.duration) : webhookData.duration) || null;
 
@@ -180,12 +187,16 @@ serve(async (req) => {
         // Try to find client by phone number (exact, then fallback by last 10 digits)
         let clientId: string | null = null;
         try {
+          const formattedPhone = formatPhoneForSearch(normalizedPhone);
           const variants = Array.from(new Set([
             selectedPhone,
             normalizedPhone,
-            '+' + normalizedPhone
+            '+' + normalizedPhone,
+            formattedPhone
           ].filter(Boolean)));
           let matched: any = null;
+
+          console.log('Searching for client with phone variants:', variants);
 
           for (const v of variants) {
             const { data: exact, error: exactErr } = await supabase
@@ -196,11 +207,16 @@ serve(async (req) => {
             if (exactErr) {
               console.error('Exact phone search error:', exactErr);
             }
-            if (exact) { matched = exact; break; }
+            if (exact) { 
+              matched = exact; 
+              console.log('Found exact match with variant:', v);
+              break; 
+            }
           }
 
           if (!matched && normalizedPhone.length >= 10) {
             const last10 = normalizedPhone.slice(-10);
+            console.log('Fallback search with last 10 digits:', last10);
             const { data: list, error: likeErr } = await supabase
               .from('clients')
               .select('id, phone')
@@ -210,6 +226,7 @@ serve(async (req) => {
               console.error('Fallback phone search error:', likeErr);
             } else if (list && list.length > 0) {
               matched = list[0];
+              console.log('Found fallback match:', matched.phone);
             }
           }
 
