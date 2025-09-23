@@ -194,6 +194,7 @@ const CRMContent = () => {
   const [activeChatType, setActiveChatType] = useState<'client' | 'corporate' | 'teachers'>('client');
   const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
   const [isPinnedSectionOpen, setIsPinnedSectionOpen] = useState(false);
+  const [showOnlyUnread, setShowOnlyUnread] = useState(false);
   
   // Состояния для модальных окон
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
@@ -2123,17 +2124,40 @@ const CRMContent = () => {
 
                   {/* Активные чаты */}
                   <div>
-                    <div className="flex items-center justify-between px-2 py-1 mb-2">
+                     <div className="flex items-center justify-between px-2 py-1 mb-2">
                        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide pl-1">
                          Активные чаты
                        </h3>
-                      <Badge variant="secondary" className="text-xs h-4">
-                        {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id)).length}
-                      </Badge>
-                    </div>
-                     <div className="space-y-0.5">
-                      {filteredChats
-                        .filter(chat => !isPinnedByCurrentUser(chat.id))
+                       <div className="flex items-center gap-2">
+                         {/* Unread filter button - only show if there are unread chats */}
+                         {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id) && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length > 0 && (
+                           <Button
+                             variant={showOnlyUnread ? "default" : "outline"}
+                             size="sm"
+                             className="h-4 px-2 text-xs"
+                             onClick={() => setShowOnlyUnread(!showOnlyUnread)}
+                           >
+                             {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id) && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length}
+                           </Button>
+                         )}
+                         <Badge variant="secondary" className="text-xs h-4">
+                           {showOnlyUnread 
+                             ? filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id) && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length
+                             : filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id)).length
+                           }
+                         </Badge>
+                       </div>
+                     </div>
+                      <div className="space-y-0.5">
+                       {filteredChats
+                         .filter(chat => !isPinnedByCurrentUser(chat.id))
+                         .filter(chat => {
+                           if (!showOnlyUnread) return true;
+                           const chatState = getChatState(chat.id);
+                           const isUnreadGlobally = !isChatReadGlobally(chat.id);
+                           const showEye = !!chatState?.isUnread;
+                           return showEye || isUnreadGlobally || chat.unread > 0;
+                         })
                         .map((chat) => {
                           const chatState = getChatState(chat.id);
                           // Используем глобальную систему прочитанности
@@ -2469,17 +2493,40 @@ const CRMContent = () => {
 
                   {/* Активные чаты */}
                   <div>
-                    <div className="flex items-center justify-between px-2 py-2 mb-3">
-                       <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide pl-1">
-                         Активные чаты
-                       </h3>
-                      <Badge variant="secondary" className="text-xs h-5">
-                        {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id)).length}
-                      </Badge>
-                    </div>
-                     <div className="space-y-1">
-                      {filteredChats
-                        .filter(chat => !isPinnedByCurrentUser(chat.id))
+                     <div className="flex items-center justify-between px-2 py-2 mb-3">
+                        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide pl-1">
+                          Активные чаты
+                        </h3>
+                       <div className="flex items-center gap-2">
+                         {/* Unread filter button - only show if there are unread chats */}
+                         {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id) && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length > 0 && (
+                           <Button
+                             variant={showOnlyUnread ? "default" : "outline"}
+                             size="sm"
+                             className="h-5 px-2 text-xs"
+                             onClick={() => setShowOnlyUnread(!showOnlyUnread)}
+                           >
+                             {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id) && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length}
+                           </Button>
+                         )}
+                         <Badge variant="secondary" className="text-xs h-5">
+                           {showOnlyUnread 
+                             ? filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id) && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length
+                             : filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id)).length
+                           }
+                         </Badge>
+                       </div>
+                     </div>
+                      <div className="space-y-1">
+                       {filteredChats
+                         .filter(chat => !isPinnedByCurrentUser(chat.id))
+                         .filter(chat => {
+                           if (!showOnlyUnread) return true;
+                           const chatState = getChatState(chat.id);
+                           const isUnreadGlobally = !isChatReadGlobally(chat.id);
+                           const showEye = !!chatState?.isUnread;
+                           return showEye || isUnreadGlobally || chat.unread > 0;
+                         })
                         .map((chat) => {
                           const chatState = getChatState(chat.id);
                           // Используем глобальную систему прочитанности
