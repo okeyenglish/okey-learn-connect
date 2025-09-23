@@ -34,7 +34,7 @@ export const InlinePendingGPTResponse: React.FC<InlinePendingGPTResponseProps> =
             <Bot className="h-3 w-3 text-primary" />
             <span className="text-xs font-medium text-primary">GPT</span>
           </div>
-          <p className="text-xs text-foreground whitespace-pre-wrap leading-tight line-clamp-2">
+          <p className="text-xs text-foreground whitespace-pre-wrap leading-tight">
             {response.suggested_response}
           </p>
         </div>
