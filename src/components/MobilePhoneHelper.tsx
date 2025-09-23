@@ -39,8 +39,7 @@ export const MobilePhoneHelper: React.FC<MobilePhoneHelperProps> = ({ phoneNumbe
     setIsRequestingCallback(true);
     
     try {
-      // Call edge function to initiate callback
-      const { data, error } = await supabase.functions.invoke('request-callback', {
+      const { data, error } = await supabase.functions.invoke('onlinepbx-call', {
         body: {
           to_number: phoneNumber,
           from_user: user.id
@@ -51,7 +50,7 @@ export const MobilePhoneHelper: React.FC<MobilePhoneHelperProps> = ({ phoneNumbe
 
       toast({
         title: "Запрос отправлен",
-        description: "Система инициирует обратный звонок в течение 30 секунд",
+        description: "Звонок инициирован через OnlinePBX. Поднимите трубку.",
       });
       
       onCallEnd?.();
@@ -110,10 +109,10 @@ export const MobilePhoneHelper: React.FC<MobilePhoneHelperProps> = ({ phoneNumbe
               <ArrowLeft className="h-5 w-5 mr-3" />
               <div>
                 <div className="font-medium">
-                  {isRequestingCallback ? 'Отправка запроса...' : 'Обратный звонок'}
+                  {isRequestingCallback ? 'Совершаем звонок...' : 'Звонок OnlinePBX'}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Система перезвонит вам через SIP
+                  Звонок через стационарную трубку менеджера
                 </div>
               </div>
             </Button>
