@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -983,6 +983,15 @@ export const ChatArea = ({
                 onClick={handleSearchToggle}
               >
                 <Search className="h-5 w-5 stroke-1" />
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                className="crm-btn h-10 w-10 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                title="Позвонить"
+                onClick={handlePhoneCall}
+              >
+                <Phone className="h-5 w-5 stroke-1" />
               </Button>
               <Button 
                 size="sm" 
