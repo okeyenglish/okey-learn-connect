@@ -92,38 +92,157 @@ export const WebRTCDiagnostics: React.FC<WebRTCDiagnosticsProps> = ({
         updateDiagnostic('microphone', 'error', `Ошибка доступа к микрофону: ${error.message}`);
       });
 
-    // Диагностика 3: TCP 8082 (косвенная проверка через WebSocket)
+    // Диагностика 3: TCP 8082 + автотест альтернативных портов
     if (sipProfile?.sip_domain) {
-      const testURL = sipProfile.sip_ws_url || `wss://${sipProfile.sip_domain}:8082`;
-      
-      try {
-        const testWS = new WebSocket(testURL);
+      if (sipProfile.sip_ws_url) {
+        // Пользовательский WebSocket URL
+        testWebSocketURL(sipProfile.sip_ws_url);
+      } else {
+        // Автотест OnlinePBX портов
+        const candidates = [
+          `wss://${sipProfile.sip_domain}:8082`,
+          `wss://${sipProfile.sip_domain}:7443`,
+          `wss://${sipProfile.sip_domain}:8089`,
+          `wss://${sipProfile.sip_domain}:8082/ws`,
+          `wss://${sipProfile.sip_domain}:7443/ws`,
+          `wss://${sipProfile.sip_domain}:8089/ws`
+        ];
         
-        const timeout = setTimeout(() => {
-          updateDiagnostic('tcp8082', 'warning', `Таймаут подключения к ${testURL}`);
-          try { testWS.close(); } catch (e) {}
-        }, 3000);
+        updateDiagnostic('tcp8082', 'pending', `Автотест портов OnlinePBX: ${candidates.length} вариантов`);
+        testMultipleWebSocketURLs(candidates);
+      }
+    } else {
+      updateDiagnostic('tcp8082', 'warning', 'SIP домен не настроен');
+    }
+  }, [isVisible, sipProfile]);
 
-        testWS.onopen = () => {
-          clearTimeout(timeout);
-          updateDiagnostic('tcp8082', 'success', `Порт доступен: ${testURL}`);
-          testWS.close();
-        };
+  const testWebSocketURL = (url: string) => {
+    try {
+      const testWS = new WebSocket(url);
+      
+      const timeout = setTimeout(() => {
+        updateDiagnostic('tcp8082', 'warning', `Таймаут: ${url}`);
+        try { testWS.close(); } catch (e) {}
+      }, 3000);
 
-        testWS.onerror = (error) => {
-          clearTimeout(timeout);
-          console.warn('WebSocket test error:', error);
-          updateDiagnostic('tcp8082', 'error', `Порт недоступен: ${testURL}`);
-        };
+      testWS.onopen = () => {
+        clearTimeout(timeout);
+        updateDiagnostic('tcp8082', 'success', `✓ Работает: ${url}`);
+        testWS.close();
+      };
 
-        testWS.onclose = (event) => {
-          if (event.code !== 1000) {
-            console.warn('WebSocket test closed with code:', event.code, event.reason);
+      testWS.onerror = () => {
+        clearTimeout(timeout);
+        updateDiagnostic('tcp8082', 'error', `✗ Недоступен: ${url}`);
+      };
+    } catch (error) {
+      updateDiagnostic('tcp8082', 'error', `Ошибка: ${url} - ${error.message}`);
+    }
+  };
+
+  const testMultipleWebSocketURLs = async (urls: string[]) => {
+    let workingURL = null;
+    let testedCount = 0;
+    
+    const testPromises = urls.map(async (url) => {
+      return new Promise<void>((resolve) => {
+        try {
+          const testWS = new WebSocket(url);
+          
+          const timeout = setTimeout(() => {
+            testedCount++;
+            console.log(`Timeout: ${url} (${testedCount}/${urls.length})`);
+            if (testedCount === urls.length && !workingURL) {
+              updateDiagnostic('tcp8082', 'error', `Все ${urls.length} портов недоступны`);
+            }
+            try { testWS.close(); } catch (e) {}
+            resolve();
+          }, 2000);
+
+          testWS.onopen = () => {
+            clearTimeout(timeout);
+            if (!workingURL) {
+              workingURL = url;
+              updateDiagnostic('tcp8082', 'success', `✓ Найден рабочий: ${url}`);
+              
+              // Сохраняем рабочий URL в профиль пользователя
+              saveBestWebSocketURL(url);
+            }
+            testWS.close();
+            resolve();
+          };
+
+          testWS.onerror = () => {
+            clearTimeout(timeout);
+            testedCount++;
+            console.log(`Error: ${url} (${testedCount}/${urls.length})`);
+            if (testedCount === urls.length && !workingURL) {
+              updateDiagnostic('tcp8082', 'error', `Все ${urls.length} портов недоступны`);
+            }
+            resolve();
+          };
+        } catch (error) {
+          testedCount++;
+          console.log(`Exception: ${url} - ${error.message} (${testedCount}/${urls.length})`);
+          if (testedCount === urls.length && !workingURL) {
+            updateDiagnostic('tcp8082', 'error', `Все ${urls.length} портов недоступны`);
           }
-        };
-      } catch (error) {
-        console.error('Failed to create test WebSocket:', error);
-        updateDiagnostic('tcp8082', 'error', `Ошибка создания WebSocket: ${error.message}`);
+          resolve();
+        }
+      });
+    });
+
+    await Promise.all(testPromises);
+  };
+
+  const saveBestWebSocketURL = async (url: string) => {
+    try {
+      const { data: { user } } = await (window as any).supabase?.auth?.getUser?.() || {};
+      if (user) {
+        await (window as any).supabase?.from?.('profiles')?.update?.({ sip_ws_url: url })?.eq?.('id', user.id);
+        console.log('Saved best WebSocket URL:', url);
+      }
+    } catch (error) {
+      console.error('Failed to save WebSocket URL:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (!isVisible) return;
+    
+    // Диагностика 1: HTTPS
+    const isHTTPS = window.location.protocol === 'https:';
+    updateDiagnostic('https', isHTTPS ? 'success' : 'error', 
+      isHTTPS ? 'Сайт работает по HTTPS' : 'Требуется HTTPS для WebRTC');
+
+    // Диагностика 2: Микрофон
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then((stream) => {
+        updateDiagnostic('microphone', 'success', 'Микрофон доступен');
+        stream.getTracks().forEach(track => track.stop());
+      })
+      .catch((error) => {
+        updateDiagnostic('microphone', 'error', `Ошибка доступа к микрофону: ${error.message}`);
+      });
+
+    // Диагностика 3: TCP 8082 + автотест альтернативных портов
+    if (sipProfile?.sip_domain) {
+      if (sipProfile.sip_ws_url) {
+        // Пользовательский WebSocket URL
+        testWebSocketURL(sipProfile.sip_ws_url);
+      } else {
+        // Автотест OnlinePBX портов
+        const candidates = [
+          `wss://${sipProfile.sip_domain}:8082`,
+          `wss://${sipProfile.sip_domain}:7443`,
+          `wss://${sipProfile.sip_domain}:8089`,
+          `wss://${sipProfile.sip_domain}:8082/ws`,
+          `wss://${sipProfile.sip_domain}:7443/ws`,
+          `wss://${sipProfile.sip_domain}:8089/ws`
+        ];
+        
+        updateDiagnostic('tcp8082', 'pending', `Автотест портов OnlinePBX: ${candidates.length} вариантов`);
+        testMultipleWebSocketURLs(candidates);
       }
     } else {
       updateDiagnostic('tcp8082', 'warning', 'SIP домен не настроен');
