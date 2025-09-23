@@ -20,9 +20,11 @@ import { ForwardMessageModal } from "./ForwardMessageModal";
 import { QuickResponsesModal } from "./QuickResponsesModal";
 import { FileUpload } from "./FileUpload";
 import { AttachedFile } from "./AttachedFile";
+import { PendingGPTResponseComponent } from "./PendingGPTResponse";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { usePendingGPTResponses } from "@/hooks/usePendingGPTResponses";
 import { useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
 
 interface ChatAreaProps {
@@ -99,6 +101,9 @@ export const ChatArea = ({
   const isMobile = useIsMobile();
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
   const markChatMessagesAsReadMutation = useMarkChatMessagesAsRead();
+  
+  // Get pending GPT responses for this client
+  const { data: pendingGPTResponses, isLoading: pendingGPTLoading } = usePendingGPTResponses(clientId);
 
   // Функция для прокрутки к концу чата
   const scrollToBottom = (smooth = true) => {
@@ -1096,6 +1101,18 @@ export const ChatArea = ({
           
           <TabsContent value="whatsapp" className="flex-1 p-3 overflow-y-auto mt-0">
             <div className="space-y-1">
+              {/* Pending GPT Responses */}
+              {!pendingGPTLoading && pendingGPTResponses && pendingGPTResponses.length > 0 && (
+                <div className="space-y-3 mb-4">
+                  {pendingGPTResponses.map((response) => (
+                    <PendingGPTResponseComponent
+                      key={response.id}
+                      response={response}
+                    />
+                  ))}
+                </div>
+              )}
+              
               {loadingMessages ? (
                 <div className="text-center text-muted-foreground text-sm py-4">
                   Загрузка сообщений...

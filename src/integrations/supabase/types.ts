@@ -709,6 +709,45 @@ export type Database = {
         }
         Relationships: []
       }
+      pending_gpt_responses: {
+        Row: {
+          approved_by: string | null
+          client_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          messages_context: Json
+          original_response: string | null
+          sent_at: string | null
+          status: string
+          suggested_response: string
+        }
+        Insert: {
+          approved_by?: string | null
+          client_id: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          messages_context?: Json
+          original_response?: string | null
+          sent_at?: string | null
+          status?: string
+          suggested_response: string
+        }
+        Update: {
+          approved_by?: string | null
+          client_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          messages_context?: Json
+          original_response?: string | null
+          sent_at?: string | null
+          status?: string
+          suggested_response?: string
+        }
+        Relationships: []
+      }
       pinned_modals: {
         Row: {
           created_at: string

@@ -1,12 +1,15 @@
 project_id = "kbojujfwtvmsgudumown"
 
-[functions.webhook-proxy]
+[functions.ask]
+verify_jwt = false
+
+[functions.generate-delayed-gpt-response]
 verify_jwt = false
 
 [functions.index-content]
 verify_jwt = false
 
-[functions.ask]
+[functions.webhook-proxy]
 verify_jwt = false
 
 [functions.whatsapp-webhook]
