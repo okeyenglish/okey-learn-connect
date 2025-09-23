@@ -972,7 +972,8 @@ const CRMContent = () => {
     { icon: Building, label: "Компания" },
     { icon: GraduationCap, label: "Обучение" },
     { icon: Monitor, label: "Занятия онлайн" },
-    { icon: Calendar, label: "Расписание" },
+    // Убираем "Расписание" из меню, так как оно есть в нижней навигации на мобильной версии
+    ...(!isMobile ? [{ icon: Calendar, label: "Расписание" }] : []),
     { icon: DollarSign, label: "Финансы" },
     { icon: BarChart3, label: "Отчёты" },
     { icon: Settings, label: "Настройки" },
@@ -3031,37 +3032,39 @@ const CRMContent = () => {
         return null;
       })}
       
-      {/* Голосовой ассистент */}
-      <VoiceAssistant 
-        isOpen={voiceAssistantOpen}
-        onToggle={() => setVoiceAssistantOpen(!voiceAssistantOpen)}
-        context={{
-          currentPage: 'CRM',
-          activeClientId: activeChatId,
-          activeClientName: activeChatId ? getActiveClientInfo(activeChatId).name : null,
-          userRole: role,
-          userBranch: profile?.branch,
-          activeChatType
-        }}
-        onOpenModal={{
-          addClient: () => setShowAddClientModal(true),
-          addTask: () => setShowAddTaskModal(true),
-          addTeacher: () => setShowAddTeacherModal(true),
-          addStudent: () => setShowAddStudentModal(true),
-          addInvoice: () => setShowInvoiceModal(true),
-          clientProfile: (clientId: string) => {
+      {/* Голосовой ассистент - скрываем на мобильной версии */}
+      {!isMobile && (
+        <VoiceAssistant 
+          isOpen={voiceAssistantOpen}
+          onToggle={() => setVoiceAssistantOpen(!voiceAssistantOpen)}
+          context={{
+            currentPage: 'CRM',
+            activeClientId: activeChatId,
+            activeClientName: activeChatId ? getActiveClientInfo(activeChatId).name : null,
+            userRole: role,
+            userBranch: profile?.branch,
+            activeChatType
+          }}
+          onOpenModal={{
+            addClient: () => setShowAddClientModal(true),
+            addTask: () => setShowAddTaskModal(true),
+            addTeacher: () => setShowAddTeacherModal(true),
+            addStudent: () => setShowAddStudentModal(true),
+            addInvoice: () => setShowInvoiceModal(true),
+            clientProfile: (clientId: string) => {
+              handleChatClick(clientId, 'client');
+              setRightSidebarOpen(true);
+            },
+            editTask: (taskId: string) => {
+              setEditTaskId(taskId);
+              setShowEditTaskModal(true);
+            }
+          }}
+          onOpenChat={(clientId: string) => {
             handleChatClick(clientId, 'client');
-            setRightSidebarOpen(true);
-          },
-          editTask: (taskId: string) => {
-            setEditTaskId(taskId);
-            setShowEditTaskModal(true);
-          }
-        }}
-        onOpenChat={(clientId: string) => {
-          handleChatClick(clientId, 'client');
-        }}
-      />
+          }}
+        />
+      )}
 
       {/* Мобильная нижняя навигация */}
       {isMobile && (
