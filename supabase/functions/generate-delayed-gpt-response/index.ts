@@ -95,6 +95,40 @@ serve(async (req) => {
 
     console.log(`Found ${recentMessages.length} recent messages to process`);
 
+    // Process audio messages - transcribe them if needed
+    const processedMessages = [];
+    for (const message of recentMessages) {
+      let messageText = message.message_text;
+      
+      // Check if this is an audio message and needs transcription
+      if ((message.file_type === 'audio' || message.message_type === 'audioMessage' || message.message_type === 'pttMessage') && message.file_url) {
+        console.log(`Transcribing audio message: ${message.id}`);
+        
+        try {
+          // Call transcribe-audio function
+          const transcriptionResponse = await supabase.functions.invoke('transcribe-audio', {
+            body: { audioUrl: message.file_url }
+          });
+          
+          if (transcriptionResponse.data?.text) {
+            messageText = `[Аудиосообщение] ${transcriptionResponse.data.text}`;
+            console.log(`Successfully transcribed audio: ${transcriptionResponse.data.text}`);
+          } else {
+            messageText = '[Аудиосообщение - не удалось распознать речь]';
+            console.log('Audio transcription failed or returned empty text');
+          }
+        } catch (transcriptionError) {
+          console.error('Error transcribing audio:', transcriptionError);
+          messageText = '[Аудиосообщение - ошибка распознавания речи]';
+        }
+      }
+      
+      processedMessages.push({
+        ...message,
+        message_text: messageText
+      });
+    }
+
     // If manager has already replied after invocation, don't suggest anything
     const { data: managerReply, error: managerReplyError } = await supabase
       .from('chat_messages')
@@ -178,7 +212,7 @@ serve(async (req) => {
     // Get conversation history for context (last 20 messages)
     const { data: contextMessages, error: contextError } = await supabase
       .from('chat_messages')
-      .select('message_text, is_outgoing, created_at')
+      .select('message_text, is_outgoing, created_at, file_type, message_type, file_url')
       .eq('client_id', clientId)
       .order('created_at', { ascending: false })
       .limit(20);
@@ -188,9 +222,38 @@ serve(async (req) => {
       throw contextError;
     }
 
+    // Process context messages for audio transcription too
+    const processedContextMessages = [];
+    for (const message of contextMessages || []) {
+      let messageText = message.message_text;
+      
+      // Only transcribe incoming audio messages for context
+      if (!message.is_outgoing && (message.file_type === 'audio' || message.message_type === 'audioMessage' || message.message_type === 'pttMessage') && message.file_url) {
+        try {
+          const transcriptionResponse = await supabase.functions.invoke('transcribe-audio', {
+            body: { audioUrl: message.file_url }
+          });
+          
+          if (transcriptionResponse.data?.text) {
+            messageText = `[Аудиосообщение] ${transcriptionResponse.data.text}`;
+          } else {
+            messageText = '[Аудиосообщение]';
+          }
+        } catch (transcriptionError) {
+          console.error('Error transcribing context audio:', transcriptionError);
+          messageText = '[Аудиосообщение]';
+        }
+      }
+      
+      processedContextMessages.push({
+        ...message,
+        message_text: messageText
+      });
+    }
+
     // Check if we already greeted today
     const today = new Date().toDateString();
-    const todaysMessages = contextMessages?.filter(msg => {
+    const todaysMessages = processedContextMessages?.filter(msg => {
       const msgDate = new Date(msg.created_at).toDateString();
       return msgDate === today && msg.is_outgoing;
     }) || [];
@@ -203,12 +266,12 @@ serve(async (req) => {
     );
 
     // Prepare context for GPT
-    const conversationContext = contextMessages
+    const conversationContext = processedContextMessages
       ?.reverse()
       .map(msg => `${msg.is_outgoing ? 'Менеджер' : 'Клиент'}: ${msg.message_text}`)
       .join('\n') || '';
 
-    const newMessages = recentMessages
+    const newMessages = processedMessages
       .map(msg => `Клиент: ${msg.message_text}`)
       .join('\n');
 
@@ -266,7 +329,7 @@ ${newMessages}
       .from('pending_gpt_responses')
       .insert({
         client_id: clientId,
-        messages_context: recentMessages,
+        messages_context: processedMessages,
         suggested_response: suggestedResponse,
         expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour expiry
       })
@@ -284,7 +347,7 @@ ${newMessages}
       success: true, 
       pendingResponseId: pendingResponse.id,
       suggestedResponse: suggestedResponse,
-      processedMessages: recentMessages.length
+      processedMessages: processedMessages.length
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
