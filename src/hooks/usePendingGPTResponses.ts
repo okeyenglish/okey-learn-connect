@@ -135,9 +135,16 @@ export const useApprovePendingResponse = () => {
       });
 
       console.log('WhatsApp send result:', { sendResult, sendError });
+      
+      // Check both function error and result success status
       if (sendError) {
-        console.error('Error sending WhatsApp message:', sendError);
+        console.error('Function invocation error:', sendError);
         throw sendError;
+      }
+      
+      if (sendResult && !sendResult.success) {
+        console.error('WhatsApp send failed:', sendResult.error);
+        throw new Error(sendResult.error || 'Failed to send WhatsApp message');
       }
 
       // Update the pending response status
