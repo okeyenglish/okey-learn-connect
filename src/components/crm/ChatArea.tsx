@@ -1145,9 +1145,21 @@ export const ChatArea = ({
                   {Array.isArray(pendingGPTResponses) && pendingGPTResponses.length > 0 && (
                     <>
                       {pendingGPTResponses.map((response) => (
-                        <InlinePendingGPTResponse
+                    <InlinePendingGPTResponse
                           key={response.id}
                           response={response}
+                          onUse={(text) => {
+                            setMessage(text);
+                            onMessageChange?.(true);
+                            // Auto-resize and focus
+                            if (textareaRef.current) {
+                              textareaRef.current.focus();
+                              textareaRef.current.style.height = 'auto';
+                              textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+                            }
+                            // Scroll to bottom to keep input visible
+                            setTimeout(() => scrollToBottom(true), 100);
+                          }}
                         />
                       ))}
                     </>

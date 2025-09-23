@@ -1,87 +1,29 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Bot, Edit3, Send, X } from 'lucide-react';
-import { PendingGPTResponse, useApprovePendingResponse, useRejectPendingResponse, useDismissPendingResponse } from '@/hooks/usePendingGPTResponses';
+import { PendingGPTResponse, useApprovePendingResponse, useDismissPendingResponse } from '@/hooks/usePendingGPTResponses';
 
 interface InlinePendingGPTResponseProps {
   response: PendingGPTResponse;
+  onUse: (text: string) => void;
 }
 
-export const InlinePendingGPTResponse: React.FC<InlinePendingGPTResponseProps> = ({ response }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [customMessage, setCustomMessage] = useState(response.suggested_response);
-
+export const InlinePendingGPTResponse: React.FC<InlinePendingGPTResponseProps> = ({ response, onUse }) => {
   const approveMutation = useApprovePendingResponse();
-  const rejectMutation = useRejectPendingResponse();
   const dismissMutation = useDismissPendingResponse();
 
   const handleApprove = () => {
-    const messageToSend = isEditing && customMessage !== response.suggested_response 
-      ? customMessage 
-      : undefined;
-    
-    approveMutation.mutate({ 
-      responseId: response.id, 
-      customMessage: messageToSend 
-    });
-  };
-
-  const handleReject = () => {
-    rejectMutation.mutate(response.id);
+    approveMutation.mutate({ responseId: response.id });
   };
 
   const handleDismiss = () => {
     dismissMutation.mutate(response.id);
   };
 
-  if (isEditing) {
-    return (
-      <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mx-4 my-2">
-        <div className="flex items-center gap-2 mb-2">
-          <Bot className="h-4 w-4 text-primary" />
-          <span className="text-sm font-medium text-primary">Предложенный GPT ответ</span>
-        </div>
-        <Textarea
-          value={customMessage}
-          onChange={(e) => setCustomMessage(e.target.value)}
-          className="min-h-[80px] mb-3 text-sm"
-          placeholder="Отредактируйте ответ..."
-        />
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            onClick={handleApprove}
-            disabled={approveMutation.isPending}
-            className="h-8 px-3 text-xs"
-          >
-            <Send className="h-3 w-3 mr-1" />
-            {approveMutation.isPending ? 'Отправка...' : 'Отправить'}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setCustomMessage(response.suggested_response);
-              setIsEditing(false);
-            }}
-            className="h-8 px-3 text-xs"
-          >
-            Отменить
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={handleDismiss}
-            disabled={dismissMutation.isPending}
-            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-          >
-            <X className="h-3 w-3" />
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const handleUseForEditing = () => {
+    onUse(response.suggested_response);
+    dismissMutation.mutate(response.id);
+  };
 
   return (
     <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mx-4 my-2">
@@ -99,8 +41,9 @@ export const InlinePendingGPTResponse: React.FC<InlinePendingGPTResponseProps> =
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => setIsEditing(true)}
+            onClick={handleUseForEditing}
             className="h-8 w-8 p-0"
+            title="Редактировать"
           >
             <Edit3 className="h-3 w-3" />
           </Button>
@@ -119,6 +62,7 @@ export const InlinePendingGPTResponse: React.FC<InlinePendingGPTResponseProps> =
             onClick={handleDismiss}
             disabled={dismissMutation.isPending}
             className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+            title="Скрыть"
           >
             <X className="h-3 w-3" />
           </Button>

@@ -180,26 +180,29 @@ export const useDismissPendingResponse = () => {
       }
       console.log('User ID:', user.id);
 
-      // Simply delete the pending response instead of updating status
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('pending_gpt_responses')
-        .delete()
-        .eq('id', responseId);
+        .update({
+          status: 'dismissed',
+          approved_by: user.id
+        })
+        .eq('id', responseId)
+        .select();
 
-      console.log('Delete result:', { error });
+      console.log('Dismiss result:', { data, error });
       if (error) {
         console.error('Supabase error:', error);
         throw error;
       }
       
-      return { success: true };
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pending-gpt-responses'] });
     },
     onError: (error: Error) => {
       console.error('Error dismissing response:', error);
-      // Don't show toast error, just fail silently or with minimal notification
+      // Don't spam the user with toasts for dismiss action
     },
   });
 };
