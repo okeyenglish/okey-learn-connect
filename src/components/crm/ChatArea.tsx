@@ -1242,8 +1242,8 @@ export const ChatArea = ({
       </div>
 
       {/* Chat Messages with Tabs */}
-      <div className="flex-1 overflow-hidden">
-        <Tabs defaultValue="whatsapp" value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+      <div className="flex-1 overflow-hidden min-h-0">
+        <Tabs defaultValue="whatsapp" value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col min-h-0">
           <TabsList className="grid w-full grid-cols-5 rounded-none bg-orange-50/30 border-orange-200 border-t rounded-t-none">
             <TabsTrigger value="whatsapp" className="text-xs">WhatsApp</TabsTrigger>
             <TabsTrigger value="telegram" className="text-xs">Telegram</TabsTrigger>
@@ -1253,7 +1253,7 @@ export const ChatArea = ({
           </TabsList>
           
           <TabsContent value="whatsapp" className="flex-1 p-3 overflow-y-auto mt-0">
-            <div className="space-y-1">
+            <div className="flex flex-col justify-end min-h-full space-y-1">
               {loadingMessages ? (
                 <div className="text-center text-muted-foreground text-sm py-4">
                   Загрузка сообщений...
