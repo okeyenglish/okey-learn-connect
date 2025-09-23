@@ -28,6 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePendingGPTResponses } from "@/hooks/usePendingGPTResponses";
 import { useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
+import { useAddCallComment } from "@/hooks/useCallComments";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface ChatAreaProps {
@@ -106,6 +107,7 @@ export const ChatArea = ({
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
   const markChatMessagesAsReadMutation = useMarkChatMessagesAsRead();
   const queryClient = useQueryClient();
+  const addCommentMutation = useAddCallComment();
   
   // Get pending GPT responses for this client
   const { data: pendingGPTResponses, isLoading: pendingGPTLoading, error: pendingGPTError } = usePendingGPTResponses(clientId);
@@ -399,6 +401,26 @@ export const ChatArea = ({
         description: error.message || "Не удалось отправить сообщение",
         variant: "destructive",
       });
+    }
+  };
+
+  const addComment = async () => {
+    if (!message.trim()) return;
+
+    try {
+      await addCommentMutation.mutateAsync({
+        clientId,
+        commentText: message.trim()
+      });
+      setMessage("");
+      setCommentMode(false);
+      
+      // Reset textarea height
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+      }
+    } catch (error) {
+      console.error('Error adding comment:', error);
     }
   };
 
@@ -1438,177 +1460,39 @@ export const ChatArea = ({
             
             {/* Bottom row: Icons on left, Send button on right */}
             <div className="flex items-center justify-between gap-2">
-              {/* Left side - Action icons */}
+              {/* Left side - Action icons - SIMPLIFIED FOR COMMENTS ONLY */}
               <div className="flex items-center gap-1">
-                <FileUpload
-                  onFileUpload={(fileInfo) => {
-                    setAttachedFiles(prev => [...prev, fileInfo]);
-                  }}
-                  disabled={!!pendingMessage}
-                  maxFiles={5}
-                  maxSize={10}
-                />
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!!pendingMessage} onClick={() => setShowQuickResponsesModal(true)}>
-                  <Zap className="h-4 w-4" />
-                </Button>
                 <Button 
                   size="sm" 
                   variant="ghost" 
-                  className={`h-8 w-8 p-0 ${commentMode ? "bg-yellow-100 text-yellow-700" : ""}`}
+                  className={`h-8 w-8 p-0 ${commentMode ? "bg-amber-100 text-amber-700" : ""}`}
                   disabled={!!pendingMessage}
                   onClick={() => setCommentMode(!commentMode)}
                   title="Режим комментариев"
                 >
                   <MessageCircle className="h-4 w-4" />
                 </Button>
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  className={`h-8 w-8 p-0 ${gptGenerating ? "bg-blue-100 text-blue-700" : ""}`}
-                  disabled={!!pendingMessage || gptGenerating}
-                  onClick={generateGPTResponse}
-                  title="Генерировать ответ с помощью GPT"
-                >
-                  <Bot className={`h-4 w-4 ${gptGenerating ? "animate-pulse" : ""}`} />
-                </Button>
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!!pendingMessage}>
-                  <Mic className="h-4 w-4" />
-                </Button>
-                
-                {/* Schedule message button */}
-                <Dialog open={showScheduleDialog} onOpenChange={(open) => {
-                  setShowScheduleDialog(open);
-                  if (!open) {
-                    setEditingScheduledMessage(null);
-                    if (!message.trim()) {
-                      setScheduleDate("");
-                      setScheduleTime("");
-                    }
-                  }
-                }}>
-                  <DialogTrigger asChild>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      className="h-8 w-8 p-0"
-                      disabled={loading || !message.trim() || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
-                    >
-                      <Clock className="h-4 w-4" />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                       <DialogTitle className="flex items-center gap-2">
-                         <Clock className="h-5 w-5" />
-                         <span>{editingScheduledMessage ? "Редактировать запланированное сообщение" : "Запланировать сообщение"}</span>
-                       </DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Дата</label>
-                        <Input
-                          type="date"
-                          value={scheduleDate}
-                          onChange={(e) => setScheduleDate(e.target.value)}
-                          min={new Date().toISOString().split('T')[0]}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Время</label>
-                        <Input
-                          type="time"
-                          value={scheduleTime}
-                          onChange={(e) => setScheduleTime(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Сообщение</label>
-                        <div className="p-3 bg-muted rounded-md text-sm">
-                          {message || "Сообщение не введено"}
-                        </div>
-                      </div>
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" onClick={() => setShowScheduleDialog(false)}>
-                          Отмена
-                        </Button>
-                        <Button onClick={editingScheduledMessage ? updateScheduledMessage : handleScheduleMessage}>
-                          {editingScheduledMessage ? "Обновить" : "Запланировать"}
-                        </Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-
-                {/* Scheduled messages button */}
-                {scheduledMessages.length > 0 && (
-                  <Dialog open={showScheduledMessagesDialog} onOpenChange={setShowScheduledMessagesDialog}>
-                    <DialogTrigger asChild>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="h-8 w-8 p-0 relative"
-                      >
-                        <Calendar className="h-4 w-4" />
-                        <Badge 
-                          variant="destructive" 
-                          className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs flex items-center justify-center"
-                        >
-                          {scheduledMessages.length}
-                        </Badge>
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-md">
-                      <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                          <Calendar className="h-5 w-5" />
-                          <span>Запланированные сообщения ({scheduledMessages.length})</span>
-                        </DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-3 max-h-96 overflow-y-auto">
-                        {scheduledMessages.map((scheduledMsg) => (
-                          <div key={scheduledMsg.id} className="border rounded-lg p-3 space-y-2">
-                            <div className="text-sm font-medium">
-                              {format(scheduledMsg.scheduledDate, "d MMMM yyyy 'в' HH:mm", { locale: ru })}
-                            </div>
-                            <div className="text-sm text-muted-foreground bg-muted p-2 rounded">
-                              {scheduledMsg.text}
-                            </div>
-                            <div className="flex justify-end gap-1">
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => editScheduledMessage(scheduledMsg)}
-                              >
-                                <Edit2 className="h-3 w-3 mr-1" />
-                                Изменить
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => cancelScheduledMessage(scheduledMsg.id)}
-                              >
-                                <Trash2 className="h-3 w-3 mr-1" />
-                                Отменить
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                )}
               </div>
               
               {/* Right side - Send button taking up available space */}
               <Button 
                 className={`h-[40px] px-8 flex items-center gap-2 min-w-[140px] ${
-                  commentMode ? "bg-yellow-500 hover:bg-yellow-600" : ""
+                  commentMode ? "bg-amber-500 hover:bg-amber-600 text-white" : ""
                 }`}
-                onClick={handleSendMessage}
+                onClick={commentMode ? addComment : handleSendMessage}
                 disabled={loading || (!message.trim() && attachedFiles.length === 0) || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
               >
-                <Send className="h-4 w-4" />
-                <span>Отправить</span>
+                {commentMode ? (
+                  <>
+                    <MessageCircle className="h-4 w-4" />
+                    <span>Добавить комментарий</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    <span>Отправить</span>
+                  </>
+                )}
               </Button>
             </div>
           </div>
