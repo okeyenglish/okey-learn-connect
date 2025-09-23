@@ -1066,8 +1066,8 @@ const CRMContent = () => {
         } w-80 lg:w-96 bg-background border-r flex-col h-full min-h-0 transition-all duration-300`}>
           <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-full min-h-0">
             <TabsList className="grid w-full grid-cols-2 m-2 shrink-0">
-              <TabsTrigger value="menu">Меню</TabsTrigger>
-              <TabsTrigger value="chats" className="relative flex items-center justify-center pr-12">
+              <TabsTrigger value="menu" className="rounded-xl ml-2">Меню</TabsTrigger>
+              <TabsTrigger value="chats" className="relative flex items-center justify-center pr-12 mr-2 rounded-xl">
                 <span>Чаты</span>
                 <div className="absolute right-3">
                   <NewChatModal 
