@@ -803,7 +803,8 @@ const CRMContent = () => {
 
   // Обработчики для мобильной навигации
   const handleMobileCorporateClick = () => {
-    handleChatClick('corporate', 'corporate');
+    setActiveChatType('corporate');
+    setActiveChatId(null);
     if (isMobile) {
       setLeftSidebarOpen(false);
       setRightSidebarOpen(false);
@@ -812,6 +813,7 @@ const CRMContent = () => {
 
   const handleMobileTeachersClick = () => {
     setActiveChatType('teachers');
+    setActiveChatId(null);
     if (isMobile) {
       setLeftSidebarOpen(false);
       setRightSidebarOpen(false);
@@ -3069,19 +3071,18 @@ const CRMContent = () => {
         return null;
       })}
       
-      {/* Голосовой ассистент - скрываем на мобильной версии */}
-      {!isMobile && (
-        <VoiceAssistant 
-          isOpen={voiceAssistantOpen}
-          onToggle={() => setVoiceAssistantOpen(!voiceAssistantOpen)}
-          context={{
-            currentPage: 'CRM',
-            activeClientId: activeChatId,
-            activeClientName: activeChatId ? getActiveClientInfo(activeChatId).name : null,
-            userRole: role,
-            userBranch: profile?.branch,
-            activeChatType
-          }}
+      {/* Голосовой ассистент */}
+      <VoiceAssistant 
+        isOpen={voiceAssistantOpen}
+        onToggle={() => setVoiceAssistantOpen(!voiceAssistantOpen)}
+        context={{
+          currentPage: 'CRM',
+          activeClientId: activeChatId,
+          activeClientName: activeChatId ? getActiveClientInfo(activeChatId).name : null,
+          userRole: role,
+          userBranch: profile?.branch,
+          activeChatType
+        }}
           onOpenModal={{
             addClient: () => setShowAddClientModal(true),
             addTask: () => setShowAddTaskModal(true),
@@ -3101,10 +3102,9 @@ const CRMContent = () => {
             handleChatClick(clientId, 'client');
           }}
         />
-      )}
 
       {/* Мобильная нижняя навигация */}
-      {isMobile && !activeChatId && (
+      {isMobile && activeChatType !== 'client' && (
         <MobileBottomNavigation
           onCorporateClick={handleMobileCorporateClick}
           onTeachersClick={handleMobileTeachersClick}
