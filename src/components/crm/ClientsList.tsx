@@ -75,7 +75,7 @@ export const ClientsList = ({ onSelectClient, selectedClientId }: ClientsListPro
       </CardHeader>
       <CardContent className="p-0">
         <ScrollArea className="h-[400px]">
-          <div className="p-4 space-y-0.5">
+          <div className="p-3 space-y-0.5">
             {clients.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <User className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -86,7 +86,7 @@ export const ClientsList = ({ onSelectClient, selectedClientId }: ClientsListPro
               clients.map((client) => (
                 <div
                   key={client.id}
-                  className={`p-3 rounded-lg border transition-colors cursor-pointer hover:bg-muted/50 ${
+                  className={`p-2 rounded-lg border transition-colors cursor-pointer hover:bg-muted/50 ${
                     selectedClientId === client.id ? 'bg-muted border-primary' : ''
                   }`}
                   onClick={() => onSelectClient?.(client.id)}
@@ -126,16 +126,16 @@ export const ClientsList = ({ onSelectClient, selectedClientId }: ClientsListPro
                       </div>
                       
                       {/* Client Info */}
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-sm flex items-center gap-2">
-                          {client.name}
-                          {(() => {
-                            const s = getClientStatus(client.id);
-                            return s.isLead ? (
-                              <Badge variant="destructive" className="sm:hidden">Лид</Badge>
-                            ) : null;
-                          })()}
-                        </h4>
+                       <div className="flex-1 min-w-0 overflow-hidden">
+                         <h4 className="font-medium text-sm flex items-center gap-2 truncate">
+                           <span className="truncate">{client.name}</span>
+                           {(() => {
+                             const s = getClientStatus(client.id);
+                             return s.isLead ? (
+                               <Badge variant="destructive" className="sm:hidden flex-shrink-0">Лид</Badge>
+                             ) : null;
+                           })()}
+                         </h4>
                         <div className="flex items-center gap-2 mt-1">
                           <Phone className="h-3 w-3 text-muted-foreground" />
                           <span className="text-xs text-muted-foreground">

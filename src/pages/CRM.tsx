@@ -2139,7 +2139,7 @@ const CRMContent = () => {
                         {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id)).length}
                       </Badge>
                     </div>
-                    <div className="space-y-1">
+                     <div className="space-y-0.5">
                       {filteredChats
                         .filter(chat => !isPinnedByCurrentUser(chat.id))
                         .map((chat) => {
@@ -2158,12 +2158,12 @@ const CRMContent = () => {
                               isPinned={chatState.isPinned}
                               isArchived={chatState.isArchived}
                             >
-                              <button 
-                                className={`w-full p-3 text-left rounded-lg transition-colors relative ${
-                                  chat.id === activeChatId ? 'bg-muted hover:bg-muted/80' : 'hover:bg-muted/50'
-                                }`}
-                                onClick={() => handleChatClick(chat.id, chat.type)}
-                              >
+                                <button 
+                                  className={`w-full p-2 text-left rounded-lg transition-colors relative ${
+                                    chat.id === activeChatId ? 'bg-muted hover:bg-muted/80' : 'hover:bg-muted/50'
+                                  }`}
+                                  onClick={() => handleChatClick(chat.id, chat.type)}
+                                >
                                  <div className="flex items-center justify-between">
                                    <div className="flex items-center gap-3">
                                      {/* Avatar or icon */}
@@ -2229,28 +2229,28 @@ const CRMContent = () => {
                                           </div>
                                         )}
                                      
-                                       <div className="flex-1 min-w-0">
-                                         <div className="flex items-center gap-2">
-                                           <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
-                                             {chat.name}
-                                           </p>
-                                           {isInWorkByOthers(chat.id) && (
-                                              <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                  <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300 cursor-help">
-                                                    В работе
-                                                  </Badge>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                  <p>Закреплен у: {getPinnedByUserName(chat.id)}</p>
-                                                </TooltipContent>
-                                              </Tooltip>
-                                           )}
-                                         </div>
-                                         <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
-                                           {chat.lastMessage || "Последнее сообщение"}
-                                         </p>
-                                       </div>
+                        <div className="flex-1 min-w-0 overflow-hidden">
+                          <div className="flex items-center gap-2">
+                            <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
+                              {chat.name}
+                            </p>
+                            {isInWorkByOthers(chat.id) && (
+                               <Tooltip>
+                                 <TooltipTrigger asChild>
+                                   <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300 cursor-help">
+                                     В работе
+                                   </Badge>
+                                 </TooltipTrigger>
+                                 <TooltipContent>
+                                   <p>Закреплен у: {getPinnedByUserName(chat.id)}</p>
+                                 </TooltipContent>
+                               </Tooltip>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground line-clamp-2 leading-snug break-words overflow-hidden">
+                            {chat.lastMessage || "Последнее сообщение"}
+                          </p>
+                        </div>
                                    </div>
                                   <div className="flex flex-col items-end">
                                     <span className="text-xs text-muted-foreground">{chat.time}</span>
@@ -2467,7 +2467,7 @@ const CRMContent = () => {
                         {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id)).length}
                       </Badge>
                     </div>
-                    <div className="space-y-2">
+                     <div className="space-y-1">
                       {filteredChats
                         .filter(chat => !isPinnedByCurrentUser(chat.id))
                         .map((chat) => {
@@ -2479,7 +2479,7 @@ const CRMContent = () => {
                           return (
                             <div 
                               key={chat.id}
-                              className="w-full p-3 text-left rounded-lg transition-colors bg-card border hover:bg-muted/50 shadow-sm"
+                               className="w-full p-2 text-left rounded-lg transition-colors bg-card border hover:bg-muted/50 shadow-sm"
                             >
                                <div className="flex items-center justify-between">
                                   <div 
@@ -2491,28 +2491,28 @@ const CRMContent = () => {
                                    <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                                      <User className="h-6 w-6 text-green-600" />
                                    </div>
-                                         <div className="flex-1 min-w-0">
-                                           <div className="flex items-center gap-2">
-                                             <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
-                                               {chat.name}
-                                             </p>
-                                             {isInWorkByOthers(chat.id) && (
-                                                <Tooltip>
-                                                  <TooltipTrigger asChild>
-                                                    <Badge variant="outline" className="text-xs h-5 bg-orange-100 text-orange-700 border-orange-300 cursor-help">
-                                                      В работе
-                                                    </Badge>
-                                                  </TooltipTrigger>
-                                                  <TooltipContent>
-                                                    <p>Закреплен у: {getPinnedByUserName(chat.id)}</p>
-                                                  </TooltipContent>
-                                                </Tooltip>
-                                             )}
-                                           </div>
-                                           <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
-                                             {chat.lastMessage || "Последнее сообщение"}
-                                           </p>
-                                         </div>
+                                          <div className="flex-1 min-w-0 overflow-hidden">
+                                            <div className="flex items-center gap-2">
+                                              <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
+                                                {chat.name}
+                                              </p>
+                                              {isInWorkByOthers(chat.id) && (
+                                                 <Tooltip>
+                                                   <TooltipTrigger asChild>
+                                                     <Badge variant="outline" className="text-xs h-5 bg-orange-100 text-orange-700 border-orange-300 cursor-help">
+                                                       В работе
+                                                     </Badge>
+                                                   </TooltipTrigger>
+                                                   <TooltipContent>
+                                                     <p>Закреплен у: {getPinnedByUserName(chat.id)}</p>
+                                                   </TooltipContent>
+                                                 </Tooltip>
+                                              )}
+                                            </div>
+                                            <p className="text-xs text-muted-foreground line-clamp-2 leading-snug break-words overflow-hidden">
+                                              {chat.lastMessage || "Последнее сообщение"}
+                                            </p>
+                                          </div>
                                  </div>
                                  <div className="flex flex-col items-end gap-2">
                                    <div className="flex items-center gap-2">
