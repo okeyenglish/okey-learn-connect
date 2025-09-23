@@ -29,6 +29,9 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Check if device is mobile
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
   useEffect(() => {
     if (phoneNumber && phoneNumber !== callNumber) {
       setCallNumber(phoneNumber);
@@ -37,6 +40,15 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
   }, [phoneNumber]);
 
   useEffect(() => {
+    if (isMobile) {
+      toast({
+        title: "Ограничение WebRTC",
+        description: "WebRTC звонки работают только в браузерах на ПК. Для мобильных устройств используйте специальное приложение, например SessionTalk Softphone.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     initializeSIP();
     return () => {
       if (uaRef.current) {
@@ -76,21 +88,15 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
 
       setSipProfile(profile);
 
-      // Build a list of candidate WebSocket URLs (WebRTC requires WS/WSS, not UDP/TCP)
+      // OnlinePBX WebRTC uses port 8082 TCP
       const candidates = [
-        `wss://${profile.sip_domain}:7443`,
-        `wss://${profile.sip_domain}:7443/ws`,
-        `wss://${profile.sip_domain}:8089`,
-        `wss://${profile.sip_domain}:8089/ws`,
-        `wss://${profile.sip_domain}/ws`,
-        `wss://${profile.sip_domain}`,
-        // Non-secure fallbacks (some PBXs expose ws on 8088)
-        `ws://${profile.sip_domain}:8088`,
-        `ws://${profile.sip_domain}:8088/ws`,
-        `ws://${profile.sip_domain}/ws`,
+        `wss://${profile.sip_domain}:8082`,
+        `wss://${profile.sip_domain}:8082/ws`,
+        `ws://${profile.sip_domain}:8082`,
+        `ws://${profile.sip_domain}:8082/ws`,
       ];
 
-      console.log('SIP WS candidates:', candidates);
+      console.log('OnlinePBX WebRTC candidates:', candidates);
 
       const sockets = candidates.map((url) => {
         try {
@@ -335,7 +341,23 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
           </DialogHeader>
 
           <div className="space-y-4">
-            {!isInCall ? (
+            {isMobile ? (
+              <div className="text-center space-y-4">
+                <div className="text-red-600">
+                  ⚠️ WebRTC не поддерживается на мобильных устройствах
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Для звонков с мобильного устройства рекомендуется использовать специальное приложение, например <strong>SessionTalk Softphone</strong>.
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsOpen(false)}
+                  className="w-full"
+                >
+                  Закрыть
+                </Button>
+              </div>
+            ) : !isInCall ? (
               <>
                 <Input
                   placeholder="Номер телефона (+7...)"
