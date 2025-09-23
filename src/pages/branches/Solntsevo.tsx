@@ -83,7 +83,7 @@ export default function LocationSolntsevo() {
                   className="flex items-center gap-2"
                 >
                   <Phone className="w-4 h-4" />
-                  +7 (499) 707-35-35
+                  +79311119416
                 </Button>
                 <Button 
                   variant="outline" 
