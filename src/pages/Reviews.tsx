@@ -5,22 +5,22 @@ import { Star, Users, Award, TrendingUp } from "lucide-react";
 import YandexReviews from "@/components/YandexReviews";
 import SEOHead from "@/components/SEOHead";
 
-// Данные для виджетов Яндекса по филиалам
+// Данные для виджетов Яндекса по филиалам (реальные ID)
 const yandexBranches = [
   {
     name: "Котельники",
-    orgId: "1234567890", // Заменить на реальный ID организации на Яндекс.Картах
-    orgUrl: "https://yandex.ru/maps/org/okey_english_kotelniki/1234567890/"
+    orgId: "1599363543",
+    orgUrl: "https://yandex.ru/maps/org/1599363543"
   },
   {
     name: "Мытищи", 
-    orgId: "1234567891",
-    orgUrl: "https://yandex.ru/maps/org/okey_english_mytishchi/1234567891/"
+    orgId: "45748069943",
+    orgUrl: "https://yandex.ru/sprav/45748069943/p/edit/main"
   },
   {
     name: "Солнцево",
-    orgId: "1234567892", 
-    orgUrl: "https://yandex.ru/maps/org/okey_english_solntsevo/1234567892/"
+    orgId: "178121909150", 
+    orgUrl: "https://yandex.ru/maps/org/178121909150"
   }
 ];
 
