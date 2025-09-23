@@ -27,6 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePendingGPTResponses } from "@/hooks/usePendingGPTResponses";
 import { useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
 import { WebRTCPhone } from "../WebRTCPhone";
+import { MobilePhoneHelper } from "../MobilePhoneHelper";
 
 interface ChatAreaProps {
   clientId: string;
@@ -1555,12 +1556,19 @@ export const ChatArea = ({
         onSelectResponse={handleQuickResponseSelect}
       />
 
-      {/* WebRTC Phone Modal */}
+      {/* Phone Modal */}
       {showWebRTCPhone && (
-        <WebRTCPhone 
-          phoneNumber={webRTCPhoneNumber}
-          onCallEnd={() => setShowWebRTCPhone(false)}
-        />
+        isMobile ? (
+          <MobilePhoneHelper 
+            phoneNumber={webRTCPhoneNumber}
+            onCallEnd={() => setShowWebRTCPhone(false)}
+          />
+        ) : (
+          <WebRTCPhone 
+            phoneNumber={webRTCPhoneNumber}
+            onCallEnd={() => setShowWebRTCPhone(false)}
+          />
+        )
       )}
     </div>
   );
