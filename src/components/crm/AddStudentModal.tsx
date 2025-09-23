@@ -324,13 +324,13 @@ export const AddStudentModal = ({ familyGroupId, parentLastName, onStudentAdded,
                     <SelectContent>
                       <SelectItem value="trial">
                         <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-yellow-500 rounded-full" />
+                          <div className="w-2 h-2 bg-yellow-500 rounded" />
                           Пробный
                         </div>
                       </SelectItem>
                       <SelectItem value="active">
                         <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-green-500 rounded-full" />
+                          <div className="w-2 h-2 bg-green-500 rounded" />
                           Активный
                         </div>
                       </SelectItem>

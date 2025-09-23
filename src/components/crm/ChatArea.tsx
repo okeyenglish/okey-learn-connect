@@ -1275,7 +1275,7 @@ export const ChatArea = ({
         {pendingMessage && (
           <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+              <div className="w-2 h-2 bg-yellow-500 rounded animate-pulse"></div>
               <span className="text-sm text-yellow-800">
                 Отправка через {pendingMessage.countdown} сек...
               </span>
@@ -1502,16 +1502,16 @@ export const ChatArea = ({
               </div>
             </div>
             
-            {/* Send button aligned with input */}
+            {/* Send button expanded */}
             <Button 
-              size="icon" 
-              className={`rounded-full h-[48px] w-12 ${
+              className={`h-[48px] px-6 flex items-center gap-2 ${
                 commentMode ? "bg-yellow-500 hover:bg-yellow-600" : ""
               }`}
               onClick={handleSendMessage}
               disabled={loading || (!message.trim() && attachedFiles.length === 0) || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
             >
               <Send className="h-4 w-4" />
+              <span>Отправить</span>
             </Button>
           </div>
         </div>

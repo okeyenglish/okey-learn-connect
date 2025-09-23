@@ -322,7 +322,7 @@ export const AttachedFile = ({ url, name, type, size, className, chatId, message
             <Button
               size="sm"
               variant="ghost"
-              className="h-8 w-8 p-0 rounded-full bg-green-100 hover:bg-green-200"
+              className="h-8 w-8 p-0 rounded bg-green-100 hover:bg-green-200"
               onClick={toggleAudioPlayback}
             >
               {isPlaying ? (
@@ -338,7 +338,7 @@ export const AttachedFile = ({ url, name, type, size, className, chatId, message
                   {[...Array(20)].map((_, i) => (
                     <div
                       key={i}
-                      className={`w-1 rounded-full transition-all duration-75 ${
+                      className={`w-1 rounded transition-all duration-75 ${
                         isPlaying && i < (progress / 5) 
                           ? 'bg-green-500 h-4' 
                           : 'bg-gray-300 h-2'
@@ -534,7 +534,7 @@ export const AttachedFile = ({ url, name, type, size, className, chatId, message
             <Button
               size="sm"
               variant="ghost"
-              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white h-12 w-12 rounded-full"
+              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white h-12 w-12 rounded"
               onClick={toggleVideoPlayback}
             >
               {isPlaying ? (

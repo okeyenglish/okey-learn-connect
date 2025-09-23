@@ -403,7 +403,7 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
             <DialogTitle className="flex items-center gap-2">
               <Phone className="h-5 w-5" />
               WebRTC Звонок
-              <div className={`ml-auto w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+              <div className={`ml-auto w-2 h-2 rounded ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
               <Button
                 variant="ghost"
                 size="sm"

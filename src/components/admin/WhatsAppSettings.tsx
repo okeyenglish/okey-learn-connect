@@ -192,7 +192,7 @@ export const WhatsAppSettings: React.FC = () => {
         <CardContent className="space-y-4">
           <div className="space-y-3">
             <div className="flex items-start gap-3">
-              <div className="h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
+              <div className="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
                 1
               </div>
               <div>
@@ -204,7 +204,7 @@ export const WhatsAppSettings: React.FC = () => {
             </div>
             
             <div className="flex items-start gap-3">
-              <div className="h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
+              <div className="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
                 2
               </div>
               <div>
@@ -216,7 +216,7 @@ export const WhatsAppSettings: React.FC = () => {
             </div>
             
             <div className="flex items-start gap-3">
-              <div className="h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
+              <div className="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
                 3
               </div>
               <div>
