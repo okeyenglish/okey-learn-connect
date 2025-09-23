@@ -86,16 +86,30 @@ export const useApprovePendingResponse = () => {
 
   return useMutation({
     mutationFn: async ({ responseId, customMessage }: { responseId: string; customMessage?: string }) => {
-      if (!user) throw new Error('User not authenticated');
+      console.log('Approving pending response:', responseId, 'custom message:', customMessage);
+      if (!user) {
+        console.error('No authenticated user');
+        throw new Error('User not authenticated');
+      }
+      console.log('User ID:', user.id);
 
       // Get the pending response first
       const { data: pendingResponse, error: fetchError } = await supabase
         .from('pending_gpt_responses')
         .select('*')
         .eq('id', responseId)
-        .single();
+        .maybeSingle();
 
-      if (fetchError) throw fetchError;
+      console.log('Fetched pending response:', { pendingResponse, fetchError });
+      if (fetchError) {
+        console.error('Error fetching pending response:', fetchError);
+        throw fetchError;
+      }
+      
+      if (!pendingResponse) {
+        console.error('Pending response not found');
+        throw new Error('Pending response not found');
+      }
 
       const messageToSend = customMessage || pendingResponse.suggested_response;
 
@@ -107,10 +121,14 @@ export const useApprovePendingResponse = () => {
         }
       });
 
-      if (sendError) throw sendError;
+      console.log('WhatsApp send result:', { sendResult, sendError });
+      if (sendError) {
+        console.error('Error sending WhatsApp message:', sendError);
+        throw sendError;
+      }
 
       // Update the pending response status
-      const { error: updateError } = await supabase
+      const { data: updateData, error: updateError } = await supabase
         .from('pending_gpt_responses')
         .update({
           status: 'approved',
@@ -118,9 +136,14 @@ export const useApprovePendingResponse = () => {
           sent_at: new Date().toISOString(),
           original_response: customMessage ? pendingResponse.suggested_response : undefined
         })
-        .eq('id', responseId);
+        .eq('id', responseId)
+        .select();
 
-      if (updateError) throw updateError;
+      console.log('Update result:', { updateData, updateError });
+      if (updateError) {
+        console.error('Error updating pending response:', updateError);
+        throw updateError;
+      }
 
       return { success: true, messageId: sendResult?.messageId };
     },
@@ -150,17 +173,29 @@ export const useRejectPendingResponse = () => {
 
   return useMutation({
     mutationFn: async (responseId: string) => {
-      if (!user) throw new Error('User not authenticated');
+      console.log('Rejecting pending response:', responseId);
+      if (!user) {
+        console.error('No authenticated user');
+        throw new Error('User not authenticated');
+      }
+      console.log('User ID:', user.id);
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('pending_gpt_responses')
         .update({
           status: 'rejected',
           approved_by: user.id
         })
-        .eq('id', responseId);
+        .eq('id', responseId)
+        .select();
 
-      if (error) throw error;
+      console.log('Update result:', { data, error });
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+      
+      return data;
     },
     onSuccess: () => {
       toast({
