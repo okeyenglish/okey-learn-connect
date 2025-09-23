@@ -1323,29 +1323,33 @@ export const ChatArea = ({
               </div>
             )}
           
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
-              <Textarea
-                ref={textareaRef}
-                placeholder={
-                  isOtherUserTyping 
-                    ? getTypingMessage() || "Менеджер печатает..." 
-                    : commentMode 
-                      ? "Введите комментарий..." 
-                      : "Введите сообщение..."
-                }
-                value={message}
-                onChange={(e) => handleMessageChange(e.target.value)}
-                onKeyPress={handleKeyPress}
-                onKeyDown={() => updateTypingStatus(true)}
-                onFocus={() => updateTypingStatus(true)}
-                onBlur={() => updateTypingStatus(false)}
-                className={`min-h-[48px] max-h-[120px] resize-none text-base ${
-                  commentMode ? "bg-yellow-50 border-yellow-300" : ""
-                } ${isOtherUserTyping ? "bg-orange-50 border-orange-200" : ""}`}
-                disabled={loading || !!pendingMessage || isOtherUserTyping}
-              />
-              <div className="flex items-center gap-1 mt-2">
+          <div className="space-y-2">
+            {/* Textarea */}
+            <Textarea
+              ref={textareaRef}
+              placeholder={
+                isOtherUserTyping 
+                  ? getTypingMessage() || "Менеджер печатает..." 
+                  : commentMode 
+                    ? "Введите комментарий..." 
+                    : "Введите сообщение..."
+              }
+              value={message}
+              onChange={(e) => handleMessageChange(e.target.value)}
+              onKeyPress={handleKeyPress}
+              onKeyDown={() => updateTypingStatus(true)}
+              onFocus={() => updateTypingStatus(true)}
+              onBlur={() => updateTypingStatus(false)}
+              className={`min-h-[48px] max-h-[120px] resize-none text-base ${
+                commentMode ? "bg-yellow-50 border-yellow-300" : ""
+              } ${isOtherUserTyping ? "bg-orange-50 border-orange-200" : ""}`}
+              disabled={loading || !!pendingMessage || isOtherUserTyping}
+            />
+            
+            {/* Bottom row: Icons on left, Send button on right */}
+            <div className="flex items-center justify-between gap-2">
+              {/* Left side - Action icons */}
+              <div className="flex items-center gap-1">
                 <FileUpload
                   onFileUpload={(fileInfo) => {
                     setAttachedFiles(prev => [...prev, fileInfo]);
@@ -1500,19 +1504,19 @@ export const ChatArea = ({
                   </Dialog>
                 )}
               </div>
+              
+              {/* Right side - Send button taking up available space */}
+              <Button 
+                className={`h-[40px] px-8 flex items-center gap-2 min-w-[140px] ${
+                  commentMode ? "bg-yellow-500 hover:bg-yellow-600" : ""
+                }`}
+                onClick={handleSendMessage}
+                disabled={loading || (!message.trim() && attachedFiles.length === 0) || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
+              >
+                <Send className="h-4 w-4" />
+                <span>Отправить</span>
+              </Button>
             </div>
-            
-            {/* Send button expanded */}
-            <Button 
-              className={`h-[48px] px-6 flex items-center gap-2 ${
-                commentMode ? "bg-yellow-500 hover:bg-yellow-600" : ""
-              }`}
-              onClick={handleSendMessage}
-              disabled={loading || (!message.trim() && attachedFiles.length === 0) || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
-            >
-              <Send className="h-4 w-4" />
-              <span>Отправить</span>
-            </Button>
           </div>
         </div>
       </div>
