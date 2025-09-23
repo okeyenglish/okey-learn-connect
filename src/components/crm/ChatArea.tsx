@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -68,6 +68,7 @@ export const ChatArea = ({
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchInput, setShowSearchInput] = useState(false);
+  const [showOnlyCalls, setShowOnlyCalls] = useState(false);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
@@ -942,10 +943,12 @@ export const ChatArea = ({
     }
   ];
 
-  // Filter messages based on search query
-  const filteredMessages = messages.filter(msg => 
-    msg.message.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter messages based on search query and call filter
+  const filteredMessages = messages.filter(msg => {
+    const matchesSearch = msg.message.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCallFilter = showOnlyCalls ? msg.systemType === 'call' : true;
+    return matchesSearch && matchesCallFilter;
+  });
 
   return (
     <div 
@@ -1029,6 +1032,15 @@ export const ChatArea = ({
                 onClick={handleSearchToggle}
               >
                 <Search className="h-5 w-5 stroke-1" />
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                className={`crm-btn h-10 w-10 p-0 border-muted-foreground/40 hover:bg-muted/30 hover:text-foreground ${showOnlyCalls ? 'bg-primary/10 text-primary border-primary/40' : 'text-muted-foreground'}`}
+                title="Показать только звонки"
+                onClick={() => setShowOnlyCalls(!showOnlyCalls)}
+              >
+                <Filter className="h-5 w-5 stroke-1" />
               </Button>
               <Button 
                 size="sm" 
@@ -1126,6 +1138,15 @@ export const ChatArea = ({
               <Button 
                 size="sm" 
                 variant="outline"
+                className={`crm-btn h-10 w-10 p-0 border-muted-foreground/40 hover:bg-muted/30 hover:text-foreground ${showOnlyCalls ? 'bg-primary/10 text-primary border-primary/40' : 'text-muted-foreground'}`}
+                title="Показать только звонки"
+                onClick={() => setShowOnlyCalls(!showOnlyCalls)}
+              >
+                <Filter className="h-5 w-5 stroke-1" />
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
                 className="crm-btn h-10 w-10 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                 title="Позвонить"
                 onClick={handlePhoneCall}
@@ -1197,23 +1218,23 @@ export const ChatArea = ({
         </div>
       )}
 
-      {/* Client Tasks and Call History */}
-      <div className="shrink-0 space-y-3">
+      {/* Client Tasks */}
+      <div className="shrink-0">
         <ClientTasks 
           clientName={clientName}
           clientId={clientId}
         />
-        <CallHistory clientId={clientId} />
       </div>
 
       {/* Chat Messages with Tabs */}
       <div className="flex-1 overflow-hidden min-h-0">
         <Tabs defaultValue="whatsapp" className="h-full flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-4 rounded-none bg-orange-50/30 border-orange-200 border-t rounded-t-none">
+          <TabsList className="grid w-full grid-cols-5 rounded-none bg-orange-50/30 border-orange-200 border-t rounded-t-none">
             <TabsTrigger value="whatsapp" className="text-xs">WhatsApp</TabsTrigger>
             <TabsTrigger value="telegram" className="text-xs">Telegram</TabsTrigger>
             <TabsTrigger value="max" className="text-xs">Max</TabsTrigger>
             <TabsTrigger value="email" className="text-xs">Email</TabsTrigger>
+            <TabsTrigger value="calls" className="text-xs">Звонки</TabsTrigger>
           </TabsList>
           
           <TabsContent value="whatsapp" className="flex-1 p-3 overflow-y-auto mt-0">
@@ -1330,6 +1351,10 @@ export const ChatArea = ({
                 История переписки Email
               </div>
             </div>
+          </TabsContent>
+          
+          <TabsContent value="calls" className="flex-1 p-3 overflow-y-auto mt-0">
+            <CallHistory clientId={clientId} />
           </TabsContent>
         </Tabs>
       </div>
