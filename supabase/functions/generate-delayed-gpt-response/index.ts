@@ -68,12 +68,13 @@ serve(async (req) => {
       await new Promise((r) => setTimeout(r, sleepMs));
     }
 
-    // Use a wider window to catch messages that came before function invocation
-    // Look back 5 minutes to ensure we don't miss any recent messages
-    const windowStartISO = new Date(invokedAt.getTime() - 5 * 60 * 1000).toISOString();
+    // Use a window that starts from 1 minute before function invocation
+    // This ensures we catch all messages that came in recently, including those
+    // that triggered this function call
+    const windowStartISO = new Date(invokedAt.getTime() - 60 * 1000).toISOString(); // 1 minute back
     const windowEndISO = new Date().toISOString();
 
-    // Get the incoming messages collected during the quiet window
+    // Get all incoming messages from the window to process them as a batch
     const { data: recentMessages, error: messagesError } = await supabase
       .from('chat_messages')
       .select('*')
@@ -176,12 +177,19 @@ serve(async (req) => {
       const existingResponse = existingPending[0];
       const timeSinceCreated = Date.now() - new Date(existingResponse.created_at).getTime();
       
-      // If created less than 5 minutes ago, skip to prevent duplicates
-      if (timeSinceCreated < 5 * 60 * 1000) {
-        console.log('Another pending response exists, skipping to prevent duplicates:', existingResponse);
+      // If created less than 2 minutes ago, skip to prevent duplicates
+      if (timeSinceCreated < 2 * 60 * 1000) {
+        console.log('Another pending response exists (created less than 2 min ago), skipping to prevent duplicates:', existingResponse);
         return new Response(JSON.stringify({ success: false, message: 'Already processing response for this client' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+      } else {
+        // Clean up old expired responses
+        console.log('Cleaning up expired response:', existingResponse.id);
+        await supabase
+          .from('pending_gpt_responses')
+          .delete()
+          .eq('id', existingResponse.id);
       }
     }
     

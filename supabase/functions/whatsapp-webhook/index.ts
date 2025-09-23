@@ -262,8 +262,23 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook) {
 
   console.log(`Saved incoming message from ${phoneNumber}: ${messageText}`)
   
-  // Trigger delayed GPT response generation
-  console.log('Scheduling delayed GPT response for client:', client.id);
+  // Trigger delayed GPT response generation only if there's no active processing
+  console.log('Checking for existing GPT processing for client:', client.id);
+  
+  // Check if there's already an active response being processed for this client
+  const { data: existingProcessing } = await supabase
+    .from('pending_gpt_responses')
+    .select('id, status, created_at')
+    .eq('client_id', client.id)
+    .in('status', ['pending', 'processing'])
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false })
+    .limit(1);
+    
+  if (existingProcessing && existingProcessing.length > 0) {
+    console.log('Already processing GPT response for this client, skipping:', existingProcessing[0]);
+    return new Response('OK - Already processing', { status: 200 });
+  }
   
   // Use setTimeout with minimal delay to avoid blocking webhook
   setTimeout(async () => {
