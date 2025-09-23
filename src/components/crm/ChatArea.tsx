@@ -27,8 +27,6 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePendingGPTResponses } from "@/hooks/usePendingGPTResponses";
 import { useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
-import WebRTCPhone from "../WebRTCPhone";
-import { MobilePhoneHelper } from "../MobilePhoneHelper";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface ChatAreaProps {
@@ -94,8 +92,6 @@ export const ChatArea = ({
   const [showQuickResponsesModal, setShowQuickResponsesModal] = useState(false);
   const [commentMode, setCommentMode] = useState(false);
   const [gptGenerating, setGptGenerating] = useState(false);
-  const [showWebRTCPhone, setShowWebRTCPhone] = useState(false);
-  const [webRTCPhoneNumber, setWebRTCPhoneNumber] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -713,9 +709,55 @@ export const ChatArea = ({
     }
   };
 
-  const handlePhoneCall = () => {
-    setWebRTCPhoneNumber(clientPhone);
-    setShowWebRTCPhone(true);
+  const handlePhoneCall = async () => {
+    if (!clientPhone?.trim()) {
+      toast({
+        title: "Ошибка",
+        description: "Номер телефона клиента не указан",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Показываем уведомление о начале звонка
+      toast({
+        title: "Звонок...",
+        description: `Звоним на номер ${clientPhone}`,
+      });
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Пользователь не авторизован');
+      }
+
+      const { data, error } = await supabase.functions.invoke('onlinepbx-call', {
+        body: { 
+          to_number: clientPhone,
+          from_user: user.id
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.success) {
+        toast({
+          title: "Звонок совершён",
+          description: "Звонок инициирован через OnlinePBX. Поднимите трубку.",
+        });
+      } else {
+        throw new Error(data?.error || 'Не удалось совершить звонок');
+      }
+    } catch (error: any) {
+      console.error('OnlinePBX call failed:', error);
+      toast({
+        title: "Ошибка звонка",
+        description: error.message || "Не удалось совершить звонок",
+        variant: "destructive"
+      });
+    }
   };
 
   // Функции для работы с выделением сообщений
@@ -1576,22 +1618,6 @@ export const ChatArea = ({
         onSelectResponse={handleQuickResponseSelect}
       />
 
-      {/* Phone Modal */}
-      {showWebRTCPhone && (
-        <div>
-          {isMobile ? (
-            <MobilePhoneHelper 
-              phoneNumber={webRTCPhoneNumber}
-              onCallEnd={() => setShowWebRTCPhone(false)}
-            />
-          ) : (
-            <WebRTCPhone 
-              phoneNumber={webRTCPhoneNumber}
-              onCallEnd={() => setShowWebRTCPhone(false)}
-            />
-          )}
-        </div>
-      )}
     </div>
   );
 };
