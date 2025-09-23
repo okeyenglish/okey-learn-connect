@@ -91,6 +91,8 @@ export const ChatArea = ({
   const [showQuickResponsesModal, setShowQuickResponsesModal] = useState(false);
   const [commentMode, setCommentMode] = useState(false);
   const [gptGenerating, setGptGenerating] = useState(false);
+  const [showWebRTCPhone, setShowWebRTCPhone] = useState(false);
+  const [webRTCPhoneNumber, setWebRTCPhoneNumber] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -718,6 +720,11 @@ export const ChatArea = ({
     }
   };
 
+  const handlePhoneCall = () => {
+    setWebRTCPhoneNumber(clientPhone);
+    setShowWebRTCPhone(true);
+  };
+
   // Функции для работы с выделением сообщений
   const handleToggleSelectionMode = () => {
     setIsSelectionMode(!isSelectionMode);
@@ -981,7 +988,7 @@ export const ChatArea = ({
                 variant="outline" 
                 className="h-8 w-8 p-0"
                 title="Позвонить"
-                onClick={() => console.log('Calling client...')}
+                onClick={handlePhoneCall}
               >
                 <Phone className="h-4 w-4" />
               </Button>
@@ -1075,7 +1082,7 @@ export const ChatArea = ({
                 variant="outline" 
                 className="h-8 w-8 p-0"
                 title="Позвонить"
-                onClick={() => console.log('Calling client...')}
+                onClick={handlePhoneCall}
               >
                 <Phone className="h-4 w-4" />
               </Button>
@@ -1547,6 +1554,14 @@ export const ChatArea = ({
         onOpenChange={setShowQuickResponsesModal}
         onSelectResponse={handleQuickResponseSelect}
       />
+
+      {/* WebRTC Phone Modal */}
+      {showWebRTCPhone && (
+        <WebRTCPhone 
+          phoneNumber={webRTCPhoneNumber}
+          onCallEnd={() => setShowWebRTCPhone(false)}
+        />
+      )}
     </div>
   );
 };
