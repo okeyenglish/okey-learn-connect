@@ -790,10 +790,13 @@ export type Database = {
           created_at: string
           department: string | null
           email: string | null
+          extension_number: string | null
           first_name: string | null
           id: string
           last_name: string | null
           phone: string | null
+          sip_domain: string | null
+          sip_password: string | null
           updated_at: string
         }
         Insert: {
@@ -801,10 +804,13 @@ export type Database = {
           created_at?: string
           department?: string | null
           email?: string | null
+          extension_number?: string | null
           first_name?: string | null
           id: string
           last_name?: string | null
           phone?: string | null
+          sip_domain?: string | null
+          sip_password?: string | null
           updated_at?: string
         }
         Update: {
@@ -812,10 +818,13 @@ export type Database = {
           created_at?: string
           department?: string | null
           email?: string | null
+          extension_number?: string | null
           first_name?: string | null
           id?: string
           last_name?: string | null
           phone?: string | null
+          sip_domain?: string | null
+          sip_password?: string | null
           updated_at?: string
         }
         Relationships: []

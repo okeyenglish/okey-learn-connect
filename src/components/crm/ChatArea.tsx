@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePendingGPTResponses } from "@/hooks/usePendingGPTResponses";
 import { useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
+import { WebRTCPhone } from "../WebRTCPhone";
 
 interface ChatAreaProps {
   clientId: string;
@@ -956,6 +957,7 @@ export const ChatArea = ({
             
             {/* Action buttons moved to the right */}
             <div className="flex items-center gap-1 flex-shrink-0">
+              <WebRTCPhone phoneNumber={clientPhone} />
               <Button 
                 size="sm" 
                 variant="outline" 
@@ -1049,6 +1051,7 @@ export const ChatArea = ({
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
+              <WebRTCPhone phoneNumber={clientPhone} />
               <Button 
                 size="sm" 
                 variant="outline" 
