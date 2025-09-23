@@ -62,7 +62,10 @@ export const MobileBottomNavigation = ({
   );
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border shadow-lg md:hidden">
+    <div
+      className="fixed bottom-0 left-0 right-0 z-[60] bg-background border-t border-border shadow-lg md:hidden"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
       <div className="flex items-center justify-around h-16 px-2">
         <NavButton
           icon={Building2}

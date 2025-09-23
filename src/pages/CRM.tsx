@@ -3104,7 +3104,7 @@ const CRMContent = () => {
         />
 
       {/* Мобильная нижняя навигация */}
-      {isMobile && activeChatType !== 'client' && (
+      {isMobile && !(activeChatType === 'client' && !!activeChatId) && (
         <MobileBottomNavigation
           onCorporateClick={handleMobileCorporateClick}
           onTeachersClick={handleMobileTeachersClick}
