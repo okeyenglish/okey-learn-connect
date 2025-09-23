@@ -2140,12 +2140,6 @@ const CRMContent = () => {
                              {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id) && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length}
                            </Button>
                          )}
-                         <Badge variant="secondary" className="text-xs h-4">
-                           {showOnlyUnread 
-                             ? filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id) && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length
-                             : filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id)).length
-                           }
-                         </Badge>
                        </div>
                      </div>
                       <div className="space-y-0.5">
@@ -2509,12 +2503,6 @@ const CRMContent = () => {
                              {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id) && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length}
                            </Button>
                          )}
-                         <Badge variant="secondary" className="text-xs h-5">
-                           {showOnlyUnread 
-                             ? filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id) && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length
-                             : filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id)).length
-                           }
-                         </Badge>
                        </div>
                      </div>
                       <div className="space-y-1">
