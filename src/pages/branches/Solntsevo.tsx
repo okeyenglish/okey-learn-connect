@@ -13,11 +13,11 @@ import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
 export default function LocationSolntsevo() {
   const handleWhatsApp = () => {
     const message = encodeURIComponent("Здравствуйте! Хочу узнать подробнее об обучении в филиале Солнцево");
-    window.open(`https://wa.me/79937073553?text=${message}`, '_blank');
+    window.open(`https://wa.me/79311119416?text=${message}`, '_blank');
   };
 
   const handlePhone = () => {
-    window.open('tel:+74997073535', '_self');
+    window.open('tel:+79311119416', '_self');
   };
 
   const handleTelegram = () => {
