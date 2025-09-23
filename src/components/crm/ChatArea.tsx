@@ -341,6 +341,17 @@ export const ChatArea = ({
       const result = await sendTextMessage(clientId, messageText);
       
       if (result.success) {
+        // Remove any pending GPT suggestions for this client after a manual send
+        try {
+          await supabase
+            .from('pending_gpt_responses')
+            .delete()
+            .eq('client_id', clientId)
+            .eq('status', 'pending');
+          console.log('Cleared pending GPT responses after manual send');
+        } catch (e) {
+          console.warn('Failed to clear pending GPT responses:', e);
+        }
         // Плавная прокрутка к концу после отправки сообщения
         setTimeout(() => scrollToBottom(true), 300);
       } else {
@@ -389,6 +400,18 @@ export const ChatArea = ({
 
       // Don't show success toast - just log success
       console.log('Comment saved successfully');
+
+      // Remove any pending GPT suggestions for this client after saving a comment
+      try {
+        await supabase
+          .from('pending_gpt_responses')
+          .delete()
+          .eq('client_id', clientId)
+          .eq('status', 'pending');
+        console.log('Cleared pending GPT responses after comment');
+      } catch (e) {
+        console.warn('Failed to clear pending GPT responses after comment:', e);
+      }
     } catch (error: any) {
       toast({
         title: "Ошибка сохранения",
