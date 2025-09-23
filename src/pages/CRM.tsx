@@ -1972,7 +1972,7 @@ const CRMContent = () => {
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        className={cn("h-8 px-2", (selectedBranch !== "all" || selectedClientType !== "all") && "bg-accent text-accent-foreground")}
+                        className={cn("h-8 w-8 px-0 rounded-lg", (selectedBranch !== "all" || selectedClientType !== "all") && "bg-accent text-accent-foreground")}
                       >
                         <Filter className="h-4 w-4" />
                       </Button>
@@ -2436,7 +2436,7 @@ const CRMContent = () => {
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        className={cn("h-8 px-2", (selectedBranch !== "all" || selectedClientType !== "all") && "bg-accent text-accent-foreground")}
+                        className={cn("h-8 w-8 px-0 rounded-lg", (selectedBranch !== "all" || selectedClientType !== "all") && "bg-accent text-accent-foreground")}
                       >
                         <Filter className="h-4 w-4" />
                       </Button>
