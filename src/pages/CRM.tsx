@@ -2116,7 +2116,12 @@ const CRMContent = () => {
                         {(() => {
                           const pinnedUnreadCount = filteredChats
                             .filter(chat => isPinnedByCurrentUser(chat.id))
-                            .filter(chat => !isChatReadGlobally(chat.id))
+                            .filter(chat => {
+                              const chatState = getChatState(chat.id);
+                              const showEye = !!chatState?.isUnread;
+                              const isUnreadGlobally = !isChatReadGlobally(chat.id);
+                              return showEye || isUnreadGlobally || chat.unread > 0;
+                            })
                             .length;
                           return pinnedUnreadCount > 0 ? (
                             <Badge variant="destructive" className="text-xs h-4 rounded-sm">
@@ -2581,7 +2586,12 @@ const CRMContent = () => {
                         {(() => {
                           const pinnedUnreadCount = filteredChats
                             .filter(chat => isPinnedByCurrentUser(chat.id))
-                            .filter(chat => !isChatReadGlobally(chat.id))
+                            .filter(chat => {
+                              const chatState = getChatState(chat.id);
+                              const showEye = !!chatState?.isUnread;
+                              const isUnreadGlobally = !isChatReadGlobally(chat.id);
+                              return showEye || isUnreadGlobally || chat.unread > 0;
+                            })
                             .length;
                           return pinnedUnreadCount > 0 ? (
                             <Badge variant="destructive" className="text-xs h-5 rounded-sm">
