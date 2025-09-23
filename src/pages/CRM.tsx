@@ -2134,7 +2134,7 @@ const CRMContent = () => {
                            <Button
                              variant={showOnlyUnread ? "default" : "outline"}
                              size="sm"
-                             className="h-4 px-2 text-xs"
+                             className="h-5 px-2 py-0.5 text-xs min-w-[20px]"
                              onClick={() => setShowOnlyUnread(!showOnlyUnread)}
                            >
                              {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id) && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length}
@@ -2258,15 +2258,17 @@ const CRMContent = () => {
                                     <span className="text-xs text-muted-foreground">{chat.time}</span>
                                      {displayUnread && (
                                        showEye ? (
-                                         <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                                           <Avatar className="h-4 w-4">
-                                             <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
-                                             <AvatarFallback className="text-[8px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
-                                           </Avatar>
-                                           <span>1</span>
-                                         </span>
+                                          <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full flex items-center gap-1 min-w-[20px] h-5 justify-center">
+                                            <Avatar className="h-3 w-3">
+                                              <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
+                                              <AvatarFallback className="text-[8px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
+                                            </Avatar>
+                                            <span>1</span>
+                                          </span>
                                        ) : (
-                                         <span className="w-4 h-4 rounded-full bg-primary" aria-label="Непрочитанные сообщения"></span>
+                                          <span className="w-5 h-5 rounded-full bg-primary flex items-center justify-center" aria-label="Непрочитанные сообщения">
+                                            <span className="text-xs text-white">1</span>
+                                          </span>
                                        )
                                      )}
                                   </div>
@@ -2461,19 +2463,19 @@ const CRMContent = () => {
                                       </div>
                                       
                                        {displayUnread && (
-                                          <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
-                                            {showEye ? (
-                                              <>
-                                                <Avatar className="h-4 w-4">
-                                                  <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
-                                                  <AvatarFallback className="text-[8px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
-                                                </Avatar>
-                                                <span>1</span>
-                                              </>
-                                            ) : (
-                                              chat.unread
-                                            )}
-                                          </span>
+                                           <span className="bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1 min-w-[20px] h-5 justify-center">
+                                             {showEye ? (
+                                               <>
+                                                 <Avatar className="h-3 w-3">
+                                                   <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
+                                                   <AvatarFallback className="text-[8px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
+                                                 </Avatar>
+                                                 <span>1</span>
+                                               </>
+                                             ) : (
+                                               <span>1</span>
+                                             )}
+                                           </span>
                                        )}
                                     </div>
                                   </div>
@@ -2494,12 +2496,12 @@ const CRMContent = () => {
                        <div className="flex items-center gap-2">
                          {/* Unread filter button - only show if there are unread chats */}
                          {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id) && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length > 0 && (
-                           <Button
-                             variant={showOnlyUnread ? "default" : "outline"}
-                             size="sm"
-                             className="h-5 px-2 text-xs"
-                             onClick={() => setShowOnlyUnread(!showOnlyUnread)}
-                           >
+                            <Button
+                              variant={showOnlyUnread ? "default" : "outline"}
+                              size="sm"
+                              className="h-5 px-2 py-0.5 text-xs min-w-[20px]"
+                              onClick={() => setShowOnlyUnread(!showOnlyUnread)}
+                            >
                              {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id) && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length}
                            </Button>
                          )}
@@ -2623,19 +2625,19 @@ const CRMContent = () => {
                                    </div>
                                    
                                     {displayUnread && (
-                                       <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full flex items-center gap-1">
-                                         {showEye ? (
-                                           <>
-                                             <Avatar className="h-4 w-4">
-                                               <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
-                                               <AvatarFallback className="text-[8px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
-                                             </Avatar>
-                                             <span>1</span>
-                                           </>
-                                         ) : (
-                                           chat.unread
-                                         )}
-                                       </span>
+                                        <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full flex items-center gap-1 min-w-[20px] h-5 justify-center">
+                                          {showEye ? (
+                                            <>
+                                              <Avatar className="h-3 w-3">
+                                                <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
+                                                <AvatarFallback className="text-[8px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
+                                              </Avatar>
+                                              <span>1</span>
+                                            </>
+                                          ) : (
+                                            chat.unread
+                                          )}
+                                        </span>
                                     )}
                                  </div>
                                </div>
