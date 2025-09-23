@@ -279,21 +279,30 @@ export const ChatArea = ({
 
     // Immediately dismiss any pending GPT responses when manager starts sending a message
     if (pendingGPTResponses && pendingGPTResponses.length > 0) {
+      console.log('Found pending GPT responses to clear:', pendingGPTResponses.length);
+      
+      // First optimistically remove from UI
+      queryClient.setQueryData(['pending-gpt-responses', clientId], []);
+      
+      // Then delete from database
       try {
-        // Delete all pending responses for this client immediately
-        await supabase
+        const { data: deletedData, error: deleteError } = await supabase
           .from('pending_gpt_responses')
           .delete()
           .eq('client_id', clientId)
-          .in('status', ['pending', 'processing']);
+          .select(); // Select to see what was deleted
         
-        console.log('Immediately cleared all pending GPT responses for client:', clientId);
+        console.log('Deleted pending GPT responses:', deletedData?.length || 0, 'Error:', deleteError);
+        
+        if (deleteError) {
+          console.error('Database delete error:', deleteError);
+        }
         
         // Force refresh the pending responses query
         queryClient.invalidateQueries({ queryKey: ['pending-gpt-responses', clientId] });
-        queryClient.refetchQueries({ queryKey: ['pending-gpt-responses', clientId] });
       } catch (error) {
         console.error('Failed to clear pending GPT responses:', error);
+        // Even if delete fails, keep UI cleared
       }
     }
 
