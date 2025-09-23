@@ -46,27 +46,22 @@ export const ScheduleModal = ({ open, onOpenChange, children }: ScheduleModalPro
             </Button>
           </DialogTrigger>
         )}
-        <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden p-0">
-          <div className="bg-gradient-to-r from-green-600 to-blue-600 text-white p-6">
-            <DialogHeader>
-              <div className="flex items-center justify-between">
-                <DialogTitle className="flex items-center gap-3 text-xl font-semibold">
-                  <div className="p-2 bg-white/20 rounded-lg">
-                    <Calendar className="h-6 w-6" />
-                  </div>
-                  Управление расписанием занятий
-                </DialogTitle>
-                <Button
-                  size="sm"
-                  className="bg-white/20 hover:bg-white/30 text-white border-white/30"
-                  onClick={() => setAddLessonOpen(true)}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Добавить занятие
-                </Button>
-              </div>
-            </DialogHeader>
-          </div>
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden">
+          <DialogHeader className="px-6 py-4 border-b">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-3 text-xl font-semibold">
+                <Calendar className="h-6 w-6" />
+                Управление расписанием занятий
+              </DialogTitle>
+              <Button
+                size="sm"
+                onClick={() => setAddLessonOpen(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Добавить занятие
+              </Button>
+            </div>
+          </DialogHeader>
 
           <div className="flex-1 overflow-hidden">
             <div className="p-6 space-y-6">
