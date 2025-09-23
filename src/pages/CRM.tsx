@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients, useSearchClients, useCreateClient } from "@/hooks/useClients";
 import { useClientStatus } from "@/hooks/useClientStatus";
@@ -85,12 +85,14 @@ import {
   Clock,
   Lock,
   Edit,
-  UserPlus
+  UserPlus,
+  Filter
 } from "lucide-react";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
 import VoiceAssistant from '@/components/VoiceAssistant';
 import '@/styles/crm.css';
+import { cn } from "@/lib/utils";
 
 const CRMContent = () => {
   const { user, profile, role, signOut } = useAuth();
@@ -183,6 +185,11 @@ const CRMContent = () => {
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [globalSearchResults, setGlobalSearchResults] = useState<any[]>([]);
+  
+  // Filter states
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState<string>("all");
+  const [selectedClientType, setSelectedClientType] = useState<string>("all");
   
   // Состояния для модальных окон, открываемых голосовым ассистентом
   const [showAddClientModal, setShowAddClientModal] = useState(false);
@@ -602,6 +609,24 @@ const CRMContent = () => {
       chat.phone.includes(chatSearchQuery)
     )
     .filter(chat => !getChatState(chat.id).isArchived) // Скрываем архивированные чаты
+    .filter(chat => {
+      // Skip filtering for corporate and teacher chats as they don't have client_id
+      if (chat.type === "corporate" || chat.type === "teachers") return true;
+      
+      // Filter by branch - for now we'll keep all chats since branch filtering needs proper client schema
+      if (selectedBranch !== "all") {
+        // Branch filtering would be implemented here when client schema includes branch
+        return true;
+      }
+      
+      // Filter by client type - for now we'll keep all chats since client type filtering needs proper schema
+      if (selectedClientType !== "all") {
+        // Client type filtering would be implemented here when client schema includes status/type
+        return true;
+      }
+      
+      return true;
+    })
     .sort((a, b) => {
       // Сначала закрепленные чаты (только текущим пользователем)
       const aPinned = isPinnedByCurrentUser(a.id);
@@ -1936,12 +1961,94 @@ const CRMContent = () => {
             
             <TabsContent value="chats" className="mt-0 flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col">
               <div className="p-2 border-b space-y-2 shrink-0">
-                <SearchInput
-                  placeholder="Поиск по чатам..."
-                  onSearch={handleChatSearch}
-                  onClear={() => setChatSearchQuery("")}
-                  size="sm"
-                />
+                <div className="flex gap-1">
+                  <div className="flex-1">
+                    <SearchInput
+                      placeholder="Поиск по чатам..."
+                      onSearch={handleChatSearch}
+                      onClear={() => setChatSearchQuery("")}
+                      size="sm"
+                    />
+                  </div>
+                  <DropdownMenu open={showFilters} onOpenChange={setShowFilters}>
+                    <DropdownMenuTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className={cn("h-8 px-2", (selectedBranch !== "all" || selectedClientType !== "all") && "bg-primary text-primary-foreground")}
+                      >
+                        <Filter className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuLabel>Фильтры</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      
+                      <DropdownMenuLabel className="text-xs text-muted-foreground">Филиал</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={() => setSelectedBranch("all")}>
+                        <div className="flex items-center gap-2">
+                          {selectedBranch === "all" && <Check className="h-3 w-3" />}
+                          <span className={selectedBranch !== "all" ? "ml-5" : ""}>Все филиалы</span>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSelectedBranch("kotelniki")}>
+                        <div className="flex items-center gap-2">
+                          {selectedBranch === "kotelniki" && <Check className="h-3 w-3" />}
+                          <span className={selectedBranch !== "kotelniki" ? "ml-5" : ""}>Котельники</span>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSelectedBranch("mytishchi")}>
+                        <div className="flex items-center gap-2">
+                          {selectedBranch === "mytishchi" && <Check className="h-3 w-3" />}
+                          <span className={selectedBranch !== "mytishchi" ? "ml-5" : ""}>Мытищи</span>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSelectedBranch("online")}>
+                        <div className="flex items-center gap-2">
+                          {selectedBranch === "online" && <Check className="h-3 w-3" />}
+                          <span className={selectedBranch !== "online" ? "ml-5" : ""}>Онлайн</span>
+                        </div>
+                      </DropdownMenuItem>
+                      
+                      <DropdownMenuSeparator />
+                      
+                      <DropdownMenuLabel className="text-xs text-muted-foreground">Тип клиента</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={() => setSelectedClientType("all")}>
+                        <div className="flex items-center gap-2">
+                          {selectedClientType === "all" && <Check className="h-3 w-3" />}
+                          <span className={selectedClientType !== "all" ? "ml-5" : ""}>Все</span>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSelectedClientType("lead")}>
+                        <div className="flex items-center gap-2">
+                          {selectedClientType === "lead" && <Check className="h-3 w-3" />}
+                          <span className={selectedClientType !== "lead" ? "ml-5" : ""}>Лид</span>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSelectedClientType("student")}>
+                        <div className="flex items-center gap-2">
+                          {selectedClientType === "student" && <Check className="h-3 w-3" />}
+                          <span className={selectedClientType !== "student" ? "ml-5" : ""}>Ученик</span>
+                        </div>
+                      </DropdownMenuItem>
+                      
+                      {(selectedBranch !== "all" || selectedClientType !== "all") && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={() => {
+                              setSelectedBranch("all");
+                              setSelectedClientType("all");
+                            }}
+                            className="text-red-600"
+                          >
+                            Сбросить фильтры
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
                 <NewChatModal 
                   onCreateChat={handleCreateNewChat}
                   onExistingClientFound={handleExistingClientFound}
@@ -2318,12 +2425,94 @@ const CRMContent = () => {
           ) : isMobile && activeTab === 'chats' && !activeChatId ? (
             <div className="flex flex-col h-full">
               <div className="p-3 border-b space-y-3 shrink-0 bg-card">
-                <SearchInput
-                  placeholder="Поиск по чатам..."
-                  onSearch={handleChatSearch}
-                  onClear={() => setChatSearchQuery("")}
-                  size="sm"
-                />
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <SearchInput
+                      placeholder="Поиск по чатам..."
+                      onSearch={handleChatSearch}
+                      onClear={() => setChatSearchQuery("")}
+                      size="sm"
+                    />
+                  </div>
+                  <DropdownMenu open={showFilters} onOpenChange={setShowFilters}>
+                    <DropdownMenuTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className={cn("h-8 px-2", (selectedBranch !== "all" || selectedClientType !== "all") && "bg-primary text-primary-foreground")}
+                      >
+                        <Filter className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuLabel>Фильтры</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      
+                      <DropdownMenuLabel className="text-xs text-muted-foreground">Филиал</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={() => setSelectedBranch("all")}>
+                        <div className="flex items-center gap-2">
+                          {selectedBranch === "all" && <Check className="h-3 w-3" />}
+                          <span className={selectedBranch !== "all" ? "ml-5" : ""}>Все филиалы</span>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSelectedBranch("kotelniki")}>
+                        <div className="flex items-center gap-2">
+                          {selectedBranch === "kotelniki" && <Check className="h-3 w-3" />}
+                          <span className={selectedBranch !== "kotelniki" ? "ml-5" : ""}>Котельники</span>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSelectedBranch("mytishchi")}>
+                        <div className="flex items-center gap-2">
+                          {selectedBranch === "mytishchi" && <Check className="h-3 w-3" />}
+                          <span className={selectedBranch !== "mytishchi" ? "ml-5" : ""}>Мытищи</span>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSelectedBranch("online")}>
+                        <div className="flex items-center gap-2">
+                          {selectedBranch === "online" && <Check className="h-3 w-3" />}
+                          <span className={selectedBranch !== "online" ? "ml-5" : ""}>Онлайн</span>
+                        </div>
+                      </DropdownMenuItem>
+                      
+                      <DropdownMenuSeparator />
+                      
+                      <DropdownMenuLabel className="text-xs text-muted-foreground">Тип клиента</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={() => setSelectedClientType("all")}>
+                        <div className="flex items-center gap-2">
+                          {selectedClientType === "all" && <Check className="h-3 w-3" />}
+                          <span className={selectedClientType !== "all" ? "ml-5" : ""}>Все</span>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSelectedClientType("lead")}>
+                        <div className="flex items-center gap-2">
+                          {selectedClientType === "lead" && <Check className="h-3 w-3" />}
+                          <span className={selectedClientType !== "lead" ? "ml-5" : ""}>Лид</span>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSelectedClientType("student")}>
+                        <div className="flex items-center gap-2">
+                          {selectedClientType === "student" && <Check className="h-3 w-3" />}
+                          <span className={selectedClientType !== "student" ? "ml-5" : ""}>Ученик</span>
+                        </div>
+                      </DropdownMenuItem>
+                      
+                      {(selectedBranch !== "all" || selectedClientType !== "all") && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={() => {
+                              setSelectedBranch("all");
+                              setSelectedClientType("all");
+                            }}
+                            className="text-red-600"
+                          >
+                            Сбросить фильтры
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
                 <NewChatModal 
                   onCreateChat={handleCreateNewChat}
                   onExistingClientFound={handleExistingClientFound}
