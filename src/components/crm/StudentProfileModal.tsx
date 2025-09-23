@@ -23,7 +23,10 @@ import {
   CheckCircle,
   AlertCircle,
   MessageCircle,
-  Edit2
+  Edit2,
+  Phone,
+  Plus,
+  FileCheck
 } from "lucide-react";
 
 interface Student {
@@ -56,7 +59,6 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
 
   if (!student) return null;
 
-  // Initialize edited student data when modal opens
   const currentStudent = editedStudent || student;
 
   const getStatusColor = (status: string) => {
@@ -88,8 +90,6 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
     if (!editedStudent) return;
     
     try {
-      // Here you would typically save to the database
-      // For now, we'll just update the local state
       console.log('Saving student data:', editedStudent);
       setIsEditing(false);
       setEditedStudent(null);
@@ -109,44 +109,46 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
   };
 
   const handleMessageParent = (parentName: string, parentPhone: string) => {
-    // This would typically open the chat interface or redirect to messaging
     console.log(`Opening chat with ${parentName} (${parentPhone})`);
-    // You could dispatch an action to open the chat or redirect to chat page
   };
 
-  // Mock data - in real app this would come from props or API
-  const mockLessons = [
+  const loadFamilyData = () => {
+    // Mock function for family data loading
+  };
+
+  // Mock data
+  const mockFamilyMembers = [
     {
       id: '1',
-      groupName: 'ГРУППА ОКСЯ_PR7',
-      course: 'Empower A1',
-      teacher: 'Пяткин Семён',
-      schedule: 'Вт/Чт с 19:20 до 20:40',
-      period: 'с 26.08 по 28.05.26',
-      status: 'active',
-      paid: 16,
-      totalLessons: 144,
-      remaining: 128,
-      cost: '13 010,00 руб.'
+      name: 'Мария Петрова',
+      relationship: 'mother' as const,
+      phone: '+7 (985) 261-50-56',
+      phoneNumbers: [
+        { id: '1', number: '+7 (985) 261-50-56', type: 'mobile' as const, isPrimary: true }
+      ]
+    },
+    {
+      id: '2',
+      name: 'Александр Петров',
+      relationship: 'father' as const,
+      phone: '+7 (903) 141-32-11',
+      phoneNumbers: [
+        { id: '2', number: '+7 (903) 141-32-11', type: 'mobile' as const, isPrimary: true }
+      ]
     }
   ];
 
-  const mockPayments = [
+  const mockLessons = [
     {
       id: '1',
-      date: '18.09.25',
-      amount: '5 000,00 руб.',
-      description: 'Учебные материалы "Prepare 7"',
-      method: 'Безналичные',
-      status: 'Оплачен'
-    },
-    {
-      id: '2', 
-      date: '02.09.25',
-      amount: '13 010,00 руб.',
-      description: 'Оплата для Группа ОКСЯ_PR7 (16 а.ч.)',
-      method: 'Безналичные',
-      status: 'Оплачен'
+      groupName: 'Школьники 5 - Empower 1',
+      subject: 'Английский',
+      level: 'Empower 1',
+      teacher: 'Kaba Edward',
+      startDate: '01.09.2018',
+      endDate: '31.05.2019',
+      status: 'active',
+      price: '8 400,00 руб/мес'
     }
   ];
 
@@ -166,51 +168,59 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden p-0">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-primary/5 to-primary/10 px-6 py-4 border-b">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden p-0">
+        {/* Compact Header */}
+        <div className="bg-gradient-to-r from-primary/5 to-primary/10 px-4 py-3 border-b">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center border-2 border-slate-200">
-                <User className="w-8 h-8 text-slate-600" />
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-slate-100 to-slate-200 rounded flex items-center justify-center border border-slate-200">
+                <User className="w-5 h-5 text-slate-600" />
               </div>
               <div>
                 {isEditing && editedStudent ? (
-                  <div className="grid grid-cols-3 gap-2 mb-2">
+                  <div className="flex gap-2">
                     <Input
                       placeholder="Фамилия"
                       value={editedStudent.lastName}
                       onChange={(e) => setEditedStudent({...editedStudent, lastName: e.target.value})}
-                      className="text-lg font-semibold h-8"
+                      className="text-sm font-semibold h-7 w-24"
                     />
                     <Input
                       placeholder="Имя"
                       value={editedStudent.firstName}
                       onChange={(e) => setEditedStudent({...editedStudent, firstName: e.target.value})}
-                      className="text-lg font-semibold h-8"
+                      className="text-sm font-semibold h-7 w-20"
                     />
                     <Input
                       placeholder="Отчество"
                       value={editedStudent.middleName}
                       onChange={(e) => setEditedStudent({...editedStudent, middleName: e.target.value})}
-                      className="text-lg font-semibold h-8"
+                      className="text-sm font-semibold h-7 w-24"
                     />
                   </div>
                 ) : (
-                  <h2 className="text-2xl font-bold text-foreground">
-                    {currentStudent.lastName} {currentStudent.firstName} {currentStudent.middleName}
-                  </h2>
+                  <>
+                    <h2 className="text-lg font-bold text-foreground">
+                      {currentStudent.lastName} {currentStudent.firstName} {currentStudent.middleName}
+                    </h2>
+                    <p className="text-xs text-muted-foreground">Ученик (ID: {currentStudent.id.slice(-8)})</p>
+                  </>
                 )}
-                <p className="text-sm text-muted-foreground">Ученик (ID: {currentStudent.id})</p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              <Badge 
+                variant={getStatusColor(currentStudent.status)} 
+                className={`text-xs ${getStatusBadgeClass(currentStudent.status)}`}
+              >
+                {getStatusLabel(currentStudent.status)}
+              </Badge>
               {isEditing ? (
                 <>
-                  <Button size="sm" variant="outline" onClick={handleCancel}>
+                  <Button size="sm" variant="outline" onClick={handleCancel} className="h-7 px-2">
                     Отмена
                   </Button>
-                  <Button size="sm" onClick={handleSave}>
+                  <Button size="sm" onClick={handleSave} className="h-7 px-2">
                     Сохранить
                   </Button>
                 </>
@@ -219,414 +229,238 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
                   size="sm" 
                   variant="outline" 
                   onClick={handleEdit}
-                  className="h-8 w-8 p-0"
-                  title="Редактировать"
+                  className="h-7 w-7 p-0"
                 >
-                  <Edit2 className="h-4 w-4" />
+                  <Edit2 className="h-3 w-3" />
                 </Button>
               )}
             </div>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex h-[calc(95vh-120px)]">
-          {/* Left Panel - Basic Info & Parents */}
-          <div className="w-80 border-r bg-muted/20 overflow-y-auto">
-            <div className="p-6 space-y-6">
+        {/* Main Content - Optimized Grid Layout */}
+        <div className="p-4 h-[calc(90vh-80px)] overflow-y-auto">
+          <div className="grid grid-cols-12 gap-4 h-full">
+            {/* Quick Info Sidebar */}
+            <div className="col-span-3 space-y-3">
               {/* Basic Info */}
-              <div>
-                <h3 className="font-semibold mb-4 flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  Общая информация
+              <Card className="p-3">
+                <h3 className="text-sm font-semibold mb-2 flex items-center gap-1">
+                  <FileText className="w-3 h-3" />
+                  Основная информация
                 </h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Статус</span>
-                    <Badge 
-                      variant={getStatusColor(currentStudent.status)} 
-                      className={`text-xs ${getStatusBadgeClass(currentStudent.status)}`}
-                    >
-                      {getStatusLabel(currentStudent.status)}
-                    </Badge>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Возраст:</span>
+                    <span className="font-medium">{currentStudent.age} лет</span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Возраст</span>
-                    <span className="text-sm font-medium">{currentStudent.age} лет</span>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Дата рожд:</span>
+                    <span>03.06.2011</span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Дата рождения</span>
-                    <span className="text-sm">03.06.2011</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Телефон</span>
-                    {isEditing && editedStudent ? (
-                      <Input
-                        placeholder="+7 (___) ___-__-__"
-                        value={editedStudent.phone || ''}
-                        onChange={(e) => setEditedStudent({...editedStudent, phone: e.target.value})}
-                        className="text-sm h-6 w-32"
-                      />
-                    ) : (
-                      <span className="text-sm">{currentStudent.phone || 'Не указан'}</span>
-                    )}
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Телефон:</span>
+                    <span>{currentStudent.phone || 'Не указан'}</span>
                   </div>
                 </div>
-                <div className="flex gap-2 mt-4">
-                  <Button size="sm" variant="outline" className="text-xs flex-1 border-slate-300 text-slate-600 hover:bg-slate-50">
+                <div className="flex gap-1 mt-3">
+                  <Button size="sm" variant="outline" className="text-xs flex-1 h-7">
                     <Users className="w-3 h-3 mr-1" />
                     В группу
                   </Button>
-                  <Button size="sm" variant="outline" className="text-xs flex-1 border-slate-300 text-slate-600 hover:bg-slate-50">
-                    <Calendar className="w-3 h-3 mr-1" />
+                  <Button size="sm" variant="outline" className="text-xs flex-1 h-7">
+                    <BookOpen className="w-3 h-3 mr-1" />
                     Индивидуально
                   </Button>
                 </div>
-              </div>
+              </Card>
 
-              {/* Parent Contacts */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold flex items-center gap-2">
-                    <Users className="w-4 h-4" />
+              {/* Parents */}
+              <Card className="p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold flex items-center gap-1">
+                    <Users className="w-3 h-3" />
                     Родители
                   </h3>
-                  <AddFamilyMemberModal 
-                    familyGroupId="550e8400-e29b-41d4-a716-446655440000" 
-                    onMemberAdded={() => console.log('Member added')}
-                  />
+                  <AddFamilyMemberModal familyGroupId={currentStudent.id} onMemberAdded={loadFamilyData}>
+                    <Button size="sm" variant="outline" className="h-6 w-6 p-0">
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </AddFamilyMemberModal>
                 </div>
-                <div className="space-y-3">
-                  <div className="p-3 bg-background rounded-lg border">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-pink-100 rounded-full flex items-center justify-center">
-                          <User className="w-4 h-4 text-pink-600" />
+                <div className="space-y-2">
+                  {mockFamilyMembers.map((member) => (
+                    <div key={member.id} className="text-xs">
+                      <div className="flex items-center gap-1 mb-1">
+                        <div className="w-4 h-4 rounded bg-pink-100 flex items-center justify-center">
+                          <span className="text-pink-600 text-[10px] font-bold">
+                            {member.relationship === 'mother' ? 'М' : 'П'}
+                          </span>
                         </div>
-                        <div>
-                          <p className="font-medium text-sm">Мария Петрова</p>
-                          <Badge variant="outline" className="text-xs">Мама</Badge>
-                        </div>
+                        <span className="font-medium text-slate-900">{member.name}</span>
+                      </div>
+                      <div className="ml-5 text-muted-foreground">
+                        {member.phone}
                       </div>
                     </div>
-                    <PhoneNumberManager
-                      clientId="maria-petrova"
-                      phoneNumbers={[
-                        {
-                          id: '1',
-                          phone: '+7 (985) 261-50-56',
-                          phoneType: 'mobile',
-                          isPrimary: true,
-                          isWhatsappEnabled: true,
-                          isTelegramEnabled: false
-                        }
-                      ]}
-                      onUpdate={(phoneNumbers) => console.log('Updated phone numbers:', phoneNumbers)}
-                      onMessageClick={(phoneNumber, platform) => console.log(`Opening ${platform} chat`)}
-                    />
-                  </div>
-                  
-                  <div className="p-3 bg-background rounded-lg border">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <User className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm">Александр Петров</p>
-                          <Badge variant="outline" className="text-xs">Папа</Badge>
-                        </div>
-                      </div>
-                    </div>
-                    <PhoneNumberManager
-                      clientId="alexander-petrov"
-                      phoneNumbers={[
-                        {
-                          id: '2',
-                          phone: '+7 (903) 444-55-66',
-                          phoneType: 'mobile',
-                          isPrimary: true,
-                          isWhatsappEnabled: true,
-                          isTelegramEnabled: true
-                        }
-                      ]}
-                      onUpdate={(phoneNumbers) => console.log('Updated phone numbers:', phoneNumbers)}
-                      onMessageClick={(phoneNumber, platform) => console.log(`Opening ${platform} chat`)}
-                    />
-                  </div>
+                  ))}
                 </div>
-              </div>
+              </Card>
             </div>
-          </div>
 
-          {/* Right Panel - Tabs Content */}
-          <div className="flex-1 overflow-hidden">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-              <TabsList className="grid grid-cols-5 m-4 mb-0">
-                <TabsTrigger value="info" className="text-xs">Информация</TabsTrigger>
-                <TabsTrigger value="lessons" className="text-xs">Занятия</TabsTrigger>
-                <TabsTrigger value="tests" className="text-xs">Тесты</TabsTrigger>
-                <TabsTrigger value="payments" className="text-xs">Платежи</TabsTrigger>
-                <TabsTrigger value="history" className="text-xs">История</TabsTrigger>
-              </TabsList>
-              
-              <div className="flex-1 overflow-y-auto p-4 pt-0">
-                <TabsContent value="info" className="mt-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <FileText className="w-5 h-5" />
-                        Детальная информация
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Филиал:</span>
-                            <span className="text-slate-600 font-medium">OKEY ENGLISH Окская</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Категория:</span>
-                            <span>Школьники</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Дисциплины:</span>
-                            <span>Английский (Empower 1)</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Рекламный источник:</span>
-                            <span>По рекомендации</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">В черном списке:</span>
-                            <span>Нет</span>
-                          </div>
-                        </div>
-                        <div className="space-y-4">
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Ответственные:</span>
-                            <span className="text-slate-600 font-medium">Пышнов Даниил Александрович</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Тип:</span>
-                            <span>Общий</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Дата обращения:</span>
-                            <span>30.09.2016</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Оплаты занятий:</span>
-                            <span className="text-slate-600 font-medium">125 810,00 руб.</span>
-                          </div>
-                        </div>
+            {/* Main Content Area */}
+            <div className="col-span-9">
+              <Tabs defaultValue="info" className="h-full flex flex-col">
+                <TabsList className="grid w-full grid-cols-5 h-8">
+                  <TabsTrigger value="info" className="text-xs">Информация</TabsTrigger>
+                  <TabsTrigger value="lessons" className="text-xs">Занятия</TabsTrigger>
+                  <TabsTrigger value="tests" className="text-xs">Тесты</TabsTrigger>
+                  <TabsTrigger value="payments" className="text-xs">Платежи</TabsTrigger>
+                  <TabsTrigger value="history" className="text-xs">История</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="info" className="flex-1 mt-2 overflow-y-auto">
+                  <Card className="p-4">
+                    <h3 className="text-sm font-semibold mb-3">Детальная информация</h3>
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Филиал:</span>
+                        <span className="font-medium">OKEY ENGLISH Окская</span>
                       </div>
-                    </CardContent>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Ответственные:</span>
+                        <span className="font-medium">Пышнов Даниил Александрович</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Категория:</span>
+                        <span>Школьники</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Тип:</span>
+                        <span>Общий</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Дисциплины:</span>
+                        <span>Английский (Empower 1)</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Дата обращения:</span>
+                        <span>30.09.2016</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Рекламный источник:</span>
+                        <span>По рекомендации</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Оплаты занятий:</span>
+                        <span className="font-medium">125 810,00 руб.</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">В черном списке:</span>
+                        <span>Нет</span>
+                      </div>
+                    </div>
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="lessons" className="mt-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <GraduationCap className="w-5 h-5" />
-                          Занятия
-                        </div>
-                        <div className="flex gap-2 text-sm">
-                          <Badge variant="outline">Актуальные (1)</Badge>
-                          <Badge variant="secondary" className="text-slate-600">Закончившие (10)</Badge>
-                        </div>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {mockLessons.map((lesson) => (
-                          <Card key={lesson.id} className="bg-slate-50 border-slate-200">
-                            <CardContent className="p-4">
-                              <div className="flex justify-between items-start mb-3">
-                                <div>
-                                  <h4 className="font-semibold text-slate-900">{lesson.groupName}</h4>
-                                  <p className="text-sm text-slate-600">OKEY ENGLISH Окская</p>
-                                </div>
-                                <Badge className="bg-green-100 text-green-800">Активное</Badge>
-                              </div>
-                              
-                              <div className="grid grid-cols-2 gap-4 text-sm mb-3">
-                                <div>
-                                  <span className="text-slate-500">Преподаватель:</span>
-                                  <p className="font-medium">{lesson.teacher}</p>
-                                </div>
-                                <div>
-                                  <span className="text-slate-500">Расписание:</span>
-                                  <p className="font-medium">{lesson.schedule}</p>
-                                </div>
-                                <div>
-                                  <span className="text-slate-500">Период:</span>
-                                  <p className="font-medium">{lesson.period}</p>
-                                </div>
-                                <div>
-                                  <span className="text-slate-500">Аудитория:</span>
-                                  <p className="font-medium">WASHINGTON</p>
-                                </div>
-                              </div>
-                              
-                              <div className="flex gap-2">
-                                <Badge className="bg-green-100 text-green-800 text-xs">
-                                  Оплачено: {lesson.paid} а.ч. / 13 010,00 руб.
-                                </Badge>
-                                <Badge variant="outline" className="text-xs text-slate-600 border-slate-300">
-                                  Осталось: {lesson.remaining} а.ч. / 112 410,00 руб.
-                                </Badge>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
+                <TabsContent value="lessons" className="flex-1 mt-2 overflow-y-auto">
+                  <Card className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold flex items-center gap-1">
+                        <GraduationCap className="w-4 h-4" />
+                        Занятия
+                      </h3>
+                      <div className="flex gap-2">
+                        <Badge variant="outline" className="text-xs">Актуальные (1)</Badge>
+                        <Badge variant="secondary" className="text-xs">Закончившие (10)</Badge>
                       </div>
-                    </CardContent>
+                    </div>
+                    <div className="space-y-2">
+                      {mockLessons.map((lesson) => (
+                        <div key={lesson.id} className="border rounded p-3 bg-slate-50">
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <h4 className="font-medium text-sm">{lesson.groupName}</h4>
+                              <p className="text-xs text-muted-foreground">{lesson.subject} • {lesson.level}</p>
+                            </div>
+                            <Badge variant={lesson.status === 'active' ? 'default' : 'secondary'} className="text-xs">
+                              {lesson.status === 'active' ? 'Активное' : 'Завершено'}
+                            </Badge>
+                          </div>
+                          <div className="grid grid-cols-3 gap-4 text-xs">
+                            <div>
+                              <span className="text-muted-foreground">Преподаватель:</span>
+                              <div className="font-medium">{lesson.teacher}</div>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Период:</span>
+                              <div>{lesson.startDate} - {lesson.endDate}</div>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Цена:</span>
+                              <div className="font-medium">{lesson.price}</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="tests" className="mt-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <Target className="w-5 h-5" />
-                        Результаты тестов
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b bg-muted/50">
-                              <th className="text-left p-3 font-medium">Дата</th>
-                              <th className="text-left p-3 font-medium">Тип</th>
-                              <th className="text-left p-3 font-medium">Дисциплина</th>
-                              <th className="text-left p-3 font-medium">Преподаватель</th>
-                              <th className="text-left p-3 font-medium">Тест</th>
-                              <th className="text-left p-3 font-medium">Результат</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {mockTests.map((test) => (
-                              <tr key={test.id} className="border-b hover:bg-muted/30">
-                                <td className="p-3">{test.date}</td>
-                                <td className="p-3">{test.type}</td>
-                                <td className="p-3">{test.subject}</td>
-                                <td className="p-3 text-slate-600">{test.teacher}</td>
-                                <td className="p-3">{test.test}</td>
-                                <td className="p-3">
-                                  <div className="space-y-1">
-                                    <div>{test.result}</div>
-                                    <div className="font-semibold text-green-600">Итого: {test.total}</div>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </CardContent>
+                <TabsContent value="tests" className="flex-1 mt-2 overflow-y-auto">
+                  <Card className="p-4">
+                    <h3 className="text-sm font-semibold mb-3 flex items-center gap-1">
+                      <FileCheck className="w-4 h-4" />
+                      Результаты тестов
+                    </h3>
+                    <div className="space-y-2">
+                      {mockTests.map((test) => (
+                        <div key={test.id} className="border rounded p-3">
+                          <div className="grid grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <span className="text-muted-foreground text-xs">Дата:</span>
+                              <div className="font-medium">{test.date}</div>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground text-xs">Тест:</span>
+                              <div>{test.test}</div>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground text-xs">Преподаватель:</span>
+                              <div>{test.teacher}</div>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground text-xs">Результат:</span>
+                              <div className="font-medium text-green-600">{test.total}</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="payments" className="mt-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <CreditCard className="w-5 h-5" />
-                        Финансовая информация
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="mb-6 p-4 bg-muted/50 rounded-lg">
-                        <h4 className="font-semibold mb-2">Баланс личного счёта</h4>
-                        <div className="text-2xl font-bold">125 810,00 - 125 810,00 = 0,00 руб.</div>
-                        <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
-                          <div>
-                            <span className="text-green-600 font-medium">Приход:</span>
-                            <span className="ml-2">130 810,00 руб.</span>
-                          </div>
-                          <div>
-                            <span className="text-slate-600 font-medium">Расход:</span>
-                            <span className="ml-2">125 810,00 руб.</span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b bg-muted/50">
-                              <th className="text-left p-3 font-medium">Дата</th>
-                              <th className="text-left p-3 font-medium">Сумма</th>
-                              <th className="text-left p-3 font-medium">Комментарий</th>
-                              <th className="text-left p-3 font-medium">Способ оплаты</th>
-                              <th className="text-left p-3 font-medium">Статус</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {mockPayments.map((payment) => (
-                              <tr key={payment.id} className="border-b hover:bg-muted/30">
-                                <td className="p-3">{payment.date}</td>
-                                <td className="p-3 font-medium">{payment.amount}</td>
-                                <td className="p-3 italic">{payment.description}</td>
-                                <td className="p-3">{payment.method}</td>
-                                <td className="p-3">
-                                  <Badge className="bg-green-100 text-green-800 border-green-200">
-                                    {payment.status}
-                                  </Badge>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </CardContent>
+                <TabsContent value="payments" className="flex-1 mt-2 overflow-y-auto">
+                  <Card className="p-4">
+                    <h3 className="text-sm font-semibold mb-3 flex items-center gap-1">
+                      <CreditCard className="w-4 h-4" />
+                      История платежей
+                    </h3>
+                    <p className="text-sm text-muted-foreground">Данные о платежах загружаются...</p>
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="history" className="mt-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <History className="w-5 h-5" />
-                        История действий
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="p-4 border-l-4 border-blue-500 bg-blue-50">
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="font-medium text-sm">18.09.2025 19:46</span>
-                            <span className="text-slate-600 text-xs">Пышнов Даниил Александрович</span>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            Удалён платёж от Юрганов Н. А. (Учебные материалы): 
-                            Дата: 18.09.2025, Счёт: №1111204367, Способ оплаты: Безналичные, 
-                            Сумма: 5 000,00 руб. Оплачен (Дата оплаты: 18.09.2025)
-                          </p>
-                        </div>
-                        
-                        <div className="p-4 border-l-4 border-green-500 bg-green-50">
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="font-medium text-sm">18.09.2025 19:46</span>
-                            <span className="text-slate-600 text-xs">Пышнов Даниил Александрович</span>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            Добавлен платёж от Юрганов Н. А. (Учебные материалы): 
-                            Дата: 18.09.2025, Счёт: №1111204372, Способ оплаты: Безналичные, 
-                            Сумма: 5 000,00 руб. Оплачен (Дата оплаты: 18.09.2025)
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
+                <TabsContent value="history" className="flex-1 mt-2 overflow-y-auto">
+                  <Card className="p-4">
+                    <h3 className="text-sm font-semibold mb-3 flex items-center gap-1">
+                      <History className="w-4 h-4" />
+                      История изменений
+                    </h3>
+                    <p className="text-sm text-muted-foreground">История изменений загружается...</p>
                   </Card>
                 </TabsContent>
-              </div>
-            </Tabs>
+              </Tabs>
+            </div>
           </div>
         </div>
       </DialogContent>
