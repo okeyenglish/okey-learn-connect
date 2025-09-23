@@ -283,13 +283,13 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
               Менеджер поддержки
             </div>
           )}
-          <div className={`rounded-2xl p-3 relative ${
-            isForwarded ? 'border-l-4 border-l-blue-300 bg-blue-50/50' : ''
-          } ${
-            type === 'manager' 
-              ? 'bg-blue-100 text-slate-800 rounded-tr-md' 
-              : 'bg-muted rounded-tl-md'
-          }`}>
+           <div className={`rounded-2xl p-2 relative ${
+             isForwarded ? 'border-l-4 border-l-blue-300 bg-blue-50/50' : ''
+           } ${
+             type === 'manager' 
+               ? 'bg-blue-100 text-slate-800 rounded-tr-md' 
+               : 'bg-muted rounded-tl-md'
+           }`}>
             {isEditing ? (
               <div className="space-y-2">
                 <Input
@@ -338,7 +338,7 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
                 )}
                 
                 {/* Время и галочки внутри bubble */}
-                <div className={`flex items-center justify-between mt-2 pt-1`}>
+                <div className={`flex items-center justify-between mt-1 pt-0.5`}>
                   <div className="flex-1"></div>
                   <div className={`flex items-center gap-1 text-xs text-muted-foreground/70`}>
                     <span>
@@ -370,16 +370,16 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
                   </div>
                 </div>
                 
-                {/* Эмодзи реакции внутри bubble в углу */}
-                {messageId && (type === 'client' || type === 'manager') && (
-                  <div className="absolute -bottom-1 right-2">
-                    <MessageReactions 
-                      messageId={messageId} 
-                      showAddButton={true}
-                      className=""
-                    />
-                  </div>
-                )}
+                 {/* Эмодзи реакции внизу справа с минимальным заходом */}
+                 {messageId && (type === 'client' || type === 'manager') && (
+                   <div className="absolute -bottom-0.5 right-1 z-10">
+                     <MessageReactions 
+                       messageId={messageId} 
+                       showAddButton={true}
+                       className=""
+                     />
+                   </div>
+                 )}
                 
                 {type === 'manager' && message !== '[Сообщение удалено]' && (
                   <div className="absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
