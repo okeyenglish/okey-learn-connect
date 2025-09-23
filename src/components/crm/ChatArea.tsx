@@ -69,6 +69,7 @@ export const ChatArea = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchInput, setShowSearchInput] = useState(false);
   const [showOnlyCalls, setShowOnlyCalls] = useState(false);
+  const [activeTab, setActiveTab] = useState("whatsapp");
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
@@ -1228,7 +1229,7 @@ export const ChatArea = ({
 
       {/* Chat Messages with Tabs */}
       <div className="flex-1 overflow-hidden min-h-0">
-        <Tabs defaultValue="whatsapp" className="h-full flex flex-col min-h-0">
+        <Tabs defaultValue="whatsapp" value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col min-h-0">
           <TabsList className="grid w-full grid-cols-5 rounded-none bg-orange-50/30 border-orange-200 border-t rounded-t-none">
             <TabsTrigger value="whatsapp" className="text-xs">WhatsApp</TabsTrigger>
             <TabsTrigger value="telegram" className="text-xs">Telegram</TabsTrigger>
@@ -1354,13 +1355,41 @@ export const ChatArea = ({
           </TabsContent>
           
           <TabsContent value="calls" className="flex-1 p-3 overflow-y-auto mt-0">
-            <CallHistory clientId={clientId} />
+            <div className="space-y-4">
+              <CallHistory clientId={clientId} />
+              
+              {/* Comment section for calls tab */}
+              <div className="border-t pt-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Комментарий о диалоге</label>
+                  <Textarea
+                    placeholder="Добавьте комментарий о разговоре с клиентом..."
+                    value={message}
+                    onChange={(e) => handleMessageChange(e.target.value)}
+                    className="min-h-[100px] bg-yellow-50 border-yellow-300"
+                  />
+                  <div className="flex justify-end">
+                    <Button 
+                      onClick={() => {
+                        setCommentMode(true);
+                        handleSendMessage();
+                      }}
+                      disabled={!message.trim() || loading}
+                      className="bg-yellow-500 hover:bg-yellow-600 text-white"
+                    >
+                      Сохранить комментарий
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
 
-      {/* Message Input */}
-      <div className="border-t p-3 shrink-0">
+      {/* Message Input - Hidden when on calls tab */}
+      {activeTab !== "calls" && (
+        <div className="border-t p-3 shrink-0">
         {/* Pending message with countdown */}
         {pendingMessage && (
           <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between">
@@ -1612,8 +1641,9 @@ export const ChatArea = ({
               </Button>
             </div>
           </div>
-        </div>
-      </div>
+         </div>
+       </div>
+      )}
 
       {/* Модальные окна (только если не используются внешние обработчики) */}
       {!onOpenTaskModal && (
