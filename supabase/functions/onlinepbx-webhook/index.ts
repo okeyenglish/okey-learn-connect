@@ -20,17 +20,28 @@ interface OnlinePBXWebhookData {
 }
 
 serve(async (req) => {
+  console.log('OnlinePBX webhook received:', req.method, req.url);
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('OnlinePBX webhook received:', req.method);
-
     // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing Supabase environment variables');
+      return new Response(
+        JSON.stringify({ error: 'Configuration error' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500 
+        }
+      );
+    }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
@@ -52,57 +63,22 @@ serve(async (req) => {
           'CANCEL': 'missed',
           'CONGESTION': 'failed',
           'CHANUNAVAIL': 'failed',
-          'HANGUP': 'answered' // If there was a hangup, call was likely answered
+          'HANGUP': 'answered'
         };
         return statusMap[pbxStatus?.toUpperCase()] || 'failed';
       };
-
-      // Try to find existing call log by call_id or phone number + time
-      let callLog = null;
-      
-      if (webhookData.call_id) {
-        const { data: existingCall } = await supabase
-          .from('call_logs')
-          .select('*')
-          .eq('external_call_id', webhookData.call_id)
-          .maybeSingle();
-        
-        callLog = existingCall;
-      }
-
-      // If no call found by call_id, try to find by phone number and approximate time
-      if (!callLog && webhookData.from && webhookData.start_time) {
-        const phoneNumber = webhookData.direction === 'incoming' ? webhookData.from : webhookData.to;
-        const startTime = new Date(webhookData.start_time);
-        const searchWindowStart = new Date(startTime.getTime() - 60000); // 1 minute before
-        const searchWindowEnd = new Date(startTime.getTime() + 60000); // 1 minute after
-
-        const { data: recentCalls } = await supabase
-          .from('call_logs')
-          .select('*')
-          .eq('phone_number', phoneNumber)
-          .gte('started_at', searchWindowStart.toISOString())
-          .lte('started_at', searchWindowEnd.toISOString())
-          .order('started_at', { ascending: false })
-          .limit(1);
-
-        if (recentCalls && recentCalls.length > 0) {
-          callLog = recentCalls[0];
-        }
-      }
 
       const status = mapStatus(webhookData.status || '');
       const phoneNumber = webhookData.direction === 'incoming' ? webhookData.from : webhookData.to;
       const durationSeconds = webhookData.duration || null;
 
-      // Validate that we have essential data
+      // Basic validation
       if (!phoneNumber) {
-        console.log('No phone number found in webhook data, skipping');
+        console.log('No phone number found in webhook data');
         return new Response(
           JSON.stringify({ 
             success: true, 
-            message: 'Webhook processed but no phone number found',
-            webhookData 
+            message: 'Webhook processed but no phone number found'
           }),
           { 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -111,8 +87,28 @@ serve(async (req) => {
         );
       }
 
+      // Try to find existing call log by call_id
+      let callLog = null;
+      
+      if (webhookData.call_id) {
+        console.log('Looking for existing call log with external_call_id:', webhookData.call_id);
+        const { data: existingCall, error: findError } = await supabase
+          .from('call_logs')
+          .select('*')
+          .eq('external_call_id', webhookData.call_id)
+          .maybeSingle();
+        
+        if (findError) {
+          console.error('Error finding existing call log:', findError);
+        } else {
+          callLog = existingCall;
+          console.log('Found existing call log:', callLog?.id);
+        }
+      }
+
       if (callLog) {
         // Update existing call log
+        console.log('Updating existing call log:', callLog.id);
         const updateData: any = {
           status,
           updated_at: new Date().toISOString()
@@ -124,10 +120,6 @@ serve(async (req) => {
 
         if (durationSeconds !== null) {
           updateData.duration_seconds = durationSeconds;
-        }
-
-        if (webhookData.call_id && !callLog.external_call_id) {
-          updateData.external_call_id = webhookData.call_id;
         }
 
         const { error: updateError } = await supabase
@@ -143,6 +135,28 @@ serve(async (req) => {
         console.log(`Updated call log ${callLog.id} with status: ${status}`);
       } else {
         // Create new call log entry
+        console.log('Creating new call log for phone:', phoneNumber);
+        
+        // Try to find client by phone number
+        const { data: clients, error: clientError } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('phone', phoneNumber)
+          .limit(1);
+
+        if (clientError) {
+          console.error('Error finding client:', clientError);
+        }
+
+        let clientId = null;
+        if (clients && clients.length > 0) {
+          clientId = clients[0].id;
+          console.log('Found client:', clientId);
+        } else {
+          console.log(`No client found for phone number: ${phoneNumber}`);
+          // Still create the call log without client_id for now
+        }
+
         const newCallData: any = {
           phone_number: phoneNumber,
           direction: webhookData.direction || 'incoming',
@@ -156,33 +170,9 @@ serve(async (req) => {
           newCallData.ended_at = new Date(webhookData.end_time).toISOString();
         }
 
-        // Try to find client by phone number
-        const { data: clients } = await supabase
-          .from('clients')
-          .select('id')
-          .eq('phone', phoneNumber)
-          .limit(1);
-
-        let clientId = null;
-        if (clients && clients.length > 0) {
-          clientId = clients[0].id;
-        } else {
-          // If no client found, try to create a placeholder client or skip the call log
-          console.log(`No client found for phone number: ${phoneNumber}, skipping call log creation`);
-          return new Response(
-            JSON.stringify({ 
-              success: true, 
-              message: 'Webhook processed but no client found for phone number',
-              phoneNumber 
-            }),
-            { 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              status: 200 
-            }
-          );
+        if (clientId) {
+          newCallData.client_id = clientId;
         }
-
-        newCallData.client_id = clientId;
 
         const { error: insertError } = await supabase
           .from('call_logs')
@@ -200,7 +190,9 @@ serve(async (req) => {
         JSON.stringify({ 
           success: true, 
           message: 'Webhook processed successfully',
-          callUpdated: !!callLog 
+          callUpdated: !!callLog,
+          phoneNumber,
+          status
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -209,11 +201,16 @@ serve(async (req) => {
       );
     }
 
+    // Handle non-POST requests
     return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
+      JSON.stringify({ 
+        success: true,
+        message: 'OnlinePBX Webhook is running',
+        method: req.method
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 405 
+        status: 200 
       }
     );
 
