@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import JsSIP from 'jssip';
+import { WebRTCDiagnostics } from './WebRTCDiagnostics';
 
 interface WebRTCPhoneProps {
   phoneNumber?: string;
@@ -23,6 +24,7 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
   const [isMuted, setIsMuted] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
   const [sipProfile, setSipProfile] = useState<any>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
   
   const uaRef = useRef<any>(null);
   const sessionRef = useRef<any>(null);
@@ -112,9 +114,19 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
       const sockets = candidates.map((url) => {
         try {
           console.log('Creating WebSocket interface for:', url);
-          return new JsSIP.WebSocketInterface(url);
+          const ws = new JsSIP.WebSocketInterface(url);
+          
+          // Update diagnostics
+          if ((window as any).updateWebRTCDiagnostic) {
+            (window as any).updateWebRTCDiagnostic('websocket', 'pending', `Подключение к ${url}`);
+          }
+          
+          return ws;
         } catch (e) {
           console.warn('Failed to create WS interface for', url, e);
+          if ((window as any).updateWebRTCDiagnostic) {
+            (window as any).updateWebRTCDiagnostic('websocket', 'error', `Ошибка создания WS: ${e.message}`);
+          }
           return null;
         }
       }).filter(Boolean) as any[];
@@ -146,15 +158,38 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
 
       // Attach remote audio when a new RTC session is created
       uaRef.current.on('newRTCSession', (data: any) => {
+        console.log('New RTC Session created:', data);
         sessionRef.current = data.session;
+        
         const connection = sessionRef.current.connection;
         if (connection) {
+          console.log('RTC Connection established, setting up event listeners');
+          
+          // Log ICE candidate events
+          connection.addEventListener('icecandidate', (event: any) => {
+            if (event.candidate) {
+              console.log('ICE candidate:', event.candidate);
+              if ((window as any).updateWebRTCDiagnostic) {
+                (window as any).updateWebRTCDiagnostic('ice', 'success', 
+                  `ICE кандидат: ${event.candidate.type} (${event.candidate.protocol})`);
+              }
+            }
+          });
+          
+          // Handle remote stream
           connection.addEventListener('track', (e: any) => {
+            console.log('Remote track received:', e);
             if (!audioRef.current) return;
+            
             const [stream] = e.streams;
             if (stream) {
-              // Attach remote stream to hidden audio element
+              console.log('Attaching remote MediaStream to audio element');
               (audioRef.current as HTMLAudioElement).srcObject = stream;
+              
+              if ((window as any).updateWebRTCDiagnostic) {
+                (window as any).updateWebRTCDiagnostic('audio', 'success', 
+                  'MediaStream получен и подключен к audio элементу');
+              }
             }
           });
         }
@@ -162,20 +197,32 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
 
       uaRef.current.on('connecting', () => {
         console.log('SIP UA connecting...');
+        if ((window as any).updateWebRTCDiagnostic) {
+          (window as any).updateWebRTCDiagnostic('websocket', 'pending', 'Подключение SIP UA...');
+        }
       });
 
       uaRef.current.on('connected', () => {
         console.log('SIP UA connected');
+        if ((window as any).updateWebRTCDiagnostic) {
+          (window as any).updateWebRTCDiagnostic('websocket', 'success', 'WebSocket соединение установлено');
+        }
       });
 
       uaRef.current.on('disconnected', () => {
         console.log('SIP UA disconnected');
         setIsConnected(false);
+        if ((window as any).updateWebRTCDiagnostic) {
+          (window as any).updateWebRTCDiagnostic('websocket', 'error', 'WebSocket соединение потеряно');
+        }
       });
 
       uaRef.current.on('registered', () => {
         setIsConnected(true);
         console.log('SIP registered successfully');
+        if ((window as any).updateWebRTCDiagnostic) {
+          (window as any).updateWebRTCDiagnostic('register', 'success', 'SIP регистрация успешна');
+        }
         toast({
           title: "Подключено",
           description: "SIP соединение установлено",
@@ -186,6 +233,9 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
       uaRef.current.on('unregistered', () => {
         setIsConnected(false);
         console.log('SIP unregistered');
+        if ((window as any).updateWebRTCDiagnostic) {
+          (window as any).updateWebRTCDiagnostic('register', 'warning', 'SIP регистрация отменена');
+        }
       });
 
       uaRef.current.on('registrationFailed', (e) => {
@@ -196,6 +246,11 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
           code: e.response?.status_code,
           reason: e.response?.reason_phrase
         });
+        
+        if ((window as any).updateWebRTCDiagnostic) {
+          (window as any).updateWebRTCDiagnostic('register', 'error', 
+            `Ошибка регистрации: ${e.cause || e.response?.reason_phrase || 'неизвестная ошибка'}`);
+        }
         
         toast({
           title: "Ошибка подключения",
@@ -349,6 +404,14 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
               <Phone className="h-5 w-5" />
               WebRTC Звонок
               <div className={`ml-auto w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDiagnostics(!showDiagnostics)}
+                className="ml-2"
+              >
+                Диагностика
+              </Button>
             </DialogTitle>
           </DialogHeader>
 
@@ -427,6 +490,11 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
               </div>
             )}
           </div>
+          
+          <WebRTCDiagnostics 
+            isVisible={showDiagnostics}
+            sipProfile={sipProfile}
+          />
         </DialogContent>
       </Dialog>
     </>
