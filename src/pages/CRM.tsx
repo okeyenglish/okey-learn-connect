@@ -88,9 +88,9 @@ import {
   UserPlus
 } from "lucide-react";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
-
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
 import VoiceAssistant from '@/components/VoiceAssistant';
+import '@/styles/crm.css';
 
 const CRMContent = () => {
   const { user, profile, role, signOut } = useAuth();
@@ -928,7 +928,7 @@ const CRMContent = () => {
 
   return (
     <TooltipProvider>
-      <div className="h-screen bg-muted/30 flex flex-col overflow-hidden">
+      <div className="crm-container h-screen bg-muted/30 flex flex-col overflow-hidden">
       {/* Фиксированные вкладки сверху на мобильной версии */}
       {isMobile && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b shadow-sm">
