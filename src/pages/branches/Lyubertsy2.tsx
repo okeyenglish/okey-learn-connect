@@ -21,7 +21,7 @@ export default function LocationLyubertsy2() {
   };
 
   const handleTelegram = () => {
-    window.open('https://t.me/englishmanager', '_blank');
+    window.open('https://t.me/Primaenglish_bot', '_blank');
   };
 
   const seoData = branchSEOData.lyubertsy2;
