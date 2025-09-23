@@ -332,7 +332,7 @@ export const FamilyCard = ({
                     <Button 
                       size="sm" 
                       variant="ghost" 
-                      className="h-4 w-4 p-0 bg-slate-600 text-white hover:bg-slate-700 rounded-full"
+                      className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground"
                     >
                       <Plus className="h-2 w-2" />
                     </Button>
@@ -351,7 +351,7 @@ export const FamilyCard = ({
                     <Button 
                       size="sm" 
                       variant="ghost" 
-                      className="h-4 w-4 p-0 bg-slate-600 text-white hover:bg-slate-700 rounded-full"
+                      className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground"
                     >
                       <Plus className="h-2 w-2" />
                     </Button>
