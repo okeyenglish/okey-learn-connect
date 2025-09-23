@@ -66,8 +66,8 @@ export const MessageReactions = ({ messageId, showAddButton = true, className }:
               <button
                 className={cn(
                   "relative w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110",
-                  "bg-muted/80 backdrop-blur-sm border border-border/50 shadow-sm",
-                  "hover:bg-muted hover:shadow-md",
+                  "bg-white/90 backdrop-blur-sm border border-border/50 shadow-md",
+                  "hover:bg-white hover:shadow-lg",
                   reaction.hasUserReaction && "bg-primary/20 border-primary/40 shadow-primary/20"
                 )}
                 onClick={() => handleEmojiClick(reaction.emoji)}
@@ -100,7 +100,7 @@ export const MessageReactions = ({ messageId, showAddButton = true, className }:
         <Popover open={isEmojiPickerOpen} onOpenChange={setIsEmojiPickerOpen}>
           <PopoverTrigger asChild>
             <button
-              className="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/50 opacity-0 group-hover:opacity-100"
+              className="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 bg-white/90 hover:bg-white text-muted-foreground hover:text-foreground border border-border/50 shadow-md opacity-0 group-hover:opacity-100"
               disabled={addReactionMutation.isPending}
             >
               <span className="text-xs">😊</span>

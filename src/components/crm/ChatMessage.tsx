@@ -395,9 +395,9 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
             )}
           </div>
           
-          {/* Реакции на сообщения */}
+          {/* Реакции на сообщения - перекрывают bubble */}
           {messageId && (type === 'client' || type === 'manager') && (
-            <div className="mt-1">
+            <div className={`absolute -bottom-2 ${type === 'manager' ? 'right-2' : 'left-2'} z-10`}>
               <MessageReactions 
                 messageId={messageId} 
                 showAddButton={true}
