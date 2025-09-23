@@ -368,21 +368,21 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
             type === 'manager' ? 'justify-end' : 'justify-start'
           }`}>
             <div className="flex items-center gap-2">
+              {/* Реакции на сообщения */}
+              {messageId && (type === 'client' || type === 'manager') && (
+                <MessageReactions 
+                  messageId={messageId} 
+                  showAddButton={true}
+                  className=""
+                />
+              )}
+              
               <span>
                 {time}
                 {isEdited && editedTime && (
                   <span className="ml-2">отредактировано {editedTime}</span>
                 )}
               </span>
-              
-              {/* Реакции на сообщения */}
-              {messageId && (type === 'client' || type === 'manager') && (
-                <MessageReactions 
-                  messageId={messageId} 
-                  showAddButton={true}
-                  className="ml-1"
-                />
-              )}
               
               {type === 'manager' && messageId && message !== '[Сообщение удалено]' && (
                 <div className="ml-2 flex items-center">
