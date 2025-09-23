@@ -1067,13 +1067,13 @@ const CRMContent = () => {
           <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-full min-h-0">
             <TabsList className="grid w-full grid-cols-2 m-2 shrink-0">
               <TabsTrigger value="menu">Меню</TabsTrigger>
-              <TabsTrigger value="chats" className="flex items-center gap-2">
-                Чаты 
+              <TabsTrigger value="chats" className="flex items-center justify-between">
+                <span>Чаты</span>
                 <NewChatModal 
                   onCreateChat={handleCreateNewChat}
                   onExistingClientFound={handleExistingClientFound}
                 >
-                  <Button size="sm" variant="ghost" className="h-5 w-5 p-0 ml-1 text-muted-foreground hover:text-foreground">
+                  <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground hover:bg-muted/50">
                     <Plus className="h-3 w-3" />
                   </Button>
                 </NewChatModal>

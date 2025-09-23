@@ -320,43 +320,39 @@ export const FamilyCard = ({
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="relative overflow-hidden">
           <TabsList className="grid w-full grid-cols-2 relative">
-            <TabsTrigger value="children" className="relative">
-              Дети ({familyData.students.length})
+            <TabsTrigger value="children" className="relative flex items-center justify-between">
+              <span>Дети ({familyData.students.length})</span>
               {activeTab === 'children' && (
-                <div className="absolute right-1 top-1/2 -translate-y-1/2">
-                  <AddStudentModal 
-                    familyGroupId={familyGroupId}
-                    parentLastName={activeMember.name.split(' ').pop()}
-                    onStudentAdded={refetch}
+                <AddStudentModal 
+                  familyGroupId={familyGroupId}
+                  parentLastName={activeMember.name.split(' ').pop()}
+                  onStudentAdded={refetch}
+                >
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   >
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground"
-                    >
-                      <Plus className="h-2 w-2" />
-                    </Button>
-                  </AddStudentModal>
-                </div>
+                    <Plus className="h-2 w-2" />
+                  </Button>
+                </AddStudentModal>
               )}
             </TabsTrigger>
-            <TabsTrigger value="contacts" className="relative">
-              Семья ({otherMembers.length})
+            <TabsTrigger value="contacts" className="relative flex items-center justify-between">
+              <span>Семья ({otherMembers.length})</span>
               {activeTab === 'contacts' && (
-                <div className="absolute right-1 top-1/2 -translate-y-1/2">
-                  <AddFamilyMemberModal 
-                    familyGroupId={familyGroupId}
-                    onMemberAdded={refetch}
+                <AddFamilyMemberModal 
+                  familyGroupId={familyGroupId}
+                  onMemberAdded={refetch}
+                >
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   >
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground"
-                    >
-                      <Plus className="h-2 w-2" />
-                    </Button>
-                  </AddFamilyMemberModal>
-                </div>
+                    <Plus className="h-2 w-2" />
+                  </Button>
+                </AddFamilyMemberModal>
               )}
             </TabsTrigger>
           </TabsList>
