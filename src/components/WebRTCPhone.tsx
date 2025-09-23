@@ -76,11 +76,27 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
 
       setSipProfile(profile);
 
-      // Try common WebSocket ports for SIP servers
-      const wsUrl = `wss://${profile.sip_domain}:8089`;
-      console.log('Connecting to WebSocket:', wsUrl);
+      // Try multiple WebSocket ports that work with SIP servers
+      const wsPorts = [8088, 8089, 7443, 5060];
+      let socket = null;
       
-      const socket = new JsSIP.WebSocketInterface(wsUrl);
+      for (const port of wsPorts) {
+        try {
+          const wsUrl = `wss://${profile.sip_domain}:${port}`;
+          console.log(`Trying WebSocket connection to: ${wsUrl}`);
+          socket = new JsSIP.WebSocketInterface(wsUrl);
+          break;
+        } catch (error) {
+          console.log(`Failed to create WebSocket on port ${port}:`, error);
+        }
+      }
+      
+      if (!socket) {
+        // Fallback to ws:// instead of wss://
+        const wsUrl = `ws://${profile.sip_domain}:5060`;
+        console.log(`Fallback: trying non-secure WebSocket: ${wsUrl}`);
+        socket = new JsSIP.WebSocketInterface(wsUrl);
+      }
 
       const configuration = {
         sockets: [socket],
@@ -89,8 +105,10 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
         password: profile.sip_password,
         session_timers: false,
         register: true,
-        register_expires: 600,
+        register_expires: 300,
         user_agent: 'WebRTC-SIP-Client/1.0.0',
+        no_answer_timeout: 30,
+        use_preloaded_route: false,
       };
 
       console.log('SIP Configuration:', {
