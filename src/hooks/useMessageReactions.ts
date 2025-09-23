@@ -165,48 +165,62 @@ export const useRemoveReaction = () => {
 export const useGroupedReactions = (messageId: string) => {
   const { data: reactions, ...query } = useMessageReactions(messageId);
   
-  const groupedReactions = reactions?.reduce((acc, reaction) => {
-    if (!acc[reaction.emoji]) {
-      acc[reaction.emoji] = {
-        emoji: reaction.emoji,
-        count: 0,
-        users: [],
-        hasUserReaction: false,
-      };
-    }
-    
-    acc[reaction.emoji].count += 1;
-    
-    if (reaction.user_id) {
-      acc[reaction.emoji].users.push({
-        type: 'manager' as const,
-        name: `${reaction.profiles?.first_name || ''} ${reaction.profiles?.last_name || ''}`.trim() || reaction.profiles?.email || 'Менеджер',
-        id: reaction.user_id,
-      });
-    } else if (reaction.client_id) {
-      acc[reaction.emoji].users.push({
-        type: 'client' as const,
-        name: reaction.clients?.name || 'Клиент',
-        id: reaction.client_id,
-        avatar: reaction.clients?.avatar_url,
-      });
-    }
-    
-    return acc;
-  }, {} as Record<string, {
-    emoji: string;
-    count: number;
-    users: Array<{
-      type: 'manager' | 'client';
-      name: string;
-      id: string;
-      avatar?: string;
-    }>;
-    hasUserReaction: boolean;
-  }>);
+  return useQuery({
+    queryKey: ['grouped_reactions', messageId, reactions],
+    queryFn: async () => {
+      if (!reactions) return [];
+      
+      // Получаем текущего пользователя для проверки
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentUserId = user?.id;
+      
+      const groupedReactions = reactions.reduce((acc, reaction) => {
+        if (!acc[reaction.emoji]) {
+          acc[reaction.emoji] = {
+            emoji: reaction.emoji,
+            count: 0,
+            users: [],
+            hasUserReaction: false,
+          };
+        }
+        
+        acc[reaction.emoji].count += 1;
+        
+        if (reaction.user_id) {
+          acc[reaction.emoji].users.push({
+            type: 'manager' as const,
+            name: `${reaction.profiles?.first_name || ''} ${reaction.profiles?.last_name || ''}`.trim() || reaction.profiles?.email || 'Менеджер',
+            id: reaction.user_id,
+          });
+          
+          // Проверяем, является ли это реакцией текущего пользователя
+          if (reaction.user_id === currentUserId) {
+            acc[reaction.emoji].hasUserReaction = true;
+          }
+        } else if (reaction.client_id) {
+          acc[reaction.emoji].users.push({
+            type: 'client' as const,
+            name: reaction.clients?.name || 'Клиент',
+            id: reaction.client_id,
+            avatar: reaction.clients?.avatar_url,
+          });
+        }
+        
+        return acc;
+      }, {} as Record<string, {
+        emoji: string;
+        count: number;
+        users: Array<{
+          type: 'manager' | 'client';
+          name: string;
+          id: string;
+          avatar?: string;
+        }>;
+        hasUserReaction: boolean;
+      }>);
 
-  return {
-    ...query,
-    groupedReactions: groupedReactions ? Object.values(groupedReactions) : [],
-  };
+      return Object.values(groupedReactions);
+    },
+    enabled: !!reactions && !!messageId,
+  });
 };

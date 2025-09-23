@@ -18,7 +18,7 @@ const POPULAR_EMOJIS = ['👍', '👎', '❤️', '😂', '😮', '😢', '🔥'
 export const MessageReactions = ({ messageId, showAddButton = true, className }: MessageReactionsProps) => {
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   
-  const { groupedReactions, isLoading } = useGroupedReactions(messageId);
+  const { data: groupedReactions, isLoading } = useGroupedReactions(messageId);
   const addReactionMutation = useAddReaction();
   const removeReactionMutation = useRemoveReaction();
 
