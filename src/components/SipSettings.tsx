@@ -16,6 +16,8 @@ export const SipSettings: React.FC = () => {
     extension_number: '',
     sip_domain: 'pbx11034.onpbx.ru',
     sip_password: '',
+    sip_ws_url: '',
+    sip_transport: 'wss'
   });
 
   useEffect(() => {
@@ -28,7 +30,7 @@ export const SipSettings: React.FC = () => {
     try {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('extension_number, sip_domain, sip_password')
+        .select('extension_number, sip_domain, sip_password, sip_ws_url, sip_transport')
         .eq('id', user.id)
         .single();
 
@@ -37,6 +39,8 @@ export const SipSettings: React.FC = () => {
           extension_number: profile.extension_number || '',
           sip_domain: profile.sip_domain || 'pbx11034.onpbx.ru',
           sip_password: profile.sip_password || '',
+          sip_ws_url: profile.sip_ws_url || '',
+          sip_transport: profile.sip_transport || 'wss'
         });
       }
     } catch (error) {
@@ -65,6 +69,8 @@ export const SipSettings: React.FC = () => {
           extension_number: formData.extension_number,
           sip_domain: formData.sip_domain,
           sip_password: formData.sip_password,
+          sip_ws_url: formData.sip_ws_url || null,
+          sip_transport: formData.sip_transport
         })
         .eq('id', user.id);
 
@@ -126,6 +132,32 @@ export const SipSettings: React.FC = () => {
         />
       </div>
 
+      <div className="space-y-2">
+        <Label htmlFor="transport">Протокол</Label>
+        <select
+          id="transport"
+          value={formData.sip_transport}
+          onChange={(e) => handleChange('sip_transport', e.target.value)}
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <option value="wss">WSS (Secure WebSocket)</option>
+          <option value="ws">WS (WebSocket)</option>
+        </select>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="wsurl">WebSocket URL (опционально)</Label>
+        <Input
+          id="wsurl"
+          placeholder="wss://pbx11034.onpbx.ru:8082"
+          value={formData.sip_ws_url}
+          onChange={(e) => handleChange('sip_ws_url', e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          Если не указан, будет использован автопоиск портов
+        </p>
+      </div>
+
       <Button 
         onClick={handleSave} 
         disabled={isLoading}
@@ -136,11 +168,12 @@ export const SipSettings: React.FC = () => {
       </Button>
 
       <div className="text-sm text-muted-foreground">
-        <p>Получите данные для подключения у администратора PBX:</p>
-        <ul className="list-disc list-inside mt-1 space-y-1">
-          <li>Добавочный номер (например: 101)</li>
-          <li>Пароль для SIP подключения</li>
-          <li>SIP домен (обычно: pbx11034.onpbx.ru)</li>
+        <p className="font-medium mb-2">Инструкции по настройке:</p>
+        <ul className="list-disc list-inside space-y-1">
+          <li>Получите данные у администратора PBX</li>
+          <li>Для OnlinePBX используйте порт 8082</li>
+          <li>На мобильных - SessionTalk Softphone</li>
+          <li>Убедитесь что порт 8082 TCP открыт</li>
         </ul>
       </div>
     </div>

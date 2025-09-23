@@ -67,13 +67,15 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
       // Get user profile with SIP credentials
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('extension_number, sip_domain, sip_password')
+        .select('extension_number, sip_domain, sip_password, sip_ws_url, sip_transport')
         .eq('id', user?.id)
         .single();
 
       console.log('Profile data:', { 
         extension_number: profile?.extension_number, 
-        sip_domain: profile?.sip_domain, 
+        sip_domain: profile?.sip_domain,
+        sip_ws_url: profile?.sip_ws_url,
+        sip_transport: profile?.sip_transport,
         hasPassword: !!profile?.sip_password 
       });
 
@@ -88,18 +90,28 @@ export const WebRTCPhone: React.FC<WebRTCPhoneProps> = ({ phoneNumber, onCallEnd
 
       setSipProfile(profile);
 
-      // OnlinePBX WebRTC uses port 8082 TCP
-      const candidates = [
-        `wss://${profile.sip_domain}:8082`,
-        `wss://${profile.sip_domain}:8082/ws`,
-        `ws://${profile.sip_domain}:8082`,
-        `ws://${profile.sip_domain}:8082/ws`,
-      ];
-
-      console.log('OnlinePBX WebRTC candidates:', candidates);
+      // Use custom WebSocket URL if provided, otherwise try OnlinePBX defaults
+      let candidates = [];
+      
+      if (profile.sip_ws_url) {
+        // User provided custom WebSocket URL
+        candidates = [profile.sip_ws_url];
+        console.log('Using custom WebSocket URL:', profile.sip_ws_url);
+      } else {
+        // Auto-detect for OnlinePBX
+        const protocol = profile.sip_transport || 'wss';
+        candidates = [
+          `${protocol}://${profile.sip_domain}:8082`,
+          `${protocol}://${profile.sip_domain}:8082/ws`,
+          `${protocol}://${profile.sip_domain}:7443`,
+          `${protocol}://${profile.sip_domain}:8089`,
+        ];
+        console.log('Auto-detecting WebSocket URLs for OnlinePBX:', candidates);
+      }
 
       const sockets = candidates.map((url) => {
         try {
+          console.log('Creating WebSocket interface for:', url);
           return new JsSIP.WebSocketInterface(url);
         } catch (e) {
           console.warn('Failed to create WS interface for', url, e);

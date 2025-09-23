@@ -797,6 +797,8 @@ export type Database = {
           phone: string | null
           sip_domain: string | null
           sip_password: string | null
+          sip_transport: string | null
+          sip_ws_url: string | null
           updated_at: string
         }
         Insert: {
@@ -811,6 +813,8 @@ export type Database = {
           phone?: string | null
           sip_domain?: string | null
           sip_password?: string | null
+          sip_transport?: string | null
+          sip_ws_url?: string | null
           updated_at?: string
         }
         Update: {
@@ -825,6 +829,8 @@ export type Database = {
           phone?: string | null
           sip_domain?: string | null
           sip_password?: string | null
+          sip_transport?: string | null
+          sip_ws_url?: string | null
           updated_at?: string
         }
         Relationships: []
