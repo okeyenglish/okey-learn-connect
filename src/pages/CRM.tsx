@@ -1073,9 +1073,8 @@ const CRMContent = () => {
                   onCreateChat={handleCreateNewChat}
                   onExistingClientFound={handleExistingClientFound}
                 >
-                  <Button size="sm" variant="ghost" className="h-5 w-5 p-0 ml-1 relative">
-                    <MessageCircle className="h-3 w-3" />
-                    <Plus className="h-2 w-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                  <Button size="sm" variant="ghost" className="h-5 w-5 p-0 ml-1 text-muted-foreground hover:text-foreground">
+                    <Plus className="h-3 w-3" />
                   </Button>
                 </NewChatModal>
               </TabsTrigger>
@@ -1984,9 +1983,9 @@ const CRMContent = () => {
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        className={cn("h-8 w-8 px-0 rounded-lg border border-border hover:bg-accent", (selectedBranch !== "all" || selectedClientType !== "all") && "bg-accent text-accent-foreground")}
+                        className={cn("h-8 w-8 px-0 rounded-lg border border-muted text-muted-foreground hover:bg-muted hover:text-foreground", (selectedBranch !== "all" || selectedClientType !== "all") && "bg-muted text-foreground")}
                       >
-                        <Filter className="h-4 w-4" />
+                        <Filter className="h-4 w-4 text-muted-foreground" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
@@ -2439,9 +2438,9 @@ const CRMContent = () => {
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        className={cn("h-8 w-8 px-0 rounded-lg border border-border hover:bg-accent", (selectedBranch !== "all" || selectedClientType !== "all") && "bg-accent text-accent-foreground")}
+                        className={cn("h-8 w-8 px-0 rounded-lg border border-muted text-muted-foreground hover:bg-muted hover:text-foreground", (selectedBranch !== "all" || selectedClientType !== "all") && "bg-muted text-foreground")}
                       >
-                        <Filter className="h-4 w-4" />
+                        <Filter className="h-4 w-4 text-muted-foreground" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
