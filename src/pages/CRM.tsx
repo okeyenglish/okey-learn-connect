@@ -928,7 +928,7 @@ const CRMContent = () => {
 
   return (
     <TooltipProvider>
-      <div className="crm-container h-screen bg-muted/30 flex flex-col overflow-hidden">
+      <div className="crm-container h-screen flex flex-col overflow-hidden">
       {/* Фиксированные вкладки сверху на мобильной версии */}
       {isMobile && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b shadow-sm">
