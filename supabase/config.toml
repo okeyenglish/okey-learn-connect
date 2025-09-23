@@ -9,6 +9,9 @@ verify_jwt = false
 [functions.generate-delayed-gpt-response]
 verify_jwt = false
 
+[functions.transcribe-audio]
+verify_jwt = false
+
 [functions.index-content]
 verify_jwt = false
 
