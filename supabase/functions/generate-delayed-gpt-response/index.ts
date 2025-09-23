@@ -162,8 +162,28 @@ serve(async (req) => {
     }
 
     // Use atomic check-and-create to prevent race conditions
-    // First try to create a "lock" entry to prevent duplicate processing
-    const lockId = `${clientId}_${Date.now()}`;
+    // First check if there's already a pending response being processed
+    const { data: existingPending } = await supabase
+      .from('pending_gpt_responses')
+      .select('id, status, created_at')
+      .eq('client_id', clientId)
+      .in('status', ['pending', 'processing'])
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1);
+      
+    if (existingPending && existingPending.length > 0) {
+      const existingResponse = existingPending[0];
+      const timeSinceCreated = Date.now() - new Date(existingResponse.created_at).getTime();
+      
+      // If created less than 5 minutes ago, skip to prevent duplicates
+      if (timeSinceCreated < 5 * 60 * 1000) {
+        console.log('Another pending response exists, skipping to prevent duplicates:', existingResponse);
+        return new Response(JSON.stringify({ success: false, message: 'Already processing response for this client' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
     
     try {
       // Try to insert a pending response with atomic check
@@ -174,32 +194,16 @@ serve(async (req) => {
           suggested_response: 'PROCESSING...',
           messages_context: processedMessages,
           original_response: 'PROCESSING...',
-          status: 'pending'
+          status: 'processing' // Use 'processing' to indicate active work
         })
         .select('id')
         .single();
 
       if (insertError) {
-        // If insert fails, likely due to race condition or other error
-        console.log('Failed to insert pending response, checking if duplicate exists:', insertError);
-        
-        // Check if there's already a pending response (someone beat us to it)
-        const { data: existingCheck } = await supabase
-          .from('pending_gpt_responses')
-          .select('id')
-          .eq('client_id', clientId)
-          .eq('status', 'pending')
-          .gt('expires_at', new Date().toISOString())
-          .limit(1);
-          
-        if (existingCheck && existingCheck.length > 0) {
-          console.log('Another instance already created pending response. Skipping.');
-          return new Response(JSON.stringify({ success: true, message: 'Duplicate prevented by race condition check' }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-        
-        throw insertError;
+        console.log('Failed to insert pending response, likely duplicate:', insertError);
+        return new Response(JSON.stringify({ success: false, message: 'Duplicate processing prevented' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       const pendingResponseId = insertResult.id;
@@ -285,9 +289,9 @@ serve(async (req) => {
 
     // Generate GPT response
     const gptPrompt = `
-Ты менеджер школы английского языка "OK English". 
+Вы менеджер школы английского языка "O'KEY ENGLISH". 
 Клиент: ${client.name} (${client.phone})
-${alreadyGreetedToday ? 'ВАЖНО: Сегодня уже здоровались с клиентом, НЕ здоровайся повторно!' : ''}
+${alreadyGreetedToday ? 'ВАЖНО: Сегодня уже здоровались с клиентом, НЕ здоровайтесь повторно!' : ''}
 
 Контекст предыдущих сообщений:
 ${conversationContext}
@@ -295,19 +299,19 @@ ${conversationContext}
 Новые сообщения от клиента:
 ${newMessages}
 
-ВАЖНЫЕ ПРАВИЛА:
-1. Ты менеджер школы английского языка, общайся профессионально но дружелюбно  
-2. НЕ комментируй факт отправки голосовых сообщений/изображений - отвечай на содержание
-3. Предлагай конкретные программы: Kids Box (3-12 лет), Prepare (12-17 лет), Super Safari (3-6 лет), Empower (взрослые)
-4. Упоминай бесплатное пробное занятие
-5. Предлагай созвониться для деталей или встретиться в филиале
-6. Максимум 3-4 предложения, кратко и по делу
-7. НЕ подписывайся ("С уважением" и т.п.)
-8. Говори от первого лица как сотрудник школы
-9. Если уже здоровались сегодня - сразу к делу
-10. На конкретные вопросы давай конкретные ответы
+ОБЯЗАТЕЛЬНЫЕ ПРАВИЛА:
+1. Вы менеджер школы английского языка O'KEY ENGLISH - общайтесь профессионально на "Вы"
+2. НЕ комментируйте факт получения голосовых сообщений/изображений - отвечайте на содержание
+3. Предлагайте конкретные программы: Kids Box (3-12 лет), Prepare (12-17 лет), Super Safari (3-6 лет), Empower (взрослые)
+4. Обязательно упоминайте бесплатное пробное занятие
+5. Предлагайте связаться по телефону для подробностей
+6. ОДИН четкий ответ максимум 3-4 предложения
+7. НЕ подписывайтесь ("С уважением" и т.п.)
+8. Если уже здоровались - сразу к делу
+9. На конкретные вопросы давайте конкретные ответы
+10. Всегда обращайтесь на "Вы"
 
-Сгенерируй естественный человеческий ответ, который отвечает на потребность клиента и мотивирует к действию.
+Дайте ОДИН профессиональный ответ от менеджера школы O'KEY ENGLISH, который отвечает на потребности клиента.
 `;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -319,11 +323,11 @@ ${newMessages}
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'Ты обычный сотрудник школы английского языка. Отвечаешь естественно, по-человечески, как живой человек. Никаких формальностей, подписей и фраз про "отправил сообщение".' },
+          { role: 'system', content: 'Вы профессиональный менеджер школы английского языка O\'KEY ENGLISH. Общайтесь на "Вы", кратко и по делу. Всегда предлагайте конкретные решения.' },
           { role: 'user', content: gptPrompt }
         ],
-        temperature: 0.4,
-        max_tokens: 300,
+        temperature: 0.3,
+        max_tokens: 200,
       }),
     });
 
@@ -343,6 +347,7 @@ ${newMessages}
       .update({
         suggested_response: suggestedResponse,
         original_response: suggestedResponse,
+        status: 'pending', // Change back to pending for user approval
         expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour expiry
       })
       .eq('id', pendingResponseId)
