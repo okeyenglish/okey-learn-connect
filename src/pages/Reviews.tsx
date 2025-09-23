@@ -193,15 +193,15 @@ export default function Reviews() {
                 <div className="flex items-center justify-center w-16 h-16 mx-auto mb-3 rounded-full bg-primary/10">
                   <Award className="w-8 h-8 text-primary" />
                 </div>
-                <div className="text-2xl font-bold text-foreground">15</div>
+                <div className="text-2xl font-bold text-foreground">10+</div>
                 <div className="text-sm text-muted-foreground">Лет опыта</div>
               </div>
               <div className="text-center">
                 <div className="flex items-center justify-center w-16 h-16 mx-auto mb-3 rounded-full bg-primary/10">
                   <TrendingUp className="w-8 h-8 text-primary" />
                 </div>
-                <div className="text-2xl font-bold text-foreground">95%</div>
-                <div className="text-sm text-muted-foreground">Успешности</div>
+                <div className="text-2xl font-bold text-foreground">100%</div>
+                <div className="text-sm text-muted-foreground">Заговорите</div>
               </div>
             </div>
           </div>
