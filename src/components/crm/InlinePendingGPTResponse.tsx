@@ -26,34 +26,37 @@ export const InlinePendingGPTResponse: React.FC<InlinePendingGPTResponseProps> =
   };
 
   return (
-    <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mx-4 my-2">
-      <div className="flex items-start justify-between gap-3">
+    <div className="group bg-primary/3 border border-primary/15 rounded-md p-2 mx-4 my-1">
+      <div className="flex items-center justify-between gap-2">
+        {/* Компактный заголовок и содержимое */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
-            <Bot className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium text-primary">Предложенный GPT ответ</span>
+          <div className="flex items-center gap-1.5 mb-1">
+            <Bot className="h-3 w-3 text-primary" />
+            <span className="text-xs font-medium text-primary">GPT</span>
           </div>
-          <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+          <p className="text-xs text-foreground whitespace-pre-wrap leading-tight line-clamp-2">
             {response.suggested_response}
           </p>
         </div>
-        <div className="flex gap-1 shrink-0">
+        
+        {/* Компактные кнопки - показываются при hover */}
+        <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
           <Button
             size="sm"
             variant="ghost"
             onClick={handleUseForEditing}
-            className="h-8 w-8 p-0"
+            className="h-5 w-5 p-0 hover:bg-muted"
             title="Редактировать"
           >
-            <Edit3 className="h-3 w-3" />
+            <Edit3 className="h-2.5 w-2.5" />
           </Button>
           <Button
             size="sm"
             onClick={handleApprove}
             disabled={approveMutation.isPending}
-            className="h-8 px-3 text-xs"
+            className="h-5 px-1.5 text-[9px] bg-primary hover:bg-primary/90"
           >
-            <Send className="h-3 w-3 mr-1" />
+            <Send className="h-2.5 w-2.5 mr-0.5" />
             {approveMutation.isPending ? '...' : 'Отправить'}
           </Button>
           <Button
@@ -61,10 +64,10 @@ export const InlinePendingGPTResponse: React.FC<InlinePendingGPTResponseProps> =
             variant="ghost"
             onClick={handleDismiss}
             disabled={dismissMutation.isPending}
-            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+            className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive"
             title="Скрыть"
           >
-            <X className="h-3 w-3" />
+            <X className="h-2.5 w-2.5" />
           </Button>
         </div>
       </div>
