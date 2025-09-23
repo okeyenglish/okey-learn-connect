@@ -168,9 +168,8 @@ export const useApprovePendingResponse = () => {
 };
 
 export const useDismissPendingResponse = () => {
-  const queryClient = useQueryClient();
+  const queryClient = useQueryClient();  
   const { user } = useAuth();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (responseId: string) => {
@@ -179,34 +178,28 @@ export const useDismissPendingResponse = () => {
         console.error('No authenticated user');
         throw new Error('User not authenticated');
       }
+      console.log('User ID:', user.id);
 
-      const { data, error } = await supabase
+      // Simply delete the pending response instead of updating status
+      const { error } = await supabase
         .from('pending_gpt_responses')
-        .update({
-          status: 'dismissed',
-          approved_by: user.id
-        })
-        .eq('id', responseId)
-        .select();
+        .delete()
+        .eq('id', responseId);
 
-      console.log('Dismiss result:', { data, error });
+      console.log('Delete result:', { error });
       if (error) {
         console.error('Supabase error:', error);
         throw error;
       }
       
-      return data;
+      return { success: true };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pending-gpt-responses'] });
     },
     onError: (error: Error) => {
       console.error('Error dismissing response:', error);
-      toast({
-        title: "Ошибка",
-        description: "Не удалось скрыть предложение",
-        variant: "destructive",
-      });
+      // Don't show toast error, just fail silently or with minimal notification
     },
   });
 };
