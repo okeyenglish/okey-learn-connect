@@ -25,7 +25,7 @@ import { InlinePendingGPTResponse } from "./InlinePendingGPTResponse";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { usePendingGPTResponses } from "@/hooks/usePendingGPTResponses";
+import { usePendingGPTResponses, useDismissPendingResponse } from "@/hooks/usePendingGPTResponses";
 import { useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
 import { WebRTCPhone } from "../WebRTCPhone";
 import { MobilePhoneHelper } from "../MobilePhoneHelper";
@@ -109,6 +109,7 @@ export const ChatArea = ({
   
   // Get pending GPT responses for this client
   const { data: pendingGPTResponses, isLoading: pendingGPTLoading, error: pendingGPTError } = usePendingGPTResponses(clientId);
+  const dismissPendingResponse = useDismissPendingResponse();
   
   // Set up real-time message updates
   useRealtimeMessages(clientId);
@@ -273,6 +274,13 @@ export const ChatArea = ({
     // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
+    }
+
+    // Immediately dismiss any pending GPT responses when manager starts sending a message
+    if (pendingGPTResponses && pendingGPTResponses.length > 0) {
+      pendingGPTResponses.forEach(response => {
+        dismissPendingResponse.mutate(response.id);
+      });
     }
 
     // If in comment mode, save as comment instead of sending
