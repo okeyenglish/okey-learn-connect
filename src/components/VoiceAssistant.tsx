@@ -601,19 +601,7 @@ export default function VoiceAssistant({
   };
 
   if (!isOpen) {
-    return (
-      <Button
-        onClick={onToggle}
-        size="lg"
-        className={`fixed shadow-lg bg-gradient-primary hover:shadow-elevated z-50 rounded-full h-14 w-14 ${
-          isMobile 
-            ? 'bottom-20 right-4'
-            : 'bottom-6 right-6'
-        }`}
-      >
-        <Bot className="h-6 w-6" />
-      </Button>
-    );
+    return null; // Убираем плавающую кнопку
   }
 
   return (
