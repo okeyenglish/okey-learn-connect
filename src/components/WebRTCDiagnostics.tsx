@@ -94,23 +94,39 @@ export const WebRTCDiagnostics: React.FC<WebRTCDiagnosticsProps> = ({
 
     // Диагностика 3: TCP 8082 (косвенная проверка через WebSocket)
     if (sipProfile?.sip_domain) {
-      const testWS = new WebSocket(`wss://${sipProfile.sip_domain}:8082`);
+      const testURL = sipProfile.sip_ws_url || `wss://${sipProfile.sip_domain}:8082`;
       
-      const timeout = setTimeout(() => {
-        updateDiagnostic('tcp8082', 'error', 'Таймаут подключения к порту 8082');
-        testWS.close();
-      }, 5000);
+      try {
+        const testWS = new WebSocket(testURL);
+        
+        const timeout = setTimeout(() => {
+          updateDiagnostic('tcp8082', 'warning', `Таймаут подключения к ${testURL}`);
+          try { testWS.close(); } catch (e) {}
+        }, 3000);
 
-      testWS.onopen = () => {
-        clearTimeout(timeout);
-        updateDiagnostic('tcp8082', 'success', 'Порт 8082 доступен');
-        testWS.close();
-      };
+        testWS.onopen = () => {
+          clearTimeout(timeout);
+          updateDiagnostic('tcp8082', 'success', `Порт доступен: ${testURL}`);
+          testWS.close();
+        };
 
-      testWS.onerror = () => {
-        clearTimeout(timeout);
-        updateDiagnostic('tcp8082', 'error', 'Порт 8082 недоступен или заблокирован');
-      };
+        testWS.onerror = (error) => {
+          clearTimeout(timeout);
+          console.warn('WebSocket test error:', error);
+          updateDiagnostic('tcp8082', 'error', `Порт недоступен: ${testURL}`);
+        };
+
+        testWS.onclose = (event) => {
+          if (event.code !== 1000) {
+            console.warn('WebSocket test closed with code:', event.code, event.reason);
+          }
+        };
+      } catch (error) {
+        console.error('Failed to create test WebSocket:', error);
+        updateDiagnostic('tcp8082', 'error', `Ошибка создания WebSocket: ${error.message}`);
+      }
+    } else {
+      updateDiagnostic('tcp8082', 'warning', 'SIP домен не настроен');
     }
 
   }, [isVisible, sipProfile]);
