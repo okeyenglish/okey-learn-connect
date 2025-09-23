@@ -1970,9 +1970,9 @@ const CRMContent = () => {
                   <DropdownMenu open={showFilters} onOpenChange={setShowFilters}>
                     <DropdownMenuTrigger asChild>
                       <Button 
-                        variant="outline" 
+                        variant="ghost" 
                         size="sm" 
-                        className={cn("h-8 w-8 px-0 rounded-lg", (selectedBranch !== "all" || selectedClientType !== "all") && "bg-accent text-accent-foreground")}
+                        className={cn("h-8 w-8 px-0 rounded-lg border border-border hover:bg-accent", (selectedBranch !== "all" || selectedClientType !== "all") && "bg-accent text-accent-foreground")}
                       >
                         <Filter className="h-4 w-4" />
                       </Button>
@@ -2434,9 +2434,9 @@ const CRMContent = () => {
                   <DropdownMenu open={showFilters} onOpenChange={setShowFilters}>
                     <DropdownMenuTrigger asChild>
                       <Button 
-                        variant="outline" 
+                        variant="ghost" 
                         size="sm" 
-                        className={cn("h-8 w-8 px-0 rounded-lg", (selectedBranch !== "all" || selectedClientType !== "all") && "bg-accent text-accent-foreground")}
+                        className={cn("h-8 w-8 px-0 rounded-lg border border-border hover:bg-accent", (selectedBranch !== "all" || selectedClientType !== "all") && "bg-accent text-accent-foreground")}
                       >
                         <Filter className="h-4 w-4" />
                       </Button>
