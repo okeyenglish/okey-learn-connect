@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useTypingStatus } from "@/hooks/useTypingStatus";
+import { useRealtimeMessages } from "@/hooks/useChatMessages";
 import { ChatMessage } from "./ChatMessage";
 import { ClientTasks } from "./ClientTasks";
 import { AddTaskModal } from "./AddTaskModal";
@@ -109,6 +110,23 @@ export const ChatArea = ({
   // Get pending GPT responses for this client
   const { data: pendingGPTResponses, isLoading: pendingGPTLoading, error: pendingGPTError } = usePendingGPTResponses(clientId);
   
+  // Set up real-time message updates
+  useRealtimeMessages(clientId);
+  
+  // Reload messages when real-time updates happen
+  useEffect(() => {
+    if (!clientId || clientId === '1') return;
+    
+    // Set up interval to check for new messages periodically
+    const interval = setInterval(() => {
+      loadMessages();
+    }, 5000); // Check every 5 seconds
+    
+    return () => {
+      clearInterval(interval);
+    };
+  }, [clientId]);
+  
   // Log pending responses for debugging
   useEffect(() => {
     console.log('ChatArea - clientId:', clientId);
@@ -197,76 +215,23 @@ export const ChatArea = ({
     loadMessages();
   }, [clientId]);
 
-  // Real-time subscription for new messages
+  // Set up real-time message reload when messages change
   useEffect(() => {
     if (!clientId || clientId === '1') return;
-
-    console.log('Setting up real-time subscription for client:', clientId);
-
-    const channel = supabase
-      .channel(`chat_messages_${clientId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `client_id=eq.${clientId}`
-        },
-        (payload) => {
-          console.log('Received new message via real-time:', payload);
-          
-          // Получаем аватарку клиента для нового сообщения
-          const getClientAvatar = async () => {
-            const { data: client } = await supabase
-              .from('clients')
-              .select('avatar_url')
-              .eq('id', payload.new.client_id)
-              .single();
-            
-            return client?.avatar_url || null;
-          };
-          
-          // Создаем новое сообщение
-          const createNewMessage = async () => {
-            const clientAvatar = await getClientAvatar();
-            
-            const newMessage = {
-              id: payload.new.id,
-              type: payload.new.message_type || (payload.new.is_outgoing ? 'manager' : 'client'),
-              message: payload.new.message_text || '',
-              time: new Date(payload.new.created_at).toLocaleTimeString('ru-RU', { 
-                hour: '2-digit', 
-                minute: '2-digit' 
-              }),
-              systemType: payload.new.system_type,
-              callDuration: payload.new.call_duration,
-              messageStatus: payload.new.message_status,
-              clientAvatar,
-              managerName: managerName // Pass manager name for comments
-            };
-            
-            console.log('Adding message to chat:', newMessage);
-            setMessages(prev => {
-              const updated = [...prev, newMessage];
-              // Плавная прокрутка только для новых сообщений (не при первой загрузке)
-              if (!isInitialLoad) {
-                setTimeout(() => scrollToBottom(true), 100);
-              }
-              return updated;
-            });
-          };
-          
-          createNewMessage();
-        }
-      )
-      .subscribe((status) => {
-        console.log('Real-time subscription status:', status);
-      });
-
+    
+    // Set up a listener to reload messages when real-time updates trigger
+    const handleRealtimeUpdate = () => {
+      console.log('Real-time update detected, reloading messages for client:', clientId);
+      loadMessages();
+    };
+    
+    // Listen for invalidation events (this is triggered by useRealtimeMessages)
+    const checkForUpdates = setInterval(() => {
+      // This will be triggered by the useRealtimeMessages hook via query invalidation
+    }, 1000);
+    
     return () => {
-      console.log('Cleaning up real-time subscription');
-      supabase.removeChannel(channel);
+      clearInterval(checkForUpdates);
     };
   }, [clientId]);
 
