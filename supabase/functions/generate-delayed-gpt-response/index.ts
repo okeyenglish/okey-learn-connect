@@ -161,50 +161,49 @@ serve(async (req) => {
       });
     }
 
-    // Check for ANY pending suggestion for this client to avoid duplicates
-    const { data: existingPending, error: existingPendingError } = await supabase
-      .from('pending_gpt_responses')
-      .select('id, created_at')
-      .eq('client_id', clientId)
-      .eq('status', 'pending')
-      .gt('expires_at', new Date().toISOString()) // Not expired
-      .order('created_at', { ascending: false })
-      .limit(1);
+    // Use atomic check-and-create to prevent race conditions
+    // First try to create a "lock" entry to prevent duplicate processing
+    const lockId = `${clientId}_${Date.now()}`;
+    
+    try {
+      // Try to insert a pending response with atomic check
+      const { data: insertResult, error: insertError } = await supabase
+        .from('pending_gpt_responses')
+        .insert({
+          client_id: clientId,
+          suggested_response: 'PROCESSING...',
+          messages_context: processedMessages,
+          original_response: 'PROCESSING...',
+          status: 'pending'
+        })
+        .select('id')
+        .single();
 
-    if (existingPendingError) {
-      console.error('Error checking existing pending suggestion:', existingPendingError);
-      throw existingPendingError;
-    }
+      if (insertError) {
+        // If insert fails, likely due to race condition or other error
+        console.log('Failed to insert pending response, checking if duplicate exists:', insertError);
+        
+        // Check if there's already a pending response (someone beat us to it)
+        const { data: existingCheck } = await supabase
+          .from('pending_gpt_responses')
+          .select('id')
+          .eq('client_id', clientId)
+          .eq('status', 'pending')
+          .gt('expires_at', new Date().toISOString())
+          .limit(1);
+          
+        if (existingCheck && existingCheck.length > 0) {
+          console.log('Another instance already created pending response. Skipping.');
+          return new Response(JSON.stringify({ success: true, message: 'Duplicate prevented by race condition check' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
+        throw insertError;
+      }
 
-    if (existingPending && existingPending.length > 0) {
-      console.log('Pending suggestion already exists for this client. Skipping duplicate.');
-      return new Response(JSON.stringify({ success: true, message: 'Pending suggestion already exists' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Double check - if a pending suggestion exists for this client in the last 5 minutes, skip
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-    const { data: recentPending, error: recentPendingError } = await supabase
-      .from('pending_gpt_responses')
-      .select('id, created_at')
-      .eq('client_id', clientId)
-      .eq('status', 'pending')
-      .gte('created_at', fiveMinutesAgo)
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    if (recentPendingError) {
-      console.error('Error checking recent pending suggestions:', recentPendingError);
-      throw recentPendingError;
-    }
-
-    if (recentPending && recentPending.length > 0) {
-      console.log('Recent pending suggestion exists (last 5 minutes). Avoiding spam.');
-      return new Response(JSON.stringify({ success: true, message: 'Recent pending suggestion exists' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+      const pendingResponseId = insertResult.id;
+      console.log('Created pending response with ID:', pendingResponseId);
 
     // Get client info for context
     const { data: client, error: clientError } = await supabase
@@ -333,28 +332,28 @@ ${newMessages}
     const suggestedResponse = gptData.choices[0].message.content;
     console.log('Generated GPT response:', suggestedResponse);
 
-    // Save the suggested response to pending_gpt_responses table
-    const { data: pendingResponse, error: saveError } = await supabase
+    // Update the existing pending response with the actual GPT result
+    const { data: updatedResponse, error: updateError } = await supabase
       .from('pending_gpt_responses')
-      .insert({
-        client_id: clientId,
-        messages_context: processedMessages,
+      .update({
         suggested_response: suggestedResponse,
+        original_response: suggestedResponse,
         expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour expiry
       })
+      .eq('id', pendingResponseId)
       .select()
       .single();
 
-    if (saveError) {
-      console.error('Error saving pending response:', saveError);
-      throw saveError;
+    if (updateError) {
+      console.error('Error updating pending response:', updateError);
+      throw updateError;
     }
 
-    console.log('Saved pending GPT response:', pendingResponse.id);
+    console.log('Updated pending GPT response:', pendingResponseId);
 
     return new Response(JSON.stringify({ 
       success: true, 
-      pendingResponseId: pendingResponse.id,
+      pendingResponseId: pendingResponseId,
       suggestedResponse: suggestedResponse,
       processedMessages: processedMessages.length
     }), {
