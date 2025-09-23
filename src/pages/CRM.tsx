@@ -1088,17 +1088,17 @@ const CRMContent = () => {
                   <Dialog key={index} open={openModal === item.label} onOpenChange={(open) => !open && handleMenuModalClose()}>
                     <DialogTrigger asChild>
                       <button
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors text-left"
                         onClick={() => handleMenuClick(item.label)}
                       >
-                        <item.icon className="h-5 w-5 shrink-0" />
-                        <span className="text-sm flex-1">
+                        <item.icon className="h-5 w-5 shrink-0 text-muted-foreground" />
+                        <span className="text-sm flex-1 text-muted-foreground">
                           {item.label}
                           {getMenuCount(item.label) > 0 && (
-                            <span className="text-muted-foreground"> ({getMenuCount(item.label)})</span>
+                            <span className="text-muted-foreground/60"> ({getMenuCount(item.label)})</span>
                           )}
                         </span>
-                        <ExternalLink className="h-3 w-3 ml-auto opacity-50" />
+                        <ExternalLink className="h-3 w-3 ml-auto text-muted-foreground/40" />
                       </button>
                     </DialogTrigger>
                     <PinnableDialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
