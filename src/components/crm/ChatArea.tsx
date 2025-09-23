@@ -1081,6 +1081,15 @@ export const ChatArea = ({
                 size="sm" 
                 variant="outline"
                 className="crm-btn h-10 w-10 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                title="Позвонить"
+                onClick={handlePhoneCall}
+              >
+                <Phone className="h-5 w-5 stroke-1" />
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                className="crm-btn h-10 w-10 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                 title="Переслать сообщения"
                 onClick={handleToggleSelectionMode}
               >
