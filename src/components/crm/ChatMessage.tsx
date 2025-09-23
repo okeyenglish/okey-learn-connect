@@ -115,6 +115,25 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
       );
     }
 
+    if (systemType === 'comment') {
+      return (
+        <div className="flex justify-end my-2">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 max-w-md">
+            <div className="flex items-start gap-2">
+              <div className="w-6 h-6 bg-yellow-100 rounded flex items-center justify-center flex-shrink-0 mt-0.5">
+                <MessageCircle className="h-4 w-4 text-yellow-600" />
+              </div>
+              <div className="flex-1">
+                <div className="text-xs text-yellow-700 font-medium mb-1">Комментарий менеджера</div>
+                <div className="text-sm text-yellow-800">{message}</div>
+                <div className="text-xs text-yellow-600 mt-1">{time}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     // Default system message display (for task notifications)
     if (message.includes('создана на')) {
       return (

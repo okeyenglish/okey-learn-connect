@@ -22,7 +22,7 @@ import { QuickResponsesModal } from "./QuickResponsesModal";
 import { FileUpload } from "./FileUpload";
 import { AttachedFile } from "./AttachedFile";
 import { InlinePendingGPTResponse } from "./InlinePendingGPTResponse";
-import { CallHistory } from "./CallHistory";
+import { CallsAndCommentsTimeline } from "./CallsAndCommentsTimeline";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -422,7 +422,8 @@ export const ChatArea = ({
         .insert({
           client_id: clientId,
           message_text: commentText,
-          message_type: 'comment',
+          message_type: 'system',
+          system_type: 'comment',
           is_outgoing: true,
           messenger_type: 'system'
         });
@@ -1355,34 +1356,7 @@ export const ChatArea = ({
           </TabsContent>
           
           <TabsContent value="calls" className="flex-1 p-3 overflow-y-auto mt-0">
-            <div className="space-y-4">
-              <CallHistory clientId={clientId} />
-              
-              {/* Comment section for calls tab */}
-              <div className="border-t pt-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Комментарий о диалоге</label>
-                  <Textarea
-                    placeholder="Добавьте комментарий о разговоре с клиентом..."
-                    value={message}
-                    onChange={(e) => handleMessageChange(e.target.value)}
-                    className="min-h-[100px] bg-yellow-50 border-yellow-300"
-                  />
-                  <div className="flex justify-end">
-                    <Button 
-                      onClick={() => {
-                        setCommentMode(true);
-                        handleSendMessage();
-                      }}
-                      disabled={!message.trim() || loading}
-                      className="bg-yellow-500 hover:bg-yellow-600 text-white"
-                    >
-                      Сохранить комментарий
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <CallsAndCommentsTimeline clientId={clientId} />
           </TabsContent>
         </Tabs>
       </div>
