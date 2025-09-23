@@ -180,6 +180,25 @@ serve(async (req) => {
         }
 
         console.log(`Updated call log ${callLog.id} with status: ${status}`);
+        
+        // Generate summary for updated calls longer than 60 seconds
+        if (durationSeconds && durationSeconds > 60 && status === 'answered' && !callLog.summary) {
+          console.log('Updated call duration > 60 seconds, generating summary for call:', callLog.id);
+          try {
+            const summaryResponse = await supabase.functions.invoke('generate-call-summary', {
+              body: { callId: callLog.id }
+            });
+            
+            if (summaryResponse.error) {
+              console.error('Error generating call summary:', summaryResponse.error);
+            } else {
+              console.log('Call summary generated successfully');
+            }
+          } catch (summaryError) {
+            console.error('Exception generating call summary:', summaryError);
+            // Don't fail the webhook for summary generation issues
+          }
+        }
       } else {
         // Create new call log entry
         console.log('Creating new call log for phone (normalized):', normalizedPhone);
@@ -241,20 +260,74 @@ serve(async (req) => {
         }
 
         if (!clientId) {
-          // No client — skip inserting into call_logs because client_id is NOT NULL
-          return new Response(
-            JSON.stringify({
-              success: true,
-              message: 'No matching client; webhook processed (skipped call_logs insert).',
-              phone: selectedPhone,
-              normalizedPhone,
-              status
-            }),
-            {
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              status: 200
+          // Create new client if not found
+          console.log('Client not found, creating new client for phone:', selectedPhone);
+          
+          // Try to find responsible employee by extension (for incoming calls)
+          let responsibleEmployeeId = null;
+          if (direction === 'incoming' && rawTo) {
+            const { data: employee } = await supabase
+              .from('profiles')
+              .select('id, first_name, last_name, extension_number')
+              .eq('extension_number', rawTo)
+              .maybeSingle();
+            
+            if (employee) {
+              responsibleEmployeeId = employee.id;
+              console.log('Found responsible employee:', employee.first_name, employee.last_name);
             }
-          );
+          }
+          
+          // Create new client
+          const clientName = `Клиент ${formatPhoneForSearch(normalizedPhone)}`;
+          const { data: newClient, error: clientError } = await supabase
+            .from('clients')
+            .insert({
+              name: clientName,
+              phone: selectedPhone,
+              branch: 'Окская', // Default branch
+              notes: `Создан автоматически из звонка ${direction === 'incoming' ? 'входящего' : 'исходящего'} ${new Date().toLocaleDateString('ru-RU')}`
+            })
+            .select('id')
+            .single();
+          
+          if (clientError) {
+            console.error('Error creating client:', clientError);
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: 'Failed to create client',
+                details: clientError.message
+              }),
+              {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 500
+              }
+            );
+          }
+          
+          clientId = newClient.id;
+          console.log('Created new client with ID:', clientId);
+          
+          // Create chat message about new client
+          const systemMessage = direction === 'incoming' 
+            ? `Новый входящий звонок от ${formatPhoneForSearch(normalizedPhone)}. Клиент создан автоматически.`
+            : `Исходящий звонок на ${formatPhoneForSearch(normalizedPhone)}. Клиент создан автоматически.`;
+          
+          const { error: messageError } = await supabase
+            .from('chat_messages')
+            .insert({
+              client_id: clientId,
+              message_text: systemMessage,
+              message_type: 'system',
+              is_outgoing: false,
+              system_type: 'call_notification'
+            });
+          
+          if (messageError) {
+            console.error('Error creating system message:', messageError);
+            // Don't fail the whole process for this
+          }
         }
 
         const newCallData: any = {
@@ -272,9 +345,11 @@ serve(async (req) => {
           newCallData.ended_at = new Date(webhookData.end_time).toISOString();
         }
 
-        const { error: insertError } = await supabase
+        const { data: newCallLog, error: insertError } = await supabase
           .from('call_logs')
-          .insert(newCallData);
+          .insert(newCallData)
+          .select('id')
+          .single();
 
         if (insertError) {
           console.error('Error creating call log:', insertError);
@@ -282,6 +357,27 @@ serve(async (req) => {
         }
 
         console.log('Created new call log for client', clientId, 'status:', status);
+        
+        // Generate summary for calls longer than 60 seconds
+        if (durationSeconds && durationSeconds > 60 && status === 'answered') {
+          console.log('Call duration > 60 seconds, generating summary for call:', newCallLog.id);
+          try {
+            const summaryResponse = await supabase.functions.invoke('generate-call-summary', {
+              body: { callId: newCallLog.id }
+            });
+            
+            if (summaryResponse.error) {
+              console.error('Error generating call summary:', summaryResponse.error);
+            } else {
+              console.log('Call summary generated successfully');
+            }
+          } catch (summaryError) {
+            console.error('Exception generating call summary:', summaryError);
+            // Don't fail the webhook for summary generation issues
+          }
+        }
+        
+        callLog = newCallLog; // Set for response
       }
 
       return new Response(
