@@ -159,7 +159,24 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook) {
     case 'videoMessage':
     case 'documentMessage':
     case 'audioMessage':
-      messageText = messageData.fileMessageData?.caption || '[Файл]'
+      // Определяем более специфичный текст сообщения в зависимости от типа
+      if (messageData.typeMessage === 'imageMessage') {
+        messageText = messageData.fileMessageData?.caption || '📷 Изображение'
+      } else if (messageData.typeMessage === 'videoMessage') {
+        messageText = messageData.fileMessageData?.caption || '🎥 Видео'
+      } else if (messageData.typeMessage === 'audioMessage') {
+        // Проверяем, голосовое сообщение это или обычный аудиофайл
+        const mimeType = messageData.fileMessageData?.mimeType
+        if (mimeType && (mimeType.includes('ogg') || mimeType.includes('opus'))) {
+          messageText = '🎙️ Голосовое сообщение'
+        } else {
+          messageText = messageData.fileMessageData?.caption || '🎵 Аудиофайл'
+        }
+      } else if (messageData.typeMessage === 'documentMessage') {
+        messageText = messageData.fileMessageData?.caption || `📄 ${messageData.fileMessageData?.fileName || 'Документ'}`
+      } else {
+        messageText = messageData.fileMessageData?.caption || '[Файл]'
+      }
       fileUrl = messageData.fileMessageData?.downloadUrl
       fileName = messageData.fileMessageData?.fileName
       fileType = messageData.fileMessageData?.mimeType

@@ -96,7 +96,7 @@ export const ChatArea = ({
 
   const MAX_MESSAGE_LENGTH = 4000;
 
-  const { sendTextMessage, loading } = useWhatsApp();
+  const { sendTextMessage, sendFileMessage, loading } = useWhatsApp();
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
@@ -291,10 +291,13 @@ export const ChatArea = ({
   };
 
   const handleSendMessage = async () => {
-    if (!message.trim() || loading || message.length > MAX_MESSAGE_LENGTH) return;
+    if ((!message.trim() && attachedFiles.length === 0) || loading || message.length > MAX_MESSAGE_LENGTH) return;
 
     const messageText = message.trim();
+    const filesToSend = [...attachedFiles];
+    
     setMessage(""); // Clear input immediately
+    setAttachedFiles([]); // Clear attached files immediately
     onMessageChange?.(false);
     
     // Reset textarea height
@@ -318,7 +321,7 @@ export const ChatArea = ({
         
         if (prev.countdown <= 1) {
           // Time's up - send the message
-          sendMessageNow(messageText);
+          sendMessageNow(messageText, filesToSend);
           // Clear the interval when countdown finishes
           if (pendingTimeoutRef.current) {
             clearInterval(pendingTimeoutRef.current);
@@ -336,31 +339,61 @@ export const ChatArea = ({
     pendingTimeoutRef.current = intervalId;
   };
 
-  const sendMessageNow = async (messageText: string) => {
+  const sendMessageNow = async (messageText: string, filesToSend: Array<{url: string, name: string, type: string, size: number}> = []) => {
     try {
-      const result = await sendTextMessage(clientId, messageText);
-      
-      if (result.success) {
-        // Remove any pending GPT suggestions for this client after a manual send
-        try {
-          await supabase
-            .from('pending_gpt_responses')
-            .delete()
-            .eq('client_id', clientId)
-            .eq('status', 'pending');
-          console.log('Cleared pending GPT responses after manual send');
-        } catch (e) {
-          console.warn('Failed to clear pending GPT responses:', e);
+      // Send files first if any are attached
+      if (filesToSend.length > 0) {
+        for (const file of filesToSend) {
+          const result = await sendFileMessage(clientId, file.url, file.name, messageText);
+          if (!result.success) {
+            toast({
+              title: "Ошибка отправки файла",
+              description: `Не удалось отправить файл "${file.name}": ${result.error}`,
+              variant: "destructive",
+            });
+            return;
+          }
         }
-        // Плавная прокрутка к концу после отправки сообщения
-        setTimeout(() => scrollToBottom(true), 300);
-      } else {
-        toast({
-          title: "Ошибка отправки",
-          description: result.error || "Не удалось отправить сообщение",
-          variant: "destructive",
-        });
+        
+        // If we have files and text, send text separately only if it's not just a caption
+        if (messageText && messageText !== '[Файл]') {
+          const textResult = await sendTextMessage(clientId, messageText);
+          if (!textResult.success) {
+            toast({
+              title: "Ошибка отправки текста",
+              description: textResult.error || "Не удалось отправить текстовое сообщение",
+              variant: "destructive",
+            });
+            return;
+          }
+        }
+      } else if (messageText) {
+        // Send text message only
+        const result = await sendTextMessage(clientId, messageText);
+        if (!result.success) {
+          toast({
+            title: "Ошибка отправки",
+            description: result.error || "Не удалось отправить сообщение",
+            variant: "destructive",
+          });
+          return;
+        }
       }
+
+      // Remove any pending GPT suggestions for this client after a successful send
+      try {
+        await supabase
+          .from('pending_gpt_responses')
+          .delete()
+          .eq('client_id', clientId)
+          .eq('status', 'pending');
+        console.log('Cleared pending GPT responses after manual send');
+      } catch (e) {
+        console.warn('Failed to clear pending GPT responses:', e);
+      }
+      
+      // Smooth scroll to bottom after sending message
+      setTimeout(() => scrollToBottom(true), 300);
     } catch (error: any) {
       toast({
         title: "Ошибка отправки",
