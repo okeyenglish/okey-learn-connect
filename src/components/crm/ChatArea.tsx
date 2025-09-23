@@ -1491,7 +1491,7 @@ export const ChatArea = ({
             {/* Send button aligned with input */}
             <Button 
               size="icon" 
-              className={`rounded-full h-12 w-12 ${
+              className={`rounded-full h-[48px] w-12 ${
                 commentMode ? "bg-yellow-500 hover:bg-yellow-600" : ""
               }`}
               onClick={handleSendMessage}

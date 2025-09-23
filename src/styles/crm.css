@@ -179,3 +179,16 @@
 .crm-container [data-radix-scroll-area-viewport] {
   overflow-x: hidden !important;
 }
+
+/* Fix chat tabs button positioning */
+.crm-container .flex-1 {
+  min-width: 0 !important;
+  flex-shrink: 1 !important;
+}
+
+/* Prevent text overflow in chat buttons */
+.crm-container button {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}

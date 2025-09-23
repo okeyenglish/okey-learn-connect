@@ -2132,9 +2132,9 @@ const CRMContent = () => {
                   {/* Активные чаты */}
                   <div>
                     <div className="flex items-center justify-between px-2 py-1 mb-2">
-                      <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Активные чаты
-                      </h3>
+                       <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide pl-1">
+                         Активные чаты
+                       </h3>
                       <Badge variant="secondary" className="text-xs h-4">
                         {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id)).length}
                       </Badge>
@@ -2460,9 +2460,9 @@ const CRMContent = () => {
                   {/* Активные чаты */}
                   <div>
                     <div className="flex items-center justify-between px-2 py-2 mb-3">
-                      <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                        Активные чаты
-                      </h3>
+                       <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide pl-1">
+                         Активные чаты
+                       </h3>
                       <Badge variant="secondary" className="text-xs h-5">
                         {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id)).length}
                       </Badge>

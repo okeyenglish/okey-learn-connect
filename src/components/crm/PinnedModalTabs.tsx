@@ -70,14 +70,14 @@ export const PinnedModalTabs = ({ pinnedModals, onOpenModal, onUnpinModal }: Pin
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 w-6 p-1 hover:bg-muted rounded-full"
+                className="h-5 w-5 p-0.5 hover:bg-muted rounded-full"
                 onClick={(e) => {
                   e.stopPropagation();
                   onUnpinModal(modal.id, modal.type);
                 }}
                 aria-label="Открепить"
               >
-                <X className="h-3 w-3" />
+                <X className="h-2.5 w-2.5" />
               </Button>
             </div>
           </Card>
