@@ -75,7 +75,7 @@ export const ClientsList = ({ onSelectClient, selectedClientId }: ClientsListPro
       </CardHeader>
       <CardContent className="p-0">
         <ScrollArea className="h-[400px]">
-          <div className="p-4 space-y-2">
+          <div className="p-4 space-y-1">
             {clients.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <User className="h-12 w-12 mx-auto mb-2 opacity-50" />

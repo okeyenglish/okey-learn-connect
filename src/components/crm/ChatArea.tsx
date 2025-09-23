@@ -1076,6 +1076,15 @@ export const ChatArea = ({
               >
                 <Search className="h-5 w-5" />
               </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                className="crm-btn h-10 w-10 p-0"
+                title="Переслать сообщения"
+                onClick={handleToggleSelectionMode}
+              >
+                <Forward className="h-5 w-5" />
+              </Button>
               
               {showSearchInput && (
                 <Input
@@ -1479,10 +1488,10 @@ export const ChatArea = ({
               </div>
             </div>
             
-            {/* Send button */}
+            {/* Send button aligned with input */}
             <Button 
               size="icon" 
-              className={`rounded-full h-12 w-12 mb-10 ${
+              className={`rounded-full h-12 w-12 ${
                 commentMode ? "bg-yellow-500 hover:bg-yellow-600" : ""
               }`}
               onClick={handleSendMessage}

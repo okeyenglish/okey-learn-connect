@@ -170,3 +170,12 @@
 }
 
 /* Simple, clean design without aggressive overrides */
+
+/* Fix chat list overflow */
+.crm-container [data-component="scroll-area"] {
+  overflow-x: hidden !important;
+}
+
+.crm-container [data-radix-scroll-area-viewport] {
+  overflow-x: hidden !important;
+}

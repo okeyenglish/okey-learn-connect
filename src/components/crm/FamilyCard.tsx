@@ -318,50 +318,48 @@ export const FamilyCard = ({
 
       {/* Family Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="relative">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="children">
+        <div className="relative overflow-hidden">
+          <TabsList className="grid w-full grid-cols-2 relative">
+            <TabsTrigger value="children" className="relative">
               Дети ({familyData.students.length})
+              {activeTab === 'children' && (
+                <div className="absolute right-1 top-1/2 -translate-y-1/2">
+                  <AddStudentModal 
+                    familyGroupId={familyGroupId}
+                    parentLastName={activeMember.name.split(' ').pop()}
+                    onStudentAdded={refetch}
+                  >
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-4 w-4 p-0 bg-slate-600 text-white hover:bg-slate-700 rounded-full"
+                    >
+                      <Plus className="h-2 w-2" />
+                    </Button>
+                  </AddStudentModal>
+                </div>
+              )}
             </TabsTrigger>
-            <TabsTrigger value="contacts">
+            <TabsTrigger value="contacts" className="relative">
               Семья ({otherMembers.length})
+              {activeTab === 'contacts' && (
+                <div className="absolute right-1 top-1/2 -translate-y-1/2">
+                  <AddFamilyMemberModal 
+                    familyGroupId={familyGroupId}
+                    onMemberAdded={refetch}
+                  >
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-4 w-4 p-0 bg-slate-600 text-white hover:bg-slate-700 rounded-full"
+                    >
+                      <Plus className="h-2 w-2" />
+                    </Button>
+                  </AddFamilyMemberModal>
+                </div>
+              )}
             </TabsTrigger>
           </TabsList>
-          
-          {/* Add button aligned to active tab */}
-          <div
-            className="absolute top-1/2 -translate-y-1/2 z-10"
-            style={activeTab === 'children' ? { left: 'calc(50% - 0.75rem)' } : { right: '0.5rem' }}
-          >
-            {activeTab === 'children' ? (
-              <AddStudentModal 
-                familyGroupId={familyGroupId}
-                parentLastName={activeMember.name.split(' ').pop()}
-                onStudentAdded={refetch}
-              >
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  className="h-5 w-5 p-0 bg-slate-600 text-white hover:bg-slate-700 rounded-full"
-                >
-                  <Plus className="h-2.5 w-2.5" />
-                </Button>
-              </AddStudentModal>
-            ) : (
-              <AddFamilyMemberModal 
-                familyGroupId={familyGroupId}
-                onMemberAdded={refetch}
-              >
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  className="h-5 w-5 p-0 bg-slate-600 text-white hover:bg-slate-700 rounded-full"
-                >
-                  <Plus className="h-2.5 w-2.5" />
-                </Button>
-              </AddFamilyMemberModal>
-            )}
-          </div>
         </div>
         
         <TabsContent value="children" className="space-y-2 mt-4">
