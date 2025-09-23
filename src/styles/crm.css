@@ -160,18 +160,8 @@
   gap: var(--crm-space-sm) !important;
 }
 
-/* Clean layout */
-.crm-container .flex {
-  display: flex !important;
-}
-
-.crm-container .items-center {
-  align-items: center !important;
-}
-
-.crm-container .justify-between {
-  justify-content: space-between !important;
-}
+/* Clean layout - avoid overriding display to prevent breaking hidden elements */
+/* Removed global .flex/.items-center/.justify-between overrides to keep Radix Tabs working */
 
 /* Simple, clean design without aggressive overrides */
 
