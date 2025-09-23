@@ -1,16 +1,33 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Star, Users, Award, TrendingUp } from "lucide-react";
+import { Star, Users, Award, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import YandexReviews from "@/components/YandexReviews";
 import SEOHead from "@/components/SEOHead";
+import { useState } from "react";
 
-// Данные для виджетов Яндекса по филиалам (реальные ID)
+// Данные для виджетов Яндекса по филиалам (в указанном порядке)
 const yandexBranches = [
+  {
+    name: "Окская",
+    orgId: "1276487501",
+    orgUrl: "https://yandex.ru/maps/org/1276487501"
+  },
   {
     name: "Котельники",
     orgId: "1599363543",
     orgUrl: "https://yandex.ru/maps/org/1599363543"
+  },
+  {
+    name: "Стахановская",
+    orgId: "228340951550",
+    orgUrl: "https://yandex.ru/maps/org/228340951550"
+  },
+  {
+    name: "Новокосино",
+    orgId: "92516357375",
+    orgUrl: "https://yandex.ru/sprav/92516357375/p/edit/main"
   },
   {
     name: "Мытищи", 
@@ -76,6 +93,96 @@ const studentReviews = [
   }
 ];
 
+// Carousel component for Yandex Reviews
+function YandexReviewsCarousel() {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  
+  const nextSlide = () => {
+    setCurrentIndex((prev) => (prev + 1) % yandexBranches.length);
+  };
+  
+  const prevSlide = () => {
+    setCurrentIndex((prev) => (prev - 1 + yandexBranches.length) % yandexBranches.length);
+  };
+  
+  const goToSlide = (index: number) => {
+    setCurrentIndex(index);
+  };
+
+  return (
+    <div className="relative max-w-4xl mx-auto">
+      {/* Carousel Container */}
+      <div className="relative overflow-hidden rounded-lg">
+        <div 
+          className="flex transition-transform duration-300 ease-in-out"
+          style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+        >
+          {yandexBranches.map((branch, index) => (
+            <div key={branch.name} className="w-full flex-shrink-0">
+              <Card className="mx-4">
+                <CardHeader>
+                  <CardTitle className="text-center text-2xl">{branch.name}</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <YandexReviews 
+                    orgId={branch.orgId}
+                    orgUrl={branch.orgUrl}
+                    orgTitle={`Отзывы о филиале ${branch.name}`}
+                    height={500}
+                    maxWidth={800}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Navigation Arrows */}
+      <Button
+        variant="outline"
+        size="icon"
+        className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/90 hover:bg-white shadow-lg"
+        onClick={prevSlide}
+      >
+        <ChevronLeft className="w-5 h-5" />
+      </Button>
+      
+      <Button
+        variant="outline" 
+        size="icon"
+        className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/90 hover:bg-white shadow-lg"
+        onClick={nextSlide}
+      >
+        <ChevronRight className="w-5 h-5" />
+      </Button>
+
+      {/* Dots Navigation */}
+      <div className="flex justify-center mt-6 space-x-2">
+        {yandexBranches.map((_, index) => (
+          <button
+            key={index}
+            className={`w-3 h-3 rounded-full transition-colors ${
+              index === currentIndex ? 'bg-primary' : 'bg-muted-foreground/30'
+            }`}
+            onClick={() => goToSlide(index)}
+          />
+        ))}
+      </div>
+
+      {/* Branch Name Indicator */}
+      <div className="text-center mt-4">
+        <p className="text-muted-foreground">
+          Филиал {currentIndex + 1} из {yandexBranches.length}: {yandexBranches[currentIndex].name}
+        </p>
+        <p className="text-sm text-muted-foreground mt-2">
+          Виджеты отзывов загружаются с Яндекс.Карт для обеспечения максимальной достоверности
+        </p>
+      </div>
+    </div>
+  );
+}
+
 const renderStars = (rating: number) => {
   return Array.from({ length: 5 }, (_, i) => (
     <Star 
@@ -138,34 +245,12 @@ export default function Reviews() {
             </div>
           </div>
 
-          {/* Yandex Reviews Widgets */}
+          {/* Yandex Reviews Widgets Carousel */}
           <section className="mb-16">
             <h2 className="text-3xl font-bold text-center mb-12">
               Отзывы на Яндекс.Картах
             </h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {yandexBranches.map((branch) => (
-                <Card key={branch.name} className="overflow-hidden">
-                  <CardHeader>
-                    <CardTitle className="text-center">{branch.name}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <YandexReviews 
-                      orgId={branch.orgId}
-                      orgUrl={branch.orgUrl}
-                      orgTitle={`Отзывы о филиале ${branch.name}`}
-                      height={400}
-                      maxWidth={400}
-                    />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            <div className="text-center mt-8">
-              <p className="text-muted-foreground">
-                Виджеты отзывов загружаются с Яндекс.Карт для обеспечения максимальной достоверности
-              </p>
-            </div>
+            <YandexReviewsCarousel />
           </section>
 
           <Separator className="my-16" />
