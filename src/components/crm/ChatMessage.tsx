@@ -1,12 +1,13 @@
+import { useState } from 'react';
 import { Phone, PhoneCall, Play, FileSpreadsheet, Edit2, Check, X, Forward, Trash2, CheckCheck, MessageCircle, User, CheckCircle, XCircle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
 import { AttachedFile } from "./AttachedFile";
 import { MessageReadIndicator } from "./MessageReadIndicator";
+import { MessageReactions } from "./MessageReactions";
 
 interface ChatMessageProps {
   type: 'client' | 'manager' | 'system' | 'comment';
@@ -393,6 +394,17 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
               </div>
             )}
           </div>
+          
+          {/* Реакции на сообщения */}
+          {messageId && (type === 'client' || type === 'manager') && (
+            <div className="mt-2">
+              <MessageReactions 
+                messageId={messageId} 
+                showAddButton={true}
+                className="justify-start"
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

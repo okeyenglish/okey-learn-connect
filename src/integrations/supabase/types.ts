@@ -644,6 +644,39 @@ export type Database = {
           },
         ]
       }
+      message_reactions: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          emoji: string
+          id: string
+          message_id: string
+          updated_at: string
+          user_id: string | null
+          whatsapp_reaction_id: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          emoji: string
+          id?: string
+          message_id: string
+          updated_at?: string
+          user_id?: string | null
+          whatsapp_reaction_id?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          emoji?: string
+          id?: string
+          message_id?: string
+          updated_at?: string
+          user_id?: string | null
+          whatsapp_reaction_id?: string | null
+        }
+        Relationships: []
+      }
       message_read_status: {
         Row: {
           created_at: string

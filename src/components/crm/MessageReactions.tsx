@@ -1,0 +1,119 @@
+import { useState } from 'react';
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useGroupedReactions, useAddReaction, useRemoveReaction } from "@/hooks/useMessageReactions";
+import { cn } from "@/lib/utils";
+
+interface MessageReactionsProps {
+  messageId: string;
+  showAddButton?: boolean;
+  className?: string;
+}
+
+// Популярные эмодзи для быстрого выбора
+const POPULAR_EMOJIS = ['👍', '👎', '❤️', '😂', '😮', '😢', '🔥', '👏'];
+
+export const MessageReactions = ({ messageId, showAddButton = true, className }: MessageReactionsProps) => {
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  
+  const { groupedReactions, isLoading } = useGroupedReactions(messageId);
+  const addReactionMutation = useAddReaction();
+  const removeReactionMutation = useRemoveReaction();
+
+  const handleEmojiClick = async (emoji: string) => {
+    try {
+      // Проверяем, есть ли уже реакция пользователя с этим эмодзи
+      const existingReaction = groupedReactions?.find(r => 
+        r.emoji === emoji && r.hasUserReaction
+      );
+
+      if (existingReaction) {
+        // Если реакция уже есть - удаляем её
+        await removeReactionMutation.mutateAsync(messageId);
+      } else {
+        // Если реакции нет - добавляем
+        await addReactionMutation.mutateAsync({
+          messageId,
+          emoji,
+        });
+      }
+      
+      setIsEmojiPickerOpen(false);
+    } catch (error) {
+      console.error('Error handling emoji click:', error);
+    }
+  };
+
+  if (isLoading) {
+    return null;
+  }
+
+  return (
+    <div className={cn("flex items-center gap-1 flex-wrap", className)}>
+      {/* Отображение существующих реакций */}
+      {groupedReactions?.map((reaction) => (
+        <TooltipProvider key={reaction.emoji}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "h-7 px-2 py-1 rounded-full text-xs border border-muted-foreground/20 hover:bg-muted/50",
+                  reaction.hasUserReaction && "bg-primary/10 border-primary/40"
+                )}
+                onClick={() => handleEmojiClick(reaction.emoji)}
+                disabled={addReactionMutation.isPending || removeReactionMutation.isPending}
+              >
+                <span className="text-sm mr-1">{reaction.emoji}</span>
+                <span className="text-xs text-muted-foreground">{reaction.count}</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="text-xs">
+                {reaction.users.map((user, index) => (
+                  <div key={user.id}>
+                    {user.name}
+                    {index < reaction.users.length - 1 && ', '}
+                  </div>
+                ))}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ))}
+
+      {/* Кнопка добавления реакции */}
+      {showAddButton && (
+        <Popover open={isEmojiPickerOpen} onOpenChange={setIsEmojiPickerOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0 rounded-full hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+              disabled={addReactionMutation.isPending}
+            >
+              <span className="text-sm">😊</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-2" align="start">
+            <div className="grid grid-cols-4 gap-1">
+              {POPULAR_EMOJIS.map((emoji) => (
+                <Button
+                  key={emoji}
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 hover:bg-muted"
+                  onClick={() => handleEmojiClick(emoji)}
+                >
+                  <span className="text-base">{emoji}</span>
+                </Button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
+    </div>
+  );
+};

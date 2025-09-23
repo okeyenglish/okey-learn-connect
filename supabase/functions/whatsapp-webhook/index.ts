@@ -43,6 +43,10 @@ interface GreenAPIWebhook {
       stanzaId?: string;
       participant?: string;
     };
+    reactionMessageData?: {
+      messageId: string;
+      reaction: string;
+    };
   };
   status?: string;
   statusData?: {
@@ -88,8 +92,12 @@ serve(async (req) => {
         await handleStateChange(webhook)
         break
         
-      case 'incomingCall':
+        case 'incomingCall':
         await handleIncomingCall(webhook)
+        break
+        
+      case 'incomingReaction':
+        await handleIncomingReaction(webhook)
         break
         
       default:
@@ -155,6 +163,12 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook) {
     case 'textMessage':
       messageText = messageData.textMessageData?.textMessage || ''
       break
+      
+    case 'reactionMessage':
+      // Обработка эмодзи реакций от клиентов
+      await handleReactionMessage(webhook, client)
+      return
+      
     case 'imageMessage':
     case 'videoMessage':
     case 'documentMessage':
@@ -526,6 +540,111 @@ async function fetchAndSaveAvatar(phoneNumber: string, clientId: string): Promis
   } catch (error) {
     console.error('Error fetching avatar:', error)
     return null
+  }
+}
+
+async function handleReactionMessage(webhook: GreenAPIWebhook, client: any) {
+  const { senderData, messageData, idMessage } = webhook
+  
+  if (!messageData?.reactionMessageData) {
+    console.log('Missing reaction message data')
+    return
+  }
+
+  const { messageId, reaction } = messageData.reactionMessageData
+  
+  try {
+    // Находим оригинальное сообщение по Green API message ID
+    const { data: originalMessage, error: messageError } = await supabase
+      .from('chat_messages')
+      .select('id')
+      .eq('green_api_message_id', messageId)
+      .single()
+
+    if (messageError || !originalMessage) {
+      console.log('Original message not found for reaction:', messageId)
+      return
+    }
+
+    // Проверяем, есть ли уже реакция от этого клиента на это сообщение
+    const { data: existingReaction, error: existingError } = await supabase
+      .from('message_reactions')
+      .select('id')
+      .eq('message_id', originalMessage.id)
+      .eq('client_id', client.id)
+      .single()
+
+    if (reaction && reaction.trim() !== '') {
+      // Добавляем или обновляем реакцию
+      if (existingReaction) {
+        // Обновляем существующую реакцию
+        const { error: updateError } = await supabase
+          .from('message_reactions')
+          .update({
+            emoji: reaction,
+            whatsapp_reaction_id: idMessage,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingReaction.id)
+
+        if (updateError) {
+          console.error('Error updating reaction:', updateError)
+        } else {
+          console.log(`Updated reaction ${reaction} for client ${client.id} on message ${originalMessage.id}`)
+        }
+      } else {
+        // Добавляем новую реакцию
+        const { error: insertError } = await supabase
+          .from('message_reactions')
+          .insert({
+            message_id: originalMessage.id,
+            client_id: client.id,
+            emoji: reaction,
+            whatsapp_reaction_id: idMessage
+          })
+
+        if (insertError) {
+          console.error('Error adding reaction:', insertError)
+        } else {
+          console.log(`Added reaction ${reaction} for client ${client.id} on message ${originalMessage.id}`)
+        }
+      }
+    } else {
+      // Пустая реакция означает удаление
+      if (existingReaction) {
+        const { error: deleteError } = await supabase
+          .from('message_reactions')
+          .delete()
+          .eq('id', existingReaction.id)
+
+        if (deleteError) {
+          console.error('Error removing reaction:', deleteError)
+        } else {
+          console.log(`Removed reaction for client ${client.id} on message ${originalMessage.id}`)
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error handling reaction message:', error)
+  }
+}
+
+async function handleIncomingReaction(webhook: GreenAPIWebhook) {
+  const { senderData, messageData } = webhook
+  
+  if (!senderData || !messageData?.reactionMessageData) {
+    console.log('Missing sender or reaction data')
+    return
+  }
+
+  const chatId = senderData.chatId
+  const phoneNumber = extractPhoneFromChatId(chatId)
+  
+  // Находим клиента
+  const client = await findOrCreateClient(phoneNumber, senderData.senderName || senderData.sender)
+  
+  if (client) {
+    await handleReactionMessage(webhook, client)
   }
 }
 
