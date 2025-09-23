@@ -367,44 +367,45 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
           <div className={`flex items-center mt-1 text-xs text-muted-foreground ${
             type === 'manager' ? 'justify-end' : 'justify-start'
           }`}>
-            <span>
-              {time}
-              {isEdited && editedTime && (
-                <span className="ml-2">отредактировано {editedTime}</span>
+            <div className="flex items-center gap-2">
+              <span>
+                {time}
+                {isEdited && editedTime && (
+                  <span className="ml-2">отредактировано {editedTime}</span>
+                )}
+              </span>
+              
+              {/* Реакции на сообщения */}
+              {messageId && (type === 'client' || type === 'manager') && (
+                <MessageReactions 
+                  messageId={messageId} 
+                  showAddButton={true}
+                  className="ml-1"
+                />
               )}
-            </span>
-            {type === 'manager' && messageId && message !== '[Сообщение удалено]' && (
-              <div className="ml-2 flex items-center">
-                <MessageReadIndicator 
-                  messageId={messageId} 
-                  isOutgoing={true}
-                  authorName={managerName || "Менеджер"}
-                  authorAvatar={undefined}
-                />
-              </div>
-            )}
-            {type === 'client' && messageId && (
-              <div className="ml-2 flex items-center">
-                <MessageReadIndicator 
-                  messageId={messageId} 
-                  isOutgoing={false}
-                  authorName="Клиент"
-                  authorAvatar={clientAvatar}
-                />
-              </div>
-            )}
-          </div>
-          
-          {/* Реакции на сообщения */}
-          {messageId && (type === 'client' || type === 'manager') && (
-            <div className="absolute -bottom-3 left-2">
-              <MessageReactions 
-                messageId={messageId} 
-                showAddButton={true}
-                className="flex-row-reverse"
-              />
+              
+              {type === 'manager' && messageId && message !== '[Сообщение удалено]' && (
+                <div className="ml-2 flex items-center">
+                  <MessageReadIndicator 
+                    messageId={messageId} 
+                    isOutgoing={true}
+                    authorName={managerName || "Менеджер"}
+                    authorAvatar={undefined}
+                  />
+                </div>
+              )}
+              {type === 'client' && messageId && (
+                <div className="ml-2 flex items-center">
+                  <MessageReadIndicator 
+                    messageId={messageId} 
+                    isOutgoing={false}
+                    authorName="Клиент"
+                    authorAvatar={clientAvatar}
+                  />
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

@@ -65,7 +65,7 @@ export const MessageReactions = ({ messageId, showAddButton = true, className }:
             <TooltipTrigger asChild>
               <button
                 className={cn(
-                  "relative w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110",
+                  "relative w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110",
                   "bg-muted/80 backdrop-blur-sm border border-border/50 shadow-sm",
                   "hover:bg-muted hover:shadow-md",
                   reaction.hasUserReaction && "bg-primary/20 border-primary/40 shadow-primary/20"
@@ -73,9 +73,9 @@ export const MessageReactions = ({ messageId, showAddButton = true, className }:
                 onClick={() => handleEmojiClick(reaction.emoji)}
                 disabled={addReactionMutation.isPending || removeReactionMutation.isPending}
               >
-                <span className="text-base">{reaction.emoji}</span>
+                <span className="text-xs">{reaction.emoji}</span>
                 {reaction.count > 1 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center font-medium">
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-primary text-primary-foreground text-[9px] rounded-full flex items-center justify-center font-medium">
                     {reaction.count}
                   </span>
                 )}
@@ -100,23 +100,23 @@ export const MessageReactions = ({ messageId, showAddButton = true, className }:
         <Popover open={isEmojiPickerOpen} onOpenChange={setIsEmojiPickerOpen}>
           <PopoverTrigger asChild>
             <button
-              className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/50 opacity-0 group-hover:opacity-100"
+              className="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/50 opacity-0 group-hover:opacity-100"
               disabled={addReactionMutation.isPending}
             >
-              <span className="text-sm">😊</span>
+              <span className="text-xs">😊</span>
             </button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-2" align="start">
+          <PopoverContent className="w-auto p-1" align="start">
             <div className="grid grid-cols-4 gap-1">
               {POPULAR_EMOJIS.map((emoji) => (
                 <Button
                   key={emoji}
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 p-0 hover:bg-muted"
+                  className="h-6 w-6 p-0 hover:bg-muted"
                   onClick={() => handleEmojiClick(emoji)}
                 >
-                  <span className="text-base">{emoji}</span>
+                  <span className="text-sm">{emoji}</span>
                 </Button>
               ))}
             </div>
