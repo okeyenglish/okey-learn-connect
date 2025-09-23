@@ -186,9 +186,16 @@
   flex-shrink: 1 !important;
 }
 
-/* Prevent text overflow in chat buttons */
-.crm-container button {
+/* Allow wrapping inside complex buttons like chat items */
+.crm-container button { 
+  white-space: normal !important;
+}
+
+/* Ensure preview text wraps nicely */
+.crm-container .line-clamp-2 { 
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
 }
