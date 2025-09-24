@@ -1462,55 +1462,55 @@ export type Database = {
       }
       unit_lessons: {
         Row: {
-          activities: Json
+          activities: string
           created_at: string
           goals: string | null
-          grammar: Json
+          grammar: string
           homework: string | null
           id: string
           lesson_number: number
-          materials: Json
+          materials: string
           sort_order: number
           structure: string | null
           title: string
-          topics: Json
+          topics: string
           unit_id: string
           updated_at: string
-          vocabulary: Json
+          vocabulary: string
         }
         Insert: {
-          activities?: Json
+          activities?: string
           created_at?: string
           goals?: string | null
-          grammar?: Json
+          grammar?: string
           homework?: string | null
           id?: string
           lesson_number: number
-          materials?: Json
+          materials?: string
           sort_order?: number
           structure?: string | null
           title: string
-          topics?: Json
+          topics?: string
           unit_id: string
           updated_at?: string
-          vocabulary?: Json
+          vocabulary?: string
         }
         Update: {
-          activities?: Json
+          activities?: string
           created_at?: string
           goals?: string | null
-          grammar?: Json
+          grammar?: string
           homework?: string | null
           id?: string
           lesson_number?: number
-          materials?: Json
+          materials?: string
           sort_order?: number
           structure?: string | null
           title?: string
-          topics?: Json
+          topics?: string
           unit_id?: string
           updated_at?: string
-          vocabulary?: Json
+          vocabulary?: string
         }
         Relationships: [
           {
