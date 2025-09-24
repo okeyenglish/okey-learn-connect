@@ -9,12 +9,19 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
+import { GroupDetailModal } from '@/components/teacher/GroupDetailModal';
+import { IndividualLessonModal } from '@/components/teacher/IndividualLessonModal';
+import { useState } from 'react';
 
 export default function TeacherPortal() {
   const navigate = useNavigate();
   const { user, signOut, profile } = useAuth();
   const { toast } = useToast();
+  
+  // Состояния для модальных окон
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
 
   // Получаем данные преподавателя по имени из профиля
   const { data: teacher, isLoading: teacherLoading } = useQuery({
@@ -319,7 +326,7 @@ export default function TeacherPortal() {
                          <div 
                            key={group.id} 
                            className="p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
-                           onClick={() => navigate(`/teacher-group/${group.id}`)}
+                           onClick={() => setSelectedGroupId(group.id)}
                          >
                            <div className="flex items-center justify-between mb-2">
                              <h4 className="font-medium">{group.name}</h4>
@@ -353,24 +360,28 @@ export default function TeacherPortal() {
                 </CardHeader>
                 <CardContent>
                   {individualLessons && individualLessons.length > 0 ? (
-                    <div className="space-y-3">
-                      {individualLessons.map((lesson: any) => (
-                        <div key={lesson.id} className="p-3 border rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-medium">{lesson.student_name}</h4>
-                            <Badge variant="outline">{lesson.level}</Badge>
-                          </div>
-                          <div className="text-sm text-muted-foreground space-y-1">
-                            <p>Предмет: {lesson.subject}</p>
-                            <p>Цена: {lesson.price_per_lesson}₽ за урок</p>
-                            {lesson.schedule_time && (
-                              <p>Расписание: {lesson.schedule_time}</p>
-                            )}
-                            <p>Часов: {lesson.academic_hours}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                     <div className="space-y-3">
+                       {individualLessons.map((lesson: any) => (
+                         <div 
+                           key={lesson.id} 
+                           className="p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                           onClick={() => setSelectedLessonId(lesson.id)}
+                         >
+                           <div className="flex items-center justify-between mb-2">
+                             <h4 className="font-medium">{lesson.student_name}</h4>
+                             <Badge variant="outline">{lesson.level}</Badge>
+                           </div>
+                           <div className="text-sm text-muted-foreground space-y-1">
+                             <p>Предмет: {lesson.subject}</p>
+                             <p>Цена: {lesson.price_per_lesson}₽ за урок</p>
+                             {lesson.schedule_time && (
+                               <p>Расписание: {lesson.schedule_time}</p>
+                             )}
+                             <p>Часов: {lesson.academic_hours}</p>
+                           </div>
+                         </div>
+                       ))}
+                     </div>
                   ) : (
                     <p className="text-muted-foreground text-center py-4">
                       Индивидуальных занятий не найдено
@@ -436,11 +447,28 @@ export default function TeacherPortal() {
                 ) : (
                   <p className="text-muted-foreground text-center py-4">
                     На ближайшую неделю занятий не запланировано
-                  </p>
+                   </p>
                 )}
               </CardContent>
             </Card>
           </div>
+        )}
+        
+        {/* Модальные окна */}
+        {selectedGroupId && (
+          <GroupDetailModal
+            open={!!selectedGroupId}
+            onOpenChange={(open) => !open && setSelectedGroupId(null)}
+            groupId={selectedGroupId}
+          />
+        )}
+        
+        {selectedLessonId && (
+          <IndividualLessonModal
+            open={!!selectedLessonId}
+            onOpenChange={(open) => !open && setSelectedLessonId(null)}
+            lessonId={selectedLessonId}
+          />
         )}
       </div>
     </ProtectedRoute>
