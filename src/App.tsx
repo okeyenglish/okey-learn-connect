@@ -43,6 +43,7 @@ const ContactMethod = lazy(() => import("./pages/ContactMethod"));
 const Admin = lazy(() => import("./pages/Admin"));
 const CRM = lazy(() => import("./pages/CRM"));
 const StudentPortal = lazy(() => import("./pages/StudentPortal"));
+const TeacherPortal = lazy(() => import("./pages/TeacherPortal"));
 const OnlineLesson = lazy(() => import("./pages/OnlineLesson"));
 const Auth = lazy(() => import("./pages/Auth"));
 const CourseDetails = lazy(() => import('./pages/CourseDetails'));
@@ -227,6 +228,11 @@ const AppContent = () => {
           <Route path="/student-portal" element={
             <Suspense fallback={<LoadingComponent />}>
               <StudentPortal />
+            </Suspense>
+          } />
+          <Route path="/teacher-portal" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <TeacherPortal />
             </Suspense>
           } />
           <Route path="/course/:courseId" element={
