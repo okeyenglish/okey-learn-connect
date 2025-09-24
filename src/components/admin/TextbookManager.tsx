@@ -32,18 +32,12 @@ const educationalSubcategories = [
   { value: 'pupil-book', label: "Pupil's Book" },
   { value: 'activity-book', label: 'Activity Book' },
   { value: 'teacher-book', label: "Teacher's Book" },
-  { value: 'lesson-example', label: 'Пример урока' },
   { value: 'overview', label: 'Обзор программы' },
   { value: 'general', label: 'Общие материалы' }
 ];
 
 const audioSubcategories = [
-  { value: 'unit-1', label: 'Unit 1' },
-  { value: 'unit-2', label: 'Unit 2' },
-  { value: 'unit-3', label: 'Unit 3' },
-  { value: 'unit-4', label: 'Unit 4' },
-  { value: 'unit-5', label: 'Unit 5' },
-  { value: 'unit-6', label: 'Unit 6' },
+  { value: 'units', label: 'Units' },
   { value: 'grammar-songs', label: 'Грамматические песни' },
   { value: 'vocabulary', label: 'Словарные упражнения' },
   { value: 'listening-exercises', label: 'Упражнения на слух' },
@@ -193,15 +187,16 @@ export const TextbookManager = () => {
       'pupil-book': "Pupil's Book",
       'activity-book': 'Activity Book',
       'teacher-book': "Teacher's Book", 
-      'lesson-example': 'Пример урока',
       'overview': 'Обзор программы',
       'general': 'Общие материалы',
-      'unit-1': 'Unit 1',
-      'unit-2': 'Unit 2',
-      'unit-3': 'Unit 3',
-      'unit-4': 'Unit 4',
-      'unit-5': 'Unit 5',
-      'unit-6': 'Unit 6',
+      'units': 'Units',
+      'unit-1': 'Units',
+      'unit-2': 'Units',
+      'unit-3': 'Units',
+      'unit-4': 'Units',
+      'unit-5': 'Units',
+      'unit-6': 'Units',
+      'lesson-example': 'Units',
       'grammar-songs': 'Грамматические песни',
       'vocabulary': 'Словарные упражнения',
       'listening-exercises': 'Упражнения на слух',
@@ -221,7 +216,12 @@ export const TextbookManager = () => {
   const organizedMaterials = textbooks.reduce((acc, textbook) => {
     const programType = textbook.program_type || 'other';
     const category = textbook.category || 'educational';
-    const subcategory = textbook.subcategory;
+    let subcategory = textbook.subcategory;
+    
+    // Объединяем все unit-* и lesson-example в 'units'
+    if (subcategory && (subcategory.startsWith('unit-') || subcategory === 'lesson-example')) {
+      subcategory = 'units';
+    }
 
     if (!acc[programType]) {
       acc[programType] = {};

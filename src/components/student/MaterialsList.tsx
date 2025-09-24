@@ -19,7 +19,7 @@ export const MaterialsList = ({ materials, courseTitle, onBack }: MaterialsListP
   const [viewMode, setViewMode] = useState<'main' | 'audio-subfolders'>('main');
 
   const educationalMaterials = materials.filter(m => 
-    m.category === 'educational' || (!m.category || m.category === 'general' || m.category === 'pupil-book' || m.category === 'activity-book' || m.category === 'teacher-book' || m.category === 'lesson-example' || m.category === 'overview')
+    m.category === 'educational' || (!m.category || m.category === 'general' || m.category === 'pupil-book' || m.category === 'activity-book' || m.category === 'teacher-book' || m.category === 'lesson-example' || m.category === 'overview' || m.subcategory === 'units')
   );
   
   const audioMaterials = materials.filter(m => 
@@ -36,9 +36,16 @@ export const MaterialsList = ({ materials, courseTitle, onBack }: MaterialsListP
         'pupil-book': "Pupil's Book",
         'activity-book': 'Activity Book',
         'teacher-book': "Teacher's Book", 
-        'lesson-example': 'Пример урока',
         'overview': 'Обзор программы',
-        'general': 'Общие материалы'
+        'general': 'Общие материалы',
+        'units': 'Units',
+        'unit-1': 'Units',
+        'unit-2': 'Units', 
+        'unit-3': 'Units',
+        'unit-4': 'Units',
+        'unit-5': 'Units',
+        'unit-6': 'Units',
+        'lesson-example': 'Units'
       };
       return subcategoryLabels[subcategory as keyof typeof subcategoryLabels] || subcategory;
     }
@@ -47,7 +54,7 @@ export const MaterialsList = ({ materials, courseTitle, onBack }: MaterialsListP
       'pupil-book': "Pupil's Book",
       'activity-book': 'Activity Book',
       'teacher-book': "Teacher's Book", 
-      'lesson-example': 'Пример урока',
+      'lesson-example': 'Units',
       'overview': 'Обзор программы',
       'audio': 'Аудиоматериалы',
       'video': 'Видеоматериалы',
