@@ -548,22 +548,12 @@ export const InlineCourseMaterials = ({ selectedCourse: courseFilter }: InlineCo
           </DialogHeader>
           <div className="flex-1 overflow-hidden">
             {selectedMaterial && (
-              selectedMaterial.file_name.match(/\.pdf$/i) ? (
-                <div className="h-[70vh]">
-                  <PDFViewer 
-                    url={selectedMaterial.file_url} 
-                    fileName={selectedMaterial.title}
-                  />
-                </div>
-              ) : (
-                <div className="py-8 text-center">
-                  <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="font-medium mb-2">{selectedMaterial.title}</p>
-                  <Button onClick={() => window.open(selectedMaterial.file_url, '_blank')}>
-                    Открыть файл
-                  </Button>
-                </div>
-              )
+              <div className="h-[70vh]">
+                <PDFViewer 
+                  url={selectedMaterial.file_url} 
+                  fileName={selectedMaterial.title}
+                />
+              </div>
             )}
           </div>
         </DialogContent>
