@@ -529,6 +529,423 @@ const courseData: Record<string, {
             materials: ["AB p.44", "CB p.84", "Тестовые материалы"]
           }
         ]
+      },
+      {
+        id: 7,
+        title: "Unit 7 — Wild animals",
+        description: "Дикие животные, их способности и места обитания",
+        color: "bg-green-50 border-green-200",
+        lessons: 7,
+        vocabulary: "Дикие животные, части тела животных, места обитания",
+        grammar: "can/cannot (abilities), there is/are (basic)",
+        lessonDetails: [
+          {
+            number: 42,
+            title: "Zoo animals vocabulary",
+            topics: ["Животные зоопарка", "Названия диких животных"],
+            vocabulary: ["elephant", "lion", "monkey", "giraffe", "tiger", "bear"],
+            grammar: "What animal is this?",
+            activities: ["Экскурсия в зоопарк", "Звуки животных", "Угадай животное"],
+            materials: ["AB p.45", "CB p.86-87", "Audio CD5 Track 1-3"]
+          },
+          {
+            number: 43,
+            title: "Animal body parts",
+            topics: ["Части тела животных", "Описание животных"],
+            vocabulary: ["trunk", "mane", "tail", "paws", "wings", "beak"],
+            grammar: "The elephant has got a trunk",
+            activities: ["Описание животных", "Собери животное", "Части тела"],
+            materials: ["AB p.46", "CB p.88-89", "Audio CD5 Track 4-6"]
+          },
+          {
+            number: 44,
+            title: "Animal abilities",
+            topics: ["Способности животных", "Что умеют животные"],
+            vocabulary: ["fly", "swim", "run", "jump", "climb", "walk"],
+            grammar: "Birds can fly / Fish cannot walk",
+            activities: ["Что умеют животные", "Игра Can/Cannot", "Спортивные животные"],
+            materials: ["AB p.47", "CB p.90-91", "Audio CD5 Track 7-9"]
+          },
+          {
+            number: 45,
+            title: "Animal habitats",
+            topics: ["Места обитания", "Где живут животные"],
+            vocabulary: ["jungle", "desert", "ocean", "forest", "savanna", "mountains"],
+            grammar: "Lions live in the savanna",
+            activities: ["Карта мира животных", "Дом для животного", "Путешествие по континентам"],
+            materials: ["AB p.48", "CB p.92-93", "Audio CD5 Track 10-12"]
+          },
+          {
+            number: 46,
+            title: "Animal adventure story",
+            topics: ["Приключения животных", "Сказка о диких животных"],
+            vocabulary: ["Повторение всех слов юнита"],
+            grammar: "Повторение всех структур",
+            activities: ["Сказка джунглей", "Театр животных", "Спасение животных"],
+            materials: ["AB p.49", "CB p.94-95", "Audio CD5 Track 13-15"]
+          },
+          {
+            number: 47,
+            title: "Animal masks project",
+            topics: ["Маски животных", "Творческий проект"],
+            vocabulary: ["Повторение и закрепление"],
+            grammar: "Повторение и закрепление",
+            activities: ["Изготовление масок", "Спектакль животных", "Парад зверей"],
+            materials: ["AB p.50", "CB p.96-97", "Материалы для масок"]
+          },
+          {
+            number: 48,
+            title: "Unit 7 review",
+            topics: ["Повторение юнита 7", "Проверка знаний о животных"],
+            vocabulary: ["Все слова юнита 7"],
+            grammar: ["Все структуры юнита 7"],
+            activities: ["Тест о животных", "Викторина зоопарк", "Портфолио животных"],
+            materials: ["AB p.51", "CB p.98", "Тестовые материалы"]
+          }
+        ]
+      },
+      {
+        id: 8,
+        title: "Unit 8 — My clothes",
+        description: "Одежда, цвета, погода и сезоны",
+        color: "bg-indigo-50 border-indigo-200",
+        lessons: 6,
+        vocabulary: "Одежда, цвета, погода",
+        grammar: "like/do not like, I am wearing, погода и одежда",
+        lessonDetails: [
+          {
+            number: 49,
+            title: "Clothes and colours",
+            topics: ["Одежда", "Цвета одежды"],
+            vocabulary: ["shirt", "trousers", "dress", "shoes", "hat", "coat"],
+            grammar: "I am wearing a red shirt",
+            activities: ["Модный показ", "Одень куклу", "Мой гардероб"],
+            materials: ["AB p.52", "CB p.100-101", "Audio CD6 Track 1-3"]
+          },
+          {
+            number: 50,
+            title: "Likes and dislikes",
+            topics: ["Предпочтения в одежде", "Любимая одежда"],
+            vocabulary: ["like", "do not like", "favourite", "beautiful", "ugly"],
+            grammar: "I like dresses / I do not like hats",
+            activities: ["Опрос класса", "Модный журнал", "Стилист"],
+            materials: ["AB p.53", "CB p.102-103", "Audio CD6 Track 4-6"]
+          },
+          {
+            number: 51,
+            title: "Weather and seasons",
+            topics: ["Погода", "Сезонная одежда"],
+            vocabulary: ["sunny", "rainy", "cold", "hot", "winter", "summer"],
+            grammar: "In winter I wear a coat",
+            activities: ["Прогноз погоды", "Одежда по сезонам", "Календарь одежды"],
+            materials: ["AB p.54", "CB p.104-105", "Audio CD6 Track 7-9"]
+          },
+          {
+            number: 52,
+            title: "Lost clothes story",
+            topics: ["История потерянной одежды"],
+            vocabulary: ["Повторение всех слов юнита"],
+            grammar: "Повторение всех структур",
+            activities: ["Сказка о одежде", "Поиск потерянного", "Бюро находок"],
+            materials: ["AB p.55", "CB p.106-107", "Audio CD6 Track 10-12"]
+          },
+          {
+            number: 53,
+            title: "Fashion show project",
+            topics: ["Модный показ", "Дефиле"],
+            vocabulary: ["Повторение и использование в показе"],
+            grammar: "Повторение и использование в показе"],
+            activities: ["Подготовка показа", "Дефиле", "Модные комментарии"],
+            materials: ["AB p.56", "CB p.108-109", "Костюмы и аксессуары"]
+          },
+          {
+            number: 54,
+            title: "Unit 8 review",
+            topics: ["Повторение юнита 8"],
+            vocabulary: ["Все слова юнита 8"],
+            grammar: ["Все структуры юнита 8"],
+            activities: ["Тест по одежде", "Модная викторина", "Стильное портфолио"],
+            materials: ["AB p.57", "CB p.110", "Тестовые материалы"]
+          }
+        ]
+      },
+      {
+        id: 9,
+        title: "Unit 9 — Fun time!",
+        description: "Развлечения, хобби и свободное время",
+        color: "bg-cyan-50 border-cyan-200",
+        lessons: 6,
+        vocabulary: "Хобби, развлечения, частотные наречия",
+        grammar: "Present Continuous (I am ...ing), adverbs of frequency",
+        lessonDetails: [
+          {
+            number: 55,
+            title: "Hobbies and free time",
+            topics: ["Хобби", "Свободное время"],
+            vocabulary: ["swimming", "reading", "drawing", "playing", "dancing", "singing"],
+            grammar: "I like swimming",
+            activities: ["Мои хобби", "Клуб по интересам", "Свободное время"],
+            materials: ["AB p.58", "CB p.112-113", "Audio CD6 Track 13-15"]
+          },
+          {
+            number: 56,
+            title: "Present Continuous",
+            topics: ["Действия в данный момент", "Что происходит сейчас"],
+            vocabulary: ["running", "jumping", "eating", "sleeping", "watching"],
+            grammar: "I am running / She is dancing",
+            activities: ["Что я делаю", "Mime game", "Фотографии действий"],
+            materials: ["AB p.59", "CB p.114-115", "Audio CD7 Track 1-3"]
+          },
+          {
+            number: 57,
+            title: "How often?",
+            topics: ["Как часто", "Частотные наречия"],
+            vocabulary: ["always", "sometimes", "never", "often", "usually"],
+            grammar: "I always brush my teeth",
+            activities: ["Мой день", "Опрос частоты", "Расписание недели"],
+            materials: ["AB p.60", "CB p.116-117", "Audio CD7 Track 4-6"]
+          },
+          {
+            number: 58,
+            title: "Fun day story",
+            topics: ["День развлечений", "Веселая история"],
+            vocabulary: ["Повторение всех слов юнита"],
+            grammar: "Повторение всех структур",
+            activities: ["Сказка о веселом дне", "Парк развлечений", "Лучший день"],
+            materials: ["AB p.61", "CB p.118-119", "Audio CD7 Track 7-9"]
+          },
+          {
+            number: 59,
+            title: "Fun activities project",
+            topics: ["Проект развлечений", "Планирование веселья"],
+            vocabulary: ["Повторение и планирование"],
+            grammar: "Повторение и планирование"],
+            activities: ["План выходного дня", "Организация праздника", "Веселые игры"],
+            materials: ["AB p.62", "CB p.120-121", "Материалы для игр"]
+          },
+          {
+            number: 60,
+            title: "Unit 9 review",
+            topics: ["Повторение юнита 9"],
+            vocabulary: ["Все слова юнита 9"],
+            grammar: ["Все структуры юнита 9"],
+            activities: ["Тест развлечений", "Викторина хобби", "Портфолио активностей"],
+            materials: ["AB p.63", "CB p.122", "Тестовые материалы"]
+          }
+        ]
+      },
+      {
+        id: 10,
+        title: "Unit 10 — At the funfair",
+        description: "Парк развлечений, аттракционы и эмоции",
+        color: "bg-purple-50 border-purple-200",
+        lessons: 7,
+        vocabulary: "Аттракционы, движение, эмоции",
+        grammar: "prepositions of movement, adjectives of feelings",
+        lessonDetails: [
+          {
+            number: 61,
+            title: "Funfair rides",
+            topics: ["Аттракционы", "Парк развлечений"],
+            vocabulary: ["carousel", "ferris wheel", "roller coaster", "bumper cars", "swing"],
+            grammar: "Let us go on the carousel",
+            activities: ["Виртуальная ярмарка", "Мой любимый аттракцион", "Билеты на ярмарку"],
+            materials: ["AB p.64", "CB p.124-125", "Audio CD7 Track 10-12"]
+          },
+          {
+            number: 62,
+            title: "Moving around",
+            topics: ["Движение", "Направления"],
+            vocabulary: ["up", "down", "round", "fast", "slow", "through"],
+            grammar: "The car goes up and down",
+            activities: ["Движения тела", "Направления игра", "Быстро-медленно"],
+            materials: ["AB p.65", "CB p.126-127", "Audio CD7 Track 13-15"]
+          },
+          {
+            number: 63,
+            title: "Feelings at the fair",
+            topics: ["Эмоции", "Чувства на ярмарке"],
+            vocabulary: ["excited", "scared", "happy", "surprised", "dizzy"],
+            grammar: "I feel excited",
+            activities: ["Эмоции на лице", "Театр чувств", "Мои эмоции"],
+            materials: ["AB p.66", "CB p.128-129", "Audio CD8 Track 1-3"]
+          },
+          {
+            number: 64,
+            title: "Funfair adventure story",
+            topics: ["Приключения на ярмарке"],
+            vocabulary: ["Повторение всех слов юнита"],
+            grammar: "Повторение всех структур"],
+            activities: ["Сказка о ярмарке", "Потерялся на ярмарке", "Волшебная карусель"],
+            materials: ["AB p.67", "CB p.130-131", "Audio CD8 Track 4-6"]
+          },
+          {
+            number: 65,
+            title: "Design a funfair",
+            topics: ["Проектируем ярмарку", "Творческий проект"],
+            vocabulary: ["Повторение и дизайн"],
+            grammar: "Повторение и дизайн"],
+            activities: ["Чертеж ярмарки", "Модель парка", "Презентация проекта"],
+            materials: ["AB p.68", "CB p.132-133", "Материалы для модели"]
+          },
+          {
+            number: 66,
+            title: "Funfair board game",
+            topics: ["Настольная игра", "Игровое повторение"],
+            vocabulary: ["Повторение в игре"],
+            grammar: "Повторение в игре"],
+            activities: ["Настольная игра ярмарка", "Соревнование команд", "Игровой турнир"],
+            materials: ["AB p.69", "CB p.134-135", "Игровые материалы"]
+          },
+          {
+            number: 67,
+            title: "Unit 10 review",
+            topics: ["Повторение юнита 10"],
+            vocabulary: ["Все слова юнита 10"],
+            grammar: ["Все структуры юнита 10"],
+            activities: ["Тест ярмарки", "Викторина развлечений", "Портфолио эмоций"],
+            materials: ["AB p.70", "CB p.136", "Тестовые материалы"]
+          }
+        ]
+      },
+      {
+        id: 11,
+        title: "Unit 11 — Our house",
+        description: "Дом, комнаты, мебель и предметы интерьера",
+        color: "bg-amber-50 border-amber-200",
+        lessons: 7,
+        vocabulary: "Комнаты, мебель, предлоги места",
+        grammar: "there is/are (развитие), prepositions of place",
+        lessonDetails: [
+          {
+            number: 68,
+            title: "Rooms of the house",
+            topics: ["Комнаты дома", "Части дома"],
+            vocabulary: ["kitchen", "bedroom", "living room", "bathroom", "garden"],
+            grammar: "There is a kitchen in my house",
+            activities: ["Экскурсия по дому", "План дома", "Моя комната"],
+            materials: ["AB p.71", "CB p.138-139", "Audio CD8 Track 7-9"]
+          },
+          {
+            number: 69,
+            title: "Furniture and objects",
+            topics: ["Мебель", "Предметы интерьера"],
+            vocabulary: ["table", "chair", "bed", "sofa", "lamp", "carpet"],
+            grammar: "There is a bed in the bedroom",
+            activities: ["Обставляем дом", "Магазин мебели", "Дизайнер интерьера"],
+            materials: ["AB p.72", "CB p.140-141", "Audio CD8 Track 10-12"]
+          },
+          {
+            number: 70,
+            title: "Where is it?",
+            topics: ["Расположение предметов", "Предлоги места"],
+            vocabulary: ["next to", "behind", "in front of", "between", "near"],
+            grammar: "The cat is under the table",
+            activities: ["Поиск предметов", "Где моя игрушка", "Прятки в доме"],
+            materials: ["AB p.73", "CB p.142-143", "Audio CD8 Track 13-15"]
+          },
+          {
+            number: 71,
+            title: "House party story",
+            topics: ["Домашняя вечеринка", "Гости в доме"],
+            vocabulary: ["Повторение всех слов юнита"],
+            grammar: "Повторение всех структур"],
+            activities: ["Сказка о вечеринке", "Приглашение гостей", "Праздник дома"],
+            materials: ["AB p.74", "CB p.144-145", "Audio CD9 Track 1-3"]
+          },
+          {
+            number: 72,
+            title: "Dream house project",
+            topics: ["Дом мечты", "Архитектурный проект"],
+            vocabulary: ["Повторение и планирование"],
+            grammar: "Повторение и планирование"],
+            activities: ["Рисуем дом мечты", "Макет дома", "Презентация проекта"],
+            materials: ["AB p.75", "CB p.146-147", "Материалы для макета"]
+          },
+          {
+            number: 73,
+            title: "House games",
+            topics: ["Домашние игры", "Игровое повторение"],
+            vocabulary: ["Повторение в играх"],
+            grammar: "Повторение в играх"],
+            activities: ["Лото Мой дом", "Домино комнаты", "Игра Архитектор"],
+            materials: ["AB p.76", "CB p.148-149", "Игровые карточки"]
+          },
+          {
+            number: 74,
+            title: "Unit 11 review",
+            topics: ["Повторение юнита 11"],
+            vocabulary: ["Все слова юнита 11"],
+            grammar: ["Все структуры юнита 11"],
+            activities: ["Тест о доме", "Викторина интерьер", "Портфолио домов"],
+            materials: ["AB p.77", "CB p.150", "Тестовые материалы"]
+          }
+        ]
+      },
+      {
+        id: 12,
+        title: "Unit 12 — Party time!",
+        description: "Праздники, приглашения и вежливые просьбы",
+        color: "bg-rose-50 border-rose-200",
+        lessons: 6,
+        vocabulary: "Праздники, дни недели, порядковые числительные",
+        grammar: "polite requests & offers, Would you like, Can I",
+        lessonDetails: [
+          {
+            number: 75,
+            title: "Party vocabulary",
+            topics: ["Словарь праздника", "Приглашения"],
+            vocabulary: ["party", "cake", "balloons", "presents", "games", "friends"],
+            grammar: "Would you like to come to my party?",
+            activities: ["Планирование вечеринки", "Приглашения", "Украшения"],
+            materials: ["AB p.78", "CB p.152-153", "Audio CD9 Track 4-6"]
+          },
+          {
+            number: 76,
+            title: "Days and dates",
+            topics: ["Дни недели", "Порядковые числительные"],
+            vocabulary: ["first", "second", "third", "fourth", "fifth", "birthday"],
+            grammar: "My birthday is on the first of May",
+            activities: ["Календарь дней рождения", "Важные даты", "Планировщик"],
+            materials: ["AB p.79", "CB p.154-155", "Audio CD9 Track 7-9"]
+          },
+          {
+            number: 77,
+            title: "Polite requests",
+            topics: ["Вежливые просьбы", "Этикет"],
+            vocabulary: ["please", "thank you", "sorry", "excuse me"],
+            grammar: "Can I have some cake, please?",
+            activities: ["Вежливый разговор", "Этикет за столом", "Магия слов"],
+            materials: ["AB p.80", "CB p.156-157", "Audio CD9 Track 10-12"]
+          },
+          {
+            number: 78,
+            title: "Birthday surprise story",
+            topics: ["Сюрприз на день рождения"],
+            vocabulary: ["Повторение всех слов юнита"],
+            grammar: "Повторение всех структур"],
+            activities: ["Сказка о сюрпризе", "Подготовка сюрприза", "Праздничная история"],
+            materials: ["AB p.81", "CB p.158-159", "Audio CD9 Track 13-15"]
+          },
+          {
+            number: 79,
+            title: "Party preparation",
+            topics: ["Подготовка к празднику", "Финальный проект"],
+            vocabulary: ["Повторение и организация"],
+            grammar: "Повторение и организация"],
+            activities: ["Организация праздника", "Репетиция", "Праздничные роли"],
+            materials: ["AB p.82", "CB p.160-161", "Праздничные материалы"]
+          },
+          {
+            number: 80,
+            title: "Final celebration",
+            topics: ["Финальное празднование", "Итоги года"],
+            vocabulary: ["Все изученные слова"],
+            grammar: ["Все изученные структуры"],
+            activities: ["Итоговый праздник", "Награждение", "Презентация достижений"],
+            materials: ["AB p.83", "CB p.162", "Сертификаты и награды"]
+          }
+        ]
       }
     ],
     materials: [
