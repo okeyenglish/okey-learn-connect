@@ -83,10 +83,14 @@ export default function Auth() {
       // Для Supabase Auth используем номер телефона как email в формате phone@okeyenglish.ru
       const email = loginData.phone.replace(/\D/g, '') + '@okeyenglish.ru';
       
+      console.log('Login attempt with email:', email);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password: loginData.password,
       });
+
+      console.log('Auth result:', { data: data?.user?.id, error: error?.message });
 
       if (error) {
         if (error.message.includes('Invalid login credentials')) {
@@ -100,12 +104,11 @@ export default function Auth() {
       }
 
       if (data.user) {
-        // Получаем роль пользователя
+        // Получаем роль пользователя с приоритетом
         const { data: roleData, error: roleError } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', data.user.id)
-          .single();
+          .rpc('get_user_role', { _user_id: data.user.id });
+
+        console.log('User role:', roleData, 'Error:', roleError);
 
         toast({
           title: "Успешный вход",
@@ -113,10 +116,18 @@ export default function Auth() {
         });
 
         // Перенаправляем в зависимости от роли
-        if (!roleError && roleData?.role === 'student') {
+        if (!roleError && roleData === 'student') {
           navigate('/student-portal');
+        } else if (!roleError && roleData === 'teacher') {
+          navigate('/teacher-portal');
+        } else if (!roleError && roleData === 'admin') {
+          console.log('Redirecting admin to /admin');
+          navigate('/admin');
+        } else if (!roleError && ['manager', 'methodist'].includes(roleData)) {
+          navigate('/newcrm');
         } else {
-          navigate(from);
+          // Fallback - перенаправляем на CRM для неопределенных ролей
+          navigate('/newcrm');
         }
       }
     } catch (error: any) {
