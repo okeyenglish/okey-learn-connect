@@ -14,7 +14,6 @@ import {
   ArrowLeft,
   GraduationCap,
   Target,
-  Search,
   Play,
   Gamepad2,
   FileText,
@@ -53,6 +52,7 @@ interface LessonDetail {
   date: string;
   title: string;
   unit: string;
+  unitNumber: number;
   goals: string[];
   materials: string[];
   structure: Record<string, string>;
@@ -66,6 +66,7 @@ const lessonDetailsData: Record<string, Record<number, LessonDetail>> = {
       date: "2025-09-01",
       title: "Meeting the Star family",
       unit: "Unit 1",
+      unitNumber: 1,
       goals: ["приветствия", "имена персонажей", "числа/цвета"],
       materials: ["PB Unit 1", "AB Unit 1", "TB Unit 1", "Audio (song)", "KB1 интерактив"],
       structure: {
@@ -82,6 +83,7 @@ const lessonDetailsData: Record<string, Record<number, LessonDetail>> = {
       date: "2025-09-04",
       title: "Where is it? (in/on/under)",
       unit: "Unit 1",
+      unitNumber: 1,
       goals: ["предлоги места", "понимание инструкций"],
       materials: ["PB Unit 1", "AB Unit 1", "TB", "Audio (short dialogue)", "KB1 game"],
       structure: {
@@ -98,6 +100,7 @@ const lessonDetailsData: Record<string, Record<number, LessonDetail>> = {
       date: "2025-09-08",
       title: "Family and age",
       unit: "Unit 1",
+      unitNumber: 1,
       goals: ["семья", "How old are you?", "числа 1–10 повтор"],
       materials: ["PB/AB Unit 1", "TB", "Age cards", "KB1"],
       structure: {
@@ -114,6 +117,7 @@ const lessonDetailsData: Record<string, Record<number, LessonDetail>> = {
       date: "2025-09-11",
       title: "Classroom commands & objects",
       unit: "Unit 1",
+      unitNumber: 1,
       goals: ["команды учителя", "предметы класса", "вежливые просьбы"],
       materials: ["PB/AB Unit 1", "TB", "Flashcards", "KB1"],
       structure: {
@@ -192,8 +196,8 @@ const availableCourses = [
 export default function CourseDetails() {
   const { courseSlug } = useParams<{ courseSlug: string }>();
   const navigate = useNavigate();
-  const [searchLessonNumber, setSearchLessonNumber] = useState('');
   const [selectedLesson, setSelectedLesson] = useState<number | null>(null);
+  const [expandedUnits, setExpandedUnits] = useState<Set<number>>(new Set());
 
   // Получение данных о курсе
   const { data: course, isLoading: courseLoading } = useQuery({
@@ -239,20 +243,30 @@ export default function CourseDetails() {
   // Получение детальных планов уроков для текущего курса
   const lessonDetails = lessonDetailsData[courseSlug as keyof typeof lessonDetailsData] || {};
 
-  // Функция поиска урока
-  const handleSearchLesson = () => {
-    const lessonNum = parseInt(searchLessonNumber);
-    if (lessonNum && lessonDetails[lessonNum]) {
-      setSelectedLesson(lessonNum);
-    }
-  };
-
   // Закрытие модального окна урока
   const closeDialog = () => {
     setSelectedLesson(null);
   };
 
   const selectedLessonData = selectedLesson ? lessonDetails[selectedLesson] : null;
+
+  // Функция для переключения раскрытия юнита
+  const toggleUnit = (unitNumber: number) => {
+    const newExpanded = new Set(expandedUnits);
+    if (newExpanded.has(unitNumber)) {
+      newExpanded.delete(unitNumber);
+    } else {
+      newExpanded.add(unitNumber);
+    }
+    setExpandedUnits(newExpanded);
+  };
+
+  // Получение уроков для конкретного юнита
+  const getUnitLessons = (unitNumber: number) => {
+    return Object.entries(lessonDetails)
+      .filter(([_, lesson]) => lesson.unitNumber === unitNumber)
+      .map(([lessonNum, lesson]) => ({ lessonNumber: parseInt(lessonNum), ...lesson }));
+  };
 
   // Определение цвета для юнита
   const getUnitColor = (unitNumber: number) => {
@@ -366,9 +380,8 @@ export default function CourseDetails() {
         {/* Main Content */}
         <div className="container mx-auto px-4 py-8">
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="overview">Обзор</TabsTrigger>
-              <TabsTrigger value="lessons">Уроки</TabsTrigger>
               <TabsTrigger value="template">Шаблон урока</TabsTrigger>
               <TabsTrigger value="trainers">Тренажёры</TabsTrigger>
               <TabsTrigger value="materials">Материалы</TabsTrigger>
@@ -386,7 +399,11 @@ export default function CourseDetails() {
                 <CardContent>
                   <div className="grid gap-4">
                     {units?.map((unit) => (
-                      <Collapsible key={unit.id}>
+                      <Collapsible 
+                        key={unit.id} 
+                        open={expandedUnits.has(unit.unit_number)}
+                        onOpenChange={() => toggleUnit(unit.unit_number)}
+                      >
                         <CollapsibleTrigger asChild>
                           <Card className={`cursor-pointer transition-all hover:shadow-md ${getUnitColor(unit.unit_number)}`}>
                             <CardContent className="p-6">
@@ -422,6 +439,44 @@ export default function CourseDetails() {
                                 <h4 className="font-semibold text-blue-600 mb-2">⚙️ Грамматика:</h4>
                                 <p className="text-gray-700">{unit.grammar}</p>
                               </div>
+
+                              {/* Уроки внутри юнита */}
+                              {getUnitLessons(unit.unit_number).length > 0 && (
+                                <div className="mt-6">
+                                  <h4 className="font-semibold text-purple-600 mb-3">📖 Уроки:</h4>
+                                  <div className="grid gap-3">
+                                    {getUnitLessons(unit.unit_number).map((lesson) => (
+                                      <Card
+                                        key={lesson.lessonNumber}
+                                        className="cursor-pointer hover:shadow-md transition-shadow border-l-4 border-l-blue-500"
+                                        onClick={() => setSelectedLesson(lesson.lessonNumber)}
+                                      >
+                                        <CardContent className="p-4">
+                                          <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                              <Badge variant="outline" className="text-xs">
+                                                Урок {lesson.lessonNumber}
+                                              </Badge>
+                                              <span className="text-xs text-muted-foreground">{lesson.date}</span>
+                                            </div>
+                                          </div>
+                                          <h5 className="font-medium text-sm mb-2">{lesson.title}</h5>
+                                          <div className="space-y-2">
+                                            <div>
+                                              <p className="text-xs font-medium text-gray-600">Цели:</p>
+                                              <p className="text-xs text-gray-500">{lesson.goals.join(", ")}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-xs font-medium text-gray-600">ДЗ:</p>
+                                              <p className="text-xs text-gray-500 line-clamp-1">{lesson.homework}</p>
+                                            </div>
+                                          </div>
+                                        </CardContent>
+                                      </Card>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </CardContent>
                           </Card>
                         </CollapsibleContent>
@@ -430,73 +485,7 @@ export default function CourseDetails() {
                   </div>
                 </CardContent>
               </Card>
-            </TabsContent>
-
-            {/* Lessons Tab */}
-            <TabsContent value="lessons" className="space-y-6">
-              {/* Поиск урока */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Search className="w-5 h-5" />
-                    Поиск урока по номеру
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      placeholder="Номер урока (1-40)"
-                      value={searchLessonNumber}
-                      onChange={(e) => setSearchLessonNumber(e.target.value)}
-                      min="1"
-                      max="40"
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    />
-                    <Button onClick={handleSearchLesson}>
-                      <Search className="w-4 h-4 mr-2" />
-                      Найти урок
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Сетка уроков */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Object.entries(lessonDetails).map(([lessonNum, lesson]) => (
-                  <Card 
-                    key={lessonNum} 
-                    className="cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => setSelectedLesson(parseInt(lessonNum))}
-                  >
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <Badge variant="outline">Урок {lessonNum}</Badge>
-                        <Badge variant="secondary">{lesson.unit}</Badge>
-                      </div>
-                      <CardTitle className="text-base leading-tight">{lesson.title}</CardTitle>
-                      <p className="text-xs text-muted-foreground">{lesson.date}</p>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="space-y-2">
-                        <div>
-                          <p className="text-sm font-medium">Цели:</p>
-                          <p className="text-xs text-muted-foreground">
-                            {lesson.goals.join(", ")}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">ДЗ:</p>
-                          <p className="text-xs text-muted-foreground line-clamp-2">
-                            {lesson.homework}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
+             </TabsContent>
 
             {/* Template Tab */}
             <TabsContent value="template" className="space-y-6">
