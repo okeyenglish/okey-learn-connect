@@ -111,42 +111,48 @@ export const MaterialsList = ({ materials, courseTitle, onBack }: MaterialsListP
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3">
-              {pdfMaterials.map(material => (
-                <div 
-                  key={material.id}
-                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3 flex-1">
-                    <FileText className="h-5 w-5 text-red-500" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{material.title}</p>
-                      {material.description && (
-                        <p className="text-sm text-muted-foreground truncate">
-                          {material.description}
-                        </p>
-                      )}
-                      {material.category && (
-                        <Badge variant="outline" className="mt-1">
-                          {getCategoryLabel(material.category)}
-                        </Badge>
-                      )}
+            <div className="grid gap-2">
+              {pdfMaterials.map(material => {
+                const openPDF = () => {
+                  window.open(material.file_url, '_blank');
+                };
+                
+                return (
+                  <Card 
+                    key={material.id}
+                    className="p-3 hover:shadow-md transition-all cursor-pointer"
+                    onClick={openPDF}
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-6 w-6 text-red-500 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{material.title}</p>
+                        {material.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-1">
+                            {material.description}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2 mt-1">
+                          {material.category && (
+                            <Badge variant="outline" className="text-xs">
+                              {getCategoryLabel(material.category)}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <PDFViewer
+                        url={material.file_url}
+                        fileName={material.file_name}
+                        trigger={
+                          <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        }
+                      />
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <PDFViewer
-                      url={material.file_url}
-                      fileName={material.file_name}
-                      trigger={
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4 mr-2" />
-                          Открыть
-                        </Button>
-                      }
-                    />
-                  </div>
-                </div>
-              ))}
+                  </Card>
+                );
+              })}
             </div>
           </CardContent>
         </Card>

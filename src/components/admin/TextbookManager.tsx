@@ -146,6 +146,20 @@ export const TextbookManager = () => {
     return subcategories.find(s => s.value === value)?.label || value;
   };
 
+  const getCategoryLabel = (category?: string) => {
+    const categories = {
+      'pupil-book': "Pupil's Book",
+      'activity-book': 'Activity Book',
+      'teacher-book': "Teacher's Book", 
+      'lesson-example': 'Пример урока',
+      'overview': 'Обзор программы',
+      'audio': 'Аудиоматериалы',
+      'video': 'Видеоматериалы',
+      'general': 'Общие материалы'
+    };
+    return categories[category as keyof typeof categories] || category;
+  };
+
   const filteredSubcategories = subcategories.filter(s => 
     s.parentCategory === uploadForm.category || s.parentCategory === editingTextbook?.category
   );
@@ -341,14 +355,14 @@ export const TextbookManager = () => {
                           </Badge>
                         )}
                         {textbook.category && (
-                        <Badge variant="outline">
-                          {getCategoryLabel(textbook.category)}
-                        </Badge>
+                          <Badge variant="outline">
+                            {getCategoryLabel(textbook.category)}
+                          </Badge>
+                        )}
                         {textbook.subcategory && (
                           <Badge variant="secondary">
                             {getSubcategoryLabel(textbook.subcategory)}
                           </Badge>
-                        )}
                         )}
                         {textbook.file_size && (
                           <span className="text-xs text-muted-foreground">
