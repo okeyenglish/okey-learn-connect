@@ -22,12 +22,11 @@ export default function TeacherPortal() {
     queryFn: async () => {
       if (!profile?.first_name || !profile?.last_name) return null;
       
-      const fullName = `${profile.last_name} ${profile.first_name}`;
-      
       const { data, error } = await supabase
         .from('teachers')
         .select('*')
-        .or(`first_name.eq.${profile.first_name},last_name.eq.${profile.last_name}`)
+        .eq('first_name', profile.first_name)
+        .eq('last_name', profile.last_name)
         .eq('is_active', true)
         .limit(1);
       
