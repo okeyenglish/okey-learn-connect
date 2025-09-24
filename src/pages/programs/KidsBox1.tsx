@@ -1821,7 +1821,7 @@ export default function KidsBox1() {
               <div className="space-y-6">
                 <TextbookSection 
                   title="Учебные материалы Kid's Box 1"
-                  materials={textbookMaterials}
+                  programType="kids-box-1"
                 />
                 
                 <Card>
