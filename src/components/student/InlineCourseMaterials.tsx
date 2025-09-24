@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, Search, Lock, FileText, Headphones, Video, ArrowLeft } from 'lucide-react';
+import { BookOpen, Search, Lock, FileText, Headphones, Video, ArrowLeft, Folder, FolderOpen } from 'lucide-react';
 import { useTextbooks, Textbook } from '@/hooks/useTextbooks';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -13,6 +13,46 @@ import { AudioPlayer } from './AudioPlayer';
 interface InlineCourseMaterialsProps {
   selectedCourse?: string;
 }
+
+interface MaterialFolder {
+  subcategory: string | null;
+  label: string;
+  materials: Textbook[];
+  count: number;
+}
+
+const subcategoryLabels: Record<string, string> = {
+  'cd1': 'CD1',
+  'cd2': 'CD2',
+  'cd3': 'CD3',
+  'audio-cd1': 'Audio CD1',
+  'audio-cd2': 'Audio CD2',
+  'audio-cd3': 'Audio CD3',
+  'unit-1': 'Unit 1',
+  'unit-2': 'Unit 2', 
+  'unit-3': 'Unit 3',
+  'unit-4': 'Unit 4',
+  'unit-5': 'Unit 5',
+  'unit-6': 'Unit 6',
+  'unit-7': 'Unit 7',
+  'unit-8': 'Unit 8',
+  'unit-9': 'Unit 9',
+  'unit-10': 'Unit 10',
+  'unit-11': 'Unit 11',
+  'unit-12': 'Unit 12',
+  'grammar-songs': 'Грамматические песни',
+  'vocabulary': 'Словарные упражнения',
+  'listening-exercises': 'Упражнения на слух',
+  'pronunciation': 'Произношение',
+  'stories': 'Истории и сказки',
+  'workbook': 'Рабочая тетрадь',
+  'teacher-book': 'Книга учителя',
+  'student-book': 'Учебник',
+  'activity-book': 'Книга активностей',
+  'flashcards': 'Карточки',
+  'posters': 'Плакаты',
+  'tests': 'Тесты'
+};
 
 const programLabels: Record<string, { title: string; description: string }> = {
   'super-safari-1': {
@@ -109,10 +149,30 @@ const programLabels: Record<string, { title: string; description: string }> = {
   }
 };
 
+const groupMaterialsByFolder = (materials: Textbook[]): MaterialFolder[] => {
+  const grouped = materials.reduce((acc, material) => {
+    const subcategory = material.subcategory || 'general';
+    
+    if (!acc[subcategory]) {
+      acc[subcategory] = [];
+    }
+    acc[subcategory].push(material);
+    return acc;
+  }, {} as Record<string, Textbook[]>);
+
+  return Object.entries(grouped).map(([subcategory, materials]) => ({
+    subcategory: subcategory === 'general' ? null : subcategory,
+    label: subcategoryLabels[subcategory] || subcategory,
+    materials,
+    count: materials.length
+  }));
+};
+
 export const InlineCourseMaterials = ({ selectedCourse: courseFilter }: InlineCourseMaterialsProps) => {
   const { textbooks, loading, fetchTextbooks } = useTextbooks();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMaterial, setSelectedMaterial] = useState<Textbook | null>(null);
+  const [selectedFolder, setSelectedFolder] = useState<{ type: string; folder: MaterialFolder } | null>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -154,6 +214,11 @@ export const InlineCourseMaterials = ({ selectedCourse: courseFilter }: InlineCo
     m.category === 'video' || m.file_name.match(/\.(mp4|avi|mov|wmv|flv|webm)$/i)
   );
 
+  // Группируем материалы по папкам
+  const educationalFolders = groupMaterialsByFolder(educationalMaterials);
+  const audioFolders = groupMaterialsByFolder(audioMaterials);
+  const videoFolders = groupMaterialsByFolder(videoMaterials);
+
   const getCategoryLabel = (category: string, subcategory?: string) => {
     if (subcategory) {
       return `${category} - ${subcategory}`;
@@ -194,6 +259,72 @@ export const InlineCourseMaterials = ({ selectedCourse: courseFilter }: InlineCo
           </Button>
         </CardContent>
       </Card>
+    );
+  }
+
+  // Показываем содержимое выбранной папки
+  if (selectedFolder) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setSelectedFolder(null)}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Назад к материалам
+          </Button>
+          <div>
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <FolderOpen className="h-5 w-5" />
+              {selectedFolder.folder.label}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {selectedFolder.folder.count} материалов
+            </p>
+          </div>
+        </div>
+        
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {selectedFolder.folder.materials.map((material) => (
+            <Card 
+              key={material.id} 
+              className="cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => {
+                if (selectedFolder.type === 'educational') {
+                  setSelectedMaterial(material);
+                } else if (selectedFolder.type === 'video') {
+                  window.open(material.file_url, '_blank');
+                }
+              }}
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  {selectedFolder.type === 'educational' && <FileText className="h-8 w-8 text-primary flex-shrink-0" />}
+                  {selectedFolder.type === 'audio' && <Headphones className="h-8 w-8 text-primary flex-shrink-0" />}
+                  {selectedFolder.type === 'video' && <Video className="h-8 w-8 text-primary flex-shrink-0" />}
+                  <Badge variant="outline" className="text-xs">
+                    {getCategoryLabel(material.category || 'other', material.subcategory)}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <h4 className="font-medium text-sm mb-2 line-clamp-2">{material.title}</h4>
+                {material.description && (
+                  <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{material.description}</p>
+                )}
+                {selectedFolder.type === 'audio' && (
+                  <AudioPlayer 
+                    src={material.file_url}
+                    title={material.title}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
     );
   }
 
@@ -269,32 +400,27 @@ export const InlineCourseMaterials = ({ selectedCourse: courseFilter }: InlineCo
       ) : (
         <div className="grid gap-6">
           {/* Учебные материалы */}
-          {educationalMaterials.length > 0 && (
+          {educationalFolders.length > 0 && (
             <div>
               <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                 <FileText className="h-5 w-5" />
                 Учебные материалы ({educationalMaterials.length})
               </h3>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {educationalMaterials.map((material) => (
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {educationalFolders.map((folder) => (
                   <Card 
-                    key={material.id} 
+                    key={folder.subcategory || 'general'} 
                     className="cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => setSelectedMaterial(material)}
+                    onClick={() => setSelectedFolder({ type: 'educational', folder })}
                   >
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <FileText className="h-8 w-8 text-primary flex-shrink-0" />
-                        <Badge variant="outline" className="text-xs">
-                          {getCategoryLabel(material.category || 'other', material.subcategory)}
-                        </Badge>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <Folder className="h-8 w-8 text-blue-600" />
+                        <div>
+                          <h4 className="font-medium text-sm">{folder.label}</h4>
+                          <p className="text-xs text-muted-foreground">{folder.count} файлов</p>
+                        </div>
                       </div>
-                    </CardHeader>
-                    <CardContent>
-                      <h4 className="font-medium text-sm mb-2 line-clamp-2">{material.title}</h4>
-                      {material.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-2">{material.description}</p>
-                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -303,32 +429,27 @@ export const InlineCourseMaterials = ({ selectedCourse: courseFilter }: InlineCo
           )}
 
           {/* Аудио материалы */}
-          {audioMaterials.length > 0 && (
+          {audioFolders.length > 0 && (
             <div>
               <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                 <Headphones className="h-5 w-5" />
                 Аудио материалы ({audioMaterials.length})
               </h3>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {audioMaterials.map((material) => (
-                  <Card key={material.id}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <Headphones className="h-8 w-8 text-primary flex-shrink-0" />
-                        <Badge variant="outline" className="text-xs">
-                          {getCategoryLabel(material.category || 'audio', material.subcategory)}
-                        </Badge>
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {audioFolders.map((folder) => (
+                  <Card 
+                    key={folder.subcategory || 'general'} 
+                    className="cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => setSelectedFolder({ type: 'audio', folder })}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <Folder className="h-8 w-8 text-red-600" />
+                        <div>
+                          <h4 className="font-medium text-sm">{folder.label}</h4>
+                          <p className="text-xs text-muted-foreground">{folder.count} файлов</p>
+                        </div>
                       </div>
-                    </CardHeader>
-                    <CardContent>
-                      <h4 className="font-medium text-sm mb-2 line-clamp-2">{material.title}</h4>
-                      {material.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{material.description}</p>
-                      )}
-                      <AudioPlayer 
-                        src={material.file_url}
-                        title={material.title}
-                      />
                     </CardContent>
                   </Card>
                 ))}
@@ -337,32 +458,27 @@ export const InlineCourseMaterials = ({ selectedCourse: courseFilter }: InlineCo
           )}
 
           {/* Видео материалы */}
-          {videoMaterials.length > 0 && (
+          {videoFolders.length > 0 && (
             <div>
               <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                 <Video className="h-5 w-5" />
                 Видео материалы ({videoMaterials.length})
               </h3>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {videoMaterials.map((material) => (
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {videoFolders.map((folder) => (
                   <Card 
-                    key={material.id} 
+                    key={folder.subcategory || 'general'} 
                     className="cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => window.open(material.file_url, '_blank')}
+                    onClick={() => setSelectedFolder({ type: 'video', folder })}
                   >
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <Video className="h-8 w-8 text-primary flex-shrink-0" />
-                        <Badge variant="outline" className="text-xs">
-                          {getCategoryLabel(material.category || 'video', material.subcategory)}
-                        </Badge>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <Folder className="h-8 w-8 text-green-600" />
+                        <div>
+                          <h4 className="font-medium text-sm">{folder.label}</h4>
+                          <p className="text-xs text-muted-foreground">{folder.count} файлов</p>
+                        </div>
                       </div>
-                    </CardHeader>
-                    <CardContent>
-                      <h4 className="font-medium text-sm mb-2 line-clamp-2">{material.title}</h4>
-                      {material.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-2">{material.description}</p>
-                      )}
                     </CardContent>
                   </Card>
                 ))}
