@@ -199,6 +199,28 @@ export default function CourseDetails() {
     return map;
   }, [lessons]);
 
+  // Создаем глобальную нумерацию уроков от 1 до 80
+  const lessonGlobalNumbers = useMemo(() => {
+    const numberMap: Record<string, number> = {};
+    if (!lessons || !units) return numberMap;
+    
+    // Сортируем уроки по юнитам и номерам внутри юнитов
+    const sortedUnits = [...units].sort((a, b) => a.sort_order - b.sort_order);
+    let globalNumber = 1;
+    
+    sortedUnits.forEach(unit => {
+      const unitLessons = lessonsByUnitId[unit.id] || [];
+      const sortedLessons = [...unitLessons].sort((a, b) => a.sort_order - b.sort_order);
+      
+      sortedLessons.forEach(lesson => {
+        numberMap[lesson.id] = globalNumber;
+        globalNumber++;
+      });
+    });
+    
+    return numberMap;
+  }, [lessons, units, lessonsByUnitId]);
+
   // Функция для переключения между курсами
   const handleCourseChange = (newCourseSlug: string) => {
     navigate(`/programs/course-details/${newCourseSlug}`);
@@ -407,9 +429,9 @@ export default function CourseDetails() {
                                         <CardContent className="p-4">
                                           <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
-                                              <Badge variant="outline" className="text-xs">
-                                                Урок {lesson.lesson_number}
-                                              </Badge>
+                                               <Badge variant="outline" className="text-xs">
+                                                 Урок {lessonGlobalNumbers[lesson.id] || lesson.lesson_number}
+                                               </Badge>
                                             </div>
                                           </div>
                                           <h5 className="font-medium text-sm mb-2">{lesson.title}</h5>
@@ -614,7 +636,7 @@ export default function CourseDetails() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Calendar className="w-5 h-5" />
-                Урок {selectedLesson.lesson_number}: {selectedLesson.title}
+                Урок {lessonGlobalNumbers[selectedLesson.id] || selectedLesson.lesson_number}: {selectedLesson.title}
               </DialogTitle>
               <DialogDescription>
                 Юнит {unitById[selectedLesson.unit_id]?.unit_number || ''}: {unitById[selectedLesson.unit_id]?.title || ''}
