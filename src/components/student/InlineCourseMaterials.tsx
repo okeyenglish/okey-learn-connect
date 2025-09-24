@@ -75,6 +75,10 @@ const programLabels: Record<string, { title: string; description: string }> = {
     title: "Kid's Box 1",
     description: 'Курс английского языка для детей (начальный уровень)'
   },
+  'kids-box-1': {
+    title: "Kid's Box 1",
+    description: 'Курс английского языка для детей (начальный уровень)'
+  },
   'kids-box-2': {
     title: "Kid's Box 2", 
     description: 'Курс английского языка для детей (продолжающий уровень)'

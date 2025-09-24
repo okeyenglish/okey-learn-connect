@@ -14,11 +14,28 @@ import { PDFViewer } from '@/components/PDFViewer';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const programTypes = [
+  { value: 'super-safari-1', label: 'Super Safari 1' },
+  { value: 'super-safari-2', label: 'Super Safari 2' },
+  { value: 'super-safari-3', label: 'Super Safari 3' },
+  { value: 'kids-box-starter', label: "Kid's Box Starter" },
   { value: 'kids-box-1', label: "Kid's Box 1" },
   { value: 'kids-box-2', label: "Kid's Box 2" },
-  { value: 'prepare', label: 'Prepare' },
-  { value: 'empower', label: 'Empower' },
-  { value: 'super-safari', label: 'Super Safari' },
+  { value: 'kids-box-3-4', label: "Kid's Box 3+4" },
+  { value: 'kids-box-5', label: "Kid's Box 5" },
+  { value: 'kids-box-6', label: "Kid's Box 6" },
+  { value: 'prepare-1', label: 'Prepare 1' },
+  { value: 'prepare-2', label: 'Prepare 2' },
+  { value: 'prepare-3', label: 'Prepare 3' },
+  { value: 'prepare-4', label: 'Prepare 4' },
+  { value: 'prepare-5', label: 'Prepare 5' },
+  { value: 'prepare-6', label: 'Prepare 6' },
+  { value: 'prepare-7', label: 'Prepare 7' },
+  { value: 'empower-1', label: 'Empower 1' },
+  { value: 'empower-2', label: 'Empower 2' },
+  { value: 'empower-3', label: 'Empower 3' },
+  { value: 'empower-4', label: 'Empower 4' },
+  { value: 'empower-5', label: 'Empower 5' },
+  { value: 'empower-6', label: 'Empower 6' },
   { value: 'other', label: 'Другое' }
 ];
 
@@ -29,15 +46,38 @@ const categories = [
 ];
 
 const educationalSubcategories = [
+  { value: 'student-book', label: "Student's Book" },
   { value: 'pupil-book', label: "Pupil's Book" },
   { value: 'activity-book', label: 'Activity Book' },
+  { value: 'workbook', label: 'Workbook' },
   { value: 'teacher-book', label: "Teacher's Book" },
+  { value: 'teacher-guide', label: "Teacher's Guide" },
+  { value: 'flashcards', label: 'Flashcards' },
+  { value: 'posters', label: 'Posters' },
+  { value: 'tests', label: 'Tests & Assessment' },
   { value: 'overview', label: 'Обзор программы' },
   { value: 'general', label: 'Общие материалы' }
 ];
 
 const audioSubcategories = [
-  { value: 'units', label: 'Units' },
+  { value: 'cd1', label: 'CD1' },
+  { value: 'cd2', label: 'CD2' },
+  { value: 'cd3', label: 'CD3' },
+  { value: 'audio-cd1', label: 'Audio CD1' },
+  { value: 'audio-cd2', label: 'Audio CD2' },
+  { value: 'unit-1', label: 'Unit 1' },
+  { value: 'unit-2', label: 'Unit 2' },
+  { value: 'unit-3', label: 'Unit 3' },
+  { value: 'unit-4', label: 'Unit 4' },
+  { value: 'unit-5', label: 'Unit 5' },
+  { value: 'unit-6', label: 'Unit 6' },
+  { value: 'unit-7', label: 'Unit 7' },
+  { value: 'unit-8', label: 'Unit 8' },
+  { value: 'unit-9', label: 'Unit 9' },
+  { value: 'unit-10', label: 'Unit 10' },
+  { value: 'unit-11', label: 'Unit 11' },
+  { value: 'unit-12', label: 'Unit 12' },
+  { value: 'units', label: 'Units (общая папка)' },
   { value: 'grammar-songs', label: 'Грамматические песни' },
   { value: 'vocabulary', label: 'Словарные упражнения' },
   { value: 'listening-exercises', label: 'Упражнения на слух' },
@@ -170,7 +210,33 @@ export const TextbookManager = () => {
   };
 
   const getProgramTypeLabel = (value?: string) => {
-    return programTypes.find(pt => pt.value === value)?.label || value;
+    const labelMap: Record<string, string> = {
+      'super-safari-1': 'Super Safari 1',
+      'super-safari-2': 'Super Safari 2',
+      'super-safari-3': 'Super Safari 3',
+      'kids-box-starter': "Kid's Box Starter",
+      'kids-box-1': "Kid's Box 1",
+      'kids_box_1': "Kid's Box 1", // поддержка старого формата
+      'kids-box-2': "Kid's Box 2",
+      'kids-box-3-4': "Kid's Box 3+4",
+      'kids-box-5': "Kid's Box 5",
+      'kids-box-6': "Kid's Box 6",
+      'prepare-1': 'Prepare 1',
+      'prepare-2': 'Prepare 2',
+      'prepare-3': 'Prepare 3',
+      'prepare-4': 'Prepare 4',
+      'prepare-5': 'Prepare 5',
+      'prepare-6': 'Prepare 6',
+      'prepare-7': 'Prepare 7',
+      'empower-1': 'Empower 1',
+      'empower-2': 'Empower 2',
+      'empower-3': 'Empower 3',
+      'empower-4': 'Empower 4',
+      'empower-5': 'Empower 5',
+      'empower-6': 'Empower 6',
+      'other': 'Другое'
+    };
+    return labelMap[value || ''] || value;
   };
 
   const getCategoryLabel = (category?: string) => {
@@ -184,18 +250,36 @@ export const TextbookManager = () => {
 
   const getSubcategoryLabel = (subcategory?: string) => {
     const subcategoryMap = {
+      'student-book': "Student's Book",
       'pupil-book': "Pupil's Book",
       'activity-book': 'Activity Book',
-      'teacher-book': "Teacher's Book", 
+      'workbook': 'Workbook',
+      'teacher-book': "Teacher's Book",
+      'teacher-guide': "Teacher's Guide",
+      'flashcards': 'Flashcards',
+      'posters': 'Posters',
+      'tests': 'Tests & Assessment',
       'overview': 'Обзор программы',
       'general': 'Общие материалы',
+      'cd1': 'CD1',
+      'cd2': 'CD2',
+      'cd3': 'CD3',
+      'audio-cd1': 'Audio CD1',
+      'audio-cd2': 'Audio CD2',
+      'audio-cd3': 'Audio CD3',
       'units': 'Units',
-      'unit-1': 'Units',
-      'unit-2': 'Units',
-      'unit-3': 'Units',
-      'unit-4': 'Units',
-      'unit-5': 'Units',
-      'unit-6': 'Units',
+      'unit-1': 'Unit 1',
+      'unit-2': 'Unit 2',
+      'unit-3': 'Unit 3',
+      'unit-4': 'Unit 4',
+      'unit-5': 'Unit 5',
+      'unit-6': 'Unit 6',
+      'unit-7': 'Unit 7',
+      'unit-8': 'Unit 8',
+      'unit-9': 'Unit 9',
+      'unit-10': 'Unit 10',
+      'unit-11': 'Unit 11',
+      'unit-12': 'Unit 12',
       'lesson-example': 'Units',
       'grammar-songs': 'Грамматические песни',
       'vocabulary': 'Словарные упражнения',
