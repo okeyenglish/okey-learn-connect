@@ -85,6 +85,30 @@ const audioSubcategories = [
   { value: 'stories', label: 'Истории и сказки' }
 ];
 
+const videoSubcategories = [
+  { value: 'unit-1', label: 'Unit 1' },
+  { value: 'unit-2', label: 'Unit 2' },
+  { value: 'unit-3', label: 'Unit 3' },
+  { value: 'unit-4', label: 'Unit 4' },
+  { value: 'unit-5', label: 'Unit 5' },
+  { value: 'unit-6', label: 'Unit 6' },
+  { value: 'unit-7', label: 'Unit 7' },
+  { value: 'unit-8', label: 'Unit 8' },
+  { value: 'unit-9', label: 'Unit 9' },
+  { value: 'unit-10', label: 'Unit 10' },
+  { value: 'unit-11', label: 'Unit 11' },
+  { value: 'unit-12', label: 'Unit 12' },
+  { value: 'lessons', label: 'Уроки' },
+  { value: 'grammar', label: 'Грамматика' },
+  { value: 'vocabulary', label: 'Лексика' },
+  { value: 'pronunciation', label: 'Произношение' },
+  { value: 'songs', label: 'Песни' },
+  { value: 'stories', label: 'Сказки и истории' },
+  { value: 'games', label: 'Игры' },
+  { value: 'presentations', label: 'Презентации' },
+  { value: 'general', label: 'Общие видео' }
+];
+
 const getFileIcon = (fileName: string, category?: string) => {
   const ext = fileName.toLowerCase().split('.').pop();
   if (category === 'audio' || ['mp3', 'wav', 'ogg', 'm4a', 'aac'].includes(ext || '')) {
@@ -114,15 +138,18 @@ export const TextbookManager = () => {
       const fileArray = Array.from(files);
       const allowedTypes = [
         'application/pdf',
-        'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/m4a', 'audio/aac'
+        'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/m4a', 'audio/aac',
+        'video/mp4', 'video/avi', 'video/mov', 'video/wmv', 'video/flv', 'video/webm'
       ];
       
       const validFiles = fileArray.filter(file => {
-        return allowedTypes.some(type => file.type === type || file.type.startsWith('audio/'));
+        return allowedTypes.some(type => file.type === type || 
+          file.type.startsWith('audio/') || 
+          file.type.startsWith('video/'));
       });
 
       if (validFiles.length !== fileArray.length) {
-        alert(`Из ${fileArray.length} файлов принято ${validFiles.length}. Поддерживаются только PDF и аудио файлы (MP3, WAV, OGG, M4A, AAC)`);
+        alert(`Из ${fileArray.length} файлов принято ${validFiles.length}. Поддерживаются только PDF, аудио файлы (MP3, WAV, OGG, M4A, AAC) и видео файлы (MP4, AVI, MOV, WMV, FLV, WebM)`);
       }
 
       setSelectedFiles(validFiles);
@@ -132,7 +159,8 @@ export const TextbookManager = () => {
         const firstFile = validFiles[0];
         setUploadForm(prev => ({ 
           ...prev, 
-          category: firstFile.type.startsWith('audio/') ? 'audio' : 'educational'
+          category: firstFile.type.startsWith('audio/') ? 'audio' : 
+                   firstFile.type.startsWith('video/') ? 'video' : 'educational'
         }));
       }
     }
@@ -285,7 +313,12 @@ export const TextbookManager = () => {
       'vocabulary': 'Словарные упражнения',
       'listening-exercises': 'Упражнения на слух',
       'pronunciation': 'Произношение',
-      'stories': 'Истории и сказки'
+      'stories': 'Истории и сказки',
+      'lessons': 'Уроки',
+      'grammar': 'Грамматика',
+      'songs': 'Песни',
+      'games': 'Игры',
+      'presentations': 'Презентации'
     };
     return subcategoryMap[subcategory as keyof typeof subcategoryMap] || subcategory;
   };
@@ -293,6 +326,7 @@ export const TextbookManager = () => {
   const getAvailableSubcategories = (category: string) => {
     if (category === 'audio') return audioSubcategories;
     if (category === 'educational') return educationalSubcategories;
+    if (category === 'video') return videoSubcategories;
     return [];
   };
 
@@ -314,7 +348,7 @@ export const TextbookManager = () => {
       acc[programType][category] = {};
     }
     
-    if (subcategory && (category === 'audio' || category === 'educational')) {
+    if (subcategory && (category === 'audio' || category === 'educational' || category === 'video')) {
       if (!acc[programType][category][subcategory]) {
         acc[programType][category][subcategory] = [];
       }
@@ -386,11 +420,11 @@ export const TextbookManager = () => {
             <DialogHeader>
               <DialogTitle>Загрузить материалы</DialogTitle>
               <DialogDescription>
-                Выберите один или несколько PDF/аудио файлов для загрузки. Для каждого файла будет создана отдельная запись с именем файла как заголовком.
+                Выберите один или несколько PDF/аудио/видео файлов для загрузки. Для каждого файла будет создана отдельная запись с именем файла как заголовком.
                 <br />
                 <strong>💡 Массовая загрузка:</strong> Зажмите Ctrl (Cmd на Mac) для выбора нескольких файлов сразу.
                 <br />
-                <strong>Для создания папок:</strong> Выберите категорию "Аудиоматериалы" и затем выберите подкатегорию (папку).
+                <strong>Для создания папок:</strong> Выберите категорию "Аудиоматериалы", "Видеоматериалы" или "Учебные материалы" и затем выберите подкатегорию (папку) или создайте новую.
               </DialogDescription>
             </DialogHeader>
             
@@ -400,7 +434,7 @@ export const TextbookManager = () => {
                 <Input
                   id="file"
                   type="file"
-                  accept=".pdf,.mp3,.wav,.ogg,.m4a,.aac"
+                  accept=".pdf,.mp3,.wav,.ogg,.m4a,.aac,.mp4,.avi,.mov,.wmv,.flv,.webm"
                   onChange={handleFileSelect}
                   className="mt-1"
                   multiple
@@ -465,28 +499,38 @@ export const TextbookManager = () => {
                 </Select>
               </div>
 
-              {(uploadForm.category === 'audio' || uploadForm.category === 'educational') && (
+              {(uploadForm.category === 'audio' || uploadForm.category === 'educational' || uploadForm.category === 'video') && (
                 <div className="space-y-3">
                   <Label htmlFor="subcategory">
-                    {uploadForm.category === 'audio' ? 'Папка для аудиоматериалов *' : 'Тип учебного материала'}
+                    {uploadForm.category === 'audio' ? 'Папка для аудиоматериалов *' : 
+                     uploadForm.category === 'video' ? 'Папка для видеоматериалов' : 
+                     'Тип учебного материала'}
                   </Label>
                   <div className="space-y-2">
                     <Select value={uploadForm.subcategory} onValueChange={(value) => setUploadForm(prev => ({ ...prev, subcategory: value }))}>
                       <SelectTrigger>
-                        <SelectValue placeholder={uploadForm.category === 'audio' ? 'Выберите существующую папку' : 'Выберите тип материала'} />
+                        <SelectValue placeholder={
+                          uploadForm.category === 'audio' ? 'Выберите существующую папку' : 
+                          uploadForm.category === 'video' ? 'Выберите папку для видео' :
+                          'Выберите тип материала'
+                        } />
                       </SelectTrigger>
                       <SelectContent>
                         {getAvailableSubcategories(uploadForm.category).map(subcategory => (
                           <SelectItem key={subcategory.value} value={subcategory.value}>
-                            {uploadForm.category === 'audio' ? '📁 ' : ''}{subcategory.label}
+                            {(uploadForm.category === 'audio' || uploadForm.category === 'video') ? '📁 ' : ''}{subcategory.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    {uploadForm.category === 'audio' && (
+                    {(uploadForm.category === 'audio' || uploadForm.category === 'educational' || uploadForm.category === 'video') && (
                       <div className="flex gap-2">
                         <Input
-                          placeholder="Или создать новую папку..."
+                          placeholder={
+                            uploadForm.category === 'audio' ? 'Или создать новую папку...' :
+                            uploadForm.category === 'video' ? 'Или создать новую папку...' :
+                            'Или создать новый тип материала...'
+                          }
                           value={uploadForm.subcategory}
                           onChange={(e) => setUploadForm(prev => ({ ...prev, subcategory: e.target.value }))}
                         />
@@ -496,7 +540,9 @@ export const TextbookManager = () => {
                   <p className="text-xs text-muted-foreground">
                     {uploadForm.category === 'audio' 
                       ? '💡 Выберите существующую папку или введите название новой папки для организации аудиофайлов.'
-                      : '💡 Выберите тип учебного материала для правильной категоризации.'
+                      : uploadForm.category === 'video'
+                      ? '💡 Выберите существующую папку или введите название новой папки для организации видеофайлов.'
+                      : '💡 Выберите существующий тип материала или введите название нового типа для организации учебных материалов.'
                     }
                   </p>
                 </div>
