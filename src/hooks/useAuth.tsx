@@ -86,28 +86,34 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        if (session?.user) {
-          // Defer profile fetching and navigation
+        if (session?.user && event === 'SIGNED_IN') {
+          // Defer profile fetching and navigation only on sign in
           setTimeout(async () => {
             await fetchProfile(session.user.id);
             
-            // Fetch user role to determine redirect
+            // Fetch user role to determine redirect only on first sign in
             const { data: roleData } = await supabase
               .from('user_roles')
               .select('role')
               .eq('user_id', session.user.id)
               .single();
             
-            if (roleData?.role === 'student') {
-              // Redirect students to their portal
-              window.location.href = '/student-portal';
-            } else if (roleData?.role === 'teacher') {
-              // Redirect teachers to their portal
-              window.location.href = '/teacher-portal';
-            } else {
-              // Redirect others to CRM or main page
-              window.location.href = '/newcrm';
+            // Only redirect if we're on auth page
+            const currentPath = window.location.pathname;
+            if (currentPath === '/auth') {
+              if (roleData?.role === 'student') {
+                window.location.href = '/student-portal';
+              } else if (roleData?.role === 'teacher') {
+                window.location.href = '/teacher-portal';
+              } else {
+                window.location.href = '/newcrm';
+              }
             }
+          }, 0);
+        } else if (session?.user) {
+          // Just fetch profile without redirect
+          setTimeout(() => {
+            fetchProfile(session.user.id);
           }, 0);
         } else {
           setProfile(null);
