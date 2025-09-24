@@ -430,7 +430,7 @@ export default function CourseDetails() {
                                           <div className="space-y-2">
                                             <div>
                                               <p className="text-xs font-medium text-gray-600">{t('planning.goals')}</p>
-                                              <p className="text-xs text-gray-500">{Array.isArray(lesson.topics) ? lesson.topics.join(", ") : String(lesson.topics || "")}</p>
+                                              <p className="text-xs text-gray-500">{lesson.goals ? String(lesson.goals) : ""}</p>
                                             </div>
                                             <div>
                                               <p className="text-xs font-medium text-gray-600">{t('planning.materials')}</p>
