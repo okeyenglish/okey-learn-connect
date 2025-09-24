@@ -29,7 +29,7 @@ const translations = {
     'planning.grammar': 'Грамматика:',
     'planning.lessonsTitle': 'Уроки:',
     'planning.lesson': 'Урок',
-    'planning.topics': 'Темы:',
+    'planning.goals': 'Цели:',
     'planning.materials': 'Материалы:',
     
     // Materials tab
@@ -91,7 +91,7 @@ const translations = {
     'planning.grammar': 'Grammar:',
     'planning.lessonsTitle': 'Lessons:',
     'planning.lesson': 'Lesson',
-    'planning.topics': 'Topics:',
+    'planning.goals': 'Goals:',
     'planning.materials': 'Materials:',
     
     // Materials tab
