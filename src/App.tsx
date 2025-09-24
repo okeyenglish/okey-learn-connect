@@ -65,12 +65,30 @@ const queryClient = new QueryClient();
 const AppContent = () => {
   const location = useLocation();
   const isCRMPage = location.pathname === '/newcrm';
+  const isPortalPage = location.pathname === '/student-portal' || location.pathname === '/teacher-portal';
 
   if (isCRMPage) {
     return (
       <Suspense fallback={<LoadingComponent />}>
         <CRM />
       </Suspense>
+    );
+  }
+
+  if (isPortalPage) {
+    return (
+      <Routes>
+        <Route path="/student-portal" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <StudentPortal />
+          </Suspense>
+        } />
+        <Route path="/teacher-portal" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <TeacherPortal />
+          </Suspense>
+        } />
+      </Routes>
     );
   }
 
