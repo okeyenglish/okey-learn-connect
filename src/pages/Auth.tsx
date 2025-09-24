@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Phone, Lock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/use-toast';
@@ -176,24 +176,19 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-muted p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-foreground">O'KEY ENGLISH</h1>
-          <p className="text-muted-foreground mt-2">Личный кабинет ученика</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">O'KEY ENGLISH</h1>
+          <p className="text-lg text-gray-600">Личный кабинет ученика</p>
         </div>
+      </div>
 
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <Card>
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center">
-              {activeTab === 'login' ? 'Вход в систему' : 'Регистрация'}
-            </CardTitle>
-            <CardDescription className="text-center">
-              {activeTab === 'login' 
-                ? 'Введите номер телефона и пароль для входа' 
-                : 'Создайте новый аккаунт для доступа к личному кабинету'
-              }
-            </CardDescription>
+          <CardHeader className="text-center space-y-2">
+            <CardTitle className="text-2xl">Вход в систему</CardTitle>
+            <CardDescription>Введите номер телефона и пароль для входа</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -207,28 +202,34 @@ export default function Auth() {
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="login-phone">Номер телефона</Label>
-                    <Input
-                      id="login-phone"
-                      type="tel"
-                      placeholder="+7 (999) 123-45-67"
-                      value={loginData.phone}
-                      onChange={(e) => {
-                        const formatted = formatPhoneNumber(e.target.value);
-                        setLoginData({ ...loginData, phone: formatted });
-                      }}
-                      disabled={isLoading}
-                      required
-                    />
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <Input
+                        id="login-phone"
+                        type="tel"
+                        placeholder="+7 (999) 123-45-67"
+                        value={loginData.phone}
+                        onChange={(e) => {
+                          const formatted = formatPhoneNumber(e.target.value);
+                          setLoginData({ ...loginData, phone: formatted });
+                        }}
+                        className="pl-10"
+                        disabled={isLoading}
+                        required
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="login-password">Пароль</Label>
                     <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                       <Input
                         id="login-password"
                         type={showPassword ? 'text' : 'password'}
                         placeholder="Введите пароль"
                         value={loginData.password}
                         onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                        className="pl-10 pr-10"
                         disabled={isLoading}
                         required
                       />
@@ -240,9 +241,9 @@ export default function Auth() {
                         onClick={() => setShowPassword(!showPassword)}
                       >
                         {showPassword ? (
-                          <EyeOff className="h-4 w-4" />
+                          <EyeOff className="h-4 w-4 text-gray-400" />
                         ) : (
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-4 w-4 text-gray-400" />
                         )}
                       </Button>
                     </div>
@@ -254,7 +255,11 @@ export default function Auth() {
                     </Alert>
                   )}
 
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-red-500 hover:bg-red-600 text-white" 
+                    disabled={isLoading}
+                  >
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Войти
                   </Button>
@@ -290,45 +295,57 @@ export default function Auth() {
                   
                   <div className="space-y-2">
                     <Label htmlFor="signup-phone">Номер телефона *</Label>
-                    <Input
-                      id="signup-phone"
-                      type="tel"
-                      placeholder="+7 (999) 123-45-67"
-                      value={signupData.phone}
-                      onChange={(e) => {
-                        const formatted = formatPhoneNumber(e.target.value);
-                        setSignupData({ ...signupData, phone: formatted });
-                      }}
-                      disabled={isLoading}
-                      required
-                    />
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <Input
+                        id="signup-phone"
+                        type="tel"
+                        placeholder="+7 (999) 123-45-67"
+                        value={signupData.phone}
+                        onChange={(e) => {
+                          const formatted = formatPhoneNumber(e.target.value);
+                          setSignupData({ ...signupData, phone: formatted });
+                        }}
+                        className="pl-10"
+                        disabled={isLoading}
+                        required
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Пароль *</Label>
-                    <Input
-                      id="signup-password"
-                      type="password"
-                      placeholder="Минимум 6 символов"
-                      value={signupData.password}
-                      onChange={(e) => setSignupData({ ...signupData, password: e.target.value })}
-                      disabled={isLoading}
-                      required
-                      minLength={6}
-                    />
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <Input
+                        id="signup-password"
+                        type="password"
+                        placeholder="Минимум 6 символов"
+                        value={signupData.password}
+                        onChange={(e) => setSignupData({ ...signupData, password: e.target.value })}
+                        className="pl-10"
+                        disabled={isLoading}
+                        required
+                        minLength={6}
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="signup-confirm-password">Подтвердите пароль *</Label>
-                    <Input
-                      id="signup-confirm-password"
-                      type="password"
-                      placeholder="Повторите пароль"
-                      value={signupData.confirmPassword}
-                      onChange={(e) => setSignupData({ ...signupData, confirmPassword: e.target.value })}
-                      disabled={isLoading}
-                      required
-                    />
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <Input
+                        id="signup-confirm-password"
+                        type="password"
+                        placeholder="Повторите пароль"
+                        value={signupData.confirmPassword}
+                        onChange={(e) => setSignupData({ ...signupData, confirmPassword: e.target.value })}
+                        className="pl-10"
+                        disabled={isLoading}
+                        required
+                      />
+                    </div>
                   </div>
                   
                   {error && (
@@ -337,7 +354,11 @@ export default function Auth() {
                     </Alert>
                   )}
 
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-red-500 hover:bg-red-600 text-white" 
+                    disabled={isLoading}
+                  >
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Зарегистрироваться
                   </Button>
@@ -348,9 +369,9 @@ export default function Auth() {
         </Card>
 
         <div className="text-center mt-6">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-gray-600">
             Нужна помощь?{' '}
-            <a href="/contacts" className="text-primary hover:underline">
+            <a href="/contacts" className="font-medium text-red-500 hover:text-red-600">
               Свяжитесь с нами
             </a>
           </p>
