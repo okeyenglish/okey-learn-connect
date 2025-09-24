@@ -34,7 +34,7 @@ import {
   Volume2
 } from "lucide-react";
 import SEOHead from "@/components/SEOHead";
-import { CourseMaterialsLibrary } from "@/components/student/CourseMaterialsLibrary";
+import { InlineCourseMaterials } from "@/components/student/InlineCourseMaterials";
 
 // Интерфейсы
 interface LessonDetail {
@@ -1413,7 +1413,7 @@ export default function CourseDetails() {
                 </p>
               </div>
 
-              <CourseMaterialsLibrary selectedCourse={selectedCourse.replace(/-/g, '_')} />
+              <InlineCourseMaterials selectedCourse={selectedCourse.replace(/-/g, '_')} />
             </TabsContent>
 
             {/* Тренажёры */}
