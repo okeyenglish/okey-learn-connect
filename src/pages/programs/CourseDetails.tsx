@@ -1354,9 +1354,11 @@ export default function CourseDetails() {
                           </div>
                           
                           {/* Список уроков юнита */}
-                          {unit.lessonDetails && (
+                          {unit.lessonDetails && unit.lessonDetails.length > 0 && (
                             <div>
-                              <h4 className="font-semibold mb-3">Уроки юнита:</h4>
+                              <h4 className="font-semibold mb-3">
+                                Уроки юнита ({unit.lessonDetails.length}):
+                              </h4>
                               <div className="grid gap-2 max-h-60 overflow-y-auto">
                                 {unit.lessonDetails.map((lesson) => (
                                   <Card 
@@ -1378,6 +1380,19 @@ export default function CourseDetails() {
                                   </Card>
                                 ))}
                               </div>
+                            </div>
+                          )}
+                          
+                          {/* Отладочная информация */}
+                          {!unit.lessonDetails && (
+                            <div className="text-xs text-red-500 p-2 bg-red-50 rounded">
+                              Отсутствуют данные lessonDetails для {unit.title}
+                            </div>
+                          )}
+                          
+                          {unit.lessonDetails && unit.lessonDetails.length === 0 && (
+                            <div className="text-xs text-yellow-600 p-2 bg-yellow-50 rounded">
+                              Массив lessonDetails пуст для {unit.title}
                             </div>
                           )}
                         </CardContent>
