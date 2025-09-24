@@ -87,9 +87,27 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Defer profile fetching
-          setTimeout(() => {
-            fetchProfile(session.user.id);
+          // Defer profile fetching and navigation
+          setTimeout(async () => {
+            await fetchProfile(session.user.id);
+            
+            // Fetch user role to determine redirect
+            const { data: roleData } = await supabase
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', session.user.id)
+              .single();
+            
+            if (roleData?.role === 'student') {
+              // Redirect students to their portal
+              window.location.href = '/student-portal';
+            } else if (roleData?.role === 'teacher') {
+              // Redirect teachers to their portal
+              window.location.href = '/teacher-portal';
+            } else {
+              // Redirect others to CRM or main page
+              window.location.href = '/newcrm';
+            }
           }, 0);
         } else {
           setProfile(null);
