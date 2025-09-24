@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { BookOpen, Search, Lock, FileText, Headphones, Video, ArrowLeft, Folder, FolderOpen } from 'lucide-react';
 import { useTextbooks, Textbook } from '@/hooks/useTextbooks';
 import { useAuth } from '@/hooks/useAuth';
@@ -176,6 +177,7 @@ export const InlineCourseMaterials = ({ selectedCourse: courseFilter }: InlineCo
   const { textbooks, loading, fetchTextbooks } = useTextbooks();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMaterial, setSelectedMaterial] = useState<Textbook | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
   const [selectedFolder, setSelectedFolder] = useState<{ type: string; folder: MaterialFolder } | null>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -312,6 +314,7 @@ export const InlineCourseMaterials = ({ selectedCourse: courseFilter }: InlineCo
               onClick={() => {
                 if (selectedFolder.type === 'educational') {
                   setSelectedMaterial(material);
+                  setModalOpen(true);
                 } else if (selectedFolder.type === 'video') {
                   window.open(material.file_url, '_blank');
                 }
@@ -347,7 +350,7 @@ export const InlineCourseMaterials = ({ selectedCourse: courseFilter }: InlineCo
   }
 
   // Показываем выбранный материал
-  if (selectedMaterial) {
+  if (selectedMaterial && !modalOpen) {
     const isPDF = selectedMaterial.file_name.match(/\.pdf$/i);
     
     return (
@@ -449,7 +452,10 @@ export const InlineCourseMaterials = ({ selectedCourse: courseFilter }: InlineCo
                   <Card 
                     key={material.id} 
                     className="cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => setSelectedMaterial(material)}
+                    onClick={() => {
+                      setSelectedMaterial(material);
+                      setModalOpen(true);
+                    }}
                   >
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
@@ -530,6 +536,38 @@ export const InlineCourseMaterials = ({ selectedCourse: courseFilter }: InlineCo
           )}
         </div>
       )}
+      
+      {/* Modal для просмотра материалов */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              {selectedMaterial?.title}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            {selectedMaterial && (
+              selectedMaterial.file_name.match(/\.pdf$/i) ? (
+                <div className="h-[70vh]">
+                  <PDFViewer 
+                    url={selectedMaterial.file_url} 
+                    fileName={selectedMaterial.title}
+                  />
+                </div>
+              ) : (
+                <div className="py-8 text-center">
+                  <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="font-medium mb-2">{selectedMaterial.title}</p>
+                  <Button onClick={() => window.open(selectedMaterial.file_url, '_blank')}>
+                    Открыть файл
+                  </Button>
+                </div>
+              )
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
