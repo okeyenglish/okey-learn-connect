@@ -14,6 +14,7 @@ import { GroupDetailModal } from '@/components/teacher/GroupDetailModal';
 import { IndividualLessonModal } from '@/components/teacher/IndividualLessonModal';
 import { AddHomeworkModal } from '@/components/teacher/AddHomeworkModal';
 import { AttendanceModal } from '@/components/teacher/AttendanceModal';
+import { StartLessonModal } from '@/components/teacher/StartLessonModal';
 import { useState } from 'react';
 
 export default function TeacherPortal() {
@@ -26,6 +27,7 @@ export default function TeacherPortal() {
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [homeworkModalOpen, setHomeworkModalOpen] = useState(false);
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
+  const [startLessonModalOpen, setStartLessonModalOpen] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [selectedSessionData, setSelectedSessionData] = useState<any>(null);
 
@@ -172,9 +174,9 @@ export default function TeacherPortal() {
     }
   };
 
-  const handleStartOnlineLesson = (lessonId: string, groupName?: string) => {
-    const teacherName = teacher ? `${teacher.last_name} ${teacher.first_name}` : 'Преподаватель';
-    navigate(`/online-lesson/${lessonId}?teacher=${teacherName}&group=${groupName || ''}`);
+  const handleStartOnlineLesson = (session: any) => {
+    setSelectedSessionData(session);
+    setStartLessonModalOpen(true);
   };
 
   const handleAddHomework = (sessionId: string, groupId?: string) => {
@@ -311,7 +313,7 @@ export default function TeacherPortal() {
                              <>
                                <Button 
                                  size="sm"
-                                 onClick={() => handleStartOnlineLesson(lesson.id, lesson.learning_groups?.name)}
+                                 onClick={() => handleStartOnlineLesson(lesson)}
                                >
                                  <Video className="h-4 w-4 mr-2" />
                                  Начать урок
@@ -464,7 +466,7 @@ export default function TeacherPortal() {
                              <>
                                <Button 
                                  size="sm"
-                                 onClick={() => handleStartOnlineLesson(lesson.id, lesson.learning_groups?.name)}
+                                 onClick={() => handleStartOnlineLesson(lesson)}
                                >
                                  <Video className="h-4 w-4 mr-2" />
                                  Начать урок
@@ -561,6 +563,16 @@ export default function TeacherPortal() {
             groupId={selectedSessionData?.group_id}
             sessionDate={selectedSessionData?.lesson_date}
             sessionTime={`${selectedSessionData?.start_time} - ${selectedSessionData?.end_time}`}
+          />
+        )}
+
+        {/* Модальное окно начала урока */}
+        {startLessonModalOpen && selectedSessionData && teacher && (
+          <StartLessonModal
+            open={startLessonModalOpen}
+            onOpenChange={setStartLessonModalOpen}
+            session={selectedSessionData}
+            teacherName={`${teacher.last_name} ${teacher.first_name}`}
           />
         )}
       </div>
