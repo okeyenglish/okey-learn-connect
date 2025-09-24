@@ -23,28 +23,32 @@ const programTypes = [
 ];
 
 const categories = [
-  { value: 'general', label: 'Общие материалы' },
+  { value: 'educational', label: 'Учебные материалы' },
+  { value: 'audio', label: 'Аудиоматериалы' },
+  { value: 'video', label: 'Видеоматериалы' }
+];
+
+const educationalSubcategories = [
   { value: 'pupil-book', label: "Pupil's Book" },
   { value: 'activity-book', label: 'Activity Book' },
   { value: 'teacher-book', label: "Teacher's Book" },
   { value: 'lesson-example', label: 'Пример урока' },
   { value: 'overview', label: 'Обзор программы' },
-  { value: 'audio', label: 'Аудиоматериалы' },
-  { value: 'video', label: 'Видеоматериалы' }
+  { value: 'general', label: 'Общие материалы' }
 ];
 
-const subcategories = [
-  { value: 'unit-1', label: 'Unit 1', parentCategory: 'audio' },
-  { value: 'unit-2', label: 'Unit 2', parentCategory: 'audio' },
-  { value: 'unit-3', label: 'Unit 3', parentCategory: 'audio' },
-  { value: 'unit-4', label: 'Unit 4', parentCategory: 'audio' },
-  { value: 'unit-5', label: 'Unit 5', parentCategory: 'audio' },
-  { value: 'unit-6', label: 'Unit 6', parentCategory: 'audio' },
-  { value: 'grammar-songs', label: 'Грамматические песни', parentCategory: 'audio' },
-  { value: 'vocabulary', label: 'Словарные упражнения', parentCategory: 'audio' },
-  { value: 'listening-exercises', label: 'Упражнения на слух', parentCategory: 'audio' },
-  { value: 'pronunciation', label: 'Произношение', parentCategory: 'audio' },
-  { value: 'stories', label: 'Истории и сказки', parentCategory: 'audio' }
+const audioSubcategories = [
+  { value: 'unit-1', label: 'Unit 1' },
+  { value: 'unit-2', label: 'Unit 2' },
+  { value: 'unit-3', label: 'Unit 3' },
+  { value: 'unit-4', label: 'Unit 4' },
+  { value: 'unit-5', label: 'Unit 5' },
+  { value: 'unit-6', label: 'Unit 6' },
+  { value: 'grammar-songs', label: 'Грамматические песни' },
+  { value: 'vocabulary', label: 'Словарные упражнения' },
+  { value: 'listening-exercises', label: 'Упражнения на слух' },
+  { value: 'pronunciation', label: 'Произношение' },
+  { value: 'stories', label: 'Истории и сказки' }
 ];
 
 const getFileIcon = (fileName: string, category?: string) => {
@@ -94,7 +98,7 @@ export const TextbookManager = () => {
         const firstFile = validFiles[0];
         setUploadForm(prev => ({ 
           ...prev, 
-          category: firstFile.type.startsWith('audio/') ? 'audio' : 'general'
+          category: firstFile.type.startsWith('audio/') ? 'audio' : 'educational'
         }));
       }
     }
@@ -140,7 +144,7 @@ export const TextbookManager = () => {
       
       // Reset form
       setSelectedFiles([]);
-      setUploadForm({ description: '', program_type: '', category: 'general', subcategory: '' });
+      setUploadForm({ description: '', program_type: '', category: 'educational', subcategory: '' });
       setBatchUploadProgress({current: 0, total: 0});
       setIsUploadDialogOpen(false);
     } catch (error) {
@@ -175,32 +179,48 @@ export const TextbookManager = () => {
     return programTypes.find(pt => pt.value === value)?.label || value;
   };
 
-  const getSubcategoryLabel = (value?: string) => {
-    return subcategories.find(s => s.value === value)?.label || value;
+  const getCategoryLabel = (category?: string) => {
+    const categoryMap = {
+      'educational': 'Учебные материалы',
+      'audio': 'Аудиоматериалы',
+      'video': 'Видеоматериалы'
+    };
+    return categoryMap[category as keyof typeof categoryMap] || category;
   };
 
-  const getCategoryLabel = (category?: string) => {
-    const categories = {
+  const getSubcategoryLabel = (subcategory?: string) => {
+    const subcategoryMap = {
       'pupil-book': "Pupil's Book",
       'activity-book': 'Activity Book',
       'teacher-book': "Teacher's Book", 
       'lesson-example': 'Пример урока',
       'overview': 'Обзор программы',
-      'audio': 'Аудиоматериалы',
-      'video': 'Видеоматериалы',
-      'general': 'Общие материалы'
+      'general': 'Общие материалы',
+      'unit-1': 'Unit 1',
+      'unit-2': 'Unit 2',
+      'unit-3': 'Unit 3',
+      'unit-4': 'Unit 4',
+      'unit-5': 'Unit 5',
+      'unit-6': 'Unit 6',
+      'grammar-songs': 'Грамматические песни',
+      'vocabulary': 'Словарные упражнения',
+      'listening-exercises': 'Упражнения на слух',
+      'pronunciation': 'Произношение',
+      'stories': 'Истории и сказки'
     };
-    return categories[category as keyof typeof categories] || category;
+    return subcategoryMap[subcategory as keyof typeof subcategoryMap] || subcategory;
   };
 
-  const filteredSubcategories = subcategories.filter(s => 
-    s.parentCategory === uploadForm.category || s.parentCategory === editingTextbook?.category
-  );
+  const getAvailableSubcategories = (category: string) => {
+    if (category === 'audio') return audioSubcategories;
+    if (category === 'educational') return educationalSubcategories;
+    return [];
+  };
 
   // Организуем материалы по папкам
   const organizedMaterials = textbooks.reduce((acc, textbook) => {
     const programType = textbook.program_type || 'other';
-    const category = textbook.category || 'general';
+    const category = textbook.category || 'educational';
     const subcategory = textbook.subcategory;
 
     if (!acc[programType]) {
@@ -210,7 +230,7 @@ export const TextbookManager = () => {
       acc[programType][category] = {};
     }
     
-    if (subcategory && category === 'audio') {
+    if (subcategory && (category === 'audio' || category === 'educational')) {
       if (!acc[programType][category][subcategory]) {
         acc[programType][category][subcategory] = [];
       }
@@ -361,32 +381,39 @@ export const TextbookManager = () => {
                 </Select>
               </div>
 
-              {uploadForm.category === 'audio' && (
+              {(uploadForm.category === 'audio' || uploadForm.category === 'educational') && (
                 <div className="space-y-3">
-                  <Label htmlFor="subcategory">Папка для аудиоматериалов *</Label>
+                  <Label htmlFor="subcategory">
+                    {uploadForm.category === 'audio' ? 'Папка для аудиоматериалов *' : 'Тип учебного материала'}
+                  </Label>
                   <div className="space-y-2">
                     <Select value={uploadForm.subcategory} onValueChange={(value) => setUploadForm(prev => ({ ...prev, subcategory: value }))}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Выберите существующую папку" />
+                        <SelectValue placeholder={uploadForm.category === 'audio' ? 'Выберите существующую папку' : 'Выберите тип материала'} />
                       </SelectTrigger>
                       <SelectContent>
-                        {filteredSubcategories.map(subcategory => (
+                        {getAvailableSubcategories(uploadForm.category).map(subcategory => (
                           <SelectItem key={subcategory.value} value={subcategory.value}>
-                            📁 {subcategory.label}
+                            {uploadForm.category === 'audio' ? '📁 ' : ''}{subcategory.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Или создать новую папку..."
-                        value={uploadForm.subcategory}
-                        onChange={(e) => setUploadForm(prev => ({ ...prev, subcategory: e.target.value }))}
-                      />
-                    </div>
+                    {uploadForm.category === 'audio' && (
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Или создать новую папку..."
+                          value={uploadForm.subcategory}
+                          onChange={(e) => setUploadForm(prev => ({ ...prev, subcategory: e.target.value }))}
+                        />
+                      </div>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    💡 Выберите существующую папку или введите название новой папки для организации аудиофайлов.
+                    {uploadForm.category === 'audio' 
+                      ? '💡 Выберите существующую папку или введите название новой папки для организации аудиофайлов.'
+                      : '💡 Выберите тип учебного материала для правильной категоризации.'
+                    }
                   </p>
                 </div>
               )}
@@ -395,7 +422,7 @@ export const TextbookManager = () => {
             <div className="flex gap-2 pt-4">
               <Button
                 onClick={handleBatchUpload}
-                disabled={selectedFiles.length === 0 || (uploadForm.category === 'audio' && !uploadForm.subcategory) || uploading}
+                disabled={selectedFiles.length === 0 || uploading}
                 className="flex-1"
               >
                 {uploading ? (
@@ -742,7 +769,7 @@ export const TextbookManager = () => {
                       <SelectValue placeholder="Выберите подкатегорию" />
                     </SelectTrigger>
                     <SelectContent>
-                      {filteredSubcategories.map(subcategory => (
+                      {getAvailableSubcategories(editingTextbook.category || 'educational').map(subcategory => (
                         <SelectItem key={subcategory.value} value={subcategory.value}>
                           {subcategory.label}
                         </SelectItem>
