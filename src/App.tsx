@@ -65,7 +65,7 @@ const queryClient = new QueryClient();
 const AppContent = () => {
   const location = useLocation();
   const isCRMPage = location.pathname === '/newcrm';
-  const isPortalPage = location.pathname === '/student-portal' || location.pathname === '/teacher-portal';
+  const isPortalPage = location.pathname === '/student-portal' || location.pathname === '/teacher-portal' || location.pathname === '/methodist-portal';
 
   if (isCRMPage) {
     return (

@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
-type AppRole = 'admin' | 'manager' | 'teacher' | 'student';
+type AppRole = 'admin' | 'manager' | 'teacher' | 'student' | 'methodist';
 
 interface Profile {
   id: string;
@@ -105,6 +105,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                 window.location.href = '/student-portal';
               } else if (roleData?.role === 'teacher') {
                 window.location.href = '/teacher-portal';
+              } else if (['admin', 'manager', 'methodist'].includes(roleData?.role)) {
+                window.location.href = '/newcrm';
               } else {
                 window.location.href = '/newcrm';
               }
