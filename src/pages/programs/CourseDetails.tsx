@@ -31,6 +31,21 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Globe } from "lucide-react";
 
+// Import trainer components
+import { TrainerSetupModal } from "@/components/trainers/TrainerSetupModal";
+import { VocabularyFlashcards } from "@/components/trainers/VocabularyFlashcards";
+import { WordAssociation } from "@/components/trainers/WordAssociation";
+import { SentenceBuilder } from "@/components/trainers/SentenceBuilder";
+import { SpellingChallenge } from "@/components/trainers/SpellingChallenge";
+import { MemoryMatch } from "@/components/trainers/MemoryMatch";
+
+interface WordPair {
+  word: string;
+  translation: string;
+  definition?: string;
+  example?: string;
+}
+
 // Типы для данных курса
 interface Course {
   id: string;
@@ -135,6 +150,11 @@ export default function CourseDetails() {
   const { t } = useLanguage();
   
   const courseMaterials = getCourseMaterials(t);
+
+  // Trainer states
+  const [activeTrainer, setActiveTrainer] = useState<string | null>(null);
+  const [showSetupModal, setShowSetupModal] = useState(false);
+  const [trainerWords, setTrainerWords] = useState<WordPair[]>([]);
 
   // Получение данных о курсе
   const { data: course, isLoading: courseLoading } = useQuery({
@@ -241,6 +261,22 @@ export default function CourseDetails() {
     const next = new Set(expandedUnits);
     if (next.has(unitNumber)) next.delete(unitNumber); else next.add(unitNumber);
     setExpandedUnits(next);
+  };
+
+  // Trainer functions
+  const handleTrainerSetup = (trainerType: string) => {
+    setActiveTrainer(trainerType);
+    setShowSetupModal(true);
+  };
+
+  const handleStartTrainer = (words: WordPair[]) => {
+    setTrainerWords(words);
+    setShowSetupModal(false);
+  };
+
+  const closeTrainer = () => {
+    setActiveTrainer(null);
+    setTrainerWords([]);
   };
 
   // Получение уроков для конкретного юнита
@@ -478,62 +514,106 @@ export default function CourseDetails() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {courseMaterials.map((material, index) => (
-                      <Card key={index} className="hover:shadow-md transition-shadow cursor-pointer">
-                        <CardContent className="p-6 text-center">
-                          <material.icon className="w-12 h-12 mx-auto mb-4 text-primary" />
-                          <h4 className="font-medium mb-2">{material.name}</h4>
-                          <p className="text-sm text-muted-foreground mb-4">{material.description}</p>
-                          <Button variant="outline" size="sm" className="w-full">
-                            <Play className="w-4 h-4 mr-2" />
-                            {t('trainers.open')}
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {/* Vocabulary Flashcards */}
+                    <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                      <CardContent className="p-6 text-center">
+                        <div className="w-12 h-12 mx-auto mb-4 text-primary bg-blue-100 rounded-full flex items-center justify-center">
+                          <BookOpen className="w-6 h-6" />
+                        </div>
+                        <h4 className="font-medium mb-2">{t('trainers.vocabularyFlashcards')}</h4>
+                        <p className="text-sm text-muted-foreground mb-4">{t('trainers.vocabularyFlashcardsDesc')}</p>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full"
+                          onClick={() => handleTrainerSetup('flashcards')}
+                        >
+                          <Play className="w-4 h-4 mr-2" />
+                          {t('trainers.setup')}
+                        </Button>
+                      </CardContent>
+                    </Card>
 
-                  <div className="mt-8 space-y-4">
-                    <h4 className="font-semibold">{t('trainers.interactive')}</h4>
-                    <div className="grid gap-3">
-                      <div className="p-3 border rounded-lg flex items-center justify-between">
-                        <div>
-                          <span className="font-medium">{t('trainers.vocabularyFlashcards')}</span>
-                          <p className="text-sm text-muted-foreground">{t('trainers.vocabularyFlashcardsDesc')}</p>
+                    {/* Word Association */}
+                    <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                      <CardContent className="p-6 text-center">
+                        <div className="w-12 h-12 mx-auto mb-4 text-primary bg-green-100 rounded-full flex items-center justify-center">
+                          <Target className="w-6 h-6" />
                         </div>
-                        <Button variant="outline" size="sm">
-                          <Play className="w-4 h-4" />
+                        <h4 className="font-medium mb-2">{t('trainers.wordAssociation')}</h4>
+                        <p className="text-sm text-muted-foreground mb-4">{t('trainers.wordAssociationDesc')}</p>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full"
+                          onClick={() => handleTrainerSetup('association')}
+                        >
+                          <Play className="w-4 h-4 mr-2" />
+                          {t('trainers.setup')}
                         </Button>
-                      </div>
-                      <div className="p-3 border rounded-lg flex items-center justify-between">
-                        <div>
-                          <span className="font-medium">{t('trainers.grammarQuiz')}</span>
-                          <p className="text-sm text-muted-foreground">{t('trainers.grammarQuizDesc')}</p>
+                      </CardContent>
+                    </Card>
+
+                    {/* Sentence Builder */}
+                    <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                      <CardContent className="p-6 text-center">
+                        <div className="w-12 h-12 mx-auto mb-4 text-primary bg-purple-100 rounded-full flex items-center justify-center">
+                          <FileText className="w-6 h-6" />
                         </div>
-                        <Button variant="outline" size="sm">
-                          <Play className="w-4 h-4" />
+                        <h4 className="font-medium mb-2">{t('trainers.sentenceBuilder')}</h4>
+                        <p className="text-sm text-muted-foreground mb-4">{t('trainers.sentenceBuilderDesc')}</p>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full"
+                          onClick={() => handleTrainerSetup('sentences')}
+                        >
+                          <Play className="w-4 h-4 mr-2" />
+                          {t('trainers.setup')}
                         </Button>
-                      </div>
-                      <div className="p-3 border rounded-lg flex items-center justify-between">
-                        <div>
-                          <span className="font-medium">{t('trainers.listeningActivities')}</span>
-                          <p className="text-sm text-muted-foreground">{t('trainers.listeningActivitiesDesc')}</p>
+                      </CardContent>
+                    </Card>
+
+                    {/* Spelling Challenge */}
+                    <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                      <CardContent className="p-6 text-center">
+                        <div className="w-12 h-12 mx-auto mb-4 text-primary bg-orange-100 rounded-full flex items-center justify-center">
+                          <Gamepad2 className="w-6 h-6" />
                         </div>
-                        <Button variant="outline" size="sm">
-                          <Play className="w-4 h-4" />
+                        <h4 className="font-medium mb-2">{t('trainers.spellingChallenge')}</h4>
+                        <p className="text-sm text-muted-foreground mb-4">{t('trainers.spellingChallengeDesc')}</p>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full"
+                          onClick={() => handleTrainerSetup('spelling')}
+                        >
+                          <Play className="w-4 h-4 mr-2" />
+                          {t('trainers.setup')}
                         </Button>
-                      </div>
-                      <div className="p-3 border rounded-lg flex items-center justify-between">
-                        <div>
-                          <span className="font-medium">{t('trainers.speakingPractice')}</span>
-                          <p className="text-sm text-muted-foreground">{t('trainers.speakingPracticeDesc')}</p>
+                      </CardContent>
+                    </Card>
+
+                    {/* Memory Match */}
+                    <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                      <CardContent className="p-6 text-center">
+                        <div className="w-12 h-12 mx-auto mb-4 text-primary bg-red-100 rounded-full flex items-center justify-center">
+                          <Users className="w-6 h-6" />
                         </div>
-                        <Button variant="outline" size="sm">
-                          <Play className="w-4 h-4" />
+                        <h4 className="font-medium mb-2">{t('trainers.memoryMatch')}</h4>
+                        <p className="text-sm text-muted-foreground mb-4">{t('trainers.memoryMatchDesc')}</p>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full"
+                          onClick={() => handleTrainerSetup('memory')}
+                        >
+                          <Play className="w-4 h-4 mr-2" />
+                          {t('trainers.setup')}
                         </Button>
-                      </div>
-                    </div>
+                      </CardContent>
+                    </Card>
                   </div>
                 </CardContent>
               </Card>
@@ -677,9 +757,61 @@ export default function CourseDetails() {
                  </div>
                )}
              </div>
-          </DialogContent>
-        </Dialog>
-      )}
-    </>
-  );
-}
+           </DialogContent>
+         </Dialog>
+       )}
+
+       {/* Trainer Setup Modal */}
+       <TrainerSetupModal
+         isOpen={showSetupModal}
+         onClose={() => setShowSetupModal(false)}
+         onStart={handleStartTrainer}
+         trainerTitle={
+           activeTrainer === 'flashcards' ? t('trainers.vocabularyFlashcards') :
+           activeTrainer === 'association' ? t('trainers.wordAssociation') :
+           activeTrainer === 'sentences' ? t('trainers.sentenceBuilder') :
+           activeTrainer === 'spelling' ? t('trainers.spellingChallenge') :
+           activeTrainer === 'memory' ? t('trainers.memoryMatch') : ''
+         }
+         trainerDescription={
+           activeTrainer === 'flashcards' ? t('trainers.vocabularyFlashcardsDesc') :
+           activeTrainer === 'association' ? t('trainers.wordAssociationDesc') :
+           activeTrainer === 'sentences' ? t('trainers.sentenceBuilderDesc') :
+           activeTrainer === 'spelling' ? t('trainers.spellingChallengeDesc') :
+           activeTrainer === 'memory' ? t('trainers.memoryMatchDesc') : ''
+         }
+       />
+
+       {/* Individual Trainer Components */}
+       <VocabularyFlashcards
+         isOpen={activeTrainer === 'flashcards' && trainerWords.length > 0}
+         onClose={closeTrainer}
+         words={trainerWords}
+       />
+       
+       <WordAssociation
+         isOpen={activeTrainer === 'association' && trainerWords.length > 0}
+         onClose={closeTrainer}
+         words={trainerWords}
+       />
+       
+       <SentenceBuilder
+         isOpen={activeTrainer === 'sentences' && trainerWords.length > 0}
+         onClose={closeTrainer}
+         words={trainerWords}
+       />
+       
+       <SpellingChallenge
+         isOpen={activeTrainer === 'spelling' && trainerWords.length > 0}
+         onClose={closeTrainer}
+         words={trainerWords}
+       />
+       
+       <MemoryMatch
+         isOpen={activeTrainer === 'memory' && trainerWords.length > 0}
+         onClose={closeTrainer}
+         words={trainerWords}
+       />
+     </>
+   );
+ }
