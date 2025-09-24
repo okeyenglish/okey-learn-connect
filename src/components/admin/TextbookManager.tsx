@@ -57,61 +57,92 @@ const getFileIcon = (fileName: string, category?: string) => {
 export const TextbookManager = () => {
   const { textbooks, loading, uploadTextbook, deleteTextbook, updateTextbook, fetchTextbooks } = useTextbooks();
   const [uploading, setUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadForm, setUploadForm] = useState({
-    title: '',
     description: '',
     program_type: '',
     category: 'general',
     subcategory: ''
   });
+  const [batchUploadProgress, setBatchUploadProgress] = useState<{current: number, total: number}>({current: 0, total: 0});
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [editingTextbook, setEditingTextbook] = useState<any>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      const fileArray = Array.from(files);
       const allowedTypes = [
         'application/pdf',
         'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/m4a', 'audio/aac'
       ];
       
-      if (allowedTypes.some(type => file.type === type || file.type.startsWith('audio/'))) {
-        setSelectedFile(file);
-        if (!uploadForm.title) {
-          const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
-          setUploadForm(prev => ({ 
-            ...prev, 
-            title: nameWithoutExt,
-            category: file.type.startsWith('audio/') ? 'audio' : 'general'
-          }));
-        }
-      } else {
-        alert('Пожалуйста, выберите PDF или аудио файл (MP3, WAV, OGG, M4A, AAC)');
+      const validFiles = fileArray.filter(file => {
+        return allowedTypes.some(type => file.type === type || file.type.startsWith('audio/'));
+      });
+
+      if (validFiles.length !== fileArray.length) {
+        alert(`Из ${fileArray.length} файлов принято ${validFiles.length}. Поддерживаются только PDF и аудио файлы (MP3, WAV, OGG, M4A, AAC)`);
+      }
+
+      setSelectedFiles(validFiles);
+      
+      // Автоматически определяем категорию по первому файлу
+      if (validFiles.length > 0 && !uploadForm.category) {
+        const firstFile = validFiles[0];
+        setUploadForm(prev => ({ 
+          ...prev, 
+          category: firstFile.type.startsWith('audio/') ? 'audio' : 'general'
+        }));
       }
     }
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile || !uploadForm.title) return;
+  const handleBatchUpload = async () => {
+    if (selectedFiles.length === 0) return;
     
     setUploading(true);
+    setBatchUploadProgress({current: 0, total: selectedFiles.length});
+    
     try {
-      await uploadTextbook(
-        selectedFile,
-        uploadForm.title,
-        uploadForm.description,
-        uploadForm.program_type,
-        uploadForm.category,
-        uploadForm.subcategory
-      );
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        setBatchUploadProgress({current: i + 1, total: selectedFiles.length});
+        
+        try {
+          const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+          await uploadTextbook(
+            file,
+            nameWithoutExt,
+            uploadForm.description,
+            uploadForm.program_type,
+            uploadForm.category,
+            uploadForm.subcategory
+          );
+          successCount++;
+        } catch (error) {
+          console.error(`Error uploading ${file.name}:`, error);
+          errorCount++;
+        }
+      }
+      
+      // Show result
+      if (errorCount === 0) {
+        alert(`Успешно загружено ${successCount} файлов`);
+      } else {
+        alert(`Загружено ${successCount} файлов, ошибок: ${errorCount}`);
+      }
       
       // Reset form
-      setSelectedFile(null);
-      setUploadForm({ title: '', description: '', program_type: '', category: 'general', subcategory: '' });
+      setSelectedFiles([]);
+      setUploadForm({ description: '', program_type: '', category: 'general', subcategory: '' });
+      setBatchUploadProgress({current: 0, total: 0});
       setIsUploadDialogOpen(false);
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('Batch upload error:', error);
     } finally {
       setUploading(false);
     }
@@ -191,9 +222,11 @@ export const TextbookManager = () => {
           </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Загрузить новый материал</DialogTitle>
+              <DialogTitle>Загрузить материалы</DialogTitle>
               <DialogDescription>
-                Выберите PDF или аудио файл и заполните информацию о материале.
+                Выберите один или несколько PDF/аудио файлов для загрузки. Для каждого файла будет создана отдельная запись с именем файла как заголовком.
+                <br />
+                <strong>💡 Массовая загрузка:</strong> Зажмите Ctrl (Cmd на Mac) для выбора нескольких файлов сразу.
                 <br />
                 <strong>Для создания папок:</strong> Выберите категорию "Аудиоматериалы" и затем выберите подкатегорию (папку).
               </DialogDescription>
@@ -201,38 +234,37 @@ export const TextbookManager = () => {
             
             <div className="space-y-4">
               <div>
-                <Label htmlFor="file">Файл</Label>
+                <Label htmlFor="file">Файлы (можно выбрать несколько)</Label>
                 <Input
                   id="file"
                   type="file"
                   accept=".pdf,.mp3,.wav,.ogg,.m4a,.aac"
                   onChange={handleFileSelect}
                   className="mt-1"
+                  multiple
                 />
-                {selectedFile && (
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Выбран: {selectedFile.name} ({formatFileSize(selectedFile.size)})
-                  </p>
+                {selectedFiles.length > 0 && (
+                  <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                    {selectedFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between text-xs p-2 bg-muted rounded">
+                        <span className="truncate mr-2">{file.name}</span>
+                        <span className="text-muted-foreground">{formatFileSize(file.size)}</span>
+                      </div>
+                    ))}
+                    <p className="text-sm text-muted-foreground">
+                      Выбрано файлов: {selectedFiles.length}
+                    </p>
+                  </div>
                 )}
               </div>
               
               <div>
-                <Label htmlFor="title">Название *</Label>
-                <Input
-                  id="title"
-                  value={uploadForm.title}
-                  onChange={(e) => setUploadForm(prev => ({ ...prev, title: e.target.value }))}
-                  placeholder="Например: Kid's Box 1 - Unit 1"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="description">Описание</Label>
+                <Label htmlFor="description">Общее описание (для всех файлов)</Label>
                 <Textarea
                   id="description"
                   value={uploadForm.description}
                   onChange={(e) => setUploadForm(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Краткое описание содержимого"
+                  placeholder="Краткое описание для всех загружаемых файлов"
                   rows={2}
                 />
               </div>
@@ -304,19 +336,22 @@ export const TextbookManager = () => {
             
             <div className="flex gap-2 pt-4">
               <Button
-                onClick={handleUpload}
-                disabled={!selectedFile || !uploadForm.title || (uploadForm.category === 'audio' && !uploadForm.subcategory) || uploading}
+                onClick={handleBatchUpload}
+                disabled={selectedFiles.length === 0 || (uploadForm.category === 'audio' && !uploadForm.subcategory) || uploading}
                 className="flex-1"
               >
                 {uploading ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Загрузка...
+                    {batchUploadProgress.total > 0 ? 
+                      `Загрузка ${batchUploadProgress.current}/${batchUploadProgress.total}` : 
+                      'Загрузка...'
+                    }
                   </>
                 ) : (
                   <>
                     <Upload className="h-4 w-4 mr-2" />
-                    Загрузить
+                    Загрузить {selectedFiles.length > 0 ? `(${selectedFiles.length} файлов)` : ''}
                   </>
                 )}
               </Button>
