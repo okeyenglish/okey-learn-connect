@@ -564,7 +564,7 @@ const courseData: Record<string, {
       }
     ]
   },
-  // Данные для других курсов (сокращённые для примера)
+  // Данные для других курсов
   "super-safari-1": {
     title: "Super Safari 1",
     description: "Английский для самых маленьких 3-5 лет",
@@ -576,14 +576,352 @@ const courseData: Record<string, {
         color: "bg-green-50 border-green-200",
         lessons: 6,
         vocabulary: "Животные: cat, dog, bird, fish",
-        grammar: "Hello! What's this?"
+        grammar: "Hello! What's this?",
+        lessonDetails: [
+          {
+            number: 1,
+            title: "Meet the animals",
+            topics: ["Знакомство с животными", "Приветствие"],
+            vocabulary: ["cat", "dog", "bird", "fish"],
+            grammar: "Hello! What's this?",
+            activities: ["Песня Hello animals", "Игра с животными", "Звуки животных"],
+            materials: ["AB p.4", "CB p.4-5", "Audio CD1 Track 1-3"]
+          },
+          {
+            number: 2,
+            title: "Animal sounds",
+            topics: ["Звуки животных", "Подражание"],
+            vocabulary: ["meow", "woof", "tweet", "splash"],
+            grammar: "The cat says meow",
+            activities: ["Звуки животных", "Игра угадай животное", "Песня Animal sounds"],
+            materials: ["AB p.5", "CB p.6-7", "Audio CD1 Track 4-6"]
+          }
+        ]
+      },
+      {
+        id: 2,
+        title: "Unit 2 — Colours",
+        description: "Изучение цветов",
+        color: "bg-red-50 border-red-200",
+        lessons: 6,
+        vocabulary: "Основные цвета",
+        grammar: "It's red/blue/yellow",
+        lessonDetails: [
+          {
+            number: 3,
+            title: "Primary colours",
+            topics: ["Основные цвета", "Красный, синий, жёлтый"],
+            vocabulary: ["red", "blue", "yellow"],
+            grammar: "It's red",
+            activities: ["Цветная игра", "Рисование цветами", "Песня Colours"],
+            materials: ["AB p.8", "CB p.10-11", "Audio CD1 Track 10-12"]
+          }
+        ]
       }
     ],
     materials: [
       {
         name: "Pupil's Book",
-        description: "Основной учебник",
+        description: "Основной учебник для малышей",
         icon: BookOpen
+      },
+      {
+        name: "Activity Book", 
+        description: "Рабочая тетрадь с наклейками",
+        icon: FileText
+      },
+      {
+        name: "Teacher's Book",
+        description: "Методическое пособие", 
+        icon: Users
+      },
+      {
+        name: "Аудиоматериалы",
+        description: "Песни и звуки для малышей",
+        icon: Music
+      },
+      {
+        name: "Видеоматериалы", 
+        description: "Развивающие мультфильмы",
+        icon: Video
+      },
+      {
+        name: "SS1 Игры",
+        description: "Интерактивные игры для малышей",
+        icon: Gamepad2
+      }
+    ]
+  },
+  "super-safari-2": {
+    title: "Super Safari 2",
+    description: "Английский для детей 4-6 лет",
+    units: [
+      {
+        id: 1,
+        title: "Unit 1 — My toys",
+        description: "Мои игрушки",
+        color: "bg-purple-50 border-purple-200",
+        lessons: 6,
+        vocabulary: "Игрушки и цвета",
+        grammar: "I like my...",
+        lessonDetails: [
+          {
+            number: 1,
+            title: "Favourite toys",
+            topics: ["Любимые игрушки"],
+            vocabulary: ["ball", "doll", "car", "teddy"],
+            grammar: "I like my ball",
+            activities: ["Показ игрушек", "Игра с мячом", "Песня My toys"],
+            materials: ["AB p.4", "CB p.4-5", "Audio CD1 Track 1-3"]
+          }
+        ]
+      }
+    ],
+    materials: [
+      {
+        name: "Pupil's Book",
+        description: "Учебник Super Safari 2",
+        icon: BookOpen
+      },
+      {
+        name: "Activity Book",
+        description: "Тетрадь с упражнениями",
+        icon: FileText
+      },
+      {
+        name: "SS2 Аудио",
+        description: "Аудиоматериалы уровня 2",
+        icon: Music
+      }
+    ]
+  },
+  "super-safari-3": {
+    title: "Super Safari 3", 
+    description: "Английский для детей 5-7 лет",
+    units: [
+      {
+        id: 1,
+        title: "Unit 1 — My family",
+        description: "Моя семья",
+        color: "bg-blue-50 border-blue-200",
+        lessons: 6,
+        vocabulary: "Члены семьи",
+        grammar: "This is my...",
+        lessonDetails: [
+          {
+            number: 1,
+            title: "Family members",
+            topics: ["Члены семьи"],
+            vocabulary: ["mummy", "daddy", "brother", "sister"],
+            grammar: "This is my mummy",
+            activities: ["Семейные фото", "Рассказ о семье", "Песня My family"],
+            materials: ["AB p.4", "CB p.4-5", "Audio CD1 Track 1-3"]
+          }
+        ]
+      }
+    ],
+    materials: [
+      {
+        name: "Pupil's Book",
+        description: "Учебник Super Safari 3",
+        icon: BookOpen
+      },
+      {
+        name: "Activity Book",
+        description: "Активная тетрадь",
+        icon: FileText
+      },
+      {
+        name: "SS3 Мультимедиа",
+        description: "Интерактивные материалы",
+        icon: Video
+      }
+    ]
+  },
+  "kids-box-starter": {
+    title: "Kid's Box Starter",
+    description: "Стартовый уровень для детей 5-7 лет",
+    units: [
+      {
+        id: 1,
+        title: "Unit 1 — Hello!",
+        description: "Первые слова на английском",
+        color: "bg-green-50 border-green-200",
+        lessons: 8,
+        vocabulary: "Приветствие, имена, цифры 1-5",
+        grammar: "Hello! What's your name?",
+        lessonDetails: [
+          {
+            number: 1,
+            title: "Hello and goodbye",
+            topics: ["Приветствие и прощание"],
+            vocabulary: ["hello", "goodbye", "yes", "no"],
+            grammar: "Hello! Goodbye!",
+            activities: ["Песня Hello", "Игра приветствие", "Жесты"],
+            materials: ["AB p.4", "CB p.4-5", "Audio CD1 Track 1-3"]
+          }
+        ]
+      }
+    ],
+    materials: [
+      {
+        name: "Pupil's Book",
+        description: "Стартовый учебник",
+        icon: BookOpen
+      },
+      {
+        name: "Activity Book",
+        description: "Первая рабочая тетрадь",
+        icon: FileText
+      },
+      {
+        name: "Starter Audio",
+        description: "Аудио для начинающих",
+        icon: Music
+      }
+    ]
+  },
+  "kids-box-2": {
+    title: "Kid's Box 2",
+    description: "Английский для детей 7-9 лет",
+    units: [
+      {
+        id: 1,
+        title: "Unit 1 — Back to school",
+        description: "Возвращение в школу",
+        color: "bg-orange-50 border-orange-200",
+        lessons: 8,
+        vocabulary: "Школьные предметы, расписание",
+        grammar: "I go to school, Present Simple",
+        lessonDetails: [
+          {
+            number: 1,
+            title: "School subjects",
+            topics: ["Школьные предметы"],
+            vocabulary: ["Geography", "History", "Science", "PE"],
+            grammar: "I like Geography",
+            activities: ["Мое расписание", "Любимые предметы", "Школьная экскурсия"],
+            materials: ["AB p.4", "CB p.4-5", "Audio CD1 Track 1-3"]
+          }
+        ]
+      }
+    ],
+    materials: [
+      {
+        name: "Pupil's Book",
+        description: "Учебник Kid's Box 2",
+        icon: BookOpen
+      },
+      {
+        name: "Activity Book",
+        description: "Рабочая тетрадь уровня 2",
+        icon: FileText
+      },
+      {
+        name: "KB2 Интерактивы",
+        description: "Цифровые ресурсы",
+        icon: Gamepad2
+      }
+    ]
+  },
+  "prepare-1": {
+    title: "Prepare 1",
+    description: "Подготовка к экзаменам A1",
+    units: [
+      {
+        id: 1,
+        title: "Unit 1 — Family and friends",
+        description: "Семья и друзья",
+        color: "bg-blue-50 border-blue-200",
+        lessons: 10,
+        vocabulary: "Семья, друзья, внешность",
+        grammar: "Present Simple, have got",
+        lessonDetails: [
+          {
+            number: 1,
+            title: "Meeting people",
+            topics: ["Знакомство с людьми"],
+            vocabulary: ["introduce", "meet", "friend", "classmate"],
+            grammar: "Nice to meet you",
+            activities: ["Ролевые диалоги", "Анкета о себе", "Интервью"],
+            materials: ["SB p.6", "WB p.4", "Audio Track 1.01"]
+          }
+        ]
+      }
+    ],
+    materials: [
+      {
+        name: "Student's Book",
+        description: "Учебник Prepare 1",
+        icon: BookOpen
+      },
+      {
+        name: "Workbook",
+        description: "Рабочая тетрадь с дополнительными упражнениями",
+        icon: FileText
+      },
+      {
+        name: "Teacher's Book",
+        description: "Книга для учителя с методическими рекомендациями",
+        icon: Users
+      },
+      {
+        name: "Audio CD",
+        description: "Аудиоматериалы к урокам",
+        icon: Music
+      },
+      {
+        name: "Video Resources",
+        description: "Видеоматериалы и документальные фильмы",
+        icon: Video
+      }
+    ]
+  },
+  "empower-1": {
+    title: "Empower 1",
+    description: "Курс для подростков A2",
+    units: [
+      {
+        id: 1,
+        title: "Unit 1 — Identity",
+        description: "Личность и самоидентификация",
+        color: "bg-indigo-50 border-indigo-200",
+        lessons: 12,
+        vocabulary: "Личность, характер, увлечения",
+        grammar: "Present Simple, Present Continuous",
+        lessonDetails: [
+          {
+            number: 1,
+            title: "Who am I?",
+            topics: ["Самопрезентация", "Личные качества"],
+            vocabulary: ["personality", "creative", "confident", "ambitious"],
+            grammar: "I am... / I like...",
+            activities: ["Создание профиля", "Презентация о себе", "Опрос класса"],
+            materials: ["SB p.8", "WB p.6", "Video Unit 1"]
+          }
+        ]
+      }
+    ],
+    materials: [
+      {
+        name: "Student's Book",
+        description: "Учебник Empower 1",
+        icon: BookOpen
+      },
+      {
+        name: "Workbook",
+        description: "Рабочая тетрадь для самостоятельной работы",
+        icon: FileText
+      },
+      {
+        name: "Digital Resources",
+        description: "Цифровые ресурсы и онлайн-платформа",
+        icon: Video
+      },
+      {
+        name: "Assessment Package",
+        description: "Материалы для оценивания и тестирования",
+        icon: Target
       }
     ]
   }
@@ -994,7 +1332,7 @@ export default function CourseDetails() {
                       
                       <CollapsibleContent>
                         <CardContent className="pt-0">
-                          <div className="grid md:grid-cols-2 gap-4">
+                          <div className="grid md:grid-cols-2 gap-4 mb-6">
                             <div>
                               <h4 className="font-semibold mb-2 flex items-center gap-2">
                                 <MessageCircle className="h-4 w-4" />
@@ -1014,6 +1352,34 @@ export default function CourseDetails() {
                               </p>
                             </div>
                           </div>
+                          
+                          {/* Список уроков юнита */}
+                          {unit.lessonDetails && (
+                            <div>
+                              <h4 className="font-semibold mb-3">Уроки юнита:</h4>
+                              <div className="grid gap-2 max-h-60 overflow-y-auto">
+                                {unit.lessonDetails.map((lesson) => (
+                                  <Card 
+                                    key={lesson.number}
+                                    className="p-3 cursor-pointer hover:bg-white/80 transition-colors"
+                                    onClick={() => openLessonDetails(lesson)}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <div>
+                                        <span className="font-medium text-sm">
+                                          Урок {lesson.number}: {lesson.title}
+                                        </span>
+                                        <p className="text-xs text-muted-foreground">
+                                          {lesson.topics.join(" • ")}
+                                        </p>
+                                      </div>
+                                      <ExternalLink className="h-3 w-3" />
+                                    </div>
+                                  </Card>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </CardContent>
                       </CollapsibleContent>
                     </Card>
@@ -1024,7 +1390,48 @@ export default function CourseDetails() {
 
             {/* Материалы */}
             <TabsContent value="materials" className="space-y-8">
-              <CourseMaterialsLibrary />
+              <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold mb-4">Учебные материалы</h2>
+                <p className="text-muted-foreground">
+                  Все необходимые материалы для курса {currentCourseData.title}
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {currentCourseData.materials.map((material, index) => (
+                  <Card 
+                    key={index}
+                    className="transition-all hover:shadow-lg hover:scale-105 cursor-pointer"
+                  >
+                    <CardContent className="p-6 text-center">
+                      <material.icon className="h-12 w-12 mx-auto mb-4 text-primary" />
+                      <h3 className="font-semibold mb-2">{material.name}</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        {material.description}
+                      </p>
+                      <Button variant="outline" size="sm" className="flex items-center gap-2 mx-auto">
+                        <Download className="h-4 w-4" />
+                        Скачать
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              <Card className="mt-8">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FolderOpen className="h-5 w-5" />
+                    Файловая библиотека
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Дополнительные материалы и ресурсы для курса
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <CourseMaterialsLibrary selectedCourse={selectedCourse} />
+                </CardContent>
+              </Card>
             </TabsContent>
 
             {/* Тренажёры */}
@@ -1057,6 +1464,155 @@ export default function CourseDetails() {
           </Tabs>
         </div>
       </div>
+
+      {/* Диалог с деталями урока */}
+      <Dialog open={selectedLesson !== null} onOpenChange={closeDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          {selectedLesson && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-2xl">
+                  Урок {selectedLesson.number}: {selectedLesson.title}
+                </DialogTitle>
+                <DialogDescription>
+                  Подробный план урока с целями, материалами и активностями
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-6 py-4">
+                {/* Основная информация */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Target className="h-5 w-5" />
+                      Цели урока
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div>
+                        <h4 className="font-semibold text-sm text-muted-foreground mb-2">ТЕМЫ УРОКА:</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedLesson.topics.map((topic: string, index: number) => (
+                            <Badge key={index} variant="secondary">{topic}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Словарь */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <MessageCircle className="h-5 w-5" />
+                        Новая лексика
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {Array.isArray(selectedLesson.vocabulary) ? (
+                          selectedLesson.vocabulary.map((word: string, index: number) => (
+                            <div key={index} className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-primary rounded-full"></div>
+                              <span className="font-mono text-sm">{word}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-muted-foreground">{selectedLesson.vocabulary}</p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Грамматика */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <BookOpen className="h-5 w-5" />
+                        Грамматика
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {Array.isArray(selectedLesson.grammar) ? (
+                          selectedLesson.grammar.map((item: string, index: number) => (
+                            <div key={index} className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <span className="text-sm">{item}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm">{selectedLesson.grammar}</p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Активности */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Play className="h-5 w-5" />
+                      Активности и упражнения
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {selectedLesson.activities.map((activity: string, index: number) => (
+                        <div key={index} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
+                          <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0">
+                            {index + 1}
+                          </div>
+                          <span className="text-sm">{activity}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Материалы */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <FolderOpen className="h-5 w-5" />
+                      Необходимые материалы
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedLesson.materials.map((material: string, index: number) => (
+                        <Badge key={index} variant="outline" className="text-xs">
+                          {material}
+                        </Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Кнопки действий */}
+                <div className="flex gap-3 pt-4 border-t">
+                  <Button className="flex items-center gap-2">
+                    <Play className="h-4 w-4" />
+                    Начать урок
+                  </Button>
+                  <Button variant="outline" className="flex items-center gap-2">
+                    <Download className="h-4 w-4" />
+                    Скачать план
+                  </Button>
+                  <Button variant="outline" className="flex items-center gap-2">
+                    <ExternalLink className="h-4 w-4" />
+                    Материалы урока
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Диалог тренажёра */}
       <Dialog open={selectedTrainer !== null} onOpenChange={closeTrainer}>

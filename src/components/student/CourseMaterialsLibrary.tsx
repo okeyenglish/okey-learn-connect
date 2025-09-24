@@ -17,6 +17,22 @@ interface CourseGroup {
 }
 
 const programLabels: Record<string, { title: string; description: string }> = {
+  'super-safari-1': {
+    title: "Super Safari 1",
+    description: 'Английский для самых маленьких (3-5 лет)'
+  },
+  'super-safari-2': {
+    title: "Super Safari 2", 
+    description: 'Английский для детей (4-6 лет)'
+  },
+  'super-safari-3': {
+    title: "Super Safari 3", 
+    description: 'Английский для детей (5-7 лет)'
+  },
+  'kids-box-starter': {
+    title: "Kid's Box Starter",
+    description: 'Стартовый уровень для детей (5-7 лет)'
+  },
   'kids-box-1': {
     title: "Kid's Box 1",
     description: 'Курс английского языка для детей (начальный уровень)'
@@ -25,17 +41,69 @@ const programLabels: Record<string, { title: string; description: string }> = {
     title: "Kid's Box 2", 
     description: 'Курс английского языка для детей (продолжающий уровень)'
   },
-  'prepare': {
-    title: 'Prepare',
-    description: 'Подготовка к экзаменам Cambridge English'
+  'kids-box-3-4': {
+    title: "Kid's Box 3+4", 
+    description: 'Курс английского языка для детей (средний уровень)'
   },
-  'empower': {
-    title: 'Empower',
-    description: 'Курс английского языка для взрослых'
+  'kids-box-5': {
+    title: "Kid's Box 5", 
+    description: 'Курс английского языка для детей (продвинутый уровень)'
   },
-  'super-safari': {
-    title: 'Super Safari',
-    description: 'Английский для самых маленьких'
+  'kids-box-6': {
+    title: "Kid's Box 6", 
+    description: 'Курс английского языка для детей (высший уровень)'
+  },
+  'prepare-1': {
+    title: 'Prepare 1',
+    description: 'Подготовка к экзаменам Cambridge English (A1)'
+  },
+  'prepare-2': {
+    title: 'Prepare 2',
+    description: 'Подготовка к экзаменам Cambridge English (A2)'
+  },
+  'prepare-3': {
+    title: 'Prepare 3',
+    description: 'Подготовка к экзаменам Cambridge English (B1)'
+  },
+  'prepare-4': {
+    title: 'Prepare 4',
+    description: 'Подготовка к экзаменам Cambridge English (B1+)'
+  },
+  'prepare-5': {
+    title: 'Prepare 5',
+    description: 'Подготовка к экзаменам Cambridge English (B2)'
+  },
+  'prepare-6': {
+    title: 'Prepare 6',
+    description: 'Подготовка к экзаменам Cambridge English (B2+)'
+  },
+  'prepare-7': {
+    title: 'Prepare 7',
+    description: 'Подготовка к экзаменам Cambridge English (C1)'
+  },
+  'empower-1': {
+    title: 'Empower 1',
+    description: 'Курс английского языка для подростков (A2)'
+  },
+  'empower-2': {
+    title: 'Empower 2',
+    description: 'Курс английского языка для подростков (A2+)'
+  },
+  'empower-3': {
+    title: 'Empower 3',
+    description: 'Курс английского языка для подростков (B1)'
+  },
+  'empower-4': {
+    title: 'Empower 4',
+    description: 'Курс английского языка для подростков (B1+)'
+  },
+  'empower-5': {
+    title: 'Empower 5',
+    description: 'Курс английского языка для подростков (B2)'
+  },
+  'empower-6': {
+    title: 'Empower 6',
+    description: 'Курс английского языка для подростков (B2+)'
   },
   'other': {
     title: 'Другие материалы',
@@ -43,7 +111,11 @@ const programLabels: Record<string, { title: string; description: string }> = {
   }
 };
 
-export const CourseMaterialsLibrary = () => {
+interface CourseMaterialsLibraryProps {
+  selectedCourse?: string;
+}
+
+export const CourseMaterialsLibrary = ({ selectedCourse: courseFilter }: CourseMaterialsLibraryProps) => {
   const { textbooks, loading, fetchTextbooks } = useTextbooks();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCourse, setSelectedCourse] = useState<CourseGroup | null>(null);
@@ -71,8 +143,13 @@ export const CourseMaterialsLibrary = () => {
     materials: materials.sort((a, b) => a.sort_order - b.sort_order)
   }));
 
+  // Фильтруем по выбранному курсу, если передан
+  const filteredCourseGroups = courseFilter 
+    ? courseGroups.filter(group => group.programType === courseFilter)
+    : courseGroups;
+
   // Фильтрация по поисковому запросу
-  const filteredGroups = courseGroups.filter(group =>
+  const filteredGroups = filteredCourseGroups.filter(group =>
     group.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     group.materials.some(material =>
       material.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
