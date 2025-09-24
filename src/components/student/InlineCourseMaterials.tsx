@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { BookOpen, Search, Lock, FileText, Headphones, Video, ArrowLeft, Folder, FolderOpen, Download, ExternalLink } from 'lucide-react';
+import { BookOpen, Search, Lock, FileText, Headphones, Video, ArrowLeft, Folder, FolderOpen, ExternalLink } from 'lucide-react';
 import { useTextbooks, Textbook } from '@/hooks/useTextbooks';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -538,45 +538,32 @@ export const InlineCourseMaterials = ({ selectedCourse: courseFilter }: InlineCo
       )}
       
       {/* Modal для просмотра материалов */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+      <Dialog open={modalOpen} onOpenChange={(open) => {
+        setModalOpen(open);
+        if (!open) {
+          setSelectedMaterial(null); // Clear selected material when modal closes
+        }
+      }}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden p-0">
           <DialogHeader className="p-6 pb-2 border-b">
-            <DialogTitle className="flex items-center justify-between">
+            <DialogTitle className="flex items-center justify-between pr-8">
               <span className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
                 {selectedMaterial?.title}
               </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (selectedMaterial?.file_url) {
-                      const link = document.createElement('a');
-                      link.href = selectedMaterial.file_url;
-                      link.download = selectedMaterial.title;
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                    }
-                  }}
-                  title="Скачать PDF"
-                >
-                  <Download className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (selectedMaterial?.file_url) {
-                      window.open(selectedMaterial.file_url, '_blank');
-                    }
-                  }}
-                  title="Открыть в новой вкладке"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (selectedMaterial?.file_url) {
+                    window.open(selectedMaterial.file_url, '_blank');
+                  }
+                }}
+                title="Открыть в новой вкладке"
+                className="mr-2"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Button>
             </DialogTitle>
           </DialogHeader>
           <div className="flex-1 p-6">
