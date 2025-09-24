@@ -272,22 +272,31 @@ export const TextbookManager = () => {
               </div>
 
               {uploadForm.category === 'audio' && (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <Label htmlFor="subcategory">Папка для аудиоматериалов *</Label>
-                  <Select value={uploadForm.subcategory} onValueChange={(value) => setUploadForm(prev => ({ ...prev, subcategory: value }))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Выберите папку (создание папок)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filteredSubcategories.map(subcategory => (
-                        <SelectItem key={subcategory.value} value={subcategory.value}>
-                          📁 {subcategory.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="space-y-2">
+                    <Select value={uploadForm.subcategory} onValueChange={(value) => setUploadForm(prev => ({ ...prev, subcategory: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Выберите существующую папку" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredSubcategories.map(subcategory => (
+                          <SelectItem key={subcategory.value} value={subcategory.value}>
+                            📁 {subcategory.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Или создать новую папку..."
+                        value={uploadForm.subcategory}
+                        onChange={(e) => setUploadForm(prev => ({ ...prev, subcategory: e.target.value }))}
+                      />
+                    </div>
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    💡 Выберите папку для организации аудиофайлов. Файлы будут отображаться в соответствующих папках в студенческом портале.
+                    💡 Выберите существующую папку или введите название новой папки для организации аудиофайлов.
                   </p>
                 </div>
               )}
