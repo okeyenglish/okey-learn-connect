@@ -193,7 +193,9 @@ export const TextbookManager = () => {
             <DialogHeader>
               <DialogTitle>Загрузить новый материал</DialogTitle>
               <DialogDescription>
-                Выберите PDF или аудио файл и заполните информацию о материале
+                Выберите PDF или аудио файл и заполните информацию о материале.
+                <br />
+                <strong>Для создания папок:</strong> Выберите категорию "Аудиоматериалы" и затем выберите подкатегорию (папку).
               </DialogDescription>
             </DialogHeader>
             
@@ -270,20 +272,23 @@ export const TextbookManager = () => {
               </div>
 
               {uploadForm.category === 'audio' && (
-                <div>
-                  <Label htmlFor="subcategory">Подкатегория (для аудио)</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="subcategory">Папка для аудиоматериалов *</Label>
                   <Select value={uploadForm.subcategory} onValueChange={(value) => setUploadForm(prev => ({ ...prev, subcategory: value }))}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Выберите подкатегорию" />
+                      <SelectValue placeholder="Выберите папку (создание папок)" />
                     </SelectTrigger>
                     <SelectContent>
                       {filteredSubcategories.map(subcategory => (
                         <SelectItem key={subcategory.value} value={subcategory.value}>
-                          {subcategory.label}
+                          📁 {subcategory.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    💡 Выберите папку для организации аудиофайлов. Файлы будут отображаться в соответствующих папках в студенческом портале.
+                  </p>
                 </div>
               )}
             </div>
@@ -291,7 +296,7 @@ export const TextbookManager = () => {
             <div className="flex gap-2 pt-4">
               <Button
                 onClick={handleUpload}
-                disabled={!selectedFile || !uploadForm.title || uploading}
+                disabled={!selectedFile || !uploadForm.title || (uploadForm.category === 'audio' && !uploadForm.subcategory) || uploading}
                 className="flex-1"
               >
                 {uploading ? (
