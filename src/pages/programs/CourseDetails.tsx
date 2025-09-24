@@ -36,6 +36,28 @@ import {
 import SEOHead from "@/components/SEOHead";
 import { CourseMaterialsLibrary } from "@/components/student/CourseMaterialsLibrary";
 
+// Интерфейсы
+interface LessonDetail {
+  number: number;
+  title: string;
+  topics: string[];
+  vocabulary: string[];
+  grammar: string | string[];
+  activities: string[];
+  materials: string[];
+}
+
+interface Unit {
+  id: number;
+  title: string;
+  description: string;
+  color: string;
+  lessons: number;
+  vocabulary: string;
+  grammar: string;
+  lessonDetails?: LessonDetail[];
+}
+
 // Список всех курсов
 const courses = [
   { id: "super-safari-1", name: "Super Safari 1" },
@@ -63,7 +85,12 @@ const courses = [
 ];
 
 // Данные по курсам
-const courseData = {
+const courseData: Record<string, {
+  title: string;
+  description: string;
+  units: Unit[];
+  materials: any[];
+}> = {
   "kids-box-1": {
     title: "Kid's Box 1",
     description: "Английский для детей 6-8 лет",
@@ -75,7 +102,72 @@ const courseData = {
         color: "bg-blue-50 border-blue-200",
         lessons: 7,
         vocabulary: "Семья, числа, цвета, предлоги in/on/under",
-        grammar: "What's your name? How old are you? Where is…?"
+        grammar: "What's your name? How old are you? Where is…?",
+        lessonDetails: [
+          {
+            number: 1,
+            title: "Meet Star family",
+            topics: ["Знакомство с семьей Star", "Приветствие"],
+            vocabulary: ["mum", "dad", "sister", "brother"],
+            grammar: "What's your name?",
+            activities: ["Песня Hello", "Игра с именами", "Раскрашивание семьи"],
+            materials: ["AB p.4", "CB p.4-5", "Audio CD1 Track 1-3"]
+          },
+          {
+            number: 2,
+            title: "Numbers and colours",
+            topics: ["Числа 1-6", "Основные цвета"],
+            vocabulary: ["one", "two", "three", "red", "blue", "yellow"],
+            grammar: "How old are you?",
+            activities: ["Счёт до 6", "Цветная игра", "Песня Numbers"],
+            materials: ["AB p.5", "CB p.6-7", "Audio CD1 Track 4-6"]
+          },
+          {
+            number: 3,
+            title: "In the house",
+            topics: ["Предметы в доме", "Предлоги места"],
+            vocabulary: ["house", "bed", "table", "chair", "in", "on", "under"],
+            grammar: "Where is...?",
+            activities: ["Поиск предметов", "Игра Hide and seek", "Описание комнаты"],
+            materials: ["AB p.6", "CB p.8-9", "Audio CD1 Track 7-9"]
+          },
+          {
+            number: 4,
+            title: "At the park",
+            topics: ["Игра в парке", "Действия"],
+            vocabulary: ["park", "swing", "slide", "ball", "run", "jump"],
+            grammar: "I can...",
+            activities: ["Ролевая игра в парке", "Физминутка", "Описание действий"],
+            materials: ["AB p.7", "CB p.10-11", "Audio CD1 Track 10-12"]
+          },
+          {
+            number: 5,
+            title: "Story time",
+            topics: ["Сказка о Star", "Повторение лексики"],
+            vocabulary: ["Повторение всех слов юнита"],
+            grammar: "Повторение всех структур",
+            activities: ["Чтение сказки", "Пересказ", "Театрализация"],
+            materials: ["AB p.8", "CB p.12-13", "Audio CD1 Track 13-15"]
+          },
+          {
+            number: 6,
+            title: "Fun time",
+            topics: ["Игры и развлечения", "Творческие задания"],
+            vocabulary: ["Повторение и закрепление"],
+            grammar: "Повторение и закрепление",
+            activities: ["Проектная работа", "Игры с карточками", "Мини-спектакль"],
+            materials: ["AB p.9", "CB p.14-15", "Карточки, материалы для поделок"]
+          },
+          {
+            number: 7,
+            title: "Review and test",
+            topics: ["Повторение юнита", "Проверка знаний"],
+            vocabulary: ["Все слова юнита"],
+            grammar: ["Все структуры юнита"],
+            activities: ["Тестирование", "Игровое повторение", "Портфолио"],
+            materials: ["AB p.10", "CB p.16", "Тестовые материалы"]
+          }
+        ]
       },
       {
         id: 2,
@@ -84,7 +176,72 @@ const courseData = {
         color: "bg-green-50 border-green-200", 
         lessons: 7,
         vocabulary: "Школьные предметы, числа 11-20, дни недели",
-        grammar: "This is a... I have got... What day is it?"
+        grammar: "This is a... I have got... What day is it?",
+        lessonDetails: [
+          {
+            number: 8,
+            title: "School subjects",
+            topics: ["Школьные предметы", "Школьные принадлежности"],
+            vocabulary: ["Maths", "English", "Art", "book", "pen", "pencil"],
+            grammar: "This is a...",
+            activities: ["Экскурсия по школе", "Игра School bag", "Расписание"],
+            materials: ["AB p.11", "CB p.18-19", "Audio CD1 Track 16-18"]
+          },
+          {
+            number: 9,
+            title: "Numbers 11-20",
+            topics: ["Числа от 11 до 20", "Счёт предметов"],
+            vocabulary: ["eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"],
+            grammar: "How many...?",
+            activities: ["Счётные игры", "Математические задачи", "Песня Numbers"],
+            materials: ["AB p.12", "CB p.20-21", "Audio CD1 Track 19-21"]
+          },
+          {
+            number: 10,
+            title: "Days of the week",
+            topics: ["Дни недели", "Школьное расписание"],
+            vocabulary: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+            grammar: "What day is it?",
+            activities: ["Календарь класса", "Игра Week circle", "Мой день"],
+            materials: ["AB p.13", "CB p.22-23", "Audio CD1 Track 22-24"]
+          },
+          {
+            number: 11,
+            title: "I have got",
+            topics: ["Мои школьные вещи", "Описание владения"],
+            vocabulary: ["ruler", "rubber", "crayon", "scissors", "glue"],
+            grammar: "I have got... / I haven't got...",
+            activities: ["Описание рюкзака", "Игра Have you got?", "Школьный магазин"],
+            materials: ["AB p.14", "CB p.24-25", "Audio CD1 Track 25-27"]
+          },
+          {
+            number: 12,
+            title: "School story",
+            topics: ["Сказка о школе", "Школьные приключения"],
+            vocabulary: ["Повторение всех слов юнита"],
+            grammar: "Повторение всех структур",
+            activities: ["Чтение сказки", "Ролевая игра", "Школьный театр"],
+            materials: ["AB p.15", "CB p.26-27", "Audio CD1 Track 28-30"]
+          },
+          {
+            number: 13,
+            title: "Project time",
+            topics: ["Моя школа", "Творческий проект"],
+            vocabulary: ["Повторение и использование в проекте"],
+            grammar: "Повторение и использование в проекте",
+            activities: ["Создание школы мечты", "Презентация проекта", "Выставка работ"],
+            materials: ["AB p.16", "CB p.28-29", "Материалы для проекта"]
+          },
+          {
+            number: 14,
+            title: "Unit 2 review",
+            topics: ["Повторение юнита 2", "Проверка прогресса"],
+            vocabulary: ["Все слова юнита 2"],
+            grammar: ["Все структуры юнита 2"],
+            activities: ["Комплексный тест", "Игровое повторение", "Самооценка"],
+            materials: ["AB p.17", "CB p.30", "Тестовые материалы"]
+          }
+        ]
       },
       {
         id: 3,
@@ -93,7 +250,72 @@ const courseData = {
         color: "bg-purple-50 border-purple-200",
         lessons: 7,
         vocabulary: "Игрушки, цвета, прилагательные big/small",
-        grammar: "I like/don't like, притяжательные прилагательные"
+        grammar: "I like/don't like, притяжательные прилагательные",
+        lessonDetails: [
+          {
+            number: 15,
+            title: "Toys introduction",
+            topics: ["Введение игрушек", "Любимые игрушки"],
+            vocabulary: ["toy", "doll", "car", "ball", "teddy bear", "kite"],
+            grammar: "This is my...",
+            activities: ["Показ игрушек", "Описание игрушки", "Песня My toys"],
+            materials: ["AB p.18", "CB p.32-33", "Audio CD2 Track 1-3"]
+          },
+          {
+            number: 16,
+            title: "Big and small",
+            topics: ["Размеры игрушек", "Сравнения"],
+            vocabulary: ["big", "small", "old", "new"],
+            grammar: "It's big/small",
+            activities: ["Сравнение игрушек", "Игра Opposites", "Описание размеров"],
+            materials: ["AB p.19", "CB p.34-35", "Audio CD2 Track 4-6"]
+          },
+          {
+            number: 17,
+            title: "I like toys",
+            topics: ["Предпочтения", "Выражение мнения"],
+            vocabulary: ["like", "don't like", "love", "favourite"],
+            grammar: "I like... / I don't like...",
+            activities: ["Опрос о игрушках", "Моя любимая игрушка", "Голосование"],
+            materials: ["AB p.20", "CB p.36-37", "Audio CD2 Track 7-9"]
+          },
+          {
+            number: 18,
+            title: "Colours and toys",
+            topics: ["Цвета игрушек", "Описание"],
+            vocabulary: ["pink", "purple", "orange", "brown", "black", "white"],
+            grammar: "What colour is...?",
+            activities: ["Цветные игрушки", "Радуга игрушек", "Угадай цвет"],
+            materials: ["AB p.21", "CB p.38-39", "Audio CD2 Track 10-12"]
+          },
+          {
+            number: 19,
+            title: "Toy shop story",
+            topics: ["Сказка о магазине игрушек"],
+            vocabulary: ["Повторение всех слов юнита"],
+            grammar: "Повторение всех структур",
+            activities: ["Чтение сказки", "Ролевая игра Магазин", "Покупка игрушек"],
+            materials: ["AB p.22", "CB p.40-41", "Audio CD2 Track 13-15"]
+          },
+          {
+            number: 20,
+            title: "My toy collection",
+            topics: ["Коллекция игрушек", "Проект"],
+            vocabulary: ["Повторение и закрепление"],
+            grammar: "Повторение и закрепление",
+            activities: ["Выставка игрушек", "Презентация коллекции", "Игрушка мечты"],
+            materials: ["AB p.23", "CB p.42-43", "Материалы для проекта"]
+          },
+          {
+            number: 21,
+            title: "Unit 3 review",
+            topics: ["Повторение юнита 3"],
+            vocabulary: ["Все слова юнита 3"],
+            grammar: ["Все структуры юнита 3"],
+            activities: ["Тестирование", "Игровое повторение", "Портфолио игрушек"],
+            materials: ["AB p.24", "CB p.44", "Тестовые материалы"]
+          }
+        ]
       },
       {
         id: 4,
@@ -102,7 +324,72 @@ const courseData = {
         color: "bg-red-50 border-red-200",
         lessons: 7,
         vocabulary: "Члены семьи, профессии, месяцы",
-        grammar: "Притяжательный 's, When's your birthday?"
+        grammar: "Притяжательный 's, When's your birthday?",
+        lessonDetails: [
+          {
+            number: 22,
+            title: "Family members",
+            topics: ["Члены семьи", "Семейные роли"],
+            vocabulary: ["grandfather", "grandmother", "uncle", "aunt", "cousin"],
+            grammar: "This is my father's...",
+            activities: ["Семейное дерево", "Рассказ о семье", "Семейные фото"],
+            materials: ["AB p.25", "CB p.46-47", "Audio CD2 Track 15-17"]
+          },
+          {
+            number: 23,
+            title: "Jobs and professions",
+            topics: ["Профессии", "Работа родителей"],
+            vocabulary: ["doctor", "teacher", "driver", "cook", "farmer"],
+            grammar: "My dad is a...",
+            activities: ["Профессии родителей", "Игра Угадай профессию", "Кем я хочу стать"],
+            materials: ["AB p.26", "CB p.48-49", "Audio CD2 Track 18-20"]
+          },
+          {
+            number: 24,
+            title: "Birthdays",
+            topics: ["Дни рождения", "Месяцы года"],
+            vocabulary: ["January", "February", "March", "April", "May", "June"],
+            grammar: "When's your birthday?",
+            activities: ["Календарь дней рождения", "Поздравления", "Праздник"],
+            materials: ["AB p.27", "CB p.50-51", "Audio CD3 Track 1-3"]
+          },
+          {
+            number: 25,
+            title: "More months",
+            topics: ["Остальные месяцы", "Времена года"],
+            vocabulary: ["July", "August", "September", "October", "November", "December"],
+            grammar: "My birthday is in...",
+            activities: ["Месяцы и погода", "Времена года", "Мой любимый месяц"],
+            materials: ["AB p.28", "CB p.52-53", "Audio CD3 Track 4-6"]
+          },
+          {
+            number: 26,
+            title: "Family story",
+            topics: ["Семейная история"],
+            vocabulary: ["Повторение всех слов юнита"],
+            grammar: "Повторение всех структур",
+            activities: ["Семейная сказка", "Семейный театр", "Наша семья"],
+            materials: ["AB p.29", "CB p.54-55", "Audio CD3 Track 7-9"]
+          },
+          {
+            number: 27,
+            title: "Family project",
+            topics: ["Семейный проект"],
+            vocabulary: ["Повторение и использование в проекте"],
+            grammar: "Повторение и использование в проекте",
+            activities: ["Семейная книга", "Презентация семьи", "Семейные традиции"],
+            materials: ["AB p.30", "CB p.56-57", "Материалы для проекта"]
+          },
+          {
+            number: 28,
+            title: "Unit 4 review",
+            topics: ["Повторение юнита 4"],
+            vocabulary: ["Все слова юнита 4"],
+            grammar: ["Все структуры юнита 4"],
+            activities: ["Комплексный тест", "Семейная викторина", "Самооценка"],
+            materials: ["AB p.31", "CB p.58", "Тестовые материалы"]
+          }
+        ]
       },
       {
         id: 5,
@@ -111,7 +398,72 @@ const courseData = {
         color: "bg-yellow-50 border-yellow-200",
         lessons: 7,
         vocabulary: "Животные, еда, прилагательные описания",
-        grammar: "Have got/has got"
+        grammar: "Have got/has got",
+        lessonDetails: [
+          {
+            number: 29,
+            title: "Pet animals",
+            topics: ["Домашние животные", "Уход за питомцами"],
+            vocabulary: ["pet", "hamster", "rabbit", "guinea pig", "food", "water"],
+            grammar: "I have got a pet",
+            activities: ["Мой питомец", "Уход за животными", "Ветеринар"],
+            materials: ["AB p.32", "CB p.60-61", "Audio CD3 Track 10-12"]
+          },
+          {
+            number: 30,
+            title: "Pet food",
+            topics: ["Еда для животных", "Что едят питомцы"],
+            vocabulary: ["meat", "fish", "carrots", "seeds", "milk", "bones"],
+            grammar: "My pet eats...",
+            activities: ["Кормление питомцев", "Меню для животных", "Магазин для животных"],
+            materials: ["AB p.33", "CB p.62-63", "Audio CD3 Track 13-15"]
+          },
+          {
+            number: 31,
+            title: "Has got pets",
+            topics: ["У кого какие питомцы", "Описание животных"],
+            vocabulary: ["has got", "hasn't got", "tail", "fur", "paws"],
+            grammar: "He/She has got...",
+            activities: ["Описание питомцев друзей", "Угадай питомца", "Животные соседи"],
+            materials: ["AB p.34", "CB p.64-65", "Audio CD3 Track 16-18"]
+          },
+          {
+            number: 32,
+            title: "Pet care",
+            topics: ["Забота о питомцах", "Ответственность"],
+            vocabulary: ["wash", "brush", "walk", "play", "clean", "love"],
+            grammar: "I can... my pet",
+            activities: ["Уход за питомцем", "Расписание ухода", "Ответственный хозяин"],
+            materials: ["AB p.35", "CB p.66-67", "Audio CD4 Track 1-3"]
+          },
+          {
+            number: 33,
+            title: "Pet story",
+            topics: ["История о питомце"],
+            vocabulary: ["Повторение всех слов юнита"],
+            grammar: "Повторение всех структур",
+            activities: ["Сказка о питомце", "Приключения животных", "Дружба с животными"],
+            materials: ["AB p.36", "CB p.68-69", "Audio CD4 Track 4-6"]
+          },
+          {
+            number: 34,
+            title: "Pet show project",
+            topics: ["Выставка питомцев", "Проект"],
+            vocabulary: ["Повторение и закрепление"],
+            grammar: "Повторение и закрепление",
+            activities: ["Выставка животных", "Конкурс красоты", "Идеальный питомец"],
+            materials: ["AB p.37", "CB p.70-71", "Материалы для проекта"]
+          },
+          {
+            number: 35,
+            title: "Unit 5 review",
+            topics: ["Повторение юнита 5"],
+            vocabulary: ["Все слова юнита 5"],
+            grammar: ["Все структуры юнита 5"],
+            activities: ["Тестирование", "Викторина о животных", "Портфолио питомцев"],
+            materials: ["AB p.38", "CB p.72", "Тестовые материалы"]
+          }
+        ]
       },
       {
         id: 6,
@@ -120,7 +472,63 @@ const courseData = {
         color: "bg-pink-50 border-pink-200",
         lessons: 6,
         vocabulary: "Части лица, прилагательные внешности",
-        grammar: "Have got (внешность), описания"
+        grammar: "Have got (внешность), описания",
+        lessonDetails: [
+          {
+            number: 36,
+            title: "Parts of face",
+            topics: ["Части лица", "Описание внешности"],
+            vocabulary: ["eyes", "nose", "mouth", "ears", "hair", "big", "small"],
+            grammar: "I have got... eyes",
+            activities: ["Портрет друга", "Игра Guess who", "Описание внешности"],
+            materials: ["AB p.39", "CB p.74-75", "Audio CD4 Track 7-9"]
+          },
+          {
+            number: 37,
+            title: "Hair and eyes",
+            topics: ["Волосы и глаза", "Цвета"],
+            vocabulary: ["blonde", "brown", "black", "blue eyes", "green eyes"],
+            grammar: "She has got... hair",
+            activities: ["Описание внешности семьи", "Цвета волос и глаз", "Мой портрет"],
+            materials: ["AB p.40", "CB p.76-77", "Audio CD4 Track 10-12"]
+          },
+          {
+            number: 38,
+            title: "Feelings and faces",
+            topics: ["Эмоции", "Выражения лица"],
+            vocabulary: ["happy", "sad", "angry", "tired", "hungry"],
+            grammar: "I am... / He is...",
+            activities: ["Эмоции на лице", "Театр эмоций", "Угадай чувство"],
+            materials: ["AB p.41", "CB p.78-79", "Audio CD4 Track 13-15"]
+          },
+          {
+            number: 39,
+            title: "Face story",
+            topics: ["История о лице"],
+            vocabulary: ["Повторение всех слов юнита"],
+            grammar: "Повторение всех структур",
+            activities: ["Сказка о внешности", "Волшебные превращения", "Красота внутри"],
+            materials: ["AB p.42", "CB p.80-81", "Audio CD4 Track 16-18"]
+          },
+          {
+            number: 40,
+            title: "Self-portrait project",
+            topics: ["Автопортрет", "Творческий проект"],
+            vocabulary: ["Повторение и использование в проекте"],
+            grammar: "Повторение и использование в проекте",
+            activities: ["Мой автопортрет", "Галерея портретов", "Описание себя"],
+            materials: ["AB p.43", "CB p.82-83", "Материалы для рисования"]
+          },
+          {
+            number: 41,
+            title: "Unit 6 review",
+            topics: ["Повторение юнита 6", "Итоговая проверка"],
+            vocabulary: ["Все слова юнита 6"],
+            grammar: ["Все структуры юнита 6"],
+            activities: ["Финальный тест", "Описание внешности", "Годовое портфолио"],
+            materials: ["AB p.44", "CB p.84", "Тестовые материалы"]
+          }
+        ]
       }
     ],
     materials: [
@@ -376,10 +784,11 @@ const ListeningGame = () => {
 
 export default function CourseDetails() {
   const [selectedCourse, setSelectedCourse] = useState("kids-box-1");
-  const [searchLessonNumber, setSearchLessonNumber] = useState('');
-  const [selectedLesson, setSelectedLesson] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedLesson, setSelectedLesson] = useState<any>(null);
   const [openUnits, setOpenUnits] = useState<Record<number, boolean>>({});
   const [selectedTrainer, setSelectedTrainer] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
 
   const currentCourseData = courseData[selectedCourse as keyof typeof courseData] || courseData["kids-box-1"];
 
@@ -400,6 +809,48 @@ export default function CourseDetails() {
 
   const closeTrainer = () => {
     setSelectedTrainer(null);
+  };
+
+  const searchLessons = () => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const results: any[] = [];
+    
+    currentCourseData.units.forEach((unit: any) => {
+      if (unit.lessonDetails && Array.isArray(unit.lessonDetails)) {
+        unit.lessonDetails.forEach((lesson: any) => {
+          const query = searchQuery.toLowerCase();
+          const matchesNumber = lesson.number.toString().includes(query);
+          const matchesTitle = lesson.title.toLowerCase().includes(query);
+          const matchesTopics = lesson.topics.some((topic: string) => 
+            topic.toLowerCase().includes(query)
+          );
+          const matchesVocabulary = Array.isArray(lesson.vocabulary) ? 
+            lesson.vocabulary.some((word: string) => 
+              word.toLowerCase().includes(query)
+            ) : false;
+          const matchesActivities = lesson.activities.some((activity: string) => 
+            activity.toLowerCase().includes(query)
+          );
+
+          if (matchesNumber || matchesTitle || matchesTopics || matchesVocabulary || matchesActivities) {
+            results.push({
+              ...lesson,
+              unit: unit
+            });
+          }
+        });
+      }
+    });
+
+    setSearchResults(results);
+  };
+
+  const openLessonDetails = (lesson: any) => {
+    setSelectedLesson(lesson);
   };
 
   return (
@@ -472,18 +923,43 @@ export default function CourseDetails() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex gap-4 items-center">
+                  <div className="flex gap-4 items-center flex-wrap">
                     <Input
-                      type="number"
-                      placeholder="Номер урока (1-80)"
-                      value={searchLessonNumber}
-                      onChange={(e) => setSearchLessonNumber(e.target.value)}
-                      className="max-w-xs"
+                      placeholder="Номер урока или ключевые слова..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="max-w-sm"
                     />
-                    <Button onClick={() => console.log('Search lesson')}>
+                    <Button onClick={searchLessons}>
                       Найти урок
                     </Button>
                   </div>
+                  
+                  {/* Результаты поиска */}
+                  {searchResults.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      <h4 className="font-semibold">Найдено уроков: {searchResults.length}</h4>
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {searchResults.map((lesson) => (
+                          <Card 
+                            key={lesson.number} 
+                            className="p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                            onClick={() => openLessonDetails(lesson)}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <span className="font-medium">Урок {lesson.number}: {lesson.title}</span>
+                                <p className="text-sm text-muted-foreground">
+                                  {lesson.unit.title} • {lesson.topics.join(", ")}
+                                </p>
+                              </div>
+                              <ExternalLink className="h-4 w-4" />
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
