@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Folder, Music, FolderOpen } from 'lucide-react';
-import { AudioPlayer } from './AudioPlayer';
+import { InlineAudioPlayer } from './InlineAudioPlayer';
 import { Textbook } from '@/hooks/useTextbooks';
 
 interface AudioSubfolderViewProps {
@@ -34,7 +34,6 @@ const subcategoryLabels: Record<string, string> = {
 
 export const AudioSubfolderView = ({ materials, courseTitle, onBack }: AudioSubfolderViewProps) => {
   const [selectedSubfolder, setSelectedSubfolder] = useState<string | null>(null);
-  const [selectedAudio, setSelectedAudio] = useState<Textbook | null>(null);
 
   // Group audio materials by subcategory
   const subfolders = materials.reduce((acc, material) => {
@@ -83,20 +82,6 @@ export const AudioSubfolderView = ({ materials, courseTitle, onBack }: AudioSubf
           </div>
         </div>
 
-        {selectedAudio && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Сейчас играет</h3>
-              <Button variant="ghost" onClick={() => setSelectedAudio(null)}>
-                Закрыть плеер
-              </Button>
-            </div>
-            <AudioPlayer 
-              src={selectedAudio.file_url}
-              title={selectedAudio.title}
-            />
-          </div>
-        )}
 
         <Card>
           <CardHeader>
@@ -108,33 +93,26 @@ export const AudioSubfolderView = ({ materials, courseTitle, onBack }: AudioSubf
           <CardContent>
             {currentMaterials.length > 0 ? (
               <div className="grid gap-3">
-                {currentMaterials.map(material => (
+                 {currentMaterials.map(material => (
                   <div 
                     key={material.id}
-                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
+                    className="p-3 border rounded-lg hover:bg-accent/50 transition-colors space-y-3"
                   >
-                    <div className="flex items-center gap-3 flex-1">
-                      <Music className="h-5 w-5 text-purple-500" />
+                    <div className="flex items-center gap-3">
+                      <Music className="h-4 w-4 text-purple-500 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{material.title}</p>
+                        <p className="font-medium text-sm truncate">{material.title}</p>
                         {material.description && (
-                          <p className="text-sm text-muted-foreground truncate">
+                          <p className="text-xs text-muted-foreground truncate">
                             {material.description}
                           </p>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button 
-                        variant={selectedAudio?.id === material.id ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setSelectedAudio(
-                          selectedAudio?.id === material.id ? null : material
-                        )}
-                      >
-                        {selectedAudio?.id === material.id ? 'Открыт' : 'Слушать'}
-                      </Button>
-                    </div>
+                    <InlineAudioPlayer 
+                      src={material.file_url}
+                      title={material.title}
+                    />
                   </div>
                 ))}
               </div>

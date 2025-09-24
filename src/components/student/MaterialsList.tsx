@@ -123,8 +123,8 @@ export const MaterialsList = ({ materials, courseTitle, onBack }: MaterialsListP
                     className="p-3 hover:shadow-md transition-all cursor-pointer"
                     onClick={openPDF}
                   >
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-6 w-6 text-red-500 flex-shrink-0" />
+                     <div className="flex items-center gap-3">
+                      <FileText className="h-3 w-3 text-red-500 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm truncate">{material.title}</p>
                         {material.description && (
@@ -140,15 +140,28 @@ export const MaterialsList = ({ materials, courseTitle, onBack }: MaterialsListP
                           )}
                         </div>
                       </div>
-                      <PDFViewer
-                        url={material.file_url}
-                        fileName={material.file_name}
-                        trigger={
-                          <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        }
-                      />
+                      <div className="flex gap-1">
+                        <PDFViewer
+                          url={material.file_url}
+                          fileName={material.file_name}
+                          trigger={
+                            <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          }
+                        />
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(material.file_url, '_blank');
+                          }}
+                          title="Открыть в новом окне"
+                        >
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </Card>
                 );
