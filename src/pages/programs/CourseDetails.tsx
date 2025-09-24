@@ -1406,47 +1406,13 @@ export default function CourseDetails() {
             {/* Материалы */}
             <TabsContent value="materials" className="space-y-8">
               <div className="text-center mb-8">
-                <h2 className="text-3xl font-bold mb-4">Учебные материалы</h2>
+                <h2 className="text-3xl font-bold mb-4">Файловая библиотека</h2>
                 <p className="text-muted-foreground">
-                  Все необходимые материалы для курса {currentCourseData.title}
+                  Дополнительные материалы и ресурсы для курса {currentCourseData.title}
                 </p>
               </div>
 
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {currentCourseData.materials.map((material, index) => (
-                  <Card 
-                    key={index}
-                    className="transition-all hover:shadow-lg hover:scale-105 cursor-pointer"
-                  >
-                    <CardContent className="p-6 text-center">
-                      <material.icon className="h-12 w-12 mx-auto mb-4 text-primary" />
-                      <h3 className="font-semibold mb-2">{material.name}</h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        {material.description}
-                      </p>
-                      <Button variant="outline" size="sm" className="flex items-center gap-2 mx-auto">
-                        <Download className="h-4 w-4" />
-                        Скачать
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              <Card className="mt-8">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FolderOpen className="h-5 w-5" />
-                    Файловая библиотека
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Дополнительные материалы и ресурсы для курса
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <CourseMaterialsLibrary selectedCourse={selectedCourse} />
-                </CardContent>
-              </Card>
+              <CourseMaterialsLibrary selectedCourse={selectedCourse.replace(/-/g, '_')} />
             </TabsContent>
 
             {/* Тренажёры */}

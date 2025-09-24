@@ -185,6 +185,13 @@ export const CourseMaterialsLibrary = ({ selectedCourse: courseFilter }: CourseM
     );
   }
 
+  // Если есть courseFilter и найден соответствующий курс, автоматически открываем его
+  useEffect(() => {
+    if (courseFilter && filteredCourseGroups.length === 1 && !selectedCourse) {
+      setSelectedCourse(filteredCourseGroups[0]);
+    }
+  }, [courseFilter, filteredCourseGroups.length]);
+
   if (selectedCourse) {
     return (
       <MaterialsList
