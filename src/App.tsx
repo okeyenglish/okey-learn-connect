@@ -10,6 +10,7 @@ import Footer from "@/components/Footer";
 import ChatBot from "@/components/ChatBot";
 import ScrollToTop from "@/components/ScrollToTop";
 import { lazy, Suspense } from "react";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
 // Immediate load for critical pages
 import Index from "./pages/Index";
@@ -252,9 +253,11 @@ const AppContent = () => {
             </Suspense>
           } />
           <Route path="/admin" element={
-            <Suspense fallback={<LoadingComponent />}>
-              <Admin />
-            </Suspense>
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Suspense fallback={<LoadingComponent />}>
+                <Admin />
+              </Suspense>
+            </ProtectedRoute>
           } />
           <Route path="/newcrm" element={
             <Suspense fallback={<LoadingComponent />}>
