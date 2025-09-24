@@ -1436,6 +1436,22 @@ export type Database = {
           conflicting_time_range: string
         }[]
       }
+      get_student_by_user_id: {
+        Args: { _user_id: string }
+        Returns: {
+          age: number
+          created_at: string
+          family_group_id: string
+          first_name: string
+          id: string
+          last_name: string
+          middle_name: string
+          name: string
+          phone: string
+          status: string
+          updated_at: string
+        }[]
+      }
       get_student_schedule_conflicts: {
         Args: {
           p_end_time: string

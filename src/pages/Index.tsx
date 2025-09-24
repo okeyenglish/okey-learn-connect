@@ -702,6 +702,15 @@ export default function Index() {
                 Пройти тестирование
               </Button>
             </Link>
+            <Link to="/auth" className="w-full sm:w-auto">
+              <Button 
+                variant="outline" 
+                size="touch" 
+                className="w-full sm:w-auto bg-transparent text-white border-2 border-white hover:bg-white hover:text-primary font-semibold text-lg"
+              >
+                Личный кабинет
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
