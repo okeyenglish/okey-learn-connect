@@ -27,7 +27,7 @@ import {
   Home
 } from "lucide-react";
 import SEOHead from "@/components/SEOHead";
-import { TextbookSection } from "@/components/TextbookSection";
+import { CourseMaterialsLibrary } from "@/components/student/CourseMaterialsLibrary";
 
 // Данные детального планирования уроков
 const lessonDetails = {
@@ -1819,10 +1819,7 @@ export default function KidsBox1() {
             {/* Материалы урока */}
             <TabsContent value="materials">
               <div className="space-y-6">
-                <TextbookSection 
-                  title="Учебные материалы Kid's Box 1"
-                  programType="kids-box-1"
-                />
+                <CourseMaterialsLibrary />
                 
                 <Card>
                   <CardHeader>
