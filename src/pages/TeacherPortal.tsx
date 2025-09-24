@@ -223,7 +223,7 @@ export default function TeacherPortal() {
                   <BookOpen className="h-4 w-4 mr-2" />
                   Материалы
                 </Button>
-                <Button variant="outline" onClick={() => navigate('/programs/course-details')}>
+                <Button variant="outline" onClick={() => navigate('/programs')}>
                   <Calendar className="h-4 w-4 mr-2" />
                   Планирование
                 </Button>
