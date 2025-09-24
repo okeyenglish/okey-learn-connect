@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PDFViewer } from '@/components/PDFViewer';
-import { FileText, Book } from 'lucide-react';
+import { FileText, Book, Music, Eye } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useTextbooks } from '@/hooks/useTextbooks';
 import { useEffect } from 'react';
 
@@ -9,6 +10,7 @@ interface TextbookMaterial {
   description: string;
   url: string;
   fileName: string;
+  category?: string;
 }
 
 interface TextbookSectionProps {
@@ -32,7 +34,8 @@ export const TextbookSection = ({ title, materials, programType, className }: Te
     title: tb.title,
     description: tb.description || '',
     url: tb.file_url,
-    fileName: tb.file_name
+    fileName: tb.file_name,
+    category: tb.category
   }));
 
   if (loading && !materials) {
@@ -53,6 +56,18 @@ export const TextbookSection = ({ title, materials, programType, className }: Te
     );
   }
 
+  const isAudioFile = (fileName: string, category?: string) => {
+    const ext = fileName.toLowerCase().split('.').pop();
+    return category === 'audio' || ['mp3', 'wav', 'ogg', 'm4a', 'aac'].includes(ext || '');
+  };
+
+  const getFileIcon = (material: TextbookMaterial) => {
+    if (isAudioFile(material.fileName, material.category)) {
+      return <Music className="h-5 w-5 text-purple-500" />;
+    }
+    return <FileText className="h-5 w-5 text-red-500" />;
+  };
+
   return (
     <Card className={className}>
       <CardHeader>
@@ -61,7 +76,7 @@ export const TextbookSection = ({ title, materials, programType, className }: Te
           {title}
         </CardTitle>
         <CardDescription>
-          Учебные материалы и пособия
+          Учебные материалы, пособия и аудиоматериалы
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -76,18 +91,36 @@ export const TextbookSection = ({ title, materials, programType, className }: Te
           <div className="grid gap-3">
             {displayMaterials.map((material, index) => (
               <div key={index} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <FileText className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium">{material.title}</p>
-                    <p className="text-sm text-muted-foreground">{material.description}</p>
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  {getFileIcon(material)}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium truncate">{material.title}</p>
+                    <p className="text-sm text-muted-foreground truncate">{material.description}</p>
                   </div>
                 </div>
-                <PDFViewer 
-                  url={material.url}
-                  fileName={material.fileName}
-                  className="flex-shrink-0"
-                />
+                <div className="flex items-center gap-2 ml-3">
+                  {isAudioFile(material.fileName, material.category) ? (
+                    <audio 
+                      controls 
+                      className="w-32 h-8"
+                      preload="metadata"
+                    >
+                      <source src={material.url} />
+                      Ваш браузер не поддерживает аудио
+                    </audio>
+                  ) : (
+                    <PDFViewer 
+                      url={material.url}
+                      fileName={material.fileName}
+                      trigger={
+                        <Button variant="outline" size="sm">
+                          <Eye className="h-4 w-4 mr-2" />
+                          Открыть
+                        </Button>
+                      }
+                    />
+                  )}
+                </div>
               </div>
             ))}
           </div>

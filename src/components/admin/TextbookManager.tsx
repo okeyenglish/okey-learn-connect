@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Upload, Edit2, Trash2, Eye, Plus, Loader2 } from 'lucide-react';
+import { FileText, Upload, Edit2, Trash2, Eye, Plus, Loader2, Music } from 'lucide-react';
 import { useTextbooks } from '@/hooks/useTextbooks';
 import { PDFViewer } from '@/components/PDFViewer';
 
@@ -32,6 +32,14 @@ const categories = [
   { value: 'video', label: 'Видеоматериалы' }
 ];
 
+const getFileIcon = (fileName: string, category?: string) => {
+  const ext = fileName.toLowerCase().split('.').pop();
+  if (category === 'audio' || ['mp3', 'wav', 'ogg', 'm4a', 'aac'].includes(ext || '')) {
+    return <Music className="h-8 w-8 text-purple-500" />;
+  }
+  return <FileText className="h-8 w-8 text-red-500" />;
+};
+
 export const TextbookManager = () => {
   const { textbooks, loading, uploadTextbook, deleteTextbook, updateTextbook, fetchTextbooks } = useTextbooks();
   const [uploading, setUploading] = useState(false);
@@ -47,13 +55,25 @@ export const TextbookManager = () => {
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file && file.type === 'application/pdf') {
-      setSelectedFile(file);
-      if (!uploadForm.title) {
-        setUploadForm(prev => ({ ...prev, title: file.name.replace('.pdf', '') }));
+    if (file) {
+      const allowedTypes = [
+        'application/pdf',
+        'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/m4a', 'audio/aac'
+      ];
+      
+      if (allowedTypes.some(type => file.type === type || file.type.startsWith('audio/'))) {
+        setSelectedFile(file);
+        if (!uploadForm.title) {
+          const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+          setUploadForm(prev => ({ 
+            ...prev, 
+            title: nameWithoutExt,
+            category: file.type.startsWith('audio/') ? 'audio' : 'general'
+          }));
+        }
+      } else {
+        alert('Пожалуйста, выберите PDF или аудио файл (MP3, WAV, OGG, M4A, AAC)');
       }
-    } else {
-      alert('Пожалуйста, выберите PDF файл');
     }
   };
 
@@ -121,9 +141,9 @@ export const TextbookManager = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold">Управление учебниками</h2>
+          <h2 className="text-2xl font-bold">Управление материалами</h2>
           <p className="text-muted-foreground">
-            Загружайте и управляйте PDF учебниками и материалами
+            Загружайте и управляйте учебниками, аудиоматериалами и другими файлами
           </p>
         </div>
         
@@ -131,24 +151,24 @@ export const TextbookManager = () => {
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
-              Загрузить учебник
+              Загрузить материал
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Загрузить новый учебник</DialogTitle>
+              <DialogTitle>Загрузить новый материал</DialogTitle>
               <DialogDescription>
-                Выберите PDF файл и заполните информацию о учебнике
+                Выберите PDF или аудио файл и заполните информацию о материале
               </DialogDescription>
             </DialogHeader>
             
             <div className="space-y-4">
               <div>
-                <Label htmlFor="file">PDF файл</Label>
+                <Label htmlFor="file">Файл</Label>
                 <Input
                   id="file"
                   type="file"
-                  accept=".pdf"
+                  accept=".pdf,.mp3,.wav,.ogg,.m4a,.aac"
                   onChange={handleFileSelect}
                   className="mt-1"
                 />
@@ -245,13 +265,13 @@ export const TextbookManager = () => {
           <Card>
             <CardContent className="py-12 text-center">
               <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-lg font-medium mb-2">Учебники не найдены</p>
+              <p className="text-lg font-medium mb-2">Материалы не найдены</p>
               <p className="text-muted-foreground mb-4">
-                Загрузите первый учебник, чтобы начать работу
+                Загрузите первый материал (PDF или аудио), чтобы начать работу
               </p>
               <Button onClick={() => setIsUploadDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                Загрузить учебник
+                Загрузить материал
               </Button>
             </CardContent>
           </Card>
@@ -262,7 +282,7 @@ export const TextbookManager = () => {
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-4 flex-1">
                     <div className="flex-shrink-0">
-                      <FileText className="h-8 w-8 text-red-500" />
+                      {getFileIcon(textbook.file_name, textbook.category)}
                     </div>
                     
                     <div className="flex-1 min-w-0">
@@ -294,15 +314,26 @@ export const TextbookManager = () => {
                   </div>
                   
                   <div className="flex items-center gap-2 ml-4">
-                    <PDFViewer
-                      url={textbook.file_url}
-                      fileName={textbook.file_name}
-                      trigger={
-                        <Button variant="ghost" size="sm">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      }
-                    />
+                    {textbook.category === 'audio' || textbook.file_name.match(/\.(mp3|wav|ogg|m4a|aac)$/i) ? (
+                      <audio 
+                        controls 
+                        className="w-40 h-8"
+                        preload="metadata"
+                      >
+                        <source src={textbook.file_url} />
+                        Ваш браузер не поддерживает аудио
+                      </audio>
+                    ) : (
+                      <PDFViewer
+                        url={textbook.file_url}
+                        fileName={textbook.file_name}
+                        trigger={
+                          <Button variant="ghost" size="sm">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        }
+                      />
+                    )}
                     
                     <Dialog>
                       <DialogTrigger asChild>
