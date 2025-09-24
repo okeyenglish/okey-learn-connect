@@ -684,13 +684,13 @@ export default function CourseDetails() {
               )}
 
               {/* Темы урока */}
-              {selectedLesson.topics && Array.isArray(selectedLesson.topics) && selectedLesson.topics.length > 0 && (
+              {selectedLesson.topics && Array.isArray(selectedLesson.topics) && selectedLesson.topics.length > 0 && selectedLesson.topics.some(topic => topic && String(topic).trim()) && (
                 <div>
                   <h4 className="font-semibold mb-2 flex items-center gap-2">
                     🎯 Темы урока:
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {selectedLesson.topics.map((topic, index) => (
+                    {selectedLesson.topics.filter(topic => topic && String(topic).trim()).map((topic, index) => (
                       <Badge key={index} variant="secondary">{String(topic)}</Badge>
                     ))}
                   </div>
