@@ -174,13 +174,18 @@ export default function CourseDetails() {
     queryKey: ['unit-lessons', unitIds],
     queryFn: async () => {
       if (!unitIds.length) return [] as UnitLesson[];
+      console.log('Fetching lessons for unit IDs:', unitIds);
       const { data, error } = await supabase
         .from('unit_lessons')
         .select('*')
         .in('unit_id', unitIds)
         .order('sort_order', { ascending: true })
         .order('lesson_number', { ascending: true });
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching lessons:', error);
+        throw error;
+      }
+      console.log('Fetched lessons:', data);
       return (data as unknown) as UnitLesson[];
     },
     enabled: unitIds.length > 0,
@@ -192,6 +197,7 @@ export default function CourseDetails() {
       if (!map[l.unit_id]) map[l.unit_id] = [];
       map[l.unit_id].push(l);
     });
+    console.log('Lessons organized by unit ID:', map);
     return map;
   }, [lessons]);
 
@@ -214,7 +220,9 @@ export default function CourseDetails() {
 
   // Получение уроков для конкретного юнита
   const getUnitLessons = (unitId: string) => {
-    return lessonsByUnitId[unitId] || [];
+    const lessons = lessonsByUnitId[unitId] || [];
+    console.log(`Getting lessons for unit ${unitId}:`, lessons);
+    return lessons;
   };
 
   // Определение цвета для юнита
