@@ -21,7 +21,8 @@ import {
   Video,
   Users,
   Download,
-  Calendar
+  Calendar,
+  Home
 } from "lucide-react";
 import SEOHead from "@/components/SEOHead";
 import { InlineCourseMaterials } from "@/components/student/InlineCourseMaterials";
@@ -57,6 +58,9 @@ interface UnitLesson {
   activities: any;
   grammar: any;
   vocabulary: any;
+  goals: any;
+  structure: any;
+  homework: any;
   sort_order: number;
 }
 
@@ -618,24 +622,21 @@ export default function CourseDetails() {
             </DialogHeader>
             
             <div className="space-y-6">
-              {/* Темы урока */}
-              {selectedLesson.topics && (
+              {/* Цели урока */}
+              {selectedLesson.goals && (
                 <div>
                   <h4 className="font-semibold mb-2 flex items-center gap-2">
                     <Target className="w-4 h-4" />
-                    Темы урока:
+                    Цели урока:
                   </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {Array.isArray(selectedLesson.topics) 
-                      ? selectedLesson.topics.map((topic, index) => (
-                          <Badge key={index} variant="secondary">{String(topic)}</Badge>
-                        ))
-                      : <Badge variant="secondary">{String(selectedLesson.topics)}</Badge>
-                    }
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <div className="text-sm">
+                      {String(selectedLesson.goals)}
+                    </div>
                   </div>
                 </div>
               )}
-              
+
               {/* Материалы */}
               {selectedLesson.materials && (
                 <div>
@@ -643,19 +644,61 @@ export default function CourseDetails() {
                     <BookOpen className="w-4 h-4" />
                     Материалы:
                   </h4>
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <div className="text-sm">
+                      {Array.isArray(selectedLesson.materials)
+                        ? selectedLesson.materials.join('; ')
+                        : String(selectedLesson.materials)
+                      }
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Поминутная структура (80 минут) */}
+              {selectedLesson.structure && (
+                <div>
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    Поминутная структура (80 минут):
+                  </h4>
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <div className="text-sm whitespace-pre-line">
+                      {String(selectedLesson.structure)}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Домашнее задание */}
+              {selectedLesson.homework && (
+                <div className="p-4 bg-primary/5 rounded-lg">
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <Home className="w-4 h-4" />
+                    Домашнее задание:
+                  </h4>
+                  <div className="text-sm">
+                    {String(selectedLesson.homework)}
+                  </div>
+                </div>
+              )}
+
+              {/* Темы урока */}
+              {selectedLesson.topics && Array.isArray(selectedLesson.topics) && selectedLesson.topics.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    🎯 Темы урока:
+                  </h4>
                   <div className="flex flex-wrap gap-2">
-                    {Array.isArray(selectedLesson.materials)
-                      ? selectedLesson.materials.map((material, index) => (
-                          <Badge key={index} variant="outline">{String(material)}</Badge>
-                        ))
-                      : <Badge variant="outline">{String(selectedLesson.materials)}</Badge>
-                    }
+                    {selectedLesson.topics.map((topic, index) => (
+                      <Badge key={index} variant="secondary">{String(topic)}</Badge>
+                    ))}
                   </div>
                 </div>
               )}
               
               {/* Активности */}
-              {selectedLesson.activities && (
+              {selectedLesson.activities && Array.isArray(selectedLesson.activities) && selectedLesson.activities.length > 0 && (
                 <div>
                   <h4 className="font-semibold mb-3 flex items-center gap-2">
                     <Play className="w-4 h-4" />
@@ -663,46 +706,37 @@ export default function CourseDetails() {
                   </h4>
                   <div className="p-4 border rounded-lg">
                     <div className="text-sm">
-                      {Array.isArray(selectedLesson.activities)
-                        ? selectedLesson.activities.map((activity, index) => (
-                            <div key={index} className="mb-2">{String(activity)}</div>
-                          ))
-                        : <div>{String(selectedLesson.activities)}</div>
-                      }
+                      {selectedLesson.activities.map((activity, index) => (
+                        <div key={index} className="mb-2">{String(activity)}</div>
+                      ))}
                     </div>
                   </div>
                 </div>
               )}
 
               {/* Лексика */}
-              {selectedLesson.vocabulary && (
+              {selectedLesson.vocabulary && Array.isArray(selectedLesson.vocabulary) && selectedLesson.vocabulary.length > 0 && (
                 <div>
                   <h4 className="font-semibold mb-2 flex items-center gap-2">
                     📚 Лексика:
                   </h4>
                   <div className="p-3 bg-muted/50 rounded-lg">
                     <div className="text-sm">
-                      {Array.isArray(selectedLesson.vocabulary)
-                        ? selectedLesson.vocabulary.join(', ')
-                        : String(selectedLesson.vocabulary)
-                      }
+                      {selectedLesson.vocabulary.join(', ')}
                     </div>
                   </div>
                 </div>
               )}
 
               {/* Грамматика */}
-              {selectedLesson.grammar && (
+              {selectedLesson.grammar && Array.isArray(selectedLesson.grammar) && selectedLesson.grammar.length > 0 && (
                 <div>
                   <h4 className="font-semibold mb-2 flex items-center gap-2">
                     ⚙️ Грамматика:
                   </h4>
                   <div className="p-3 bg-muted/50 rounded-lg">
                     <div className="text-sm">
-                      {Array.isArray(selectedLesson.grammar)
-                        ? selectedLesson.grammar.join(', ')
-                        : String(selectedLesson.grammar)
-                      }
+                      {selectedLesson.grammar.join(', ')}
                     </div>
                   </div>
                 </div>
