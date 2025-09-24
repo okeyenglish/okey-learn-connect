@@ -111,7 +111,7 @@ export const MaterialsList = ({ materials, courseTitle, onBack }: MaterialsListP
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-2">
+            <div className="grid gap-3 md:grid-cols-2">
               {pdfMaterials.map(material => {
                 const openPDF = () => {
                   window.open(material.file_url, '_blank');
