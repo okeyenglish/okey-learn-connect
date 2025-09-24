@@ -6,17 +6,28 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   BookOpen, 
   Clock, 
   ChevronDown,
   ArrowLeft,
   GraduationCap,
-  Target
+  Target,
+  Search,
+  Play,
+  Gamepad2,
+  FileText,
+  Music,
+  Video,
+  Users,
+  Download,
+  Calendar
 } from "lucide-react";
 import SEOHead from "@/components/SEOHead";
 import { InlineCourseMaterials } from "@/components/student/InlineCourseMaterials";
 import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
 
 // Типы для данных курса
 interface Course {
@@ -36,6 +47,121 @@ interface CourseUnit {
   lessons_count: number;
   sort_order: number;
 }
+
+// Типизация для детального плана урока
+interface LessonDetail {
+  date: string;
+  title: string;
+  unit: string;
+  goals: string[];
+  materials: string[];
+  structure: Record<string, string>;
+  homework: string;
+}
+
+// Данные детального планирования уроков (пример для Kid's Box 1)
+const lessonDetailsData: Record<string, Record<number, LessonDetail>> = {
+  'kids-box-1': {
+    1: {
+      date: "2025-09-01",
+      title: "Meeting the Star family",
+      unit: "Unit 1",
+      goals: ["приветствия", "имена персонажей", "числа/цвета"],
+      materials: ["PB Unit 1", "AB Unit 1", "TB Unit 1", "Audio (song)", "KB1 интерактив"],
+      structure: {
+        "0-5": "ДЗ-чек/повтор (имена, цвета)",
+        "5-15": "Разминка — ball name game; приветствие по кругу",
+        "15-30": "Презентация — герои Star family (картинка/слайд), числа/цвета",
+        "30-50": "Практика — bingo (числа/цвета), TPR «show the colour/number»",
+        "50-70": "Коммуникативное — песня «Hello» + жесты; мини-диалоги «My name is…»",
+        "70-80": "Закрепление — карточки с именами → сопоставить; объяснить ДЗ"
+      },
+      homework: "AB — раскрасить лист; выучить имена персонажей"
+    },
+    2: {
+      date: "2025-09-04",
+      title: "Where is it? (in/on/under)",
+      unit: "Unit 1",
+      goals: ["предлоги места", "понимание инструкций"],
+      materials: ["PB Unit 1", "AB Unit 1", "TB", "Audio (short dialogue)", "KB1 game"],
+      structure: {
+        "0-5": "ДЗ-чек (имена/цвета)",
+        "5-15": "Разминка — «Simon says» с предметами класса",
+        "15-30": "Презентация — in/on/under с реальными объектами/картинками",
+        "30-50": "Практика — «Where's the teddy?» (прячем/находим); парная Q&A",
+        "50-70": "Коммуникативное — мини-квест в классе по подсказкам учителя",
+        "70-80": "Закрепление — краткий воркбук/AB упражнение; объяснить ДЗ"
+      },
+      homework: "Нарисовать свою комнату и подписать предметы (in/on/under)"
+    },
+    3: {
+      date: "2025-09-08",
+      title: "Family and age",
+      unit: "Unit 1",
+      goals: ["семья", "How old are you?", "числа 1–10 повтор"],
+      materials: ["PB/AB Unit 1", "TB", "Age cards", "KB1"],
+      structure: {
+        "0-5": "ДЗ-чек (комната/подписи)",
+        "5-15": "Разминка — счёт по кругу, «clap on 5/10»",
+        "15-30": "Презентация — семейные отношения; вопрос «How old are you?»",
+        "30-50": "Практика — карточки возрастов; парные диалоги",
+        "50-70": "Коммуникативное — «Find someone who» (роль в семье)",
+        "70-80": "Закрепление — мини-рисунок «My family» + подписи; ДЗ"
+      },
+      homework: "AB — упражнение по семье/возрасту"
+    },
+    4: {
+      date: "2025-09-11",
+      title: "Classroom commands & objects",
+      unit: "Unit 1",
+      goals: ["команды учителя", "предметы класса", "вежливые просьбы"],
+      materials: ["PB/AB Unit 1", "TB", "Flashcards", "KB1"],
+      structure: {
+        "0-5": "ДЗ-чек",
+        "5-15": "Разминка — chant с действиями: sit down, stand up, open your book",
+        "15-30": "Презентация — предметы класса; this is a…",
+        "30-50": "Практика — charades/flashcard race",
+        "50-70": "Коммуникативное — парные инструкции «Please, open/close…»",
+        "70-80": "Закрепление — короткий worksheet; ДЗ"
+      },
+      homework: "KB1 — игры Unit 1 (повтор слов)"
+    }
+  }
+};
+
+// Материалы курса
+const courseMaterials = [
+  {
+    name: "Pupil's Book",
+    description: "Основной учебник для ученика",
+    icon: BookOpen
+  },
+  {
+    name: "Activity Book", 
+    description: "Рабочая тетрадь с упражнениями",
+    icon: FileText
+  },
+  {
+    name: "Teacher's Book",
+    description: "Методическое пособие для учителя", 
+    icon: Users
+  },
+  {
+    name: "Аудиоматериалы",
+    description: "Песни, истории, упражнения на слух",
+    icon: Music
+  },
+  {
+    name: "Видеоматериалы", 
+    description: "Обучающие видео и мультфильмы",
+    icon: Video
+  },
+  {
+    name: "Интерактивы",
+    description: "Интерактивные игры и упражнения",
+    icon: Gamepad2
+  }
+];
 
 // Список доступных курсов для переключения
 const availableCourses = [
@@ -66,6 +192,8 @@ const availableCourses = [
 export default function CourseDetails() {
   const { courseSlug } = useParams<{ courseSlug: string }>();
   const navigate = useNavigate();
+  const [searchLessonNumber, setSearchLessonNumber] = useState('');
+  const [selectedLesson, setSelectedLesson] = useState<number | null>(null);
 
   // Получение данных о курсе
   const { data: course, isLoading: courseLoading } = useQuery({
@@ -107,6 +235,24 @@ export default function CourseDetails() {
   const handleCourseChange = (newCourseSlug: string) => {
     navigate(`/programs/course-details/${newCourseSlug}`);
   };
+
+  // Получение детальных планов уроков для текущего курса
+  const lessonDetails = lessonDetailsData[courseSlug as keyof typeof lessonDetailsData] || {};
+
+  // Функция поиска урока
+  const handleSearchLesson = () => {
+    const lessonNum = parseInt(searchLessonNumber);
+    if (lessonNum && lessonDetails[lessonNum]) {
+      setSelectedLesson(lessonNum);
+    }
+  };
+
+  // Закрытие модального окна урока
+  const closeDialog = () => {
+    setSelectedLesson(null);
+  };
+
+  const selectedLessonData = selectedLesson ? lessonDetails[selectedLesson] : null;
 
   // Определение цвета для юнита
   const getUnitColor = (unitNumber: number) => {
@@ -220,8 +366,11 @@ export default function CourseDetails() {
         {/* Main Content */}
         <div className="container mx-auto px-4 py-8">
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="overview">Обзор</TabsTrigger>
+              <TabsTrigger value="lessons">Уроки</TabsTrigger>
+              <TabsTrigger value="template">Шаблон урока</TabsTrigger>
+              <TabsTrigger value="trainers">Тренажёры</TabsTrigger>
               <TabsTrigger value="materials">Материалы</TabsTrigger>
             </TabsList>
 
@@ -283,6 +432,222 @@ export default function CourseDetails() {
               </Card>
             </TabsContent>
 
+            {/* Lessons Tab */}
+            <TabsContent value="lessons" className="space-y-6">
+              {/* Поиск урока */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Search className="w-5 h-5" />
+                    Поиск урока по номеру
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      placeholder="Номер урока (1-40)"
+                      value={searchLessonNumber}
+                      onChange={(e) => setSearchLessonNumber(e.target.value)}
+                      min="1"
+                      max="40"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <Button onClick={handleSearchLesson}>
+                      <Search className="w-4 h-4 mr-2" />
+                      Найти урок
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Сетка уроков */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Object.entries(lessonDetails).map(([lessonNum, lesson]) => (
+                  <Card 
+                    key={lessonNum} 
+                    className="cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => setSelectedLesson(parseInt(lessonNum))}
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <Badge variant="outline">Урок {lessonNum}</Badge>
+                        <Badge variant="secondary">{lesson.unit}</Badge>
+                      </div>
+                      <CardTitle className="text-base leading-tight">{lesson.title}</CardTitle>
+                      <p className="text-xs text-muted-foreground">{lesson.date}</p>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-sm font-medium">Цели:</p>
+                          <p className="text-xs text-muted-foreground">
+                            {lesson.goals.join(", ")}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">ДЗ:</p>
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {lesson.homework}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </TabsContent>
+
+            {/* Template Tab */}
+            <TabsContent value="template" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="w-6 h-6" />
+                    Шаблон урока (80 минут)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <p className="text-muted-foreground mb-6">
+                      Используйте эту структуру на всех занятиях для максимальной эффективности:
+                    </p>
+                    
+                    <div className="grid gap-4">
+                      <div className="flex items-center gap-4 p-4 border rounded-lg">
+                        <Badge variant="secondary" className="min-w-[3rem] justify-center">5′</Badge>
+                        <div>
+                          <h4 className="font-medium">Проверка ДЗ / повторение</h4>
+                          <p className="text-sm text-muted-foreground">Краткая проверка домашнего задания</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-4 p-4 border rounded-lg">
+                        <Badge variant="secondary" className="min-w-[3rem] justify-center">10′</Badge>
+                        <div>
+                          <h4 className="font-medium">Разминка</h4>
+                          <p className="text-sm text-muted-foreground">Песня/ритуал приветствия/игра</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-4 p-4 border rounded-lg">
+                        <Badge variant="secondary" className="min-w-[3rem] justify-center">15′</Badge>
+                        <div>
+                          <h4 className="font-medium">Презентация нового</h4>
+                          <p className="text-sm text-muted-foreground">Лексика/грамматика/фонетика</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-4 p-4 border rounded-lg">
+                        <Badge variant="secondary" className="min-w-[3rem] justify-center">20′</Badge>
+                        <div>
+                          <h4 className="font-medium">Практика</h4>
+                          <p className="text-sm text-muted-foreground">Карточки, пары/группы, задания из PB/AB</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-4 p-4 border rounded-lg">
+                        <Badge variant="secondary" className="min-w-[3rem] justify-center">20′</Badge>
+                        <div>
+                          <h4 className="font-medium">Коммуникативное задание</h4>
+                          <p className="text-sm text-muted-foreground">Диалоги, ролевые игры, story acting</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-4 p-4 border rounded-lg">
+                        <Badge variant="secondary" className="min-w-[3rem] justify-center">10′</Badge>
+                        <div>
+                          <h4 className="font-medium">Закрепление + ДЗ</h4>
+                          <p className="text-sm text-muted-foreground">Подведение итогов и объяснение домашки</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 p-4 bg-primary/5 rounded-lg">
+                      <h4 className="font-medium mb-2">Единый ритуал урока:</h4>
+                      <ul className="text-sm space-y-1 text-muted-foreground">
+                        <li>• Приветствие → «Circle time» 2–3 минуты</li>
+                        <li>• «Слово дня» или «быстрый повтор»</li>
+                        <li>• Песня/джингл по теме юнита</li>
+                        <li>• В конце: «Exit ticket» (1 вопрос/микро-задание)</li>
+                      </ul>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Trainers Tab */}
+            <TabsContent value="trainers" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Gamepad2 className="w-6 h-6 text-green-600" />
+                    Тренажёры и интерактивы
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {courseMaterials.map((material, index) => (
+                      <Card key={index} className="hover:shadow-md transition-shadow cursor-pointer">
+                        <CardContent className="p-6 text-center">
+                          <material.icon className="w-12 h-12 mx-auto mb-4 text-primary" />
+                          <h4 className="font-medium mb-2">{material.name}</h4>
+                          <p className="text-sm text-muted-foreground mb-4">{material.description}</p>
+                          <Button variant="outline" size="sm" className="w-full">
+                            <Play className="w-4 h-4 mr-2" />
+                            Открыть
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+
+                  <div className="mt-8 space-y-4">
+                    <h4 className="font-semibold">Интерактивные тренажёры:</h4>
+                    <div className="grid gap-3">
+                      <div className="p-3 border rounded-lg flex items-center justify-between">
+                        <div>
+                          <span className="font-medium">Vocabulary Flashcards:</span>
+                          <p className="text-sm text-muted-foreground">Интерактивные карточки для изучения новых слов</p>
+                        </div>
+                        <Button variant="outline" size="sm">
+                          <Play className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <div className="p-3 border rounded-lg flex items-center justify-between">
+                        <div>
+                          <span className="font-medium">Grammar Quiz:</span>
+                          <p className="text-sm text-muted-foreground">Интерактивные упражнения по грамматике</p>
+                        </div>
+                        <Button variant="outline" size="sm">
+                          <Play className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <div className="p-3 border rounded-lg flex items-center justify-between">
+                        <div>
+                          <span className="font-medium">Listening Activities:</span>
+                          <p className="text-sm text-muted-foreground">Упражнения на аудирование с интерактивными заданиями</p>
+                        </div>
+                        <Button variant="outline" size="sm">
+                          <Play className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <div className="p-3 border rounded-lg flex items-center justify-between">
+                        <div>
+                          <span className="font-medium">Speaking Practice:</span>
+                          <p className="text-sm text-muted-foreground">Ролевые игры и диалоги для развития речи</p>
+                        </div>
+                        <Button variant="outline" size="sm">
+                          <Play className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             {/* Materials Tab */}
             <TabsContent value="materials" className="space-y-6">
               <Card>
@@ -300,6 +665,77 @@ export default function CourseDetails() {
           </Tabs>
         </div>
       </div>
+
+      {/* Модальное окно с детальным планом урока */}
+      {selectedLessonData && (
+        <Dialog open={!!selectedLesson} onOpenChange={closeDialog}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5" />
+                Урок {selectedLesson}: {selectedLessonData.title}
+              </DialogTitle>
+              <DialogDescription>
+                {selectedLessonData.unit} • {selectedLessonData.date}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-6">
+              {/* Цели урока */}
+              <div>
+                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                  <Target className="w-4 h-4" />
+                  Цели урока:
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {selectedLessonData.goals.map((goal, index) => (
+                    <Badge key={index} variant="secondary">{goal}</Badge>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Материалы */}
+              <div>
+                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                  <BookOpen className="w-4 h-4" />
+                  Материалы:
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {selectedLessonData.materials.map((material, index) => (
+                    <Badge key={index} variant="outline">{material}</Badge>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Структура урока */}
+              <div>
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Структура урока (80 минут):
+                </h4>
+                <div className="space-y-3">
+                  {Object.entries(selectedLessonData.structure).map(([time, activity]) => (
+                    <div key={time} className="flex items-start gap-4 p-3 border rounded-lg">
+                      <Badge variant="secondary" className="min-w-[4rem] justify-center">
+                        {time}′
+                      </Badge>
+                      <p className="text-sm flex-1">{activity}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Домашнее задание */}
+              <div>
+                <h4 className="font-semibold mb-2">Домашнее задание:</h4>
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <p className="text-sm">{selectedLessonData.homework}</p>
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }
