@@ -68,6 +68,7 @@ const AppContent = () => {
   const location = useLocation();
   const isCRMPage = location.pathname === '/newcrm';
   const isPortalPage = location.pathname === '/student-portal' || location.pathname === '/teacher-portal' || location.pathname === '/methodist-portal' || location.pathname.startsWith('/teacher-group/');
+  const isProgramsPage = location.pathname === '/programs' || location.pathname.startsWith('/programs/');
 
   if (isCRMPage) {
     return (
@@ -99,12 +100,10 @@ const AppContent = () => {
     );
   }
 
-  return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      <main className="flex-1 pb-16 lg:pb-0">
+  if (isProgramsPage) {
+    return (
+      <div className="min-h-screen">
         <Routes>
-          <Route path="/" element={<Index />} />
           <Route path="/programs" element={
             <Suspense fallback={<LoadingComponent />}>
               <Programs />
@@ -150,6 +149,17 @@ const AppContent = () => {
               <SpeakingClub />
             </Suspense>
           } />
+        </Routes>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <main className="flex-1 pb-16 lg:pb-0">
+        <Routes>
+          <Route path="/" element={<Index />} />
           <Route path="/branches" element={
             <Suspense fallback={<LoadingComponent />}>
               <Branches />
