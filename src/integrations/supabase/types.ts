@@ -1464,11 +1464,14 @@ export type Database = {
         Row: {
           activities: Json
           created_at: string
+          goals: string | null
           grammar: Json
+          homework: string | null
           id: string
           lesson_number: number
           materials: Json
           sort_order: number
+          structure: string | null
           title: string
           topics: Json
           unit_id: string
@@ -1478,11 +1481,14 @@ export type Database = {
         Insert: {
           activities?: Json
           created_at?: string
+          goals?: string | null
           grammar?: Json
+          homework?: string | null
           id?: string
           lesson_number: number
           materials?: Json
           sort_order?: number
+          structure?: string | null
           title: string
           topics?: Json
           unit_id: string
@@ -1492,11 +1498,14 @@ export type Database = {
         Update: {
           activities?: Json
           created_at?: string
+          goals?: string | null
           grammar?: Json
+          homework?: string | null
           id?: string
           lesson_number?: number
           materials?: Json
           sort_order?: number
+          structure?: string | null
           title?: string
           topics?: Json
           unit_id?: string
