@@ -18,8 +18,9 @@ export const createTestStudent = async (): Promise<TestUser> => {
   try {
     // Создаем email в формате, который использует система аутентификации
     const email = testUser.phone.replace(/\D/g, '') + '@okeyenglish.ru';
+    console.log('Создаем пользователя с email:', email);
     
-    // Создаем нового пользователя
+    // Создаем нового пользователя с отключенной проверкой email
     const { data, error } = await supabase.auth.signUp({
       email: email,
       password: testUser.password,
@@ -34,10 +35,42 @@ export const createTestStudent = async (): Promise<TestUser> => {
     });
 
     if (error) {
+      console.error('Ошибка при создании пользователя:', error);
       if (error.message.includes('User already registered')) {
         console.log('Пользователь уже существует, можно войти с указанными данными');
+        return testUser;
       } else {
         throw error;
+      }
+    }
+
+    if (data.user) {
+      console.log('Пользователь создан успешно:', data.user.email);
+      
+      // Создаем запись в профилях
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: data.user.id,
+          first_name: testUser.firstName,
+          last_name: testUser.lastName,
+          phone: testUser.phone
+        });
+
+      if (profileError && !profileError.message.includes('duplicate key')) {
+        console.error('Ошибка создания профиля:', profileError);
+      }
+
+      // Назначаем роль студента
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .insert({
+          user_id: data.user.id,
+          role: 'student'
+        });
+
+      if (roleError && !roleError.message.includes('duplicate key')) {
+        console.error('Ошибка назначения роли:', roleError);
       }
     }
 
