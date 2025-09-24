@@ -324,10 +324,36 @@ export const TextbookManager = () => {
   };
 
   const getAvailableSubcategories = (category: string) => {
-    if (category === 'audio') return audioSubcategories;
-    if (category === 'educational') return educationalSubcategories;
-    if (category === 'video') return videoSubcategories;
-    return [];
+    // Получаем предустановленные подкатегории
+    let predefinedSubcategories = [];
+    if (category === 'audio') predefinedSubcategories = audioSubcategories;
+    if (category === 'educational') predefinedSubcategories = educationalSubcategories; 
+    if (category === 'video') predefinedSubcategories = videoSubcategories;
+    
+    // Получаем уникальные подкатегории из существующих материалов
+    const existingSubcategories = new Set<string>();
+    textbooks.forEach(textbook => {
+      if (textbook.category === category && textbook.subcategory) {
+        // Исключаем служебные подкатегории и объединенные в units
+        if (!textbook.subcategory.startsWith('unit-') && 
+            textbook.subcategory !== 'lesson-example' &&
+            textbook.subcategory !== '_files') {
+          existingSubcategories.add(textbook.subcategory);
+        }
+      }
+    });
+    
+    // Создаем массив уникальных подкатегорий
+    const existingSubcategoryValues = Array.from(existingSubcategories);
+    const predefinedValues = predefinedSubcategories.map(sub => sub.value);
+    
+    // Добавляем существующие подкатегории, которых нет в предустановленных
+    const customSubcategories = existingSubcategoryValues
+      .filter(value => !predefinedValues.includes(value))
+      .map(value => ({ value, label: getSubcategoryLabel(value) || value }));
+    
+    // Объединяем предустановленные и существующие подкатегории
+    return [...predefinedSubcategories, ...customSubcategories];
   };
 
   // Организуем материалы по папкам
