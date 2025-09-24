@@ -314,23 +314,27 @@ export default function TeacherPortal() {
                 </CardHeader>
                 <CardContent>
                   {groups && groups.length > 0 ? (
-                    <div className="space-y-3">
-                      {groups.map((group: any) => (
-                        <div key={group.id} className="p-3 border rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-medium">{group.name}</h4>
-                            <Badge variant="outline">{group.level}</Badge>
-                          </div>
-                          <div className="text-sm text-muted-foreground space-y-1">
-                            <p>Предмет: {group.subject}</p>
-                            <p>Студентов: {group.current_students}/{group.capacity}</p>
-                            {group.schedule_time && (
-                              <p>Расписание: {group.schedule_time}</p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                     <div className="space-y-3">
+                       {groups.map((group: any) => (
+                         <div 
+                           key={group.id} 
+                           className="p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                           onClick={() => navigate(`/teacher-group/${group.id}`)}
+                         >
+                           <div className="flex items-center justify-between mb-2">
+                             <h4 className="font-medium">{group.name}</h4>
+                             <Badge variant="outline">{group.level}</Badge>
+                           </div>
+                           <div className="text-sm text-muted-foreground space-y-1">
+                             <p>Предмет: {group.subject}</p>
+                             <p>Студентов: {group.current_students}/{group.capacity}</p>
+                             {group.schedule_time && (
+                               <p>Расписание: {group.schedule_time}</p>
+                             )}
+                           </div>
+                         </div>
+                       ))}
+                     </div>
                   ) : (
                     <p className="text-muted-foreground text-center py-4">
                       Активных групп не найдено

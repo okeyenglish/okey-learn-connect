@@ -44,6 +44,7 @@ const Admin = lazy(() => import("./pages/Admin"));
 const CRM = lazy(() => import("./pages/CRM"));
 const StudentPortal = lazy(() => import("./pages/StudentPortal"));
 const TeacherPortal = lazy(() => import("./pages/TeacherPortal"));
+const GroupDetailView = lazy(() => import("./components/teacher/GroupDetailView"));
 const OnlineLesson = lazy(() => import("./pages/OnlineLesson"));
 const Auth = lazy(() => import("./pages/Auth"));
 const CourseDetails = lazy(() => import('./pages/CourseDetails'));
@@ -65,7 +66,7 @@ const queryClient = new QueryClient();
 const AppContent = () => {
   const location = useLocation();
   const isCRMPage = location.pathname === '/newcrm';
-  const isPortalPage = location.pathname === '/student-portal' || location.pathname === '/teacher-portal' || location.pathname === '/methodist-portal';
+  const isPortalPage = location.pathname === '/student-portal' || location.pathname === '/teacher-portal' || location.pathname === '/methodist-portal' || location.pathname.startsWith('/teacher-group/');
 
   if (isCRMPage) {
     return (
@@ -86,6 +87,11 @@ const AppContent = () => {
         <Route path="/teacher-portal" element={
           <Suspense fallback={<LoadingComponent />}>
             <TeacherPortal />
+          </Suspense>
+        } />
+        <Route path="/teacher-group/:groupId" element={
+          <Suspense fallback={<LoadingComponent />}>
+            <GroupDetailView />
           </Suspense>
         } />
       </Routes>
