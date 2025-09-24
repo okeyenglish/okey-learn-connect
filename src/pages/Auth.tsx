@@ -198,7 +198,7 @@ export default function Auth() {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">O'KEY ENGLISH</h1>
-          <p className="text-lg text-gray-600">Личный кабинет ученика</p>
+          <p className="text-lg text-gray-600">Личный кабинет</p>
         </div>
       </div>
 
