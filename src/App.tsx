@@ -16,6 +16,7 @@ import Index from "./pages/Index";
 // Lazy load all other pages for better code splitting
 const SuperSafari = lazy(() => import("./pages/programs/SuperSafari"));
 const KidsBox = lazy(() => import("./pages/programs/KidsBox"));
+const KidsBox1 = lazy(() => import("./pages/programs/KidsBox1"));
 const Prepare = lazy(() => import("./pages/programs/Prepare"));
 const Empower = lazy(() => import("./pages/programs/Empower"));
 const Programs = lazy(() => import("./pages/Programs"));
@@ -117,6 +118,11 @@ const AppContent = () => {
           <Route path="/programs/kidsbox" element={
             <Suspense fallback={<LoadingComponent />}>
               <KidsBox />
+            </Suspense>
+          } />
+          <Route path="/programs/kidsbox1" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <KidsBox1 />
             </Suspense>
           } />
           <Route path="/programs/prepare" element={

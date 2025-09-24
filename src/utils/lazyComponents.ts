@@ -20,6 +20,7 @@ export const Stakhanovskaya = lazy(() => import('@/pages/branches/Stakhanovskaya
 // Lazy load program pages
 export const Empower = lazy(() => import('@/pages/programs/Empower'));
 export const KidsBox = lazy(() => import('@/pages/programs/KidsBox'));
+export const KidsBox1 = lazy(() => import('@/pages/programs/KidsBox1'));
 export const MiniSadik = lazy(() => import('@/pages/programs/MiniSadik'));
 export const Prepare = lazy(() => import('@/pages/programs/Prepare'));
 export const SpeakingClub = lazy(() => import('@/pages/programs/SpeakingClub'));

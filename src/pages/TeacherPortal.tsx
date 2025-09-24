@@ -217,6 +217,10 @@ export default function TeacherPortal() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => navigate('/programs/kidsbox1')}>
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Kid's Box 1 - Планирование
+                </Button>
                 <Button variant="outline" onClick={() => navigate('/newcrm')}>
                   CRM
                 </Button>
