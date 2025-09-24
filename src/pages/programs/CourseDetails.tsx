@@ -1127,6 +1127,7 @@ export default function CourseDetails() {
   const [openUnits, setOpenUnits] = useState<Record<number, boolean>>({});
   const [selectedTrainer, setSelectedTrainer] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState('units');
 
   const currentCourseData = courseData[selectedCourse as keyof typeof courseData] || courseData["kids-box-1"];
 
@@ -1234,7 +1235,7 @@ export default function CourseDetails() {
 
         {/* Основной контент */}
         <div className="container mx-auto px-4 py-12">
-          <Tabs defaultValue="units" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-8">
               <TabsTrigger value="units" className="flex items-center gap-2">
                 <BookOpen className="h-4 w-4" />
@@ -1566,9 +1567,28 @@ export default function CourseDetails() {
                   <CardContent>
                     <div className="flex flex-wrap gap-2">
                       {selectedLesson.materials.map((material: string, index: number) => (
-                        <Badge key={index} variant="outline" className="text-xs">
+                        <Button 
+                          key={index} 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-xs h-7"
+                          onClick={() => {
+                            // Проверяем тип материала и открываем соответствующим образом
+                            if (material.toLowerCase().includes('audio') || material.toLowerCase().includes('cd')) {
+                              // Для аудио материалов - можно добавить логику позже
+                              console.log('Открыть аудио:', material);
+                            } else if (material.toLowerCase().includes('ab') || material.toLowerCase().includes('cb')) {
+                              // Для книг - можно добавить логику открытия PDF
+                              console.log('Открыть учебник:', material);
+                            } else {
+                              // Общие материалы
+                              console.log('Открыть материал:', material);
+                            }
+                          }}
+                        >
+                          <FolderOpen className="h-3 w-3 mr-1" />
                           {material}
-                        </Badge>
+                        </Button>
                       ))}
                     </div>
                   </CardContent>
@@ -1584,7 +1604,16 @@ export default function CourseDetails() {
                     <Download className="h-4 w-4" />
                     Скачать план
                   </Button>
-                  <Button variant="outline" className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="flex items-center gap-2"
+                    onClick={() => {
+                      // Переключить на вкладку материалов
+                      setActiveTab('materials');
+                      // Закрыть диалог
+                      closeDialog();
+                    }}
+                  >
                     <ExternalLink className="h-4 w-4" />
                     Материалы урока
                   </Button>

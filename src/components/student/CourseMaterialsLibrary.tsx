@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BookOpen, Search, Lock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -124,38 +124,44 @@ export const CourseMaterialsLibrary = ({ selectedCourse: courseFilter }: CourseM
 
   useEffect(() => {
     fetchTextbooks();
-  }, []);
+  }, [fetchTextbooks]);
 
   // Группируем материалы по курсам
-  const courseGroups = Object.entries(
-    textbooks.reduce((acc, material) => {
-      const programType = material.program_type || 'other';
-      if (!acc[programType]) {
-        acc[programType] = [];
-      }
-      acc[programType].push(material);
-      return acc;
-    }, {} as Record<string, Textbook[]>)
-  ).map(([programType, materials]) => ({
-    programType,
-    title: programLabels[programType]?.title || programType,
-    description: programLabels[programType]?.description || 'Учебные материалы',
-    materials: materials.sort((a, b) => a.sort_order - b.sort_order)
-  }));
+  const courseGroups = useMemo(() => {
+    return Object.entries(
+      textbooks.reduce((acc, material) => {
+        const programType = material.program_type || 'other';
+        if (!acc[programType]) {
+          acc[programType] = [];
+        }
+        acc[programType].push(material);
+        return acc;
+      }, {} as Record<string, Textbook[]>)
+    ).map(([programType, materials]) => ({
+      programType,
+      title: programLabels[programType]?.title || programType,
+      description: programLabels[programType]?.description || 'Учебные материалы',
+      materials: materials.sort((a, b) => a.sort_order - b.sort_order)
+    }));
+  }, [textbooks]);
 
   // Фильтруем по выбранному курсу, если передан
-  const filteredCourseGroups = courseFilter 
-    ? courseGroups.filter(group => group.programType === courseFilter)
-    : courseGroups;
+  const filteredCourseGroups = useMemo(() => {
+    return courseFilter 
+      ? courseGroups.filter(group => group.programType === courseFilter)
+      : courseGroups;
+  }, [courseGroups, courseFilter]);
 
   // Фильтрация по поисковому запросу
-  const filteredGroups = filteredCourseGroups.filter(group =>
-    group.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    group.materials.some(material =>
-      material.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      material.description?.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  );
+  const filteredGroups = useMemo(() => {
+    return filteredCourseGroups.filter(group =>
+      group.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      group.materials.some(material =>
+        material.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        material.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    );
+  }, [filteredCourseGroups, searchQuery]);
 
   if (loading) {
     return (
@@ -190,7 +196,7 @@ export const CourseMaterialsLibrary = ({ selectedCourse: courseFilter }: CourseM
     if (courseFilter && filteredCourseGroups.length === 1 && !selectedCourse) {
       setSelectedCourse(filteredCourseGroups[0]);
     }
-  }, [courseFilter, filteredCourseGroups.length]);
+  }, [courseFilter, filteredCourseGroups, selectedCourse]);
 
   if (selectedCourse) {
     return (

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -23,7 +23,7 @@ export const useTextbooks = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchTextbooks = async (programType?: string) => {
+  const fetchTextbooks = useCallback(async (programType?: string) => {
     try {
       setLoading(true);
       let query = supabase
@@ -49,7 +49,7 @@ export const useTextbooks = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   const uploadTextbook = async (
     file: File, 
@@ -184,7 +184,7 @@ export const useTextbooks = () => {
 
   useEffect(() => {
     fetchTextbooks();
-  }, []);
+  }, [fetchTextbooks]);
 
   return {
     textbooks,
