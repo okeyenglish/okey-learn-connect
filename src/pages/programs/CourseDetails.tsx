@@ -27,6 +27,9 @@ import SEOHead from "@/components/SEOHead";
 import { InlineCourseMaterials } from "@/components/student/InlineCourseMaterials";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useMemo } from "react";
+import { useLanguage } from "@/hooks/useLanguage";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { Globe } from "lucide-react";
 
 // Типы для данных курса
 interface Course {
@@ -65,35 +68,35 @@ interface UnitLesson {
 
 
 // Материалы курса
-const courseMaterials = [
+const getCourseMaterials = (t: (key: string) => string) => [
   {
     name: "Pupil's Book",
-    description: "Основной учебник для ученика",
+    description: t('materials.pupilsBook'),
     icon: BookOpen
   },
   {
     name: "Activity Book", 
-    description: "Рабочая тетрадь с упражнениями",
+    description: t('materials.activityBook'),
     icon: FileText
   },
   {
     name: "Teacher's Book",
-    description: "Методическое пособие для учителя", 
+    description: t('materials.teachersBook'), 
     icon: Users
   },
   {
-    name: "Аудиоматериалы",
-    description: "Песни, истории, упражнения на слух",
+    name: "Audio Materials",
+    description: t('materials.audio'),
     icon: Music
   },
   {
-    name: "Видеоматериалы", 
-    description: "Обучающие видео и мультфильмы",
+    name: "Video Materials", 
+    description: t('materials.video'),
     icon: Video
   },
   {
-    name: "Интерактивы",
-    description: "Интерактивные игры и упражнения",
+    name: "Interactive Content",
+    description: t('materials.interactive'),
     icon: Gamepad2
   }
 ];
@@ -129,6 +132,9 @@ export default function CourseDetails() {
   const navigate = useNavigate();
   const [selectedLesson, setSelectedLesson] = useState<UnitLesson | null>(null);
   const [expandedUnits, setExpandedUnits] = useState<Set<number>>(new Set());
+  const { t } = useLanguage();
+  
+  const courseMaterials = getCourseMaterials(t);
 
   // Получение данных о курсе
   const { data: course, isLoading: courseLoading } = useQuery({
@@ -266,7 +272,7 @@ export default function CourseDetails() {
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-gray-600">Загрузка курса...</p>
+          <p className="text-gray-600">{t('loading.course')}</p>
         </div>
       </div>
     );
@@ -276,10 +282,10 @@ export default function CourseDetails() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center">
         <div className="text-center space-y-4">
-          <h1 className="text-2xl font-bold text-gray-900">Курс не найден</h1>
-          <p className="text-gray-600">Запрошенный курс не существует</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('error.notFound')}</h1>
+          <p className="text-gray-600">{t('error.notFoundDesc')}</p>
           <Button onClick={() => navigate('/programs')} className="gap-2">
-            Вернуться к курсам
+            {t('button.backToCourses')}
           </Button>
         </div>
       </div>
@@ -301,11 +307,12 @@ export default function CourseDetails() {
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-6">
           <div className="container mx-auto px-4">
-            <div className="flex items-center justify-end mb-4">
+            <div className="flex items-center justify-end gap-4 mb-4">
+              <LanguageSwitcher />
               {/* Переключатель курсов */}
               <Select value={courseSlug} onValueChange={handleCourseChange}>
                 <SelectTrigger className="w-64 bg-white/10 border-white/20 text-white">
-                  <SelectValue placeholder="Выберите курс" />
+                  <SelectValue placeholder={t('select.chooseCourse')} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableCourses.map((course) => (
@@ -328,11 +335,11 @@ export default function CourseDetails() {
             <div className="flex flex-wrap gap-4">
               <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-lg">
                 <BookOpen className="h-5 w-5" />
-                <span>{units?.length || 0} юнитов</span>
+                <span>{units?.length || 0} {t('course.units')}</span>
               </div>
               <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-lg">
                 <Clock className="h-5 w-5" />
-                <span>{units?.reduce((total, unit) => total + unit.lessons_count, 0) || 0} уроков</span>
+                <span>{units?.reduce((total, unit) => total + unit.lessons_count, 0) || 0} {t('course.lessons')}</span>
               </div>
             </div>
           </div>
@@ -342,9 +349,9 @@ export default function CourseDetails() {
         <div className="container mx-auto px-4 py-8">
           <Tabs defaultValue="overview" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="overview">Планирование</TabsTrigger>
-              <TabsTrigger value="trainers">Тренажёры</TabsTrigger>
-              <TabsTrigger value="materials">Материалы</TabsTrigger>
+              <TabsTrigger value="overview">{t('tabs.planning')}</TabsTrigger>
+              <TabsTrigger value="materials">{t('tabs.materials')}</TabsTrigger>
+              <TabsTrigger value="trainers">{t('tabs.trainers')}</TabsTrigger>
             </TabsList>
 
             {/* Overview Tab */}
@@ -353,7 +360,7 @@ export default function CourseDetails() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Target className="h-6 w-6 text-blue-600" />
-                    Структура курса
+                    {t('planning.courseStructure')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -371,7 +378,7 @@ export default function CourseDetails() {
                                 <div className="space-y-2">
                                   <div className="flex items-center gap-3">
                                     <Badge variant="secondary">
-                                      Юнит {unit.unit_number}
+                                      {t('planning.unit')} {unit.unit_number}
                                     </Badge>
                                     <h3 className="text-lg font-semibold">{unit.title}</h3>
                                   </div>
@@ -379,7 +386,7 @@ export default function CourseDetails() {
                                   <div className="flex items-center gap-4 text-sm text-gray-500">
                                     <span className="flex items-center gap-1">
                                       <Clock className="h-4 w-4" />
-                                      {unit.lessons_count} уроков
+                                      {unit.lessons_count} {t('planning.lessons')}
                                     </span>
                                   </div>
                                 </div>
@@ -392,18 +399,18 @@ export default function CourseDetails() {
                           <Card className="mt-2">
                             <CardContent className="p-6 space-y-4">
                               <div>
-                                <h4 className="font-semibold text-green-600 mb-2">📚 Лексика:</h4>
+                                <h4 className="font-semibold text-green-600 mb-2">📚 {t('planning.vocabulary')}</h4>
                                 <p className="text-gray-700">{unit.vocabulary}</p>
                               </div>
                               <div>
-                                <h4 className="font-semibold text-blue-600 mb-2">⚙️ Грамматика:</h4>
+                                <h4 className="font-semibold text-blue-600 mb-2">⚙️ {t('planning.grammar')}</h4>
                                 <p className="text-gray-700">{unit.grammar}</p>
                               </div>
 
                               {/* Уроки внутри юнита */}
                               {getUnitLessons(unit.id).length > 0 && (
                                 <div className="mt-6">
-                                  <h4 className="font-semibold text-purple-600 mb-3">📖 Уроки:</h4>
+                                  <h4 className="font-semibold text-purple-600 mb-3">📖 {t('planning.lessonsTitle')}</h4>
                                   <div className="grid gap-3">
                                     {getUnitLessons(unit.id).map((lesson) => (
                                       <Card
@@ -415,18 +422,18 @@ export default function CourseDetails() {
                                           <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
                                                <Badge variant="outline" className="text-xs">
-                                                 Урок {lessonGlobalNumbers[lesson.id] || lesson.lesson_number}
+                                                 {t('planning.lesson')} {lessonGlobalNumbers[lesson.id] || lesson.lesson_number}
                                                </Badge>
                                             </div>
                                           </div>
                                           <h5 className="font-medium text-sm mb-2">{lesson.title}</h5>
                                           <div className="space-y-2">
                                             <div>
-                                              <p className="text-xs font-medium text-gray-600">Темы:</p>
+                                              <p className="text-xs font-medium text-gray-600">{t('planning.topics')}</p>
                                               <p className="text-xs text-gray-500">{Array.isArray(lesson.topics) ? lesson.topics.join(", ") : String(lesson.topics || "")}</p>
                                             </div>
                                             <div>
-                                              <p className="text-xs font-medium text-gray-600">Материалы:</p>
+                                              <p className="text-xs font-medium text-gray-600">{t('planning.materials')}</p>
                                               <p className="text-xs text-gray-500 line-clamp-1">{Array.isArray(lesson.materials) ? lesson.materials.join(", ") : String(lesson.materials || "")}</p>
                                             </div>
                                           </div>
@@ -446,13 +453,28 @@ export default function CourseDetails() {
               </Card>
              </TabsContent>
 
+            {/* Materials Tab */}
+            <TabsContent value="materials" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="h-6 w-6 text-blue-600" />
+                    {t('materials.title')}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <InlineCourseMaterials selectedCourse={course.slug} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             {/* Trainers Tab */}
             <TabsContent value="trainers" className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Gamepad2 className="w-6 h-6 text-green-600" />
-                    Тренажёры и интерактивы
+                    {t('trainers.title')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -465,7 +487,7 @@ export default function CourseDetails() {
                           <p className="text-sm text-muted-foreground mb-4">{material.description}</p>
                           <Button variant="outline" size="sm" className="w-full">
                             <Play className="w-4 h-4 mr-2" />
-                            Открыть
+                            {t('trainers.open')}
                           </Button>
                         </CardContent>
                       </Card>
@@ -473,12 +495,12 @@ export default function CourseDetails() {
                   </div>
 
                   <div className="mt-8 space-y-4">
-                    <h4 className="font-semibold">Интерактивные тренажёры:</h4>
+                    <h4 className="font-semibold">{t('trainers.interactive')}</h4>
                     <div className="grid gap-3">
                       <div className="p-3 border rounded-lg flex items-center justify-between">
                         <div>
-                          <span className="font-medium">Vocabulary Flashcards:</span>
-                          <p className="text-sm text-muted-foreground">Интерактивные карточки для изучения новых слов</p>
+                          <span className="font-medium">{t('trainers.vocabularyFlashcards')}</span>
+                          <p className="text-sm text-muted-foreground">{t('trainers.vocabularyFlashcardsDesc')}</p>
                         </div>
                         <Button variant="outline" size="sm">
                           <Play className="w-4 h-4" />
@@ -486,8 +508,8 @@ export default function CourseDetails() {
                       </div>
                       <div className="p-3 border rounded-lg flex items-center justify-between">
                         <div>
-                          <span className="font-medium">Grammar Quiz:</span>
-                          <p className="text-sm text-muted-foreground">Интерактивные упражнения по грамматике</p>
+                          <span className="font-medium">{t('trainers.grammarQuiz')}</span>
+                          <p className="text-sm text-muted-foreground">{t('trainers.grammarQuizDesc')}</p>
                         </div>
                         <Button variant="outline" size="sm">
                           <Play className="w-4 h-4" />
@@ -495,8 +517,8 @@ export default function CourseDetails() {
                       </div>
                       <div className="p-3 border rounded-lg flex items-center justify-between">
                         <div>
-                          <span className="font-medium">Listening Activities:</span>
-                          <p className="text-sm text-muted-foreground">Упражнения на аудирование с интерактивными заданиями</p>
+                          <span className="font-medium">{t('trainers.listeningActivities')}</span>
+                          <p className="text-sm text-muted-foreground">{t('trainers.listeningActivitiesDesc')}</p>
                         </div>
                         <Button variant="outline" size="sm">
                           <Play className="w-4 h-4" />
@@ -504,8 +526,8 @@ export default function CourseDetails() {
                       </div>
                       <div className="p-3 border rounded-lg flex items-center justify-between">
                         <div>
-                          <span className="font-medium">Speaking Practice:</span>
-                          <p className="text-sm text-muted-foreground">Ролевые игры и диалоги для развития речи</p>
+                          <span className="font-medium">{t('trainers.speakingPractice')}</span>
+                          <p className="text-sm text-muted-foreground">{t('trainers.speakingPracticeDesc')}</p>
                         </div>
                         <Button variant="outline" size="sm">
                           <Play className="w-4 h-4" />
@@ -513,21 +535,6 @@ export default function CourseDetails() {
                       </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Materials Tab */}
-            <TabsContent value="materials" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BookOpen className="h-6 w-6 text-blue-600" />
-                    Учебные материалы
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <InlineCourseMaterials selectedCourse={course.slug} />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -539,137 +546,137 @@ export default function CourseDetails() {
       {selectedLesson && (
         <Dialog open={!!selectedLesson} onOpenChange={closeDialog}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
-                Урок {lessonGlobalNumbers[selectedLesson.id] || selectedLesson.lesson_number}: {selectedLesson.title}
-              </DialogTitle>
-              <DialogDescription>
-                Юнит {unitById[selectedLesson.unit_id]?.unit_number || ''}: {unitById[selectedLesson.unit_id]?.title || ''}
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-6">
-              {/* Цели урока */}
-              {selectedLesson.goals && (
-                <div>
-                  <h4 className="font-semibold mb-2 flex items-center gap-2">
-                    <Target className="w-4 h-4" />
-                    Цели урока:
-                  </h4>
-                  <div className="p-3 bg-muted/50 rounded-lg">
-                    <div className="text-sm">
-                      {String(selectedLesson.goals)}
-                    </div>
-                  </div>
-                </div>
-              )}
+             <DialogHeader>
+               <DialogTitle className="flex items-center gap-2">
+                 <Calendar className="w-5 h-5" />
+                 {t('planning.lesson')} {lessonGlobalNumbers[selectedLesson.id] || selectedLesson.lesson_number}: {selectedLesson.title}
+               </DialogTitle>
+               <DialogDescription>
+                 {t('planning.unit')} {unitById[selectedLesson.unit_id]?.unit_number || ''}: {unitById[selectedLesson.unit_id]?.title || ''}
+               </DialogDescription>
+             </DialogHeader>
+             
+             <div className="space-y-6">
+               {/* Цели урока */}
+               {selectedLesson.goals && (
+                 <div>
+                   <h4 className="font-semibold mb-2 flex items-center gap-2">
+                     <Target className="w-4 h-4" />
+                     {t('lesson.goals')}
+                   </h4>
+                   <div className="p-3 bg-muted/50 rounded-lg">
+                     <div className="text-sm">
+                       {String(selectedLesson.goals)}
+                     </div>
+                   </div>
+                 </div>
+               )}
 
-              {/* Материалы */}
-              {selectedLesson.materials && (
-                <div>
-                  <h4 className="font-semibold mb-2 flex items-center gap-2">
-                    <BookOpen className="w-4 h-4" />
-                    Материалы:
-                  </h4>
-                  <div className="p-3 bg-muted/50 rounded-lg">
-                    <div className="text-sm">
-                      {Array.isArray(selectedLesson.materials)
-                        ? selectedLesson.materials.join('; ')
-                        : String(selectedLesson.materials)
-                      }
-                    </div>
-                  </div>
-                </div>
-              )}
+               {/* Материалы */}
+               {selectedLesson.materials && (
+                 <div>
+                   <h4 className="font-semibold mb-2 flex items-center gap-2">
+                     <BookOpen className="w-4 h-4" />
+                     {t('lesson.materials')}
+                   </h4>
+                   <div className="p-3 bg-muted/50 rounded-lg">
+                     <div className="text-sm">
+                       {Array.isArray(selectedLesson.materials)
+                         ? selectedLesson.materials.join('; ')
+                         : String(selectedLesson.materials)
+                       }
+                     </div>
+                   </div>
+                 </div>
+               )}
 
-              {/* Поминутная структура (80 минут) */}
-              {selectedLesson.structure && (
-                <div>
-                  <h4 className="font-semibold mb-2 flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    Поминутная структура (80 минут):
-                  </h4>
-                  <div className="p-3 bg-muted/50 rounded-lg">
-                    <div className="text-sm whitespace-pre-line">
-                      {String(selectedLesson.structure)}
-                    </div>
-                  </div>
-                </div>
-              )}
+               {/* Поминутная структура (80 минут) */}
+               {selectedLesson.structure && (
+                 <div>
+                   <h4 className="font-semibold mb-2 flex items-center gap-2">
+                     <Clock className="w-4 h-4" />
+                     {t('lesson.structure')}
+                   </h4>
+                   <div className="p-3 bg-muted/50 rounded-lg">
+                     <div className="text-sm whitespace-pre-line">
+                       {String(selectedLesson.structure)}
+                     </div>
+                   </div>
+                 </div>
+               )}
 
-              {/* Домашнее задание */}
-              {selectedLesson.homework && (
-                <div className="p-4 bg-primary/5 rounded-lg">
-                  <h4 className="font-semibold mb-2 flex items-center gap-2">
-                    <Home className="w-4 h-4" />
-                    Домашнее задание:
-                  </h4>
-                  <div className="text-sm">
-                    {String(selectedLesson.homework)}
-                  </div>
-                </div>
-              )}
+               {/* Домашнее задание */}
+               {selectedLesson.homework && (
+                 <div className="p-4 bg-primary/5 rounded-lg">
+                   <h4 className="font-semibold mb-2 flex items-center gap-2">
+                     <Home className="w-4 h-4" />
+                     {t('lesson.homework')}
+                   </h4>
+                   <div className="text-sm">
+                     {String(selectedLesson.homework)}
+                   </div>
+                 </div>
+               )}
 
-              {/* Темы урока */}
-              {selectedLesson.topics && Array.isArray(selectedLesson.topics) && selectedLesson.topics.length > 0 && selectedLesson.topics.some(topic => topic && String(topic).trim()) && (
-                <div>
-                  <h4 className="font-semibold mb-2 flex items-center gap-2">
-                    🎯 Темы урока:
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedLesson.topics.filter(topic => topic && String(topic).trim()).map((topic, index) => (
-                      <Badge key={index} variant="secondary">{String(topic)}</Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {/* Активности */}
-              {selectedLesson.activities && Array.isArray(selectedLesson.activities) && selectedLesson.activities.length > 0 && (
-                <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Play className="w-4 h-4" />
-                    Активности:
-                  </h4>
-                  <div className="p-4 border rounded-lg">
-                    <div className="text-sm">
-                      {selectedLesson.activities.map((activity, index) => (
-                        <div key={index} className="mb-2">{String(activity)}</div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
+               {/* Темы урока */}
+               {selectedLesson.topics && Array.isArray(selectedLesson.topics) && selectedLesson.topics.length > 0 && selectedLesson.topics.some(topic => topic && String(topic).trim()) && (
+                 <div>
+                   <h4 className="font-semibold mb-2 flex items-center gap-2">
+                     🎯 {t('lesson.topics')}
+                   </h4>
+                   <div className="flex flex-wrap gap-2">
+                     {selectedLesson.topics.filter(topic => topic && String(topic).trim()).map((topic, index) => (
+                       <Badge key={index} variant="secondary">{String(topic)}</Badge>
+                     ))}
+                   </div>
+                 </div>
+               )}
+               
+               {/* Активности */}
+               {selectedLesson.activities && Array.isArray(selectedLesson.activities) && selectedLesson.activities.length > 0 && (
+                 <div>
+                   <h4 className="font-semibold mb-3 flex items-center gap-2">
+                     <Play className="w-4 h-4" />
+                     {t('lesson.activities')}
+                   </h4>
+                   <div className="p-4 border rounded-lg">
+                     <div className="text-sm">
+                       {selectedLesson.activities.map((activity, index) => (
+                         <div key={index} className="mb-2">{String(activity)}</div>
+                       ))}
+                     </div>
+                   </div>
+                 </div>
+               )}
 
-              {/* Лексика */}
-              {selectedLesson.vocabulary && Array.isArray(selectedLesson.vocabulary) && selectedLesson.vocabulary.length > 0 && (
-                <div>
-                  <h4 className="font-semibold mb-2 flex items-center gap-2">
-                    📚 Лексика:
-                  </h4>
-                  <div className="p-3 bg-muted/50 rounded-lg">
-                    <div className="text-sm">
-                      {selectedLesson.vocabulary.join(', ')}
-                    </div>
-                  </div>
-                </div>
-              )}
+               {/* Лексика */}
+               {selectedLesson.vocabulary && Array.isArray(selectedLesson.vocabulary) && selectedLesson.vocabulary.length > 0 && (
+                 <div>
+                   <h4 className="font-semibold mb-2 flex items-center gap-2">
+                     📚 {t('lesson.vocabulary')}
+                   </h4>
+                   <div className="p-3 bg-muted/50 rounded-lg">
+                     <div className="text-sm">
+                       {selectedLesson.vocabulary.join(', ')}
+                     </div>
+                   </div>
+                 </div>
+               )}
 
-              {/* Грамматика */}
-              {selectedLesson.grammar && Array.isArray(selectedLesson.grammar) && selectedLesson.grammar.length > 0 && (
-                <div>
-                  <h4 className="font-semibold mb-2 flex items-center gap-2">
-                    ⚙️ Грамматика:
-                  </h4>
-                  <div className="p-3 bg-muted/50 rounded-lg">
-                    <div className="text-sm">
-                      {selectedLesson.grammar.join(', ')}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+               {/* Грамматика */}
+               {selectedLesson.grammar && Array.isArray(selectedLesson.grammar) && selectedLesson.grammar.length > 0 && (
+                 <div>
+                   <h4 className="font-semibold mb-2 flex items-center gap-2">
+                     ⚙️ {t('lesson.grammar')}
+                   </h4>
+                   <div className="p-3 bg-muted/50 rounded-lg">
+                     <div className="text-sm">
+                       {selectedLesson.grammar.join(', ')}
+                     </div>
+                   </div>
+                 </div>
+               )}
+             </div>
           </DialogContent>
         </Dialog>
       )}
