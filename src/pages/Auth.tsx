@@ -32,7 +32,7 @@ export default function Auth() {
     lastName: ''
   });
 
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -40,12 +40,16 @@ export default function Auth() {
   // Получаем redirect URL из state или используем по умолчанию
   const from = (location.state as any)?.from?.pathname || '/';
 
-  // Если пользователь уже авторизован, перенаправляем его
+  // Если пользователь уже авторизован, перенаправляем его в зависимости от роли
   useEffect(() => {
-    if (user) {
-      navigate(from, { replace: true });
+    if (user && role) {
+      if (role === 'student') {
+        navigate('/student-portal', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
     }
-  }, [user, navigate, from]);
+  }, [user, role, navigate, from]);
 
   // Форматирование номера телефона
   const formatPhoneNumber = (value: string) => {
@@ -96,10 +100,24 @@ export default function Auth() {
       }
 
       if (data.user) {
+        // Получаем роль пользователя
+        const { data: roleData, error: roleError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', data.user.id)
+          .single();
+
         toast({
           title: "Успешный вход",
           description: "Добро пожаловать в личный кабинет!",
         });
+
+        // Перенаправляем в зависимости от роли
+        if (!roleError && roleData?.role === 'student') {
+          navigate('/student-portal');
+        } else {
+          navigate(from);
+        }
       }
     } catch (error: any) {
       setError('Произошла ошибка при входе в систему');
