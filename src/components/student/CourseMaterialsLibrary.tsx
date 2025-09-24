@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BookOpen, Search } from 'lucide-react';
+import { BookOpen, Search, Lock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { CourseFolder } from './CourseFolder';
 import { MaterialsList } from './MaterialsList';
 import { useTextbooks, Textbook } from '@/hooks/useTextbooks';
+import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
 interface CourseGroup {
   programType: string;
@@ -44,6 +47,8 @@ export const CourseMaterialsLibrary = () => {
   const { textbooks, loading, fetchTextbooks } = useTextbooks();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCourse, setSelectedCourse] = useState<CourseGroup | null>(null);
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchTextbooks();
@@ -80,6 +85,24 @@ export const CourseMaterialsLibrary = () => {
       <Card>
         <CardContent className="py-12 text-center">
           <p className="text-muted-foreground">Загрузка материалов...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Проверка аутентификации
+  if (!user) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <Lock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <p className="text-lg font-medium mb-2">Требуется авторизация</p>
+          <p className="text-muted-foreground mb-4">
+            Войдите в систему, чтобы получить доступ к учебным материалам
+          </p>
+          <Button onClick={() => navigate('/auth')}>
+            Войти в систему
+          </Button>
         </CardContent>
       </Card>
     );

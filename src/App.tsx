@@ -16,7 +16,7 @@ import Index from "./pages/Index";
 // Lazy load all other pages for better code splitting
 const SuperSafari = lazy(() => import("./pages/programs/SuperSafari"));
 const KidsBox = lazy(() => import("./pages/programs/KidsBox"));
-const CourseDetails = lazy(() => import("./pages/programs/CourseDetails"));
+const ProgramsCourseDetails = lazy(() => import("./pages/programs/CourseDetails"));
 const Prepare = lazy(() => import("./pages/programs/Prepare"));
 const Empower = lazy(() => import("./pages/programs/Empower"));
 const Programs = lazy(() => import("./pages/Programs"));
@@ -48,6 +48,7 @@ const TeacherPortal = lazy(() => import("./pages/TeacherPortal"));
 const GroupDetailView = lazy(() => import("./components/teacher/GroupDetailView"));
 const OnlineLesson = lazy(() => import("./pages/OnlineLesson"));
 const Auth = lazy(() => import("./pages/Auth"));
+const StudentCourseDetails = lazy(() => import('./pages/CourseDetails'));
 const TestUserCreator = lazy(() => import('./pages/TestUserCreator'));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -120,7 +121,7 @@ const AppContent = () => {
           } />
           <Route path="/programs/course-details" element={
             <Suspense fallback={<LoadingComponent />}>
-              <CourseDetails />
+              <ProgramsCourseDetails />
             </Suspense>
           } />
           <Route path="/programs/prepare" element={
@@ -276,7 +277,7 @@ const AppContent = () => {
           } />
           <Route path="/course/:courseId" element={
             <Suspense fallback={<LoadingComponent />}>
-              <CourseDetails />
+              <StudentCourseDetails />
             </Suspense>
           } />
           <Route path="/course/:courseId/live" element={
