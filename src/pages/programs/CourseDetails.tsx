@@ -1,4 +1,3 @@
-import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -6,24 +5,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   BookOpen, 
   Clock, 
-  Users, 
   ChevronDown,
-  ExternalLink,
-  Copy,
-  Video,
   ArrowLeft,
   GraduationCap,
-  Target,
-  Gamepad2,
-  Star
+  Target
 } from "lucide-react";
 import SEOHead from "@/components/SEOHead";
 import { InlineCourseMaterials } from "@/components/student/InlineCourseMaterials";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 
 // Типы для данных курса
 interface Course {
@@ -44,31 +37,35 @@ interface CourseUnit {
   sort_order: number;
 }
 
-interface Student {
-  id: string;
-  name: string;
-  first_name: string;
-  last_name: string;
-}
-
-interface LessonSession {
-  id: string;
-  lesson_date: string;
-  start_time: string;
-  end_time: string;
-  status: string;
-  teacher_name: string;
-  classroom: string;
-  branch: string;
-}
+// Список доступных курсов для переключения
+const availableCourses = [
+  { name: "Super Safari 1", slug: "super-safari-1" },
+  { name: "Super Safari 2", slug: "super-safari-2" },
+  { name: "Super Safari 3", slug: "super-safari-3" },
+  { name: "Kid's Box Starter", slug: "kids-box-starter" },
+  { name: "Kid's Box 1", slug: "kids-box-1" },
+  { name: "Kid's Box 2", slug: "kids-box-2" },
+  { name: "Kid's Box 3+4", slug: "kids-box-3-4" },
+  { name: "Kid's Box 5", slug: "kids-box-5" },
+  { name: "Kid's Box 6", slug: "kids-box-6" },
+  { name: "Prepare 1", slug: "prepare-1" },
+  { name: "Prepare 2", slug: "prepare-2" },
+  { name: "Prepare 3", slug: "prepare-3" },
+  { name: "Prepare 4", slug: "prepare-4" },
+  { name: "Prepare 5", slug: "prepare-5" },
+  { name: "Prepare 6", slug: "prepare-6" },
+  { name: "Prepare 7", slug: "prepare-7" },
+  { name: "Empower 1", slug: "empower-1" },
+  { name: "Empower 2", slug: "empower-2" },
+  { name: "Empower 3", slug: "empower-3" },
+  { name: "Empower 4", slug: "empower-4" },
+  { name: "Empower 5", slug: "empower-5" },
+  { name: "Empower 6", slug: "empower-6" }
+];
 
 export default function CourseDetails() {
   const { courseSlug } = useParams<{ courseSlug: string }>();
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const jitsiContainerRef = useRef<HTMLDivElement>(null);
-  const jitsiApi = useRef<any>(null);
-  const [isJitsiLoaded, setIsJitsiLoaded] = useState(false);
 
   // Получение данных о курсе
   const { data: course, isLoading: courseLoading } = useQuery({
@@ -106,121 +103,10 @@ export default function CourseDetails() {
     enabled: !!course?.id
   });
 
-  // Получение данных студента
-  const { data: student } = useQuery({
-    queryKey: ['student-profile'],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_student_by_user_id', {
-        _user_id: (await supabase.auth.getUser()).data.user?.id
-      });
-      
-      if (error) throw error;
-      return data?.[0] as Student;
-    }
-  });
-
-  // Получение расписания занятий
-  const { data: lessonSessions } = useQuery({
-    queryKey: ['lesson-sessions', course?.id, student?.id],
-    queryFn: async () => {
-      if (!course?.id || !student?.id) return [];
-      
-      const { data, error } = await supabase
-        .from('student_lesson_sessions')
-        .select(`
-          lesson_session_id,
-          lesson_sessions (
-            id,
-            lesson_date,
-            start_time,
-            end_time,
-            status,
-            teacher_name,
-            classroom,
-            branch
-          )
-        `)
-        .eq('student_id', student.id);
-        
-      if (error) throw error;
-      return data?.map(item => item.lesson_sessions).filter(Boolean) as LessonSession[];
-    },
-    enabled: !!course?.id && !!student?.id
-  });
-
-  // Функции для Jitsi
-  const generateRoomName = () => {
-    if (!course || !student) return '';
-    return `okey-english-${course.slug}-${student.id}`.replace(/[^a-zA-Z0-9-]/g, '');
+  // Функция для переключения между курсами
+  const handleCourseChange = (newCourseSlug: string) => {
+    navigate(`/programs/course-details/${newCourseSlug}`);
   };
-
-  const generateLessonLink = () => {
-    const roomName = generateRoomName();
-    return `${window.location.origin}/online-lesson/${roomName}`;
-  };
-
-  const copyLessonLink = () => {
-    const link = generateLessonLink();
-    navigator.clipboard.writeText(link);
-    toast({
-      title: "Ссылка скопирована!",
-      description: "Ссылка на онлайн-урок скопирована в буфер обмена",
-    });
-  };
-
-  const initializeJitsi = () => {
-    if (!window.JitsiMeetExternalAPI || !jitsiContainerRef.current) return;
-
-    const roomName = generateRoomName();
-    if (!roomName) return;
-
-    const options = {
-      roomName: roomName,
-      width: '100%',
-      height: '500px',
-      parentNode: jitsiContainerRef.current,
-      configOverwrite: {
-        startWithAudioMuted: true,
-        startWithVideoMuted: false,
-        enableWelcomePage: false,
-        prejoinPageEnabled: false
-      },
-      interfaceConfigOverwrite: {
-        TOOLBAR_BUTTONS: [
-          'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
-          'fodeviceselection', 'hangup', 'profile', 'settings', 'videoquality',
-          'filmstrip', 'feedback', 'stats', 'shortcuts', 'tileview'
-        ],
-        SETTINGS_SECTIONS: ['devices', 'language', 'moderator', 'profile'],
-        SHOW_JITSI_WATERMARK: false,
-        SHOW_WATERMARK_FOR_GUESTS: false
-      },
-      userInfo: {
-        displayName: student?.name || 'Студент'
-      }
-    };
-
-    try {
-      jitsiApi.current = new window.JitsiMeetExternalAPI('meet.jit.si', options);
-      setIsJitsiLoaded(true);
-    } catch (error) {
-      console.error('Failed to initialize Jitsi:', error);
-    }
-  };
-
-  const stopJitsi = () => {
-    if (jitsiApi.current) {
-      jitsiApi.current.dispose();
-      jitsiApi.current = null;
-      setIsJitsiLoaded(false);
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      stopJitsi();
-    };
-  }, []);
 
   // Определение цвета для юнита
   const getUnitColor = (unitNumber: number) => {
@@ -267,6 +153,9 @@ export default function CourseDetails() {
     );
   }
 
+  // Найти текущий курс в списке доступных
+  const currentCourse = availableCourses.find(c => c.slug === courseSlug);
+
   return (
     <>
       <SEOHead
@@ -289,6 +178,22 @@ export default function CourseDetails() {
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Назад
               </Button>
+              
+              {/* Переключатель курсов */}
+              <div className="ml-auto">
+                <Select value={courseSlug} onValueChange={handleCourseChange}>
+                  <SelectTrigger className="w-64 bg-white/10 border-white/20 text-white">
+                    <SelectValue placeholder="Выберите курс" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableCourses.map((course) => (
+                      <SelectItem key={course.slug} value={course.slug}>
+                        {course.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             
             <div className="flex items-center gap-4 mb-4">
@@ -315,10 +220,8 @@ export default function CourseDetails() {
         {/* Main Content */}
         <div className="container mx-auto px-4 py-8">
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="overview">Обзор</TabsTrigger>
-              <TabsTrigger value="schedule">Расписание</TabsTrigger>
-              <TabsTrigger value="live">Онлайн-урок</TabsTrigger>
               <TabsTrigger value="materials">Материалы</TabsTrigger>
             </TabsList>
 
@@ -375,108 +278,6 @@ export default function CourseDetails() {
                         </CollapsibleContent>
                       </Collapsible>
                     ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Schedule Tab */}
-            <TabsContent value="schedule" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="h-6 w-6 text-blue-600" />
-                    Расписание занятий
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {lessonSessions && lessonSessions.length > 0 ? (
-                    <div className="space-y-3">
-                      {lessonSessions.map((session) => (
-                        <Card key={session.id} className="border-l-4 border-l-blue-500">
-                          <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <div className="font-semibold">
-                                  {new Date(session.lesson_date).toLocaleDateString('ru-RU')}
-                                </div>
-                                <div className="text-sm text-gray-600">
-                                  {session.start_time} - {session.end_time}
-                                </div>
-                                <div className="text-sm text-gray-500">
-                                  Преподаватель: {session.teacher_name}
-                                </div>
-                                <div className="text-sm text-gray-500">
-                                  {session.branch}, {session.classroom}
-                                </div>
-                              </div>
-                              <Badge variant={session.status === 'completed' ? 'default' : 'secondary'}>
-                                {session.status === 'completed' ? 'Завершено' : 'Запланировано'}
-                              </Badge>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-center py-8">
-                      Расписание занятий пока не составлено
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Live Lesson Tab */}
-            <TabsContent value="live" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Video className="h-6 w-6 text-blue-600" />
-                    Онлайн-урок
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="text-center space-y-4">
-                    <div className="flex gap-4 justify-center">
-                      <Button 
-                        onClick={copyLessonLink}
-                        variant="outline"
-                        className="gap-2"
-                      >
-                        <Copy className="h-4 w-4" />
-                        Копировать ссылку
-                      </Button>
-                      <Button 
-                        onClick={initializeJitsi}
-                        disabled={isJitsiLoaded}
-                        className="gap-2"
-                      >
-                        <Video className="h-4 w-4" />
-                        {isJitsiLoaded ? 'Урок активен' : 'Начать урок'}
-                      </Button>
-                      {isJitsiLoaded && (
-                        <Button 
-                          onClick={stopJitsi}
-                          variant="destructive"
-                          className="gap-2"
-                        >
-                          Завершить урок
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div 
-                    ref={jitsiContainerRef} 
-                    className="w-full h-[500px] bg-gray-100 rounded-lg flex items-center justify-center"
-                  >
-                    {!isJitsiLoaded && (
-                      <div className="text-center space-y-2">
-                        <Video className="h-12 w-12 text-gray-400 mx-auto" />
-                        <p className="text-gray-500">Нажмите "Начать урок" для подключения</p>
-                      </div>
-                    )}
                   </div>
                 </CardContent>
               </Card>
