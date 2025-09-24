@@ -8,9 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Upload, Edit2, Trash2, Eye, Plus, Loader2, Music } from 'lucide-react';
+import { FileText, Upload, Edit2, Trash2, Eye, Plus, Loader2, Music, Folder, FolderOpen, ChevronDown, ChevronRight } from 'lucide-react';
 import { useTextbooks } from '@/hooks/useTextbooks';
 import { PDFViewer } from '@/components/PDFViewer';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const programTypes = [
   { value: 'kids-box-1', label: "Kid's Box 1" },
@@ -67,6 +68,7 @@ export const TextbookManager = () => {
   const [batchUploadProgress, setBatchUploadProgress] = useState<{current: number, total: number}>({current: 0, total: 0});
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [editingTextbook, setEditingTextbook] = useState<any>(null);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -194,6 +196,62 @@ export const TextbookManager = () => {
   const filteredSubcategories = subcategories.filter(s => 
     s.parentCategory === uploadForm.category || s.parentCategory === editingTextbook?.category
   );
+
+  // Организуем материалы по папкам
+  const organizedMaterials = textbooks.reduce((acc, textbook) => {
+    const programType = textbook.program_type || 'other';
+    const category = textbook.category || 'general';
+    const subcategory = textbook.subcategory;
+
+    if (!acc[programType]) {
+      acc[programType] = {};
+    }
+    if (!acc[programType][category]) {
+      acc[programType][category] = {};
+    }
+    
+    if (subcategory && category === 'audio') {
+      if (!acc[programType][category][subcategory]) {
+        acc[programType][category][subcategory] = [];
+      }
+      acc[programType][category][subcategory].push(textbook);
+    } else {
+      if (!acc[programType][category]['_files']) {
+        acc[programType][category]['_files'] = [];
+      }
+      acc[programType][category]['_files'].push(textbook);
+    }
+
+    return acc;
+  }, {} as any);
+
+  const toggleFolder = (folderId: string) => {
+    const newExpanded = new Set(expandedFolders);
+    if (newExpanded.has(folderId)) {
+      newExpanded.delete(folderId);
+    } else {
+      newExpanded.add(folderId);
+    }
+    setExpandedFolders(newExpanded);
+  };
+
+  const deleteFolder = async (programType: string, category: string, subcategory?: string) => {
+    const filesToDelete = subcategory 
+      ? organizedMaterials[programType]?.[category]?.[subcategory] || []
+      : Object.values(organizedMaterials[programType]?.[category] || {}).flat();
+    
+    if (filesToDelete.length === 0) return;
+    
+    const confirmMessage = subcategory 
+      ? `Удалить папку "${getSubcategoryLabel(subcategory)}" и все файлы в ней (${filesToDelete.length} файлов)?`
+      : `Удалить категорию "${getCategoryLabel(category)}" и все файлы в ней (${filesToDelete.length} файлов)?`;
+    
+    if (window.confirm(confirmMessage)) {
+      for (const file of filesToDelete) {
+        await deleteTextbook(file.id);
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -363,9 +421,9 @@ export const TextbookManager = () => {
         </Dialog>
       </div>
 
-      {/* Список учебников */}
-      <div className="grid gap-4">
-        {textbooks.length === 0 ? (
+      {/* Организованные материалы по папкам */}
+      <div className="space-y-4">
+        {Object.keys(organizedMaterials).length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -380,192 +438,326 @@ export const TextbookManager = () => {
             </CardContent>
           </Card>
         ) : (
-          textbooks.map(textbook => (
-            <Card key={textbook.id}>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4 flex-1">
-                    <div className="flex-shrink-0">
-                      {getFileIcon(textbook.file_name, textbook.category)}
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium truncate">{textbook.title}</h3>
-                      {textbook.description && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {textbook.description}
-                        </p>
-                      )}
-                      
-                      <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        {textbook.program_type && (
-                          <Badge variant="secondary">
-                            {getProgramTypeLabel(textbook.program_type)}
-                          </Badge>
-                        )}
-                        {textbook.category && (
-                          <Badge variant="outline">
-                            {getCategoryLabel(textbook.category)}
-                          </Badge>
-                        )}
-                        {textbook.subcategory && (
-                          <Badge variant="secondary">
-                            {getSubcategoryLabel(textbook.subcategory)}
-                          </Badge>
-                        )}
-                        {textbook.file_size && (
-                          <span className="text-xs text-muted-foreground">
-                            {formatFileSize(textbook.file_size)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+          Object.entries(organizedMaterials).map(([programType, categories]) => (
+            <Card key={programType}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Folder className="h-5 w-5" />
+                  {getProgramTypeLabel(programType)}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {Object.entries(categories).map(([category, items]) => {
+                  const categoryId = `${programType}-${category}`;
+                  const isExpanded = expandedFolders.has(categoryId);
                   
-                  <div className="flex items-center gap-2 ml-4">
-                    {textbook.category === 'audio' || textbook.file_name.match(/\.(mp3|wav|ogg|m4a|aac)$/i) ? (
-                      <audio 
-                        controls 
-                        className="w-40 h-8"
-                        preload="metadata"
-                      >
-                        <source src={textbook.file_url} />
-                        Ваш браузер не поддерживает аудио
-                      </audio>
-                    ) : (
-                      <PDFViewer
-                        url={textbook.file_url}
-                        fileName={textbook.file_name}
-                        trigger={
-                          <Button variant="ghost" size="sm">
-                            <Eye className="h-4 w-4" />
+                  return (
+                    <Collapsible key={category} open={isExpanded} onOpenChange={() => toggleFolder(categoryId)}>
+                      <div className="flex items-center justify-between">
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" className="flex items-center gap-2 p-2">
+                            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                            {isExpanded ? <FolderOpen className="h-4 w-4" /> : <Folder className="h-4 w-4" />}
+                            {getCategoryLabel(category)}
+                            <Badge variant="secondary" className="ml-2">
+                              {Object.values(items).flat().filter((item: any) => item?.id).length} файлов
+                            </Badge>
                           </Button>
-                        }
-                      />
-                    )}
-                    
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="ghost" size="sm" onClick={() => setEditingTextbook(textbook)}>
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Редактировать учебник</DialogTitle>
-                        </DialogHeader>
-                        {editingTextbook && (
-                          <div className="space-y-4">
-                            <div>
-                              <Label>Название</Label>
-                              <Input
-                                value={editingTextbook.title}
-                                onChange={(e) => setEditingTextbook(prev => ({ ...prev, title: e.target.value }))}
-                              />
-                            </div>
-                            <div>
-                              <Label>Описание</Label>
-                              <Textarea
-                                value={editingTextbook.description || ''}
-                                onChange={(e) => setEditingTextbook(prev => ({ ...prev, description: e.target.value }))}
-                              />
-                            </div>
-                            <div>
-                              <Label>Программа</Label>
-                              <Select 
-                                value={editingTextbook.program_type || ''} 
-                                onValueChange={(value) => setEditingTextbook(prev => ({ ...prev, program_type: value }))}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {programTypes.map(type => (
-                                    <SelectItem key={type.value} value={type.value}>
-                                      {type.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <Label>Категория</Label>
-                              <Select 
-                                value={editingTextbook.category || ''} 
-                                onValueChange={(value) => setEditingTextbook(prev => ({ ...prev, category: value, subcategory: '' }))}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {categories.map(category => (
-                                    <SelectItem key={category.value} value={category.value}>
-                                      {category.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            {editingTextbook.category === 'audio' && (
-                              <div>
-                                <Label>Подкатегория</Label>
-                                <Select 
-                                  value={editingTextbook.subcategory || ''} 
-                                  onValueChange={(value) => setEditingTextbook(prev => ({ ...prev, subcategory: value }))}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Выберите подкатегорию" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {filteredSubcategories.map(subcategory => (
-                                      <SelectItem key={subcategory.value} value={subcategory.value}>
-                                        {subcategory.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            )}
-                            <Button onClick={handleEdit} className="w-full">
-                              Сохранить изменения
+                        </CollapsibleTrigger>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <Trash2 className="h-4 w-4" />
                             </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Удалить категорию?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Это действие удалит категорию "{getCategoryLabel(category)}" и все файлы в ней. Действие нельзя отменить.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Отмена</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={() => deleteFolder(programType, category)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Удалить
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                      
+                      <CollapsibleContent className="ml-6 mt-2 space-y-2">
+                        {category === 'audio' ? (
+                          // Аудио подпапки
+                          Object.entries(items).filter(([key]) => key !== '_files').map(([subcategory, files]) => {
+                            const subfolderId = `${programType}-${category}-${subcategory}`;
+                            const isSubExpanded = expandedFolders.has(subfolderId);
+                            
+                            return (
+                              <div key={subcategory} className="ml-4">
+                                <Collapsible open={isSubExpanded} onOpenChange={() => toggleFolder(subfolderId)}>
+                                  <div className="flex items-center justify-between">
+                                    <CollapsibleTrigger asChild>
+                                      <Button variant="ghost" className="flex items-center gap-2 p-1 text-sm">
+                                        {isSubExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                        {isSubExpanded ? <FolderOpen className="h-3 w-3" /> : <Folder className="h-3 w-3" />}
+                                        {getSubcategoryLabel(subcategory)}
+                                        <Badge variant="outline" className="ml-2">
+                                          {(files as any[]).length} файлов
+                                        </Badge>
+                                      </Button>
+                                    </CollapsibleTrigger>
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="sm">
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle>Удалить папку?</AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                            Это действие удалит папку "{getSubcategoryLabel(subcategory)}" и все файлы в ней ({(files as any[]).length} файлов). Действие нельзя отменить.
+                                          </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                          <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                          <AlertDialogAction 
+                                            onClick={() => deleteFolder(programType, category, subcategory)}
+                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                          >
+                                            Удалить
+                                          </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  </div>
+                                  
+                                  <CollapsibleContent className="ml-4 mt-2 space-y-2">
+                                    {(files as any[]).map(textbook => (
+                                      <div key={textbook.id} className="flex items-center justify-between p-2 border rounded">
+                                        <div className="flex items-center gap-2">
+                                          {getFileIcon(textbook.file_name, textbook.category)}
+                                          <div>
+                                            <p className="font-medium text-sm">{textbook.title}</p>
+                                            {textbook.description && (
+                                              <p className="text-xs text-muted-foreground">{textbook.description}</p>
+                                            )}
+                                          </div>
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-1">
+                                          <audio controls className="w-32 h-6" preload="metadata">
+                                            <source src={textbook.file_url} />
+                                          </audio>
+                                          
+                                          <Dialog>
+                                            <DialogTrigger asChild>
+                                              <Button variant="ghost" size="sm" onClick={() => setEditingTextbook(textbook)}>
+                                                <Edit2 className="h-3 w-3" />
+                                              </Button>
+                                            </DialogTrigger>
+                                          </Dialog>
+                                          
+                                          <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                              <Button variant="ghost" size="sm">
+                                                <Trash2 className="h-3 w-3" />
+                                              </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                              <AlertDialogHeader>
+                                                <AlertDialogTitle>Удалить файл?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                  Это действие нельзя отменить. Файл будет полностью удален из системы.
+                                                </AlertDialogDescription>
+                                              </AlertDialogHeader>
+                                              <AlertDialogFooter>
+                                                <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                                <AlertDialogAction 
+                                                  onClick={() => deleteTextbook(textbook.id)}
+                                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                >
+                                                  Удалить
+                                                </AlertDialogAction>
+                                              </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                          </AlertDialog>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </CollapsibleContent>
+                                </Collapsible>
+                              </div>
+                            );
+                          })
+                        ) : null}
+                        
+                        {/* Файлы в корне категории */}
+                        {items._files?.map(textbook => (
+                          <div key={textbook.id} className="flex items-center justify-between p-2 border rounded">
+                            <div className="flex items-center gap-2">
+                              {getFileIcon(textbook.file_name, textbook.category)}
+                              <div>
+                                <p className="font-medium text-sm">{textbook.title}</p>
+                                {textbook.description && (
+                                  <p className="text-xs text-muted-foreground">{textbook.description}</p>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-1">
+                              {textbook.category === 'audio' || textbook.file_name.match(/\.(mp3|wav|ogg|m4a|aac)$/i) ? (
+                                <audio controls className="w-32 h-6" preload="metadata">
+                                  <source src={textbook.file_url} />
+                                </audio>
+                              ) : (
+                                <PDFViewer
+                                  url={textbook.file_url}
+                                  fileName={textbook.file_name}
+                                  trigger={
+                                    <Button variant="ghost" size="sm">
+                                      <Eye className="h-3 w-3" />
+                                    </Button>
+                                  }
+                                />
+                              )}
+                              
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button variant="ghost" size="sm" onClick={() => setEditingTextbook(textbook)}>
+                                    <Edit2 className="h-3 w-3" />
+                                  </Button>
+                                </DialogTrigger>
+                              </Dialog>
+                              
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Удалить файл?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Это действие нельзя отменить. Файл будет полностью удален из системы.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                    <AlertDialogAction 
+                                      onClick={() => deleteTextbook(textbook.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Удалить
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
                           </div>
-                        )}
-                      </DialogContent>
-                    </Dialog>
-                    
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Удалить учебник?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Это действие нельзя отменить. Учебник будет полностью удален из системы.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Отмена</AlertDialogCancel>
-                          <AlertDialogAction 
-                            onClick={() => deleteTextbook(textbook.id)}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Удалить
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </div>
+                        ))}
+                      </CollapsibleContent>
+                    </Collapsible>
+                  );
+                })}
               </CardContent>
             </Card>
           ))
         )}
       </div>
+
+      {/* Edit Modal */}
+      {editingTextbook && (
+        <Dialog open={!!editingTextbook} onOpenChange={() => setEditingTextbook(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Редактировать материал</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Название</Label>
+                <Input
+                  value={editingTextbook.title}
+                  onChange={(e) => setEditingTextbook(prev => ({ ...prev, title: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Описание</Label>
+                <Textarea
+                  value={editingTextbook.description || ''}
+                  onChange={(e) => setEditingTextbook(prev => ({ ...prev, description: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Программа</Label>
+                <Select 
+                  value={editingTextbook.program_type || ''} 
+                  onValueChange={(value) => setEditingTextbook(prev => ({ ...prev, program_type: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {programTypes.map(type => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Категория</Label>
+                <Select 
+                  value={editingTextbook.category || ''} 
+                  onValueChange={(value) => setEditingTextbook(prev => ({ ...prev, category: value, subcategory: '' }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map(category => (
+                      <SelectItem key={category.value} value={category.value}>
+                        {category.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {editingTextbook.category === 'audio' && (
+                <div>
+                  <Label>Подкатегория</Label>
+                  <Select 
+                    value={editingTextbook.subcategory || ''} 
+                    onValueChange={(value) => setEditingTextbook(prev => ({ ...prev, subcategory: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Выберите подкатегорию" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredSubcategories.map(subcategory => (
+                        <SelectItem key={subcategory.value} value={subcategory.value}>
+                          {subcategory.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <Button onClick={handleEdit} className="w-full">
+                Сохранить изменения
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
