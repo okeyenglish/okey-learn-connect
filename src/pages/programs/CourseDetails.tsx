@@ -11,7 +11,6 @@ import {
   BookOpen, 
   Clock, 
   ChevronDown,
-  ArrowLeft,
   GraduationCap,
   Target,
   Play,
@@ -280,7 +279,6 @@ export default function CourseDetails() {
           <h1 className="text-2xl font-bold text-gray-900">Курс не найден</h1>
           <p className="text-gray-600">Запрошенный курс не существует</p>
           <Button onClick={() => navigate('/programs')} className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
             Вернуться к курсам
           </Button>
         </div>
@@ -301,50 +299,38 @@ export default function CourseDetails() {
       
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-12">
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-6">
           <div className="container mx-auto px-4">
-            <div className="flex items-center gap-4 mb-6">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate('/programs')}
-                className="text-white border-white hover:bg-white hover:text-blue-600"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Назад
-              </Button>
-              
+            <div className="flex items-center justify-end mb-4">
               {/* Переключатель курсов */}
-              <div className="ml-auto">
-                <Select value={courseSlug} onValueChange={handleCourseChange}>
-                  <SelectTrigger className="w-64 bg-white/10 border-white/20 text-white">
-                    <SelectValue placeholder="Выберите курс" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableCourses.map((course) => (
-                      <SelectItem key={course.slug} value={course.slug}>
-                        {course.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Select value={courseSlug} onValueChange={handleCourseChange}>
+                <SelectTrigger className="w-64 bg-white/10 border-white/20 text-white">
+                  <SelectValue placeholder="Выберите курс" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableCourses.map((course) => (
+                    <SelectItem key={course.slug} value={course.slug}>
+                      {course.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             
             <div className="flex items-center gap-4 mb-4">
-              <GraduationCap className="h-12 w-12" />
+              <GraduationCap className="h-10 w-10" />
               <div>
-                <h1 className="text-4xl font-bold">{course.title}</h1>
-                <p className="text-xl text-blue-100">{course.description}</p>
+                <h1 className="text-3xl font-bold">{course.title}</h1>
+                <p className="text-lg text-blue-100">{course.description}</p>
               </div>
             </div>
             
-            <div className="flex flex-wrap gap-4 mt-6">
-              <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full">
+            <div className="flex flex-wrap gap-4">
+              <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-lg">
                 <BookOpen className="h-5 w-5" />
                 <span>{units?.length || 0} юнитов</span>
               </div>
-              <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full">
+              <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-lg">
                 <Clock className="h-5 w-5" />
                 <span>{units?.reduce((total, unit) => total + unit.lessons_count, 0) || 0} уроков</span>
               </div>
@@ -355,9 +341,8 @@ export default function CourseDetails() {
         {/* Main Content */}
         <div className="container mx-auto px-4 py-8">
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="overview">Обзор</TabsTrigger>
-              <TabsTrigger value="template">Шаблон урока</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="overview">Планирование</TabsTrigger>
               <TabsTrigger value="trainers">Тренажёры</TabsTrigger>
               <TabsTrigger value="materials">Материалы</TabsTrigger>
             </TabsList>
@@ -460,85 +445,6 @@ export default function CourseDetails() {
                 </CardContent>
               </Card>
              </TabsContent>
-
-            {/* Template Tab */}
-            <TabsContent value="template" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="w-6 h-6" />
-                    Шаблон урока (80 минут)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <p className="text-muted-foreground mb-6">
-                      Используйте эту структуру на всех занятиях для максимальной эффективности:
-                    </p>
-                    
-                    <div className="grid gap-4">
-                      <div className="flex items-center gap-4 p-4 border rounded-lg">
-                        <Badge variant="secondary" className="min-w-[3rem] justify-center">5′</Badge>
-                        <div>
-                          <h4 className="font-medium">Проверка ДЗ / повторение</h4>
-                          <p className="text-sm text-muted-foreground">Краткая проверка домашнего задания</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-4 p-4 border rounded-lg">
-                        <Badge variant="secondary" className="min-w-[3rem] justify-center">10′</Badge>
-                        <div>
-                          <h4 className="font-medium">Разминка</h4>
-                          <p className="text-sm text-muted-foreground">Песня/ритуал приветствия/игра</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-4 p-4 border rounded-lg">
-                        <Badge variant="secondary" className="min-w-[3rem] justify-center">15′</Badge>
-                        <div>
-                          <h4 className="font-medium">Презентация нового</h4>
-                          <p className="text-sm text-muted-foreground">Лексика/грамматика/фонетика</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-4 p-4 border rounded-lg">
-                        <Badge variant="secondary" className="min-w-[3rem] justify-center">20′</Badge>
-                        <div>
-                          <h4 className="font-medium">Практика</h4>
-                          <p className="text-sm text-muted-foreground">Карточки, пары/группы, задания из PB/AB</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-4 p-4 border rounded-lg">
-                        <Badge variant="secondary" className="min-w-[3rem] justify-center">20′</Badge>
-                        <div>
-                          <h4 className="font-medium">Коммуникативное задание</h4>
-                          <p className="text-sm text-muted-foreground">Диалоги, ролевые игры, story acting</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-4 p-4 border rounded-lg">
-                        <Badge variant="secondary" className="min-w-[3rem] justify-center">10′</Badge>
-                        <div>
-                          <h4 className="font-medium">Закрепление + ДЗ</h4>
-                          <p className="text-sm text-muted-foreground">Подведение итогов и объяснение домашки</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-6 p-4 bg-primary/5 rounded-lg">
-                      <h4 className="font-medium mb-2">Единый ритуал урока:</h4>
-                      <ul className="text-sm space-y-1 text-muted-foreground">
-                        <li>• Приветствие → «Circle time» 2–3 минуты</li>
-                        <li>• «Слово дня» или «быстрый повтор»</li>
-                        <li>• Песня/джингл по теме юнита</li>
-                        <li>• В конце: «Exit ticket» (1 вопрос/микро-задание)</li>
-                      </ul>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
 
             {/* Trainers Tab */}
             <TabsContent value="trainers" className="space-y-6">
