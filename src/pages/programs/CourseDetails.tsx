@@ -61,92 +61,6 @@ interface UnitLesson {
 }
 
 
-// Типизация для детального плана урока
-interface LessonDetail {
-  date: string;
-  title: string;
-  unit: string;
-  unitNumber: number;
-  goals: string[];
-  materials: string[];
-  structure: Record<string, string>;
-  homework: string;
-}
-
-// Данные детального планирования уроков (пример для Kid's Box 1)
-const lessonDetailsData: Record<string, Record<number, LessonDetail>> = {
-  'kids-box-1': {
-    1: {
-      date: "2025-09-01",
-      title: "Meeting the Star family",
-      unit: "Unit 1",
-      unitNumber: 1,
-      goals: ["приветствия", "имена персонажей", "числа/цвета"],
-      materials: ["PB Unit 1", "AB Unit 1", "TB Unit 1", "Audio (song)", "KB1 интерактив"],
-      structure: {
-        "0-5": "ДЗ-чек/повтор (имена, цвета)",
-        "5-15": "Разминка — ball name game; приветствие по кругу",
-        "15-30": "Презентация — герои Star family (картинка/слайд), числа/цвета",
-        "30-50": "Практика — bingo (числа/цвета), TPR «show the colour/number»",
-        "50-70": "Коммуникативное — песня «Hello» + жесты; мини-диалоги «My name is…»",
-        "70-80": "Закрепление — карточки с именами → сопоставить; объяснить ДЗ"
-      },
-      homework: "AB — раскрасить лист; выучить имена персонажей"
-    },
-    2: {
-      date: "2025-09-04",
-      title: "Where is it? (in/on/under)",
-      unit: "Unit 1",
-      unitNumber: 1,
-      goals: ["предлоги места", "понимание инструкций"],
-      materials: ["PB Unit 1", "AB Unit 1", "TB", "Audio (short dialogue)", "KB1 game"],
-      structure: {
-        "0-5": "ДЗ-чек (имена/цвета)",
-        "5-15": "Разминка — «Simon says» с предметами класса",
-        "15-30": "Презентация — in/on/under с реальными объектами/картинками",
-        "30-50": "Практика — «Where's the teddy?» (прячем/находим); парная Q&A",
-        "50-70": "Коммуникативное — мини-квест в классе по подсказкам учителя",
-        "70-80": "Закрепление — краткий воркбук/AB упражнение; объяснить ДЗ"
-      },
-      homework: "Нарисовать свою комнату и подписать предметы (in/on/under)"
-    },
-    3: {
-      date: "2025-09-08",
-      title: "Family and age",
-      unit: "Unit 1",
-      unitNumber: 1,
-      goals: ["семья", "How old are you?", "числа 1–10 повтор"],
-      materials: ["PB/AB Unit 1", "TB", "Age cards", "KB1"],
-      structure: {
-        "0-5": "ДЗ-чек (комната/подписи)",
-        "5-15": "Разминка — счёт по кругу, «clap on 5/10»",
-        "15-30": "Презентация — семейные отношения; вопрос «How old are you?»",
-        "30-50": "Практика — карточки возрастов; парные диалоги",
-        "50-70": "Коммуникативное — «Find someone who» (роль в семье)",
-        "70-80": "Закрепление — мини-рисунок «My family» + подписи; ДЗ"
-      },
-      homework: "AB — упражнение по семье/возрасту"
-    },
-    4: {
-      date: "2025-09-11",
-      title: "Classroom commands & objects",
-      unit: "Unit 1",
-      unitNumber: 1,
-      goals: ["команды учителя", "предметы класса", "вежливые просьбы"],
-      materials: ["PB/AB Unit 1", "TB", "Flashcards", "KB1"],
-      structure: {
-        "0-5": "ДЗ-чек",
-        "5-15": "Разминка — chant с действиями: sit down, stand up, open your book",
-        "15-30": "Презентация — предметы класса; this is a…",
-        "30-50": "Практика — charades/flashcard race",
-        "50-70": "Коммуникативное — парные инструкции «Please, open/close…»",
-        "70-80": "Закрепление — короткий worksheet; ДЗ"
-      },
-      homework: "KB1 — игры Unit 1 (повтор слов)"
-    }
-  }
-};
-
 // Материалы курса
 const courseMaterials = [
   {
@@ -476,34 +390,33 @@ export default function CourseDetails() {
                               </div>
 
                               {/* Уроки внутри юнита */}
-                              {getUnitLessons(unit.unit_number).length > 0 && (
+                              {getUnitLessons(unit.id).length > 0 && (
                                 <div className="mt-6">
                                   <h4 className="font-semibold text-purple-600 mb-3">📖 Уроки:</h4>
                                   <div className="grid gap-3">
-                                    {getUnitLessons(unit.unit_number).map((lesson) => (
+                                    {getUnitLessons(unit.id).map((lesson) => (
                                       <Card
-                                        key={lesson.lessonNumber}
+                                        key={lesson.id}
                                         className="cursor-pointer hover:shadow-md transition-shadow border-l-4 border-l-blue-500"
-                                        onClick={() => setSelectedLesson(lesson.lessonNumber)}
+                                        onClick={() => setSelectedLesson(lesson)}
                                       >
                                         <CardContent className="p-4">
                                           <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
                                               <Badge variant="outline" className="text-xs">
-                                                Урок {lesson.lessonNumber}
+                                                Урок {lesson.lesson_number}
                                               </Badge>
-                                              <span className="text-xs text-muted-foreground">{lesson.date}</span>
                                             </div>
                                           </div>
                                           <h5 className="font-medium text-sm mb-2">{lesson.title}</h5>
                                           <div className="space-y-2">
                                             <div>
-                                              <p className="text-xs font-medium text-gray-600">Цели:</p>
-                                              <p className="text-xs text-gray-500">{lesson.goals.join(", ")}</p>
+                                              <p className="text-xs font-medium text-gray-600">Темы:</p>
+                                              <p className="text-xs text-gray-500">{Array.isArray(lesson.topics) ? lesson.topics.join(", ") : String(lesson.topics || "")}</p>
                                             </div>
                                             <div>
-                                              <p className="text-xs font-medium text-gray-600">ДЗ:</p>
-                                              <p className="text-xs text-gray-500 line-clamp-1">{lesson.homework}</p>
+                                              <p className="text-xs font-medium text-gray-600">Материалы:</p>
+                                              <p className="text-xs text-gray-500 line-clamp-1">{Array.isArray(lesson.materials) ? lesson.materials.join(", ") : String(lesson.materials || "")}</p>
                                             </div>
                                           </div>
                                         </CardContent>
@@ -691,71 +604,109 @@ export default function CourseDetails() {
       </div>
 
       {/* Модальное окно с детальным планом урока */}
-      {selectedLessonData && (
+      {selectedLesson && (
         <Dialog open={!!selectedLesson} onOpenChange={closeDialog}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Calendar className="w-5 h-5" />
-                Урок {selectedLesson}: {selectedLessonData.title}
+                Урок {selectedLesson.lesson_number}: {selectedLesson.title}
               </DialogTitle>
               <DialogDescription>
-                {selectedLessonData.unit} • {selectedLessonData.date}
+                Юнит {unitById[selectedLesson.unit_id]?.unit_number || ''}: {unitById[selectedLesson.unit_id]?.title || ''}
               </DialogDescription>
             </DialogHeader>
             
             <div className="space-y-6">
-              {/* Цели урока */}
-              <div>
-                <h4 className="font-semibold mb-2 flex items-center gap-2">
-                  <Target className="w-4 h-4" />
-                  Цели урока:
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {selectedLessonData.goals.map((goal, index) => (
-                    <Badge key={index} variant="secondary">{goal}</Badge>
-                  ))}
+              {/* Темы урока */}
+              {selectedLesson.topics && (
+                <div>
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <Target className="w-4 h-4" />
+                    Темы урока:
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {Array.isArray(selectedLesson.topics) 
+                      ? selectedLesson.topics.map((topic, index) => (
+                          <Badge key={index} variant="secondary">{String(topic)}</Badge>
+                        ))
+                      : <Badge variant="secondary">{String(selectedLesson.topics)}</Badge>
+                    }
+                  </div>
                 </div>
-              </div>
+              )}
               
               {/* Материалы */}
-              <div>
-                <h4 className="font-semibold mb-2 flex items-center gap-2">
-                  <BookOpen className="w-4 h-4" />
-                  Материалы:
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {selectedLessonData.materials.map((material, index) => (
-                    <Badge key={index} variant="outline">{material}</Badge>
-                  ))}
+              {selectedLesson.materials && (
+                <div>
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <BookOpen className="w-4 h-4" />
+                    Материалы:
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {Array.isArray(selectedLesson.materials)
+                      ? selectedLesson.materials.map((material, index) => (
+                          <Badge key={index} variant="outline">{String(material)}</Badge>
+                        ))
+                      : <Badge variant="outline">{String(selectedLesson.materials)}</Badge>
+                    }
+                  </div>
                 </div>
-              </div>
+              )}
               
-              {/* Структура урока */}
-              <div>
-                <h4 className="font-semibold mb-3 flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
-                  Структура урока (80 минут):
-                </h4>
-                <div className="space-y-3">
-                  {Object.entries(selectedLessonData.structure).map(([time, activity]) => (
-                    <div key={time} className="flex items-start gap-4 p-3 border rounded-lg">
-                      <Badge variant="secondary" className="min-w-[4rem] justify-center">
-                        {time}′
-                      </Badge>
-                      <p className="text-sm flex-1">{activity}</p>
+              {/* Активности */}
+              {selectedLesson.activities && (
+                <div>
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <Play className="w-4 h-4" />
+                    Активности:
+                  </h4>
+                  <div className="p-4 border rounded-lg">
+                    <div className="text-sm">
+                      {Array.isArray(selectedLesson.activities)
+                        ? selectedLesson.activities.map((activity, index) => (
+                            <div key={index} className="mb-2">{String(activity)}</div>
+                          ))
+                        : <div>{String(selectedLesson.activities)}</div>
+                      }
                     </div>
-                  ))}
+                  </div>
                 </div>
-              </div>
-              
-              {/* Домашнее задание */}
-              <div>
-                <h4 className="font-semibold mb-2">Домашнее задание:</h4>
-                <div className="p-3 bg-muted/50 rounded-lg">
-                  <p className="text-sm">{selectedLessonData.homework}</p>
+              )}
+
+              {/* Лексика */}
+              {selectedLesson.vocabulary && (
+                <div>
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    📚 Лексика:
+                  </h4>
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <div className="text-sm">
+                      {Array.isArray(selectedLesson.vocabulary)
+                        ? selectedLesson.vocabulary.join(', ')
+                        : String(selectedLesson.vocabulary)
+                      }
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Грамматика */}
+              {selectedLesson.grammar && (
+                <div>
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    ⚙️ Грамматика:
+                  </h4>
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <div className="text-sm">
+                      {Array.isArray(selectedLesson.grammar)
+                        ? selectedLesson.grammar.join(', ')
+                        : String(selectedLesson.grammar)
+                      }
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </DialogContent>
         </Dialog>
