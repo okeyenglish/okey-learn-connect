@@ -3,10 +3,11 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Menu, Phone, MessageCircle, BookOpen, UserCheck, Send, Gift, MapPin } from "lucide-react";
+import { Menu, Phone, MessageCircle, BookOpen, UserCheck, Send, Gift, MapPin, LogOut } from "lucide-react";
 import logoImage from "@/assets/okey-english-logo.jpg";
 import OptimizedImage from "@/components/OptimizedImage";
 import { getBranchesForSelect } from "@/lib/branches";
+import { useAuth } from "@/hooks/useAuth";
 
 const navigation = [
   { name: "Главная", href: "/" },
@@ -24,6 +25,7 @@ export default function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const branchesForSelect = getBranchesForSelect();
+  const { user, signOut } = useAuth();
 
   const handleWhatsApp = () => {
     window.open("https://wa.me/79937073553", "_blank");
@@ -39,6 +41,11 @@ export default function Header() {
 
   const handleBranchSelect = (branchId: string) => {
     navigate(`/branches/${branchId}`);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
   };
 
   return (
@@ -97,12 +104,24 @@ export default function Header() {
                   <span className="hidden xl:inline">Тест</span>
                 </Button>
               </Link>
-              <Link to="/contacts">
-                <Button className="btn-hero flex items-center gap-1 px-4" aria-label="Записаться на пробный урок">
-                  <UserCheck className="w-4 h-4" />
-                  <span className="text-sm">Пробный урок</span>
+              {user ? (
+                <Button 
+                  onClick={handleSignOut}
+                  variant="outline" 
+                  className="flex items-center gap-1 px-4" 
+                  aria-label="Выйти из аккаунта"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="text-sm">Выйти</span>
                 </Button>
-              </Link>
+              ) : (
+                <Link to="/contacts">
+                  <Button className="btn-hero flex items-center gap-1 px-4" aria-label="Записаться на пробный урок">
+                    <UserCheck className="w-4 h-4" />
+                    <span className="text-sm">Пробный урок</span>
+                  </Button>
+                </Link>
+              )}
             </div>
 
             {/* Mobile Branch Selector and Menu Button */}
@@ -195,12 +214,26 @@ export default function Header() {
                             Тест уровня (5 мин)
                           </Button>
                         </Link>
-                        <Link to="/contacts" onClick={() => setIsOpen(false)}>
-                          <Button className="btn-hero w-full justify-center gap-2 h-10">
-                            <UserCheck className="w-4 h-4" />
-                            Пробный урок
+                        {user ? (
+                          <Button 
+                            onClick={() => {
+                              handleSignOut();
+                              setIsOpen(false);
+                            }}
+                            variant="outline"
+                            className="w-full justify-center gap-2 h-10"
+                          >
+                            <LogOut className="w-4 h-4" />
+                            Выйти
                           </Button>
-                        </Link>
+                        ) : (
+                          <Link to="/contacts" onClick={() => setIsOpen(false)}>
+                            <Button className="btn-hero w-full justify-center gap-2 h-10">
+                              <UserCheck className="w-4 h-4" />
+                              Пробный урок
+                            </Button>
+                          </Link>
+                        )}
                         <Link to="/5000" onClick={() => setIsOpen(false)}>
                           <Button className="w-full justify-center gap-2 h-10 bg-gradient-to-r from-primary to-primary/80 text-white">
                             <Gift className="w-4 h-4" />
@@ -251,16 +284,29 @@ export default function Header() {
               <span className="text-xs">Тест</span>
             </Button>
           </Link>
-          <Link to="/contacts">
+          {user ? (
             <Button
+              onClick={handleSignOut}
+              variant="outline"
               size="sm"
-              className="btn-hero flex flex-col items-center gap-1 h-auto py-2"
-              aria-label="Записаться на пробный урок"
+              className="flex flex-col items-center gap-1 h-auto py-2"
+              aria-label="Выйти из аккаунта"
             >
-              <UserCheck className="w-5 h-5" />
-              <span className="text-xs">Записаться</span>
+              <LogOut className="w-5 h-5" />
+              <span className="text-xs">Выйти</span>
             </Button>
-          </Link>
+          ) : (
+            <Link to="/contacts">
+              <Button
+                size="sm"
+                className="btn-hero flex flex-col items-center gap-1 h-auto py-2"
+                aria-label="Записаться на пробный урок"
+              >
+                <UserCheck className="w-5 h-5" />
+                <span className="text-xs">Записаться</span>
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
     </>
