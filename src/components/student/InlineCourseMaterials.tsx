@@ -207,7 +207,17 @@ export const InlineCourseMaterials = ({ selectedCourse: courseFilter }: InlineCo
 
   // Разделяем материалы по типам
   const educationalMaterials = filteredMaterials.filter(m => 
-    m.category === 'educational' || (!m.category && m.file_name.match(/\.pdf$/i))
+    m.category === 'educational' || 
+    m.category === 'pupil-book' ||
+    m.category === 'activity-book' ||
+    m.category === 'teacher-book' ||
+    m.category === 'student-book' ||
+    m.category === 'workbook' ||
+    m.category === 'teacher-guide' ||
+    m.category === 'flashcards' ||
+    m.category === 'posters' ||
+    m.category === 'tests' ||
+    (!m.category && m.file_name.match(/\.pdf$/i))
   );
   
   const audioMaterials = filteredMaterials.filter(m => 
