@@ -1,0 +1,5 @@
+-- Создаем индивидуальные занятия для Марии Ивановой
+INSERT INTO public.individual_lessons (student_name, branch, subject, level, teacher_name, status, schedule_time, price_per_lesson, academic_hours, created_at, updated_at, student_id) VALUES 
+('Козлова Елена Сергеевна', 'Окская', 'Английский', 'B1', 'Мария Иванова', 'active', 'Сб 10:00-11:30', 2500, 20, now(), now(), (SELECT id FROM students WHERE name = 'Козлова Елена Сергеевна' LIMIT 1)),
+('Новиков Дмитрий Александрович', 'Окская', 'Английский', 'A2', 'Мария Иванова', 'active', 'Сб 12:00-13:30', 2500, 15, now(), now(), (SELECT id FROM students WHERE name = 'Новиков Дмитрий Александрович' LIMIT 1)),
+('Петрова Анна Дмитриевна', 'Окская', 'Английский', 'A1', 'Мария Иванова', 'active', 'Вс 11:00-12:30', 2200, 10, now(), now(), (SELECT id FROM students WHERE name = 'Петрова Анна Дмитриевна' LIMIT 1));
