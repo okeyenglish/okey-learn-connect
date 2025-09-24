@@ -1200,6 +1200,63 @@ export type Database = {
         }
         Relationships: []
       }
+      teacher_messages: {
+        Row: {
+          branch: string
+          created_at: string
+          id: string
+          message_text: string
+          message_type: string
+          moderated_at: string | null
+          moderated_by: string | null
+          moderation_notes: string | null
+          sent_at: string | null
+          status: string
+          target_group_id: string | null
+          target_student_id: string | null
+          target_student_name: string | null
+          teacher_id: string
+          teacher_name: string
+          updated_at: string
+        }
+        Insert: {
+          branch: string
+          created_at?: string
+          id?: string
+          message_text: string
+          message_type?: string
+          moderated_at?: string | null
+          moderated_by?: string | null
+          moderation_notes?: string | null
+          sent_at?: string | null
+          status?: string
+          target_group_id?: string | null
+          target_student_id?: string | null
+          target_student_name?: string | null
+          teacher_id: string
+          teacher_name: string
+          updated_at?: string
+        }
+        Update: {
+          branch?: string
+          created_at?: string
+          id?: string
+          message_text?: string
+          message_type?: string
+          moderated_at?: string | null
+          moderated_by?: string | null
+          moderation_notes?: string | null
+          sent_at?: string | null
+          status?: string
+          target_group_id?: string | null
+          target_student_id?: string | null
+          target_student_name?: string | null
+          teacher_id?: string
+          teacher_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       teachers: {
         Row: {
           branch: string

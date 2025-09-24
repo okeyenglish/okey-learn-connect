@@ -96,7 +96,7 @@ import {
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
 import VoiceAssistant from '@/components/VoiceAssistant';
-import '@/styles/crm.css';
+import { TeacherMessagesPanel } from "@/components/crm/TeacherMessagesPanel";
 import { cn } from "@/lib/utils";
 
 const CRMContent = () => {
@@ -2010,6 +2010,14 @@ const CRMContent = () => {
                             )}
                           </div>
                         )}
+                        
+                        {/* Панель сообщений преподавателей - показываем для менеджеров */}
+                        {item.label === "Задачи" && (
+                          <div className="mt-6">
+                            <TeacherMessagesPanel />
+                          </div>
+                        )}
+                        
                         {!["Расписание", "Финансы", "Мои задачи"].includes(item.label) && (
                           <div className="text-center py-8">
                             <p className="text-muted-foreground">Функция "{item.label}" в разработке</p>

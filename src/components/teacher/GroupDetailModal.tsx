@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar, Users, BookOpen, DollarSign, Check, X, Edit, Trash2, Plus, Clock, MapPin } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { SendMessageForm } from './SendMessageForm';
 
 interface GroupDetailModalProps {
   open: boolean;
@@ -229,6 +230,16 @@ export const GroupDetailModal = ({ open, onOpenChange, groupId }: GroupDetailMod
                     <p className="text-muted-foreground text-center py-8">
                       В группе пока нет студентов
                     </p>
+                  )}
+
+                  {/* Форма отправки сообщения группе */}
+                  {group && (
+                    <SendMessageForm
+                      messageType="group"
+                      targetGroupId={group.id}
+                      branch={group.branch}
+                      groupName={group.name}
+                    />
                   )}
                 </div>
               </TabsContent>

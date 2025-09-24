@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { User, Calendar, Clock, MapPin, BookOpen, DollarSign, Phone, Mail } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { SendMessageForm } from './SendMessageForm';
 
 interface IndividualLessonModalProps {
   open: boolean;
@@ -232,6 +233,16 @@ export const IndividualLessonModal = ({ open, onOpenChange, lessonId }: Individu
                     <div className="p-4 border rounded-lg bg-background">
                       <p className="text-muted-foreground">Информация о студенте не найдена</p>
                     </div>
+                  )}
+
+                  {/* Форма отправки сообщения студенту */}
+                  {lesson && student && (
+                    <SendMessageForm
+                      messageType="individual"
+                      targetStudentId={student.id}
+                      targetStudentName={student.name}
+                      branch={lesson.branch}
+                    />
                   )}
 
                   {lesson.description && (
