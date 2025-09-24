@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AddFamilyMemberModal } from "./AddFamilyMemberModal";
 import { PhoneNumberManager } from "./PhoneNumberManager";
+import StudentPortalButton from "./StudentPortalButton";
 import { 
   User, 
   GraduationCap, 
@@ -225,14 +226,21 @@ export const StudentProfileModal = ({ student, open, onOpenChange }: StudentProf
                   </Button>
                 </>
               ) : (
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  onClick={handleEdit}
-                  className="h-7 w-7 p-0"
-                >
-                  <Edit2 className="h-3 w-3" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <StudentPortalButton 
+                    studentId={currentStudent.id} 
+                    studentName={`${currentStudent.firstName} ${currentStudent.lastName}`}
+                    className="h-7"
+                  />
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={handleEdit}
+                    className="h-7 w-7 p-0"
+                  >
+                    <Edit2 className="h-3 w-3" />
+                  </Button>
+                </div>
               )}
             </div>
           </div>
