@@ -233,6 +233,10 @@ export const InlineCourseMaterials = ({ selectedCourse: courseFilter }: InlineCo
   const audioFolders = groupMaterialsByFolder(audioMaterials);
   const videoFolders = groupMaterialsByFolder(videoMaterials);
 
+  // Разделяем учебные материалы: файлы без подкategории и папки с подкategориями
+  const generalEducationalMaterials = educationalMaterials.filter(m => !m.subcategory);
+  const educationalFoldersFiltered = educationalFolders.filter(folder => folder.subcategory !== null);
+
   const getCategoryLabel = (category: string, subcategory?: string) => {
     if (subcategory) {
       return `${category} - ${subcategory}`;
@@ -414,14 +418,15 @@ export const InlineCourseMaterials = ({ selectedCourse: courseFilter }: InlineCo
       ) : (
         <div className="grid gap-6">
           {/* Учебные материалы */}
-          {educationalFolders.length > 0 && (
+          {(educationalFoldersFiltered.length > 0 || generalEducationalMaterials.length > 0) && (
             <div>
               <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                 <FileText className="h-5 w-5" />
                 Учебные материалы ({educationalMaterials.length})
               </h3>
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {educationalFolders.map((folder) => (
+                {/* Папки с подкategориями */}
+                {educationalFoldersFiltered.map((folder) => (
                   <Card 
                     key={folder.subcategory || 'general'} 
                     className="cursor-pointer hover:shadow-md transition-shadow"
@@ -435,6 +440,30 @@ export const InlineCourseMaterials = ({ selectedCourse: courseFilter }: InlineCo
                           <p className="text-xs text-muted-foreground">{folder.count} файлов</p>
                         </div>
                       </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                
+                {/* Отдельные файлы без подкategорий */}
+                {generalEducationalMaterials.map((material) => (
+                  <Card 
+                    key={material.id} 
+                    className="cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => setSelectedMaterial(material)}
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <FileText className="h-8 w-8 text-primary flex-shrink-0" />
+                        <Badge variant="outline" className="text-xs">
+                          {getCategoryLabel(material.category || 'other', material.subcategory)}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <h4 className="font-medium text-sm mb-2 line-clamp-2">{material.title}</h4>
+                      {material.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{material.description}</p>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
