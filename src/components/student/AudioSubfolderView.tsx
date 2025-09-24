@@ -37,15 +37,25 @@ export const AudioSubfolderView = ({ materials, courseTitle, onBack }: AudioSubf
 
   // Group audio materials by subcategory
   const subfolders = materials.reduce((acc, material) => {
-    const subcategory = material.subcategory || 'general';
+    let subcategory = material.subcategory || 'general';
+    
+    // Объединяем все unit-* и lesson-example в 'units'
+    if (subcategory.startsWith('unit-') || subcategory === 'lesson-example') {
+      subcategory = 'units';
+    }
+    
     const existing = acc.find(group => group.subcategory === subcategory);
     
     if (existing) {
       existing.materials.push(material);
     } else {
+      const label = subcategory === 'units' ? 'Units' : 
+                   subcategory === 'general' ? 'Общие аудиоматериалы' :
+                   subcategoryLabels[subcategory] || subcategory;
+      
       acc.push({
-        subcategory: material.subcategory || null,
-        label: material.subcategory ? (subcategoryLabels[material.subcategory] || material.subcategory) : 'Общие аудиоматериалы',
+        subcategory: subcategory,
+        label: label,
         materials: [material]
       });
     }
@@ -55,11 +65,8 @@ export const AudioSubfolderView = ({ materials, courseTitle, onBack }: AudioSubf
 
   // Sort subfolders - units first, then others
   subfolders.sort((a, b) => {
-    if (a.subcategory?.startsWith('unit-') && !b.subcategory?.startsWith('unit-')) return -1;
-    if (!a.subcategory?.startsWith('unit-') && b.subcategory?.startsWith('unit-')) return 1;
-    if (a.subcategory?.startsWith('unit-') && b.subcategory?.startsWith('unit-')) {
-      return a.subcategory.localeCompare(b.subcategory);
-    }
+    if (a.subcategory === 'units' && b.subcategory !== 'units') return -1;
+    if (a.subcategory !== 'units' && b.subcategory === 'units') return 1;
     return a.label.localeCompare(b.label);
   });
 
