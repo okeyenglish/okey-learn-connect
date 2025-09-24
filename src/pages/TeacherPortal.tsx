@@ -12,6 +12,8 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { useToast } from '@/hooks/use-toast';
 import { GroupDetailModal } from '@/components/teacher/GroupDetailModal';
 import { IndividualLessonModal } from '@/components/teacher/IndividualLessonModal';
+import { AddHomeworkModal } from '@/components/teacher/AddHomeworkModal';
+import { AttendanceModal } from '@/components/teacher/AttendanceModal';
 import { useState } from 'react';
 
 export default function TeacherPortal() {
@@ -22,6 +24,10 @@ export default function TeacherPortal() {
   // Состояния для модальных окон
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
+  const [homeworkModalOpen, setHomeworkModalOpen] = useState(false);
+  const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [selectedSessionData, setSelectedSessionData] = useState<any>(null);
 
   // Получаем данные преподавателя по имени из профиля
   const { data: teacher, isLoading: teacherLoading } = useQuery({
@@ -171,6 +177,18 @@ export default function TeacherPortal() {
     navigate(`/online-lesson/${lessonId}?teacher=${teacherName}&group=${groupName || ''}`);
   };
 
+  const handleAddHomework = (sessionId: string, groupId?: string) => {
+    setSelectedSessionId(sessionId);
+    setSelectedSessionData({ groupId });
+    setHomeworkModalOpen(true);
+  };
+
+  const handleAttendance = (sessionId: string, session: any) => {
+    setSelectedSessionId(sessionId);
+    setSelectedSessionData(session);
+    setAttendanceModalOpen(true);
+  };
+
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-background">
@@ -288,17 +306,33 @@ export default function TeacherPortal() {
                              lesson.status === 'completed' ? 'Завершено' : 'Отменено'}
                           </Badge>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {lesson.status === 'scheduled' || lesson.status === 'ongoing' ? (
-                            <Button 
-                              size="sm"
-                              onClick={() => handleStartOnlineLesson(lesson.id, lesson.learning_groups?.name)}
-                            >
-                              <Video className="h-4 w-4 mr-2" />
-                              Начать урок
-                            </Button>
-                          ) : null}
-                        </div>
+                         <div className="flex items-center gap-2">
+                           {lesson.status === 'scheduled' || lesson.status === 'ongoing' ? (
+                             <>
+                               <Button 
+                                 size="sm"
+                                 onClick={() => handleStartOnlineLesson(lesson.id, lesson.learning_groups?.name)}
+                               >
+                                 <Video className="h-4 w-4 mr-2" />
+                                 Начать урок
+                               </Button>
+                               <Button 
+                                 size="sm"
+                                 variant="outline"
+                                 onClick={() => handleAddHomework(lesson.id, lesson.group_id)}
+                               >
+                                 +ДЗ
+                               </Button>
+                               <Button 
+                                 size="sm"
+                                 variant="outline"
+                                 onClick={() => handleAttendance(lesson.id, lesson)}
+                               >
+                                 Присутствие
+                               </Button>
+                             </>
+                           ) : null}
+                         </div>
                       </div>
                     ))}
                   </div>
@@ -424,23 +458,60 @@ export default function TeacherPortal() {
                             {lesson.classroom}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {new Date(`${lesson.lesson_date}T${lesson.start_time}`) <= new Date() && 
-                           lesson.status !== 'completed' && lesson.status !== 'cancelled' ? (
-                            <Button 
-                              size="sm"
-                              onClick={() => handleStartOnlineLesson(lesson.id, lesson.learning_groups?.name)}
-                            >
-                              <Video className="h-4 w-4 mr-2" />
-                              Начать урок
-                            </Button>
-                          ) : (
-                            <Badge variant="outline">
-                              {lesson.status === 'scheduled' ? 'Запланировано' : 
-                               lesson.status === 'completed' ? 'Завершено' : 'Отменено'}
-                            </Badge>
-                          )}
-                        </div>
+                         <div className="flex items-center gap-2">
+                           {new Date(`${lesson.lesson_date}T${lesson.start_time}`) <= new Date() && 
+                            lesson.status !== 'completed' && lesson.status !== 'cancelled' ? (
+                             <>
+                               <Button 
+                                 size="sm"
+                                 onClick={() => handleStartOnlineLesson(lesson.id, lesson.learning_groups?.name)}
+                               >
+                                 <Video className="h-4 w-4 mr-2" />
+                                 Начать урок
+                               </Button>
+                               <Button 
+                                 size="sm"
+                                 variant="outline"
+                                 onClick={() => handleAddHomework(lesson.id, lesson.group_id)}
+                               >
+                                 +ДЗ
+                               </Button>
+                               <Button 
+                                 size="sm"
+                                 variant="outline"
+                                 onClick={() => handleAttendance(lesson.id, lesson)}
+                               >
+                                 Присутствие
+                               </Button>
+                             </>
+                           ) : (
+                             <div className="flex items-center gap-2">
+                               <Badge variant="outline">
+                                 {lesson.status === 'scheduled' ? 'Запланировано' : 
+                                  lesson.status === 'completed' ? 'Завершено' : 'Отменено'}
+                               </Badge>
+                               {/* Кнопки для завершенных занятий */}
+                               {lesson.status === 'completed' && (
+                                 <>
+                                   <Button 
+                                     size="sm"
+                                     variant="outline"
+                                     onClick={() => handleAddHomework(lesson.id, lesson.group_id)}
+                                   >
+                                     +ДЗ
+                                   </Button>
+                                   <Button 
+                                     size="sm"
+                                     variant="outline"
+                                     onClick={() => handleAttendance(lesson.id, lesson)}
+                                   >
+                                     Присутствие
+                                   </Button>
+                                 </>
+                               )}
+                             </div>
+                           )}
+                         </div>
                       </div>
                     ))}
                   </div>
@@ -468,6 +539,28 @@ export default function TeacherPortal() {
             open={!!selectedLessonId}
             onOpenChange={(open) => !open && setSelectedLessonId(null)}
             lessonId={selectedLessonId}
+          />
+        )}
+
+        {/* Модальное окно добавления домашнего задания */}
+        {homeworkModalOpen && selectedSessionId && (
+          <AddHomeworkModal
+            open={homeworkModalOpen}
+            onOpenChange={setHomeworkModalOpen}
+            sessionId={selectedSessionId}
+            groupId={selectedSessionData?.groupId}
+          />
+        )}
+
+        {/* Модальное окно отметки присутствия */}
+        {attendanceModalOpen && selectedSessionId && selectedSessionData && (
+          <AttendanceModal
+            open={attendanceModalOpen}
+            onOpenChange={setAttendanceModalOpen}
+            sessionId={selectedSessionId}
+            groupId={selectedSessionData?.group_id}
+            sessionDate={selectedSessionData?.lesson_date}
+            sessionTime={`${selectedSessionData?.start_time} - ${selectedSessionData?.end_time}`}
           />
         )}
       </div>
