@@ -201,8 +201,18 @@ export default function StudentPortal() {
                     {courses.map((course) => (
                       <div key={course.id} className="border rounded-lg p-4">
                         <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-semibold">{course.course_name}</h3>
-                          <Badge variant="outline">Активный</Badge>
+                          <div className="flex items-center gap-3">
+                            <h3 className="font-semibold">{course.course_name}</h3>
+                            <Badge variant="outline">Активный</Badge>
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => navigate(`/course/${course.id}`)}
+                            className="flex items-center gap-1"
+                          >
+                            <BookOpen className="h-4 w-4" />
+                            Открыть курс
+                          </Button>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                           {course.start_date && (
@@ -325,8 +335,18 @@ export default function StudentPortal() {
                     {individualLessons.map((lesson) => (
                       <div key={lesson.id} className="border rounded-lg p-4">
                         <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium">{lesson.subject} - {lesson.level}</h4>
-                          <Badge variant="outline">{lesson.status}</Badge>
+                          <div className="flex items-center gap-3">
+                            <h4 className="font-medium">{lesson.subject} - {lesson.level}</h4>
+                            <Badge variant="outline">{lesson.status}</Badge>
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => navigate(`/course/${lesson.id}`)}
+                            className="flex items-center gap-1"
+                          >
+                            <BookOpen className="h-4 w-4" />
+                            Открыть курс
+                          </Button>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                           <div>

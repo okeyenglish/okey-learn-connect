@@ -45,6 +45,7 @@ const CRM = lazy(() => import("./pages/CRM"));
 const StudentPortal = lazy(() => import("./pages/StudentPortal"));
 const OnlineLesson = lazy(() => import("./pages/OnlineLesson"));
 const Auth = lazy(() => import("./pages/Auth"));
+const CourseDetails = lazy(() => import('./pages/CourseDetails'));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Loading component for better UX
@@ -220,6 +221,21 @@ const AppContent = () => {
           <Route path="/student/:studentId" element={
             <Suspense fallback={<LoadingComponent />}>
               <StudentPortal />
+            </Suspense>
+          } />
+          <Route path="/student-portal" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <StudentPortal />
+            </Suspense>
+          } />
+          <Route path="/course/:courseId" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <CourseDetails />
+            </Suspense>
+          } />
+          <Route path="/course/:courseId/live" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <OnlineLesson />
             </Suspense>
           } />
           <Route path="/online-lesson/:lessonId" element={

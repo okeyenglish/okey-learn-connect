@@ -59,41 +59,59 @@ export default function OnlineLesson() {
   useEffect(() => {
     if (!lesson || !jitsiContainerRef.current || jitsiApi) return;
 
-    if (!window.JitsiMeetExternalAPI) {
-      console.error('Jitsi Meet API не загружен');
-      return;
-    }
+    // Загружаем 8x8.vc API скрипт
+    const loadJitsiScript = () => {
+      return new Promise((resolve, reject) => {
+        if (window.JitsiMeetExternalAPI) {
+          resolve(true);
+          return;
+        }
 
-    const domain = 'meet.jit.si';
-    const roomName = `OKEYEnglish_${lesson.id}_${lesson.lesson_date}`;
-    
-    const displayName = isTeacher 
-      ? `${profile?.first_name || 'Преподаватель'} (Учитель)`
-      : studentName || profile?.first_name || 'Ученик';
+        const script = document.createElement('script');
+        script.src = 'https://8x8.vc/vpaas-magic-cookie-e8f4ca26e53c428a8221b593330a443a/external_api.js';
+        script.async = true;
+        script.onload = () => resolve(true);
+        script.onerror = () => reject(new Error('Не удалось загрузить Jitsi API'));
+        document.head.appendChild(script);
+      });
+    };
 
-    const options = {
-      roomName,
-      parentNode: jitsiContainerRef.current,
-      width: '100%',
-      height: '100%',
-      userInfo: { displayName },
-      configOverwrite: {
-        prejoinPageEnabled: false,
-        startWithAudioMuted: true,
-        startWithVideoMuted: !isTeacher,
+    const initializeJitsi = async () => {
+      try {
+        await loadJitsiScript();
+        
+        const domain = '8x8.vc';
+        const roomName = `vpaas-magic-cookie-e8f4ca26e53c428a8221b593330a443a/OKEYEnglish_${lesson.id}_${lesson.lesson_date.replace(/-/g, '')}`;
+        
+        const displayName = isTeacher 
+          ? `${profile?.first_name || 'Преподаватель'} (Учитель)`
+          : studentName || profile?.first_name || 'Ученик';
+
+        const options = {
+          roomName,
+          parentNode: jitsiContainerRef.current,
+          width: '100%',
+          height: '100%',
+          userInfo: { displayName },
+          configOverwrite: {
+            prejoinPageEnabled: false,
+            startWithAudioMuted: true,
+            startWithVideoMuted: !isTeacher,
+          }
+        };
+
+        const api = new window.JitsiMeetExternalAPI(domain, options);
+        setJitsiApi(api);
+
+        api.addEventListener('videoConferenceLeft', () => {
+          navigate(-1);
+        });
+      } catch (error) {
+        console.error('Ошибка инициализации Jitsi:', error);
       }
     };
 
-    try {
-      const api = new window.JitsiMeetExternalAPI(domain, options);
-      setJitsiApi(api);
-
-      api.addEventListener('videoConferenceLeft', () => {
-        navigate(-1);
-      });
-    } catch (error) {
-      console.error('Ошибка инициализации Jitsi:', error);
-    }
+    initializeJitsi();
 
     return () => {
       if (jitsiApi) {
