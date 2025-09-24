@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Music, Eye, ArrowLeft } from 'lucide-react';
+import { FileText, Music, Eye, ArrowLeft, FolderOpen } from 'lucide-react';
 import { PDFViewer } from '@/components/PDFViewer';
 import { AudioPlayer } from './AudioPlayer';
+import { AudioSubfolderView } from './AudioSubfolderView';
 import { Textbook } from '@/hooks/useTextbooks';
 
 interface MaterialsListProps {
@@ -15,6 +16,7 @@ interface MaterialsListProps {
 
 export const MaterialsList = ({ materials, courseTitle, onBack }: MaterialsListProps) => {
   const [selectedAudio, setSelectedAudio] = useState<Textbook | null>(null);
+  const [viewMode, setViewMode] = useState<'main' | 'audio-subfolders'>('main');
 
   const audioMaterials = materials.filter(m => 
     m.category === 'audio' || m.file_name.match(/\.(mp3|wav|ogg|m4a|aac)$/i)
@@ -37,6 +39,16 @@ export const MaterialsList = ({ materials, courseTitle, onBack }: MaterialsListP
     };
     return categories[category as keyof typeof categories] || category;
   };
+
+  if (viewMode === 'audio-subfolders') {
+    return (
+      <AudioSubfolderView
+        materials={audioMaterials}
+        courseTitle={courseTitle}
+        onBack={() => setViewMode('main')}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -71,41 +83,20 @@ export const MaterialsList = ({ materials, courseTitle, onBack }: MaterialsListP
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3">
-              {audioMaterials.map(material => (
-                <div 
-                  key={material.id}
-                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3 flex-1">
-                    <Music className="h-5 w-5 text-purple-500" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{material.title}</p>
-                      {material.description && (
-                        <p className="text-sm text-muted-foreground truncate">
-                          {material.description}
-                        </p>
-                      )}
-                      {material.category && (
-                        <Badge variant="outline" className="mt-1">
-                          {getCategoryLabel(material.category)}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button 
-                      variant={selectedAudio?.id === material.id ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedAudio(
-                        selectedAudio?.id === material.id ? null : material
-                      )}
-                    >
-                      {selectedAudio?.id === material.id ? 'Открыт' : 'Слушать'}
-                    </Button>
-                  </div>
+            <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
+                 onClick={() => setViewMode('audio-subfolders')}>
+              <div className="flex items-center gap-3">
+                <FolderOpen className="h-8 w-8 text-yellow-500" />
+                <div>
+                  <p className="font-medium">Аудиоматериалы</p>
+                  <p className="text-sm text-muted-foreground">
+                    {audioMaterials.length} файлов в папках
+                  </p>
                 </div>
-              ))}
+              </div>
+              <Badge variant="outline">
+                {audioMaterials.length}
+              </Badge>
             </div>
           </CardContent>
         </Card>

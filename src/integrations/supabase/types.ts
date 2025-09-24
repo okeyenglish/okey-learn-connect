@@ -1310,6 +1310,7 @@ export type Database = {
           id: string
           program_type: string | null
           sort_order: number | null
+          subcategory: string | null
           title: string
           updated_at: string
           uploaded_by: string | null
@@ -1324,6 +1325,7 @@ export type Database = {
           id?: string
           program_type?: string | null
           sort_order?: number | null
+          subcategory?: string | null
           title: string
           updated_at?: string
           uploaded_by?: string | null
@@ -1338,6 +1340,7 @@ export type Database = {
           id?: string
           program_type?: string | null
           sort_order?: number | null
+          subcategory?: string | null
           title?: string
           updated_at?: string
           uploaded_by?: string | null

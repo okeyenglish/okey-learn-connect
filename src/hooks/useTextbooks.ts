@@ -11,6 +11,7 @@ export interface Textbook {
   file_size?: number;
   program_type?: string;
   category?: string;
+  subcategory?: string;
   uploaded_by?: string;
   created_at: string;
   updated_at: string;
@@ -55,7 +56,8 @@ export const useTextbooks = () => {
     title: string, 
     description?: string, 
     programType?: string, 
-    category?: string
+    category?: string,
+    subcategory?: string
   ) => {
     try {
       // Upload file to storage
@@ -85,6 +87,7 @@ export const useTextbooks = () => {
           file_size: file.size,
           program_type: programType,
           category: category || 'general',
+          subcategory: subcategory,
           uploaded_by: (await supabase.auth.getUser()).data.user?.id
         })
         .select()
@@ -149,7 +152,7 @@ export const useTextbooks = () => {
 
   const updateTextbook = async (
     id: string, 
-    updates: Partial<Pick<Textbook, 'title' | 'description' | 'program_type' | 'category' | 'sort_order'>>
+    updates: Partial<Pick<Textbook, 'title' | 'description' | 'program_type' | 'category' | 'subcategory' | 'sort_order'>>
   ) => {
     try {
       const { error } = await supabase

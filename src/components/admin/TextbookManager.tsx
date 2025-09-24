@@ -32,6 +32,20 @@ const categories = [
   { value: 'video', label: 'Видеоматериалы' }
 ];
 
+const subcategories = [
+  { value: 'unit-1', label: 'Unit 1', parentCategory: 'audio' },
+  { value: 'unit-2', label: 'Unit 2', parentCategory: 'audio' },
+  { value: 'unit-3', label: 'Unit 3', parentCategory: 'audio' },
+  { value: 'unit-4', label: 'Unit 4', parentCategory: 'audio' },
+  { value: 'unit-5', label: 'Unit 5', parentCategory: 'audio' },
+  { value: 'unit-6', label: 'Unit 6', parentCategory: 'audio' },
+  { value: 'grammar-songs', label: 'Грамматические песни', parentCategory: 'audio' },
+  { value: 'vocabulary', label: 'Словарные упражнения', parentCategory: 'audio' },
+  { value: 'listening-exercises', label: 'Упражнения на слух', parentCategory: 'audio' },
+  { value: 'pronunciation', label: 'Произношение', parentCategory: 'audio' },
+  { value: 'stories', label: 'Истории и сказки', parentCategory: 'audio' }
+];
+
 const getFileIcon = (fileName: string, category?: string) => {
   const ext = fileName.toLowerCase().split('.').pop();
   if (category === 'audio' || ['mp3', 'wav', 'ogg', 'm4a', 'aac'].includes(ext || '')) {
@@ -48,7 +62,8 @@ export const TextbookManager = () => {
     title: '',
     description: '',
     program_type: '',
-    category: 'general'
+    category: 'general',
+    subcategory: ''
   });
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [editingTextbook, setEditingTextbook] = useState<any>(null);
@@ -87,12 +102,13 @@ export const TextbookManager = () => {
         uploadForm.title,
         uploadForm.description,
         uploadForm.program_type,
-        uploadForm.category
+        uploadForm.category,
+        uploadForm.subcategory
       );
       
       // Reset form
       setSelectedFile(null);
-      setUploadForm({ title: '', description: '', program_type: '', category: 'general' });
+      setUploadForm({ title: '', description: '', program_type: '', category: 'general', subcategory: '' });
       setIsUploadDialogOpen(false);
     } catch (error) {
       console.error('Upload error:', error);
@@ -109,6 +125,7 @@ export const TextbookManager = () => {
       description: editingTextbook.description,
       program_type: editingTextbook.program_type,
       category: editingTextbook.category,
+      subcategory: editingTextbook.subcategory,
       sort_order: editingTextbook.sort_order
     });
     
@@ -125,9 +142,13 @@ export const TextbookManager = () => {
     return programTypes.find(pt => pt.value === value)?.label || value;
   };
 
-  const getCategoryLabel = (value?: string) => {
-    return categories.find(c => c.value === value)?.label || value;
+  const getSubcategoryLabel = (value?: string) => {
+    return subcategories.find(s => s.value === value)?.label || value;
   };
+
+  const filteredSubcategories = subcategories.filter(s => 
+    s.parentCategory === uploadForm.category || s.parentCategory === editingTextbook?.category
+  );
 
   if (loading) {
     return (
@@ -218,7 +239,9 @@ export const TextbookManager = () => {
               
               <div>
                 <Label htmlFor="category">Категория</Label>
-                <Select value={uploadForm.category} onValueChange={(value) => setUploadForm(prev => ({ ...prev, category: value }))}>
+                <Select value={uploadForm.category} onValueChange={(value) => {
+                  setUploadForm(prev => ({ ...prev, category: value, subcategory: '' }));
+                }}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -231,6 +254,24 @@ export const TextbookManager = () => {
                   </SelectContent>
                 </Select>
               </div>
+
+              {uploadForm.category === 'audio' && (
+                <div>
+                  <Label htmlFor="subcategory">Подкатегория (для аудио)</Label>
+                  <Select value={uploadForm.subcategory} onValueChange={(value) => setUploadForm(prev => ({ ...prev, subcategory: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Выберите подкатегорию" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredSubcategories.map(subcategory => (
+                        <SelectItem key={subcategory.value} value={subcategory.value}>
+                          {subcategory.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
             
             <div className="flex gap-2 pt-4">
@@ -300,9 +341,14 @@ export const TextbookManager = () => {
                           </Badge>
                         )}
                         {textbook.category && (
-                          <Badge variant="outline">
-                            {getCategoryLabel(textbook.category)}
+                        <Badge variant="outline">
+                          {getCategoryLabel(textbook.category)}
+                        </Badge>
+                        {textbook.subcategory && (
+                          <Badge variant="secondary">
+                            {getSubcategoryLabel(textbook.subcategory)}
                           </Badge>
+                        )}
                         )}
                         {textbook.file_size && (
                           <span className="text-xs text-muted-foreground">
@@ -382,8 +428,8 @@ export const TextbookManager = () => {
                             <div>
                               <Label>Категория</Label>
                               <Select 
-                                value={editingTextbook.category || 'general'} 
-                                onValueChange={(value) => setEditingTextbook(prev => ({ ...prev, category: value }))}
+                                value={editingTextbook.category || ''} 
+                                onValueChange={(value) => setEditingTextbook(prev => ({ ...prev, category: value, subcategory: '' }))}
                               >
                                 <SelectTrigger>
                                   <SelectValue />
@@ -397,6 +443,27 @@ export const TextbookManager = () => {
                                 </SelectContent>
                               </Select>
                             </div>
+
+                            {editingTextbook.category === 'audio' && (
+                              <div>
+                                <Label>Подкатегория</Label>
+                                <Select 
+                                  value={editingTextbook.subcategory || ''} 
+                                  onValueChange={(value) => setEditingTextbook(prev => ({ ...prev, subcategory: value }))}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Выберите подкатегорию" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {filteredSubcategories.map(subcategory => (
+                                      <SelectItem key={subcategory.value} value={subcategory.value}>
+                                        {subcategory.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
                             <Button onClick={handleEdit} className="w-full">
                               Сохранить изменения
                             </Button>
