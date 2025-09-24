@@ -4,12 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Video, BookOpen, User, Clock, MapPin, LogOut } from 'lucide-react';
+import { Calendar, Video, BookOpen, User, Clock, MapPin, LogOut, Library } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useToast } from '@/components/ui/use-toast';
+import { CourseMaterialsLibrary } from '@/components/student/CourseMaterialsLibrary';
 
 export default function StudentPortal() {
   const navigate = useNavigate();
@@ -370,6 +371,9 @@ export default function StudentPortal() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Библиотека учебных материалов */}
+            <CourseMaterialsLibrary />
           </div>
         )}
       </div>
