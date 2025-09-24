@@ -303,6 +303,86 @@ export type Database = {
         }
         Relationships: []
       }
+      course_units: {
+        Row: {
+          course_id: string
+          created_at: string
+          description: string | null
+          grammar: string | null
+          id: string
+          lessons_count: number
+          sort_order: number
+          title: string
+          unit_number: number
+          updated_at: string
+          vocabulary: string | null
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          description?: string | null
+          grammar?: string | null
+          id?: string
+          lessons_count?: number
+          sort_order?: number
+          title: string
+          unit_number: number
+          updated_at?: string
+          vocabulary?: string | null
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          description?: string | null
+          grammar?: string | null
+          id?: string
+          lessons_count?: number
+          sort_order?: number
+          title?: string
+          unit_number?: number
+          updated_at?: string
+          vocabulary?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_units_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      courses: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          slug: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          slug: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          slug?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       docs: {
         Row: {
           content: string
@@ -1379,6 +1459,59 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      unit_lessons: {
+        Row: {
+          activities: Json
+          created_at: string
+          grammar: Json
+          id: string
+          lesson_number: number
+          materials: Json
+          sort_order: number
+          title: string
+          topics: Json
+          unit_id: string
+          updated_at: string
+          vocabulary: Json
+        }
+        Insert: {
+          activities?: Json
+          created_at?: string
+          grammar?: Json
+          id?: string
+          lesson_number: number
+          materials?: Json
+          sort_order?: number
+          title: string
+          topics?: Json
+          unit_id: string
+          updated_at?: string
+          vocabulary?: Json
+        }
+        Update: {
+          activities?: Json
+          created_at?: string
+          grammar?: Json
+          id?: string
+          lesson_number?: number
+          materials?: Json
+          sort_order?: number
+          title?: string
+          topics?: Json
+          unit_id?: string
+          updated_at?: string
+          vocabulary?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unit_lessons_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "course_units"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
