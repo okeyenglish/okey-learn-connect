@@ -15,6 +15,8 @@ import { IndividualLessonModal } from '@/components/teacher/IndividualLessonModa
 import { AddHomeworkModal } from '@/components/teacher/AddHomeworkModal';
 import { AttendanceModal } from '@/components/teacher/AttendanceModal';
 import { StartLessonModal } from '@/components/teacher/StartLessonModal';
+import { LessonPlanCard } from '@/components/teacher/LessonPlanCard';
+import { getLessonNumberForGroup } from '@/utils/lessonCalculator';
 import { useState } from 'react';
 
 export default function TeacherPortal() {
@@ -287,61 +289,75 @@ export default function TeacherPortal() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {todayLessons && todayLessons.length > 0 ? (
-                  <div className="space-y-3">
-                    {todayLessons.map((lesson: any) => (
-                      <div key={lesson.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Clock className="h-4 w-4" />
-                            {lesson.start_time} - {lesson.end_time}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <BookOpen className="h-4 w-4" />
-                            <span className="font-medium">
-                              {lesson.learning_groups?.name || 'Индивидуальное занятие'}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <MapPin className="h-4 w-4" />
-                            {lesson.classroom}
-                          </div>
-                          <Badge variant={lesson.status === 'completed' ? 'default' : 'secondary'}>
-                            {lesson.status === 'scheduled' ? 'Запланировано' : 
-                             lesson.status === 'ongoing' ? 'Идет урок' : 
-                             lesson.status === 'completed' ? 'Завершено' : 'Отменено'}
-                          </Badge>
-                        </div>
-                         <div className="flex items-center gap-2">
-                           {lesson.status === 'scheduled' || lesson.status === 'ongoing' ? (
-                             <>
-                               <Button 
-                                 size="sm"
-                                 onClick={() => handleStartOnlineLesson(lesson)}
-                               >
-                                 <Video className="h-4 w-4 mr-2" />
-                                 Начать урок
-                               </Button>
-                               <Button 
-                                 size="sm"
-                                 variant="outline"
-                                 onClick={() => handleAddHomework(lesson.id, lesson.group_id)}
-                               >
-                                 +ДЗ
-                               </Button>
-                               <Button 
-                                 size="sm"
-                                 variant="outline"
-                                 onClick={() => handleAttendance(lesson.id, lesson)}
-                               >
-                                 Присутствие
-                               </Button>
-                             </>
-                           ) : null}
+                 {todayLessons && todayLessons.length > 0 ? (
+                   <div className="space-y-6">
+                     {todayLessons.map((lesson: any) => (
+                       <div key={lesson.id} className="space-y-3">
+                         <div className="flex items-center justify-between p-4 border rounded-lg">
+                           <div className="flex items-center gap-4">
+                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                               <Clock className="h-4 w-4" />
+                               {lesson.start_time} - {lesson.end_time}
+                             </div>
+                             <div className="flex items-center gap-2">
+                               <BookOpen className="h-4 w-4" />
+                               <span className="font-medium">
+                                 {lesson.learning_groups?.name || 'Индивидуальное занятие'}
+                               </span>
+                             </div>
+                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                               <MapPin className="h-4 w-4" />
+                               {lesson.classroom}
+                             </div>
+                             <Badge variant={lesson.status === 'completed' ? 'default' : 'secondary'}>
+                               {lesson.status === 'scheduled' ? 'Запланировано' : 
+                                lesson.status === 'ongoing' ? 'Идет урок' : 
+                                lesson.status === 'completed' ? 'Завершено' : 'Отменено'}
+                             </Badge>
+                           </div>
+                            <div className="flex items-center gap-2">
+                              {lesson.status === 'scheduled' || lesson.status === 'ongoing' ? (
+                                <>
+                                  <Button 
+                                    size="sm"
+                                    onClick={() => handleStartOnlineLesson(lesson)}
+                                  >
+                                    <Video className="h-4 w-4 mr-2" />
+                                    Начать урок
+                                  </Button>
+                                  <Button 
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleAddHomework(lesson.id, lesson.group_id)}
+                                  >
+                                    +ДЗ
+                                  </Button>
+                                  <Button 
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleAttendance(lesson.id, lesson)}
+                                  >
+                                    Присутствие
+                                  </Button>
+                                </>
+                              ) : null}
+                            </div>
                          </div>
-                      </div>
-                    ))}
-                  </div>
+                         
+                         {/* Планирование урока */}
+                         <LessonPlanCard
+                           lessonNumber={getLessonNumberForGroup(
+                             lesson.learning_groups?.name || 'Индивидуальное занятие',
+                             lesson.learning_groups?.level,
+                             lesson.lesson_date
+                           )}
+                           groupName={lesson.learning_groups?.name || 'Индивидуальное занятие'}
+                           level={lesson.learning_groups?.level}
+                           subject={lesson.learning_groups?.subject}
+                         />
+                       </div>
+                     ))}
+                   </div>
                 ) : (
                   <p className="text-muted-foreground text-center py-4">
                     На сегодня занятий не запланировано
