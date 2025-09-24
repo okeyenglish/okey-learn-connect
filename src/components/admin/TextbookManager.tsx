@@ -648,111 +648,121 @@ export const TextbookManager = () => {
                       </div>
                       
                       <CollapsibleContent className="ml-6 mt-2 space-y-2">
-                        {category === 'audio' ? (
-                          // Аудио подпапки
-                          Object.entries(items).filter(([key]) => key !== '_files').map(([subcategory, files]) => {
-                            const subfolderId = `${programType}-${category}-${subcategory}`;
-                            const isSubExpanded = expandedFolders.has(subfolderId);
-                            
-                            return (
-                              <div key={subcategory} className="ml-4">
-                                <Collapsible open={isSubExpanded} onOpenChange={() => toggleFolder(subfolderId)}>
-                                  <div className="flex items-center justify-between">
-                                    <CollapsibleTrigger asChild>
-                                      <Button variant="ghost" className="flex items-center gap-2 p-1 text-sm">
-                                        {isSubExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                                        {isSubExpanded ? <FolderOpen className="h-3 w-3" /> : <Folder className="h-3 w-3" />}
-                                        {getSubcategoryLabel(subcategory)}
-                                        <Badge variant="outline" className="ml-2">
-                                          {(files as any[]).length} файлов
-                                        </Badge>
+                        {/* Подпапки для всех категорий */}
+                        {Object.entries(items).filter(([key]) => key !== '_files').map(([subcategory, files]) => {
+                          const subfolderId = `${programType}-${category}-${subcategory}`;
+                          const isSubExpanded = expandedFolders.has(subfolderId);
+                          
+                          return (
+                            <div key={subcategory} className="ml-4">
+                              <Collapsible open={isSubExpanded} onOpenChange={() => toggleFolder(subfolderId)}>
+                                <div className="flex items-center justify-between">
+                                  <CollapsibleTrigger asChild>
+                                    <Button variant="ghost" className="flex items-center gap-2 p-1 text-sm">
+                                      {isSubExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                      {isSubExpanded ? <FolderOpen className="h-3 w-3" /> : <Folder className="h-3 w-3" />}
+                                      {getSubcategoryLabel(subcategory)}
+                                      <Badge variant="outline" className="ml-2">
+                                        {(files as any[]).length} файлов
+                                      </Badge>
+                                    </Button>
+                                  </CollapsibleTrigger>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button variant="ghost" size="sm">
+                                        <Trash2 className="h-3 w-3" />
                                       </Button>
-                                    </CollapsibleTrigger>
-                                    <AlertDialog>
-                                      <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="sm">
-                                          <Trash2 className="h-3 w-3" />
-                                        </Button>
-                                      </AlertDialogTrigger>
-                                      <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                          <AlertDialogTitle>Удалить папку?</AlertDialogTitle>
-                                          <AlertDialogDescription>
-                                            Это действие удалит папку "{getSubcategoryLabel(subcategory)}" и все файлы в ней ({(files as any[]).length} файлов). Действие нельзя отменить.
-                                          </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                          <AlertDialogCancel>Отмена</AlertDialogCancel>
-                                          <AlertDialogAction 
-                                            onClick={() => deleteFolder(programType, category, subcategory)}
-                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                          >
-                                            Удалить
-                                          </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                      </AlertDialogContent>
-                                    </AlertDialog>
-                                  </div>
-                                  
-                                  <CollapsibleContent className="ml-4 mt-2 space-y-2">
-                                    {(files as any[]).map(textbook => (
-                                      <div key={textbook.id} className="flex items-center justify-between p-2 border rounded">
-                                        <div className="flex items-center gap-2">
-                                          {getFileIcon(textbook.file_name, textbook.category)}
-                                          <div>
-                                            <p className="font-medium text-sm">{textbook.title}</p>
-                                            {textbook.description && (
-                                              <p className="text-xs text-muted-foreground">{textbook.description}</p>
-                                            )}
-                                          </div>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Удалить папку?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Это действие удалит папку "{getSubcategoryLabel(subcategory)}" и все файлы в ней ({(files as any[]).length} файлов). Действие нельзя отменить.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                        <AlertDialogAction 
+                                          onClick={() => deleteFolder(programType, category, subcategory)}
+                                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                        >
+                                          Удалить
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </div>
+                                
+                                <CollapsibleContent className="ml-4 mt-2 space-y-2">
+                                  {(files as any[]).map(textbook => (
+                                    <div key={textbook.id} className="flex items-center justify-between p-2 border rounded">
+                                      <div className="flex items-center gap-2">
+                                        {getFileIcon(textbook.file_name, textbook.category)}
+                                        <div>
+                                          <p className="font-medium text-sm">{textbook.title}</p>
+                                          {textbook.description && (
+                                            <p className="text-xs text-muted-foreground">{textbook.description}</p>
+                                          )}
                                         </div>
-                                        
-                                        <div className="flex items-center gap-1">
+                                      </div>
+                                      
+                                      <div className="flex items-center gap-1">
+                                        {textbook.category === 'audio' || textbook.file_name.match(/\.(mp3|wav|ogg|m4a|aac)$/i) ? (
                                           <audio controls className="w-32 h-6" preload="metadata">
                                             <source src={textbook.file_url} />
                                           </audio>
-                                          
-                                          <Dialog>
-                                            <DialogTrigger asChild>
-                                              <Button variant="ghost" size="sm" onClick={() => setEditingTextbook(textbook)}>
-                                                <Edit2 className="h-3 w-3" />
-                                              </Button>
-                                            </DialogTrigger>
-                                          </Dialog>
-                                          
-                                          <AlertDialog>
-                                            <AlertDialogTrigger asChild>
+                                        ) : (
+                                          <PDFViewer
+                                            url={textbook.file_url}
+                                            fileName={textbook.file_name}
+                                            trigger={
                                               <Button variant="ghost" size="sm">
-                                                <Trash2 className="h-3 w-3" />
+                                                <Eye className="h-3 w-3" />
                                               </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                              <AlertDialogHeader>
-                                                <AlertDialogTitle>Удалить файл?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                  Это действие нельзя отменить. Файл будет полностью удален из системы.
-                                                </AlertDialogDescription>
-                                              </AlertDialogHeader>
-                                              <AlertDialogFooter>
-                                                <AlertDialogCancel>Отмена</AlertDialogCancel>
-                                                <AlertDialogAction 
-                                                  onClick={() => deleteTextbook(textbook.id)}
-                                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                                >
-                                                  Удалить
-                                                </AlertDialogAction>
-                                              </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                          </AlertDialog>
-                                        </div>
+                                            }
+                                          />
+                                        )}
+                                        
+                                        <Dialog>
+                                          <DialogTrigger asChild>
+                                            <Button variant="ghost" size="sm" onClick={() => setEditingTextbook(textbook)}>
+                                              <Edit2 className="h-3 w-3" />
+                                            </Button>
+                                          </DialogTrigger>
+                                        </Dialog>
+                                        
+                                        <AlertDialog>
+                                          <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="sm">
+                                              <Trash2 className="h-3 w-3" />
+                                            </Button>
+                                          </AlertDialogTrigger>
+                                          <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                              <AlertDialogTitle>Удалить файл?</AlertDialogTitle>
+                                              <AlertDialogDescription>
+                                                Это действие нельзя отменить. Файл будет полностью удален из системы.
+                                              </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                              <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                              <AlertDialogAction 
+                                                onClick={() => deleteTextbook(textbook.id)}
+                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                              >
+                                                Удалить
+                                              </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                          </AlertDialogContent>
+                                        </AlertDialog>
                                       </div>
-                                    ))}
-                                  </CollapsibleContent>
-                                </Collapsible>
-                              </div>
-                            );
-                          })
-                        ) : null}
+                                    </div>
+                                  ))}
+                                </CollapsibleContent>
+                              </Collapsible>
+                            </div>
+                          );
+                        })}
                         
                         {/* Файлы в корне категории */}
                         {items._files?.map(textbook => (
