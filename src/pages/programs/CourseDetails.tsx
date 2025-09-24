@@ -26,7 +26,7 @@ import {
 import SEOHead from "@/components/SEOHead";
 import { InlineCourseMaterials } from "@/components/student/InlineCourseMaterials";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 // Типы для данных курса
 interface Course {
@@ -46,6 +46,20 @@ interface CourseUnit {
   lessons_count: number;
   sort_order: number;
 }
+
+interface UnitLesson {
+  id: string;
+  unit_id: string;
+  lesson_number: number;
+  title: string;
+  topics: any;
+  materials: any;
+  activities: any;
+  grammar: any;
+  vocabulary: any;
+  sort_order: number;
+}
+
 
 // Типизация для детального плана урока
 interface LessonDetail {
@@ -196,7 +210,7 @@ const availableCourses = [
 export default function CourseDetails() {
   const { courseSlug } = useParams<{ courseSlug: string }>();
   const navigate = useNavigate();
-  const [selectedLesson, setSelectedLesson] = useState<number | null>(null);
+  const [selectedLesson, setSelectedLesson] = useState<UnitLesson | null>(null);
   const [expandedUnits, setExpandedUnits] = useState<Set<number>>(new Set());
 
   // Получение данных о курсе
@@ -222,50 +236,71 @@ export default function CourseDetails() {
     queryKey: ['course-units', course?.id],
     queryFn: async () => {
       if (!course?.id) return [];
-      
       const { data, error } = await supabase
         .from('course_units')
         .select('*')
         .eq('course_id', course.id)
         .order('sort_order');
-        
       if (error) throw error;
       return data as CourseUnit[];
     },
     enabled: !!course?.id
   });
 
+  // Карты для быстрого доступа
+  const unitById = useMemo(() => {
+    const m: Record<string, CourseUnit> = {};
+    (units ?? []).forEach(u => { m[u.id] = u as CourseUnit; });
+    return m;
+  }, [units]);
+
+  // Получение уроков юнитов для текущего курса
+  const unitIds = (units ?? []).map(u => u.id);
+  const { data: lessons, isLoading: lessonsLoading } = useQuery({
+    queryKey: ['unit-lessons', unitIds],
+    queryFn: async () => {
+      if (!unitIds.length) return [] as UnitLesson[];
+      const { data, error } = await supabase
+        .from('unit_lessons')
+        .select('*')
+        .in('unit_id', unitIds)
+        .order('sort_order', { ascending: true })
+        .order('lesson_number', { ascending: true });
+      if (error) throw error;
+      return (data as unknown) as UnitLesson[];
+    },
+    enabled: unitIds.length > 0,
+  });
+
+  const lessonsByUnitId = useMemo(() => {
+    const map: Record<string, UnitLesson[]> = {};
+    (lessons ?? []).forEach((l) => {
+      if (!map[l.unit_id]) map[l.unit_id] = [];
+      map[l.unit_id].push(l);
+    });
+    return map;
+  }, [lessons]);
+
   // Функция для переключения между курсами
   const handleCourseChange = (newCourseSlug: string) => {
     navigate(`/programs/course-details/${newCourseSlug}`);
   };
-
-  // Получение детальных планов уроков для текущего курса
-  const lessonDetails = lessonDetailsData[courseSlug as keyof typeof lessonDetailsData] || {};
 
   // Закрытие модального окна урока
   const closeDialog = () => {
     setSelectedLesson(null);
   };
 
-  const selectedLessonData = selectedLesson ? lessonDetails[selectedLesson] : null;
-
-  // Функция для переключения раскрытия юнита
+  // Переключение раскрытия юнита
   const toggleUnit = (unitNumber: number) => {
-    const newExpanded = new Set(expandedUnits);
-    if (newExpanded.has(unitNumber)) {
-      newExpanded.delete(unitNumber);
-    } else {
-      newExpanded.add(unitNumber);
-    }
-    setExpandedUnits(newExpanded);
+    const next = new Set(expandedUnits);
+    if (next.has(unitNumber)) next.delete(unitNumber); else next.add(unitNumber);
+    setExpandedUnits(next);
   };
 
   // Получение уроков для конкретного юнита
-  const getUnitLessons = (unitNumber: number) => {
-    return Object.entries(lessonDetails)
-      .filter(([_, lesson]) => lesson.unitNumber === unitNumber)
-      .map(([lessonNum, lesson]) => ({ lessonNumber: parseInt(lessonNum), ...lesson }));
+  const getUnitLessons = (unitId: string) => {
+    return lessonsByUnitId[unitId] || [];
   };
 
   // Определение цвета для юнита
