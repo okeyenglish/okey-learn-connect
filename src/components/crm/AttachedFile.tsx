@@ -5,6 +5,7 @@ import { File, Image, Video, Music, FileText, Download, ExternalLink, Play, Paus
 import { useState, useRef, useEffect } from 'react';
 import { useWhatsAppFile } from '@/hooks/useWhatsAppFile';
 import { useAudioTranscription } from '@/hooks/useAudioTranscription';
+import { PDFViewer } from '@/components/PDFViewer';
 
 interface AttachedFileProps {
   url: string;
@@ -213,6 +214,58 @@ export const AttachedFile = ({ url, name, type, size, className, chatId, message
   }, []);
 
   // Render different components based on file type
+  if (type.includes('pdf')) {
+    return (
+      <Card className={`p-3 max-w-sm ${className}`}>
+        <div className="flex items-center gap-3">
+          <div className="flex-shrink-0 text-muted-foreground">
+            {getFileIcon()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate" title={name}>
+              {name}
+            </p>
+            {size && (
+              <p className="text-xs text-muted-foreground">
+                {formatFileSize(size)}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            <PDFViewer 
+              url={realUrl} 
+              fileName={name}
+              trigger={
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0"
+                  title="Открыть PDF"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                </Button>
+              }
+            />
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 w-6 p-0"
+              onClick={handleDownload}
+              title="Скачать"
+              disabled={downloadLoading}
+            >
+              {downloadLoading ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Download className="h-3 w-3" />
+              )}
+            </Button>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
   if (type.startsWith('image/')) {
     return (
       <Card className={`p-3 max-w-sm ${className}`}>

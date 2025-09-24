@@ -27,6 +27,7 @@ import {
   Home
 } from "lucide-react";
 import SEOHead from "@/components/SEOHead";
+import { TextbookSection } from "@/components/TextbookSection";
 
 // Данные детального планирования уроков
 const lessonDetails = {
@@ -1328,6 +1329,22 @@ export default function KidsBox1() {
   const [selectedLesson, setSelectedLesson] = useState<number | null>(null);
   const [searchLessonNumber, setSearchLessonNumber] = useState("");
 
+  // Учебные материалы для просмотра PDF
+  const textbookMaterials = [
+    {
+      title: "Kid's Box 1 — Обзор учебника",
+      description: "Pupil's Book, Activity Book, Teacher's Book",
+      url: "/textbooks/kids-box-1-cover.pdf",
+      fileName: "kids-box-1-cover.pdf"
+    },
+    {
+      title: "Unit 4: My family — Урок-пример",
+      description: "Семья, аудирование, лексика",
+      url: "/textbooks/kids-box-1-family-lesson.pdf", 
+      fileName: "kids-box-1-family-lesson.pdf"
+    }
+  ];
+
   const toggleUnit = (unitId: string) => {
     setOpenUnits(prev => ({ ...prev, [unitId]: !prev[unitId] }));
   };
@@ -1801,11 +1818,17 @@ export default function KidsBox1() {
 
             {/* Материалы урока */}
             <TabsContent value="materials">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Материалы урока</CardTitle>
-                  <p className="text-muted-foreground">Все необходимые ресурсы для проведения занятий</p>
-                </CardHeader>
+              <div className="space-y-6">
+                <TextbookSection 
+                  title="Учебные материалы Kid's Box 1"
+                  materials={textbookMaterials}
+                />
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Материалы урока</CardTitle>
+                    <p className="text-muted-foreground">Все необходимые ресурсы для проведения занятий</p>
+                  </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {materials.map((material, index) => (
@@ -1838,6 +1861,39 @@ export default function KidsBox1() {
                   </div>
                 </CardContent>
               </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Как загружать PDF файлы</CardTitle>
+                  <p className="text-muted-foreground">
+                    Инструкция по работе с PDF материалами в системе
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="p-4 border rounded-lg">
+                      <h4 className="font-semibold mb-2">Загрузка через CRM</h4>
+                      <ul className="text-sm space-y-1 text-muted-foreground">
+                        <li>• Перейдите в CRM → выберите чат с учеником/группой</li>
+                        <li>• Нажмите на скрепку (📎) для загрузки файлов</li>
+                        <li>• PDF файлы автоматически откроются в модальном окне</li>
+                        <li>• Максимальный размер файла: 10MB</li>
+                      </ul>
+                    </div>
+                    
+                    <div className="p-4 border rounded-lg">
+                      <h4 className="font-semibold mb-2">Возможности просмотра</h4>
+                      <ul className="text-sm space-y-1 text-muted-foreground">
+                        <li>• Просмотр PDF прямо в браузере</li>
+                        <li>• Кнопки для скачивания и открытия в новой вкладке</li>
+                        <li>• Удобная навигация по страницам</li>
+                        <li>• Масштабирование содержимого</li>
+                      </ul>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              </div>
             </TabsContent>
 
             {/* Оценивание */}
