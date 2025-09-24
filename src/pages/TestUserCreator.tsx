@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Copy, User, Mail, Phone, Lock, CheckCircle, AlertCircle } from 'lucide-react';
+import { Copy, User, Phone, Lock, CheckCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { createTestStudent, getTestUserCredentials, type TestUser } from '@/utils/createTestUser';
 
@@ -110,16 +110,16 @@ export default function TestUserCreator() {
                 <div className="grid gap-4">
                   <div className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-3">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <Phone className="h-4 w-4 text-muted-foreground" />
                       <div>
-                        <p className="text-sm text-muted-foreground">Email</p>
-                        <p className="font-mono">{testUser.email}</p>
+                        <p className="text-sm text-muted-foreground">Номер телефона</p>
+                        <p className="font-mono">{testUser.phone}</p>
                       </div>
                     </div>
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => copyToClipboard(testUser.email, 'Email')}
+                      onClick={() => copyToClipboard(testUser.phone, 'Номер телефона')}
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
