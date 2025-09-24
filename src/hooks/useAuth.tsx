@@ -59,10 +59,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (profileError) throw profileError;
 
       const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .single();
+        .rpc('get_user_role', { _user_id: userId });
 
       if (roleError) throw roleError;
 
@@ -73,7 +70,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       };
 
       setProfile(profileWithAvatar);
-      setRole(roleData.role);
+      setRole(roleData);
     } catch (error) {
       console.error('Error fetching profile:', error);
     }
@@ -93,19 +90,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             
             // Fetch user role to determine redirect only on first sign in
             const { data: roleData } = await supabase
-              .from('user_roles')
-              .select('role')
-              .eq('user_id', session.user.id)
-              .single();
+              .rpc('get_user_role', { _user_id: session.user.id });
             
             // Only redirect if we're on auth page
             const currentPath = window.location.pathname;
+            
+            console.log('User role on sign in:', roleData);
+            console.log('Current path:', currentPath);
+            
             if (currentPath === '/auth') {
-              if (roleData?.role === 'student') {
+              console.log('Redirecting based on role:', roleData);
+              if (roleData === 'student') {
                 window.location.href = '/student-portal';
-              } else if (roleData?.role === 'teacher') {
+              } else if (roleData === 'teacher') {
                 window.location.href = '/teacher-portal';
-              } else if (['admin', 'manager', 'methodist'].includes(roleData?.role)) {
+              } else if (roleData === 'admin') {
+                window.location.href = '/admin';
+              } else if (['manager', 'methodist'].includes(roleData)) {
                 window.location.href = '/newcrm';
               } else {
                 window.location.href = '/newcrm';
