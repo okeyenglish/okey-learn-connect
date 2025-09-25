@@ -142,71 +142,77 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
         </CardContent>
       </Card>
 
-      {/* Календарь */}
+      {/* Занятия по датам */}
       <Card>
-        <CardContent className="p-0">
-          <div className="grid grid-cols-7 gap-0">
-            {/* Заголовки дней недели */}
-            {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map((day) => (
-              <div key={day} className="p-3 text-center text-sm font-semibold bg-muted border-b border-r last:border-r-0">
-                {day}
-              </div>
-            ))}
-            
-            {/* Дни месяца */}
-            {calendarDays.map((day) => {
-              const dayKey = format(day, 'yyyy-MM-dd');
-              const daySessions = sessionsByDay[dayKey] || [];
-              const isCurrentMonth = isSameMonth(day, currentMonth);
-              const isToday = isSameDay(day, new Date());
-              
-              return (
-                <div 
-                  key={day.toISOString()} 
-                  className={`min-h-[100px] p-2 border-b border-r last:border-r-0 transition-colors ${
-                    isCurrentMonth ? '' : 'bg-gray-50 text-gray-400'
-                  } ${isToday ? 'bg-blue-100 border-blue-300' : ''} ${getDayBackgroundColor(daySessions)}`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className={`text-sm ${
-                      isToday ? 'font-bold text-blue-800' : 
-                      isCurrentMonth ? 'font-medium' : 'text-gray-400'
-                    }`}>
-                      {format(day, 'd')}
-                    </span>
-                  </div>
-                  
-                  {/* Занятия в этот день */}
-                  <div className="space-y-1">
-                    {daySessions.map((session) => (
-                      <div 
-                        key={session.id}
-                        className="text-xs p-1 rounded bg-white border shadow-sm hover:shadow-md transition-shadow"
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-2.5 w-2.5 text-gray-400" />
-                            <span className="font-medium">{session.start_time}</span>
-                          </div>
-                          {getStatusIcon(session.status)}
-                        </div>
-                        
-                        {session.lessons && (
-                          <div className="text-gray-600 truncate">
-                            Урок {session.lesson_number}: {session.lessons.title}
-                          </div>
+        <CardContent className="p-4">
+          {groupSessions.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Нет занятий в выбранном периоде
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {Object.entries(sessionsByDay)
+                .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+                .map(([date, sessions]) => (
+                  <div key={date} className="border rounded-lg p-4 bg-card">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-lg">
+                          {format(new Date(date), 'd MMMM', { locale: ru })}
+                        </span>
+                        <span className="text-muted-foreground">
+                          ({format(new Date(date), 'EEEE', { locale: ru })})
+                        </span>
+                        {isSameDay(new Date(date), new Date()) && (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">
+                            Сегодня
+                          </Badge>
                         )}
-                        
-                        <div className="text-gray-500 truncate">
-                          {session.classroom}
-                        </div>
                       </div>
-                    ))}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      {sessions.map((session) => (
+                        <div 
+                          key={session.id}
+                          className={`p-3 rounded-lg border transition-colors ${getDayBackgroundColor([session])}`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4 text-gray-500" />
+                              <span className="font-medium">{session.start_time}</span>
+                              {getStatusIcon(session.status)}
+                              <Badge 
+                                variant="outline" 
+                                className={`${getStatusColor(session.status)} text-xs`}
+                              >
+                                {getStatusLabel(session.status)}
+                              </Badge>
+                            </div>
+                          </div>
+                          
+                          {session.lessons && (
+                            <div className="text-sm text-gray-700 mb-1">
+                              <strong>Урок {session.lesson_number}:</strong> {session.lessons.title}
+                            </div>
+                          )}
+                          
+                          <div className="text-sm text-gray-500">
+                            <strong>Аудитория:</strong> {session.classroom}
+                          </div>
+                          
+                          {session.notes && (
+                            <div className="text-sm text-gray-600 mt-2 italic">
+                              {session.notes}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
