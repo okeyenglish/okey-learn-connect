@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Clock, Target, FileText, Home, BookOpen, Music, Video, Gamepad2 } from "lucide-react";
 import { getLessonInfoByNumber } from "@/pages/programs/KidsBox1";
+import { useCourseUnitsWithLessons, getLessonByCourseAndNumber } from "@/hooks/useCourseUnitsWithLessons";
 
 interface LessonPlanCardProps {
   lessonNumber?: number;
@@ -13,16 +14,59 @@ interface LessonPlanCardProps {
 }
 
 export function LessonPlanCard({ lessonNumber, groupName, level, subject }: LessonPlanCardProps) {
-  // Определяем номер урока на основе курса Kid's Box 1
+  // Определяем курс для получения данных
   const isKidsBox1 = subject === "Английский" && level === "Kid's Box 1";
-  const lessonInfo = isKidsBox1 && lessonNumber ? getLessonInfoByNumber(lessonNumber) : null;
+  const isSuperSafari = subject === "Английский" && (level === "Super Safari 1" || level === "Super Safari");
+  
+  // Получаем данные для Super Safari из базы данных
+  const { data: superSafariUnits } = useCourseUnitsWithLessons(
+    isSuperSafari ? 'super-safari-1' : undefined
+  );
+  
+  // Получаем информацию об уроке
+  let lessonInfo = null;
+  
+  if (isKidsBox1 && lessonNumber) {
+    // Для Kid's Box 1 используем статические данные
+    const kidsBoxLesson = getLessonInfoByNumber(lessonNumber);
+    if (kidsBoxLesson) {
+      lessonInfo = {
+        title: kidsBoxLesson.title,
+        unit: kidsBoxLesson.unit,
+        objectives: kidsBoxLesson.goals,
+        homework: kidsBoxLesson.homework,
+        materials: kidsBoxLesson.materials,
+        lesson_structure: Object.entries(kidsBoxLesson.structure)
+          .map(([time, activity]) => `${time}: ${activity}`)
+          .join('; '),
+        date: kidsBoxLesson.date
+      };
+    }
+  } else if (isSuperSafari && lessonNumber && superSafariUnits) {
+    // Для Super Safari получаем данные из базы
+    const dbLesson = getLessonByCourseAndNumber(superSafariUnits, lessonNumber);
+    if (dbLesson) {
+      lessonInfo = {
+        title: dbLesson.title,
+        unit: `${dbLesson.unit_title}`,
+        objectives: dbLesson.objectives?.split(';') || [],
+        homework: dbLesson.homework,
+        materials: dbLesson.materials?.split(';') || [],
+        lesson_structure: dbLesson.lesson_structure,
+        date: new Date().toISOString().split('T')[0] // Текущая дата для планирования
+      };
+    }
+  }
 
   if (!lessonInfo) {
     return (
       <Card className="border-l-4 border-l-muted">
         <CardContent className="p-4">
           <p className="text-sm text-muted-foreground text-center">
-            Планирование доступно для курса Kid's Box 1
+            {isSuperSafari ? 
+              'Загружаем план урока Super Safari...' :
+              'Планирование доступно для курсов Kid\'s Box 1 и Super Safari'
+            }
           </p>
         </CardContent>
       </Card>
@@ -38,35 +82,42 @@ export function LessonPlanCard({ lessonNumber, groupName, level, subject }: Less
           </CardTitle>
           <Badge variant="secondary">{lessonInfo.unit}</Badge>
         </div>
-        <p className="text-sm text-muted-foreground">{lessonInfo.date}</p>
+        {lessonInfo.date && (
+          <p className="text-sm text-muted-foreground">{lessonInfo.date}</p>
+        )}
       </CardHeader>
       <CardContent className="pt-0 space-y-3">
         <div>
           <p className="text-sm font-medium mb-1">Цели урока:</p>
           <p className="text-xs text-muted-foreground">
-            {lessonInfo.goals.join(", ")}
+            {Array.isArray(lessonInfo.objectives) ? 
+              lessonInfo.objectives.join(", ") : 
+              lessonInfo.objectives || "Не указано"
+            }
           </p>
         </div>
 
         <div>
           <p className="text-sm font-medium mb-1">Домашнее задание:</p>
           <p className="text-xs text-muted-foreground">
-            {lessonInfo.homework}
+            {lessonInfo.homework || "Не указано"}
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-1">
-          {lessonInfo.materials.slice(0, 3).map((material, index) => (
-            <Badge key={index} variant="outline" className="text-xs">
-              {material}
-            </Badge>
-          ))}
-          {lessonInfo.materials.length > 3 && (
-            <Badge variant="outline" className="text-xs">
-              +{lessonInfo.materials.length - 3}
-            </Badge>
-          )}
-        </div>
+        {lessonInfo.materials && lessonInfo.materials.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {lessonInfo.materials.slice(0, 3).map((material, index) => (
+              <Badge key={index} variant="outline" className="text-xs">
+                {material}
+              </Badge>
+            ))}
+            {lessonInfo.materials.length > 3 && (
+              <Badge variant="outline" className="text-xs">
+                +{lessonInfo.materials.length - 3}
+              </Badge>
+            )}
+          </div>
+        )}
 
         <Dialog>
           <DialogTrigger asChild>
@@ -94,51 +145,65 @@ export function LessonPlanCard({ lessonNumber, groupName, level, subject }: Less
                   Цели урока:
                 </h4>
                 <ul className="list-disc list-inside space-y-1">
-                  {lessonInfo.goals.map((goal, index) => (
-                    <li key={index} className="text-sm">{goal}</li>
-                  ))}
+                  {Array.isArray(lessonInfo.objectives) ? 
+                    lessonInfo.objectives.map((goal, index) => (
+                      <li key={index} className="text-sm">{goal}</li>
+                    )) :
+                    <li className="text-sm">{lessonInfo.objectives}</li>
+                  }
                 </ul>
               </div>
 
               {/* Материалы */}
-              <div>
-                <h4 className="font-semibold mb-2 flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  Материалы:
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {lessonInfo.materials.map((material, index) => (
-                    <Badge key={index} variant="outline">{material}</Badge>
-                  ))}
+              {lessonInfo.materials && lessonInfo.materials.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Материалы:
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {lessonInfo.materials.map((material, index) => (
+                      <Badge key={index} variant="outline">{material}</Badge>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Поминутная структура */}
-              <div>
-                <h4 className="font-semibold mb-2 flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
-                  Поминутная структура (80 минут):
-                </h4>
-                <div className="space-y-3">
-                  {Object.entries(lessonInfo.structure).map(([timeRange, activity]) => (
-                    <div key={timeRange} className="flex gap-3 p-3 border rounded-lg">
-                      <Badge variant="secondary" className="min-w-[5rem] justify-center">
-                        {timeRange}′
-                      </Badge>
-                      <p className="text-sm">{activity}</p>
-                    </div>
-                  ))}
+              {lessonInfo.lesson_structure && (
+                <div>
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    Поминутная структура урока:
+                  </h4>
+                  <div className="space-y-3">
+                    {isKidsBox1 && typeof lessonInfo.lesson_structure === 'object' ? 
+                      Object.entries(lessonInfo.lesson_structure).map(([timeRange, activity]) => (
+                        <div key={timeRange} className="flex gap-3 p-3 border rounded-lg">
+                          <Badge variant="secondary" className="min-w-[5rem] justify-center">
+                            {timeRange}′
+                          </Badge>
+                          <p className="text-sm">{String(activity)}</p>
+                        </div>
+                      )) :
+                      <div className="p-3 border rounded-lg">
+                        <p className="text-sm whitespace-pre-line">{lessonInfo.lesson_structure}</p>
+                      </div>
+                    }
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Домашнее задание */}
-              <div className="p-4 bg-primary/5 rounded-lg">
-                <h4 className="font-semibold mb-2 flex items-center gap-2">
-                  <Home className="w-4 h-4" />
-                  Домашнее задание:
-                </h4>
-                <p className="text-sm">{lessonInfo.homework}</p>
-              </div>
+              {lessonInfo.homework && (
+                <div className="p-4 bg-primary/5 rounded-lg">
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <Home className="w-4 h-4" />
+                    Домашнее задание:
+                  </h4>
+                  <p className="text-sm">{lessonInfo.homework}</p>
+                </div>
+              )}
 
               {/* Быстрые действия */}
               <div className="flex flex-wrap gap-2 pt-4 border-t">
@@ -152,7 +217,7 @@ export function LessonPlanCard({ lessonNumber, groupName, level, subject }: Less
                 </Button>
                 <Button variant="outline" size="sm">
                   <Gamepad2 className="w-4 h-4 mr-2" />
-                  KB1 интерактивы
+                  {isSuperSafari ? 'SS интерактивы' : 'KB1 интерактивы'}
                 </Button>
               </div>
             </div>
