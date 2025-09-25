@@ -16,6 +16,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useCreateLearningGroup, LearningGroup, useLearningGroups } from "@/hooks/useLearningGroups";
 import { useTeachers, getTeacherFullName } from "@/hooks/useTeachers";
 import { getBranchesForSelect, getClassroomsForBranch } from "@/lib/branches";
+import { useCourseUnitsWithLessons } from "@/hooks/useCourseUnitsWithLessons";
+import { useGenerateCourseSchedule } from "@/hooks/useCourseSchedule";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AddGroupModalProps {
   onGroupAdded?: () => void;
@@ -39,11 +42,14 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
     period_end: null as Date | null,
     schedule_days: [] as string[],
     schedule_times: {} as Record<string, { start_hour: string; start_minute: string; end_hour: string; end_minute: string }>,
-    schedule_room: ""
+    schedule_room: "",
+    course_slug: "",
+    auto_generate_schedule: false
   });
   
   const { toast } = useToast();
   const createGroup = useCreateLearningGroup();
+  const generateSchedule = useGenerateCourseSchedule();
   
   // Get all groups for auto-naming
   const { groups: allGroups } = useLearningGroups();
@@ -54,6 +60,9 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
     subject: formData.subject,
     category: formData.category
   });
+
+  // Get course data
+  const { data: courseUnits } = useCourseUnitsWithLessons(formData.course_slug);
 
   // Function to automatically set category based on level
   const getCategoryFromLevel = (level: string): "preschool" | "school" | "adult" | "all" => {
@@ -247,11 +256,54 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
         is_active: true
       };
 
-      await createGroup.mutateAsync(groupData);
+      const newGroup = await createGroup.mutateAsync(groupData);
+
+      // Если включена автогенерация расписания и все данные заполнены
+      if (formData.auto_generate_schedule && 
+          formData.course_slug && 
+          formData.period_start && 
+          formData.schedule_days.length > 0 &&
+          formData.responsible_teacher &&
+          formData.schedule_room) {
+        
+        const firstScheduleDay = formData.schedule_days[0];
+        const firstDayTime = formData.schedule_times[firstScheduleDay];
+        
+        if (firstDayTime?.start_hour && firstDayTime?.start_minute && 
+            firstDayTime?.end_hour && firstDayTime?.end_minute) {
+          
+          const startTime = `${firstDayTime.start_hour.padStart(2, '0')}:${firstDayTime.start_minute.padStart(2, '0')}`;
+          const endTime = `${firstDayTime.end_hour.padStart(2, '0')}:${firstDayTime.end_minute.padStart(2, '0')}`;
+          
+          // Найти курс по slug
+          const { data: courses } = await supabase
+            .from('courses')
+            .select('id')
+            .eq('slug', formData.course_slug)
+            .single();
+
+          if (courses) {
+            await generateSchedule.mutateAsync({
+              groupId: newGroup.id,
+              courseId: courses.id,
+              startDate: formData.period_start.toISOString().split('T')[0],
+              scheduleDays: formData.schedule_days,
+              startTime,
+              endTime,
+              teacherName: formData.responsible_teacher,
+              classroom: formData.schedule_room,
+              branch: formData.branch,
+              totalLessons: getTotalLessons(formData.level)
+            });
+          }
+        }
+      }
 
       toast({
         title: "Успешно",
-        description: "Новая группа добавлена"
+        description: formData.auto_generate_schedule 
+          ? "Новая группа добавлена и расписание сгенерировано"
+          : "Новая группа добавлена"
       });
 
       // Reset form
@@ -271,7 +323,9 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
         period_end: null,
         schedule_days: [],
         schedule_times: {},
-        schedule_room: ""
+        schedule_room: "",
+        course_slug: "",
+        auto_generate_schedule: false
       });
       
       setOpen(false);
@@ -310,6 +364,15 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
     if (level.startsWith("Prepare")) return 80;
     if (level.startsWith("Empower")) return 60;
     return 0;
+  };
+
+  // Function to get course slug from level
+  const getCourseSlugFromLevel = (level: string): string => {
+    if (level.startsWith("Super Safari")) return "super-safari-1";
+    if (level.startsWith("Kids Box")) return "kids-box-1";
+    if (level.startsWith("Prepare")) return "prepare-1";
+    if (level.startsWith("Empower")) return "empower-1";
+    return "";
   };
 
   // Function to get next May 31st date
