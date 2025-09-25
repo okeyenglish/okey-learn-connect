@@ -140,6 +140,7 @@ export const useChatStatesDB = () => {
             event: 'pin-change',
             payload: { chatId, isPinned: newState.isPinned }
           });
+          console.log('Broadcast pin change:', { chatId, isPinned: newState.isPinned });
         } catch (e) {
           console.warn('Broadcast failed', e);
         }

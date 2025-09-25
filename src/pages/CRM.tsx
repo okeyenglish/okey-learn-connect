@@ -636,8 +636,8 @@ const CRMContent = () => {
     })
     .sort((a, b) => {
       // Сначала закрепленные чаты (только текущим пользователем)
-      const aPinned = isPinnedByCurrentUser(a.id);
-      const bPinned = isPinnedByCurrentUser(b.id);
+      const aPinned = getChatState(a.id).isPinned;
+      const bPinned = getChatState(b.id).isPinned;
       if (aPinned && !bPinned) return -1;
       if (!aPinned && bPinned) return 1;
       
@@ -2124,7 +2124,7 @@ const CRMContent = () => {
               <ScrollArea className="flex-1 min-h-0">
                 <div className="p-2">
                   {/* Закрепленные чаты */}
-                  {filteredChats.some(chat => isPinnedByCurrentUser(chat.id)) && (
+                   {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
                     <div className="mb-4">
                       <button 
                         className="w-full flex items-center justify-between px-2 py-1 mb-2 hover:bg-muted/50 rounded transition-colors"
@@ -2141,8 +2141,8 @@ const CRMContent = () => {
                           </h3>
                         </div>
                         {(() => {
-                          const pinnedUnreadCount = filteredChats
-                            .filter(chat => isPinnedByCurrentUser(chat.id))
+                           const pinnedUnreadCount = filteredChats
+                             .filter(chat => getChatState(chat.id).isPinned)
                             .filter(chat => {
                               const chatState = getChatState(chat.id);
                               const showEye = !!chatState?.isUnread;
@@ -2159,8 +2159,8 @@ const CRMContent = () => {
                       </button>
                       {isPinnedSectionOpen && (
                          <div className="space-y-0.5">
-                        {filteredChats
-                          .filter(chat => isPinnedByCurrentUser(chat.id))
+                         {filteredChats
+                           .filter(chat => getChatState(chat.id).isPinned)
                           .map((chat) => {
                             const chatState = getChatState(chat.id);
                             // Используем глобальную систему прочитанности: если чат НЕ прочитан глобально, то он непрочитанный
@@ -2313,21 +2313,21 @@ const CRMContent = () => {
                         </h3>
                        <div className="flex items-center gap-2">
                          {/* Unread filter button - only show if there are unread chats */}
-                         {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id) && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length > 0 && (
+                          {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length > 0 && (
                            <Button
                              variant={showOnlyUnread ? "default" : "outline"}
                              size="sm"
                              className="h-5 px-2 py-0.5 text-xs min-w-[20px]"
                              onClick={() => setShowOnlyUnread(!showOnlyUnread)}
                            >
-                             {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id) && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length}
+                              {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length}
                            </Button>
                          )}
                        </div>
                      </div>
                       <div className="space-y-0.5">
-                       {filteredChats
-                         .filter(chat => !isPinnedByCurrentUser(chat.id))
+                        {filteredChats
+                          .filter(chat => !getChatState(chat.id).isPinned)
                          .filter(chat => {
                            if (!showOnlyUnread) return true;
                            const chatState = getChatState(chat.id);
@@ -2594,7 +2594,7 @@ const CRMContent = () => {
               <ScrollArea className="flex-1">
                 <div className="p-3">
                   {/* Закрепленные чаты */}
-                  {filteredChats.some(chat => isPinnedByCurrentUser(chat.id)) && (
+                  {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
                     <div className="mb-6">
                       <button 
                         className="w-full flex items-center justify-between px-2 py-2 mb-3 hover:bg-muted/50 rounded transition-colors"
@@ -2611,8 +2611,8 @@ const CRMContent = () => {
                           </h3>
                         </div>
                         {(() => {
-                          const pinnedUnreadCount = filteredChats
-                            .filter(chat => isPinnedByCurrentUser(chat.id))
+                           const pinnedUnreadCount = filteredChats
+                             .filter(chat => getChatState(chat.id).isPinned)
                             .filter(chat => {
                               const chatState = getChatState(chat.id);
                               const showEye = !!chatState?.isUnread;
@@ -2629,8 +2629,8 @@ const CRMContent = () => {
                       </button>
                       {isPinnedSectionOpen && (
                         <div className="space-y-1 mb-6">
-                          {filteredChats
-                            .filter(chat => isPinnedByCurrentUser(chat.id))
+                           {filteredChats
+                             .filter(chat => getChatState(chat.id).isPinned)
                             .map((chat) => {
                               const chatState = getChatState(chat.id);
                               // Используем глобальную систему прочитанности
@@ -2766,21 +2766,21 @@ const CRMContent = () => {
                          </h3>
                        <div className="flex items-center gap-2">
                          {/* Unread filter button - only show if there are unread chats */}
-                         {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id) && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length > 0 && (
+                         {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length > 0 && (
                             <Button
                               variant={showOnlyUnread ? "default" : "outline"}
                               size="sm"
                               className="h-5 px-2 py-0.5 text-xs min-w-[20px]"
                               onClick={() => setShowOnlyUnread(!showOnlyUnread)}
                             >
-                             {filteredChats.filter(chat => !isPinnedByCurrentUser(chat.id) && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length}
+                             {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || !isChatReadGlobally(chat.id) || chat.unread > 0)).length}
                            </Button>
                          )}
                        </div>
                      </div>
                       <div className="space-y-1">
-                       {filteredChats
-                         .filter(chat => !isPinnedByCurrentUser(chat.id))
+                        {filteredChats
+                          .filter(chat => !getChatState(chat.id).isPinned)
                          .filter(chat => {
                            if (!showOnlyUnread) return true;
                            const chatState = getChatState(chat.id);

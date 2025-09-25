@@ -230,9 +230,15 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
 
     } catch (error) {
       console.error('Error updating group:', error);
+      
+      let errorMessage = "Не удалось обновить группу";
+      if (error instanceof Error) {
+        errorMessage += `: ${error.message}`;
+      }
+      
       toast({
         title: "Ошибка",
-        description: "Не удалось обновить группу",
+        description: errorMessage,
         variant: "destructive"
       });
     }

@@ -115,7 +115,9 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
 
   const isPinnedByCurrentUser = (chatId: string): boolean => {
     const state = sharedStates[chatId];
-    return state ? state.is_pinned : false;
+    const result = state ? state.is_pinned : false;
+    console.log(`isPinnedByCurrentUser(${chatId}):`, result, 'state:', state);
+    return result;
   };
 
   const isPinnedByAnyone = (chatId: string): boolean => {
