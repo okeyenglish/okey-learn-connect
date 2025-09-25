@@ -784,6 +784,53 @@ export type Database = {
           },
         ]
       }
+      lessons: {
+        Row: {
+          created_at: string | null
+          homework: string | null
+          id: string
+          lesson_number: number
+          lesson_structure: string | null
+          materials: string | null
+          objectives: string | null
+          title: string
+          unit_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          homework?: string | null
+          id?: string
+          lesson_number: number
+          lesson_structure?: string | null
+          materials?: string | null
+          objectives?: string | null
+          title: string
+          unit_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          homework?: string | null
+          id?: string
+          lesson_number?: number
+          lesson_structure?: string | null
+          materials?: string | null
+          objectives?: string | null
+          title?: string
+          unit_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lessons_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "course_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       manager_branches: {
         Row: {
           branch: string
