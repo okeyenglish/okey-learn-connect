@@ -6,6 +6,8 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, MapPin, Use
 import { useLessonSessions, SessionFilters, getStatusColor, getStatusLabel } from "@/hooks/useLessonSessions";
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addWeeks, subWeeks } from "date-fns";
 import { ru } from "date-fns/locale";
+import { useLearningGroups } from "@/hooks/useLearningGroups";
+import { GroupDetailModal } from "@/components/learning-groups/GroupDetailModal";
 
 interface ScheduleCalendarViewProps {
   filters: SessionFilters;
@@ -13,6 +15,8 @@ interface ScheduleCalendarViewProps {
 
 export const ScheduleCalendarView = ({ filters }: ScheduleCalendarViewProps) => {
   const [currentWeek, setCurrentWeek] = useState(new Date());
+  const [selectedGroup, setSelectedGroup] = useState<any>(null);
+  const [groupModalOpen, setGroupModalOpen] = useState(false);
   
   // Получаем начало и конец текущей недели
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
@@ -26,6 +30,7 @@ export const ScheduleCalendarView = ({ filters }: ScheduleCalendarViewProps) => 
   };
   
   const { data: sessions = [], isLoading } = useLessonSessions(weekFilters);
+  const { groups } = useLearningGroups({});
   
   // Получаем дни недели
   const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
@@ -52,6 +57,16 @@ export const ScheduleCalendarView = ({ filters }: ScheduleCalendarViewProps) => 
   
   const goToCurrentWeek = () => {
     setCurrentWeek(new Date());
+  };
+
+  const handleSessionClick = (session: any) => {
+    if (session.group_id) {
+      const group = groups.find(g => g.id === session.group_id);
+      if (group) {
+        setSelectedGroup(group);
+        setGroupModalOpen(true);
+      }
+    }
   };
 
   if (isLoading) {
@@ -118,6 +133,7 @@ export const ScheduleCalendarView = ({ filters }: ScheduleCalendarViewProps) => 
                   <div
                     key={session.id}
                     className="p-3 bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => handleSessionClick(session)}
                   >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
@@ -160,6 +176,12 @@ export const ScheduleCalendarView = ({ filters }: ScheduleCalendarViewProps) => 
           </Card>
         ))}
       </div>
+
+      <GroupDetailModal 
+        group={selectedGroup}
+        open={groupModalOpen}
+        onOpenChange={setGroupModalOpen}
+      />
     </div>
   );
 };

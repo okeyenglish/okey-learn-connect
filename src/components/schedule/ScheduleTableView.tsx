@@ -9,6 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { EditLessonModal } from "./EditLessonModal";
+import { useLearningGroups } from "@/hooks/useLearningGroups";
+import { GroupDetailModal } from "@/components/learning-groups/GroupDetailModal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,7 +30,10 @@ interface ScheduleTableViewProps {
 export const ScheduleTableView = ({ filters }: ScheduleTableViewProps) => {
   const [editSession, setEditSession] = useState<any>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<any>(null);
+  const [groupModalOpen, setGroupModalOpen] = useState(false);
   const { data: sessions = [], isLoading } = useLessonSessions(filters);
+  const { groups } = useLearningGroups({});
   const deleteSession = useDeleteLessonSession();
   const { toast } = useToast();
 
@@ -45,6 +50,16 @@ export const ScheduleTableView = ({ filters }: ScheduleTableViewProps) => {
         description: "Не удалось удалить занятие",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleGroupClick = (session: any) => {
+    if (session.group_id) {
+      const group = groups.find(g => g.id === session.group_id);
+      if (group) {
+        setSelectedGroup(group);
+        setGroupModalOpen(true);
+      }
     }
   };
 
@@ -116,7 +131,10 @@ export const ScheduleTableView = ({ filters }: ScheduleTableViewProps) => {
                     
                     <TableCell>
                       <div className="space-y-1">
-                        <div className="font-medium text-blue-600">
+                        <div 
+                          className="font-medium text-blue-600 cursor-pointer hover:underline"
+                          onClick={() => handleGroupClick(session)}
+                        >
                           {session.learning_groups?.name || 'Группа не найдена'}
                         </div>
                         <div className="text-sm text-gray-600">
@@ -220,6 +238,12 @@ export const ScheduleTableView = ({ filters }: ScheduleTableViewProps) => {
           setEditSession(null);
           setEditModalOpen(false);
         }}
+      />
+      
+      <GroupDetailModal 
+        group={selectedGroup}
+        open={groupModalOpen}
+        onOpenChange={setGroupModalOpen}
       />
     </>
   );

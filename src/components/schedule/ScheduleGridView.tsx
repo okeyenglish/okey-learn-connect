@@ -6,6 +6,8 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-reac
 import { useLessonSessions, SessionFilters, getStatusColor } from "@/hooks/useLessonSessions";
 import { format, startOfDay, addDays, subDays, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
+import { useLearningGroups } from "@/hooks/useLearningGroups";
+import { GroupDetailModal } from "@/components/learning-groups/GroupDetailModal";
 
 interface ScheduleGridViewProps {
   filters: SessionFilters;
@@ -13,6 +15,8 @@ interface ScheduleGridViewProps {
 
 export const ScheduleGridView = ({ filters }: ScheduleGridViewProps) => {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedGroup, setSelectedGroup] = useState<any>(null);
+  const [groupModalOpen, setGroupModalOpen] = useState(false);
   
   // Generate time slots from 9:00 to 20:00
   const timeSlots = useMemo(() => {
@@ -35,6 +39,7 @@ export const ScheduleGridView = ({ filters }: ScheduleGridViewProps) => {
   };
 
   const { data: sessions = [], isLoading } = useLessonSessions(dayFilters);
+  const { groups } = useLearningGroups({});
 
   // Get unique teachers from sessions
   const activeTeachers = useMemo(() => {
@@ -72,6 +77,16 @@ export const ScheduleGridView = ({ filters }: ScheduleGridViewProps) => {
 
   const goToToday = () => {
     setCurrentDate(new Date());
+  };
+
+  const handleSessionClick = (session: any) => {
+    if (session.group_id) {
+      const group = groups.find(g => g.id === session.group_id);
+      if (group) {
+        setSelectedGroup(group);
+        setGroupModalOpen(true);
+      }
+    }
   };
 
   if (isLoading) {
@@ -153,6 +168,7 @@ export const ScheduleGridView = ({ filters }: ScheduleGridViewProps) => {
                             <div 
                               className={`p-2 rounded text-xs h-full cursor-pointer transition-all hover:shadow-md ${getStatusColor(session.status)} text-foreground`}
                               title={`${session.learning_groups?.name || 'Группа'}\n${session.classroom}\n${session.start_time} - ${session.end_time}`}
+                              onClick={() => handleSessionClick(session)}
                             >
                               <div className="font-medium truncate">
                                 {session.learning_groups?.name || 'Группа'}
@@ -178,6 +194,12 @@ export const ScheduleGridView = ({ filters }: ScheduleGridViewProps) => {
           </div>
         </CardContent>
       </Card>
+
+      <GroupDetailModal 
+        group={selectedGroup}
+        open={groupModalOpen}
+        onOpenChange={setGroupModalOpen}
+      />
     </div>
   );
 };

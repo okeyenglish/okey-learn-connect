@@ -48,6 +48,13 @@ export const useLessonSessions = (filters: SessionFilters = {}) => {
             name,
             level,
             subject
+          ),
+          lessons:course_lesson_id (
+            id,
+            title,
+            lesson_number,
+            objectives,
+            homework
           )
         `)
         .order('lesson_date', { ascending: true })
