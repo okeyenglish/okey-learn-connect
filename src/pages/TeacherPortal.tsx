@@ -219,9 +219,9 @@ export default function TeacherPortal() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => navigate('/student-portal')}>
+                <Button variant="outline" onClick={() => navigate('/programs/course-details/kids-box-1')}>
                   <BookOpen className="h-4 w-4 mr-2" />
-                  Материалы
+                  Материалы курсов
                 </Button>
                 <Button variant="outline" onClick={() => navigate('/programs')}>
                   <Calendar className="h-4 w-4 mr-2" />
