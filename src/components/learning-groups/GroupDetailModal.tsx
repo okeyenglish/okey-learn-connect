@@ -14,6 +14,7 @@ import { ru } from "date-fns/locale";
 import { AddScheduleModal } from "./AddScheduleModal";
 import { AddHomeworkModal } from "./AddHomeworkModal";
 import { EditGroupDetailsModal } from "./EditGroupDetailsModal";
+import { GroupScheduleCalendar } from "./GroupScheduleCalendar";
 import { useToast } from "@/hooks/use-toast";
 
 interface GroupDetailModalProps {
@@ -181,64 +182,7 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
 
             <div className="p-6">
               <TabsContent value="schedule" className="space-y-6 mt-0">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold">Расписание</h3>
-                  <Button 
-                    size="sm" 
-                    className="bg-blue-500 hover:bg-blue-600"
-                    onClick={() => setAddScheduleOpen(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Добавить
-                  </Button>
-                </div>
-
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="space-y-3">
-                      {scheduleData.map((item, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div className="flex items-center gap-6">
-                            <div className="text-blue-600 font-medium min-w-[80px]">{item.day}</div>
-                            <div className="text-gray-700 min-w-[150px]">{item.time}</div>
-                            <div className="text-gray-700 min-w-[180px]">{item.period}</div>
-                            <div className="text-gray-700">{item.room}</div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button size="sm" variant="outline" className="text-yellow-600">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button size="sm" variant="outline" className="text-teal-600">
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              className="text-red-600"
-                              onClick={() => handleDeleteSchedule(index)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                            <Button size="sm" variant="outline" className="text-blue-600">
-                              <Calendar className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <div className="text-sm text-blue-600 border-b border-dotted border-blue-300 pb-2">
-                  Только актуальные элементы расписания
-                </div>
-
-                {/* Calendar mock */}
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-center text-gray-500 py-8">
-                    Календарь занятий
-                  </div>
-                </div>
+                <GroupScheduleCalendar groupId={group.id} />
               </TabsContent>
 
               <TabsContent value="homework" className="space-y-6 mt-0">
