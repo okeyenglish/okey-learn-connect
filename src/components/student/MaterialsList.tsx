@@ -136,7 +136,11 @@ export const MaterialsList = ({ materials, courseTitle, onBack }: MaterialsListP
           <CardContent>
             <div className="grid gap-3 md:grid-cols-2">
               {educationalMaterials.map(material => {
-                const openPDF = () => {
+                const handleCardClick = (e: React.MouseEvent) => {
+                  // Предотвращаем открытие если клик был по кнопке
+                  if ((e.target as Element).closest('button')) {
+                    return;
+                  }
                   window.open(material.file_url, '_blank');
                 };
                 
@@ -144,7 +148,7 @@ export const MaterialsList = ({ materials, courseTitle, onBack }: MaterialsListP
                   <Card 
                     key={material.id}
                     className="p-3 hover:shadow-md transition-all cursor-pointer"
-                    onClick={openPDF}
+                    onClick={handleCardClick}
                   >
                      <div className="flex items-center gap-3">
                       <FileText className="h-3 w-3 text-red-500 flex-shrink-0" />
@@ -161,12 +165,12 @@ export const MaterialsList = ({ materials, courseTitle, onBack }: MaterialsListP
                           </p>
                         )}
                       </div>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                         <PDFViewer
                           url={material.file_url}
                           fileName={material.file_name}
                           trigger={
-                            <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="sm">
                               <Eye className="h-4 w-4" />
                             </Button>
                           }
@@ -174,10 +178,7 @@ export const MaterialsList = ({ materials, courseTitle, onBack }: MaterialsListP
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(material.file_url, '_blank');
-                          }}
+                          onClick={() => window.open(material.file_url, '_blank')}
                           title="Открыть в новом окне"
                         >
                           <FileText className="h-4 w-4" />
