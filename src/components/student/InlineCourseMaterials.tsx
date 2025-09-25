@@ -312,11 +312,17 @@ export const InlineCourseMaterials = ({ selectedCourse: courseFilter }: InlineCo
               key={material.id} 
               className="cursor-pointer hover:shadow-md transition-shadow"
               onClick={() => {
+                const url = material.file_url;
+                const isPDF = !!material.file_name?.toLowerCase().match(/\.pdf$/);
                 if (selectedFolder.type === 'educational') {
-                  setSelectedMaterial(material);
-                  setModalOpen(true);
-                } else if (selectedFolder.type === 'video') {
-                  window.open(material.file_url, '_blank');
+                  if (isPDF) {
+                    setSelectedMaterial(material);
+                    setModalOpen(true);
+                  } else if (url) {
+                    window.open(url, '_blank');
+                  }
+                } else if (selectedFolder.type === 'video' && url) {
+                  window.open(url, '_blank');
                 }
               }}
             >
