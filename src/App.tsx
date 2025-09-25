@@ -290,12 +290,18 @@ const AppContent = () => {
             </Suspense>
           } />
           <Route path="/course/:courseId/live" element={
-            <Suspense fallback={<LoadingComponent />}>
+            <Suspense fallback={<LoadingComponent />}> 
               <OnlineLesson />
             </Suspense>
           } />
+          {/* Public course details (programs) route accessible outside /programs section */}
+          <Route path="/course-details/:courseSlug" element={
+            <Suspense fallback={<LoadingComponent />}> 
+              <ProgramsCourseDetails />
+            </Suspense>
+          } />
           <Route path="/online-lesson/:lessonId" element={
-            <Suspense fallback={<LoadingComponent />}>
+            <Suspense fallback={<LoadingComponent />}> 
               <OnlineLesson />
             </Suspense>
           } />

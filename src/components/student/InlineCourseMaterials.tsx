@@ -190,19 +190,11 @@ export const InlineCourseMaterials = ({ selectedCourse: courseFilter }: InlineCo
   const courseMaterials = useMemo(() => {
     if (!courseFilter) return textbooks;
     
-    console.log('InlineCourseMaterials - courseFilter:', courseFilter);
-    console.log('InlineCourseMaterials - textbooks count:', textbooks.length);
-    console.log('InlineCourseMaterials - first 3 textbooks program_types:', textbooks.slice(0, 3).map(t => t.program_type));
-    
-    const filtered = textbooks.filter(material => 
+    return textbooks.filter(material => 
       material.program_type === courseFilter ||
       material.program_type === courseFilter.replace(/-/g, '_') ||
       material.program_type === courseFilter.replace(/_/g, '-')
     );
-    
-    console.log('InlineCourseMaterials - filtered materials count:', filtered.length);
-    
-    return filtered;
   }, [textbooks, courseFilter]);
 
   // Фильтрация по поисковому запросу
