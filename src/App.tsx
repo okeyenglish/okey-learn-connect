@@ -104,54 +104,59 @@ const AppContent = () => {
 
   if (isProgramsPage) {
     return (
-      <div className="min-h-screen">
-        <Routes>
-          <Route path="/programs" element={
-            <Suspense fallback={<LoadingComponent />}>
-              <Programs />
-            </Suspense>
-          } />
-          <Route path="/programs/supersafari" element={
-            <Suspense fallback={<LoadingComponent />}>
-              <SuperSafari />
-            </Suspense>
-          } />
-          <Route path="/programs/kidsbox" element={
-            <Suspense fallback={<LoadingComponent />}>
-              <KidsBox />
-            </Suspense>
-          } />
-          <Route path="/programs/course-details/:courseSlug" element={
-            <Suspense fallback={<LoadingComponent />}>
-              <ProgramsCourseDetails />
-            </Suspense>
-          } />
-          <Route path="/programs/prepare" element={
-            <Suspense fallback={<LoadingComponent />}>
-              <Prepare />
-            </Suspense>
-          } />
-          <Route path="/programs/empower" element={
-            <Suspense fallback={<LoadingComponent />}>
-              <Empower />
-            </Suspense>
-          } />
-          <Route path="/programs/minisadik" element={
-            <Suspense fallback={<LoadingComponent />}>
-              <MiniSadik />
-            </Suspense>
-          } />
-          <Route path="/programs/workshop" element={
-            <Suspense fallback={<LoadingComponent />}>
-              <Workshop />
-            </Suspense>
-          } />
-          <Route path="/programs/speaking-club" element={
-            <Suspense fallback={<LoadingComponent />}>
-              <SpeakingClub />
-            </Suspense>
-          } />
-        </Routes>
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 pb-16 lg:pb-0">
+          <Routes>
+            <Route path="/programs" element={
+              <Suspense fallback={<LoadingComponent />}>
+                <Programs />
+              </Suspense>
+            } />
+            <Route path="/programs/supersafari" element={
+              <Suspense fallback={<LoadingComponent />}>
+                <SuperSafari />
+              </Suspense>
+            } />
+            <Route path="/programs/kidsbox" element={
+              <Suspense fallback={<LoadingComponent />}>
+                <KidsBox />
+              </Suspense>
+            } />
+            <Route path="/programs/course-details/:courseSlug" element={
+              <Suspense fallback={<LoadingComponent />}>
+                <ProgramsCourseDetails />
+              </Suspense>
+            } />
+            <Route path="/programs/prepare" element={
+              <Suspense fallback={<LoadingComponent />}>
+                <Prepare />
+              </Suspense>
+            } />
+            <Route path="/programs/empower" element={
+              <Suspense fallback={<LoadingComponent />}>
+                <Empower />
+              </Suspense>
+            } />
+            <Route path="/programs/minisadik" element={
+              <Suspense fallback={<LoadingComponent />}>
+                <MiniSadik />
+              </Suspense>
+            } />
+            <Route path="/programs/workshop" element={
+              <Suspense fallback={<LoadingComponent />}>
+                <Workshop />
+              </Suspense>
+            } />
+            <Route path="/programs/speaking-club" element={
+              <Suspense fallback={<LoadingComponent />}>
+                <SpeakingClub />
+              </Suspense>
+            } />
+          </Routes>
+        </main>
+        <Footer />
+        <ChatBot />
       </div>
     );
   }
