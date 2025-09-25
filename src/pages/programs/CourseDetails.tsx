@@ -70,15 +70,12 @@ interface UnitLesson {
   unit_id: string;
   lesson_number: number;
   title: string;
-  topics: any;
-  materials: any;
-  activities: any;
-  grammar: any;
-  vocabulary: any;
-  goals: any;
-  structure: any;
-  homework: any;
-  sort_order: number;
+  objectives: string;
+  lesson_structure: string;
+  homework: string;
+  materials: string;
+  created_at: string;
+  updated_at: string;
 }
 
 
@@ -200,14 +197,13 @@ export default function CourseDetails() {
   // Получение уроков юнитов для текущего курса
   const unitIds = (units ?? []).map(u => u.id);
   const { data: lessons, isLoading: lessonsLoading } = useQuery({
-    queryKey: ['unit-lessons', unitIds],
+    queryKey: ['lessons', unitIds],
     queryFn: async () => {
       if (!unitIds.length) return [] as UnitLesson[];
       const { data, error } = await supabase
-        .from('unit_lessons')
+        .from('lessons')
         .select('*')
         .in('unit_id', unitIds)
-        .order('sort_order', { ascending: true })
         .order('lesson_number', { ascending: true });
       if (error) throw error;
       return (data as unknown) as UnitLesson[];
@@ -235,7 +231,7 @@ export default function CourseDetails() {
     
     sortedUnits.forEach(unit => {
       const unitLessons = lessonsByUnitId[unit.id] || [];
-      const sortedLessons = [...unitLessons].sort((a, b) => a.sort_order - b.sort_order);
+      const sortedLessons = [...unitLessons].sort((a, b) => a.lesson_number - b.lesson_number);
       
       sortedLessons.forEach(lesson => {
         numberMap[lesson.id] = globalNumber;
@@ -464,10 +460,10 @@ export default function CourseDetails() {
                                           </div>
                                           <h5 className="font-medium text-sm mb-2">{lesson.title}</h5>
                                           <div className="space-y-2">
-                                            <div>
-                                              <p className="text-xs font-medium text-gray-600">{t('planning.goals')}</p>
-                                              <p className="text-xs text-gray-500">{lesson.goals ? String(lesson.goals) : ""}</p>
-                                            </div>
+                                             <div>
+                                               <p className="text-xs font-medium text-gray-600">{t('planning.goals')}</p>
+                                               <p className="text-xs text-gray-500">{lesson.objectives ? String(lesson.objectives) : ""}</p>
+                                             </div>
                                             <div>
                                               <p className="text-xs font-medium text-gray-600">{t('planning.materials')}</p>
                                               <p className="text-xs text-gray-500 line-clamp-1">{Array.isArray(lesson.materials) ? lesson.materials.join(", ") : String(lesson.materials || "")}</p>
@@ -636,127 +632,65 @@ export default function CourseDetails() {
                </DialogDescription>
              </DialogHeader>
              
-             <div className="space-y-6">
-               {/* Цели урока */}
-               {selectedLesson.goals && (
-                 <div>
-                   <h4 className="font-semibold mb-2 flex items-center gap-2">
-                     <Target className="w-4 h-4" />
-                     {t('lesson.goals')}
-                   </h4>
-                   <div className="p-3 bg-muted/50 rounded-lg">
-                     <div className="text-sm">
-                       {String(selectedLesson.goals)}
-                     </div>
-                   </div>
-                 </div>
-               )}
+              <div className="space-y-6">
+                {/* Цели урока */}
+                {selectedLesson.objectives && (
+                  <div>
+                    <h4 className="font-semibold mb-2 flex items-center gap-2">
+                      <Target className="w-4 h-4" />
+                      {t('lesson.goals')}
+                    </h4>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <div className="text-sm">
+                        {String(selectedLesson.objectives)}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-               {/* Материалы */}
-               {selectedLesson.materials && (
-                 <div>
-                   <h4 className="font-semibold mb-2 flex items-center gap-2">
-                     <BookOpen className="w-4 h-4" />
-                     {t('lesson.materials')}
-                   </h4>
-                   <div className="p-3 bg-muted/50 rounded-lg">
-                     <div className="text-sm">
-                       {Array.isArray(selectedLesson.materials)
-                         ? selectedLesson.materials.join('; ')
-                         : String(selectedLesson.materials)
-                       }
-                     </div>
-                   </div>
-                 </div>
-               )}
+                {/* Материалы */}
+                {selectedLesson.materials && (
+                  <div>
+                    <h4 className="font-semibold mb-2 flex items-center gap-2">
+                      <BookOpen className="w-4 h-4" />
+                      {t('lesson.materials')}
+                    </h4>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <div className="text-sm">
+                        {String(selectedLesson.materials)}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-               {/* Поминутная структура (80 минут) */}
-               {selectedLesson.structure && (
-                 <div>
-                   <h4 className="font-semibold mb-2 flex items-center gap-2">
-                     <Clock className="w-4 h-4" />
-                     {t('lesson.structure')}
-                   </h4>
-                   <div className="p-3 bg-muted/50 rounded-lg">
-                     <div className="text-sm whitespace-pre-line">
-                       {String(selectedLesson.structure)}
-                     </div>
-                   </div>
-                 </div>
-               )}
+                {/* Поминутная структура урока */}
+                {selectedLesson.lesson_structure && (
+                  <div>
+                    <h4 className="font-semibold mb-2 flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      {t('lesson.structure')}
+                    </h4>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <div className="text-sm whitespace-pre-line">
+                        {String(selectedLesson.lesson_structure)}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-               {/* Домашнее задание */}
-               {selectedLesson.homework && (
-                 <div className="p-4 bg-primary/5 rounded-lg">
-                   <h4 className="font-semibold mb-2 flex items-center gap-2">
-                     <Home className="w-4 h-4" />
-                     {t('lesson.homework')}
-                   </h4>
-                   <div className="text-sm">
-                     {String(selectedLesson.homework)}
-                   </div>
-                 </div>
-               )}
-
-               {/* Темы урока */}
-               {selectedLesson.topics && Array.isArray(selectedLesson.topics) && selectedLesson.topics.length > 0 && selectedLesson.topics.some(topic => topic && String(topic).trim()) && (
-                 <div>
-                   <h4 className="font-semibold mb-2 flex items-center gap-2">
-                     🎯 {t('lesson.topics')}
-                   </h4>
-                   <div className="flex flex-wrap gap-2">
-                     {selectedLesson.topics.filter(topic => topic && String(topic).trim()).map((topic, index) => (
-                       <Badge key={index} variant="secondary">{String(topic)}</Badge>
-                     ))}
-                   </div>
-                 </div>
-               )}
-               
-               {/* Активности */}
-               {selectedLesson.activities && Array.isArray(selectedLesson.activities) && selectedLesson.activities.length > 0 && (
-                 <div>
-                   <h4 className="font-semibold mb-3 flex items-center gap-2">
-                     <Play className="w-4 h-4" />
-                     {t('lesson.activities')}
-                   </h4>
-                   <div className="p-4 border rounded-lg">
-                     <div className="text-sm">
-                       {selectedLesson.activities.map((activity, index) => (
-                         <div key={index} className="mb-2">{String(activity)}</div>
-                       ))}
-                     </div>
-                   </div>
-                 </div>
-               )}
-
-               {/* Лексика */}
-               {selectedLesson.vocabulary && Array.isArray(selectedLesson.vocabulary) && selectedLesson.vocabulary.length > 0 && (
-                 <div>
-                   <h4 className="font-semibold mb-2 flex items-center gap-2">
-                     📚 {t('lesson.vocabulary')}
-                   </h4>
-                   <div className="p-3 bg-muted/50 rounded-lg">
-                     <div className="text-sm">
-                       {selectedLesson.vocabulary.join(', ')}
-                     </div>
-                   </div>
-                 </div>
-               )}
-
-               {/* Грамматика */}
-               {selectedLesson.grammar && Array.isArray(selectedLesson.grammar) && selectedLesson.grammar.length > 0 && (
-                 <div>
-                   <h4 className="font-semibold mb-2 flex items-center gap-2">
-                     ⚙️ {t('lesson.grammar')}
-                   </h4>
-                   <div className="p-3 bg-muted/50 rounded-lg">
-                     <div className="text-sm">
-                       {selectedLesson.grammar.join(', ')}
-                     </div>
-                   </div>
-                 </div>
-               )}
-             </div>
+                {/* Домашнее задание */}
+                {selectedLesson.homework && (
+                  <div className="p-4 bg-primary/5 rounded-lg">
+                    <h4 className="font-semibold mb-2 flex items-center gap-2">
+                      <Home className="w-4 h-4" />
+                      {t('lesson.homework')}
+                    </h4>
+                    <div className="text-sm">
+                      {String(selectedLesson.homework)}
+                    </div>
+                  </div>
+                )}
+              </div>
            </DialogContent>
          </Dialog>
        )}
