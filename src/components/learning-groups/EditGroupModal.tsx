@@ -330,7 +330,7 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
                       </SelectTrigger>
                       <SelectContent>
                         {branches.map(branch => (
-                          <SelectItem key={branch.value} value={branch.value}>
+                          <SelectItem key={branch.value} value={branch.label}>
                             {branch.label}
                           </SelectItem>
                         ))}
@@ -418,7 +418,6 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
                     <Select
                       value={formData.lesson_duration}
                       onValueChange={(value) => setFormData(prev => ({ ...prev, lesson_duration: value }))}
-                      required
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Выберите продолжительность" />
@@ -441,7 +440,6 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
                     <Select
                       value={formData.responsible_teacher}
                       onValueChange={(value) => setFormData(prev => ({ ...prev, responsible_teacher: value }))}
-                      required
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Выберите преподавателя" />
@@ -469,7 +467,6 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
                     <Select
                       value={formData.schedule_room}
                       onValueChange={(value) => setFormData(prev => ({ ...prev, schedule_room: value }))}
-                      required
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Выберите аудиторию" />
@@ -603,7 +600,6 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
                                       }));
                                       setTimeout(() => updateEndTimeForDay(day), 100);
                                     }}
-                                    required
                                   >
                                     <SelectTrigger>
                                       <SelectValue placeholder="Час" />
@@ -631,7 +627,6 @@ export const EditGroupModal = ({ group, open, onOpenChange, onGroupUpdated }: Ed
                                       }));
                                       setTimeout(() => updateEndTimeForDay(day), 100);
                                     }}
-                                    required
                                   >
                                     <SelectTrigger>
                                       <SelectValue placeholder="Мин" />

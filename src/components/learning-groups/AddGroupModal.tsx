@@ -685,7 +685,6 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                           updateCalculatedFields();
                         }, 100);
                       }}
-                      required
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Выберите продолжительность" />
@@ -706,7 +705,6 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                     <Select
                       value={formData.responsible_teacher}
                       onValueChange={(value) => setFormData(prev => ({ ...prev, responsible_teacher: value }))}
-                      required
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Выберите преподавателя" />
@@ -734,7 +732,6 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                     <Select
                       value={formData.schedule_room}
                       onValueChange={(value) => setFormData(prev => ({ ...prev, schedule_room: value }))}
-                      required
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Выберите аудиторию" />
@@ -877,7 +874,6 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                                       }));
                                       setTimeout(() => updateEndTimeForDay(day), 100);
                                     }}
-                                    required
                                   >
                                     <SelectTrigger>
                                       <SelectValue placeholder="Час" />
@@ -905,7 +901,6 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
                                       }));
                                       setTimeout(() => updateEndTimeForDay(day), 100);
                                     }}
-                                    required
                                   >
                                     <SelectTrigger>
                                       <SelectValue placeholder="Мин" />
