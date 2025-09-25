@@ -1,9 +1,8 @@
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { GraduationCap, Users, Clock, Target, ArrowRight, BookOpen } from "lucide-react";
+import { GraduationCap, Users, Clock, Target, ArrowRight } from "lucide-react";
 import OptimizedImage from "@/components/OptimizedImage";
-import { useAuth } from "@/hooks/useAuth";
 
 // Import program images
 import superSafariImg from "@/assets/programs/super-safari-classroom.jpg";
@@ -98,33 +97,6 @@ const programs = [
 ];
 
 export default function Programs() {
-  const { user } = useAuth();
-  const isTeacher = user; // Assuming authenticated users are teachers/staff
-
-  const courses = [
-    { name: "Super Safari 1", slug: "super-safari-1" },
-    { name: "Super Safari 2", slug: "super-safari-2" },
-    { name: "Super Safari 3", slug: "super-safari-3" },
-    { name: "Kid's Box Starter", slug: "kids-box-starter" },
-    { name: "Kid's Box 1", slug: "kids-box-1" },
-    { name: "Kid's Box 2", slug: "kids-box-2" },
-    { name: "Kid's Box 3+4", slug: "kids-box-3-4" },
-    { name: "Kid's Box 5", slug: "kids-box-5" },
-    { name: "Kid's Box 6", slug: "kids-box-6" },
-    { name: "Prepare 1", slug: "prepare-1" },
-    { name: "Prepare 2", slug: "prepare-2" },
-    { name: "Prepare 3", slug: "prepare-3" },
-    { name: "Prepare 4", slug: "prepare-4" },
-    { name: "Prepare 5", slug: "prepare-5" },
-    { name: "Prepare 6", slug: "prepare-6" },
-    { name: "Prepare 7", slug: "prepare-7" },
-    { name: "Empower 1", slug: "empower-1" },
-    { name: "Empower 2", slug: "empower-2" },
-    { name: "Empower 3", slug: "empower-3" },
-    { name: "Empower 4", slug: "empower-4" },
-    { name: "Empower 5", slug: "empower-5" },
-    { name: "Empower 6", slug: "empower-6" }
-  ];
   return (
     <div className="min-h-screen py-20">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -208,36 +180,6 @@ export default function Programs() {
           ))}
         </div>
 
-        {/* Teacher Course Planning Section */}
-        {isTeacher && (
-          <div className="mb-12">
-            <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold mb-4">Планирование курсов</h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto">
-                Доступ к детальным планам уроков, материалам и структуре курсов для преподавателей
-              </p>
-            </div>
-            
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {courses.map((course) => (
-                <Card key={course.slug} className="hover:shadow-lg transition-shadow group">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3 mb-3">
-                      <BookOpen className="h-8 w-8 text-primary" />
-                      <h3 className="font-semibold">{course.name}</h3>
-                    </div>
-                    <Link to={`/programs/course-details/${course.slug}`}>
-                      <Button variant="outline" className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                        Детали курса
-                        <ArrowRight className="w-4 h-4 ml-2" />
-                      </Button>
-                    </Link>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* CTA Section */}
         <div className="text-center bg-muted/50 rounded-lg p-8">
