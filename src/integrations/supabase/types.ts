@@ -632,6 +632,8 @@ export type Database = {
           branch: string
           capacity: number
           category: Database["public"]["Enums"]["group_category"]
+          course_id: string | null
+          course_start_date: string | null
           created_at: string
           current_students: number
           custom_name: string | null
@@ -645,6 +647,7 @@ export type Database = {
           lesson_end_time: string | null
           lesson_start_month: string | null
           lesson_start_time: string | null
+          lessons_generated: boolean | null
           level: string
           name: string
           payment_method: Database["public"]["Enums"]["payment_method"]
@@ -657,6 +660,7 @@ export type Database = {
           status: Database["public"]["Enums"]["group_status"]
           subject: string
           textbook: string | null
+          total_lessons: number | null
           updated_at: string
           zoom_link: string | null
         }
@@ -665,6 +669,8 @@ export type Database = {
           branch?: string
           capacity?: number
           category?: Database["public"]["Enums"]["group_category"]
+          course_id?: string | null
+          course_start_date?: string | null
           created_at?: string
           current_students?: number
           custom_name?: string | null
@@ -678,6 +684,7 @@ export type Database = {
           lesson_end_time?: string | null
           lesson_start_month?: string | null
           lesson_start_time?: string | null
+          lessons_generated?: boolean | null
           level: string
           name: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
@@ -690,6 +697,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["group_status"]
           subject?: string
           textbook?: string | null
+          total_lessons?: number | null
           updated_at?: string
           zoom_link?: string | null
         }
@@ -698,6 +706,8 @@ export type Database = {
           branch?: string
           capacity?: number
           category?: Database["public"]["Enums"]["group_category"]
+          course_id?: string | null
+          course_start_date?: string | null
           created_at?: string
           current_students?: number
           custom_name?: string | null
@@ -711,6 +721,7 @@ export type Database = {
           lesson_end_time?: string | null
           lesson_start_month?: string | null
           lesson_start_time?: string | null
+          lessons_generated?: boolean | null
           level?: string
           name?: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
@@ -723,21 +734,32 @@ export type Database = {
           status?: Database["public"]["Enums"]["group_status"]
           subject?: string
           textbook?: string | null
+          total_lessons?: number | null
           updated_at?: string
           zoom_link?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "learning_groups_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       lesson_sessions: {
         Row: {
           branch: string
           classroom: string
+          course_lesson_id: string | null
           created_at: string
           day_of_week: Database["public"]["Enums"]["day_of_week"]
           end_time: string
           group_id: string | null
           id: string
           lesson_date: string
+          lesson_number: number | null
           notes: string | null
           start_time: string
           status: Database["public"]["Enums"]["lesson_status"]
@@ -747,12 +769,14 @@ export type Database = {
         Insert: {
           branch: string
           classroom: string
+          course_lesson_id?: string | null
           created_at?: string
           day_of_week: Database["public"]["Enums"]["day_of_week"]
           end_time: string
           group_id?: string | null
           id?: string
           lesson_date: string
+          lesson_number?: number | null
           notes?: string | null
           start_time: string
           status?: Database["public"]["Enums"]["lesson_status"]
@@ -762,12 +786,14 @@ export type Database = {
         Update: {
           branch?: string
           classroom?: string
+          course_lesson_id?: string | null
           created_at?: string
           day_of_week?: Database["public"]["Enums"]["day_of_week"]
           end_time?: string
           group_id?: string | null
           id?: string
           lesson_date?: string
+          lesson_number?: number | null
           notes?: string | null
           start_time?: string
           status?: Database["public"]["Enums"]["lesson_status"]
@@ -775,6 +801,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "lesson_sessions_course_lesson_id_fkey"
+            columns: ["course_lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lesson_sessions_group_id_fkey"
             columns: ["group_id"]
@@ -1676,6 +1709,21 @@ export type Database = {
       }
       cleanup_old_typing_status: {
         Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      generate_course_schedule: {
+        Args: {
+          p_branch: string
+          p_classroom: string
+          p_course_id: string
+          p_end_time: string
+          p_group_id: string
+          p_schedule_days: string[]
+          p_start_date: string
+          p_start_time: string
+          p_teacher_name: string
+          p_total_lessons?: number
+        }
         Returns: undefined
       }
       get_chat_pin_counts: {
