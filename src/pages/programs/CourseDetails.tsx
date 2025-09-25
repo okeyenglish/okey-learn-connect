@@ -248,7 +248,7 @@ export default function CourseDetails() {
 
   // Функция для переключения между курсами
   const handleCourseChange = (newCourseSlug: string) => {
-    navigate(`/programs/course-details/${newCourseSlug}`);
+    navigate(`/course-details/${newCourseSlug}`);
   };
 
   // Закрытие модального окна урока

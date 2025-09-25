@@ -123,7 +123,7 @@ const AppContent = () => {
                 <KidsBox />
               </Suspense>
             } />
-            <Route path="/programs/course-details/:courseSlug" element={
+            <Route path="/course-details/:courseSlug" element={
               <Suspense fallback={<LoadingComponent />}>
                 <ProgramsCourseDetails />
               </Suspense>
