@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Eye, Edit, Plus, Copy, Trash2, MoreHorizontal, DollarSign, Users, Calendar } from 'lucide-react';
+import { CreatePriceListModal } from './CreatePriceListModal';
 
 interface PriceList {
   id: string;
@@ -36,6 +37,7 @@ export function PriceListsTable() {
   const [searchTerm, setSearchTerm] = useState('');
   const [branchFilter, setBranchFilter] = useState('all');
   const [loading] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Моковые данные для демонстрации
   const priceLists: PriceList[] = [
@@ -244,10 +246,15 @@ export function PriceListsTable() {
             </SelectContent>
           </Select>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Создать прайс-лист
-        </Button>
+        <CreatePriceListModal
+          open={showCreateModal}
+          onOpenChange={setShowCreateModal}
+        >
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Создать прайс-лист
+          </Button>
+        </CreatePriceListModal>
       </div>
 
       {/* Таблица прайс-листов */}

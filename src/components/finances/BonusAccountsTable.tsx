@@ -7,10 +7,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Eye, Edit, Plus, Minus, MoreHorizontal, Gift, TrendingUp, TrendingDown } from 'lucide-react';
 import { useFinances } from '@/hooks/useFinances';
+import { BonusManagementModal } from './BonusManagementModal';
 
 export function BonusAccountsTable() {
   const { bonusAccounts, loading } = useFinances();
   const [searchTerm, setSearchTerm] = useState('');
+  const [showBonusModal, setShowBonusModal] = useState(false);
 
   const filteredAccounts = bonusAccounts.filter(account => {
     // В реальном приложении здесь будет поиск по имени студента
@@ -95,10 +97,15 @@ export function BonusAccountsTable() {
           onChange={(e) => setSearchTerm(e.target.value)}
           className="max-w-sm"
         />
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Начислить бонусы
-        </Button>
+        <BonusManagementModal
+          open={showBonusModal}
+          onOpenChange={setShowBonusModal}
+        >
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Начислить бонусы
+          </Button>
+        </BonusManagementModal>
       </div>
 
       {/* Таблица бонусных счетов */}

@@ -7,6 +7,7 @@ import { Plus, DollarSign, Receipt, CreditCard, Gift } from 'lucide-react';
 import { useFinances } from '@/hooks/useFinances';
 import { CreateInvoiceModal } from './CreateInvoiceModal';
 import { CreatePaymentModal } from './CreatePaymentModal';
+import { InvoiceGeneratorModal } from './InvoiceGeneratorModal';
 import { InvoicesTable } from './InvoicesTable';
 import { PaymentsTable } from './PaymentsTable';
 import { BonusAccountsTable } from './BonusAccountsTable';
@@ -18,6 +19,7 @@ export default function FinancesSection() {
   const [activeTab, setActiveTab] = useState('overview');
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showInvoiceGeneratorModal, setShowInvoiceGeneratorModal] = useState(false);
 
   const stats = {
     totalInvoices: invoices.length,
@@ -49,6 +51,16 @@ export default function FinancesSection() {
               Создать счет
             </Button>
           </CreateInvoiceModal>
+
+          <InvoiceGeneratorModal
+            open={showInvoiceGeneratorModal}
+            onOpenChange={setShowInvoiceGeneratorModal}
+          >
+            <Button variant="outline">
+              <Receipt className="h-4 w-4 mr-2" />
+              Массовые счета
+            </Button>
+          </InvoiceGeneratorModal>
           
           <CreatePaymentModal 
             open={showPaymentModal} 
