@@ -124,18 +124,18 @@ serve(async (req) => {
       await supabase.from('webhook_logs').insert({
         messenger_type: 'whatsapp',
         event_type: 'error',
-        webhook_data: { error: error.message },
+        webhook_data: { error: (error as any)?.message },
         processed: false,
-        error_message: error.message
+        error_message: (error as any)?.message
       })
     } catch (logError) {
       console.error('Error saving error log:', logError)
-    }
+  }
 
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+  return new Response(JSON.stringify({ error: (error as any)?.message }), {
+    status: 500,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
   }
 })
 
@@ -567,8 +567,8 @@ async function handleReactionMessage(webhook: GreenAPIWebhook, client: any) {
   }
 
   // Реакции приходят в формате reactionMessage с данными в extendedTextMessageData и quotedMessage
-  const reaction = messageData.extendedTextMessageData?.text
-  const originalMessageId = messageData.quotedMessage?.stanzaId
+  const reaction = (messageData as any).extendedTextMessageData?.text
+  const originalMessageId = (messageData as any)?.quotedMessage?.stanzaId
   
   if (!originalMessageId) {
     console.log('Missing original message ID in reaction')

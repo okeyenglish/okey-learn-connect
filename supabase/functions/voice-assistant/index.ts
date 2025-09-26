@@ -833,7 +833,7 @@ serve(async (req) => {
                 if (clientInfo.phone) info += `\nТелефон: ${clientInfo.phone}`;
                 if (clientInfo.email) info += `\nEmail: ${clientInfo.email}`;
                 if (clientInfo.students?.length) {
-                  info += `\nСтуденты: ${clientInfo.students.map(s => `${s.name} (${s.age} лет)`).join(', ')}`;
+                  info += `\nСтуденты: ${clientInfo.students.map((s: any) => `${s.name} (${s.age} лет)`).join(', ')}`;
                 }
                 if (clientInfo.notes) info += `\nЗаметки: ${clientInfo.notes}`;
                 
@@ -988,7 +988,7 @@ serve(async (req) => {
           // Если одно действие или разные действия
           responseText = executedActions.map(action => action.text).join(' ');
           actionResult = executedActions.length === 1 ? 
-            { type: executedActions[0].type, ...executedActions[0] } : 
+            { ...executedActions[0] } : 
             { type: 'multiple_actions', actions: executedActions };
         }
       }
@@ -1128,7 +1128,7 @@ serve(async (req) => {
     console.error('Voice assistant error:', error);
     return new Response(JSON.stringify({ 
       success: false,
-      error: error.message 
+      error: (error as any)?.message ?? 'Server error'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

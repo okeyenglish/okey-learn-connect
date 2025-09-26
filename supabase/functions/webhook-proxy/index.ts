@@ -138,7 +138,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         ok: false, 
-        error: error.message || 'Proxy error' 
+        error: (error as any)?.message || 'Proxy error' 
       }),
       { 
         status: 500, 
