@@ -114,6 +114,12 @@ export const UnifiedCRMHeader = () => {
           href: '/crm/internal-chats',
           icon: MessageCircle,
           roles: ['admin', 'manager', 'methodist', 'teacher']
+        },
+        {
+          label: 'Справочники',
+          href: '/crm/references',
+          icon: Settings,
+          roles: ['admin', 'methodist']
         }
       );
     }

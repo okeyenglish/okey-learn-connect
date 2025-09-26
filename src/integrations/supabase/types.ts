@@ -14,6 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      absence_reasons: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          is_excused: boolean
+          name: string
+          payment_coefficient: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_excused?: boolean
+          name: string
+          payment_coefficient?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_excused?: boolean
+          name?: string
+          payment_coefficient?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      age_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          max_age: number | null
+          min_age: number | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          max_age?: number | null
+          min_age?: number | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          max_age?: number | null
+          min_age?: number | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       call_comments: {
         Row: {
           call_log_id: string | null
@@ -208,6 +274,45 @@ export type Database = {
           is_unread?: boolean
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      classrooms: {
+        Row: {
+          branch: string
+          capacity: number
+          created_at: string
+          equipment: string[] | null
+          id: string
+          is_active: boolean
+          is_online: boolean
+          name: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          branch: string
+          capacity?: number
+          created_at?: string
+          equipment?: string[] | null
+          id?: string
+          is_active?: boolean
+          is_online?: boolean
+          name: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          branch?: string
+          capacity?: number
+          created_at?: string
+          equipment?: string[] | null
+          id?: string
+          is_active?: boolean
+          is_online?: boolean
+          name?: string
+          notes?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -665,6 +770,205 @@ export type Database = {
         }
         Relationships: []
       }
+      internal_chat_messages: {
+        Row: {
+          chat_id: string
+          created_at: string
+          file_name: string | null
+          file_type: string | null
+          file_url: string | null
+          id: string
+          is_deleted: boolean
+          is_edited: boolean
+          message_text: string
+          message_type: string
+          reply_to_message_id: string | null
+          sender_id: string
+          updated_at: string
+        }
+        Insert: {
+          chat_id: string
+          created_at?: string
+          file_name?: string | null
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          is_deleted?: boolean
+          is_edited?: boolean
+          message_text: string
+          message_type?: string
+          reply_to_message_id?: string | null
+          sender_id: string
+          updated_at?: string
+        }
+        Update: {
+          chat_id?: string
+          created_at?: string
+          file_name?: string | null
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          is_deleted?: boolean
+          is_edited?: boolean
+          message_text?: string
+          message_type?: string
+          reply_to_message_id?: string | null
+          sender_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_chat_messages_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "internal_chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_chat_messages_reply_to_message_id_fkey"
+            columns: ["reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "internal_chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_chat_participants: {
+        Row: {
+          chat_id: string
+          id: string
+          is_admin: boolean
+          is_muted: boolean
+          joined_at: string
+          last_read_at: string | null
+          role: string
+          user_id: string
+        }
+        Insert: {
+          chat_id: string
+          id?: string
+          is_admin?: boolean
+          is_muted?: boolean
+          joined_at?: string
+          last_read_at?: string | null
+          role: string
+          user_id: string
+        }
+        Update: {
+          chat_id?: string
+          id?: string
+          is_admin?: boolean
+          is_muted?: boolean
+          joined_at?: string
+          last_read_at?: string | null
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_chat_participants_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "internal_chats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_chats: {
+        Row: {
+          branch: string | null
+          chat_type: string
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          branch?: string | null
+          chat_type: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          branch?: string | null
+          chat_type?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      internal_message_read_status: {
+        Row: {
+          id: string
+          message_id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          message_id: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          message_id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_message_read_status_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "internal_chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learning_formats: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          is_online: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_online?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_online?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       learning_groups: {
         Row: {
           academic_hours: number | null
@@ -1105,6 +1409,36 @@ export type Database = {
         }
         Relationships: []
       }
+      proficiency_levels: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          level_order: number
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          level_order?: number
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          level_order?: number
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           branch: string | null
@@ -1380,6 +1714,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      subjects: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       subscription_freezes: {
         Row: {
@@ -2003,6 +2367,14 @@ export type Database = {
         Args: { "": string } | { "": unknown }
         Returns: unknown
       }
+      charge_lesson_from_subscription: {
+        Args: {
+          _lesson_session_id: string
+          _reason?: string
+          _subscription_id: string
+        }
+        Returns: boolean
+      }
       check_classroom_conflict: {
         Args: {
           p_branch: string
@@ -2051,6 +2423,25 @@ export type Database = {
       cleanup_old_typing_status: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      create_internal_group_chat: {
+        Args: {
+          p_branch?: string
+          p_chat_type?: string
+          p_description?: string
+          p_name: string
+          p_participant_user_ids?: string[]
+        }
+        Returns: string
+      }
+      freeze_subscription: {
+        Args: {
+          _end_date: string
+          _reason: string
+          _start_date: string
+          _subscription_id: string
+        }
+        Returns: boolean
       }
       generate_course_schedule: {
         Args: {
@@ -2153,6 +2544,10 @@ export type Database = {
           lesson_type: string
         }[]
       }
+      get_subscription_stats: {
+        Args: { _subscription_id: string }
+        Returns: Json
+      }
       get_user_branches: {
         Args: { _user_id: string }
         Returns: string[]
@@ -2228,6 +2623,10 @@ export type Database = {
         Args: { p_client_id: string }
         Returns: undefined
       }
+      mark_internal_messages_as_read: {
+        Args: { p_chat_id: string; p_message_ids?: string[] }
+        Returns: undefined
+      }
       mark_message_as_read: {
         Args: { p_message_id: string }
         Returns: undefined
@@ -2242,6 +2641,26 @@ export type Database = {
           url: string
         }[]
       }
+      refund_lesson_to_subscription: {
+        Args: {
+          _lesson_session_id: string
+          _reason?: string
+          _subscription_id: string
+        }
+        Returns: boolean
+      }
+      send_internal_chat_message: {
+        Args: {
+          p_chat_id: string
+          p_file_name?: string
+          p_file_type?: string
+          p_file_url?: string
+          p_message_text: string
+          p_message_type?: string
+          p_reply_to_message_id?: string
+        }
+        Returns: string
+      }
       sparsevec_out: {
         Args: { "": unknown }
         Returns: unknown
@@ -2253,6 +2672,10 @@ export type Database = {
       sparsevec_typmod_in: {
         Args: { "": unknown[] }
         Returns: number
+      }
+      unfreeze_subscription: {
+        Args: { _subscription_id: string }
+        Returns: boolean
       }
       user_has_permission: {
         Args: { _permission: string; _resource: string; _user_id: string }
