@@ -80,6 +80,95 @@ export type Database = {
         }
         Relationships: []
       }
+      bonus_accounts: {
+        Row: {
+          balance: number
+          created_at: string
+          id: string
+          student_id: string | null
+          total_earned: number
+          total_spent: number
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          id?: string
+          student_id?: string | null
+          total_earned?: number
+          total_spent?: number
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          id?: string
+          student_id?: string | null
+          total_earned?: number
+          total_spent?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bonus_accounts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bonus_transactions: {
+        Row: {
+          amount: number
+          bonus_account_id: string | null
+          created_at: string
+          description: string
+          expires_at: string | null
+          id: string
+          lesson_session_id: string | null
+          payment_id: string | null
+          transaction_type: Database["public"]["Enums"]["bonus_transaction_type"]
+        }
+        Insert: {
+          amount: number
+          bonus_account_id?: string | null
+          created_at?: string
+          description: string
+          expires_at?: string | null
+          id?: string
+          lesson_session_id?: string | null
+          payment_id?: string | null
+          transaction_type: Database["public"]["Enums"]["bonus_transaction_type"]
+        }
+        Update: {
+          amount?: number
+          bonus_account_id?: string | null
+          created_at?: string
+          description?: string
+          expires_at?: string | null
+          id?: string
+          lesson_session_id?: string | null
+          payment_id?: string | null
+          transaction_type?: Database["public"]["Enums"]["bonus_transaction_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bonus_transactions_bonus_account_id_fkey"
+            columns: ["bonus_account_id"]
+            isOneToOne: false
+            referencedRelation: "bonus_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bonus_transactions_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       call_comments: {
         Row: {
           call_log_id: string | null
@@ -484,6 +573,36 @@ export type Database = {
           slug?: string
           sort_order?: number
           title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      currencies: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_default: boolean
+          name: string
+          symbol: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          symbol: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          symbol?: string
           updated_at?: string
         }
         Relationships: []
@@ -935,6 +1054,59 @@ export type Database = {
             columns: ["message_id"]
             isOneToOne: false
             referencedRelation: "internal_chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          invoice_number: string
+          notes: string | null
+          paid_date: string | null
+          status: Database["public"]["Enums"]["finance_invoice_status"]
+          student_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          invoice_number: string
+          notes?: string | null
+          paid_date?: string | null
+          status?: Database["public"]["Enums"]["finance_invoice_status"]
+          student_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          invoice_number?: string
+          notes?: string | null
+          paid_date?: string | null
+          status?: Database["public"]["Enums"]["finance_invoice_status"]
+          student_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
             referencedColumns: ["id"]
           },
         ]
@@ -1421,6 +1593,42 @@ export type Database = {
           },
         ]
       }
+      loyalty_settings: {
+        Row: {
+          attendance_bonus_amount: number
+          bonus_expiry_days: number | null
+          branch: string
+          created_at: string
+          id: string
+          is_active: boolean
+          min_payment_for_bonus: number | null
+          payment_bonus_percent: number
+          updated_at: string
+        }
+        Insert: {
+          attendance_bonus_amount?: number
+          bonus_expiry_days?: number | null
+          branch?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          min_payment_for_bonus?: number | null
+          payment_bonus_percent?: number
+          updated_at?: string
+        }
+        Update: {
+          attendance_bonus_amount?: number
+          bonus_expiry_days?: number | null
+          branch?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          min_payment_for_bonus?: number | null
+          payment_bonus_percent?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       manager_branches: {
         Row: {
           branch: string
@@ -1548,6 +1756,69 @@ export type Database = {
         }
         Relationships: []
       }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          invoice_id: string | null
+          method: Database["public"]["Enums"]["finance_payment_method"]
+          notes: string | null
+          payment_date: string
+          status: Database["public"]["Enums"]["finance_payment_status"]
+          student_id: string | null
+          transaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          invoice_id?: string | null
+          method: Database["public"]["Enums"]["finance_payment_method"]
+          notes?: string | null
+          payment_date?: string
+          status?: Database["public"]["Enums"]["finance_payment_status"]
+          student_id?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          invoice_id?: string | null
+          method?: Database["public"]["Enums"]["finance_payment_method"]
+          notes?: string | null
+          payment_date?: string
+          status?: Database["public"]["Enums"]["finance_payment_status"]
+          student_id?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pending_gpt_responses: {
         Row: {
           approved_by: string | null
@@ -1622,6 +1893,163 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      price_list_items: {
+        Row: {
+          created_at: string
+          currency_id: string | null
+          id: string
+          is_active: boolean
+          price: number
+          price_list_id: string
+          service_category: Database["public"]["Enums"]["service_category_type"]
+          service_name: string
+          sort_order: number | null
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency_id?: string | null
+          id?: string
+          is_active?: boolean
+          price: number
+          price_list_id: string
+          service_category?: Database["public"]["Enums"]["service_category_type"]
+          service_name: string
+          sort_order?: number | null
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency_id?: string | null
+          id?: string
+          is_active?: boolean
+          price?: number
+          price_list_id?: string
+          service_category?: Database["public"]["Enums"]["service_category_type"]
+          service_name?: string
+          sort_order?: number | null
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_list_items_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_list_items_price_list_id_fkey"
+            columns: ["price_list_id"]
+            isOneToOne: false
+            referencedRelation: "price_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      price_lists: {
+        Row: {
+          age_category: string | null
+          branch: string
+          created_at: string
+          currency_id: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          subject: string | null
+          updated_at: string
+        }
+        Insert: {
+          age_category?: string | null
+          branch?: string
+          created_at?: string
+          currency_id: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          subject?: string | null
+          updated_at?: string
+        }
+        Update: {
+          age_category?: string | null
+          branch?: string
+          created_at?: string
+          currency_id?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          subject?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_lists_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prices: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_hours: number | null
+          id: string
+          is_active: boolean
+          name: string
+          package_hours: number | null
+          price_amount: number
+          price_list_id: string | null
+          price_type: Database["public"]["Enums"]["finance_price_type"]
+          updated_at: string
+          valid_days: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_hours?: number | null
+          id?: string
+          is_active?: boolean
+          name: string
+          package_hours?: number | null
+          price_amount: number
+          price_list_id?: string | null
+          price_type?: Database["public"]["Enums"]["finance_price_type"]
+          updated_at?: string
+          valid_days?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_hours?: number | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          package_hours?: number | null
+          price_amount?: number
+          price_list_id?: string | null
+          price_type?: Database["public"]["Enums"]["finance_price_type"]
+          updated_at?: string
+          valid_days?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prices_price_list_id_fkey"
+            columns: ["price_list_id"]
+            isOneToOne: false
+            referencedRelation: "price_lists"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       proficiency_levels: {
         Row: {
@@ -2933,6 +3361,7 @@ export type Database = {
         | "receptionist"
         | "head_teacher"
         | "branch_manager"
+      bonus_transaction_type: "earned" | "spent" | "expired"
       day_of_week:
         | "monday"
         | "tuesday"
@@ -2941,6 +3370,15 @@ export type Database = {
         | "friday"
         | "saturday"
         | "sunday"
+      finance_invoice_status:
+        | "draft"
+        | "sent"
+        | "paid"
+        | "overdue"
+        | "cancelled"
+      finance_payment_method: "cash" | "card" | "transfer" | "online"
+      finance_payment_status: "pending" | "completed" | "failed" | "refunded"
+      finance_price_type: "hourly" | "daily" | "monthly"
       group_category: "preschool" | "school" | "adult" | "all"
       group_status: "reserve" | "forming" | "active" | "suspended" | "finished"
       group_type: "general" | "individual" | "mini" | "corporate"
@@ -2954,7 +3392,15 @@ export type Database = {
         | "noAccount"
       messenger_type: "whatsapp" | "telegram" | "system"
       payment_method: "per_lesson" | "monthly" | "course" | "package"
+      payment_method_type: "cash" | "card" | "bank_transfer" | "online"
       relationship_type: "main" | "spouse" | "parent" | "guardian" | "other"
+      service_category_type:
+        | "individual"
+        | "group"
+        | "club"
+        | "workshop"
+        | "intensive"
+        | "online"
       student_status: "active" | "inactive" | "trial" | "graduated"
       subscription_status: "active" | "paused" | "expired" | "cancelled"
       subscription_type: "per_lesson" | "monthly" | "weekly"
@@ -3098,6 +3544,7 @@ export const Constants = {
         "head_teacher",
         "branch_manager",
       ],
+      bonus_transaction_type: ["earned", "spent", "expired"],
       day_of_week: [
         "monday",
         "tuesday",
@@ -3107,6 +3554,10 @@ export const Constants = {
         "saturday",
         "sunday",
       ],
+      finance_invoice_status: ["draft", "sent", "paid", "overdue", "cancelled"],
+      finance_payment_method: ["cash", "card", "transfer", "online"],
+      finance_payment_status: ["pending", "completed", "failed", "refunded"],
+      finance_price_type: ["hourly", "daily", "monthly"],
       group_category: ["preschool", "school", "adult", "all"],
       group_status: ["reserve", "forming", "active", "suspended", "finished"],
       group_type: ["general", "individual", "mini", "corporate"],
@@ -3121,7 +3572,16 @@ export const Constants = {
       ],
       messenger_type: ["whatsapp", "telegram", "system"],
       payment_method: ["per_lesson", "monthly", "course", "package"],
+      payment_method_type: ["cash", "card", "bank_transfer", "online"],
       relationship_type: ["main", "spouse", "parent", "guardian", "other"],
+      service_category_type: [
+        "individual",
+        "group",
+        "club",
+        "workshop",
+        "intensive",
+        "online",
+      ],
       student_status: ["active", "inactive", "trial", "graduated"],
       subscription_status: ["active", "paused", "expired", "cancelled"],
       subscription_type: ["per_lesson", "monthly", "weekly"],
