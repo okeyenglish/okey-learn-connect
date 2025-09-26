@@ -21,17 +21,37 @@ serve(async (req) => {
 
     let query = supabase
       .from('profiles')
-      .select('id, first_name, last_name, email, branch, department')
+      .select('id, first_name, last_name, email, phone, branch, department')
       .order('first_name', { ascending: true });
 
     if (branch) {
       query = query.eq('branch', branch);
     }
 
-    const { data, error } = await query;
-    if (error) throw error;
+    const [
+      { data: employees, error: profilesError },
+      { data: rolesData, error: rolesError }
+    ] = await Promise.all([
+      query,
+      supabase.from('user_roles').select('user_id, role')
+    ]);
 
-    return new Response(JSON.stringify({ employees: data || [] }), {
+    if (profilesError) throw profilesError;
+    if (rolesError) throw rolesError;
+
+    const rolesByUser = new Map<string, string[]>();
+    (rolesData || []).forEach((r: any) => {
+      const arr = rolesByUser.get(r.user_id) ?? [];
+      arr.push(r.role);
+      rolesByUser.set(r.user_id, arr);
+    });
+
+    const enriched = (employees || []).map((e: any) => ({
+      ...e,
+      roles: rolesByUser.get(e.id) ?? []
+    }));
+
+    return new Response(JSON.stringify({ employees: enriched }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {

@@ -47,7 +47,7 @@ import {
 import { AddUserModal } from './AddUserModal';
 import { useRoles } from '@/hooks/useRoles';
 import { useAuth } from '@/hooks/useAuth';
-
+import { Loader2 } from 'lucide-react';
 type AppRole = 'admin' | 'branch_manager' | 'methodist' | 'head_teacher' | 'sales_manager' | 'marketing_manager' | 'manager' | 'accountant' | 'receptionist' | 'teacher' | 'student';
 
 interface UserWithRoles {
@@ -61,7 +61,7 @@ interface UserWithRoles {
 }
 
 export const RoleManager = () => {
-  const { hasPermissionSync, user, role, roles, profile } = useAuth();
+  const { hasPermissionSync, user, role, roles, profile, loading: authLoading } = useAuth();
   const { 
     loading,
     userRoles,

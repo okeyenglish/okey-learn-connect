@@ -83,50 +83,27 @@ export const useRoles = () => {
     }
   };
 
-  // Получить пользователей с их ролями
+  // Получить пользователей с их ролями через edge-функцию (обходит RLS)
   const fetchUsersWithRoles = async (): Promise<UserWithRoles[]> => {
     try {
-      // Получаем всех пользователей
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*');
-      
-      if (profilesError) {
-        console.error('Error fetching profiles:', profilesError);
-        throw profilesError;
-      }
-
-      // Получаем все роли пользователей
-      const { data: userRolesData, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role');
-      
-      if (rolesError) {
-        console.error('Error fetching user roles:', rolesError);
-        throw rolesError;
-      }
-
-      // Группируем роли по пользователям
-      const rolesByUser: Record<string, AppRole[]> = {};
-      (userRolesData || []).forEach(userRole => {
-        if (!rolesByUser[userRole.user_id]) {
-          rolesByUser[userRole.user_id] = [];
-        }
-        rolesByUser[userRole.user_id].push(userRole.role);
+      const { data, error } = await supabase.functions.invoke('get-employees', {
+        body: {}
       });
 
-      // Преобразуем данные в нужный формат
-      const usersWithRoles: UserWithRoles[] = (profiles || []).map(profile => ({
-        id: profile.id,
-        first_name: profile.first_name,
-        last_name: profile.last_name,
-        email: profile.email,
-        phone: profile.phone,
-        branch: profile.branch,
-        roles: rolesByUser[profile.id] || []
+      if (error) throw error as any;
+
+      const employees = (data as any)?.employees || [];
+      const usersWithRoles: UserWithRoles[] = employees.map((e: any) => ({
+        id: e.id,
+        first_name: e.first_name ?? null,
+        last_name: e.last_name ?? null,
+        email: e.email ?? null,
+        phone: e.phone ?? null,
+        branch: e.branch ?? null,
+        roles: (e.roles ?? []) as AppRole[]
       }));
-      
-      console.log('Loaded users with roles:', usersWithRoles);
+
+      console.log('Loaded users with roles (edge):', usersWithRoles);
       return usersWithRoles;
     } catch (error) {
       console.error('Error fetching users with roles:', error);
@@ -138,7 +115,6 @@ export const useRoles = () => {
       return [];
     }
   };
-
   // Назначить роль пользователю
   const assignRole = async (userId: string, role: AppRole) => {
     try {
