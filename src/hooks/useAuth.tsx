@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
-type AppRole = 'admin' | 'manager' | 'teacher' | 'student' | 'methodist';
+type AppRole = 'admin' | 'branch_manager' | 'methodist' | 'head_teacher' | 'sales_manager' | 'marketing_manager' | 'manager' | 'accountant' | 'receptionist' | 'teacher' | 'student';
 
 interface Profile {
   id: string;
@@ -20,6 +20,9 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   role: AppRole | null;
+  roles: AppRole[];
+  hasPermission: (permission: string, resource: string) => Promise<boolean>;
+  hasPermissionSync: (permission: string, resource: string) => boolean;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<{ error: any }>;
@@ -46,6 +49,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
+  const [roles, setRoles] = useState<AppRole[]>([]);
+  const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
@@ -58,10 +63,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       if (profileError) throw profileError;
 
+      // Получаем основную роль
       const { data: roleData, error: roleError } = await supabase
         .rpc('get_user_role', { _user_id: userId });
 
       if (roleError) throw roleError;
+
+      // Получаем все роли пользователя
+      const { data: rolesData, error: rolesError } = await supabase
+        .rpc('get_user_roles', { _user_id: userId });
+
+      if (rolesError) throw rolesError;
 
       // Ensure avatar_url exists in the profile data
       const profileWithAvatar = {
@@ -71,8 +83,43 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       setProfile(profileWithAvatar);
       setRole(roleData);
+      setRoles(rolesData || []);
+      
+      // Подгружаем базовые разрешения
+      await loadUserPermissions(userId);
     } catch (error) {
       console.error('Error fetching profile:', error);
+    }
+  };
+
+  const loadUserPermissions = async (userId: string) => {
+    try {
+      // Загружаем основные разрешения
+      const commonPermissions = [
+        { permission: 'manage', resource: 'all' },
+        { permission: 'manage', resource: 'users' },
+        { permission: 'manage', resource: 'clients' },
+        { permission: 'manage', resource: 'schedules' },
+        { permission: 'manage', resource: 'groups' },
+        { permission: 'view', resource: 'reports' },
+      ];
+      
+      const permissionsMap: Record<string, boolean> = {};
+      
+      for (const perm of commonPermissions) {
+        const { data } = await supabase
+          .rpc('user_has_permission', { 
+            _user_id: userId, 
+            _permission: perm.permission, 
+            _resource: perm.resource 
+          });
+        
+        permissionsMap[`${perm.permission}:${perm.resource}`] = data || false;
+      }
+      
+      setPermissions(permissionsMap);
+    } catch (error) {
+      console.error('Error loading permissions:', error);
     }
   };
 
@@ -106,10 +153,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                 window.location.href = '/teacher-portal';
               } else if (roleData === 'admin') {
                 window.location.href = '/admin';
-              } else if (['manager', 'methodist'].includes(roleData)) {
-                window.location.href = '/newcrm';
+              } else if (['manager', 'methodist', 'branch_manager', 'head_teacher', 'sales_manager', 'marketing_manager', 'accountant', 'receptionist'].includes(roleData)) {
+                window.location.href = '/crm';
               } else {
-                window.location.href = '/newcrm';
+                window.location.href = '/crm';
               }
             }
           }, 0);
@@ -121,6 +168,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         } else {
           setProfile(null);
           setRole(null);
+          setRoles([]);
+          setPermissions({});
         }
         
         setLoading(false);
@@ -154,7 +203,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const signUp = async (email: string, password: string, firstName: string, lastName: string) => {
-    const redirectUrl = `${window.location.origin}/newcrm`;
+    const redirectUrl = `${window.location.origin}/crm`;
     
     const { error } = await supabase.auth.signUp({
       email,
@@ -190,16 +239,47 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return { error };
   };
 
+  const hasPermission = async (permission: string, resource: string): Promise<boolean> => {
+    if (!user) return false;
+    
+    try {
+      const { data, error } = await supabase
+        .rpc('user_has_permission', { 
+          _user_id: user.id, 
+          _permission: permission, 
+          _resource: resource 
+        });
+      
+      if (error) {
+        console.error('Error checking permission:', error);
+        return false;
+      }
+      
+      return data || false;
+    } catch (error) {
+      console.error('Error checking permission:', error);
+      return false;
+    }
+  };
+
+  const hasPermissionSync = (permission: string, resource: string): boolean => {
+    const key = `${permission}:${resource}`;
+    return permissions[key] || false;
+  };
+
   const value = {
     user,
     session,
     profile,
     role,
+    roles,
     loading,
     signIn,
     signUp,
     signOut,
     updateProfile,
+    hasPermission,
+    hasPermissionSync,
   };
 
   return (
