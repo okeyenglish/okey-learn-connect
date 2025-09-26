@@ -1,15 +1,23 @@
 import React, { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Building2, Calendar, Search, Download } from "lucide-react";
-import { AdvancedScheduleFilters } from "@/components/schedule/AdvancedScheduleFilters";
-import { TeacherScheduleGrid } from "@/components/schedule/TeacherScheduleGrid";
-import { ClassroomScheduleGrid } from "@/components/schedule/ClassroomScheduleGrid";
-import { ScheduleStatusLegend } from "@/components/schedule/ScheduleStatusLegend";
+import { Users, Building2, Search, Download } from "lucide-react";
+import { AdvancedScheduleFilters } from "./AdvancedScheduleFilters";
+import { TeacherScheduleGrid } from "./TeacherScheduleGrid";
+import { ClassroomScheduleGrid } from "./ClassroomScheduleGrid";
+import { ScheduleStatusLegend } from "./ScheduleStatusLegend";
 import { SessionFilters } from "@/hooks/useLessonSessions";
 
-export default function AdvancedSchedule() {
+interface AdvancedScheduleModalProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  children?: React.ReactNode;
+}
+
+export const AdvancedScheduleModal = ({ open, onOpenChange, children }: AdvancedScheduleModalProps) => {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'teachers' | 'classrooms'>('teachers');
   const [filters, setFilters] = useState<SessionFilters>({});
   const [viewFormat, setViewFormat] = useState<string>('day-time-teacher');
@@ -19,6 +27,10 @@ export default function AdvancedSchedule() {
     mergedColumns: false,
     rotated: false
   });
+
+  const isControlled = open !== undefined && onOpenChange !== undefined;
+  const modalOpen = isControlled ? open : internalOpen;
+  const handleOpenChange = isControlled ? onOpenChange : setInternalOpen;
 
   const handleExportXLS = () => {
     // TODO: Implement Excel export functionality
@@ -35,17 +47,18 @@ export default function AdvancedSchedule() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-6 py-8">
-        <div className="space-y-6">
-          {/* Header */}
+    <Dialog open={modalOpen} onOpenChange={handleOpenChange}>
+      {children && (
+        <DialogTrigger asChild>
+          {children}
+        </DialogTrigger>
+      )}
+      <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-hidden">
+        <DialogHeader className="px-6 py-4 border-b">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">Расписание занятий</h1>
-              <p className="text-muted-foreground">
-                Планирование и управление расписанием языкового центра O'KEY ENGLISH
-              </p>
-            </div>
+            <DialogTitle className="text-2xl font-bold text-foreground">
+              Расписание занятий
+            </DialogTitle>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={handleExportXLS}>
                 <Download className="h-4 w-4 mr-2" />
@@ -57,11 +70,15 @@ export default function AdvancedSchedule() {
               </Button>
             </div>
           </div>
+          <p className="text-muted-foreground">
+            Планирование и управление расписанием языкового центра O'KEY ENGLISH
+          </p>
+        </DialogHeader>
 
-          {/* Main Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="flex-1 overflow-hidden">
+          <div className="h-full flex">
             {/* Filters Sidebar */}
-            <div className="lg:col-span-1">
+            <div className="w-80 border-r bg-muted/30 p-4 overflow-y-auto">
               <div className="space-y-4">
                 <ScheduleStatusLegend />
                 <AdvancedScheduleFilters
@@ -78,9 +95,9 @@ export default function AdvancedSchedule() {
             </div>
 
             {/* Schedule Grid */}
-            <div className="lg:col-span-3">
-              <Card>
-                <CardHeader className="pb-4">
+            <div className="flex-1 overflow-hidden">
+              <Card className="h-full rounded-none border-0">
+                <CardHeader className="pb-4 border-b">
                   <CardTitle className="flex items-center justify-between">
                     <span>Расписание занятий</span>
                     <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'teachers' | 'classrooms')}>
@@ -97,15 +114,15 @@ export default function AdvancedSchedule() {
                     </Tabs>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <TabsContent value="teachers" className="mt-0">
+                <CardContent className="h-full overflow-hidden p-0">
+                  <TabsContent value="teachers" className="h-full m-0 p-4">
                     <TeacherScheduleGrid 
                       filters={filters} 
                       viewFormat={viewFormat}
                       gridSettings={gridSettings}
                     />
                   </TabsContent>
-                  <TabsContent value="classrooms" className="mt-0">
+                  <TabsContent value="classrooms" className="h-full m-0 p-4">
                     <ClassroomScheduleGrid 
                       filters={filters} 
                       viewFormat={viewFormat}
@@ -117,7 +134,7 @@ export default function AdvancedSchedule() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
-}
+};

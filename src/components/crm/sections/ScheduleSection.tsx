@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar, Plus, Clock, Users, BookOpen, Sparkles } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScheduleModal } from "@/components/schedule/ScheduleModal";
+import { AdvancedScheduleModal } from "@/components/schedule/AdvancedScheduleModal";
 import { CourseScheduleGenerator } from "@/components/schedule/CourseScheduleGenerator";
 import { useLessonSessions } from "@/hooks/useLessonSessions";
 
@@ -108,8 +108,8 @@ export default function ScheduleSection() {
           </TabsList>
 
           <TabsContent value="schedule" className="space-y-4">
-            <div className="h-[600px]">
-              <ScheduleModal open={true} />
+            <div className="h-[600px] border rounded-lg overflow-hidden">
+              <AdvancedScheduleModal open={true} />
             </div>
           </TabsContent>
 
@@ -133,7 +133,7 @@ export default function ScheduleSection() {
           </TabsContent>
         </Tabs>
 
-        <ScheduleModal
+        <AdvancedScheduleModal
           open={scheduleModalOpen}
           onOpenChange={setScheduleModalOpen}
         />

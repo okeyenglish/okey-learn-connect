@@ -46,7 +46,6 @@ const ContactMethod = lazy(() => import("./pages/ContactMethod"));
 const Admin = lazy(() => import("./pages/Admin"));
 const CRM = lazy(() => import("./pages/CRM"));
 const UnifiedCRM = lazy(() => import("./pages/UnifiedCRM"));
-const AdvancedSchedule = lazy(() => import("./pages/AdvancedSchedule"));
 const StudentPortal = lazy(() => import("./pages/StudentPortal"));
 const TeacherPortal = lazy(() => import("./pages/TeacherPortal"));
 const GroupDetailView = lazy(() => import("./components/teacher/GroupDetailView"));
@@ -274,11 +273,6 @@ const AppContent = () => {
           <Route path="/crm/*" element={
             <Suspense fallback={<LoadingComponent />}>
               <UnifiedCRM />
-            </Suspense>
-          } />
-          <Route path="/schedule" element={
-            <Suspense fallback={<LoadingComponent />}>
-              <AdvancedSchedule />
             </Suspense>
           } />
           <Route path="/student/:studentId" element={
