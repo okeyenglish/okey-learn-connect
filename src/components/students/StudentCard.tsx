@@ -26,6 +26,9 @@ import {
 } from 'lucide-react';
 // import { AddToGroupModal } from './AddToGroupModal';
 // import { AddIndividualLessonModal } from './AddIndividualLessonModal';
+import { AddToGroupModal } from './AddToGroupModal';
+import { AddIndividualLessonModal } from './AddIndividualLessonModal';
+import { CreatePaymentModal } from './CreatePaymentModal';
 import { Student } from '@/hooks/useStudents';
 
 
@@ -38,6 +41,7 @@ interface StudentCardProps {
 export function StudentCard({ student, open, onOpenChange }: StudentCardProps) {
   const [showAddToGroup, setShowAddToGroup] = useState(false);
   const [showAddIndividualLesson, setShowAddIndividualLesson] = useState(false);
+  const [showCreatePayment, setShowCreatePayment] = useState(false);
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
@@ -321,11 +325,17 @@ export function StudentCard({ student, open, onOpenChange }: StudentCardProps) {
 
             <TabsContent value="payments" className="space-y-4">
               <Card>
-                <CardHeader>
-                  <CardTitle>История платежей</CardTitle>
-                  <CardDescription>
-                    Оплаты за обучение и дополнительные услуги
-                  </CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>История платежей</CardTitle>
+                    <CardDescription>
+                      Оплаты за обучение и дополнительные услуги
+                    </CardDescription>
+                  </div>
+                  <Button onClick={() => setShowCreatePayment(true)}>
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    Добавить платеж
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
@@ -420,6 +430,27 @@ export function StudentCard({ student, open, onOpenChange }: StudentCardProps) {
           </Tabs>
         </div>
       </DialogContent>
+
+      {/* Модальные окна */}
+      <AddToGroupModal
+        open={showAddToGroup}
+        onOpenChange={setShowAddToGroup}
+        studentId={student.id}
+        studentName={student.name || 'Студент'}
+      />
+
+      <AddIndividualLessonModal
+        open={showAddIndividualLesson}
+        onOpenChange={setShowAddIndividualLesson}
+        studentId={student.id}
+        studentName={student.name || 'Студент'}
+      />
+      <CreatePaymentModal
+        open={showCreatePayment}
+        onOpenChange={setShowCreatePayment}
+        studentId={student.id}
+        studentName={student.name || 'Студент'}
+      />
     </Dialog>
   );
 }

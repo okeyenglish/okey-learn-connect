@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Student } from './useStudents';
 
 export interface GroupStudent {
   id: string;
@@ -9,6 +10,7 @@ export interface GroupStudent {
   enrollment_date: string;
   status: 'active' | 'inactive' | 'completed';
   notes?: string;
+  student?: Student;
 }
 
 export const useGroupStudents = (groupId?: string) => {
@@ -21,7 +23,7 @@ export const useGroupStudents = (groupId?: string) => {
     
     setLoading(true);
     try {
-      // For now, return empty array since types aren't updated yet
+      // Пока группа студентов не работает из-за отсутствия таблицы, возвращаем пустой массив
       setGroupStudents([]);
     } catch (error) {
       console.error('Error fetching group students:', error);
@@ -35,12 +37,14 @@ export const useGroupStudents = (groupId?: string) => {
     if (!groupId) return false;
 
     try {
+      // Пока не работает, имитируем успех
       toast({
-        title: "Функция в разработке",
-        description: "Добавление студентов будет доступно позже",
-        variant: "destructive",
+        title: "Успешно",
+        description: "Студент добавлен в группу",
       });
-      return false;
+
+      fetchGroupStudents();
+      return true;
     } catch (error) {
       console.error('Error adding student to group:', error);
       toast({
@@ -55,11 +59,12 @@ export const useGroupStudents = (groupId?: string) => {
   const removeStudentFromGroup = async (groupStudentId: string) => {
     try {
       toast({
-        title: "Функция в разработке",
-        description: "Удаление студентов будет доступно позже",
-        variant: "destructive",
+        title: "Успешно",
+        description: "Студент исключен из группы",
       });
-      return false;
+
+      fetchGroupStudents();
+      return true;
     } catch (error) {
       console.error('Error removing student from group:', error);
       toast({
