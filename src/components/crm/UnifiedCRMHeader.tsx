@@ -19,7 +19,8 @@ import {
   BarChart3,
   Menu,
   MessageCircle,
-  Home
+  Home,
+  Target
 } from 'lucide-react';
 
 export const UnifiedCRMHeader = () => {
@@ -108,6 +109,12 @@ export const UnifiedCRMHeader = () => {
           href: '/crm/reports',
           icon: BarChart3,
           roles: ['admin', 'manager', 'methodist']
+        },
+        {
+          label: 'Лиды и продажи',
+          href: '/crm/leads',
+          icon: Target,
+          roles: ['admin', 'sales_manager', 'marketing_manager', 'manager']
         },
         {
           label: 'Внутренние чаты',

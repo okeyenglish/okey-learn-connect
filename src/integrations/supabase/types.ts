@@ -939,6 +939,220 @@ export type Database = {
           },
         ]
       }
+      lead_sources: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lead_status_history: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          from_status_id: string | null
+          id: string
+          lead_id: string
+          notes: string | null
+          to_status_id: string | null
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          from_status_id?: string | null
+          id?: string
+          lead_id: string
+          notes?: string | null
+          to_status_id?: string | null
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          from_status_id?: string | null
+          id?: string
+          lead_id?: string
+          notes?: string | null
+          to_status_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_status_history_from_status_id_fkey"
+            columns: ["from_status_id"]
+            isOneToOne: false
+            referencedRelation: "lead_statuses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_status_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_status_history_to_status_id_fkey"
+            columns: ["to_status_id"]
+            isOneToOne: false
+            referencedRelation: "lead_statuses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_statuses: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          is_failure: boolean
+          is_success: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_failure?: boolean
+          is_success?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_failure?: boolean
+          is_success?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      leads: {
+        Row: {
+          age: number | null
+          assigned_to: string | null
+          branch: string
+          converted_to_student_id: string | null
+          created_at: string
+          email: string | null
+          first_name: string
+          id: string
+          last_name: string | null
+          lead_source_id: string | null
+          level: string | null
+          middle_name: string | null
+          notes: string | null
+          phone: string
+          preferred_days: string[] | null
+          preferred_time: string | null
+          status_id: string | null
+          subject: string | null
+          updated_at: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          age?: number | null
+          assigned_to?: string | null
+          branch?: string
+          converted_to_student_id?: string | null
+          created_at?: string
+          email?: string | null
+          first_name: string
+          id?: string
+          last_name?: string | null
+          lead_source_id?: string | null
+          level?: string | null
+          middle_name?: string | null
+          notes?: string | null
+          phone: string
+          preferred_days?: string[] | null
+          preferred_time?: string | null
+          status_id?: string | null
+          subject?: string | null
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          age?: number | null
+          assigned_to?: string | null
+          branch?: string
+          converted_to_student_id?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string
+          id?: string
+          last_name?: string | null
+          lead_source_id?: string | null
+          level?: string | null
+          middle_name?: string | null
+          notes?: string | null
+          phone?: string
+          preferred_days?: string[] | null
+          preferred_time?: string | null
+          status_id?: string | null
+          subject?: string | null
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_lead_source_id_fkey"
+            columns: ["lead_source_id"]
+            isOneToOne: false
+            referencedRelation: "lead_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "lead_statuses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_formats: {
         Row: {
           created_at: string
