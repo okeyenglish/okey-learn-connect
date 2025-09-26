@@ -573,7 +573,6 @@ export const AddStudentModal = ({ familyGroupId, parentLastName, onStudentAdded,
             <Button 
               type="submit" 
               disabled={isLoading}
-              onClick={handleSubmit}
               className="px-6 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 shadow-lg"
             >
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
