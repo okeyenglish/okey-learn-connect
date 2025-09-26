@@ -61,7 +61,7 @@ interface UserWithRoles {
 }
 
 export const RoleManager = () => {
-  const { hasPermissionSync } = useAuth();
+  const { hasPermissionSync, user, role, roles, profile } = useAuth();
   const { 
     loading,
     userRoles,
@@ -89,14 +89,29 @@ export const RoleManager = () => {
   console.log('RoleManager permissions check:', {
     canManageRoles,
     hasManageRoles: hasPermissionSync('manage', 'roles'),
-    hasManageAll: hasPermissionSync('manage', 'all')
+    hasManageAll: hasPermissionSync('manage', 'all'),
+    user: user,
+    roles: roles,
+    role: role,
+    profile: profile
   });
 
   // Загрузка пользователей с ролями
   const loadUsers = async () => {
+    console.log('Loading users, current permissions:', {
+      canManageRoles,
+      user: user?.id,
+      role,
+      roles
+    });
     setLoadingUsers(true);
-    const usersData = await fetchUsersWithRoles();
-    setUsers(usersData);
+    try {
+      const usersData = await fetchUsersWithRoles();
+      console.log('Loaded users:', usersData);
+      setUsers(usersData);
+    } catch (error) {
+      console.error('Error loading users:', error);
+    }
     setLoadingUsers(false);
   };
 
