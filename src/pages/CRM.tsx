@@ -97,6 +97,7 @@ import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
 import VoiceAssistant from '@/components/VoiceAssistant';
 import { TeacherMessagesPanel } from "@/components/crm/TeacherMessagesPanel";
+import { UserPermissionsManager } from "@/components/admin/UserPermissionsManager";
 import { cn } from "@/lib/utils";
 
 const CRMContent = () => {
@@ -2018,7 +2019,13 @@ const CRMContent = () => {
                           </div>
                         )}
                         
-                        {!["Расписание", "Финансы", "Мои задачи"].includes(item.label) && (
+                        {item.label === "Настройки" && (
+                          <div className="space-y-4">
+                            <UserPermissionsManager />
+                          </div>
+                        )}
+                        
+                        {!["Расписание", "Финансы", "Мои задачи", "Настройки"].includes(item.label) && (
                           <div className="text-center py-8">
                             <p className="text-muted-foreground">Функция "{item.label}" в разработке</p>
                           </div>
