@@ -22,7 +22,8 @@ import {
   Home,
   Target,
   DollarSign,
-  UserCheck
+  UserCheck,
+  Briefcase
 } from 'lucide-react';
 
 export const UnifiedCRMHeader = () => {
@@ -117,6 +118,12 @@ export const UnifiedCRMHeader = () => {
           href: '/crm/students',
           icon: UserCheck,
           roles: ['admin', 'manager', 'methodist', 'teacher']
+        },
+        {
+          label: 'Сотрудники',
+          href: '/crm/employees',
+          icon: Briefcase,
+          roles: ['admin', 'branch_manager', 'manager']
         },
         {
           label: 'Абонементы',

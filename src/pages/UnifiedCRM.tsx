@@ -20,6 +20,7 @@ const LeadsSection = lazy(() => import('@/components/leads/LeadsSection'));
 const FinancesSection = lazy(() => import('@/components/finances/FinancesSection'));
 const StudentsSection = lazy(() => import('@/components/students/StudentsSection'));
 const SubscriptionsSection = lazy(() => import('@/components/subscriptions/SubscriptionsSection'));
+const EmployeesSection = lazy(() => import('@/components/employees/EmployeesSection'));
 
 const LoadingComponent = () => (
   <div className="flex items-center justify-center min-h-[400px]">
@@ -139,6 +140,30 @@ export default function UnifiedCRM() {
                 <ProtectedRoute allowedRoles={['admin', 'manager', 'methodist']}>
                   <Suspense fallback={<LoadingComponent />}>
                     <ReportsSection />
+                  </Suspense>
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Лиды и продажи */}
+            <Route 
+              path="/leads" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'sales_manager', 'marketing_manager', 'manager']}>
+                  <Suspense fallback={<LoadingComponent />}>
+                    <LeadsSection />
+                  </Suspense>
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Сотрудники */}
+            <Route 
+              path="/employees" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'branch_manager', 'manager']}>
+                  <Suspense fallback={<LoadingComponent />}>
+                    <EmployeesSection />
                   </Suspense>
                 </ProtectedRoute>
               } 
