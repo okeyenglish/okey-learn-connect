@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from './use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Currency {
   id: string;
@@ -14,7 +15,7 @@ interface Invoice {
   invoice_number: string;
   student_id?: string;
   amount: number;
-  status: 'draft' | 'sent' | 'paid' | 'cancelled';
+  status: 'draft' | 'sent' | 'paid' | 'cancelled' | 'overdue';
   due_date?: string;
   paid_date?: string;
   description?: string;
@@ -28,12 +29,15 @@ interface Payment {
   invoice_id?: string;
   student_id?: string;
   amount: number;
-  payment_method: 'cash' | 'card' | 'bank_transfer' | 'online';
-  status: 'pending' | 'completed' | 'failed' | 'cancelled';
+  method: 'cash' | 'card' | 'online' | 'transfer';
+  status: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded';
   payment_date: string;
   description?: string;
   notes?: string;
+  transaction_id?: string;
+  created_by?: string;
   created_at: string;
+  updated_at: string;
 }
 
 interface BonusAccount {
@@ -47,29 +51,106 @@ interface BonusAccount {
 }
 
 export function useFinances() {
-  const [currencies] = useState<Currency[]>([
-    { id: '1', code: 'RUB', name: 'Российский рубль', symbol: '₽', is_default: true }
-  ]);
-  const [invoices] = useState<Invoice[]>([]);
-  const [payments] = useState<Payment[]>([]);
-  const [bonusAccounts] = useState<BonusAccount[]>([]);
-  const [loading] = useState(false);
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [bonusAccounts, setBonusAccounts] = useState<BonusAccount[]>([]);
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    fetchCurrencies();
+    fetchInvoices();
+    fetchPayments();
+    fetchBonusAccounts();
+  }, []);
+
   const fetchCurrencies = async () => {
-    // Будет реализовано когда БД будет готова
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('currencies')
+        .select('*')
+        .order('code');
+      
+      if (error) throw error;
+      setCurrencies(data || []);
+    } catch (error) {
+      console.error('Ошибка при загрузке валют:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось загрузить валюты",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchInvoices = async () => {
-    // Будет реализовано когда БД будет готова
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setInvoices(data || []);
+    } catch (error) {
+      console.error('Ошибка при загрузке счетов:', error);
+      toast({
+        title: "Ошибка", 
+        description: "Не удалось загрузить счета",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchPayments = async () => {
-    // Будет реализовано когда БД будет готова
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('payments')
+        .select('*')
+        .order('payment_date', { ascending: false });
+      
+      if (error) throw error;
+      setPayments(data || []);
+    } catch (error) {
+      console.error('Ошибка при загрузке платежей:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось загрузить платежи",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchBonusAccounts = async () => {
-    // Будет реализовано когда БД будет готова
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('bonus_accounts')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setBonusAccounts(data || []);
+    } catch (error) {
+      console.error('Ошибка при загрузке бонусных счетов:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось загрузить бонусные счета",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const createInvoice = async (invoiceData: Partial<Invoice>) => {

@@ -229,11 +229,11 @@ export default function FinancesSection() {
                     {payments.slice(0, 5).map((payment) => (
                       <div key={payment.id} className="flex justify-between items-center">
                         <div>
-                          <p className="font-medium">
-                            {payment.payment_method === 'cash' ? 'Наличные' :
-                             payment.payment_method === 'card' ? 'Карта' :
-                             payment.payment_method === 'bank_transfer' ? 'Перевод' : 'Онлайн'}
-                          </p>
+                           <p className="font-medium">
+                             {payment.method === 'cash' ? 'Наличные' :
+                              payment.method === 'card' ? 'Карта' :
+                              payment.method === 'transfer' ? 'Перевод' : 'Онлайн'}
+                           </p>
                           <p className="text-sm text-muted-foreground">
                             {new Date(payment.payment_date).toLocaleDateString('ru-RU')}
                           </p>

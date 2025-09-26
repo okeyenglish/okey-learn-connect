@@ -20,7 +20,7 @@ export function PaymentsTable() {
       payment.notes?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || payment.status === statusFilter;
-    const matchesMethod = methodFilter === 'all' || payment.payment_method === methodFilter;
+    const matchesMethod = methodFilter === 'all' || payment.method === methodFilter;
     
     return matchesSearch && matchesStatus && matchesMethod;
   });
@@ -145,7 +145,7 @@ export function PaymentsTable() {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-muted" />
-                      {getMethodLabel(payment.payment_method)}
+                      {getMethodLabel(payment.method)}
                     </div>
                   </TableCell>
                   <TableCell>
