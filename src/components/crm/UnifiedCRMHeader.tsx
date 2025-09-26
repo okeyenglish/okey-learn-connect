@@ -20,7 +20,8 @@ import {
   Menu,
   MessageCircle,
   Home,
-  Target
+  Target,
+  DollarSign
 } from 'lucide-react';
 
 export const UnifiedCRMHeader = () => {
@@ -115,6 +116,12 @@ export const UnifiedCRMHeader = () => {
           href: '/crm/leads',
           icon: Target,
           roles: ['admin', 'sales_manager', 'marketing_manager', 'manager']
+        },
+        {
+          label: 'Финансы',
+          href: '/crm/finances',
+          icon: DollarSign,
+          roles: ['admin', 'manager', 'accountant']
         },
         {
           label: 'Внутренние чаты',
