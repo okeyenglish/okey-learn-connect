@@ -119,6 +119,12 @@ export const UnifiedCRMHeader = () => {
           roles: ['admin', 'manager', 'methodist', 'teacher']
         },
         {
+          label: 'Абонементы',
+          href: '/crm/subscriptions',
+          icon: BookOpen,
+          roles: ['admin', 'manager', 'accountant']
+        },
+        {
           label: 'Лиды и продажи',
           href: '/crm/leads',
           icon: Target,

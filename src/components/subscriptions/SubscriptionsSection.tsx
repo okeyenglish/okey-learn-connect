@@ -199,3 +199,5 @@ export const SubscriptionsSection = () => {
     </div>
   );
 };
+
+export default SubscriptionsSection;
