@@ -98,6 +98,7 @@ import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
 import VoiceAssistant from '@/components/VoiceAssistant';
 import { TeacherMessagesPanel } from "@/components/crm/TeacherMessagesPanel";
 import { UserPermissionsManager } from "@/components/admin/UserPermissionsManager";
+import { StudentsModal } from "@/components/crm/StudentsModal";
 import { cn } from "@/lib/utils";
 
 const CRMContent = () => {
@@ -974,6 +975,7 @@ const CRMContent = () => {
     { icon: CheckSquare, label: "Мои задачи" },
     { icon: FileText, label: "Заявки" },
     { icon: User, label: "Лиды" },
+    { icon: Users, label: "Ученики" },
     { icon: Building, label: "Компания" },
     { icon: GraduationCap, label: "Обучение" },
     { icon: Monitor, label: "Занятия онлайн" },
@@ -2025,7 +2027,13 @@ const CRMContent = () => {
                           </div>
                         )}
                         
-                        {!["Расписание", "Финансы", "Мои задачи", "Настройки"].includes(item.label) && (
+                        {item.label === "Ученики" && (
+                          <div className="h-full overflow-hidden">
+                            <StudentsModal open={true} onOpenChange={() => {}} />
+                          </div>
+                        )}
+                        
+                        {!["Расписание", "Финансы", "Мои задачи", "Настройки", "Ученики"].includes(item.label) && (
                           <div className="text-center py-8">
                             <p className="text-muted-foreground">Функция "{item.label}" в разработке</p>
                           </div>
