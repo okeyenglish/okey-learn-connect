@@ -41,8 +41,13 @@ interface AdminSidebarProps {
 }
 
 export function AdminSidebar({ onSectionChange }: AdminSidebarProps) {
-  const { roles } = useAuth();
-  const visibleItems = adminItems.filter((i) => canAccessAdminSection(roles, i.id as any));
+  const { roles, loading, role } = useAuth();
+  const isAdminUser = role === 'admin' || roles?.includes?.('admin');
+  // Show full menu while roles are loading or when user is admin
+  const filteredItems = adminItems.filter((i) => canAccessAdminSection(roles, i.id as any));
+  const visibleItems = (loading || isAdminUser)
+    ? adminItems
+    : (filteredItems.length ? filteredItems : adminItems.filter((i) => i.id === 'dashboard'));
   const [activeSection, setActiveSection] = useState(visibleItems[0]?.id ?? 'dashboard');
 
   useEffect(() => {
@@ -50,7 +55,7 @@ export function AdminSidebar({ onSectionChange }: AdminSidebarProps) {
       setActiveSection(visibleItems[0].id);
       onSectionChange?.(visibleItems[0].id);
     }
-  }, [roles]);
+  }, [roles, loading]);
 
   const handleSectionClick = (sectionId: string) => {
     setActiveSection(sectionId);
