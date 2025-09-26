@@ -1,8 +1,9 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { buildPermissionsForRoles, isAdmin, AppRole as RoleFromPerms } from '@/lib/permissions';
 
-type AppRole = 'admin' | 'branch_manager' | 'methodist' | 'head_teacher' | 'sales_manager' | 'marketing_manager' | 'manager' | 'accountant' | 'receptionist' | 'teacher' | 'student';
+type AppRole = RoleFromPerms;
 
 interface Profile {
   id: string;
@@ -135,8 +136,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         
         permissionsMap[`${perm.permission}:${perm.resource}`] = data || false;
       }
-      
-      setPermissions(permissionsMap);
+      // merge with static permissions derived from roles for instant UI
+      const staticMap = buildPermissionsForRoles(roles);
+      setPermissions({ ...staticMap, ...permissionsMap });
     } catch (error) {
       console.error('Error loading permissions:', error);
     }
@@ -259,6 +261,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const hasPermission = async (permission: string, resource: string): Promise<boolean> => {
     if (!user) return false;
+    if (isAdmin(roles)) return true;
     
     try {
       const { data, error } = await supabase
@@ -273,7 +276,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         return false;
       }
       
-      return data || false;
+      // combine with locally built permissions for UX responsiveness
+      const key = `${permission}:${resource}`;
+      const local = permissions[key] || false;
+      return Boolean(data || local);
     } catch (error) {
       console.error('Error checking permission:', error);
       return false;
@@ -281,10 +287,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const hasPermissionSync = (permission: string, resource: string): boolean => {
+    if (isAdmin(roles)) return true;
     const key = `${permission}:${resource}`;
     return permissions[key] || false;
   };
-
   const value = {
     user,
     session,

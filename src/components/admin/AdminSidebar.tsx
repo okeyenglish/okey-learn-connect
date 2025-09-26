@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Settings, 
   HelpCircle, 
@@ -22,6 +22,8 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useAuth } from "@/hooks/useAuth";
+import { canAccessAdminSection } from "@/lib/permissions";
 
 const adminItems = [
   { title: "Dashboard", id: "dashboard", icon: BarChart3 },
@@ -39,7 +41,16 @@ interface AdminSidebarProps {
 }
 
 export function AdminSidebar({ onSectionChange }: AdminSidebarProps) {
-  const [activeSection, setActiveSection] = useState("dashboard");
+  const { roles } = useAuth();
+  const visibleItems = adminItems.filter((i) => canAccessAdminSection(roles, i.id as any));
+  const [activeSection, setActiveSection] = useState(visibleItems[0]?.id ?? 'dashboard');
+
+  useEffect(() => {
+    if (!visibleItems.find(i => i.id === activeSection) && visibleItems[0]) {
+      setActiveSection(visibleItems[0].id);
+      onSectionChange?.(visibleItems[0].id);
+    }
+  }, [roles]);
 
   const handleSectionClick = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -58,7 +69,7 @@ export function AdminSidebar({ onSectionChange }: AdminSidebarProps) {
           <SidebarGroupLabel>Management</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {adminItems.map((item) => (
+              {visibleItems.map((item) => (
                 <SidebarMenuItem key={item.id}>
                   <SidebarMenuButton
                     onClick={() => handleSectionClick(item.id)}
