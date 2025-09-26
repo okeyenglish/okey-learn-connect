@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { StudentsModal } from './StudentsModal';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -32,6 +33,7 @@ export const UnifiedCRMHeader = () => {
   const { user, profile, role, signOut } = useAuth();
   const { toast } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [studentsModalOpen, setStudentsModalOpen] = useState(false);
 
   const handleSignOut = async () => {
     try {
@@ -113,12 +115,7 @@ export const UnifiedCRMHeader = () => {
           icon: BarChart3,
           roles: ['admin', 'manager', 'methodist']
         },
-        {
-          label: 'Ученики и клиенты',
-          href: '/crm/students',
-          icon: UserCheck,
-          roles: ['admin', 'manager', 'methodist', 'teacher']
-        },
+        // StudentsModal will be handled separately
         {
           label: 'Сотрудники',
           href: '/crm/employees',
@@ -223,6 +220,19 @@ export const UnifiedCRMHeader = () => {
                 <span>{item.label}</span>
               </Button>
             ))}
+            {/* Students Modal Button */}
+            {(role === 'admin' || role === 'manager' || role === 'methodist' || role === 'teacher') && (
+              <StudentsModal open={studentsModalOpen} onOpenChange={setStudentsModalOpen}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex items-center space-x-2"
+                >
+                  <UserCheck className="h-4 w-4" />
+                  <span>Ученики и клиенты</span>
+                </Button>
+              </StudentsModal>
+            )}
           </div>
         </nav>
 
@@ -299,6 +309,19 @@ export const UnifiedCRMHeader = () => {
                 {item.label}
               </Button>
             ))}
+            {/* Mobile Students Modal Button */}
+            {(role === 'admin' || role === 'manager' || role === 'methodist' || role === 'teacher') && (
+              <StudentsModal open={studentsModalOpen} onOpenChange={setStudentsModalOpen}>
+                <Button
+                  variant="ghost"
+                  className="justify-start"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <UserCheck className="mr-2 h-4 w-4" />
+                  Ученики и клиенты
+                </Button>
+              </StudentsModal>
+            )}
           </nav>
         </div>
       )}
