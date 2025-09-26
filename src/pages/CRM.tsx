@@ -98,7 +98,7 @@ import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
 import VoiceAssistant from '@/components/VoiceAssistant';
 import { TeacherMessagesPanel } from "@/components/crm/TeacherMessagesPanel";
 import { UserPermissionsManager } from "@/components/admin/UserPermissionsManager";
-import { StudentsModal } from "@/components/crm/StudentsModal";
+import { StudentsSection } from "@/components/crm/StudentsSection";
 import { cn } from "@/lib/utils";
 
 const CRMContent = () => {
@@ -277,10 +277,12 @@ const CRMContent = () => {
   const tasksCount = allTasks?.length ?? 0;
   const unreadTotal = (threads || []).reduce((sum, t) => sum + (t.unread_count || 0), 0);
   const leadsCount = clients?.length ?? 0;
+  const studentsCount = students?.length ?? 0;
   const getMenuCount = (label: string) => {
     if (label === "Мои задачи") return tasksCount;
     if (label === "Заявки") return unreadTotal;
     if (label === "Лиды") return leadsCount;
+    if (label === "Ученики") return studentsCount;
     return 0;
   };
 
@@ -2028,9 +2030,7 @@ const CRMContent = () => {
                         )}
                         
                         {item.label === "Ученики" && (
-                          <div className="h-full overflow-hidden">
-                            <StudentsModal open={true} onOpenChange={() => {}} />
-                          </div>
+                          <StudentsSection />
                         )}
                         
                         {!["Расписание", "Финансы", "Мои задачи", "Настройки", "Ученики"].includes(item.label) && (
