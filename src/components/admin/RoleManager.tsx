@@ -82,12 +82,14 @@ export const RoleManager = () => {
   const [showAddUserDialog, setShowAddUserDialog] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(false);
 
-  // Проверяем разрешения с отладкой
-  const canManageRoles = hasPermissionSync('manage', 'roles') || hasPermissionSync('manage', 'all');
+  // Проверяем разрешения с учетом роли администратора
+  const isAdmin = role === 'admin' || roles?.includes?.('admin');
+  const canManageRoles = isAdmin || hasPermissionSync('manage', 'roles') || hasPermissionSync('manage', 'all');
   
   // Отладочная информация
   console.log('RoleManager permissions check:', {
     canManageRoles,
+    isAdmin,
     hasManageRoles: hasPermissionSync('manage', 'roles'),
     hasManageAll: hasPermissionSync('manage', 'all'),
     user: user,
