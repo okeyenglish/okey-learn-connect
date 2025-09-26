@@ -19,6 +19,9 @@ interface AddSubscriptionPlanModalProps {
   isEdit?: boolean;
 }
 
+type SubscriptionType = 'per_lesson' | 'monthly' | 'weekly';
+type AgeCategory = 'preschool' | 'school' | 'adult' | 'all' | '';
+
 export const AddSubscriptionPlanModal = ({ 
   open, 
   onOpenChange, 
@@ -28,7 +31,7 @@ export const AddSubscriptionPlanModal = ({
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    subscription_type: "per_lesson" as const,
+    subscription_type: "per_lesson" as SubscriptionType,
     lessons_count: 0,
     duration_days: 0,
     price: 0,
@@ -37,7 +40,7 @@ export const AddSubscriptionPlanModal = ({
     freeze_days_allowed: 0,
     branch: "",
     subject: "",
-    age_category: "",
+    age_category: "" as AgeCategory,
   });
 
   const createPlan = useCreateSubscriptionPlan();
@@ -57,7 +60,7 @@ export const AddSubscriptionPlanModal = ({
         freeze_days_allowed: plan.freeze_days_allowed || 0,
         branch: plan.branch || "",
         subject: plan.subject || "",
-        age_category: plan.age_category || "",
+        age_category: (plan.age_category as AgeCategory) || "",
       });
     }
   }, [plan, isEdit]);
@@ -66,13 +69,25 @@ export const AddSubscriptionPlanModal = ({
     e.preventDefault();
 
     try {
+      const submitData = {
+        ...formData,
+        age_category: formData.age_category || null,
+        branch: formData.branch || null,
+        subject: formData.subject || null,
+        description: formData.description || null,
+        lessons_count: formData.lessons_count || null,
+        duration_days: formData.duration_days || null,
+        price_per_lesson: formData.price_per_lesson || null,
+        freeze_days_allowed: formData.freeze_days_allowed || null,
+      };
+
       if (isEdit && plan) {
         await updatePlan.mutateAsync({
           id: plan.id,
-          ...formData,
+          ...submitData,
         });
       } else {
-        await createPlan.mutateAsync(formData);
+        await createPlan.mutateAsync(submitData);
       }
       onOpenChange(false);
       resetForm();
@@ -85,7 +100,7 @@ export const AddSubscriptionPlanModal = ({
     setFormData({
       name: "",
       description: "",
-      subscription_type: "per_lesson" as const,
+      subscription_type: "per_lesson" as SubscriptionType,
       lessons_count: 0,
       duration_days: 0,
       price: 0,
@@ -94,7 +109,7 @@ export const AddSubscriptionPlanModal = ({
       freeze_days_allowed: 0,
       branch: "",
       subject: "",
-      age_category: "",
+      age_category: "" as AgeCategory,
     });
   };
 
@@ -142,7 +157,7 @@ export const AddSubscriptionPlanModal = ({
               <Label htmlFor="subscription_type">Тип абонемента *</Label>
               <Select
                 value={formData.subscription_type}
-                onValueChange={(value: "per_lesson" | "monthly" | "weekly") => 
+                onValueChange={(value: SubscriptionType) => 
                   setFormData(prev => ({ ...prev, subscription_type: value }))}
               >
                 <SelectTrigger>
@@ -249,7 +264,7 @@ export const AddSubscriptionPlanModal = ({
               <Label htmlFor="age_category">Возрастная категория</Label>
               <Select
                 value={formData.age_category}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, age_category: value }))}
+                onValueChange={(value: AgeCategory) => setFormData(prev => ({ ...prev, age_category: value }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Выберите категорию" />
@@ -259,6 +274,7 @@ export const AddSubscriptionPlanModal = ({
                   <SelectItem value="preschool">Дошкольники</SelectItem>
                   <SelectItem value="school">Школьники</SelectItem>
                   <SelectItem value="adult">Взрослые</SelectItem>
+                  <SelectItem value="all">Все возрасты</SelectItem>
                 </SelectContent>
               </Select>
             </div>

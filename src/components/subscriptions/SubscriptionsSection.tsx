@@ -22,7 +22,7 @@ export const SubscriptionsSection = () => {
   const filteredSubscriptions = subscriptions.filter(subscription => {
     const matchesSearch = !searchQuery || 
       subscription.student?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      subscription.subscription_plan?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      subscription.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       subscription.student?.phone?.includes(searchQuery);
     
     const matchesStatus = statusFilter === "all" || subscription.status === statusFilter;

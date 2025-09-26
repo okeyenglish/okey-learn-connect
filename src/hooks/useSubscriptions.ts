@@ -111,12 +111,13 @@ export const useFreezeSubscription = () => {
       endDate: string;
       reason: string;
     }) => {
-      const { data, error } = await supabase.rpc('freeze_subscription', {
-        p_subscription_id: subscriptionId,
-        p_start_date: startDate,
-        p_end_date: endDate,
-        p_reason: reason,
-      });
+      // Temporary implementation - would use RPC function when it exists
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .update({ status: 'paused' as const })
+        .eq('id', subscriptionId)
+        .select()
+        .single();
 
       if (error) throw error;
       return data;
@@ -137,9 +138,13 @@ export const useUnfreezeSubscription = () => {
   
   return useMutation({
     mutationFn: async (subscriptionId: string) => {
-      const { data, error } = await supabase.rpc('unfreeze_subscription', {
-        p_subscription_id: subscriptionId,
-      });
+      // Temporary implementation - would use RPC function when it exists
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .update({ status: 'active' as const })
+        .eq('id', subscriptionId)
+        .select()
+        .single();
 
       if (error) throw error;
       return data;

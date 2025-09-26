@@ -117,11 +117,9 @@ export const SubscriptionDetailsModal = ({
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Тарифный план</label>
-                  <p className="text-base">{subscription.subscription_plan?.name}</p>
-                  {subscription.subscription_plan?.description && (
-                    <p className="text-sm text-muted-foreground">{subscription.subscription_plan.description}</p>
-                  )}
+                  <label className="text-sm font-medium text-muted-foreground">Название абонемента</label>
+                  <p className="text-base">{subscription.name}</p>
+                  <p className="text-sm text-muted-foreground">Тип: {getTypeText(subscription.subscription_type)}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Тип</label>
@@ -131,7 +129,7 @@ export const SubscriptionDetailsModal = ({
 
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Стоимость</label>
-                <p className="text-2xl font-bold text-primary">{subscription.price}₽</p>
+                <p className="text-2xl font-bold text-primary">{subscription.total_price}₽</p>
               </div>
             </CardContent>
           </Card>
@@ -149,7 +147,7 @@ export const SubscriptionDetailsModal = ({
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Дата начала</label>
                   <p className="text-base">
-                    {format(new Date(subscription.valid_from), 'dd MMMM yyyy', { locale: ru })}
+                    {format(new Date(subscription.start_date), 'dd MMMM yyyy', { locale: ru })}
                   </p>
                 </div>
                 {subscription.valid_until && (

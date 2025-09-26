@@ -139,7 +139,7 @@ export const SubscriptionCard = ({ subscription }: SubscriptionCardProps) => {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Calendar className="h-4 w-4" />
             <span>
-              {format(new Date(subscription.valid_from), 'dd.MM.yyyy', { locale: ru })}
+              {format(new Date(subscription.start_date), 'dd.MM.yyyy', { locale: ru })}
               {subscription.valid_until && (
                 <> - {format(new Date(subscription.valid_until), 'dd.MM.yyyy', { locale: ru })}</>
               )}

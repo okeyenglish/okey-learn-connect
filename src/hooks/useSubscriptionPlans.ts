@@ -5,17 +5,22 @@ import { toast } from 'sonner';
 export interface SubscriptionPlan {
   id: string;
   name: string;
-  description?: string;
+  description?: string | null;
   subscription_type: 'per_lesson' | 'monthly' | 'weekly';
-  lessons_count?: number;
-  duration_days?: number;
+  lessons_count?: number | null;
+  duration_days?: number | null;
   price: number;
-  price_per_lesson?: number;
-  is_active?: boolean;
-  freeze_days_allowed?: number;
-  branch?: string;
-  subject?: string;
-  age_category?: string;
+  price_per_lesson?: number | null;
+  is_active?: boolean | null;
+  freeze_days_allowed?: number | null;
+  branch?: string | null;
+  subject?: string | null;
+  age_category?: 'preschool' | 'school' | 'adult' | 'all' | null;
+  auto_renewal?: boolean | null;
+  makeup_lessons_count?: number | null;
+  max_level?: string | null;
+  min_level?: string | null;
+  sort_order?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -42,7 +47,7 @@ export const useCreateSubscriptionPlan = () => {
     mutationFn: async (planData: Omit<SubscriptionPlan, 'id' | 'created_at' | 'updated_at'>) => {
       const { data, error } = await supabase
         .from('subscription_plans')
-        .insert([planData])
+        .insert(planData)
         .select()
         .single();
 
