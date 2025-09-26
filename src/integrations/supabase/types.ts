@@ -1381,6 +1381,272 @@ export type Database = {
           },
         ]
       }
+      subscription_freezes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          days_count: number
+          description: string | null
+          end_date: string
+          id: string
+          reason: string
+          start_date: string
+          subscription_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          days_count: number
+          description?: string | null
+          end_date: string
+          id?: string
+          reason: string
+          start_date: string
+          subscription_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          days_count?: number
+          description?: string | null
+          end_date?: string
+          id?: string
+          reason?: string
+          start_date?: string
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_freezes_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscription_plans: {
+        Row: {
+          age_category: Database["public"]["Enums"]["group_category"] | null
+          auto_renewal: boolean | null
+          branch: string | null
+          created_at: string
+          description: string | null
+          duration_days: number | null
+          freeze_days_allowed: number | null
+          id: string
+          is_active: boolean | null
+          lessons_count: number | null
+          makeup_lessons_count: number | null
+          max_level: string | null
+          min_level: string | null
+          name: string
+          price: number
+          price_per_lesson: number | null
+          sort_order: number | null
+          subject: string | null
+          subscription_type: Database["public"]["Enums"]["subscription_type"]
+          updated_at: string
+        }
+        Insert: {
+          age_category?: Database["public"]["Enums"]["group_category"] | null
+          auto_renewal?: boolean | null
+          branch?: string | null
+          created_at?: string
+          description?: string | null
+          duration_days?: number | null
+          freeze_days_allowed?: number | null
+          id?: string
+          is_active?: boolean | null
+          lessons_count?: number | null
+          makeup_lessons_count?: number | null
+          max_level?: string | null
+          min_level?: string | null
+          name: string
+          price: number
+          price_per_lesson?: number | null
+          sort_order?: number | null
+          subject?: string | null
+          subscription_type: Database["public"]["Enums"]["subscription_type"]
+          updated_at?: string
+        }
+        Update: {
+          age_category?: Database["public"]["Enums"]["group_category"] | null
+          auto_renewal?: boolean | null
+          branch?: string | null
+          created_at?: string
+          description?: string | null
+          duration_days?: number | null
+          freeze_days_allowed?: number | null
+          id?: string
+          is_active?: boolean | null
+          lessons_count?: number | null
+          makeup_lessons_count?: number | null
+          max_level?: string | null
+          min_level?: string | null
+          name?: string
+          price?: number
+          price_per_lesson?: number | null
+          sort_order?: number | null
+          subject?: string | null
+          subscription_type?: Database["public"]["Enums"]["subscription_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      subscription_transactions: {
+        Row: {
+          amount_changed: number | null
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          lesson_session_id: string | null
+          lessons_changed: number | null
+          reason: string | null
+          subscription_id: string
+          transaction_type: string
+        }
+        Insert: {
+          amount_changed?: number | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          lesson_session_id?: string | null
+          lessons_changed?: number | null
+          reason?: string | null
+          subscription_id: string
+          transaction_type: string
+        }
+        Update: {
+          amount_changed?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          lesson_session_id?: string | null
+          lessons_changed?: number | null
+          reason?: string | null
+          subscription_id?: string
+          transaction_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_transactions_lesson_session_id_fkey"
+            columns: ["lesson_session_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_transactions_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscriptions: {
+        Row: {
+          auto_charge: boolean | null
+          branch: string
+          created_at: string
+          created_by: string | null
+          discount_amount: number | null
+          discount_percent: number | null
+          end_date: string | null
+          freeze_enabled: boolean | null
+          group_id: string | null
+          id: string
+          level: string | null
+          makeup_lessons_allowed: boolean | null
+          name: string
+          notes: string | null
+          price_per_lesson: number | null
+          remaining_lessons: number | null
+          start_date: string
+          status: Database["public"]["Enums"]["subscription_status"]
+          student_id: string
+          subject: string
+          subscription_type: Database["public"]["Enums"]["subscription_type"]
+          total_lessons: number | null
+          total_price: number
+          updated_at: string
+          valid_until: string | null
+        }
+        Insert: {
+          auto_charge?: boolean | null
+          branch?: string
+          created_at?: string
+          created_by?: string | null
+          discount_amount?: number | null
+          discount_percent?: number | null
+          end_date?: string | null
+          freeze_enabled?: boolean | null
+          group_id?: string | null
+          id?: string
+          level?: string | null
+          makeup_lessons_allowed?: boolean | null
+          name: string
+          notes?: string | null
+          price_per_lesson?: number | null
+          remaining_lessons?: number | null
+          start_date: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          student_id: string
+          subject?: string
+          subscription_type: Database["public"]["Enums"]["subscription_type"]
+          total_lessons?: number | null
+          total_price: number
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Update: {
+          auto_charge?: boolean | null
+          branch?: string
+          created_at?: string
+          created_by?: string | null
+          discount_amount?: number | null
+          discount_percent?: number | null
+          end_date?: string | null
+          freeze_enabled?: boolean | null
+          group_id?: string | null
+          id?: string
+          level?: string | null
+          makeup_lessons_allowed?: boolean | null
+          name?: string
+          notes?: string | null
+          price_per_lesson?: number | null
+          remaining_lessons?: number | null
+          start_date?: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          student_id?: string
+          subject?: string
+          subscription_type?: Database["public"]["Enums"]["subscription_type"]
+          total_lessons?: number | null
+          total_price?: number
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "learning_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           branch: string | null
@@ -2053,6 +2319,8 @@ export type Database = {
       payment_method: "per_lesson" | "monthly" | "course" | "package"
       relationship_type: "main" | "spouse" | "parent" | "guardian" | "other"
       student_status: "active" | "inactive" | "trial" | "graduated"
+      subscription_status: "active" | "paused" | "expired" | "cancelled"
+      subscription_type: "per_lesson" | "monthly" | "weekly"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2218,6 +2486,8 @@ export const Constants = {
       payment_method: ["per_lesson", "monthly", "course", "package"],
       relationship_type: ["main", "spouse", "parent", "guardian", "other"],
       student_status: ["active", "inactive", "trial", "graduated"],
+      subscription_status: ["active", "paused", "expired", "cancelled"],
+      subscription_type: ["per_lesson", "monthly", "weekly"],
     },
   },
 } as const
