@@ -1084,7 +1084,7 @@ const CRMContent = () => {
               )}
             </div>
             <div className="flex items-center gap-2 h-14">
-              {(clientsLoading || threadsLoading || studentsLoading || pinnedLoading || chatStatesLoading || systemChatsLoading) && (
+              {(clientsLoading || threadsLoading || studentsLoading || pinnedLoading || chatStatesLoading || systemChatsLoading || statusLoading) && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
                   <span className="hidden sm:inline">Загрузка данных...</span>
