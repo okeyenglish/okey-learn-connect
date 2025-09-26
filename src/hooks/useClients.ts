@@ -30,18 +30,28 @@ export const useClients = () => {
   const { data: clients, isLoading, error } = useQuery({
     queryKey: ['clients'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('is_active', true)
-        .not('name', 'ilike', 'Преподаватель:%')
-        .not('name', 'ilike', 'Teacher:%')
-        .not('name', 'ilike', 'Чат педагогов - %')
-        .not('name', 'ilike', 'Корпоративный чат - %')
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return data as Client[];
+      console.log('Fetching clients...', { userId: supabase.auth.getUser() });
+      try {
+        const { data, error } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('is_active', true)
+          .not('name', 'ilike', 'Преподаватель:%')
+          .not('name', 'ilike', 'Teacher:%')
+          .not('name', 'ilike', 'Чат педагогов - %')
+          .not('name', 'ilike', 'Корпоративный чат - %')
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          console.error('Clients fetch error:', error);
+          throw error;
+        }
+        console.log('Clients fetched successfully:', data?.length);
+        return data as Client[];
+      } catch (err) {
+        console.error('Client fetch failed:', err);
+        throw err;
+      }
     },
   });
 

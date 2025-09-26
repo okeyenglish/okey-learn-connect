@@ -2003,18 +2003,6 @@ const CRMContent = () => {
                           </div>
                         )}
                         
-                        {item.label === "Расписание" && (
-                          <div className="h-full overflow-hidden">
-                            <ScheduleSection />
-                          </div>
-                        )}
-                        
-                        {item.label === "Финансы" && (
-                          <div className="h-full overflow-hidden">
-                            <FinancesSection />
-                          </div>
-                        )}
-                        
                         {!["Расписание", "Финансы", "Мои задачи", "Настройки", "Ученики"].includes(item.label) && (
                           <div className="text-center py-8">
                             <p className="text-muted-foreground">Функция "{item.label}" в разработке</p>
