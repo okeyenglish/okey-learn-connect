@@ -18,6 +18,7 @@ const InternalChatsSection = lazy(() => import('@/components/internal-chats/Inte
 const ReferencesSection = lazy(() => import('@/components/references/ReferencesSection'));
 const LeadsSection = lazy(() => import('@/components/leads/LeadsSection'));
 const FinancesSection = lazy(() => import('@/components/finances/FinancesSection'));
+const StudentsSection = lazy(() => import('@/components/students/StudentsSection'));
 
 const LoadingComponent = () => (
   <div className="flex items-center justify-center min-h-[400px]">
@@ -166,13 +167,13 @@ export default function UnifiedCRM() {
               } 
             />
             
-            {/* Лиды и продажи */}
+            {/* Ученики и клиенты */}
             <Route 
-              path="/leads" 
+              path="/students" 
               element={
-                <ProtectedRoute allowedRoles={['admin', 'sales_manager', 'marketing_manager', 'manager']}>
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'methodist', 'teacher']}>
                   <Suspense fallback={<LoadingComponent />}>
-                    <LeadsSection />
+                    <StudentsSection />
                   </Suspense>
                 </ProtectedRoute>
               } 

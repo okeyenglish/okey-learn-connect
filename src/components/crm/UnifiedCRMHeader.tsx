@@ -21,7 +21,8 @@ import {
   MessageCircle,
   Home,
   Target,
-  DollarSign
+  DollarSign,
+  UserCheck
 } from 'lucide-react';
 
 export const UnifiedCRMHeader = () => {
@@ -110,6 +111,12 @@ export const UnifiedCRMHeader = () => {
           href: '/crm/reports',
           icon: BarChart3,
           roles: ['admin', 'manager', 'methodist']
+        },
+        {
+          label: 'Ученики и клиенты',
+          href: '/crm/students',
+          icon: UserCheck,
+          roles: ['admin', 'manager', 'methodist', 'teacher']
         },
         {
           label: 'Лиды и продажи',
