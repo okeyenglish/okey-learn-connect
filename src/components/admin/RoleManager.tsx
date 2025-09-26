@@ -80,8 +80,15 @@ export const RoleManager = () => {
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(false);
 
-  // Проверяем разрешения
+  // Проверяем разрешения с отладкой
   const canManageRoles = hasPermissionSync('manage', 'roles') || hasPermissionSync('manage', 'all');
+  
+  // Отладочная информация
+  console.log('RoleManager permissions check:', {
+    canManageRoles,
+    hasManageRoles: hasPermissionSync('manage', 'roles'),
+    hasManageAll: hasPermissionSync('manage', 'all')
+  });
 
   // Загрузка пользователей с ролями
   const loadUsers = async () => {

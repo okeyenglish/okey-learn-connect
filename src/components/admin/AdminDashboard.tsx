@@ -4,6 +4,7 @@ import { AdminFAQManager } from "./AdminFAQManager";
 import { AdminScheduleManager } from "./AdminScheduleManager";
 import { WhatsAppSettings } from "./WhatsAppSettings";
 import { TextbookManager } from "./TextbookManager";
+import { RoleManager } from "./RoleManager";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -41,17 +42,7 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
           </Card>
         );
       case "users":
-        return (
-          <Card>
-            <CardHeader>
-              <CardTitle>User Management</CardTitle>
-              <CardDescription>Manage users and permissions</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">User management coming soon...</p>
-            </CardContent>
-          </Card>
-        );
+        return <RoleManager />;
       case "settings":
         return (
           <Card>

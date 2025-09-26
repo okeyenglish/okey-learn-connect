@@ -98,6 +98,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const commonPermissions = [
         { permission: 'manage', resource: 'all' },
         { permission: 'manage', resource: 'users' },
+        { permission: 'manage', resource: 'roles' },
         { permission: 'manage', resource: 'clients' },
         { permission: 'manage', resource: 'schedules' },
         { permission: 'manage', resource: 'groups' },
