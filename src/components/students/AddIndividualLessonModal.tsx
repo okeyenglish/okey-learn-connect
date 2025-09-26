@@ -60,6 +60,7 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
         branch: formData.branch,
         lesson_type: 'individual' as const,
         status: 'active' as const,
+        category: 'all' as const,
         is_active: true
       };
 

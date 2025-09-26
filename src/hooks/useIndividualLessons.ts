@@ -110,10 +110,22 @@ export const useIndividualLessons = (filters?: IndividualLessonFilters) => {
     },
   });
 
+  const createIndividualLesson = async (lessonData: Omit<IndividualLesson, 'id' | 'created_at' | 'updated_at'>) => {
+    const { data, error } = await supabase
+      .from('individual_lessons')
+      .insert([lessonData])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  };
+
   return {
     lessons: lessons || [],
     isLoading,
     error,
+    createIndividualLesson,
   };
 };
 

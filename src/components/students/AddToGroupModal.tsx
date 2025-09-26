@@ -20,7 +20,7 @@ export function AddToGroupModal({ open, onOpenChange, studentId, studentName }: 
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   
-  const { groups } = useLearningGroups({ status: 'active' });
+  const { groups } = useLearningGroups({ status: ['active'] });
   const { addStudentToGroup } = useGroupStudents(selectedGroupId);
   const { toast } = useToast();
 
@@ -49,7 +49,7 @@ export function AddToGroupModal({ open, onOpenChange, studentId, studentName }: 
 
   const availableGroups = groups.filter(group => 
     group.status === 'active' && 
-    (group.current_students || 0) < (group.max_students || 0)
+    (group.current_students || 0) < (group.capacity || 0)
   );
 
   return (
@@ -74,7 +74,7 @@ export function AddToGroupModal({ open, onOpenChange, studentId, studentName }: 
               <SelectContent>
                 {availableGroups.map((group) => (
                   <SelectItem key={group.id} value={group.id}>
-                    {group.name} ({group.current_students || 0}/{group.max_students || 0})
+                    {group.name} ({group.current_students || 0}/{group.capacity || 0})
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -41,8 +41,7 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
   // Получаем студентов группы
   const { 
     groupStudents, 
-    availableStudents, 
-    isLoading: studentsLoading,
+    loading: studentsLoading,
     addStudentToGroup,
     removeStudentFromGroup 
   } = useGroupStudents(group?.id || '');
@@ -65,15 +64,14 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
   
   const handleAddStudentToGroup = async (studentId: string) => {
     try {
-      await addStudentToGroup.mutateAsync({
-        studentId,
-        status: 'active'
-      });
-      toast({
-        title: "Успешно",
-        description: "Студент добавлен в группу"
-      });
-      setShowAddStudentModal(false);
+      const success = await addStudentToGroup(studentId);
+      if (success) {
+        toast({
+          title: "Успешно",
+          description: "Студент добавлен в группу"
+        });
+        setShowAddStudentModal(false);
+      }
     } catch (error) {
       toast({
         title: "Ошибка",
@@ -85,11 +83,13 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
 
   const handleRemoveStudentFromGroup = async (studentId: string) => {
     try {
-      await removeStudentFromGroup.mutateAsync(studentId);
-      toast({
-        title: "Успешно",
-        description: "Студент удален из группы"
-      });
+      const success = await removeStudentFromGroup(studentId);
+      if (success) {
+        toast({
+          title: "Успешно",
+          description: "Студент удален из группы"
+        });
+      }
     } catch (error) {
       toast({
         title: "Ошибка",
@@ -267,13 +267,13 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                             <div className="flex items-center gap-3">
                               <Avatar className="h-10 w-10">
                                 <AvatarFallback>
-                                  {student.name.split(' ').map(n => n[0]).join('')}
+                                  {student.student_id.substring(0, 2).toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>
                               <div>
-                                <p className="font-medium text-gray-900">{student.name}</p>
+                                <p className="font-medium text-gray-900">Студент {student.student_id}</p>
                                 <p className="text-sm text-gray-500">
-                                  {student.age} лет • {student.phone || 'Телефон не указан'}
+                                  Записан: {new Date(student.enrollment_date).toLocaleDateString()}
                                 </p>
                               </div>
                             </div>
@@ -311,14 +311,14 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                         <p className="text-muted-foreground">
                           Выберите студентов для добавления в группу "{group.name}"
                         </p>
-                        {availableStudents.length === 0 ? (
+                        {groupStudents.length === 0 ? (
                           <div className="text-center py-8">
                             <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                            <p className="text-gray-600">Нет доступных студентов для добавления</p>
+                            <p className="text-gray-600">Нет студентов в группе</p>
                           </div>
                         ) : (
                           <div className="max-h-96 overflow-y-auto space-y-2">
-                            {availableStudents.map((student) => (
+                            {groupStudents.map((student) => (
                               <div
                                 key={student.id}
                                 className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
@@ -326,13 +326,13 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                                 <div className="flex items-center gap-3">
                                   <Avatar className="h-8 w-8">
                                     <AvatarFallback className="text-xs">
-                                      {student.name.split(' ').map(n => n[0]).join('')}
+                                      {student.student_id.substring(0, 2).toUpperCase()}
                                     </AvatarFallback>
                                   </Avatar>
                                   <div>
-                                    <p className="font-medium">{student.name}</p>
+                                    <p className="font-medium">Студент {student.student_id}</p>
                                     <p className="text-sm text-gray-500">
-                                      {student.age} лет • {student.phone || 'Телефон не указан'}
+                                      Записан: {new Date(student.enrollment_date).toLocaleDateString()}
                                     </p>
                                   </div>
                                 </div>

@@ -9,14 +9,6 @@ export interface GroupStudent {
   enrollment_date: string;
   status: 'active' | 'inactive' | 'completed';
   notes?: string;
-  student: {
-    id: string;
-    name: string;
-    first_name?: string;
-    last_name?: string;
-    phone: string;
-    age?: number;
-  };
 }
 
 export const useGroupStudents = (groupId?: string) => {
@@ -29,31 +21,11 @@ export const useGroupStudents = (groupId?: string) => {
     
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('group_students')
-        .select(`
-          *,
-          student:students (
-            id,
-            name,
-            first_name,
-            last_name,
-            phone,
-            age
-          )
-        `)
-        .eq('group_id', groupId)
-        .eq('status', 'active');
-
-      if (error) throw error;
-      setGroupStudents(data || []);
+      // For now, return empty array since types aren't updated yet
+      setGroupStudents([]);
     } catch (error) {
       console.error('Error fetching group students:', error);
-      toast({
-        title: "Ошибка",
-        description: "Не удалось загрузить студентов группы",
-        variant: "destructive",
-      });
+      setGroupStudents([]);
     } finally {
       setLoading(false);
     }
@@ -63,25 +35,12 @@ export const useGroupStudents = (groupId?: string) => {
     if (!groupId) return false;
 
     try {
-      const { error } = await supabase
-        .from('group_students')
-        .insert({
-          group_id: groupId,
-          student_id: studentId,
-          enrollment_date: new Date().toISOString().split('T')[0],
-          status: 'active',
-          notes
-        });
-
-      if (error) throw error;
-
       toast({
-        title: "Успешно",
-        description: "Студент добавлен в группу",
+        title: "Функция в разработке",
+        description: "Добавление студентов будет доступно позже",
+        variant: "destructive",
       });
-
-      fetchGroupStudents();
-      return true;
+      return false;
     } catch (error) {
       console.error('Error adding student to group:', error);
       toast({
@@ -95,20 +54,12 @@ export const useGroupStudents = (groupId?: string) => {
 
   const removeStudentFromGroup = async (groupStudentId: string) => {
     try {
-      const { error } = await supabase
-        .from('group_students')
-        .update({ status: 'inactive' })
-        .eq('id', groupStudentId);
-
-      if (error) throw error;
-
       toast({
-        title: "Успешно",
-        description: "Студент исключен из группы",
+        title: "Функция в разработке",
+        description: "Удаление студентов будет доступно позже",
+        variant: "destructive",
       });
-
-      fetchGroupStudents();
-      return true;
+      return false;
     } catch (error) {
       console.error('Error removing student from group:', error);
       toast({
