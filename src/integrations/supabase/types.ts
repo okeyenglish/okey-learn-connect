@@ -799,6 +799,54 @@ export type Database = {
         }
         Relationships: []
       }
+      group_students: {
+        Row: {
+          created_at: string
+          enrollment_date: string
+          group_id: string
+          id: string
+          notes: string | null
+          status: Database["public"]["Enums"]["group_student_status"]
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enrollment_date?: string
+          group_id: string
+          id?: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["group_student_status"]
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enrollment_date?: string
+          group_id?: string
+          id?: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["group_student_status"]
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_students_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "learning_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       individual_lessons: {
         Row: {
           academic_hours: number | null
@@ -3381,6 +3429,7 @@ export type Database = {
       finance_price_type: "hourly" | "daily" | "monthly"
       group_category: "preschool" | "school" | "adult" | "all"
       group_status: "reserve" | "forming" | "active" | "suspended" | "finished"
+      group_student_status: "active" | "paused" | "completed" | "dropped"
       group_type: "general" | "individual" | "mini" | "corporate"
       lesson_status: "scheduled" | "cancelled" | "completed" | "rescheduled"
       message_status:
@@ -3560,6 +3609,7 @@ export const Constants = {
       finance_price_type: ["hourly", "daily", "monthly"],
       group_category: ["preschool", "school", "adult", "all"],
       group_status: ["reserve", "forming", "active", "suspended", "finished"],
+      group_student_status: ["active", "paused", "completed", "dropped"],
       group_type: ["general", "individual", "mini", "corporate"],
       lesson_status: ["scheduled", "cancelled", "completed", "rescheduled"],
       message_status: [
