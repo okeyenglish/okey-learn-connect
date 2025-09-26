@@ -44,6 +44,7 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from '@/components/ui/tooltip';
+import { AddUserModal } from './AddUserModal';
 import { useRoles } from '@/hooks/useRoles';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -78,6 +79,7 @@ export const RoleManager = () => {
   const [selectedUser, setSelectedUser] = useState<UserWithRoles | null>(null);
   const [selectedRole, setSelectedRole] = useState<AppRole | ''>('');
   const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [showAddUserDialog, setShowAddUserDialog] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(false);
 
   // Проверяем разрешения с отладкой
@@ -173,13 +175,25 @@ export const RoleManager = () => {
           </p>
         </div>
         
-        <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-          <DialogTrigger asChild>
-            <Button>
+        <div className="flex gap-2">
+          <AddUserModal 
+            open={showAddUserDialog} 
+            onOpenChange={setShowAddUserDialog}
+            onUserAdded={loadUsers}
+          >
+            <Button variant="outline">
               <UserPlus className="h-4 w-4 mr-2" />
-              Назначить роль
+              Добавить пользователя
             </Button>
-          </DialogTrigger>
+          </AddUserModal>
+
+          <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
+            <DialogTrigger asChild>
+              <Button>
+                <Settings className="h-4 w-4 mr-2" />
+                Назначить роль
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Назначить роль пользователю</DialogTitle>
@@ -250,6 +264,7 @@ export const RoleManager = () => {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Tabs defaultValue="users" className="space-y-4">

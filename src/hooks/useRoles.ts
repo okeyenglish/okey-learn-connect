@@ -124,11 +124,37 @@ export const useRoles = () => {
   // Назначить роль пользователю
   const assignRole = async (userId: string, role: AppRole) => {
     try {
+      console.log('Assigning role:', { userId, role });
+      
+      // Проверяем, есть ли уже такая роль у пользователя
+      const { data: existingRole, error: checkError } = await supabase
+        .from('user_roles')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('role', role)
+        .single();
+      
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
+      
+      if (existingRole) {
+        toast({
+          title: "Информация",
+          description: `У пользователя уже есть роль ${getRoleDisplayName(role)}`,
+          variant: "default"
+        });
+        return false;
+      }
+      
       const { error } = await supabase
         .from('user_roles')
         .insert({ user_id: userId, role });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
       
       toast({
         title: "Успешно",
@@ -137,11 +163,19 @@ export const useRoles = () => {
       
       await fetchUserRoles();
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error assigning role:', error);
+      let errorMessage = "Не удалось назначить роль";
+      
+      if (error.code === '23505') {
+        errorMessage = "У пользователя уже есть эта роль";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Ошибка",
-        description: "Не удалось назначить роль",
+        description: errorMessage,
         variant: "destructive"
       });
       return false;
