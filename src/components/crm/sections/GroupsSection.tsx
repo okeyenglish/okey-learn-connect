@@ -11,7 +11,6 @@ import { useLearningGroups, GroupFilters } from '@/hooks/useLearningGroups';
 import { useIndividualLessons, IndividualLessonFilters } from '@/hooks/useIndividualLessons';
 
 export default function GroupsSection() {
-  const [showAddGroupModal, setShowAddGroupModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<GroupFilters>({
     search: '',
@@ -80,10 +79,7 @@ export default function GroupsSection() {
             <Filter className="h-4 w-4 mr-2" />
             Фильтры
           </Button>
-          <Button onClick={() => setShowAddGroupModal(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Добавить группу
-          </Button>
+          <AddGroupModal onGroupAdded={() => window.location.reload()} />
         </div>
       </div>
 
@@ -328,14 +324,7 @@ export default function GroupsSection() {
       </Tabs>
 
       {/* Модальное окно для добавления группы */}
-      <AddGroupModal 
-        children={
-          <Button onClick={() => setShowAddGroupModal(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Добавить группу
-          </Button>
-        }
-      />
+      <AddGroupModal onGroupAdded={() => window.location.reload()} />
     </div>
   );
 }
