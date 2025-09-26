@@ -6,13 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search, RotateCcw, Calendar, Filter } from "lucide-react";
-import { SessionFilters } from "@/hooks/useLessonSessions";
+import { ScheduleFilters } from "@/hooks/useScheduleData";
 import { useTeachers } from "@/hooks/useTeachers";
 import { getBranchesForSelect } from "@/lib/branches";
 
 interface AdvancedScheduleFiltersProps {
-  filters: SessionFilters;
-  onFiltersChange: (filters: SessionFilters) => void;
+  filters: ScheduleFilters;
+  onFiltersChange: (filters: ScheduleFilters) => void;
   onReset: () => void;
   viewFormat: string;
   onViewFormatChange: (format: string) => void;
@@ -39,7 +39,7 @@ export const AdvancedScheduleFilters = ({
   const { teachers } = useTeachers({});
   const branches = getBranchesForSelect();
 
-  const updateFilter = (key: keyof SessionFilters, value: string | undefined) => {
+  const updateFilter = (key: keyof ScheduleFilters, value: string | undefined) => {
     onFiltersChange({
       ...filters,
       [key]: value || undefined

@@ -2,15 +2,15 @@ import React, { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock } from "lucide-react";
-import { useLessonSessions, SessionFilters, getStatusColor } from "@/hooks/useLessonSessions";
-import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, addDays, startOfDay } from "date-fns";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Users } from "lucide-react";
+import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, addDays } from "date-fns";
 import { ru } from "date-fns/locale";
-import { useLearningGroups } from "@/hooks/useLearningGroups";
+import { useScheduleData, ScheduleFilters, getSessionStatusColor, getDayNames } from "@/hooks/useScheduleData";
 import { GroupDetailModal } from "@/components/learning-groups/GroupDetailModal";
+import { useLearningGroups } from "@/hooks/useLearningGroups";
 
 interface TeacherScheduleGridProps {
-  filters: SessionFilters;
+  filters: ScheduleFilters;
   viewFormat: string;
   gridSettings: {
     timeStep: string;
@@ -24,6 +24,10 @@ export const TeacherScheduleGrid = ({ filters, viewFormat, gridSettings }: Teach
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedGroup, setSelectedGroup] = useState<any>(null);
   const [groupModalOpen, setGroupModalOpen] = useState(false);
+
+  // Get sessions using real data
+  const { data: sessions = [], isLoading } = useScheduleData(filters);
+  const { groups } = useLearningGroups({});
 
   // Generate time slots based on grid settings
   const timeSlots = useMemo(() => {
@@ -65,16 +69,6 @@ export const TeacherScheduleGrid = ({ filters, viewFormat, gridSettings }: Teach
     return eachDayOfInterval({ start, end });
   }, [currentWeek]);
 
-  // Get sessions for current week
-  const weekFilters = {
-    ...filters,
-    date_from: format(startOfWeek(currentWeek, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
-    date_to: format(endOfWeek(currentWeek, { weekStartsOn: 1 }), 'yyyy-MM-dd')
-  };
-
-  const { data: sessions = [], isLoading } = useLessonSessions(weekFilters);
-  const { groups } = useLearningGroups({});
-
   // Get unique teachers with their total hours
   const teachersWithHours = useMemo(() => {
     const teacherStats: { [name: string]: { sessions: any[], totalHours: number } } = {};
@@ -85,8 +79,8 @@ export const TeacherScheduleGrid = ({ filters, viewFormat, gridSettings }: Teach
         teacherStats[teacherName] = { sessions: [], totalHours: 0 };
       }
       teacherStats[teacherName].sessions.push(session);
-      // Calculate hours (assuming each session is 1.5 hours by default)
-      teacherStats[teacherName].totalHours += 1.5;
+      // Calculate hours based on schedule (assuming 1.5 hours per session by default)
+      teacherStats[teacherName].totalHours += session.days.length * 1.5;
     });
 
     return Object.entries(teacherStats)
@@ -98,27 +92,37 @@ export const TeacherScheduleGrid = ({ filters, viewFormat, gridSettings }: Teach
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [sessions]);
 
-  // Create grid data structure
+  // Create grid data structure based on teacher schedules
   const gridData = useMemo(() => {
-    const grid: { [teacherName: string]: { [dateTimeKey: string]: any } } = {};
+    const grid: { [teacherName: string]: { [dayKey: string]: any[] } } = {};
     
     teachersWithHours.forEach(teacher => {
       grid[teacher.name] = {};
+      weekDays.forEach(day => {
+        const dayKey = format(day, 'yyyy-MM-dd');
+        grid[teacher.name][dayKey] = [];
+      });
     });
 
+    // Map sessions to grid based on their schedule days
     sessions.forEach(session => {
       const teacher = session.teacher_name;
-      const dateKey = session.lesson_date;
-      const timeKey = session.start_time.substring(0, 5);
-      const key = `${dateKey}-${timeKey}`;
-      
       if (grid[teacher]) {
-        grid[teacher][key] = session;
+        // Map days to actual dates in current week
+        session.days.forEach(dayName => {
+          const dayIndex = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].indexOf(dayName.toLowerCase());
+          if (dayIndex !== -1 && dayIndex < weekDays.length) {
+            const dayKey = format(weekDays[dayIndex], 'yyyy-MM-dd');
+            if (grid[teacher][dayKey]) {
+              grid[teacher][dayKey].push(session);
+            }
+          }
+        });
       }
     });
 
     return grid;
-  }, [sessions, teachersWithHours]);
+  }, [sessions, teachersWithHours, weekDays]);
 
   const goToPreviousWeek = () => {
     setCurrentWeek(prev => subWeeks(prev, 1));
@@ -133,8 +137,8 @@ export const TeacherScheduleGrid = ({ filters, viewFormat, gridSettings }: Teach
   };
 
   const handleSessionClick = (session: any) => {
-    if (session.group_id) {
-      const group = groups.find(g => g.id === session.group_id);
+    if (session.type === 'group') {
+      const group = groups.find(g => g.id === session.id);
       if (group) {
         setSelectedGroup(group);
         setGroupModalOpen(true);
@@ -143,23 +147,31 @@ export const TeacherScheduleGrid = ({ filters, viewFormat, gridSettings }: Teach
   };
 
   const getLessonCardContent = (session: any) => {
+    const status = !session.teacher_name || session.teacher_name === 'Не назначен' 
+      ? 'no_teacher' 
+      : session.status;
+    
     return (
       <div 
-        className={`p-2 rounded text-xs h-full cursor-pointer transition-all hover:shadow-md border ${getStatusColor(session.status)}`}
-        title={`${session.learning_groups?.name || 'Группа'}\n${session.branch} ${session.classroom}\n${session.start_time} - ${session.end_time}`}
+        className={`p-2 rounded text-xs h-full cursor-pointer transition-all hover:shadow-md border ${getSessionStatusColor(status)}`}
+        title={`${session.name}\n${session.branch} ${session.classroom || ''}\n${session.time}\nУчеников: ${session.student_count}/${session.capacity || 'N/A'}`}
         onClick={() => handleSessionClick(session)}
       >
         <div className="font-medium truncate">
-          {session.learning_groups?.name || session.learning_groups?.level || 'Группа'}
+          {session.name}
         </div>
         <div className="text-xs opacity-90 truncate">
           {session.branch} {session.classroom}
         </div>
         <div className="text-xs opacity-75">
-          {session.start_time.substring(0, 5)}-{session.end_time.substring(0, 5)}
+          {session.time}
         </div>
-        <div className="text-xs opacity-75 truncate">
-          {format(new Date(session.lesson_date + 'T00:00:00'), 'dd.MM') + ' — ' + format(addDays(new Date(session.lesson_date + 'T00:00:00'), 30), 'dd.MM')}
+        <div className="text-xs opacity-75 truncate flex items-center gap-1">
+          <Users className="h-3 w-3" />
+          {session.student_count}/{session.capacity || 'N/A'}
+        </div>
+        <div className="text-xs opacity-60 truncate">
+          {getDayNames(session.days)}
         </div>
       </div>
     );
@@ -242,20 +254,16 @@ export const TeacherScheduleGrid = ({ filters, viewFormat, gridSettings }: Teach
 
                 {/* Time slots or day columns */}
                 {(gridSettings.rotated ? timeSlots : weekDays).map((item, index) => {
-                  const sessionKey = gridSettings.rotated 
-                    ? // For time-based view, show sessions for this time across all days
-                      Object.keys(gridData[teacher.name] || {}).find(key => 
-                        key.endsWith(`-${(item as any).start}`)
-                      )
-                    : // For day-based view, show all sessions for this day
-                      null;
-                  
                   const daySessions = gridSettings.rotated 
-                    ? (sessionKey ? [gridData[teacher.name][sessionKey]] : []).filter(Boolean)
-                    : Object.entries(gridData[teacher.name] || {})
-                        .filter(([key]) => key.startsWith(format(item as Date, 'yyyy-MM-dd')))
-                        .map(([, session]) => session)
-                        .sort((a, b) => a.start_time.localeCompare(b.start_time));
+                    ? // For time-based view, filter sessions by time slot
+                      Object.values(gridData[teacher.name] || {})
+                        .flat()
+                        .filter(session => {
+                          const sessionStart = session.start_time || session.time.split('-')[0];
+                          return sessionStart >= (item as any).start && sessionStart < (item as any).end;
+                        })
+                    : // For day-based view, get sessions for this day
+                      gridData[teacher.name]?.[format(item as Date, 'yyyy-MM-dd')] || [];
 
                   return (
                     <div key={index} className="p-1 border-r relative min-h-[80px]">
@@ -265,6 +273,11 @@ export const TeacherScheduleGrid = ({ filters, viewFormat, gridSettings }: Teach
                             {getLessonCardContent(session)}
                           </div>
                         ))}
+                        {daySessions.length === 0 && !gridSettings.rotated && (
+                          <div className="text-xs text-muted-foreground text-center py-2">
+                            Свободно
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
