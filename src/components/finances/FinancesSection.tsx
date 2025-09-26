@@ -5,10 +5,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Plus, DollarSign, Receipt, CreditCard, Gift } from 'lucide-react';
 import { useFinances } from '@/hooks/useFinances';
+import { CreateInvoiceModal } from './CreateInvoiceModal';
+import { CreatePaymentModal } from './CreatePaymentModal';
+import { InvoicesTable } from './InvoicesTable';
+import { PaymentsTable } from './PaymentsTable';
 
 export default function FinancesSection() {
   const { currencies, invoices, payments, bonusAccounts, loading } = useFinances();
   const [activeTab, setActiveTab] = useState('overview');
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   const stats = {
     totalInvoices: invoices.length,
@@ -31,14 +37,25 @@ export default function FinancesSection() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Создать счет
-          </Button>
-          <Button variant="outline">
-            <CreditCard className="h-4 w-4 mr-2" />
-            Добавить платеж
-          </Button>
+          <CreateInvoiceModal 
+            open={showInvoiceModal} 
+            onOpenChange={setShowInvoiceModal}
+          >
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Создать счет
+            </Button>
+          </CreateInvoiceModal>
+          
+          <CreatePaymentModal 
+            open={showPaymentModal} 
+            onOpenChange={setShowPaymentModal}
+          >
+            <Button variant="outline">
+              <CreditCard className="h-4 w-4 mr-2" />
+              Добавить платеж
+            </Button>
+          </CreatePaymentModal>
         </div>
       </div>
 
@@ -231,15 +248,7 @@ export default function FinancesSection() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : (
-                <p className="text-muted-foreground">
-                  Таблица счетов будет доступна после завершения настройки базы данных
-                </p>
-              )}
+              <InvoicesTable />
             </CardContent>
           </Card>
         </TabsContent>
@@ -253,15 +262,7 @@ export default function FinancesSection() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : (
-                <p className="text-muted-foreground">
-                  Таблица платежей будет доступна после завершения настройки базы данных
-                </p>
-              )}
+              <PaymentsTable />
             </CardContent>
           </Card>
         </TabsContent>
