@@ -21,6 +21,7 @@ import {
 import { AddStudentModal } from './AddStudentModal';
 import { StudentsTable } from './StudentsTable';
 import { StudentCard } from './StudentCard';
+import { useStudents } from '@/hooks/useStudents';
 
 export default function StudentsSection() {
   const [activeTab, setActiveTab] = useState('all');
@@ -30,14 +31,27 @@ export default function StudentsSection() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedLevel, setSelectedLevel] = useState('all');
 
-  // Моковые данные для демонстрации
+  const { students, isLoading: loading } = useStudents();
+
+  // Вычисляем статистику из реальных данных
   const studentsStats = {
-    total: 284,
-    active: 241,
-    paused: 18,
-    inactive: 25,
-    newThisMonth: 32,
-    graduatedThisMonth: 8
+    total: students.length,
+    active: students.filter(s => s.status === 'active').length,
+    paused: students.filter(s => s.status === 'trial').length, // используем trial как paused
+    inactive: students.filter(s => s.status === 'inactive').length,
+    newThisMonth: students.filter(s => {
+      const createdAt = new Date(s.created_at);
+      const now = new Date();
+      return createdAt.getMonth() === now.getMonth() && 
+             createdAt.getFullYear() === now.getFullYear();
+    }).length,
+    graduatedThisMonth: students.filter(s => {
+      if (s.status !== 'graduated') return false;
+      const updatedAt = new Date(s.updated_at);
+      const now = new Date();
+      return updatedAt.getMonth() === now.getMonth() && 
+             updatedAt.getFullYear() === now.getFullYear();
+    }).length
   };
 
   return (

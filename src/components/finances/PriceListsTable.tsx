@@ -39,75 +39,9 @@ export function PriceListsTable() {
   const [loading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  // Моковые данные для демонстрации
-  const priceLists: PriceList[] = [
-    {
-      id: '1',
-      name: 'Стандартный прайс-лист',
-      description: 'Основные цены на индивидуальные и групповые занятия',
-      branch: 'Окская',
-      is_active: true,
-      is_default: true,
-      valid_from: '2024-01-01',
-      created_at: '2024-01-01T00:00:00Z',
-      updated_at: '2024-01-15T10:00:00Z'
-    },
-    {
-      id: '2',
-      name: 'Летние цены 2024',
-      description: 'Специальные цены на летний период',
-      branch: 'Мытищи',
-      is_active: true,
-      is_default: false,
-      valid_from: '2024-06-01',
-      valid_until: '2024-08-31',
-      created_at: '2024-05-15T00:00:00Z',
-      updated_at: '2024-05-20T14:00:00Z'
-    },
-    {
-      id: '3',
-      name: 'VIP услуги',
-      description: 'Премиум услуги и индивидуальное обучение',
-      branch: 'Люберцы',
-      is_active: true,
-      is_default: false,
-      created_at: '2024-03-01T00:00:00Z',
-      updated_at: '2024-03-10T16:30:00Z'
-    }
-  ];
-
-  const samplePrices: Price[] = [
-    {
-      id: '1',
-      price_list_id: '1',
-      service_name: 'Индивидуальное занятие 60 мин',
-      service_category: 'individual',
-      price: 2500,
-      currency: 'RUB',
-      unit: 'занятие',
-      is_active: true
-    },
-    {
-      id: '2',
-      price_list_id: '1',
-      service_name: 'Групповое занятие (4-6 чел) 90 мин',
-      service_category: 'group',
-      price: 1200,
-      currency: 'RUB',
-      unit: 'занятие',
-      is_active: true
-    },
-    {
-      id: '3',
-      price_list_id: '1',
-      service_name: 'Разговорный клуб',
-      service_category: 'club',
-      price: 800,
-      currency: 'RUB',
-      unit: 'занятие',
-      is_active: true
-    }
-  ];
+  // Пока используем пустые массивы, так как соответствующих таблиц еще нет в БД
+  const priceLists: PriceList[] = [];
+  const samplePrices: Price[] = [];
 
   const filteredPriceLists = priceLists.filter(priceList => {
     const matchesSearch = 

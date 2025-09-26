@@ -53,29 +53,28 @@ export function useFinances() {
   const [invoices] = useState<Invoice[]>([]);
   const [payments] = useState<Payment[]>([]);
   const [bonusAccounts] = useState<BonusAccount[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const { toast } = useToast();
 
   const fetchCurrencies = async () => {
-    // Will be implemented when database is ready
+    // Будет реализовано когда БД будет готова
   };
 
   const fetchInvoices = async () => {
-    // Will be implemented when database is ready
+    // Будет реализовано когда БД будет готова
   };
 
   const fetchPayments = async () => {
-    // Will be implemented when database is ready
+    // Будет реализовано когда БД будет готова
   };
 
   const fetchBonusAccounts = async () => {
-    // Will be implemented when database is ready
+    // Будет реализовано когда БД будет готова
   };
 
   const createInvoice = async (invoiceData: Partial<Invoice>) => {
-    setLoading(true);
     try {
-      // Will be implemented when database is ready
+      // Будет реализовано когда БД будет готова
       toast({
         title: "Успешно",
         description: "Счет создан",
@@ -87,15 +86,12 @@ export function useFinances() {
         variant: "destructive",
       });
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
   const createPayment = async (paymentData: Partial<Payment>) => {
-    setLoading(true);
     try {
-      // Will be implemented when database is ready
+      // Будет реализовано когда БД будет готова
       toast({
         title: "Успешно",
         description: "Платеж создан",
@@ -107,8 +103,6 @@ export function useFinances() {
         variant: "destructive",
       });
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
