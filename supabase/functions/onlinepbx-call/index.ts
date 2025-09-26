@@ -155,8 +155,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('OnlinePBX call error:', error);
+    const message = (error as any)?.message ?? 'Server error';
     return new Response(JSON.stringify({ 
-      error: error.message,
+      error: message,
       success: false 
     }), {
       status: 500,

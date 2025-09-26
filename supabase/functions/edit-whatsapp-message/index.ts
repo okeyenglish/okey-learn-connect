@@ -161,10 +161,11 @@ serve(async (req) => {
       }
     } catch (error) {
       console.error('Error editing message:', error)
+      const message = (error as any)?.message ?? 'Failed to edit message'
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: `Failed to edit message: ${error.message}`
+          error: `Failed to edit message: ${message}`
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -175,8 +176,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Unexpected error:', error)
+    const message = (error as any)?.message ?? 'Unexpected error'
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: message }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500 

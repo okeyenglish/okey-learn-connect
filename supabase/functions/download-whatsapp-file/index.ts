@@ -65,8 +65,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error downloading WhatsApp file:', error);
+    const message = (error as any)?.message ?? 'Server error';
     return new Response(JSON.stringify({ 
-      error: error.message,
+      error: message,
       success: false 
     }), {
       status: 500,

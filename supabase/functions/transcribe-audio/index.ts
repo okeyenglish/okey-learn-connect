@@ -70,7 +70,7 @@ serve(async (req) => {
     console.error('Transcription error:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message,
+        error: (error as any)?.message ?? 'Server error',
         success: false 
       }),
       {

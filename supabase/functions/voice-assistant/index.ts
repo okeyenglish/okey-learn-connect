@@ -57,7 +57,7 @@ serve(async (req) => {
         }
 
         const formData = new FormData();
-        const blob = new Blob([binaryAudio], { type: 'audio/webm' });
+        const blob = new Blob([binaryAudio.buffer as ArrayBuffer], { type: 'audio/webm' });
         formData.append('file', blob, 'audio.webm');
         formData.append('model', 'whisper-1');
         formData.append('language', 'ru');
@@ -88,10 +88,11 @@ serve(async (req) => {
         }
       } catch (error) {
         console.error('Audio processing error details:', error);
-        if (error.message.includes('транскрипции') || error.message.includes('формат')) {
+        const msg = (error as any)?.message ?? '';
+        if (msg.includes('транскрипции') || msg.includes('формат')) {
           throw error;
         }
-        throw new Error('Ошибка обработки аудио: ' + error.message);
+        throw new Error('Ошибка обработки аудио: ' + msg);
       }
     } else if (command || text) {
       userCommand = command || text;
@@ -597,8 +598,8 @@ serve(async (req) => {
               }
 
               // Сортировка по дате и времени
-              taskQuery = taskQuery.order('due_date', { ascending: true, nullsLast: true })
-                                  .order('due_time', { ascending: true, nullsLast: true })
+              taskQuery = taskQuery.order('due_date', { ascending: true })
+                                  .order('due_time', { ascending: true })
                                   .limit(50);
 
               const { data: tasks, error: tasksError } = await taskQuery;
@@ -609,7 +610,7 @@ serve(async (req) => {
               } else if (tasks && tasks.length > 0) {
                 // Получаем информацию о клиентах для задач с client_id
                 const clientIds = tasks.filter(t => t.client_id).map(t => t.client_id);
-                let clientsMap = {};
+                let clientsMap: Record<string, any> = {};
                 
                 if (clientIds.length > 0) {
                   const { data: clientsData } = await supabase
@@ -618,10 +619,10 @@ serve(async (req) => {
                     .in('id', clientIds);
                   
                   if (clientsData) {
-                    clientsMap = clientsData.reduce((acc, client) => {
+                    clientsMap = clientsData.reduce((acc: Record<string, any>, client: any) => {
                       acc[client.id] = client;
                       return acc;
-                    }, {});
+                    }, {} as Record<string, any>);
                   }
                 }
 

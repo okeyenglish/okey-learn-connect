@@ -245,7 +245,8 @@ serve(async (req) => {
 
       console.log('Cleanup completed: removed legacy pricing and outdated Telegram handle entries if existed');
     } catch (cleanupErr) {
-      console.warn('Cleanup warning:', cleanupErr?.message);
+      const msg = (cleanupErr as any)?.message ?? 'cleanup error';
+      console.warn('Cleanup warning:', msg);
     }
 
     let processed = 0;
@@ -307,7 +308,8 @@ serve(async (req) => {
 
         if (error) {
           console.error(`Database error for ${item.title}:`, error);
-          errors.push(`${item.title}: Database error - ${error.message}`);
+          const msg = (error as any)?.message ?? 'DB error';
+          errors.push(`${item.title}: Database error - ${msg}`);
         } else {
           console.log(`✅ Successfully saved: ${item.title}`);
           processed++;
@@ -321,7 +323,8 @@ serve(async (req) => {
         
       } catch (itemError) {
         console.error(`Unexpected error processing ${item.title}:`, itemError);
-        errors.push(`${item.title}: Unexpected error - ${itemError.message}`);
+        const msg = (itemError as any)?.message ?? 'Unexpected error';
+        errors.push(`${item.title}: Unexpected error - ${msg}`);
       }
     }
 
@@ -343,13 +346,14 @@ serve(async (req) => {
   } catch (error) {
     console.error('=== FATAL ERROR ===');
     console.error('Error details:', error);
-    console.error('Stack trace:', error.stack);
+    const stack = (error as any)?.stack;
+    const message = (error as any)?.message ?? 'Unknown server error';
     
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: error?.message || "Unknown server error",
-        stack: error?.stack 
+        error: message,
+        stack: stack 
       }), 
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

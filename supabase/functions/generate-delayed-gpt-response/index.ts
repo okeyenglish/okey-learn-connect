@@ -388,9 +388,10 @@ ${newMessages}
 
     } catch (error) {
       console.error('Error in inner try block:', error);
+      const message = (error as any)?.message ?? 'Server error';
       return new Response(JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: message 
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -398,9 +399,10 @@ ${newMessages}
     }
   } catch (error) {
     console.error('Error in generate-delayed-gpt-response:', error);
+    const message = (error as any)?.message ?? 'Server error';
     return new Response(JSON.stringify({ 
       success: false, 
-      error: error.message 
+      error: message 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
