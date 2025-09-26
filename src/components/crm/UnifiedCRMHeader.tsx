@@ -18,6 +18,7 @@ import {
   Building,
   BarChart3,
   Menu,
+  MessageCircle,
   Home
 } from 'lucide-react';
 
@@ -107,6 +108,12 @@ export const UnifiedCRMHeader = () => {
           href: '/crm/reports',
           icon: BarChart3,
           roles: ['admin', 'manager', 'methodist']
+        },
+        {
+          label: 'Внутренние чаты',
+          href: '/crm/internal-chats',
+          icon: MessageCircle,
+          roles: ['admin', 'manager', 'methodist', 'teacher']
         }
       );
     }
