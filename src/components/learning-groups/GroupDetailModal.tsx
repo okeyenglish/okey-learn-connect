@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { LearningGroup } from "@/hooks/useLearningGroups";
-import { Calendar, Users, BookOpen, MapPin, Clock, User, Phone, Mail, Video, ExternalLink, Edit, Plus, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { Calendar, Users, BookOpen, MapPin, Clock, User, Phone, Mail, Video, ExternalLink, Edit, Plus, ChevronDown, ChevronUp, Trash2, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -16,6 +16,8 @@ import { AddHomeworkModal } from "./AddHomeworkModal";
 import { EditGroupDetailsModal } from "./EditGroupDetailsModal";
 import { GroupScheduleCalendar } from "./GroupScheduleCalendar";
 import { useToast } from "@/hooks/use-toast";
+import { useGroupStudents } from "@/hooks/useGroupStudents";
+import { useStudents } from "@/hooks/useStudents";
 
 interface GroupDetailModalProps {
   group: LearningGroup | null;
@@ -28,9 +30,23 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
   const [statisticsExpanded, setStatisticsExpanded] = useState(true);
   const [parametersExpanded, setParametersExpanded] = useState(true);
   const [userFieldsExpanded, setUserFieldsExpanded] = useState(true);
+  const [studentsExpanded, setStudentsExpanded] = useState(true);
   const [addScheduleOpen, setAddScheduleOpen] = useState(false);
   const [addHomeworkOpen, setAddHomeworkOpen] = useState(false);
   const [editDetailsOpen, setEditDetailsOpen] = useState(false);
+  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
+  
+  const { toast } = useToast();
+  
+  // Получаем студентов группы
+  const { 
+    groupStudents, 
+    availableStudents, 
+    isLoading: studentsLoading,
+    addStudentToGroup,
+    removeStudentFromGroup 
+  } = useGroupStudents(group?.id || '');
+  
   const [scheduleData, setScheduleData] = useState([
     { day: "Ср/Пт", time: "с 20:00 до 21:00", period: "с 03.09 по 27.02.26", room: "Ауд. London" },
     { day: "Пн/Ср", time: "с 19:00 до 20:00", period: "с 21.07 по 29.08", room: "Ауд. New York" },
@@ -47,7 +63,41 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
     { student: "Tchuente Dany", assignment: "18 августа 2025 г.", showInLK: true, comments: "UNIT 2 – REVISION EXERCISE" }
   ]);
   
-  const { toast } = useToast();
+  const handleAddStudentToGroup = async (studentId: string) => {
+    try {
+      await addStudentToGroup.mutateAsync({
+        studentId,
+        status: 'active'
+      });
+      toast({
+        title: "Успешно",
+        description: "Студент добавлен в группу"
+      });
+      setShowAddStudentModal(false);
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось добавить студента в группу",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleRemoveStudentFromGroup = async (studentId: string) => {
+    try {
+      await removeStudentFromGroup.mutateAsync(studentId);
+      toast({
+        title: "Успешно",
+        description: "Студент удален из группы"
+      });
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось удалить студента из группы",
+        variant: "destructive"
+      });
+    }
+  };
 
   if (!group) return null;
 
@@ -171,9 +221,10 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          <Tabs defaultValue="schedule" className="h-full">
+          <Tabs defaultValue="students" className="h-full">
             <div className="border-b px-6">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="students">Студенты</TabsTrigger>
                 <TabsTrigger value="schedule">Расписание</TabsTrigger>
                 <TabsTrigger value="homework">Домашние задания / планы занятий</TabsTrigger>
                 <TabsTrigger value="details">Детали группы</TabsTrigger>
@@ -181,8 +232,124 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
             </div>
 
             <div className="p-6">
-              <TabsContent value="schedule" className="space-y-6 mt-0">
-                <GroupScheduleCalendar groupId={group.id} />
+              <TabsContent value="students" className="space-y-6 mt-0">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold text-blue-600">
+                    Студенты группы ({groupStudents.length}/{group.capacity})
+                  </h3>
+                  <Button 
+                    size="sm" 
+                    className="bg-blue-500 hover:bg-blue-600"
+                    onClick={() => setShowAddStudentModal(true)}
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Добавить студента
+                  </Button>
+                </div>
+
+                <Card>
+                  <CardContent className="p-0">
+                    {studentsLoading ? (
+                      <div className="p-8 text-center">
+                        <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                        <p className="text-gray-600">Загрузка студентов...</p>
+                      </div>
+                    ) : groupStudents.length === 0 ? (
+                      <div className="p-8 text-center">
+                        <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">Нет студентов</h3>
+                        <p className="text-gray-600">Добавьте студентов в эту группу</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-gray-200">
+                        {groupStudents.map((student) => (
+                          <div key={student.id} className="p-4 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-10 w-10">
+                                <AvatarFallback>
+                                  {student.name.split(' ').map(n => n[0]).join('')}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium text-gray-900">{student.name}</p>
+                                <p className="text-sm text-gray-500">
+                                  {student.age} лет • {student.phone || 'Телефон не указан'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                variant={student.status === 'active' ? 'default' : 'secondary'}
+                                className={student.status === 'active' ? 'bg-green-100 text-green-800' : ''}
+                              >
+                                {student.status === 'active' ? 'Активен' : 'Неактивен'}
+                              </Badge>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-red-600 hover:bg-red-50"
+                                onClick={() => handleRemoveStudentFromGroup(student.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Модальное окно для добавления студента */}
+                {showAddStudentModal && (
+                  <Dialog open={showAddStudentModal} onOpenChange={setShowAddStudentModal}>
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>Добавить студента в группу</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <p className="text-muted-foreground">
+                          Выберите студентов для добавления в группу "{group.name}"
+                        </p>
+                        {availableStudents.length === 0 ? (
+                          <div className="text-center py-8">
+                            <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                            <p className="text-gray-600">Нет доступных студентов для добавления</p>
+                          </div>
+                        ) : (
+                          <div className="max-h-96 overflow-y-auto space-y-2">
+                            {availableStudents.map((student) => (
+                              <div
+                                key={student.id}
+                                className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <Avatar className="h-8 w-8">
+                                    <AvatarFallback className="text-xs">
+                                      {student.name.split(' ').map(n => n[0]).join('')}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <p className="font-medium">{student.name}</p>
+                                    <p className="text-sm text-gray-500">
+                                      {student.age} лет • {student.phone || 'Телефон не указан'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleAddStudentToGroup(student.id)}
+                                >
+                                  Добавить
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </TabsContent>
 
               <TabsContent value="homework" className="space-y-6 mt-0">

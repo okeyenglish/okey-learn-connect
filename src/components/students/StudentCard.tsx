@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,26 +20,14 @@ import {
   Edit,
   Pause,
   Play,
-  Settings
+  Settings,
+  Users,
+  BookOpen
 } from 'lucide-react';
+// import { AddToGroupModal } from './AddToGroupModal';
+// import { AddIndividualLessonModal } from './AddIndividualLessonModal';
+import { Student } from '@/hooks/useStudents';
 
-interface Student {
-  id: string;
-  firstName: string;
-  lastName: string;
-  middleName?: string;
-  phone: string;
-  email: string;
-  level: string;
-  status: 'active' | 'paused' | 'inactive' | 'trial';
-  branch: string;
-  birthDate: string;
-  enrollmentDate: string;
-  lastVisit?: string;
-  subscriptionStatus?: 'active' | 'expired' | 'none';
-  avatar?: string;
-  bonusBalance: number;
-}
 
 interface StudentCardProps {
   student: Student;
@@ -47,16 +36,18 @@ interface StudentCardProps {
 }
 
 export function StudentCard({ student, open, onOpenChange }: StudentCardProps) {
+  const [showAddToGroup, setShowAddToGroup] = useState(false);
+  const [showAddIndividualLesson, setShowAddIndividualLesson] = useState(false);
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
         return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Активный</Badge>;
-      case 'paused':
-        return <Badge variant="secondary">На паузе</Badge>;
       case 'inactive':
         return <Badge variant="outline">Неактивный</Badge>;
       case 'trial':
         return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Пробный</Badge>;
+      case 'graduated':
+        return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100">Выпускник</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -92,12 +83,13 @@ export function StudentCard({ student, open, onOpenChange }: StudentCardProps) {
     return age;
   };
 
-  const getInitials = (firstName: string, lastName: string) => {
-    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+  const getInitials = (name: string) => {
+    const parts = name.split(' ');
+    return parts.length >= 2 ? `${parts[1].charAt(0)}${parts[0].charAt(0)}`.toUpperCase() : name.charAt(0).toUpperCase();
   };
 
   const getFullName = () => {
-    return [student.lastName, student.firstName, student.middleName]
+    return student.name || [student.last_name, student.first_name, student.middle_name]
       .filter(Boolean)
       .join(' ');
   };
@@ -135,16 +127,14 @@ export function StudentCard({ student, open, onOpenChange }: StudentCardProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <Avatar className="h-12 w-12">
-              <AvatarImage src={student.avatar} />
               <AvatarFallback>
-                {getInitials(student.firstName, student.lastName)}
+                {getInitials(student.name)}
               </AvatarFallback>
             </Avatar>
             <div>
               <h2 className="text-xl font-bold">{getFullName()}</h2>
               <div className="flex items-center gap-2 mt-1">
                 {getStatusBadge(student.status)}
-                <Badge variant="outline">{student.level}</Badge>
               </div>
             </div>
           </DialogTitle>
@@ -164,24 +154,17 @@ export function StudentCard({ student, open, onOpenChange }: StudentCardProps) {
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm">
-                    {calculateAge(student.birthDate)} лет ({formatDate(student.birthDate)})
+                    {student.age || calculateAge(student.date_of_birth || '')} лет 
+                    {student.date_of_birth && ` (${formatDate(student.date_of_birth)})`}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Phone className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{student.phone}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{student.email}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{student.branch}</span>
+                  <span className="text-sm">{student.phone || 'Не указан'}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">С {formatDate(student.enrollmentDate)}</span>
+                  <span className="text-sm">С {formatDate(student.created_at)}</span>
                 </div>
               </CardContent>
             </Card>
@@ -196,24 +179,16 @@ export function StudentCard({ student, open, onOpenChange }: StudentCardProps) {
               <CardContent className="space-y-4">
                 <div>
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium">Статус абонемента:</span>
-                    {getSubscriptionBadge(student.subscriptionStatus)}
+                    <span className="text-sm font-medium">Статус:</span>
+                    {getStatusBadge(student.status)}
                   </div>
-                  {student.subscriptionStatus === 'active' && (
-                    <div className="text-sm text-muted-foreground">
-                      Осталось: 5 занятий до 15.02.2024
-                    </div>
-                  )}
                 </div>
                 <Separator />
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium flex items-center gap-2">
-                    <Gift className="h-4 w-4" />
-                    Бонусные баллы:
+                  <span className="text-sm font-medium">Заметки:</span>
+                  <span className="text-sm text-muted-foreground">
+                    {student.notes || 'Нет заметок'}
                   </span>
-                  <Badge variant="secondary">
-                    {student.bonusBalance} б.
-                  </Badge>
                 </div>
               </CardContent>
             </Card>
@@ -224,6 +199,14 @@ export function StudentCard({ student, open, onOpenChange }: StudentCardProps) {
             <Button size="sm">
               <Edit className="h-4 w-4 mr-2" />
               Редактировать
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowAddToGroup(true)}>
+              <Users className="h-4 w-4 mr-2" />
+              В группу
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowAddIndividualLesson(true)}>
+              <BookOpen className="h-4 w-4 mr-2" />
+              Индивидуально
             </Button>
             <Button variant="outline" size="sm">
               <MessageSquare className="h-4 w-4 mr-2" />
@@ -238,7 +221,7 @@ export function StudentCard({ student, open, onOpenChange }: StudentCardProps) {
                 <Pause className="h-4 w-4 mr-2" />
                 Приостановить
               </Button>
-            ) : student.status === 'paused' ? (
+            ) : student.status === 'inactive' ? (
               <Button variant="outline" size="sm">
                 <Play className="h-4 w-4 mr-2" />
                 Возобновить
@@ -249,6 +232,23 @@ export function StudentCard({ student, open, onOpenChange }: StudentCardProps) {
               Настройки
             </Button>
           </div>
+
+          {/* Модальные окна будут добавлены после создания компонентов */}
+          {/* 
+          <AddToGroupModal
+            studentId={student.id}
+            studentName={student.name}
+            open={showAddToGroup}
+            onOpenChange={setShowAddToGroup}
+          />
+          
+          <AddIndividualLessonModal
+            studentId={student.id}
+            studentName={student.name}
+            open={showAddIndividualLesson}
+            onOpenChange={setShowAddIndividualLesson}
+          />
+          */}
 
           {/* Детальная информация в табах */}
           <Tabs defaultValue="schedule" className="w-full">
@@ -396,7 +396,7 @@ export function StudentCard({ student, open, onOpenChange }: StudentCardProps) {
                       <Clock className="h-4 w-4 text-muted-foreground" />
                       <div>
                         <p className="text-sm font-medium">Создан профиль ученика</p>
-                        <p className="text-sm text-muted-foreground">{formatDate(student.enrollmentDate)}</p>
+                        <p className="text-sm text-muted-foreground">{formatDate(student.created_at)}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 p-3 border rounded-lg">

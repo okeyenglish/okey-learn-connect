@@ -18,24 +18,8 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { StudentCard } from './StudentCard';
+import { useStudents, Student } from '@/hooks/useStudents';
 
-interface Student {
-  id: string;
-  firstName: string;
-  lastName: string;
-  middleName?: string;
-  phone: string;
-  email: string;
-  level: string;
-  status: 'active' | 'paused' | 'inactive' | 'trial';
-  branch: string;
-  birthDate: string;
-  enrollmentDate: string;
-  lastVisit?: string;
-  subscriptionStatus?: 'active' | 'expired' | 'none';
-  avatar?: string;
-  bonusBalance: number;
-}
 
 interface StudentsTableProps {
   filters: {
@@ -50,87 +34,8 @@ interface StudentsTableProps {
 export function StudentsTable({ filters, statusFilter }: StudentsTableProps) {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [showStudentCard, setShowStudentCard] = useState(false);
-
-  // Моковые данные студентов
-  const allStudents: Student[] = [
-    {
-      id: '1',
-      firstName: 'Анна',
-      lastName: 'Иванова',
-      middleName: 'Сергеевна',
-      phone: '+7 (999) 123-45-67',
-      email: 'anna.ivanova@example.com',
-      level: 'Intermediate',
-      status: 'active',
-      branch: 'Окская',
-      birthDate: '2005-03-15',
-      enrollmentDate: '2024-01-10',
-      lastVisit: '2024-01-25',
-      subscriptionStatus: 'active',
-      bonusBalance: 150
-    },
-    {
-      id: '2',
-      firstName: 'Михаил',
-      lastName: 'Петров',
-      phone: '+7 (999) 234-56-78',
-      email: 'mikhail.petrov@example.com',
-      level: 'Elementary',
-      status: 'paused',
-      branch: 'Мытищи',
-      birthDate: '2008-07-22',
-      enrollmentDate: '2023-11-05',
-      lastVisit: '2024-01-15',
-      subscriptionStatus: 'active',
-      bonusBalance: 75
-    },
-    {
-      id: '3',
-      firstName: 'Екатерина',
-      lastName: 'Сидорова',
-      middleName: 'Александровна',
-      phone: '+7 (999) 345-67-89',
-      email: 'ekaterina.sidorova@example.com',
-      level: 'Advanced',
-      status: 'active',
-      branch: 'Люберцы',
-      birthDate: '2002-11-08',
-      enrollmentDate: '2023-09-01',
-      lastVisit: '2024-01-24',
-      subscriptionStatus: 'active',
-      bonusBalance: 320
-    },
-    {
-      id: '4',
-      firstName: 'Дмитрий',
-      lastName: 'Козлов',
-      phone: '+7 (999) 456-78-90',
-      email: 'dmitry.kozlov@example.com',
-      level: 'Pre-Intermediate',
-      status: 'trial',
-      branch: 'Котельники',
-      birthDate: '2006-12-03',
-      enrollmentDate: '2024-01-20',
-      subscriptionStatus: 'none',
-      bonusBalance: 0
-    },
-    {
-      id: '5',
-      firstName: 'София',
-      lastName: 'Морозова',
-      middleName: 'Викторовна',
-      phone: '+7 (999) 567-89-01',
-      email: 'sofia.morozova@example.com',
-      level: 'Beginner',
-      status: 'inactive',
-      branch: 'Окская',
-      birthDate: '2009-04-18',
-      enrollmentDate: '2023-08-15',
-      lastVisit: '2023-12-20',
-      subscriptionStatus: 'expired',
-      bonusBalance: 25
-    }
-  ];
+  
+  const { students: allStudents, isLoading } = useStudents();
 
   // Фильтрация студентов
   const filteredStudents = allStudents.filter(student => {
@@ -139,38 +44,30 @@ export function StudentsTable({ filters, statusFilter }: StudentsTableProps) {
       return false;
     }
 
-    // Поиск по имени, телефону, email
+    // Поиск по имени, телефону
     const searchLower = filters.searchTerm.toLowerCase();
     const matchesSearch = !filters.searchTerm || 
-      student.firstName.toLowerCase().includes(searchLower) ||
-      student.lastName.toLowerCase().includes(searchLower) ||
-      (student.middleName?.toLowerCase().includes(searchLower)) ||
-      student.phone.includes(searchLower) ||
-      student.email.toLowerCase().includes(searchLower);
+      student.name.toLowerCase().includes(searchLower) ||
+      (student.first_name?.toLowerCase().includes(searchLower)) ||
+      (student.last_name?.toLowerCase().includes(searchLower)) ||
+      (student.phone?.includes(searchLower));
 
-    // Фильтр по филиалу
-    const matchesBranch = filters.branch === 'all' || student.branch === filters.branch;
-
-    // Фильтр по статусу
+    // Фильтр по статусу из фильтров
     const matchesStatus = filters.status === 'all' || student.status === filters.status;
 
-    // Фильтр по уровню
-    const matchesLevel = filters.level === 'all' || 
-      student.level.toLowerCase().replace('-', '').includes(filters.level.toLowerCase().replace('-', ''));
-
-    return matchesSearch && matchesBranch && matchesStatus && matchesLevel;
+    return matchesSearch && matchesStatus;
   });
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
         return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Активный</Badge>;
-      case 'paused':
-        return <Badge variant="secondary">На паузе</Badge>;
       case 'inactive':
         return <Badge variant="outline">Неактивный</Badge>;
       case 'trial':
         return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Пробный</Badge>;
+      case 'graduated':
+        return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100">Выпускник</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -194,6 +91,7 @@ export function StudentsTable({ filters, statusFilter }: StudentsTableProps) {
   };
 
   const calculateAge = (birthDate: string) => {
+    if (!birthDate) return 'Не указан';
     const today = new Date();
     const birth = new Date(birthDate);
     let age = today.getFullYear() - birth.getFullYear();
@@ -206,8 +104,9 @@ export function StudentsTable({ filters, statusFilter }: StudentsTableProps) {
     return age;
   };
 
-  const getInitials = (firstName: string, lastName: string) => {
-    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+  const getInitials = (name: string) => {
+    const parts = name.split(' ');
+    return parts.length >= 2 ? `${parts[1].charAt(0)}${parts[0].charAt(0)}`.toUpperCase() : name.charAt(0).toUpperCase();
   };
 
   const handleViewStudent = (student: Student) => {
@@ -234,7 +133,13 @@ export function StudentsTable({ filters, statusFilter }: StudentsTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredStudents.length === 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                  Загрузка...
+                </TableCell>
+              </TableRow>
+            ) : filteredStudents.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                   {allStudents.length === 0 ? 'Нет учеников' : 'Не найдено учеников по заданным критериям'}
@@ -246,18 +151,15 @@ export function StudentsTable({ filters, statusFilter }: StudentsTableProps) {
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={student.avatar} />
                         <AvatarFallback className="text-xs">
-                          {getInitials(student.firstName, student.lastName)}
+                          {getInitials(student.name)}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium">
-                          {student.lastName} {student.firstName}
-                        </p>
-                        {student.middleName && (
+                        <p className="font-medium">{student.name}</p>
+                        {student.first_name && student.last_name && (
                           <p className="text-sm text-muted-foreground">
-                            {student.middleName}
+                            {student.first_name} {student.last_name}
                           </p>
                         )}
                       </div>
@@ -267,50 +169,34 @@ export function StudentsTable({ filters, statusFilter }: StudentsTableProps) {
                     <div className="space-y-1">
                       <div className="flex items-center gap-1 text-sm">
                         <Phone className="h-3 w-3" />
-                        <span>{student.phone}</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <Mail className="h-3 w-3" />
-                        <span className="truncate max-w-[150px]">{student.email}</span>
+                        <span>{student.phone || '—'}</span>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{student.level}</Badge>
+                    <Badge variant="outline">—</Badge>
                   </TableCell>
                   <TableCell>
                     {getStatusBadge(student.status)}
                   </TableCell>
                   <TableCell>
-                    <span className="text-sm">{student.branch}</span>
+                    <span className="text-sm">—</span>
                   </TableCell>
                   <TableCell>
                     <span className="text-sm">
-                      {calculateAge(student.birthDate)} лет
+                      {student.age || calculateAge(student.date_of_birth || '')} лет
                     </span>
                   </TableCell>
                   <TableCell>
-                    {getSubscriptionBadge(student.subscriptionStatus)}
+                    <Badge variant="outline" className="text-xs">—</Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm">
-                      {student.bonusBalance > 0 ? (
-                        <Badge variant="secondary">
-                          {student.bonusBalance} б.
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </div>
+                    <span className="text-muted-foreground">—</span>
                   </TableCell>
                   <TableCell>
-                    {student.lastVisit ? (
-                      <span className="text-sm text-muted-foreground">
-                        {formatDate(student.lastVisit)}
-                      </span>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">—</span>
-                    )}
+                    <span className="text-sm text-muted-foreground">
+                      {student.created_at ? formatDate(student.created_at) : '—'}
+                    </span>
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -346,7 +232,7 @@ export function StudentsTable({ filters, statusFilter }: StudentsTableProps) {
                             Приостановить
                           </DropdownMenuItem>
                         )}
-                        {student.status === 'paused' && (
+                        {student.status === 'inactive' && (
                           <DropdownMenuItem>
                             <Play className="mr-2 h-4 w-4" />
                             Возобновить
@@ -381,7 +267,7 @@ export function StudentsTable({ filters, statusFilter }: StudentsTableProps) {
           <span>Показано {filteredStudents.length} из {allStudents.length} учеников</span>
           <span>
             Активных: {filteredStudents.filter(s => s.status === 'active').length} | 
-            На паузе: {filteredStudents.filter(s => s.status === 'paused').length} | 
+            Неактивных: {filteredStudents.filter(s => s.status === 'inactive').length} | 
             Пробных: {filteredStudents.filter(s => s.status === 'trial').length}
           </span>
         </div>
