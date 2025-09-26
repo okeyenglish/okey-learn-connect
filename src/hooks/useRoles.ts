@@ -86,29 +86,47 @@ export const useRoles = () => {
   // Получить пользователей с их ролями
   const fetchUsersWithRoles = async (): Promise<UserWithRoles[]> => {
     try {
+      // Получаем всех пользователей
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*');
       
-      if (profilesError) throw profilesError;
-
-      const usersWithRoles: UserWithRoles[] = [];
-      
-      for (const profile of profiles || []) {
-        const { data: roles, error: rolesError } = await supabase
-          .rpc('get_user_roles', { _user_id: profile.id });
-        
-        if (rolesError) {
-          console.error('Error fetching roles for user:', profile.id, rolesError);
-          continue;
-        }
-        
-        usersWithRoles.push({
-          ...profile,
-          roles: roles || []
-        });
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        throw profilesError;
       }
+
+      // Получаем все роли пользователей
+      const { data: userRolesData, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
       
+      if (rolesError) {
+        console.error('Error fetching user roles:', rolesError);
+        throw rolesError;
+      }
+
+      // Группируем роли по пользователям
+      const rolesByUser: Record<string, AppRole[]> = {};
+      (userRolesData || []).forEach(userRole => {
+        if (!rolesByUser[userRole.user_id]) {
+          rolesByUser[userRole.user_id] = [];
+        }
+        rolesByUser[userRole.user_id].push(userRole.role);
+      });
+
+      // Преобразуем данные в нужный формат
+      const usersWithRoles: UserWithRoles[] = (profiles || []).map(profile => ({
+        id: profile.id,
+        first_name: profile.first_name,
+        last_name: profile.last_name,
+        email: profile.email,
+        phone: profile.phone,
+        branch: profile.branch,
+        roles: rolesByUser[profile.id] || []
+      }));
+      
+      console.log('Loaded users with roles:', usersWithRoles);
       return usersWithRoles;
     } catch (error) {
       console.error('Error fetching users with roles:', error);
