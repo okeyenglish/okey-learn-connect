@@ -23,17 +23,18 @@ export type AdminSectionId =
   | 'textbooks'
   | 'sync'
   | 'users'
+  | 'permissions'
   | 'settings';
 
 // Map of role -> allowed admin sections
 const adminSectionsByRole: Record<AppRole, AdminSectionId[]> = {
-  admin: ['dashboard', 'faq', 'schedule', 'whatsapp', 'textbooks', 'sync', 'users', 'settings'],
-  branch_manager: ['dashboard', 'schedule', 'whatsapp', 'settings'],
-  methodist: ['dashboard', 'faq', 'schedule', 'textbooks', 'settings'],
+  admin: ['dashboard', 'faq', 'schedule', 'whatsapp', 'textbooks', 'sync', 'users', 'permissions', 'settings'],
+  branch_manager: ['dashboard', 'schedule', 'whatsapp', 'permissions', 'settings'],
+  methodist: ['dashboard', 'faq', 'schedule', 'textbooks', 'permissions', 'settings'],
   head_teacher: ['dashboard', 'schedule'],
   sales_manager: ['dashboard'],
   marketing_manager: ['dashboard'],
-  manager: ['dashboard'],
+  manager: ['dashboard', 'permissions'],
   accountant: ['dashboard', 'settings'],
   receptionist: ['dashboard'],
   teacher: ['dashboard'],

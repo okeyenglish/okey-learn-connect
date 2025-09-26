@@ -5,6 +5,7 @@ import { AdminScheduleManager } from "./AdminScheduleManager";
 import { WhatsAppSettings } from "./WhatsAppSettings";
 import { TextbookManager } from "./TextbookManager";
 import { RoleManager } from "./RoleManager";
+import { UserPermissionsManager } from "./UserPermissionsManager";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -42,7 +43,7 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
           </Card>
         );
       case "users":
-        return <RoleManager />;
+        return <UserPermissionsManager />;
       case "settings":
         return (
           <Card>
@@ -89,6 +90,13 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 <CardHeader>
                   <CardTitle>Textbooks</CardTitle>
                   <CardDescription>Upload and manage PDF textbooks</CardDescription>
+                </CardHeader>
+              </Card>
+              
+              <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("users")}>
+                <CardHeader>
+                  <CardTitle>User Permissions</CardTitle>
+                  <CardDescription>Manage detailed user permissions</CardDescription>
                 </CardHeader>
               </Card>
               
