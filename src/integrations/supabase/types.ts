@@ -1895,6 +1895,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      get_user_roles: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"][]
+      }
       halfvec_avg: {
         Args: { "": number[] }
         Returns: unknown
@@ -1983,6 +1987,10 @@ export type Database = {
       sparsevec_typmod_in: {
         Args: { "": unknown[] }
         Returns: number
+      }
+      user_has_permission: {
+        Args: { _permission: string; _resource: string; _user_id: string }
+        Returns: boolean
       }
       vector_avg: {
         Args: { "": number[] }
