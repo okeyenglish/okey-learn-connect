@@ -2997,6 +2997,36 @@ export type Database = {
           },
         ]
       }
+      user_permissions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_granted: boolean
+          permission_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_granted?: boolean
+          permission_key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_granted?: boolean
+          permission_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -3242,6 +3272,13 @@ export type Database = {
         Args: { _user_id: string }
         Returns: string[]
       }
+      get_user_permissions: {
+        Args: { _user_id: string }
+        Returns: {
+          is_granted: boolean
+          permission_key: string
+        }[]
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -3368,7 +3405,9 @@ export type Database = {
         Returns: boolean
       }
       user_has_permission: {
-        Args: { _permission: string; _resource: string; _user_id: string }
+        Args:
+          | { _permission: string; _resource: string; _user_id: string }
+          | { _permission_key: string; _user_id: string }
         Returns: boolean
       }
       vector_avg: {
