@@ -98,7 +98,9 @@ import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
 import VoiceAssistant from '@/components/VoiceAssistant';
 import { TeacherMessagesPanel } from "@/components/crm/TeacherMessagesPanel";
 import { UserPermissionsManager } from "@/components/admin/UserPermissionsManager";
-import { StudentsSection } from "@/components/crm/StudentsSection";
+import { StudentsModal } from "@/components/crm/StudentsModal";
+import FinancesSection from "@/components/finances/FinancesSection";
+import ScheduleSection from "@/components/crm/sections/ScheduleSection";
 import { cn } from "@/lib/utils";
 
 const CRMContent = () => {
@@ -1190,47 +1192,13 @@ const CRMContent = () => {
                           </div>
                         )}
                         {item.label === "Расписание" && (
-                          <div className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <Card>
-                                <CardHeader>
-                                  <CardTitle>Сегодня</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                  <div className="space-y-2">
-                                    <div className="p-2 bg-green-50 rounded border-l-4 border-green-500">
-                                      <p className="font-medium">17:20-20:40 Павел</p>
-                                      <p className="text-sm text-muted-foreground">Kids Box 2, Ауд. WASHINGTON</p>
-                                    </div>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                              <Card>
-                                <CardHeader>
-                                  <CardTitle>Завтра</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                  <p className="text-muted-foreground">Занятий нет</p>
-                                </CardContent>
-                              </Card>
-                            </div>
+                          <div className="h-full">
+                            <ScheduleSection />
                           </div>
                         )}
                         {item.label === "Финансы" && (
-                          <div className="space-y-4">
-                            <Card>
-                              <CardHeader>
-                                <CardTitle>Ближайшие платежи</CardTitle>
-                              </CardHeader>
-                              <CardContent>
-                                <div className="space-y-2">
-                                  <div className="p-3 bg-orange-50 border border-orange-200 rounded">
-                                    <p className="font-medium">Мария Петрова - 11490₽</p>
-                                    <p className="text-sm text-muted-foreground">Срок: 25.09.2025</p>
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
+                          <div className="h-full">
+                            <FinancesSection />
                           </div>
                         )}
                         {item.label === "Мои задачи" && (
@@ -2030,7 +1998,21 @@ const CRMContent = () => {
                         )}
                         
                         {item.label === "Ученики" && (
-                          <StudentsSection />
+                          <div className="h-full overflow-hidden">
+                            <StudentsModal open={true} onOpenChange={() => {}} />
+                          </div>
+                        )}
+                        
+                        {item.label === "Расписание" && (
+                          <div className="h-full overflow-hidden">
+                            <ScheduleSection />
+                          </div>
+                        )}
+                        
+                        {item.label === "Финансы" && (
+                          <div className="h-full overflow-hidden">
+                            <FinancesSection />
+                          </div>
                         )}
                         
                         {!["Расписание", "Финансы", "Мои задачи", "Настройки", "Ученики"].includes(item.label) && (
