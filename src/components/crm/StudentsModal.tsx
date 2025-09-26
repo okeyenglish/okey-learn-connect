@@ -105,7 +105,7 @@ export const StudentsModal = ({ open, onOpenChange, children }: StudentsModalPro
           {children}
         </DialogTrigger>
       )}
-      <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-hidden">
+      <DialogContent className="w-[95vw] md:w-[90vw] max-w-[1200px] max-h-[90vh] overflow-hidden">
         <DialogHeader className="px-6 py-4 border-b">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-2xl font-bold text-foreground">

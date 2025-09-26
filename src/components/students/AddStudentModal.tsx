@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CalendarIcon, Plus, Trash2, UserPlus } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, differenceInYears } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -119,6 +119,17 @@ export function AddStudentModal({ open, onOpenChange, children }: AddStudentModa
       return;
     }
 
+    // Возраст обязателен (по дате рождения)
+    const age = birthDate ? differenceInYears(new Date(), birthDate) : undefined;
+    if (!age || age <= 0 || age > 100) {
+      toast({
+        title: "Ошибка",
+        description: "Укажите корректную дату рождения",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       // Создаем семейную группу
       const { data: family, error: familyErr } = await supabase
@@ -141,7 +152,7 @@ export function AddStudentModal({ open, onOpenChange, children }: AddStudentModa
           status: (formData.status as 'active' | 'inactive' | 'trial' | 'graduated') || 'active',
           family_group_id: family?.id || null,
           notes: formData.notes || null,
-          age: null as any,
+          age: age,
           date_of_birth: birthDate ? format(birthDate, 'yyyy-MM-dd') : null
         } as any]);
       if (studentErr) throw studentErr;
@@ -179,10 +190,11 @@ export function AddStudentModal({ open, onOpenChange, children }: AddStudentModa
       if (onOpenChange) {
         onOpenChange(false);
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Add student error', error);
       toast({
         title: "Ошибка",
-        description: "Не удалось добавить ученика",
+        description: error?.message || "Не удалось добавить ученика",
         variant: "destructive",
       });
     }
@@ -192,7 +204,7 @@ export function AddStudentModal({ open, onOpenChange, children }: AddStudentModa
     <Dialog open={open} onOpenChange={onOpenChange}>
       {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       
-      <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] md:w-[90vw] max-w-[900px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Добавить нового ученика</DialogTitle>
           <DialogDescription>
