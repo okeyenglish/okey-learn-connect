@@ -9,6 +9,9 @@ import { CreateInvoiceModal } from './CreateInvoiceModal';
 import { CreatePaymentModal } from './CreatePaymentModal';
 import { InvoicesTable } from './InvoicesTable';
 import { PaymentsTable } from './PaymentsTable';
+import { BonusAccountsTable } from './BonusAccountsTable';
+import { PriceListsTable } from './PriceListsTable';
+import { FinancialAnalytics } from './FinancialAnalytics';
 
 export default function FinancesSection() {
   const { currencies, invoices, payments, bonusAccounts, loading } = useFinances();
@@ -120,7 +123,7 @@ export default function FinancesSection() {
 
       {/* Основной контент */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Обзор</TabsTrigger>
           <TabsTrigger value="invoices">
             Счета
@@ -145,6 +148,12 @@ export default function FinancesSection() {
                 {bonusAccounts.length}
               </Badge>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="price-lists">
+            Прайс-листы
+          </TabsTrigger>
+          <TabsTrigger value="analytics">
+            Аналитика
           </TabsTrigger>
         </TabsList>
 
@@ -276,17 +285,27 @@ export default function FinancesSection() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : (
-                <p className="text-muted-foreground">
-                  Бонусная система будет доступна после завершения настройки базы данных
-                </p>
-              )}
+              <BonusAccountsTable />
             </CardContent>
           </Card>
+        </TabsContent>
+        
+        <TabsContent value="price-lists">
+          <Card>
+            <CardHeader>
+              <CardTitle>Прайс-листы</CardTitle>
+              <CardDescription>
+                Управление ценами на услуги и тарифами
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PriceListsTable />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="analytics">
+          <FinancialAnalytics />
         </TabsContent>
       </Tabs>
     </div>
