@@ -413,6 +413,45 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_settings: {
+        Row: {
+          created_at: string | null
+          hire_date: string | null
+          id: string
+          is_active: boolean | null
+          notes: string | null
+          permissions: Json | null
+          salary: number | null
+          updated_at: string | null
+          user_id: string
+          working_hours: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          hire_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          permissions?: Json | null
+          salary?: number | null
+          updated_at?: string | null
+          user_id: string
+          working_hours?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          hire_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          permissions?: Json | null
+          salary?: number | null
+          updated_at?: string | null
+          user_id?: string
+          working_hours?: Json | null
+        }
+        Relationships: []
+      }
       family_groups: {
         Row: {
           branch: string | null
@@ -1114,6 +1153,42 @@ export type Database = {
           sip_transport?: string | null
           sip_ws_url?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      role_permissions: {
+        Row: {
+          can_create: boolean | null
+          can_delete: boolean | null
+          can_read: boolean | null
+          can_update: boolean | null
+          created_at: string | null
+          id: string
+          permission: string
+          resource: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Insert: {
+          can_create?: boolean | null
+          can_delete?: boolean | null
+          can_read?: boolean | null
+          can_update?: boolean | null
+          created_at?: string | null
+          id?: string
+          permission: string
+          resource: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Update: {
+          can_create?: boolean | null
+          can_delete?: boolean | null
+          can_read?: boolean | null
+          can_update?: boolean | null
+          created_at?: string | null
+          id?: string
+          permission?: string
+          resource?: string
+          role?: Database["public"]["Enums"]["app_role"]
         }
         Relationships: []
       }
