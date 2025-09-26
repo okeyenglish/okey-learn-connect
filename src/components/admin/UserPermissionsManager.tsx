@@ -30,10 +30,19 @@ import {
   ChevronRight,
   Save,
   Info,
-  Shield
+  Shield,
+  DollarSign,
+  MessageSquare,
+  Mail,
+  UserCheck,
+  Star,
+  CheckCircle,
+  Target,
+  Calendar
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRoles } from '@/hooks/useRoles';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 // Структура разрешений по категориям
@@ -58,17 +67,78 @@ interface PermissionSection {
 
 const permissionSections: PermissionSection[] = [
   {
+    id: 'finances',
+    name: 'ФИНАНСЫ',
+    categories: [
+      {
+        id: 'clients_finance',
+        name: 'Клиенты',
+        icon: DollarSign,
+        permissions: [
+          { id: 'view_payments', name: 'Просмотр платежей и оплат за обучение' },
+          { id: 'add_payments', name: 'Добавление платежей и оплат за обучение' },
+          { id: 'edit_unpaid', name: 'Редактирование/удаление неоплаченных платежей и оплат за обучение' },
+          { id: 'edit_paid', name: 'Редактирование/удаление оплаченных платежей и оплат за обучение' },
+          { id: 'set_paid_status', name: 'Установка для платежей статуса "Оплачено"' },
+          { id: 'display_amounts', name: 'Отображать суммы и цены платежей и оплат за обучение' },
+          { id: 'add_payments_others', name: 'Добавление платежей и оплат за обучение от имени другого пользователя' }
+        ]
+      },
+      {
+        id: 'employees_finance',
+        name: 'Сотрудники',
+        icon: Users,
+        permissions: [
+          { id: 'view_teacher_payments', name: 'Просмотр оплат преподавателей' },
+          { id: 'manage_teacher_payments', name: 'Добавление/редактирование оплат преподавателей' },
+          { id: 'set_monthly_plans', name: 'Установка месячных планов по продажам для сотрудников' },
+          { id: 'view_other_plans', name: 'Просмотр результатов выполнения планов по продажам других сотрудников' }
+        ]
+      },
+      {
+        id: 'other_finance',
+        name: 'Другое',
+        icon: FileText,
+        permissions: [
+          { id: 'view_financial_reports', name: 'Просмотр финансовых отчётов' }
+        ]
+      }
+    ]
+  },
+  {
     id: 'branches',
     name: 'ФИЛИАЛЫ',
     categories: [
       {
-        id: 'branch_management',
-        name: 'Управление филиалами',
+        id: 'branches_management',
+        name: 'Филиалы',
         icon: Building2,
         permissions: [
-          { id: 'view_branches', name: 'Просмотр филиалов' },
-          { id: 'manage_branches', name: 'Управление филиалами' },
-          { id: 'assign_managers', name: 'Назначение менеджеров филиалов' }
+          { id: 'view_branches_list', name: 'Просмотр списка филиалов' },
+          { id: 'add_delete_branches', name: 'Добавление/удаление филиалов' },
+          { id: 'edit_branches', name: 'Редактирование филиалов' },
+          { id: 'manage_classrooms', name: 'Добавление/редактирование/удаление аудиторий' },
+          { id: 'view_branch_expenses', name: 'Просмотр расходов филиала' },
+          { id: 'manage_branch_expenses', name: 'Добавление/редактирование/удаление расходов филиала' }
+        ]
+      },
+      {
+        id: 'corporate',
+        name: 'Корпоративный отдел',
+        icon: Building2,
+        permissions: [
+          { id: 'view_companies_list', name: 'Просмотр списка компаний' },
+          { id: 'view_company_contacts', name: 'Просмотр контактных данных и реквизитов компаний' },
+          { id: 'manage_companies', name: 'Добавление/удаление компаний' },
+          { id: 'edit_companies', name: 'Редактирование компаний' }
+        ]
+      },
+      {
+        id: 'branches_other',
+        name: 'Другое',
+        icon: Shield,
+        permissions: [
+          { id: 'access_all_branches', name: 'Доступ ко всем филиалам и корпоративному отделу' }
         ]
       }
     ]
@@ -78,15 +148,40 @@ const permissionSections: PermissionSection[] = [
     name: 'ПОЛЬЗОВАТЕЛИ',
     categories: [
       {
-        id: 'user_management',
-        name: 'Управление пользователями',
-        icon: Users,
+        id: 'authorization',
+        name: 'Авторизация',
+        icon: UserCheck,
         permissions: [
-          { id: 'view_users', name: 'Просмотр пользователей' },
-          { id: 'create_users', name: 'Создание пользователей' },
-          { id: 'edit_users', name: 'Редактирование пользователей' },
-          { id: 'delete_users', name: 'Удаление пользователей' },
-          { id: 'manage_roles', name: 'Управление ролями' }
+          { id: 'setup_student_auth', name: 'Установка возможности авторизации для учеников' },
+          { id: 'setup_teacher_auth', name: 'Установка возможности авторизации для преподавателей' },
+          { id: 'setup_employee_auth', name: 'Установка возможности авторизации для сотрудников' }
+        ]
+      },
+      {
+        id: 'rating',
+        name: 'Рейтинг',
+        icon: Star,
+        permissions: [
+          { id: 'view_teacher_rating', name: 'Просмотр рейтинга преподавателей' },
+          { id: 'change_teacher_rating', name: 'Изменение рейтинга преподавателей' },
+          { id: 'view_teacher_rating_report', name: 'Просмотр отчёта по рейтингу преподавателей' },
+          { id: 'view_employee_rating', name: 'Просмотр рейтинга сотрудников' },
+          { id: 'change_employee_rating', name: 'Изменение рейтинга сотрудников' },
+          { id: 'view_employee_rating_report', name: 'Просмотр отчёта по рейтингу сотрудников' }
+        ]
+      },
+      {
+        id: 'users_other',
+        name: 'Другое',
+        icon: Info,
+        permissions: [
+          { id: 'edit_own_info', name: 'Редактирование сведений о себе (контактная информация, школы и др.)' },
+          { id: 'view_admins', name: 'Просмотр списка администраторов' },
+          { id: 'view_other_roles', name: 'Просмотр списка пользователей других ролей' },
+          { id: 'view_teacher_info', name: 'Просмотр информации по преподавателям (дисциплины, уровни, школы, з/п и др.)' },
+          { id: 'edit_teacher_availability', name: 'Редактирование занятости преподавателя на стороне' },
+          { id: 'view_client_history', name: 'Просмотр истории клиентов' },
+          { id: 'view_employee_history', name: 'Просмотр истории сотрудников' }
         ]
       }
     ]
@@ -96,7 +191,7 @@ const permissionSections: PermissionSection[] = [
     name: 'УЧ. ЕДИНИЦЫ',
     categories: [
       {
-        id: 'groups',
+        id: 'education_units',
         name: 'Уч. единицы',
         icon: GraduationCap,
         permissions: [
@@ -109,11 +204,11 @@ const permissionSections: PermissionSection[] = [
           { id: 'change_group_status', name: 'Изменение статуса группы с формирующейся на рабочую' },
           { id: 'set_group_name', name: 'Установка произвольного имени группы' },
           { id: 'manage_absences', name: 'Установка занятий/пропусков у лидов/учеников' },
-          { id: 'edit_day_info', name: 'Изменение информации о днях (установка занятий/пропусков и стоимость дня у уч. единиц и учеников)' },
+          { id: 'edit_day_info', name: 'Изменение информации о днях (установка занятий/пропусков и стоимости дня у уч. единиц и учеников)' },
           { id: 'manage_individual_schedule', name: 'Установка занятий/пропусков у уч. единиц, лидов и учеников по ...' },
           { id: 'edit_lesson_plans', name: 'Редактирование планов занятий' },
-          { id: 'view_schedules', name: 'Изменение расписаний' },
-          { id: 'view_schedule_table', name: 'Просмотр таблицы расписаний' }
+          { id: 'change_schedules', name: 'Изменение расписаний' },
+          { id: 'view_schedule_table', name: 'Просмотр таблиц расписаний' }
         ]
       },
       {
@@ -137,8 +232,99 @@ const permissionSections: PermissionSection[] = [
         name: 'Тесты',
         icon: FileText,
         permissions: [
-          { id: 'manage_tests', name: 'Управление тестами' },
-          { id: 'view_test_results', name: 'Просмотр результатов тестов' }
+          { id: 'manage_entrance_tests', name: 'Добавление/редактирование вступительных тестов' },
+          { id: 'delete_entrance_tests', name: 'Удаление вступительных тестов' },
+          { id: 'add_test_results', name: 'Добавление результатов тестов' },
+          { id: 'edit_test_results', name: 'Редактирование результатов тестов' },
+          { id: 'delete_test_results', name: 'Удаление результатов тестов' }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'chats',
+    name: 'ЧАТЫ/РАССЫЛКИ',
+    categories: [
+      {
+        id: 'chats',
+        name: 'Чаты',
+        icon: MessageSquare,
+        permissions: [
+          { id: 'assign_student_requests', name: 'Возможность быть назначенным на обращения от учеников' },
+          { id: 'setup_own_reception', name: 'Настройка собственного приема обращений' },
+          { id: 'chat_admin', name: 'Администратор чатов (возможность просмотра всех чатов и ответа в них)' },
+          { id: 'reassign_to_unavailable_branches', name: 'Возможность переназначать обращения на недоступные филиалы' }
+        ]
+      },
+      {
+        id: 'mailings',
+        name: 'Рассылки',
+        icon: Mail,
+        permissions: [
+          { id: 'email_mailings', name: 'Возможность email-рассылки' },
+          { id: 'sms_push_telegram_whatsapp', name: 'Возможность рассылки SMS/Push/Telegram/Whatsapp' },
+          { id: 'view_sent_mailings', name: 'Просмотр отправленных рассылок' }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'other',
+    name: 'ДРУГОЕ',
+    categories: [
+      {
+        id: 'tasks',
+        name: 'Задачи',
+        icon: CheckCircle,
+        permissions: [
+          { id: 'add_tasks', name: 'Добавление задач' },
+          { id: 'view_others_tasks', name: 'Чтение чужих задач' },
+          { id: 'edit_delete_others_tasks', name: 'Редактирование/удаление чужих задач' },
+          { id: 'create_task_without_responsible', name: 'Возможность создать задачу без ответственного' },
+          { id: 'be_responsible_from_other_branch', name: 'Присутствие в списке ответственных при создании задачи от другого филиала' }
+        ]
+      },
+      {
+        id: 'applications',
+        name: 'Заявки',
+        icon: Target,
+        permissions: [
+          { id: 'view_learning_applications', name: 'Просмотр заявок на обучение' },
+          { id: 'confirm_learning_applications', name: 'Подтверждение заявок на обучение' },
+          { id: 'archive_restore_applications', name: 'Удаление заявок на обучение в архив и восстановление из него' },
+          { id: 'delete_applications', name: 'Полное удаление заявок на обучение' },
+          { id: 'access_application_display_rules', name: 'Доступ к правилам отображения заявок' }
+        ]
+      },
+      {
+        id: 'leads',
+        name: 'Лиды',
+        icon: Target,
+        permissions: [
+          { id: 'view_leads', name: 'Просмотр лидов' },
+          { id: 'manage_leads', name: 'Добавление/редактирование лидов' },
+          { id: 'attach_leads_to_students', name: 'Прикрепление лидов к ученикам' },
+          { id: 'delete_leads', name: 'Удаление лидов' }
+        ]
+      },
+      {
+        id: 'other_misc',
+        name: 'Другое',
+        icon: Info,
+        permissions: [
+          { id: 'view_own_reports', name: 'Просмотр сводных отчётов' },
+          { id: 'tax_calculation', name: 'Формирование справки для налогового вычета' },
+          { id: 'manage_library_units', name: 'Добавление/редактирование/удаление библиотечных единиц' },
+          { id: 'edit_library_quantity', name: 'Редактирование количества библиотечных единиц' },
+          { id: 'add_company_announcements', name: 'Добавление объявлений компании' },
+          { id: 'edit_delete_any_announcements', name: 'Редактирование и удаление любых объявлений' },
+          { id: 'edit_delete_own_announcements', name: 'Редактирование и удаление своих объявлений' },
+          { id: 'reproduce_call_recordings', name: 'Воспроизведение записей чужих звонков' },
+          { id: 'delete_phone_communications', name: 'Удаление коммуникаций телефонии' },
+          { id: 'access_learning_materials', name: 'Доступ к загруженным учебным материалам' },
+          { id: 'manage_courses', name: 'Добавление/редактирование/удаление курсов' },
+          { id: 'ip_binding', name: 'Привязка к IP (Внимание! Это ограничит доступ сотрудников в систему!)' },
+          { id: 'access_settings', name: 'Доступ к настройкам' }
         ]
       }
     ]
@@ -175,10 +361,15 @@ export const UserPermissionsManager = () => {
     setLoading(true);
     try {
       const usersData = await fetchUsersWithRoles();
-      const usersWithPermissions = usersData.map(user => ({
-        ...user,
-        permissions: {} // TODO: загрузить реальные разрешения из БД
-      }));
+      const usersWithPermissions = await Promise.all(
+        usersData.map(async (user) => {
+          const permissions = await loadUserPermissions(user.id);
+          return {
+            ...user,
+            permissions
+          };
+        })
+      );
       setUsers(usersWithPermissions);
       
       // Автоматически выбираем текущего пользователя
@@ -191,9 +382,28 @@ export const UserPermissionsManager = () => {
     setLoading(false);
   };
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
+  // Загрузка разрешений пользователя
+  const loadUserPermissions = async (userId: string): Promise<Record<string, boolean>> => {
+    try {
+      const { data, error } = await supabase.rpc('get_user_permissions', {
+        _user_id: userId
+      });
+
+      if (error) throw error;
+
+      const permissions: Record<string, boolean> = {};
+      if (data) {
+        data.forEach((perm: any) => {
+          permissions[perm.permission_key] = perm.is_granted;
+        });
+      }
+
+      return permissions;
+    } catch (error) {
+      console.error('Error loading user permissions:', error);
+      return {};
+    }
+  };
 
   // Фильтрация пользователей
   const filteredUsers = users.filter(user => {
@@ -229,14 +439,70 @@ export const UserPermissionsManager = () => {
   const handleSavePermissions = async () => {
     if (!selectedUser) return;
     
+    setLoading(true);
     try {
-      // TODO: сохранить разрешения в БД
-      toast.success('Разрешения сохранены');
+      // Получаем все ключи разрешений
+      const allPermissionKeys = permissionSections.flatMap(section =>
+        section.categories.flatMap(category =>
+          category.permissions.map(permission => permission.id)
+        )
+      );
+
+      // Сохраняем каждое разрешение
+      for (const permissionKey of allPermissionKeys) {
+        const isGranted = selectedUser.permissions[permissionKey] || false;
+        
+        const { error } = await supabase
+          .from('user_permissions')
+          .upsert({
+            user_id: selectedUser.id,
+            permission_key: permissionKey,
+            is_granted: isGranted,
+            created_by: user?.id
+          }, {
+            onConflict: 'user_id,permission_key'
+          });
+
+        if (error) throw error;
+      }
+
+      // Обновляем список пользователей
+      await loadUsers();
+      
+      toast.success('Разрешения успешно сохранены');
     } catch (error) {
       console.error('Error saving permissions:', error);
       toast.error('Ошибка сохранения разрешений');
     }
+    setLoading(false);
   };
+
+  // Выдача всех прав администратора
+  const handleGrantAllAdminRights = () => {
+    if (!selectedUser) return;
+
+    const allPermissionKeys = permissionSections.flatMap(section =>
+      section.categories.flatMap(category =>
+        category.permissions.map(permission => permission.id)
+      )
+    );
+
+    const allPermissions: Record<string, boolean> = {};
+    allPermissionKeys.forEach(key => {
+      allPermissions[key] = true;
+    });
+
+    setSelectedUser(prev => ({
+      ...prev!,
+      permissions: allPermissions
+    }));
+
+    toast.success('Все права администратора выданы. Не забудьте сохранить изменения.');
+  };
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
 
   if (authLoading || rolesLoading) {
     return <div className="flex items-center justify-center py-12">Загрузка...</div>;
@@ -334,21 +600,24 @@ export const UserPermissionsManager = () => {
                           {category.name}
                         </div>
                         <div className="space-y-2 pl-6">
-                          {category.permissions.map((permission) => (
-                            <div key={permission.id} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={permission.id}
-                                checked={true} // TODO: проверить реальные разрешения
-                                disabled={true} // Только просмотр для своих разрешений
-                              />
-                              <Label 
-                                htmlFor={permission.id}
-                                className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                              >
-                                {permission.name}
-                              </Label>
-                            </div>
-                          ))}
+                          {category.permissions.map((permission) => {
+                            const currentUserPermissions = users.find(u => u.id === user?.id)?.permissions || {};
+                            return (
+                              <div key={permission.id} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={permission.id}
+                                  checked={currentUserPermissions[permission.id] || false}
+                                  disabled={true} // Только просмотр для своих разрешений
+                                />
+                                <Label 
+                                  htmlFor={permission.id}
+                                  className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                >
+                                  {permission.name}
+                                </Label>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     ))}
@@ -413,9 +682,9 @@ export const UserPermissionsManager = () => {
                     }
                   </CardTitle>
                   {selectedUser && (
-                    <Button onClick={handleSavePermissions}>
+                    <Button onClick={handleSavePermissions} disabled={loading}>
                       <Save className="h-4 w-4 mr-2" />
-                      Сохранить
+                      {loading ? 'Сохранение...' : 'Сохранить'}
                     </Button>
                   )}
                 </div>

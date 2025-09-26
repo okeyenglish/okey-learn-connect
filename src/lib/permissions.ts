@@ -1,8 +1,9 @@
-// Centralized role-based access configuration
-// Defines which admin sections and CRM routes are available to each role
+// Упрощенная система ролей с фокусом на администратора
+// Администратор имеет полные права доступа ко всем функциям
 
-export type AppRole =
-  | 'admin'
+// Упрощенная система ролей с обратной совместимостью
+export type AppRole = 
+  | 'admin' 
   | 'branch_manager'
   | 'methodist'
   | 'head_teacher'
@@ -14,7 +15,7 @@ export type AppRole =
   | 'teacher'
   | 'student';
 
-// Admin panel sections correspond to AdminSidebar ids
+// Admin panel sections correspond to AdminSidebar ids  
 export type AdminSectionId =
   | 'dashboard'
   | 'faq'
@@ -26,16 +27,16 @@ export type AdminSectionId =
   | 'permissions'
   | 'settings';
 
-// Map of role -> allowed admin sections
+// Администратор имеет доступ ко всему, остальные - ограниченный доступ
 const adminSectionsByRole: Record<AppRole, AdminSectionId[]> = {
   admin: ['dashboard', 'faq', 'schedule', 'whatsapp', 'textbooks', 'sync', 'users', 'permissions', 'settings'],
-  branch_manager: ['dashboard', 'schedule', 'whatsapp', 'permissions', 'settings'],
-  methodist: ['dashboard', 'faq', 'schedule', 'textbooks', 'permissions', 'settings'],
-  head_teacher: ['dashboard', 'schedule'],
+  branch_manager: ['dashboard'],
+  methodist: ['dashboard'], 
+  head_teacher: ['dashboard'],
   sales_manager: ['dashboard'],
   marketing_manager: ['dashboard'],
-  manager: ['dashboard', 'permissions'],
-  accountant: ['dashboard', 'settings'],
+  manager: ['dashboard'],
+  accountant: ['dashboard'],
   receptionist: ['dashboard'],
   teacher: ['dashboard'],
   student: []
@@ -57,20 +58,22 @@ export type CrmRouteId =
   | 'crm-references'
   | 'admin';
 
+// Администратор имеет доступ ко всем маршрутам CRM
 const crmRoutesByRole: Record<AppRole, CrmRouteId[]> = {
   admin: ['crm','teacher-portal','student-portal','crm-schedule','crm-groups','crm-reports','crm-employees','crm-subscriptions','crm-leads','crm-finances','crm-internal-chats','crm-references','admin'],
-  branch_manager: ['crm','crm-schedule','crm-groups','crm-reports','crm-employees','crm-internal-chats'],
-  methodist: ['crm','teacher-portal','crm-schedule','crm-groups','crm-reports','crm-internal-chats','crm-references','admin'],
-  head_teacher: ['crm','teacher-portal','crm-schedule','crm-groups','crm-internal-chats'],
-  sales_manager: ['crm','crm-leads','crm-reports'],
-  marketing_manager: ['crm','crm-leads','crm-reports'],
-  manager: ['crm','crm-schedule','crm-groups','crm-reports','crm-subscriptions','crm-leads','crm-finances','crm-internal-chats'],
-  accountant: ['crm','crm-finances','crm-reports','crm-subscriptions'],
+  branch_manager: ['crm'],
+  methodist: ['crm'],
+  head_teacher: ['crm'],
+  sales_manager: ['crm'],
+  marketing_manager: ['crm'],
+  manager: ['crm'],
+  accountant: ['crm'],
   receptionist: ['crm'],
-  teacher: ['crm','teacher-portal','crm-internal-chats'],
+  teacher: ['crm','teacher-portal'],
   student: ['student-portal']
 };
 
+// Функции для проверки прав администратора
 export const isAdmin = (roles?: AppRole[] | null) => !!roles?.includes('admin');
 
 export const canAccessAdminSection = (roles: AppRole[] | null | undefined, section: AdminSectionId) => {
@@ -85,47 +88,31 @@ export const canAccessCrmRoute = (roles: AppRole[] | null | undefined, routeId: 
   return roles.some(r => crmRoutesByRole[r]?.includes(routeId));
 };
 
-// Permission keys used by UI checks (manage:roles, manage:all, etc.)
+// Упрощенная система прав - администратор имеет все права
 export const buildPermissionsForRoles = (roles: AppRole[] | null | undefined) => {
   const map: Record<string, boolean> = {};
   if (!roles || roles.length === 0) return map;
+  
   if (isAdmin(roles)) {
+    // Администратор получает все права
     map['manage:all'] = true;
     map['manage:roles'] = true;
     map['manage:users'] = true;
     map['manage:clients'] = true;
     map['manage:schedules'] = true;
     map['manage:groups'] = true;
+    map['manage:finances'] = true;
+    map['manage:branches'] = true;
+    map['manage:chats'] = true;
+    map['manage:leads'] = true;
+    map['manage:tasks'] = true;
+    map['manage:reports'] = true;
     map['view:reports'] = true;
+    map['access:admin'] = true;
     return map;
   }
 
-  const grant = (k: string) => (map[k] = true);
-
-  roles.forEach(r => {
-    switch (r) {
-      case 'branch_manager':
-        grant('manage:schedules');
-        grant('manage:groups');
-        grant('view:reports');
-        break;
-      case 'methodist':
-        grant('manage:schedules');
-        grant('manage:groups');
-        grant('view:reports');
-        break;
-      case 'manager':
-        grant('manage:clients');
-        grant('manage:groups');
-        grant('view:reports');
-        break;
-      case 'accountant':
-        grant('view:reports');
-        break;
-      default:
-        break;
-    }
-  });
-
+  // Обычные пользователи получают минимальные права
+  map['view:basic'] = true;
   return map;
 };
