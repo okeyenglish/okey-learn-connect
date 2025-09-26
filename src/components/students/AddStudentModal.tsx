@@ -16,6 +16,8 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AddStudentModalProps {
   open?: boolean;
@@ -43,6 +45,7 @@ export function AddStudentModal({ open, onOpenChange, children }: AddStudentModa
   const [birthDate, setBirthDate] = useState<Date>();
   const [parents, setParents] = useState<ParentContact[]>([]);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const [formData, setFormData] = useState({
     // Основная информация
@@ -117,20 +120,36 @@ export function AddStudentModal({ open, onOpenChange, children }: AddStudentModa
     }
 
     try {
-      // Здесь будет логика сохранения студента
-      const studentData = {
-        ...formData,
-        birthDate: birthDate ? format(birthDate, 'yyyy-MM-dd') : null,
-        parents: parents
-      };
+      // Создаем семейную группу
+      const { data: family, error: familyErr } = await supabase
+        .from('family_groups')
+        .insert([{ name: `${formData.lastName} ${formData.firstName}` }])
+        .select('id')
+        .single();
+      if (familyErr) throw familyErr;
 
-      console.log('Данные студента:', studentData);
-      
-      toast({
-        title: "Успешно",
-        description: "Ученик добавлен в систему",
-      });
-      
+      // Создаем ученика
+      const fullName = `${formData.lastName} ${formData.firstName}`.trim();
+      const { error: studentErr } = await supabase
+        .from('students')
+        .insert([{
+          name: fullName,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          middle_name: formData.middleName || null,
+          phone: formData.phone || null,
+          status: (formData.status as 'active' | 'inactive' | 'trial' | 'graduated') || 'active',
+          family_group_id: family?.id || null,
+          notes: formData.notes || null,
+          age: null as any,
+          date_of_birth: birthDate ? format(birthDate, 'yyyy-MM-dd') : null
+        } as any]);
+      if (studentErr) throw studentErr;
+
+      await queryClient.invalidateQueries({ queryKey: ['students'] });
+
+      toast({ title: "Успешно", description: "Ученик добавлен в систему" });
+
       // Сброс формы
       setFormData({
         firstName: '',

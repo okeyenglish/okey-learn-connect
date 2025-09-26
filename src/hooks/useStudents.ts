@@ -7,10 +7,10 @@ export interface Student {
   first_name?: string;
   last_name?: string;
   middle_name?: string;
-  age: number;
+  age?: number;
   date_of_birth?: string;
   phone?: string;
-  family_group_id: string;
+  family_group_id?: string | null;
   status: 'active' | 'inactive' | 'trial' | 'graduated';
   notes?: string;
   created_at: string;
@@ -54,7 +54,6 @@ export const useStudents = () => {
       const { data, error } = await supabase
         .from('students')
         .select('*')
-        .eq('status', 'active')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -150,10 +149,10 @@ export const useCreateStudent = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (studentData: Omit<Student, 'id' | 'created_at' | 'updated_at'>) => {
+    mutationFn: async (studentData: any) => {
       const { data, error } = await supabase
         .from('students')
-        .insert([studentData])
+        .insert([studentData as any])
         .select()
         .single();
       

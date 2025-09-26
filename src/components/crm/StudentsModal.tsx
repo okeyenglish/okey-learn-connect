@@ -235,7 +235,7 @@ const StudentsContent = ({
   };
 
   return (
-    <div className="flex-1 overflow-hidden">
+    <div className="h-full min-h-[60vh] flex flex-col overflow-hidden">
       <div className="h-full flex">
         {/* Filters Sidebar */}
         <div className="w-80 border-r bg-muted/30 p-4 overflow-y-auto">
