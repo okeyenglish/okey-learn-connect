@@ -94,6 +94,24 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const loadUserPermissions = async (userId: string) => {
     try {
+      // Если пользователь администратор — даем полный доступ без запросов
+      if (roles?.includes?.('admin') || role === 'admin') {
+        const adminPermissions = [
+          'manage:all',
+          'manage:users',
+          'manage:roles',
+          'manage:clients',
+          'manage:schedules',
+          'manage:groups',
+          'view:reports'
+        ].reduce<Record<string, boolean>>((acc, key) => {
+          acc[key] = true;
+          return acc;
+        }, {});
+        setPermissions(adminPermissions);
+        return;
+      }
+
       // Загружаем основные разрешения
       const commonPermissions = [
         { permission: 'manage', resource: 'all' },
@@ -123,7 +141,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       console.error('Error loading permissions:', error);
     }
   };
-
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
