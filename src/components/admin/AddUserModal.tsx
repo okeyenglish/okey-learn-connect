@@ -110,6 +110,11 @@ export function AddUserModal({ open, onOpenChange, onUserAdded, children }: AddU
     setLoading(true);
 
     try {
+      // Сохраняем текущую сессию администратора
+      const { data: currentSessionRes } = await supabase.auth.getSession();
+      const originalAccessToken = currentSessionRes.session?.access_token || null;
+      const originalRefreshToken = currentSessionRes.session?.refresh_token || null;
+
       // Создаем пользователя в auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.email,
@@ -125,25 +130,36 @@ export function AddUserModal({ open, onOpenChange, onUserAdded, children }: AddU
       });
 
       if (authError) throw authError;
-
       if (!authData.user) {
         throw new Error('Не удалось создать пользователя');
       }
 
-      // Создаем профиль пользователя
+      // Восстанавливаем сессию администратора (чтобы не потерять права)
+      if (originalAccessToken && originalRefreshToken) {
+        try {
+          await supabase.auth.setSession({
+            access_token: originalAccessToken,
+            refresh_token: originalRefreshToken,
+          });
+        } catch (e) {
+          console.warn('Не удалось восстановить сессию администратора:', e);
+        }
+      }
+
+      // Профиль обычно создается триггером handle_new_user. На всякий случай делаем upsert
       const { error: profileError } = await supabase
         .from('profiles')
-        .insert({
+        .upsert({
           id: authData.user.id,
           first_name: userData.first_name,
           last_name: userData.last_name,
           email: userData.email,
           phone: userData.phone,
           branch: userData.branch
-        });
+        }, { onConflict: 'id' });
 
       if (profileError) {
-        console.warn('Profile creation error (user might be created anyway):', profileError);
+        console.warn('Profile upsert warning:', profileError);
       }
 
       // Назначаем роли
