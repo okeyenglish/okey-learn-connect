@@ -960,12 +960,21 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
       {selectedLesson && (
         <CreatePaymentModal
           open={paymentModalOpen}
-          onOpenChange={setPaymentModalOpen}
+          onOpenChange={(open) => {
+            setPaymentModalOpen(open);
+            if (!open) {
+              // При закрытии модала обновляем данные
+              setTimeout(() => {
+                refetch();
+                setRefreshTrigger(prev => prev + 1);
+              }, 300);
+            }
+          }}
           studentId={student.id}
           studentName={studentDetails?.name || student.name}
           individualLessonId={selectedLesson.id}
           totalUnpaidCount={selectedLesson.sessions?.filter((s: any) => 
-            !['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence', 'cancelled'].includes(s.status)
+            ['scheduled', 'rescheduled_out', 'rescheduled'].includes(s.status) || !s.status
           ).length || 0}
           pricePerLesson={selectedLesson.pricePerLesson || 0}
           onPaymentSuccess={() => {
