@@ -105,6 +105,8 @@ export function IndividualLessonSchedule({
           return 'bg-black text-white border-black'; // Черный - отменено
         case 'rescheduled':
           return 'bg-orange-500 text-white border-orange-500'; // Оранжевый - перенесено
+        case 'free':
+          return 'bg-yellow-500 text-white border-yellow-500'; // Желтый - бесплатное
         case 'attended':
         case 'partially_paid':
         case 'paid_absence':
