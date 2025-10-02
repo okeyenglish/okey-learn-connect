@@ -170,7 +170,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
 
             {/* Notes Section */}
             <div className="flex-1 max-w-md">
-              <div className="border rounded-lg p-3 bg-background/30">
+              <div className="border rounded-lg p-3 bg-background/30 max-h-[88px] overflow-y-auto">
                 {isEditingNotes ? (
                   <Textarea
                     value={notesValue}
@@ -178,13 +178,13 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                     onKeyDown={handleNotesKeyDown}
                     onBlur={handleSaveNotes}
                     placeholder="Заметки о студенте..."
-                    className="min-h-[80px] text-sm resize-none border-0 p-0 bg-transparent focus-visible:ring-0"
+                    className="h-full min-h-[64px] text-sm resize-none border-0 p-0 bg-transparent focus-visible:ring-0"
                     autoFocus
                   />
                 ) : (
                   <div
                     onClick={() => setIsEditingNotes(true)}
-                    className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors min-h-[80px]"
+                    className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors min-h-[64px] whitespace-pre-wrap"
                   >
                     {notesValue || 'Заметки о студенте...'}
                   </div>
