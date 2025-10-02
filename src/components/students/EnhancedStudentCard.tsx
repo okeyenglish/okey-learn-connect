@@ -146,13 +146,13 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-w-full overflow-hidden p-0">
+      <DialogContent className="w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-w-full overflow-hidden p-0 bg-background">
         {/* Header */}
-        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-background border-b px-6 py-4">
+        <div className="bg-muted/30 border-b px-6 py-4">
           <div className="flex items-start justify-between gap-6">
             <div className="flex items-start gap-4">
-              <Avatar className="h-16 w-16 border-2 border-background shadow-md">
-                <AvatarFallback className="bg-primary/20 text-primary text-xl font-semibold">
+              <Avatar className="h-16 w-16 border-2 border-border">
+                <AvatarFallback className="bg-muted text-foreground text-xl font-semibold">
                   {getInitials(studentDetails.name)}
                 </AvatarFallback>
               </Avatar>
@@ -183,7 +183,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
 
             {/* Notes Section */}
             <div className="flex-1 max-w-md">
-              <div className="border rounded-lg p-3 bg-background/30 h-[64px] overflow-y-auto">
+              <div className="border border-border rounded-lg p-3 bg-background h-[64px] overflow-y-auto">
                 {isEditingNotes ? (
                   <Textarea
                     value={notesValue}
@@ -218,7 +218,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
         {/* Main Content */}
         <div className="flex h-[calc(100%-88px)]">
           {/* Sidebar */}
-          <div className="w-80 border-r bg-muted/30 p-4 overflow-y-auto">
+          <div className="w-80 border-r bg-muted/20 p-4 overflow-y-auto">
             <ScrollArea className="h-full">
               <div className="space-y-4">
                 {/* Quick Actions */}
@@ -326,20 +326,20 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
           <div className="flex-1 overflow-hidden">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
               <div className="border-b px-6 pt-4">
-                <TabsList className="h-auto p-0 bg-transparent">
-                  <TabsTrigger value="overview" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
+                <TabsList className="h-auto p-0 bg-transparent border-b-0">
+                  <TabsTrigger value="overview" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none border-b-2 border-transparent">
                     Обзор
                   </TabsTrigger>
-                  <TabsTrigger value="groups" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
+                  <TabsTrigger value="groups" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none border-b-2 border-transparent">
                     Занятия
                   </TabsTrigger>
-                  <TabsTrigger value="payments" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
+                  <TabsTrigger value="payments" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none border-b-2 border-transparent">
                     Финансы
                   </TabsTrigger>
-                  <TabsTrigger value="attendance" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
+                  <TabsTrigger value="attendance" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none border-b-2 border-transparent">
                     Посещаемость
                   </TabsTrigger>
-                  <TabsTrigger value="history" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
+                  <TabsTrigger value="history" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none border-b-2 border-transparent">
                     История
                   </TabsTrigger>
                 </TabsList>
