@@ -39,7 +39,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useStudentDetails, StudentFullDetails } from '@/hooks/useStudentDetails';
 import { Student } from '@/hooks/useStudents';
 import { usePayments } from '@/hooks/usePayments';
-import { useToast } from '@/hooks/use-toast';
+
 import { LessonScheduleStrip } from './LessonScheduleStrip';
 import { CreatePaymentModal } from './CreatePaymentModal';
 import { EditIndividualLessonModal } from './EditIndividualLessonModal';
@@ -76,7 +76,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
   const [paymentToDelete, setPaymentToDelete] = useState<any>(null);
   const { data: studentDetails, isLoading, refetch } = useStudentDetails(student.id);
   const { deletePayment } = usePayments();
-  const { toast } = useToast();
+  
 
 
   // Update notes value when student details load
@@ -483,25 +483,9 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                     size="icon"
                                     variant="ghost"
                                     className="h-8 w-8"
-                                    onClick={(e) => {
+onClick={(e) => {
                                       e.stopPropagation();
-                                      console.log('Payment button clicked for lesson:', {
-                                        lessonId: lesson.id,
-                                        sessionsCount: lesson.sessions?.length || 0,
-                                        unpaidCount: lesson.sessions?.filter((s: any) => 
-                                          ['scheduled', 'rescheduled_out', 'rescheduled'].includes(s.status) || !s.status
-                                        ).length || 0
-                                      });
-                                      
-                                      if (!lesson.sessions || lesson.sessions.length === 0) {
-                                        toast({
-                                          title: "Нет занятий",
-                                          description: "Для этого урока не созданы занятия. Сначала создайте расписание занятий.",
-                                          variant: "destructive",
-                                        });
-                                        return;
-                                      }
-                                      
+                                      // Open payment modal; validation of available/unpaid sessions occurs inside modal
                                       setSelectedLesson(lesson);
                                       setPaymentModalOpen(true);
                                     }}
