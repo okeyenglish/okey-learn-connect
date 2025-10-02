@@ -12,6 +12,8 @@ interface IndividualLessonScheduleProps {
   periodStart?: string | null;
   periodEnd?: string | null;
   className?: string;
+  onRefresh?: () => void;
+  refreshTrigger?: number;
 }
 
 interface LessonSession {
@@ -35,7 +37,8 @@ export function IndividualLessonSchedule({
   scheduleTime, 
   periodStart,
   periodEnd,
-  className 
+  className,
+  refreshTrigger
 }: IndividualLessonScheduleProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -46,7 +49,7 @@ export function IndividualLessonSchedule({
     if (lessonId) {
       loadLessonSessions();
     }
-  }, [lessonId]);
+  }, [lessonId, refreshTrigger]);
 
   const loadLessonSessions = async () => {
     if (!lessonId) return;

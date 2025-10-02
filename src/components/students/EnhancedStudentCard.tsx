@@ -58,6 +58,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
   const [notesValue, setNotesValue] = useState('');
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<any>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { data: studentDetails, isLoading, refetch } = useStudentDetails(student.id);
 
   // Update notes value when student details load
@@ -533,6 +534,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                   scheduleTime={lesson.scheduleTime}
                                   periodStart={lesson.periodStart}
                                   periodEnd={lesson.periodEnd}
+                                  refreshTrigger={refreshTrigger}
                                 />
                               </div>
                             </div>
@@ -1007,6 +1009,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
           onPaymentSuccess={() => {
             refetch();
             setSelectedLesson(null);
+            setRefreshTrigger(prev => prev + 1);
           }}
         />
       )}
