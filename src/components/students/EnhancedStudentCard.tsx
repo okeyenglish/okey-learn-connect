@@ -71,7 +71,11 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<any>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [paymentToDelete, setPaymentToDelete] = useState<any>(null);
   const { data: studentDetails, isLoading, refetch } = useStudentDetails(student.id);
+  const { deletePayment } = usePayments();
+
 
   // Update notes value when student details load
   React.useEffect(() => {
@@ -100,6 +104,32 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSaveNotes();
+    }
+  };
+
+  const handleDeletePaymentClick = (payment: any) => {
+    setPaymentToDelete(payment);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!paymentToDelete) return;
+    
+    try {
+      await deletePayment(
+        paymentToDelete.id,
+        paymentToDelete.individualLessonId,
+        paymentToDelete.lessonsCount
+      );
+      
+      // Обновляем данные студента
+      refetch();
+      setRefreshTrigger(prev => prev + 1);
+      
+      setDeleteDialogOpen(false);
+      setPaymentToDelete(null);
+    } catch (error) {
+      console.error('Error deleting payment:', error);
     }
   };
 
@@ -895,17 +925,27 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                     </p>
                                   </div>
                                 </div>
-                                <div className="text-right">
-                                  <p className="font-semibold text-xl">
-                                    {payment.amount.toLocaleString('ru-RU')} ₽
-                                  </p>
-                                  <Badge 
-                                    variant={payment.status === 'completed' ? 'default' : 'secondary'}
-                                    className="text-xs mt-1"
+                                <div className="flex items-center gap-4">
+                                  <div className="text-right">
+                                    <p className="font-semibold text-xl">
+                                      {payment.amount.toLocaleString('ru-RU')} ₽
+                                    </p>
+                                    <Badge 
+                                      variant={payment.status === 'completed' ? 'default' : 'secondary'}
+                                      className="text-xs mt-1"
+                                    >
+                                      {payment.status === 'completed' ? 'Оплачено' : 
+                                       payment.status === 'pending' ? 'Ожидание' : 'Отменено'}
+                                    </Badge>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleDeletePaymentClick(payment)}
+                                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
                                   >
-                                    {payment.status === 'completed' ? 'Оплачено' : 
-                                     payment.status === 'pending' ? 'Ожидание' : 'Отменено'}
-                                  </Badge>
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
                                 </div>
                               </div>
                             ))}
@@ -1004,6 +1044,33 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
         onOpenChange={(open) => !open && setSelectedLessonId(null)}
         onLessonUpdated={() => refetch()}
       />
+
+      {/* Диалог подтверждения удаления платежа */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить платеж?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Это действие нельзя отменить. Платеж будет удален, а оплаченные занятия вернутся в неоплаченное состояние.
+              {paymentToDelete && paymentToDelete.lessonsCount > 0 && (
+                <div className="mt-2 p-3 bg-muted rounded-md">
+                  <p className="font-medium">Будут возвращены в неоплаченное состояние:</p>
+                  <p className="text-sm mt-1">{paymentToDelete.lessonsCount} занятий</p>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Удалить платеж
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

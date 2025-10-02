@@ -61,7 +61,9 @@ export const usePayments = (filters?: any) => {
           description: paymentData.description,
           notes: paymentData.notes,
           status: 'completed',
-          created_by: user?.id
+          created_by: user?.id,
+          individual_lesson_id: paymentData.individual_lesson_id,
+          lessons_count: paymentData.lessons_count || 0
         })
         .select()
         .single();

@@ -1861,7 +1861,9 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
+          individual_lesson_id: string | null
           invoice_id: string | null
+          lessons_count: number | null
           method: Database["public"]["Enums"]["finance_payment_method"]
           notes: string | null
           payment_date: string
@@ -1876,7 +1878,9 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          individual_lesson_id?: string | null
           invoice_id?: string | null
+          lessons_count?: number | null
           method: Database["public"]["Enums"]["finance_payment_method"]
           notes?: string | null
           payment_date?: string
@@ -1891,7 +1895,9 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          individual_lesson_id?: string | null
           invoice_id?: string | null
+          lessons_count?: number | null
           method?: Database["public"]["Enums"]["finance_payment_method"]
           notes?: string | null
           payment_date?: string
@@ -1901,6 +1907,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "payments_individual_lesson_id_fkey"
+            columns: ["individual_lesson_id"]
+            isOneToOne: false
+            referencedRelation: "individual_lessons"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payments_invoice_id_fkey"
             columns: ["invoice_id"]

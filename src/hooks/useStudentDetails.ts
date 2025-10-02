@@ -295,8 +295,8 @@ export const useStudentDetails = (studentId: string) => {
         description: p.description || 'Оплата обучения',
         status: p.status,
         paymentMethod: p.method,
-        individualLessonId: p.individual_lesson_id,
-        lessonsCount: p.lessons_count,
+        individualLessonId: (p as any).individual_lesson_id,
+        lessonsCount: (p as any).lessons_count,
       }));
 
       // Attendance - использем mock данные, так как таблица может не существовать
