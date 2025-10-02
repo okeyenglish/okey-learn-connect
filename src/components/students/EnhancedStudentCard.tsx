@@ -326,7 +326,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
           </div>
 
           {/* Main Content Area */}
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-y-auto">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
               <div className="border-b px-6 pt-4">
                 <TabsList className="h-auto p-0 bg-transparent border-b-0">
