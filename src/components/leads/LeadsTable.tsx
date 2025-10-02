@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Table,
   TableBody,
@@ -9,7 +9,6 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,14 +29,6 @@ interface LeadsTableProps {
 }
 
 export function LeadsTable({ leads, isLoading, onFiltersChange }: LeadsTableProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const filteredLeads = leads.filter(lead => 
-    lead.first_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    lead.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    lead.phone.includes(searchQuery) ||
-    lead.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   const getStatusBadgeVariant = (status: any) => {
     if (status?.is_success) return 'default';
@@ -60,16 +51,6 @@ export function LeadsTable({ leads, isLoading, onFiltersChange }: LeadsTableProp
 
   return (
     <div className="space-y-4">
-      {/* Поиск */}
-      <div className="flex items-center space-x-2">
-        <Input
-          placeholder="Поиск по имени, телефону или email..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-sm"
-        />
-      </div>
-
       {/* Таблица */}
       <div className="rounded-md border">
         <Table>
@@ -86,7 +67,7 @@ export function LeadsTable({ leads, isLoading, onFiltersChange }: LeadsTableProp
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredLeads.map((lead) => (
+            {leads.map((lead) => (
               <TableRow key={lead.id}>
                 <TableCell>
                   <div>
@@ -195,11 +176,9 @@ export function LeadsTable({ leads, isLoading, onFiltersChange }: LeadsTableProp
         </Table>
       </div>
 
-      {filteredLeads.length === 0 && (
+      {leads.length === 0 && (
         <div className="text-center py-8">
-          <p className="text-muted-foreground">
-            {searchQuery ? 'Лиды не найдены' : 'Лидов пока нет'}
-          </p>
+          <p className="text-muted-foreground">Лидов не найдено</p>
         </div>
       )}
     </div>
