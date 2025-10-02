@@ -428,21 +428,18 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                   <Badge variant="outline" className="text-xs">
                                     Индивидуально
                                   </Badge>
-                                  {(lesson.sessions?.filter(s => 
-                                    ['scheduled', 'rescheduled_out', 'rescheduled'].includes(s.status) || !s.status
-                                  ).length || 0) > 0 && (
-                                    <Button
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedLesson(lesson);
-                                        setPaymentModalOpen(true);
-                                      }}
-                                    >
-                                      <Wallet className="h-4 w-4 mr-2" />
-                                      Оплатить
-                                    </Button>
-                                  )}
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedLesson(lesson);
+                                      setPaymentModalOpen(true);
+                                    }}
+                                  >
+                                    <Wallet className="h-4 w-4" />
+                                  </Button>
                                 </div>
                               </div>
 
