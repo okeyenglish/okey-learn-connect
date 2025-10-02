@@ -3344,7 +3344,7 @@ export type Database = {
       }
       l2_normalize: {
         Args: { "": string } | { "": unknown } | { "": unknown }
-        Returns: unknown
+        Returns: string
       }
       mark_chat_messages_as_read: {
         Args: { p_client_id: string }
