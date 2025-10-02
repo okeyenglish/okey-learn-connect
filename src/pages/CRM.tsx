@@ -1162,7 +1162,7 @@ const CRMContent = () => {
                         <ExternalLink className="h-3 w-3 ml-auto text-muted-foreground/30" />
                       </button>
                     </DialogTrigger>
-                    <PinnableDialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                    <PinnableDialogContent className="w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-w-full overflow-y-auto">
                       <PinnableModalHeader
                         title={item.label}
                         isPinned={isPinned(`menu-${item.label}`, item.label)}
