@@ -33,7 +33,10 @@ import { useStudentDetails, StudentFullDetails } from '@/hooks/useStudentDetails
 import { Student } from '@/hooks/useStudents';
 
 interface EnhancedStudentCardProps {
-  student: Student;
+  student: {
+    id: string;
+    name: string;
+  };
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }

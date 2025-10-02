@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AddFamilyMemberModal } from "./AddFamilyMemberModal";
 import { AddStudentModal } from "./AddStudentModal";
-import { StudentProfileModal } from "./StudentProfileModal";
+import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
 import { PhoneNumberManager } from "./PhoneNumberManager";
 import { EditContactModal } from "./EditContactModal";
 import { useFamilyData, FamilyMember, Student } from "@/hooks/useFamilyData";
@@ -506,11 +506,13 @@ export const FamilyCard = ({
          </TabsContent>
        </Tabs>
 
-      <StudentProfileModal
-        student={selectedStudent}
-        open={isStudentModalOpen}
-        onOpenChange={setIsStudentModalOpen}
-      />
+      {selectedStudent && (
+        <EnhancedStudentCard
+          student={{ id: selectedStudent.id, name: selectedStudent.name }}
+          open={isStudentModalOpen}
+          onOpenChange={setIsStudentModalOpen}
+        />
+      )}
     </div>
   );
 };
