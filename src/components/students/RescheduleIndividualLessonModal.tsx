@@ -138,11 +138,8 @@ export function RescheduleIndividualLessonModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent 
-        className="max-w-lg"
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onInteractOutside={(e) => e.preventDefault()}
-      >
+      <DialogContent className="max-w-lg">
+
         <DialogHeader>
           <DialogTitle>Перенос урока</DialogTitle>
           <div className="text-sm text-muted-foreground">
