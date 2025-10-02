@@ -77,12 +77,13 @@ export const usePayments = (filters?: any) => {
           .order('lesson_date', { ascending: true });
 
         if (!fetchError && allSessions && allSessions.length > 0) {
-          // Фильтруем только неоплаченные занятия (исключаем отмененные и уже оплаченные)
+          // Фильтруем только базовые неоплаченные занятия 
+          // Исключаем: оплаченные, отмененные, перенесенные, бесплатные
           const unpaidSessions = allSessions.filter(s => 
-            !['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence', 'cancelled'].includes(s.status)
+            ['scheduled', 'rescheduled_out'].includes(s.status) || !s.status
           );
 
-          console.log('Unpaid sessions:', unpaidSessions);
+          console.log('Unpaid sessions available for payment:', unpaidSessions);
           console.log('Paying for:', paymentData.lessons_count, 'lessons');
 
           // Берем первые N неоплаченных занятий
@@ -90,7 +91,7 @@ export const usePayments = (filters?: any) => {
           
           if (sessionsToUpdate.length > 0) {
             const sessionIds = sessionsToUpdate.map(s => s.id);
-            console.log('Updating session IDs:', sessionIds);
+            console.log('Updating session IDs to attended:', sessionIds);
             
             const { error: sessionError } = await supabase
               .from('individual_lesson_sessions')
@@ -100,7 +101,7 @@ export const usePayments = (filters?: any) => {
             if (sessionError) {
               console.error('Error updating sessions:', sessionError);
             } else {
-              console.log('Successfully updated', sessionsToUpdate.length, 'sessions');
+              console.log('Successfully updated', sessionsToUpdate.length, 'sessions to attended');
             }
           }
         }
