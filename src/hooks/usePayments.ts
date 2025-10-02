@@ -168,8 +168,12 @@ export const usePayments = (filters?: any) => {
 
   const deletePayment = async (paymentId: string, individualLessonId?: string, lessonsCount?: number) => {
     try {
+      console.log('Deleting payment:', { paymentId, individualLessonId, lessonsCount });
+      
       // Если платеж был связан с индивидуальными занятиями, возвращаем их статусы
-      if (individualLessonId && lessonsCount) {
+      if (individualLessonId && lessonsCount && lessonsCount > 0) {
+        console.log('Fetching sessions for lesson:', individualLessonId);
+        
         // Получаем все сессии урока, отсортированные по дате
         const { data: allSessions, error: fetchError } = await supabase
           .from('individual_lesson_sessions')
@@ -177,12 +181,16 @@ export const usePayments = (filters?: any) => {
           .eq('individual_lesson_id', individualLessonId)
           .order('lesson_date', { ascending: true });
 
+        console.log('All sessions:', allSessions);
+
         if (!fetchError && allSessions && allSessions.length > 0) {
           // Находим первые N оплаченных занятий (attended) по дате
           const paidSessions = allSessions
             .filter(s => s.status === 'attended')
             .sort((a, b) => new Date(a.lesson_date).getTime() - new Date(b.lesson_date).getTime())
             .slice(0, lessonsCount);
+
+          console.log('Paid sessions to revert:', paidSessions);
 
           if (paidSessions.length > 0) {
             const sessionIds = paidSessions.map(s => s.id);
@@ -201,8 +209,14 @@ export const usePayments = (filters?: any) => {
               console.error('Error reverting sessions:', sessionError);
               throw sessionError;
             }
+            
+            console.log('Successfully reverted', paidSessions.length, 'sessions');
+          } else {
+            console.log('No paid sessions found to revert');
           }
         }
+      } else {
+        console.log('Skipping session revert - no individualLessonId or lessonsCount');
       }
 
       // Удаляем платеж

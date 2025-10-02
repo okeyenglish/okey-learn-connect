@@ -108,12 +108,19 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
   };
 
   const handleDeletePaymentClick = (payment: any) => {
+    console.log('Payment to delete:', payment);
     setPaymentToDelete(payment);
     setDeleteDialogOpen(true);
   };
 
   const handleConfirmDelete = async () => {
     if (!paymentToDelete) return;
+    
+    console.log('Confirming delete for payment:', {
+      id: paymentToDelete.id,
+      individualLessonId: paymentToDelete.individualLessonId,
+      lessonsCount: paymentToDelete.lessonsCount
+    });
     
     try {
       await deletePayment(
