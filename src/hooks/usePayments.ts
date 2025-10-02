@@ -127,7 +127,7 @@ export const usePayments = (filters?: any) => {
             
             const { error: sessionError, data: updatedSessions } = await supabase
               .from('individual_lesson_sessions')
-              .update({ status: 'attended' })
+              .update({ status: 'attended', created_by: user?.id, updated_at: new Date().toISOString() })
               .in('id', sessionIds)
               .select();
 
@@ -198,6 +198,7 @@ export const usePayments = (filters?: any) => {
   const deletePayment = async (paymentId: string, individualLessonId?: string, lessonsCount?: number) => {
     try {
       console.log('Deleting payment:', { paymentId, individualLessonId, lessonsCount });
+      const { data: { user } } = await supabase.auth.getUser();
       
       // Если платеж был связан с индивидуальными занятиями, возвращаем их статусы
       if (individualLessonId && lessonsCount && lessonsCount > 0) {
@@ -231,7 +232,7 @@ export const usePayments = (filters?: any) => {
             // Возвращаем статус занятий в scheduled
             const { error: sessionError } = await supabase
               .from('individual_lesson_sessions')
-              .update({ status: 'scheduled' })
+              .update({ status: 'scheduled', created_by: user?.id, updated_at: new Date().toISOString() })
               .in('id', sessionIds);
 
             if (sessionError) {
