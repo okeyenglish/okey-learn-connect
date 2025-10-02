@@ -40,6 +40,7 @@ export function IndividualLessonSchedule({
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [lessonSessions, setLessonSessions] = useState<Record<string, LessonSession>>({});
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     if (lessonId) {
@@ -153,10 +154,12 @@ export function IndividualLessonSchedule({
     // Сортируем по дате
     dates.sort((a, b) => a.getTime() - b.getTime());
     
-    return dates.slice(0, 20); // Limit to first 20 lessons
+    return dates; // Возвращаем все даты, лимит применим при рендере
   };
 
   const lessonDates = generateLessonDates();
+  const displayedDates = showAll ? lessonDates : lessonDates.slice(0, 30);
+  const hasMoreLessons = lessonDates.length > 30;
 
   if (lessonDates.length === 0) {
     return (
@@ -175,7 +178,7 @@ export function IndividualLessonSchedule({
         onPointerDown={(e) => e.stopPropagation()}
       >
         <div className="flex gap-1 flex-wrap">
-          {lessonDates.map((date, index) => {
+          {displayedDates.map((date, index) => {
             const dateStr = format(date, 'yyyy-MM-dd');
             const colorClass = getLessonColor(date, lessonSessions[dateStr]?.status);
             
@@ -194,6 +197,32 @@ export function IndividualLessonSchedule({
               </button>
             );
           })}
+          {!showAll && hasMoreLessons && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowAll(true);
+              }}
+              className="h-8 px-3 rounded border border-primary bg-primary/10 text-primary hover:bg-primary/20 transition-all"
+            >
+              <span className="text-xs font-medium whitespace-nowrap">
+                +{lessonDates.length - 30} еще
+              </span>
+            </button>
+          )}
+          {showAll && hasMoreLessons && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowAll(false);
+              }}
+              className="h-8 px-3 rounded border border-muted-foreground bg-muted text-muted-foreground hover:bg-muted/80 transition-all"
+            >
+              <span className="text-xs font-medium whitespace-nowrap">
+                Скрыть
+              </span>
+            </button>
+          )}
         </div>
         {scheduleTime && (
           <div className="text-sm text-muted-foreground whitespace-nowrap">
