@@ -105,8 +105,8 @@ export const StudentsModal = ({ open, onOpenChange, children }: StudentsModalPro
           {children}
         </DialogTrigger>
       )}
-      <DialogContent className="w-[95vw] md:w-[90vw] max-w-[1200px] max-h-[90vh] overflow-hidden">
-        <DialogHeader className="px-6 py-4 border-b">
+      <DialogContent className="w-[98vw] max-w-[1800px] h-[95vh] flex flex-col overflow-hidden">
+        <DialogHeader className="px-6 py-4 border-b shrink-0">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-2xl font-bold text-foreground">
               Ученики и клиенты
@@ -235,99 +235,95 @@ const StudentsContent = ({
   };
 
   return (
-    <div className="h-full min-h-[60vh] flex flex-col overflow-hidden">
-      <div className="h-full flex">
-        {/* Filters Sidebar */}
-        <div className="w-80 border-r bg-muted/30 p-4 overflow-y-auto">
-          <div className="space-y-4">
-            {/* Basic Filters */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm">Основные фильтры</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Поиск</label>
-                  <div className="relative mt-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Имя, телефон, email..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-9 h-8"
-                    />
-                  </div>
-                </div>
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Filters Section - Top */}
+      <div className="shrink-0 border-b bg-muted/30 p-4">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+          {/* Search */}
+          <div className="lg:col-span-2">
+            <label className="text-xs font-medium text-muted-foreground">Поиск</label>
+            <div className="relative mt-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Имя, телефон, email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
+          </div>
 
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Филиал</label>
-                  <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                    <SelectTrigger className="h-8 mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Все филиалы</SelectItem>
-                      <SelectItem value="Окская">Окская</SelectItem>
-                      <SelectItem value="Мытищи">Мытищи</SelectItem>
-                      <SelectItem value="Люберцы">Люберцы</SelectItem>
-                      <SelectItem value="Котельники">Котельники</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+          {/* Branch */}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Филиал</label>
+            <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+              <SelectTrigger className="h-9 mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Все филиалы</SelectItem>
+                <SelectItem value="Окская">Окская</SelectItem>
+                <SelectItem value="Мытищи">Мытищи</SelectItem>
+                <SelectItem value="Люберцы">Люберцы</SelectItem>
+                <SelectItem value="Котельники">Котельники</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Статус</label>
-                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                    <SelectTrigger className="h-8 mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Все статусы</SelectItem>
-                      <SelectItem value="active">Активные</SelectItem>
-                      <SelectItem value="trial">Пробные</SelectItem>
-                      <SelectItem value="inactive">Неактивные</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+          {/* Status */}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Статус</label>
+            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <SelectTrigger className="h-9 mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Все статусы</SelectItem>
+                <SelectItem value="active">Активные</SelectItem>
+                <SelectItem value="trial">Пробные</SelectItem>
+                <SelectItem value="inactive">Неактивные</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Категория</label>
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger className="h-8 mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Все категории</SelectItem>
-                      <SelectItem value="preschool">Дошкольники</SelectItem>
-                      <SelectItem value="school">Школьники</SelectItem>
-                      <SelectItem value="adult">Взрослые</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+          {/* Category */}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Категория</label>
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="h-9 mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Все категории</SelectItem>
+                <SelectItem value="preschool">Дошкольники</SelectItem>
+                <SelectItem value="school">Школьники</SelectItem>
+                <SelectItem value="adult">Взрослые</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
-                <div className="flex gap-2 pt-2">
-                  <Button variant="default" size="sm" className="flex-1">
-                    <Search className="h-3 w-3 mr-1" />
-                    Искать
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={resetFilters}>
-                    Сбросить
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Mass Actions */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm">По найденным ({selectedStudents.length})</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
+        {/* Action Buttons Row */}
+        <div className="flex items-center justify-between mt-4">
+          <div className="flex items-center gap-2">
+            <Button variant="default" size="sm">
+              <Search className="h-3 w-3 mr-1" />
+              Искать
+            </Button>
+            <Button variant="outline" size="sm" onClick={resetFilters}>
+              Сбросить
+            </Button>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              Выбрано: {selectedStudents.length}
+            </span>
+            {selectedStudents.length > 0 && (
+              <>
                 <Button 
                   variant="outline" 
-                  size="sm" 
-                  className="w-full justify-start"
-                  disabled={selectedStudents.length === 0}
+                  size="sm"
                   onClick={() => handleMassAction('email')}
                 >
                   <Mail className="h-4 w-4 mr-2" />
@@ -335,43 +331,44 @@ const StudentsContent = ({
                 </Button>
                 <Button 
                   variant="outline" 
-                  size="sm" 
-                  className="w-full justify-start"
-                  disabled={selectedStudents.length === 0}
+                  size="sm"
                   onClick={() => handleMassAction('export')}
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  Экспорт в XLS
+                  Экспорт
                 </Button>
-              </CardContent>
-            </Card>
+              </>
+            )}
           </div>
         </div>
+      </div>
 
-        {/* Students Table */}
-        <div className="flex-1 overflow-hidden">
-          <Card className="h-full rounded-none border-0">
-            <CardHeader className="pb-4 border-b">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Список учеников ({filteredStudents.length})
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm">
-                    <Filter className="h-4 w-4 mr-2" />
-                    Показать/Скрыть колонки
-                  </Button>
-                  <AddStudentModal open={showAddModal} onOpenChange={setShowAddModal}>
-                    <Button size="sm">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Добавить
-                    </Button>
-                  </AddStudentModal>
-                </div>
+      {/* Students Table Section */}
+      <div className="flex-1 overflow-hidden">
+        <div className="flex flex-col h-full">
+          <div className="px-6 py-3 border-b bg-background shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                <h3 className="font-semibold">Список учеников</h3>
+                <Badge variant="secondary">{filteredStudents.length}</Badge>
               </div>
-            </CardHeader>
-            <CardContent className="h-full overflow-auto p-0">
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Колонки
+                </Button>
+                <AddStudentModal open={showAddModal} onOpenChange={setShowAddModal}>
+                  <Button size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Добавить
+                  </Button>
+                </AddStudentModal>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex-1 overflow-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -460,9 +457,8 @@ const StudentsContent = ({
                     ))
                   )}
                 </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+            </Table>
+          </div>
         </div>
       </div>
     </div>
