@@ -69,7 +69,7 @@ export const usePayments = (filters?: any) => {
 
       // Update session statuses - mark next N unpaid sessions as attended
       if (paymentData.individual_lesson_id && paymentData.lessons_count) {
-        // Получаем все сессии урока в порядке дат
+        // Получаем все сессии урока в порядке дат (КРИТИЧНО: сортировка по дате)
         const { data: allSessions, error: fetchError } = await supabase
           .from('individual_lesson_sessions')
           .select('id, lesson_date, status')
@@ -77,22 +77,30 @@ export const usePayments = (filters?: any) => {
           .order('lesson_date', { ascending: true });
 
         if (!fetchError && allSessions && allSessions.length > 0) {
-          // Фильтруем только базовые неоплаченные занятия 
-          // Исключаем: оплаченные, отмененные, бесплатные
-          // Включаем: scheduled, rescheduled_out, rescheduled (перенесенные также оплачиваются)
-          const unpaidSessions = allSessions.filter(s => 
-            ['scheduled', 'rescheduled_out', 'rescheduled'].includes(s.status) || !s.status
-          );
+          // Фильтруем неоплаченные занятия строго в порядке дат
+          // Статусы неоплаченных: scheduled, rescheduled_out, rescheduled, или пустой статус
+          const unpaidSessions = allSessions
+            .filter(s => 
+              ['scheduled', 'rescheduled_out', 'rescheduled'].includes(s.status) || !s.status
+            )
+            // Дополнительная сортировка для гарантии порядка
+            .sort((a, b) => new Date(a.lesson_date).getTime() - new Date(b.lesson_date).getTime());
 
-          console.log('Unpaid sessions available for payment:', unpaidSessions);
+          console.log('Unpaid sessions (in chronological order):', unpaidSessions.map(s => ({
+            date: s.lesson_date,
+            status: s.status
+          })));
           console.log('Paying for:', paymentData.lessons_count, 'lessons');
 
-          // Берем первые N неоплаченных занятий
+          // Берем первые N неоплаченных занятий (самые ранние по дате)
           const sessionsToUpdate = unpaidSessions.slice(0, paymentData.lessons_count);
           
           if (sessionsToUpdate.length > 0) {
             const sessionIds = sessionsToUpdate.map(s => s.id);
-            console.log('Updating session IDs to attended:', sessionIds);
+            console.log('Updating session IDs to attended (by date):', sessionsToUpdate.map(s => ({
+              id: s.id,
+              date: s.lesson_date
+            })));
             
             const { error: sessionError } = await supabase
               .from('individual_lesson_sessions')
