@@ -17,6 +17,13 @@ export interface StudentParent {
   }>;
 }
 
+export interface LessonSession {
+  id: string;
+  lessonDate: string;
+  status: string;
+  lessonNumber?: number;
+}
+
 export interface StudentGroup {
   id: string;
   name: string;
@@ -28,6 +35,8 @@ export interface StudentGroup {
   schedule: string;
   status: string;
   enrollmentDate: string;
+  format?: string;
+  sessions: LessonSession[];
 }
 
 export interface StudentIndividualLesson {
@@ -41,6 +50,8 @@ export interface StudentIndividualLesson {
   scheduleDays?: string[];
   status: string;
   nextLesson?: string;
+  format?: string;
+  sessions: LessonSession[];
 }
 
 export interface StudentPayment {
@@ -171,6 +182,7 @@ export const useStudentDetails = (studentId: string) => {
             level,
             branch,
             status,
+            category,
             teacher:teacher_id (
               id,
               name
@@ -179,18 +191,48 @@ export const useStudentDetails = (studentId: string) => {
         `)
         .eq('student_id', studentId);
 
-      const groups: StudentGroup[] = (groupStudents || []).map((gs: any) => ({
-        id: gs.learning_groups?.id || '',
-        name: gs.learning_groups?.name || '',
-        subject: gs.learning_groups?.subject || '',
-        level: gs.learning_groups?.level || '',
-        teacher: gs.learning_groups?.teacher?.name || 'Не назначен',
-        teacherId: gs.learning_groups?.teacher?.id || '',
-        branch: gs.learning_groups?.branch || '',
-        schedule: '', // TODO: fetch from schedule
-        status: gs.status,
-        enrollmentDate: gs.enrollment_date,
-      }));
+      // Fetch lesson sessions for each group
+      const groups: StudentGroup[] = await Promise.all(
+        (groupStudents || []).map(async (gs: any) => {
+          const groupId = gs.learning_groups?.id;
+          let sessions: LessonSession[] = [];
+
+          if (groupId) {
+            const { data: sessionsData } = await supabase
+              .from('lesson_sessions')
+              .select('id, lesson_date, status, lesson_number')
+              .eq('group_id', groupId)
+              .order('lesson_date', { ascending: true });
+
+            sessions = (sessionsData || []).map((s: any) => ({
+              id: s.id,
+              lessonDate: s.lesson_date,
+              status: s.status,
+              lessonNumber: s.lesson_number,
+            }));
+          }
+
+          const category = gs.learning_groups?.category || 'group';
+          let format = 'Групповое';
+          if (category === 'mini') format = 'Мини-группа';
+          else if (category === 'individual') format = 'Индивидуальное';
+
+          return {
+            id: groupId || '',
+            name: gs.learning_groups?.name || '',
+            subject: gs.learning_groups?.subject || '',
+            level: gs.learning_groups?.level || '',
+            teacher: gs.learning_groups?.teacher?.name || 'Не назначен',
+            teacherId: gs.learning_groups?.teacher?.id || '',
+            branch: gs.learning_groups?.branch || '',
+            schedule: '',
+            status: gs.status,
+            enrollmentDate: gs.enrollment_date,
+            format,
+            sessions,
+          };
+        })
+      );
 
       // Fetch individual lessons
       const { data: individualLessonsData } = await supabase
@@ -199,18 +241,49 @@ export const useStudentDetails = (studentId: string) => {
         .eq('student_id', studentId)
         .eq('is_active', true);
 
-      const individualLessons: StudentIndividualLesson[] = (individualLessonsData || []).map((il: any) => ({
-        id: il.id,
-        subject: il.subject || 'Не указан',
-        level: il.level || 'Не указан',
-        teacherName: il.teacher_name,
-        branch: il.branch || 'Не указан',
-        pricePerLesson: il.price_per_lesson,
-        scheduleTime: il.schedule_time,
-        scheduleDays: il.schedule_days,
-        status: il.status || 'active',
-        nextLesson: undefined, // TODO: get from lesson_sessions
-      }));
+      // For individual lessons, we need to find sessions from student_lesson_sessions
+      const individualLessons: StudentIndividualLesson[] = await Promise.all(
+        (individualLessonsData || []).map(async (il: any) => {
+          // Fetch sessions for this individual lesson via student_id
+          const { data: studentSessions } = await supabase
+            .from('student_lesson_sessions')
+            .select(`
+              lesson_sessions:lesson_session_id (
+                id,
+                lesson_date,
+                status,
+                lesson_number,
+                group_id
+              )
+            `)
+            .eq('student_id', studentId);
+
+          // Filter sessions that don't have a group_id (individual lessons)
+          const sessions: LessonSession[] = (studentSessions || [])
+            .filter((ss: any) => !ss.lesson_sessions?.group_id)
+            .map((ss: any) => ({
+              id: ss.lesson_sessions?.id || '',
+              lessonDate: ss.lesson_sessions?.lesson_date || '',
+              status: ss.lesson_sessions?.status || 'scheduled',
+              lessonNumber: ss.lesson_sessions?.lesson_number,
+            }));
+
+          return {
+            id: il.id,
+            subject: il.subject || 'Не указан',
+            level: il.level || 'Не указан',
+            teacherName: il.teacher_name,
+            branch: il.branch || 'Не указан',
+            pricePerLesson: il.price_per_lesson,
+            scheduleTime: il.schedule_time,
+            scheduleDays: il.schedule_days,
+            status: il.status || 'active',
+            nextLesson: undefined,
+            format: 'Индивидуальное',
+            sessions,
+          };
+        })
+      );
 
       // Fetch payments
       const { data: paymentsData } = await supabase

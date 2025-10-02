@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { useStudentDetails, StudentFullDetails } from '@/hooks/useStudentDetails';
 import { Student } from '@/hooks/useStudents';
+import { LessonScheduleStrip } from './LessonScheduleStrip';
 
 interface EnhancedStudentCardProps {
   student: {
@@ -358,14 +359,14 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                 <div>
                                   <h4 className="font-semibold text-lg">{group.name}</h4>
                                   <p className="text-sm text-muted-foreground">
-                                    {group.subject} • {group.level}
+                                    {group.format} • {group.subject} • {group.level}
                                   </p>
                                 </div>
                                 <Badge variant={group.status === 'active' ? 'default' : 'secondary'}>
                                   {group.status === 'active' ? 'Активна' : 'Неактивна'}
                                 </Badge>
                               </div>
-                              <div className="grid grid-cols-3 gap-4 text-sm">
+                              <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                                 <div>
                                   <p className="text-muted-foreground text-xs mb-1">Преподаватель</p>
                                   <p className="font-medium">{group.teacher}</p>
@@ -377,13 +378,10 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                     <span>{group.branch}</span>
                                   </div>
                                 </div>
-                                <div>
-                                  <p className="text-muted-foreground text-xs mb-1">Дата записи</p>
-                                  <div className="flex items-center gap-1">
-                                    <Calendar className="h-3 w-3" />
-                                    <span>{formatDate(group.enrollmentDate)}</span>
-                                  </div>
-                                </div>
+                              </div>
+                              <div className="mt-3">
+                                <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
+                                <LessonScheduleStrip sessions={group.sessions} />
                               </div>
                             </div>
                           ))}
@@ -393,16 +391,16 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                             <div key={lesson.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-amber-50/50">
                               <div className="flex items-start justify-between mb-3">
                                 <div>
-                                  <h4 className="font-semibold text-lg">{lesson.subject} (индивидуально)</h4>
+                                  <h4 className="font-semibold text-lg">{lesson.subject}</h4>
                                   <p className="text-sm text-muted-foreground">
-                                    {lesson.level}
+                                    {lesson.format} • {lesson.level}
                                   </p>
                                 </div>
                                 <Badge variant="outline" className="bg-amber-100">
                                   Индивидуально
                                 </Badge>
                               </div>
-                              <div className="grid grid-cols-3 gap-4 text-sm">
+                              <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                                 <div>
                                   <p className="text-muted-foreground text-xs mb-1">Преподаватель</p>
                                   <p className="font-medium">{lesson.teacherName || 'Не назначен'}</p>
@@ -414,10 +412,10 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                     <span>{lesson.branch}</span>
                                   </div>
                                 </div>
-                                <div>
-                                  <p className="text-muted-foreground text-xs mb-1">Стоимость</p>
-                                  <p className="font-medium">{lesson.pricePerLesson ? `${lesson.pricePerLesson}₽/урок` : 'Не указана'}</p>
-                                </div>
+                              </div>
+                              <div className="mt-3">
+                                <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
+                                <LessonScheduleStrip sessions={lesson.sessions} />
                               </div>
                             </div>
                           ))}
@@ -503,14 +501,14 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                 <div>
                                   <h4 className="font-semibold text-lg mb-1">{group.name}</h4>
                                   <p className="text-sm text-muted-foreground">
-                                    {group.subject} • {group.level}
+                                    {group.format} • {group.subject} • {group.level}
                                   </p>
                                 </div>
                                 <Badge variant={group.status === 'active' ? 'default' : 'secondary'}>
                                   {group.status === 'active' ? 'Активна' : 'Завершена'}
                                 </Badge>
                               </div>
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
                                 <div>
                                   <p className="text-muted-foreground text-xs mb-1">Преподаватель</p>
                                   <p className="font-medium">{group.teacher}</p>
@@ -529,12 +527,12 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                     <span>{formatDate(group.enrollmentDate)}</span>
                                   </div>
                                 </div>
-                                <div>
-                                  <p className="text-muted-foreground text-xs mb-1">Расписание</p>
-                                  <span>{group.schedule || 'Не указано'}</span>
-                                </div>
                               </div>
-                              <div className="flex gap-2 mt-4">
+                              <div className="mb-4">
+                                <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
+                                <LessonScheduleStrip sessions={group.sessions} />
+                              </div>
+                              <div className="flex gap-2">
                                 <Button variant="outline" size="sm">
                                   Подробнее
                                 </Button>
@@ -551,16 +549,16 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                             <div key={lesson.id} className="p-4 border rounded-lg bg-amber-50/50">
                               <div className="flex items-start justify-between mb-4">
                                 <div>
-                                  <h4 className="font-semibold text-lg mb-1">{lesson.subject} (индивидуально)</h4>
+                                  <h4 className="font-semibold text-lg mb-1">{lesson.subject}</h4>
                                   <p className="text-sm text-muted-foreground">
-                                    {lesson.level}
+                                    {lesson.format} • {lesson.level}
                                   </p>
                                 </div>
                                 <Badge variant="outline" className="bg-amber-100">
                                   Индивидуально
                                 </Badge>
                               </div>
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
                                 <div>
                                   <p className="text-muted-foreground text-xs mb-1">Преподаватель</p>
                                   <p className="font-medium">{lesson.teacherName || 'Не назначен'}</p>
@@ -576,10 +574,10 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                   <p className="text-muted-foreground text-xs mb-1">Стоимость</p>
                                   <p className="font-medium">{lesson.pricePerLesson ? `${lesson.pricePerLesson}₽/урок` : 'Не указана'}</p>
                                 </div>
-                                <div>
-                                  <p className="text-muted-foreground text-xs mb-1">Расписание</p>
-                                  <span>{lesson.scheduleTime || 'Не указано'}</span>
-                                </div>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
+                                <LessonScheduleStrip sessions={lesson.sessions} />
                               </div>
                             </div>
                           ))}
