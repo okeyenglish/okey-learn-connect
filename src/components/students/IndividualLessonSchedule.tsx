@@ -96,28 +96,23 @@ export function IndividualLessonSchedule({
     if (session?.status) {
       switch (session.status) {
         case 'cancelled':
-        case 'rescheduled_out': // Перенесено с этой даты - черный
-          return 'bg-gray-900 text-white border-gray-900'; // Черный - отменено/перенесено
-        case 'free':
-          return 'bg-yellow-500 text-white border-yellow-500'; // Желтый - бесплатное
+          return 'bg-gray-900 text-white border-gray-900'; // Черный - отменено
+        case 'rescheduled':
+          return 'bg-orange-500 text-white border-orange-500'; // Оранжевый - перенесено
         case 'attended':
         case 'partially_paid':
         case 'paid_absence':
         case 'partially_paid_absence':
-        case 'rescheduled': // Перенесено на эту дату - зеленый
-          return 'bg-green-600 text-white border-green-600'; // Зеленый - состоялось/оплачено/перенесено сюда
+          return 'bg-green-600 text-white border-green-600'; // Зеленый - оплачено
+        case 'scheduled':
+        case 'rescheduled_out':
         default:
-          break;
+          return 'bg-white text-gray-500 border-gray-300'; // Белый фон, серые цифры - не оплачено
       }
     }
     
-    // Если статуса нет, смотрим на дату
-    const now = new Date();
-    if (isPast(date) || isToday(date)) {
-      return 'bg-green-600 text-white border-green-600'; // Зеленый - дата прошла
-    }
-    
-    return 'bg-gray-400 text-white border-gray-400'; // Серый - запланировано
+    // Если статуса нет - не оплачено
+    return 'bg-white text-gray-500 border-gray-300'; // Белый фон, серые цифры
   };
 
   // Generate lesson dates based on schedule days and include rescheduled sessions

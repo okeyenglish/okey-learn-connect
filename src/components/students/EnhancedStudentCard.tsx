@@ -498,19 +498,19 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                     </div>
                                     <p className="text-lg font-bold text-red-600">
                                       {lesson.sessions?.filter(s => 
-                                        ['scheduled', 'rescheduled'].includes(s.status)
+                                        !['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence', 'cancelled'].includes(s.status)
                                       ).length || 0} занятий
                                     </p>
                                     <p className="text-xs text-muted-foreground">
                                       {((lesson.sessions?.filter(s => 
-                                        ['scheduled', 'rescheduled'].includes(s.status)
+                                        !['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence', 'cancelled'].includes(s.status)
                                       ).length || 0) * (lesson.pricePerLesson || 0)).toFixed(2)} руб.
                                     </p>
                                   </div>
                                 </div>
                                 
                                 {(lesson.sessions?.filter(s => 
-                                  ['scheduled', 'rescheduled'].includes(s.status)
+                                  !['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence', 'cancelled'].includes(s.status)
                                 ).length || 0) > 0 && (
                                   <Button
                                     className="w-full"
@@ -1000,9 +1000,9 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
           studentId={student.id}
           studentName={studentDetails?.name || student.name}
           individualLessonId={selectedLesson.id}
-          unpaidSessions={selectedLesson.sessions?.filter((s: any) => 
-            ['scheduled', 'rescheduled'].includes(s.status)
-          ) || []}
+          totalUnpaidCount={selectedLesson.sessions?.filter((s: any) => 
+            !['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence', 'cancelled'].includes(s.status)
+          ).length || 0}
           pricePerLesson={selectedLesson.pricePerLesson || 0}
           onPaymentSuccess={() => {
             refetch();

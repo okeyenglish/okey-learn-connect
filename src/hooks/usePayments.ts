@@ -67,15 +67,26 @@ export const usePayments = (filters?: any) => {
 
       if (error) throw error;
 
-      // Update session statuses if session_ids provided
-      if (paymentData.session_ids && paymentData.session_ids.length > 0) {
-        const { error: sessionError } = await supabase
+      // Update session statuses - mark next N unpaid sessions as attended
+      if (paymentData.individual_lesson_id && paymentData.lessons_count) {
+        const { data: sessions, error: fetchError } = await supabase
           .from('individual_lesson_sessions')
-          .update({ status: 'attended' })
-          .in('id', paymentData.session_ids);
+          .select('id')
+          .eq('individual_lesson_id', paymentData.individual_lesson_id)
+          .not('status', 'in', '("attended","paid_absence","partially_paid","partially_paid_absence","cancelled")')
+          .order('lesson_date', { ascending: true })
+          .limit(paymentData.lessons_count);
 
-        if (sessionError) {
-          console.error('Error updating sessions:', sessionError);
+        if (!fetchError && sessions && sessions.length > 0) {
+          const sessionIds = sessions.map(s => s.id);
+          const { error: sessionError } = await supabase
+            .from('individual_lesson_sessions')
+            .update({ status: 'attended' })
+            .in('id', sessionIds);
+
+          if (sessionError) {
+            console.error('Error updating sessions:', sessionError);
+          }
         }
       }
 
