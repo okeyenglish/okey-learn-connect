@@ -153,13 +153,11 @@ export function CreatePaymentModal({
                         setSelectedPackage(count);
                         setCustomLessonsCount('');
                       }}
-                      disabled={count > totalUnpaidCount}
                       className={cn(
                         "p-2 rounded border-2 transition-all text-center",
                         selectedPackage === count 
                           ? "border-primary bg-primary/10" 
-                          : "border-muted hover:border-primary/50",
-                        count > totalUnpaidCount && "opacity-50 cursor-not-allowed"
+                          : "border-muted hover:border-primary/50"
                       )}
                     >
                       <div className="text-lg font-bold">{count}</div>
@@ -177,7 +175,6 @@ export function CreatePaymentModal({
                   id="custom-lessons"
                   type="number"
                   min="1"
-                  max={totalUnpaidCount}
                   value={customLessonsCount}
                   onChange={(e) => {
                     setCustomLessonsCount(e.target.value);
