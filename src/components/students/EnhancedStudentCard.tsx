@@ -424,9 +424,27 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                 >
                                   {studentDetails.name}
                                 </h4>
-                                <Badge variant="outline" className="text-xs">
-                                  Индивидуально
-                                </Badge>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    Индивидуально
+                                  </Badge>
+                                  {(lesson.sessions?.filter(s => 
+                                    !['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence', 'cancelled'].includes(s.status)
+                                  ).length || 0) > 0 && (
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-8 w-8"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedLesson(lesson);
+                                        setPaymentModalOpen(true);
+                                      }}
+                                    >
+                                      <Wallet className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
 
                               {/* Дни недели и время */}
@@ -473,24 +491,6 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                 <span className="font-medium">{lesson.branch}</span>
                               </div>
 
-                              {/* Статистика оплат и кнопка оплаты */}
-                              <div className="space-y-3 mb-3">
-                                
-                                {(lesson.sessions?.filter(s => 
-                                  !['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence', 'cancelled'].includes(s.status)
-                                ).length || 0) > 0 && (
-                                  <Button
-                                    className="w-full"
-                                    onClick={() => {
-                                      setSelectedLesson(lesson);
-                                      setPaymentModalOpen(true);
-                                    }}
-                                  >
-                                    <Wallet className="h-4 w-4 mr-2" />
-                                    Внести оплату
-                                  </Button>
-                                )}
-                              </div>
 
                               {/* Расписание занятий */}
                               <div className="mt-3 pt-3 border-t">
