@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, Plus, ChevronDown } from 'lucide-react';
-import { useLeads } from '@/hooks/useLeads';
-import { useLeadStatuses } from '@/hooks/useLeads';
+import { useClients } from '@/hooks/useClients';
 import { AddLeadModal } from './AddLeadModal';
 import { LeadsTable } from './LeadsTable';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -19,28 +18,53 @@ export function LeadsModalContent() {
   
   // Фильтры
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   
-  const { leadStatuses } = useLeadStatuses();
+  // Загружаем клиентов (лиды с телефонии записываются в таблицу clients)
+  const { clients, isLoading: clientsLoading } = useClients();
   
-  // Формируем объект фильтров для API
-  const filters = {
-    branch: selectedBranch !== 'all' ? selectedBranch : undefined,
-    status: selectedStatus !== 'all' ? selectedStatus : undefined,
-  };
-  
-  const { leads, isLoading } = useLeads(filters);
+  const isLoading = clientsLoading;
+
+  // Преобразуем клиентов в формат лидов
+  const leadsFromClients = clients.map(client => ({
+    id: client.id,
+    first_name: client.name?.split(' ')[0] || client.name || 'Без имени',
+    last_name: client.name?.split(' ').slice(1).join(' ') || '',
+    middle_name: '',
+    phone: client.phone,
+    email: client.email || '',
+    age: undefined,
+    subject: '',
+    level: '',
+    branch: client.branch || 'Окская',
+    preferred_time: '',
+    preferred_days: [],
+    notes: client.notes || '',
+    utm_source: '',
+    utm_medium: '',
+    utm_campaign: '',
+    utm_term: '',
+    utm_content: '',
+    lead_source_id: '',
+    status_id: '',
+    assigned_to: '',
+    converted_to_student_id: '',
+    created_at: client.created_at,
+    updated_at: client.updated_at,
+  }));
 
   // Фильтрация на клиенте по поисковому запросу
-  const filteredLeads = leads.filter(lead => {
+  const filteredLeads = leadsFromClients.filter(lead => {
     const searchLower = searchQuery.toLowerCase();
-    const fullName = `${lead.first_name || ''} ${lead.last_name || ''} ${lead.middle_name || ''}`.toLowerCase();
+    const fullName = `${lead.first_name || ''} ${lead.last_name || ''}`.toLowerCase();
     const phone = lead.phone?.toLowerCase() || '';
     
     const matchesSearch = !searchQuery || 
       fullName.includes(searchLower) || 
       phone.includes(searchLower);
+    
+    // Фильтрация по филиалу
+    const matchesBranch = selectedBranch === 'all' || lead.branch === selectedBranch;
     
     // Фильтрация по дате создания
     const matchesDate = !dateRange?.from || !dateRange?.to || (
@@ -49,12 +73,11 @@ export function LeadsModalContent() {
       new Date(lead.created_at) <= dateRange.to
     );
     
-    return matchesSearch && matchesDate;
+    return matchesSearch && matchesBranch && matchesDate;
   });
 
-  const handleFiltersChange = (newFilters: any) => {
-    if (newFilters.branch) setSelectedBranch(newFilters.branch);
-    if (newFilters.status) setSelectedStatus(newFilters.status);
+  const handleFiltersChange = () => {
+    // Фильтры применяются автоматически через state
   };
 
   return (
@@ -93,7 +116,7 @@ export function LeadsModalContent() {
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-4 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Филиал */}
             <div className="space-y-2">
               <Label>Филиал</Label>
@@ -116,23 +139,6 @@ export function LeadsModalContent() {
               </Select>
             </div>
 
-            {/* Статус */}
-            <div className="space-y-2">
-              <Label>Статус</Label>
-              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите статус" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Все статусы</SelectItem>
-                  {leadStatuses?.map((status) => (
-                    <SelectItem key={status.id} value={status.id}>
-                      {status.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
             {/* Дата обращения */}
             <div className="space-y-2">

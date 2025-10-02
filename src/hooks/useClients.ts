@@ -10,6 +10,7 @@ export interface Client {
   notes?: string;
   avatar_url?: string;
   is_active: boolean;
+  branch?: string;
   created_at: string;
   updated_at: string;
 }
