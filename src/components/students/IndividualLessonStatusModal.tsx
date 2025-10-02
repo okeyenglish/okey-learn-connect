@@ -147,7 +147,22 @@ export function IndividualLessonStatusModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent 
+        className="max-w-md"
+        onClick={(e) => e.stopPropagation()}
+        onClickCapture={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerDownCapture={(e) => e.stopPropagation()}
+        onPointerDownOutside={(e) => {
+          // Prevent Radix from closing on pointer down, which can leak the click to underlying elements
+          e.preventDefault();
+        }}
+        onInteractOutside={(e) => {
+          // Close after the current event loop tick to avoid triggering underlying click handlers
+          e.preventDefault();
+          setTimeout(() => onOpenChange(false), 0);
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="text-lg">
             Управление уроком
