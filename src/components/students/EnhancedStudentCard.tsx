@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import * as React from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,8 +29,10 @@ import {
   AlertCircle,
   Smartphone,
   MessageCircleIcon,
-  Plus
+  Plus,
+  FileText
 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { useStudentDetails, StudentFullDetails } from '@/hooks/useStudentDetails';
 import { Student } from '@/hooks/useStudents';
 import { LessonScheduleStrip } from './LessonScheduleStrip';
@@ -47,7 +50,30 @@ interface EnhancedStudentCardProps {
 export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStudentCardProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [notesValue, setNotesValue] = useState('');
   const { data: studentDetails, isLoading, refetch } = useStudentDetails(student.id);
+
+  // Update notes value when student details load
+  React.useEffect(() => {
+    if (studentDetails?.notes) {
+      setNotesValue(studentDetails.notes);
+    }
+  }, [studentDetails?.notes]);
+
+  const handleSaveNotes = async () => {
+    // TODO: Implement save notes API call
+    console.log('Saving notes:', notesValue);
+    setIsEditingNotes(false);
+    // refetch();
+  };
+
+  const handleNotesKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSaveNotes();
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { color: string; label: string }> = {
@@ -111,17 +137,17 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
         {/* Header */}
         <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-background border-b px-6 py-4">
           <div className="flex items-start justify-between">
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-4 flex-1">
               <Avatar className="h-16 w-16 border-2 border-background shadow-md">
                 <AvatarFallback className="bg-primary/20 text-primary text-xl font-semibold">
                   {getInitials(studentDetails.name)}
                 </AvatarFallback>
               </Avatar>
-              <div>
+              <div className="flex-1">
                 <h2 className="text-2xl font-bold text-foreground mb-1">
                   {studentDetails.lastName} {studentDetails.firstName} {studentDetails.middleName}
                 </h2>
-                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <div className="flex items-center gap-3 text-sm text-muted-foreground mb-3">
                   {studentDetails.age && (
                     <span className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
@@ -138,6 +164,35 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                     <Clock className="h-4 w-4" />
                     С {formatDate(studentDetails.createdAt)}
                   </span>
+                </div>
+                
+                {/* Notes Section */}
+                <div className="mt-2 max-w-2xl">
+                  <div className="flex items-center gap-2 mb-1">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium text-muted-foreground">Заметки:</span>
+                  </div>
+                  {isEditingNotes ? (
+                    <Textarea
+                      value={notesValue}
+                      onChange={(e) => setNotesValue(e.target.value)}
+                      onKeyDown={handleNotesKeyDown}
+                      onBlur={handleSaveNotes}
+                      placeholder="Введите заметки о студенте..."
+                      className="min-h-[60px] text-sm resize-none"
+                      autoFocus
+                    />
+                  ) : (
+                    <div
+                      onClick={() => setIsEditingNotes(true)}
+                      className="text-sm text-muted-foreground cursor-pointer hover:bg-muted/50 p-2 rounded border border-transparent hover:border-border transition-colors min-h-[60px]"
+                    >
+                      {notesValue || 'Нажмите, чтобы добавить заметки...'}
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground/70 mt-1">
+                    {isEditingNotes ? 'Нажмите Enter для сохранения' : 'Нажмите на текст для редактирования'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -254,20 +309,6 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                     )}
                   </CardContent>
                 </Card>
-
-                {/* Notes */}
-                {studentDetails.notes && (
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium">Заметки</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                        {studentDetails.notes}
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
               </div>
             </ScrollArea>
           </div>
