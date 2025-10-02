@@ -118,7 +118,7 @@ export function IndividualLessonSchedule({
     return 'bg-white text-gray-500 border-gray-300'; // Белый фон, серые цифры
   };
 
-  // Generate lesson dates based on schedule days and include rescheduled sessions
+  // Generate lesson dates based on schedule days and include all sessions with custom statuses
   const generateLessonDates = () => {
     if (!periodStart || !periodEnd) return [];
     
@@ -136,16 +136,12 @@ export function IndividualLessonSchedule({
       currentDate = addDays(currentDate, 1);
     }
     
-    // Добавляем даты с сессиями статуса "rescheduled" (перенесенные на эту дату)
-    // и "rescheduled_out" (перенесенные с этой даты)
+    // Добавляем ВСЕ даты с сессиями (включая перенесенные, отмененные и т.д.)
     Object.keys(lessonSessions).forEach(dateStr => {
-      const session = lessonSessions[dateStr];
-      if (session.status === 'rescheduled' || session.status === 'rescheduled_out') {
-        const sessionDate = startOfDay(new Date(dateStr));
-        // Добавляем только если даты еще нет в списке
-        if (!dates.some(d => d.getTime() === sessionDate.getTime())) {
-          dates.push(sessionDate);
-        }
+      const sessionDate = startOfDay(new Date(dateStr));
+      // Добавляем только если даты еще нет в списке
+      if (!dates.some(d => d.getTime() === sessionDate.getTime())) {
+        dates.push(sessionDate);
       }
     });
     
