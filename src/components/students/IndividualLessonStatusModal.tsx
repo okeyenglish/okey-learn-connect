@@ -115,18 +115,28 @@ export function IndividualLessonStatusModal({
     try {
       const lessonDate = format(selectedDate, 'yyyy-MM-dd');
       
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        throw new Error('Пользователь не авторизован');
+      }
+      
       const { error } = await supabase
         .from('individual_lesson_sessions')
         .upsert({
           individual_lesson_id: lessonId,
           lesson_date: lessonDate,
           status: statusValue,
-          created_by: (await supabase.auth.getUser()).data.user?.id
+          created_by: user.id
         }, {
           onConflict: 'individual_lesson_id,lesson_date'
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
       toast({
         title: "Успешно",
@@ -134,12 +144,16 @@ export function IndividualLessonStatusModal({
       });
 
       onStatusUpdated?.();
-      onOpenChange(false);
-    } catch (error) {
+      
+      // Close modal with delay to prevent click propagation
+      requestAnimationFrame(() => {
+        onOpenChange(false);
+      });
+    } catch (error: any) {
       console.error('Error updating lesson status:', error);
       toast({
         title: "Ошибка",
-        description: "Не удалось обновить статус занятия",
+        description: error.message || "Не удалось обновить статус занятия",
         variant: "destructive"
       });
     }
@@ -149,18 +163,15 @@ export function IndividualLessonStatusModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
         className="max-w-md"
-        onClick={(e) => e.stopPropagation()}
-        onClickCapture={(e) => e.stopPropagation()}
-        onPointerDown={(e) => e.stopPropagation()}
-        onPointerDownCapture={(e) => e.stopPropagation()}
         onPointerDownOutside={(e) => {
-          // Prevent Radix from closing on pointer down, which can leak the click to underlying elements
           e.preventDefault();
         }}
         onInteractOutside={(e) => {
-          // Close after the current event loop tick to avoid triggering underlying click handlers
           e.preventDefault();
-          setTimeout(() => onOpenChange(false), 0);
+          // Delay closing to prevent click from bubbling to underlying elements
+          requestAnimationFrame(() => {
+            onOpenChange(false);
+          });
         }}
       >
         <DialogHeader>
