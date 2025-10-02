@@ -850,9 +850,12 @@ export type Database = {
       individual_lessons: {
         Row: {
           academic_hours: number | null
+          academic_hours_per_day: number | null
           audit_location: string | null
           branch: string
+          break_minutes: number | null
           category: Database["public"]["Enums"]["group_category"]
+          color: string | null
           created_at: string
           debt_hours: number | null
           description: string | null
@@ -879,9 +882,12 @@ export type Database = {
         }
         Insert: {
           academic_hours?: number | null
+          academic_hours_per_day?: number | null
           audit_location?: string | null
           branch?: string
+          break_minutes?: number | null
           category?: Database["public"]["Enums"]["group_category"]
+          color?: string | null
           created_at?: string
           debt_hours?: number | null
           description?: string | null
@@ -908,9 +914,12 @@ export type Database = {
         }
         Update: {
           academic_hours?: number | null
+          academic_hours_per_day?: number | null
           audit_location?: string | null
           branch?: string
+          break_minutes?: number | null
           category?: Database["public"]["Enums"]["group_category"]
+          color?: string | null
           created_at?: string
           debt_hours?: number | null
           description?: string | null

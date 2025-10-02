@@ -115,10 +115,10 @@ export const EditIndividualLessonModal = ({
           period_start: data.period_start || "",
           period_end: data.period_end || "",
           academic_hours: data.academic_hours?.toString() || "",
-          academic_hours_per_day: data.academic_hours_per_day?.toString() || "1",
-          break_minutes: data.break_minutes?.toString() || "0",
+          academic_hours_per_day: (data as any).academic_hours_per_day?.toString() || "1",
+          break_minutes: (data as any).break_minutes?.toString() || "0",
           audit_location: data.audit_location || "",
-          color: data.color || "#ffffff",
+          color: (data as any).color || "#ffffff",
         });
       }
     } catch (error) {

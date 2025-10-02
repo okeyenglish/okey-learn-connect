@@ -408,35 +408,65 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                           {studentDetails.individualLessons.map((lesson) => (
                             <div 
                               key={lesson.id} 
-                              className="p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-amber-50/50 cursor-pointer"
+                              className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer relative"
                               onClick={() => setSelectedLessonId(lesson.id)}
                             >
-                              <div className="flex items-start justify-between mb-3">
-                                <div>
-                                  <h4 className="font-semibold text-lg">{lesson.subject}</h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    {lesson.format} • {lesson.level}
-                                  </p>
-                                </div>
-                                <Badge variant="outline" className="bg-amber-100">
+                              {/* Заголовок с именем студента */}
+                              <div className="flex items-start justify-between mb-2">
+                                <h4 className="font-medium text-base text-primary">
+                                  {studentDetails.name}
+                                </h4>
+                                <Badge variant="outline" className="text-xs">
                                   Индивидуально
                                 </Badge>
                               </div>
-                              <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                                <div>
-                                  <p className="text-muted-foreground text-xs mb-1">Преподаватель</p>
-                                  <p className="font-medium">{lesson.teacherName || 'Не назначен'}</p>
-                                </div>
-                                <div>
-                                  <p className="text-muted-foreground text-xs mb-1">Филиал</p>
-                                  <div className="flex items-center gap-1">
-                                    <Building className="h-3 w-3" />
-                                    <span>{lesson.branch}</span>
-                                  </div>
-                                </div>
+
+                              {/* Дни недели и время */}
+                              <div className="flex items-center gap-2 text-sm mb-1">
+                                <span className="font-medium">
+                                  {lesson.scheduleDays && lesson.scheduleDays.length > 0
+                                    ? lesson.scheduleDays.map(day => {
+                                        const dayLabels: Record<string, string> = {
+                                          monday: 'Пн',
+                                          tuesday: 'Вт',
+                                          wednesday: 'Ср',
+                                          thursday: 'Чт',
+                                          friday: 'Пт',
+                                          saturday: 'Сб',
+                                          sunday: 'Вс'
+                                        };
+                                        return dayLabels[day.toLowerCase()] || day;
+                                      }).join('/')
+                                    : 'Не указаны'
+                                  }
+                                </span>
+                                {lesson.scheduleTime && (
+                                  <span className="text-muted-foreground">
+                                    с {lesson.scheduleTime.split('-')[0]} до {lesson.scheduleTime.split('-')[1]}
+                                  </span>
+                                )}
                               </div>
-                              <div className="mt-3">
-                                <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
+
+                              {/* Период */}
+                              {(lesson.periodStart || lesson.periodEnd) && (
+                                <div className="text-sm text-muted-foreground mb-2">
+                                  {lesson.periodStart && lesson.periodEnd
+                                    ? `с ${new Date(lesson.periodStart).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })} по ${new Date(lesson.periodEnd).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })}`
+                                    : lesson.periodStart
+                                      ? new Date(lesson.periodStart).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })
+                                      : ''
+                                  }
+                                </div>
+                              )}
+
+                              {/* Аудитория */}
+                              <div className="text-sm mb-3">
+                                <span className="text-muted-foreground">Ауд. </span>
+                                <span className="font-medium">{lesson.branch}</span>
+                              </div>
+
+                              {/* Расписание занятий */}
+                              <div className="mt-3 pt-3 border-t">
                                 <IndividualLessonSchedule 
                                   scheduleDays={lesson.scheduleDays}
                                   scheduleTime={lesson.scheduleTime}
