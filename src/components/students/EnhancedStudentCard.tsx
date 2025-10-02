@@ -294,8 +294,8 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                       <CardContent className="pt-6">
                         <div className="text-center">
                           <Users className="h-8 w-8 mx-auto mb-2 text-blue-600" />
-                          <p className="text-2xl font-bold">{studentDetails.groups.length}</p>
-                          <p className="text-xs text-muted-foreground">Активных групп</p>
+                          <p className="text-2xl font-bold">{studentDetails.groups.length + studentDetails.individualLessons.length}</p>
+                          <p className="text-xs text-muted-foreground">Активных занятий</p>
                         </div>
                       </CardContent>
                     </Card>
@@ -328,19 +328,19 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                     </Card>
                   </div>
 
-                  {/* Current Groups */}
+                  {/* Current Groups and Individual Lessons */}
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <GraduationCap className="h-5 w-5" />
-                        Текущие группы
+                        Текущие занятия
                       </CardTitle>
                       <CardDescription>
-                        Активные группы, в которых занимается студент
+                        Активные группы и индивидуальные занятия студента
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      {studentDetails.groups.length === 0 ? (
+                      {studentDetails.groups.length === 0 && studentDetails.individualLessons.length === 0 ? (
                         <div className="text-center py-8">
                           <Users className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
                           <p className="text-muted-foreground">Студент пока не добавлен ни в одну группу</p>
@@ -351,6 +351,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                         </div>
                       ) : (
                         <div className="space-y-3">
+                          {/* Groups */}
                           {studentDetails.groups.map((group) => (
                             <div key={group.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                               <div className="flex items-start justify-between mb-3">
@@ -382,6 +383,40 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                     <Calendar className="h-3 w-3" />
                                     <span>{formatDate(group.enrollmentDate)}</span>
                                   </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {/* Individual Lessons */}
+                          {studentDetails.individualLessons.map((lesson) => (
+                            <div key={lesson.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-amber-50/50">
+                              <div className="flex items-start justify-between mb-3">
+                                <div>
+                                  <h4 className="font-semibold text-lg">{lesson.subject} (индивидуально)</h4>
+                                  <p className="text-sm text-muted-foreground">
+                                    {lesson.level}
+                                  </p>
+                                </div>
+                                <Badge variant="outline" className="bg-amber-100">
+                                  Индивидуально
+                                </Badge>
+                              </div>
+                              <div className="grid grid-cols-3 gap-4 text-sm">
+                                <div>
+                                  <p className="text-muted-foreground text-xs mb-1">Преподаватель</p>
+                                  <p className="font-medium">{lesson.teacherName || 'Не назначен'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground text-xs mb-1">Филиал</p>
+                                  <div className="flex items-center gap-1">
+                                    <Building className="h-3 w-3" />
+                                    <span>{lesson.branch}</span>
+                                  </div>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground text-xs mb-1">Стоимость</p>
+                                  <p className="font-medium">{lesson.pricePerLesson ? `${lesson.pricePerLesson}₽/урок` : 'Не указана'}</p>
                                 </div>
                               </div>
                             </div>
@@ -442,13 +477,13 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                 <TabsContent value="groups" className="mt-0">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Все группы студента</CardTitle>
+                      <CardTitle>Все занятия студента</CardTitle>
                       <CardDescription>
-                        Полный список групп, включая неактивные
+                        Полный список групп и индивидуальных занятий, включая неактивные
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      {studentDetails.groups.length === 0 ? (
+                      {studentDetails.groups.length === 0 && studentDetails.individualLessons.length === 0 ? (
                         <div className="text-center py-12">
                           <Users className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
                           <p className="text-lg text-muted-foreground mb-2">Студент не добавлен в группы</p>
@@ -507,6 +542,44 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                   <MessageSquare className="h-3 w-3 mr-1" />
                                   Чат группы
                                 </Button>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {/* Individual Lessons */}
+                          {studentDetails.individualLessons.map((lesson) => (
+                            <div key={lesson.id} className="p-4 border rounded-lg bg-amber-50/50">
+                              <div className="flex items-start justify-between mb-4">
+                                <div>
+                                  <h4 className="font-semibold text-lg mb-1">{lesson.subject} (индивидуально)</h4>
+                                  <p className="text-sm text-muted-foreground">
+                                    {lesson.level}
+                                  </p>
+                                </div>
+                                <Badge variant="outline" className="bg-amber-100">
+                                  Индивидуально
+                                </Badge>
+                              </div>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                <div>
+                                  <p className="text-muted-foreground text-xs mb-1">Преподаватель</p>
+                                  <p className="font-medium">{lesson.teacherName || 'Не назначен'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground text-xs mb-1">Филиал</p>
+                                  <div className="flex items-center gap-1">
+                                    <MapPin className="h-3 w-3" />
+                                    <span>{lesson.branch}</span>
+                                  </div>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground text-xs mb-1">Стоимость</p>
+                                  <p className="font-medium">{lesson.pricePerLesson ? `${lesson.pricePerLesson}₽/урок` : 'Не указана'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground text-xs mb-1">Расписание</p>
+                                  <span>{lesson.scheduleTime || 'Не указано'}</span>
+                                </div>
                               </div>
                             </div>
                           ))}

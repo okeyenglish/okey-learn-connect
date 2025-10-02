@@ -30,6 +30,19 @@ export interface StudentGroup {
   enrollmentDate: string;
 }
 
+export interface StudentIndividualLesson {
+  id: string;
+  subject: string;
+  level: string;
+  teacherName?: string;
+  branch: string;
+  pricePerLesson?: number;
+  scheduleTime?: string;
+  scheduleDays?: string[];
+  status: string;
+  nextLesson?: string;
+}
+
 export interface StudentPayment {
   id: string;
   amount: number;
@@ -78,7 +91,7 @@ export interface StudentFullDetails {
   familyGroupId?: string;
   parents: StudentParent[];
   groups: StudentGroup[];
-  individualLessons: any[];
+  individualLessons: StudentIndividualLesson[];
   payments: StudentPayment[];
   attendance: StudentAttendance[];
   subscriptions: StudentSubscription[];
@@ -180,11 +193,24 @@ export const useStudentDetails = (studentId: string) => {
       }));
 
       // Fetch individual lessons
-      const { data: individualLessons } = await supabase
+      const { data: individualLessonsData } = await supabase
         .from('individual_lessons')
         .select('*')
         .eq('student_id', studentId)
         .eq('is_active', true);
+
+      const individualLessons: StudentIndividualLesson[] = (individualLessonsData || []).map((il: any) => ({
+        id: il.id,
+        subject: il.subject || 'Не указан',
+        level: il.level || 'Не указан',
+        teacherName: il.teacher_name,
+        branch: il.branch || 'Не указан',
+        pricePerLesson: il.price_per_lesson,
+        scheduleTime: il.schedule_time,
+        scheduleDays: il.schedule_days,
+        status: il.status || 'active',
+        nextLesson: undefined, // TODO: get from lesson_sessions
+      }));
 
       // Fetch payments
       const { data: paymentsData } = await supabase
