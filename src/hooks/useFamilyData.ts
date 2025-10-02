@@ -94,20 +94,10 @@ export const useFamilyData = (familyGroupId?: string) => {
 
       if (membersError) throw membersError;
 
-      // Fetch students with their courses
+      // Fetch students
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
-        .select(`
-          *,
-          student_courses (
-            id,
-            course_name,
-            next_lesson_date,
-            next_payment_date,
-            payment_amount,
-            is_active
-          )
-        `)
+        .select('*')
         .eq('family_group_id', familyGroupId);
 
       if (studentsError) throw studentsError;
@@ -143,33 +133,90 @@ export const useFamilyData = (familyGroupId?: string) => {
         })
       );
 
-      // Transform students data from database
-      const students: Student[] = studentsData.map(student => ({
-        id: student.id,
-        name: student.name,
-        firstName: student.first_name || student.name.split(' ')[0],
-        lastName: student.last_name || student.name.split(' ').slice(1).join(' '),
-        middleName: student.middle_name || '',
-        age: student.age,
-        dateOfBirth: student.date_of_birth || undefined,
-        status: student.status,
-        notes: student.notes || undefined,
-        courses: (student.student_courses || []).map((course: any) => ({
-          id: course.id,
-          name: course.course_name,
-          nextLesson: course.next_lesson_date ? 
-            new Date(course.next_lesson_date).toLocaleDateString('ru-RU', { 
-              day: '2-digit', 
-              month: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit'
-            }) : undefined,
-          nextPayment: course.next_payment_date && course.payment_amount ? 
-            `${new Date(course.next_payment_date).toLocaleDateString('ru-RU')} - ${course.payment_amount}₽` : undefined,
-          paymentAmount: course.payment_amount || undefined,
-          isActive: course.is_active
-        }))
-      }));
+      // Transform students data - fetch real course data from group_students and individual_lessons
+      const students: Student[] = await Promise.all(
+        studentsData.map(async (student) => {
+          const courses = [];
+          
+          // Fetch group courses
+          const { data: groupStudents } = await supabase
+            .from('group_students')
+            .select(`
+              *,
+              learning_groups (
+                id,
+                name,
+                subject,
+                level
+              )
+            `)
+            .eq('student_id', student.id)
+            .eq('status', 'active');
+
+          // Add group courses with next lesson info
+          if (groupStudents) {
+            for (const gs of groupStudents) {
+              if (gs.learning_groups) {
+                // Get next lesson for this group
+                const { data: nextLesson } = await supabase
+                  .from('lesson_sessions')
+                  .select('lesson_date, start_time')
+                  .eq('group_id', gs.learning_groups.id)
+                  .gte('lesson_date', new Date().toISOString().split('T')[0])
+                  .eq('status', 'scheduled')
+                  .order('lesson_date', { ascending: true })
+                  .order('start_time', { ascending: true })
+                  .limit(1)
+                  .maybeSingle();
+
+                courses.push({
+                  id: gs.learning_groups.id,
+                  name: gs.learning_groups.name,
+                  nextLesson: nextLesson ? 
+                    `${new Date(nextLesson.lesson_date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })} в ${nextLesson.start_time.slice(0, 5)}` : undefined,
+                  nextPayment: undefined,
+                  paymentAmount: undefined,
+                  isActive: true
+                });
+              }
+            }
+          }
+
+          // Fetch individual lessons
+          const { data: individualLessons } = await supabase
+            .from('individual_lessons')
+            .select('*')
+            .eq('student_id', student.id)
+            .eq('is_active', true);
+
+          // Add individual lessons
+          if (individualLessons) {
+            for (const il of individualLessons) {
+              courses.push({
+                id: il.id,
+                name: `${il.subject} (инд.)`,
+                nextLesson: undefined,
+                nextPayment: undefined,
+                paymentAmount: il.price_per_lesson || undefined,
+                isActive: il.is_active
+              });
+            }
+          }
+
+          return {
+            id: student.id,
+            name: student.name,
+            firstName: student.first_name || student.name.split(' ')[0],
+            lastName: student.last_name || student.name.split(' ').slice(1).join(' '),
+            middleName: student.middle_name || '',
+            age: student.age,
+            dateOfBirth: student.date_of_birth || undefined,
+            status: student.status,
+            notes: student.notes || undefined,
+            courses
+          };
+        })
+      );
 
       setFamilyData({
         id: familyGroup.id,
