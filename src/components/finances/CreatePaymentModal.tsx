@@ -18,12 +18,14 @@ interface CreatePaymentModalProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   children?: React.ReactNode;
+  studentId?: string;
+  onPaymentCreated?: () => void;
 }
 
-export function CreatePaymentModal({ open, onOpenChange, children }: CreatePaymentModalProps) {
+export function CreatePaymentModal({ open, onOpenChange, children, studentId, onPaymentCreated }: CreatePaymentModalProps) {
   const [formData, setFormData] = useState({
     invoice_id: '',
-    student_id: '',
+    student_id: studentId || '',
     amount: '',
     payment_method: 'cash' as const,
     description: '',
@@ -56,7 +58,7 @@ export function CreatePaymentModal({ open, onOpenChange, children }: CreatePayme
       // Сброс формы
       setFormData({
         invoice_id: '',
-        student_id: '',
+        student_id: studentId || '',
         amount: '',
         payment_method: 'cash',
         description: '',
@@ -64,6 +66,10 @@ export function CreatePaymentModal({ open, onOpenChange, children }: CreatePayme
         status: 'completed'
       });
       setPaymentDate(new Date());
+      
+      if (onPaymentCreated) {
+        onPaymentCreated();
+      }
       
       if (onOpenChange) {
         onOpenChange(false);
@@ -134,22 +140,24 @@ export function CreatePaymentModal({ open, onOpenChange, children }: CreatePayme
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="student_id">Студент</Label>
-            <Select
-              value={formData.student_id}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, student_id: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Выберите студента" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="student1">Иванов Иван</SelectItem>
-                <SelectItem value="student2">Петрова Мария</SelectItem>
-                <SelectItem value="student3">Сидоров Петр</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {!studentId && (
+            <div>
+              <Label htmlFor="student_id">Студент</Label>
+              <Select
+                value={formData.student_id}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, student_id: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите студента" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="student1">Иванов Иван</SelectItem>
+                  <SelectItem value="student2">Петрова Мария</SelectItem>
+                  <SelectItem value="student3">Сидоров Петр</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div>
             <Label htmlFor="invoice_id">Связанный счет</Label>

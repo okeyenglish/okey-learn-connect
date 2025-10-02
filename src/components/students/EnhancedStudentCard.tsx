@@ -27,11 +27,13 @@ import {
   XCircle,
   AlertCircle,
   Smartphone,
-  MessageCircleIcon
+  MessageCircleIcon,
+  Plus
 } from 'lucide-react';
 import { useStudentDetails, StudentFullDetails } from '@/hooks/useStudentDetails';
 import { Student } from '@/hooks/useStudents';
 import { LessonScheduleStrip } from './LessonScheduleStrip';
+import { CreatePaymentModal } from '@/components/finances/CreatePaymentModal';
 
 interface EnhancedStudentCardProps {
   student: {
@@ -44,7 +46,8 @@ interface EnhancedStudentCardProps {
 
 export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStudentCardProps) {
   const [activeTab, setActiveTab] = useState('overview');
-  const { data: studentDetails, isLoading } = useStudentDetails(student.id);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const { data: studentDetails, isLoading, refetch } = useStudentDetails(student.id);
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { color: string; label: string }> = {
@@ -172,7 +175,12 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                       <BookOpen className="h-4 w-4 mr-2" />
                       Записать на урок
                     </Button>
-                    <Button variant="outline" size="sm" className="w-full justify-start">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full justify-start"
+                      onClick={() => setPaymentModalOpen(true)}
+                    >
                       <CreditCard className="h-4 w-4 mr-2" />
                       Создать платеж
                     </Button>
@@ -276,7 +284,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                     Занятия
                   </TabsTrigger>
                   <TabsTrigger value="payments" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
-                    Платежи
+                    Финансы
                   </TabsTrigger>
                   <TabsTrigger value="attendance" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
                     Посещаемость
@@ -693,71 +701,111 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                     <CardHeader>
                       <div className="flex items-center justify-between">
                         <div>
-                          <CardTitle>История платежей</CardTitle>
+                          <CardTitle>Финансы студента</CardTitle>
                           <CardDescription>
-                            Полная история всех платежей студента
+                            Полная информация о платежах и финансовых операциях
                           </CardDescription>
                         </div>
-                        <Button>
-                          <CreditCard className="h-4 w-4 mr-2" />
-                          Создать платеж
+                        <Button 
+                          className="bg-green-600 hover:bg-green-700"
+                          onClick={() => setPaymentModalOpen(true)}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Внести оплату
                         </Button>
                       </div>
                     </CardHeader>
                     <CardContent>
-                      {studentDetails.payments.length === 0 ? (
-                        <div className="text-center py-12">
-                          <CreditCard className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-                          <p className="text-lg text-muted-foreground mb-2">Платежи отсутствуют</p>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            Создайте первый платеж для студента
+                      {/* Финансовая сводка */}
+                      <div className="grid grid-cols-3 gap-4 mb-6">
+                        <div className="p-4 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
+                          <p className="text-sm text-muted-foreground mb-1">Всего оплачено</p>
+                          <p className="text-2xl font-bold text-green-600">
+                            {studentDetails.payments
+                              .filter(p => p.status === 'completed')
+                              .reduce((sum, p) => sum + p.amount, 0)
+                              .toLocaleString('ru-RU')} ₽
                           </p>
-                          <Button>
-                            <CreditCard className="h-4 w-4 mr-2" />
-                            Создать платеж
-                          </Button>
                         </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {studentDetails.payments.map((payment) => (
-                            <div key={payment.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                              <div className="flex items-center gap-4">
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                                  payment.status === 'completed' ? 'bg-green-100' : 
-                                  payment.status === 'pending' ? 'bg-yellow-100' : 'bg-red-100'
-                                }`}>
-                                  {payment.status === 'completed' ? (
-                                    <CheckCircle className="h-6 w-6 text-green-600" />
-                                  ) : payment.status === 'pending' ? (
-                                    <AlertCircle className="h-6 w-6 text-yellow-600" />
-                                  ) : (
-                                    <XCircle className="h-6 w-6 text-red-600" />
-                                  )}
+                        <div className="p-4 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                          <p className="text-sm text-muted-foreground mb-1">Ожидает оплаты</p>
+                          <p className="text-2xl font-bold text-yellow-600">
+                            {studentDetails.payments
+                              .filter(p => p.status === 'pending')
+                              .reduce((sum, p) => sum + p.amount, 0)
+                              .toLocaleString('ru-RU')} ₽
+                          </p>
+                        </div>
+                        <div className="p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                          <p className="text-sm text-muted-foreground mb-1">Всего платежей</p>
+                          <p className="text-2xl font-bold text-blue-600">
+                            {studentDetails.payments.length}
+                          </p>
+                        </div>
+                      </div>
+
+                      <Separator className="my-6" />
+
+                      <div>
+                        <h3 className="text-lg font-semibold mb-4">История платежей</h3>
+                        
+                        {studentDetails.payments.length === 0 ? (
+                          <div className="text-center py-12">
+                            <CreditCard className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
+                            <p className="text-lg text-muted-foreground mb-2">Платежи отсутствуют</p>
+                            <p className="text-sm text-muted-foreground mb-4">
+                              Создайте первый платеж для студента
+                            </p>
+                            <Button 
+                              className="bg-green-600 hover:bg-green-700"
+                              onClick={() => setPaymentModalOpen(true)}
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Внести оплату
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {studentDetails.payments.map((payment) => (
+                              <div key={payment.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                                <div className="flex items-center gap-4">
+                                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                                    payment.status === 'completed' ? 'bg-green-100 dark:bg-green-950' : 
+                                    payment.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-950' : 'bg-red-100 dark:bg-red-950'
+                                  }`}>
+                                    {payment.status === 'completed' ? (
+                                      <CheckCircle className="h-6 w-6 text-green-600" />
+                                    ) : payment.status === 'pending' ? (
+                                      <AlertCircle className="h-6 w-6 text-yellow-600" />
+                                    ) : (
+                                      <XCircle className="h-6 w-6 text-red-600" />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium">{payment.description}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {formatDate(payment.date)}
+                                      {payment.paymentMethod && ` • ${payment.paymentMethod}`}
+                                    </p>
+                                  </div>
                                 </div>
-                                <div>
-                                  <p className="font-medium">{payment.description}</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {formatDate(payment.date)}
-                                    {payment.paymentMethod && ` • ${payment.paymentMethod}`}
+                                <div className="text-right">
+                                  <p className="font-semibold text-xl">
+                                    {payment.amount.toLocaleString('ru-RU')} ₽
                                   </p>
+                                  <Badge 
+                                    variant={payment.status === 'completed' ? 'default' : 'secondary'}
+                                    className="text-xs mt-1"
+                                  >
+                                    {payment.status === 'completed' ? 'Оплачено' : 
+                                     payment.status === 'pending' ? 'Ожидание' : 'Отменено'}
+                                  </Badge>
                                 </div>
                               </div>
-                              <div className="text-right">
-                                <p className="font-semibold text-xl">
-                                  {payment.amount.toLocaleString('ru-RU')} ₽
-                                </p>
-                                <Badge 
-                                  variant={payment.status === 'completed' ? 'default' : 'secondary'}
-                                  className="text-xs mt-1"
-                                >
-                                  {payment.status === 'completed' ? 'Оплачено' : 
-                                   payment.status === 'pending' ? 'Ожидание' : 'Отменено'}
-                                </Badge>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -813,6 +861,14 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
           </div>
         </div>
       </DialogContent>
+
+      {/* Модал создания платежа */}
+      <CreatePaymentModal 
+        open={paymentModalOpen}
+        onOpenChange={setPaymentModalOpen}
+        studentId={student.id}
+        onPaymentCreated={() => refetch()}
+      />
     </Dialog>
   );
 }
