@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -17,6 +17,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { MoreHorizontal, Eye, Edit, Trash2, Phone, Mail, MessageSquare } from 'lucide-react';
 import { Lead } from '@/hooks/useLeads';
 import { format } from 'date-fns';
@@ -29,6 +38,21 @@ interface LeadsTableProps {
 }
 
 export function LeadsTable({ leads, isLoading, onFiltersChange }: LeadsTableProps) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 25;
+
+  // Вычисляем пагинацию
+  const totalPages = Math.ceil(leads.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedLeads = leads.slice(startIndex, endIndex);
+
+  // Сброс на первую страницу при изменении данных
+  React.useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [leads.length, currentPage, totalPages]);
 
   const getStatusBadgeVariant = (status: any) => {
     if (status?.is_success) return 'default';
@@ -65,7 +89,7 @@ export function LeadsTable({ leads, isLoading, onFiltersChange }: LeadsTableProp
             </TableRow>
           </TableHeader>
           <TableBody>
-            {leads.map((lead) => (
+            {paginatedLeads.map((lead) => (
               <TableRow key={lead.id}>
                 <TableCell>
                   <div>
@@ -158,6 +182,60 @@ export function LeadsTable({ leads, isLoading, onFiltersChange }: LeadsTableProp
       {leads.length === 0 && (
         <div className="text-center py-8">
           <p className="text-muted-foreground">Лидов не найдено</p>
+        </div>
+      )}
+
+      {/* Пагинация */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Показано {startIndex + 1}-{Math.min(endIndex, leads.length)} из {leads.length}
+          </div>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+              
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                // Показываем первую, последнюю и страницы вокруг текущей
+                if (
+                  page === 1 || 
+                  page === totalPages || 
+                  (page >= currentPage - 1 && page <= currentPage + 1)
+                ) {
+                  return (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        onClick={() => setCurrentPage(page)}
+                        isActive={currentPage === page}
+                        className="cursor-pointer"
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                } else if (page === currentPage - 2 || page === currentPage + 2) {
+                  return (
+                    <PaginationItem key={page}>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  );
+                }
+                return null;
+              })}
+              
+              <PaginationItem>
+                <PaginationNext 
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </div>
       )}
     </div>
