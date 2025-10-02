@@ -976,6 +976,13 @@ const CRMContent = () => {
     setIsManualModalOpen(false);
   };
 
+  // Обработчик клика по лиду - открывает чат
+  const handleLeadClick = (clientId: string) => {
+    handleMenuModalClose(); // Закрываем модальное окно лидов
+    setActiveTab('chats'); // Переключаемся на вкладку чатов
+    handleChatClick(clientId, 'client'); // Открываем чат с клиентом
+  };
+
   const menuItems = [
     { icon: CheckSquare, label: "Мои задачи" },
     { icon: FileText, label: "Заявки" },
@@ -1174,7 +1181,7 @@ const CRMContent = () => {
                       </PinnableModalHeader>
                       <div className="py-4">
                         {item.label === "Лиды" && (
-                          <LeadsModalContent />
+                          <LeadsModalContent onLeadClick={handleLeadClick} />
                         )}
                         {item.label === "Расписание" && (
                           <div className="h-full">

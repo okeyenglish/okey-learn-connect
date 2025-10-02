@@ -11,7 +11,11 @@ import { Label } from '@/components/ui/label';
 import { DatePickerWithRange } from '@/components/ui/date-range-picker';
 import { DateRange } from 'react-day-picker';
 
-export function LeadsModalContent() {
+interface LeadsModalContentProps {
+  onLeadClick?: (clientId: string) => void;
+}
+
+export function LeadsModalContent({ onLeadClick }: LeadsModalContentProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -157,6 +161,7 @@ export function LeadsModalContent() {
         leads={filteredLeads}
         isLoading={isLoading}
         onFiltersChange={handleFiltersChange}
+        onLeadClick={onLeadClick}
       />
 
       {/* Модальное окно добавления лида */}

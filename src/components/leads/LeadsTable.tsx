@@ -35,9 +35,10 @@ interface LeadsTableProps {
   leads: Lead[];
   isLoading: boolean;
   onFiltersChange: (filters: any) => void;
+  onLeadClick?: (clientId: string) => void;
 }
 
-export function LeadsTable({ leads, isLoading, onFiltersChange }: LeadsTableProps) {
+export function LeadsTable({ leads, isLoading, onFiltersChange, onLeadClick }: LeadsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 25;
 
@@ -90,7 +91,7 @@ export function LeadsTable({ leads, isLoading, onFiltersChange }: LeadsTableProp
           </TableHeader>
           <TableBody>
             {paginatedLeads.map((lead) => (
-              <TableRow key={lead.id}>
+              <TableRow key={lead.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onLeadClick?.(lead.id)}>
                 <TableCell>
                   <div>
                     <div className="font-medium">
@@ -138,7 +139,7 @@ export function LeadsTable({ leads, isLoading, onFiltersChange }: LeadsTableProp
                   </time>
                 </TableCell>
                 
-                <TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" className="h-8 w-8 p-0">
