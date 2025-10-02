@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { useStudents } from "@/hooks/useStudents";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
-import { StudentCard } from "@/components/students/StudentCard";
+import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
 
 interface StudentsModalProps {
   open?: boolean;
@@ -511,9 +511,9 @@ const StudentsContent = ({
         </div>
       </div>
 
-      {/* Student Card Modal */}
+      {/* Enhanced Student Card Modal */}
       {selectedStudent && (
-        <StudentCard
+        <EnhancedStudentCard
           student={selectedStudent}
           open={showStudentCard}
           onOpenChange={(open) => {
