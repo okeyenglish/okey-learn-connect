@@ -95,14 +95,16 @@ export function IndividualLessonSchedule({
     if (session?.status) {
       switch (session.status) {
         case 'cancelled':
-          return 'bg-gray-900 text-white border-gray-900'; // Черный - отменено
+        case 'rescheduled_out': // Перенесено с этой даты - черный
+          return 'bg-gray-900 text-white border-gray-900'; // Черный - отменено/перенесено
         case 'free':
           return 'bg-yellow-500 text-white border-yellow-500'; // Желтый - бесплатное
         case 'attended':
         case 'partially_paid':
         case 'paid_absence':
         case 'partially_paid_absence':
-          return 'bg-green-600 text-white border-green-600'; // Зеленый - состоялось/оплачено
+        case 'rescheduled': // Перенесено на эту дату - зеленый
+          return 'bg-green-600 text-white border-green-600'; // Зеленый - состоялось/оплачено/перенесено сюда
         default:
           break;
       }
@@ -117,7 +119,7 @@ export function IndividualLessonSchedule({
     return 'bg-gray-400 text-white border-gray-400'; // Серый - запланировано
   };
 
-  // Generate lesson dates based on schedule days
+  // Generate lesson dates based on schedule days and include rescheduled sessions
   const generateLessonDates = () => {
     if (!periodStart || !periodEnd) return [];
     
@@ -134,6 +136,21 @@ export function IndividualLessonSchedule({
       }
       currentDate = addDays(currentDate, 1);
     }
+    
+    // Добавляем даты с сессиями статуса "rescheduled" (перенесенные на другие даты)
+    Object.keys(lessonSessions).forEach(dateStr => {
+      const session = lessonSessions[dateStr];
+      if (session.status === 'rescheduled') {
+        const sessionDate = startOfDay(new Date(dateStr));
+        // Добавляем только если даты еще нет в списке
+        if (!dates.some(d => d.getTime() === sessionDate.getTime())) {
+          dates.push(sessionDate);
+        }
+      }
+    });
+    
+    // Сортируем по дате
+    dates.sort((a, b) => a.getTime() - b.getTime());
     
     return dates.slice(0, 20); // Limit to first 20 lessons
   };
