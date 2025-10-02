@@ -148,7 +148,7 @@ export function CreatePaymentModal({
 
               <div>
                 <Label>Выберите пакет занятий</Label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-5 gap-1.5">
                   {LESSON_PACKAGES.map(count => (
                     <button
                       key={count}
@@ -159,16 +159,16 @@ export function CreatePaymentModal({
                       }}
                       disabled={count > totalUnpaidCount}
                       className={cn(
-                        "p-4 rounded-lg border-2 transition-all text-center",
+                        "p-2 rounded border-2 transition-all text-center",
                         selectedPackage === count 
                           ? "border-primary bg-primary/10" 
                           : "border-muted hover:border-primary/50",
                         count > totalUnpaidCount && "opacity-50 cursor-not-allowed"
                       )}
                     >
-                      <div className="text-2xl font-bold">{count}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {count * pricePerLesson} руб.
+                      <div className="text-lg font-bold">{count}</div>
+                      <div className="text-[10px] text-muted-foreground leading-tight">
+                        {count * pricePerLesson} ₽
                       </div>
                     </button>
                   ))}
@@ -272,16 +272,6 @@ export function CreatePaymentModal({
             />
           </div>
 
-          <div>
-            <Label htmlFor="notes">Заметки</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => setFormData(prev => ({...prev, notes: e.target.value}))}
-              placeholder="Дополнительные заметки..."
-              rows={2}
-            />
-          </div>
 
           <div className="flex gap-2 justify-end">
             <Button
