@@ -78,9 +78,10 @@ export const usePayments = (filters?: any) => {
 
         if (!fetchError && allSessions && allSessions.length > 0) {
           // Фильтруем только базовые неоплаченные занятия 
-          // Исключаем: оплаченные, отмененные, перенесенные, бесплатные
+          // Исключаем: оплаченные, отмененные, бесплатные
+          // Включаем: scheduled, rescheduled_out, rescheduled (перенесенные также оплачиваются)
           const unpaidSessions = allSessions.filter(s => 
-            ['scheduled', 'rescheduled_out'].includes(s.status) || !s.status
+            ['scheduled', 'rescheduled_out', 'rescheduled'].includes(s.status) || !s.status
           );
 
           console.log('Unpaid sessions available for payment:', unpaidSessions);
