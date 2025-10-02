@@ -1,19 +1,25 @@
 project_id = "kbojujfwtvmsgudumown"
 
 [functions.ask]
-verify_jwt = false
+verify_jwt = true
 
 [functions.download-whatsapp-file]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-delayed-gpt-response]
-verify_jwt = false
+verify_jwt = true
+
+[functions.generate-gpt-response]
+verify_jwt = true
 
 [functions.transcribe-audio]
-verify_jwt = false
+verify_jwt = true
 
 [functions.index-content]
-verify_jwt = false
+verify_jwt = true
+
+[functions.generate-call-summary]
+verify_jwt = true
 
 [functions.webhook-proxy]
 verify_jwt = false
@@ -25,7 +31,4 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.onlinepbx-webhook]
-verify_jwt = false
-
-[functions.generate-call-summary]
 verify_jwt = false
