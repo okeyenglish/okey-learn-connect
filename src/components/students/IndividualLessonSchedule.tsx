@@ -57,14 +57,17 @@ export function IndividualLessonSchedule({
     try {
       const { data, error } = await supabase
         .from('individual_lesson_sessions')
-        .select('lesson_date, status')
-        .eq('individual_lesson_id', lessonId);
+        .select('lesson_date, status, updated_at')
+        .eq('individual_lesson_id', lessonId)
+        .order('updated_at', { ascending: false });
 
       if (error) throw error;
 
       const sessionsMap: Record<string, LessonSession> = {};
       data?.forEach(session => {
-        sessionsMap[session.lesson_date] = session;
+        if (!sessionsMap[session.lesson_date]) {
+          sessionsMap[session.lesson_date] = { lesson_date: session.lesson_date, status: session.status };
+        }
       });
       setLessonSessions(sessionsMap);
     } catch (error) {

@@ -219,20 +219,34 @@ export function IndividualLessonStatusModal({
         }
       }
       
-      const { error } = await supabase
+      // Try update first to avoid duplicate rows
+      const { data: updatedRows, error: updateError } = await supabase
         .from('individual_lesson_sessions')
-        .upsert({
-          individual_lesson_id: lessonId,
-          lesson_date: lessonDate,
-          status: statusValue,
-          created_by: user.id
-        }, {
-          onConflict: 'individual_lesson_id,lesson_date'
-        });
+        .update({ status: statusValue, created_by: user.id, updated_at: new Date().toISOString() })
+        .eq('individual_lesson_id', lessonId)
+        .eq('lesson_date', lessonDate)
+        .select('id');
 
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
+      if (updateError) {
+        console.error('Update error:', updateError);
+        throw updateError;
+      }
+
+      if (!updatedRows || updatedRows.length === 0) {
+        // No row existed - insert new
+        const { error: insertError } = await supabase
+          .from('individual_lesson_sessions')
+          .insert({
+            individual_lesson_id: lessonId,
+            lesson_date: lessonDate,
+            status: statusValue,
+            created_by: user.id
+          });
+
+        if (insertError) {
+          console.error('Insert error:', insertError);
+          throw insertError;
+        }
       }
 
       toast({
