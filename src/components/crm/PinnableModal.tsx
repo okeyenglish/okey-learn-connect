@@ -66,9 +66,9 @@ export const PinnableModalHeader = ({
   return (
     <DialogHeader>
       <div className="flex items-center justify-between">
-        <DialogTitle className="text-lg font-medium flex-1 text-muted-foreground">
-          {title}
+        <DialogTitle className="text-lg font-medium flex-1 text-muted-foreground flex items-center gap-2">
           {children}
+          {title}
         </DialogTitle>
         <div className="flex items-center gap-1">
           <Button 
