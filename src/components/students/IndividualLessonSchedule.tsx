@@ -80,7 +80,10 @@ export function IndividualLessonSchedule({
 
   return (
     <>
-      <div className={cn("flex items-center gap-2", className)}>
+      <div 
+        className={cn("flex items-center gap-2", className)}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex gap-1 flex-wrap">
           {lessonDates.map((date, index) => (
             <button
