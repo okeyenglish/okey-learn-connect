@@ -39,6 +39,7 @@ import { Student } from '@/hooks/useStudents';
 import { LessonScheduleStrip } from './LessonScheduleStrip';
 import { CreatePaymentModal } from '@/components/finances/CreatePaymentModal';
 import { EditIndividualLessonModal } from './EditIndividualLessonModal';
+import { IndividualLessonSchedule } from './IndividualLessonSchedule';
 
 interface EnhancedStudentCardProps {
   student: {
@@ -436,7 +437,10 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                               </div>
                               <div className="mt-3">
                                 <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
-                                <LessonScheduleStrip sessions={lesson.sessions} />
+                                <IndividualLessonSchedule 
+                                  scheduleDays={lesson.scheduleDays}
+                                  scheduleTime={lesson.scheduleTime}
+                                />
                               </div>
                             </div>
                           ))}
@@ -602,13 +606,16 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                   <div>
                                     <p className="text-muted-foreground text-xs mb-1">Стоимость</p>
                                     <p className="font-medium">{lesson.pricePerLesson ? `${lesson.pricePerLesson}₽/урок` : 'Не указана'}</p>
-                                  </div>
-                                </div>
-                                <div>
-                                  <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
-                                  <LessonScheduleStrip sessions={lesson.sessions} />
                                 </div>
                               </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
+                                <IndividualLessonSchedule 
+                                  scheduleDays={lesson.scheduleDays}
+                                  scheduleTime={lesson.scheduleTime}
+                                />
+                              </div>
+                            </div>
                             ))}
                           </CardContent>
                         </Card>
@@ -702,13 +709,16 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                   <div>
                                     <p className="text-muted-foreground text-xs mb-1">Стоимость</p>
                                     <p className="font-medium">{lesson.pricePerLesson ? `${lesson.pricePerLesson}₽/урок` : 'Не указана'}</p>
-                                  </div>
-                                </div>
-                                <div>
-                                  <p className="text-muted-foreground text-xs mb-2">История посещений</p>
-                                  <LessonScheduleStrip sessions={lesson.sessions} />
                                 </div>
                               </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs mb-2">История посещений</p>
+                                <IndividualLessonSchedule 
+                                  scheduleDays={lesson.scheduleDays}
+                                  scheduleTime={lesson.scheduleTime}
+                                />
+                              </div>
+                            </div>
                             ))}
                           </CardContent>
                         </Card>
