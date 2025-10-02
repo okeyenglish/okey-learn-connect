@@ -15,6 +15,7 @@ export interface Payment {
   notes?: string;
   session_ids?: string[];
   individual_lesson_id?: string;
+  lessons_count?: number;
 }
 
 export const usePayments = (filters?: any) => {
@@ -163,6 +164,70 @@ export const usePayments = (filters?: any) => {
     }
   };
 
+  const deletePayment = async (paymentId: string, individualLessonId?: string, lessonsCount?: number) => {
+    try {
+      // Если платеж был связан с индивидуальными занятиями, возвращаем их статусы
+      if (individualLessonId && lessonsCount) {
+        // Получаем все сессии урока, отсортированные по дате
+        const { data: allSessions, error: fetchError } = await supabase
+          .from('individual_lesson_sessions')
+          .select('id, lesson_date, status')
+          .eq('individual_lesson_id', individualLessonId)
+          .order('lesson_date', { ascending: true });
+
+        if (!fetchError && allSessions && allSessions.length > 0) {
+          // Находим первые N оплаченных занятий (attended) по дате
+          const paidSessions = allSessions
+            .filter(s => s.status === 'attended')
+            .sort((a, b) => new Date(a.lesson_date).getTime() - new Date(b.lesson_date).getTime())
+            .slice(0, lessonsCount);
+
+          if (paidSessions.length > 0) {
+            const sessionIds = paidSessions.map(s => s.id);
+            console.log('Reverting sessions to scheduled:', paidSessions.map(s => ({
+              id: s.id,
+              date: s.lesson_date
+            })));
+
+            // Возвращаем статус занятий в scheduled
+            const { error: sessionError } = await supabase
+              .from('individual_lesson_sessions')
+              .update({ status: 'scheduled' })
+              .in('id', sessionIds);
+
+            if (sessionError) {
+              console.error('Error reverting sessions:', sessionError);
+              throw sessionError;
+            }
+          }
+        }
+      }
+
+      // Удаляем платеж
+      const { error } = await supabase
+        .from('payments')
+        .delete()
+        .eq('id', paymentId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Успешно",
+        description: "Платеж удален, статусы занятий восстановлены",
+      });
+
+      fetchPayments();
+    } catch (error) {
+      console.error('Error deleting payment:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось удалить платеж",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
   useEffect(() => {
     fetchPayments();
   }, [filters]);
@@ -172,6 +237,7 @@ export const usePayments = (filters?: any) => {
     loading,
     createPayment,
     updatePayment,
+    deletePayment,
     refetch: fetchPayments
   };
 };

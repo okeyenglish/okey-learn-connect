@@ -32,15 +32,27 @@ import {
   MessageCircleIcon,
   Plus,
   FileText,
-  Wallet
+  Wallet,
+  Trash2
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useStudentDetails, StudentFullDetails } from '@/hooks/useStudentDetails';
 import { Student } from '@/hooks/useStudents';
+import { usePayments } from '@/hooks/usePayments';
 import { LessonScheduleStrip } from './LessonScheduleStrip';
 import { CreatePaymentModal } from './CreatePaymentModal';
 import { EditIndividualLessonModal } from './EditIndividualLessonModal';
 import { IndividualLessonSchedule } from './IndividualLessonSchedule';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface EnhancedStudentCardProps {
   student: {

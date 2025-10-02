@@ -63,6 +63,8 @@ export interface StudentPayment {
   description: string;
   status: string;
   paymentMethod?: string;
+  individualLessonId?: string;
+  lessonsCount?: number;
 }
 
 export interface StudentAttendance {
@@ -293,6 +295,8 @@ export const useStudentDetails = (studentId: string) => {
         description: p.description || 'Оплата обучения',
         status: p.status,
         paymentMethod: p.method,
+        individualLessonId: p.individual_lesson_id,
+        lessonsCount: p.lessons_count,
       }));
 
       // Attendance - использем mock данные, так как таблица может не существовать
