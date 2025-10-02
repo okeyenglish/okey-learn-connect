@@ -78,13 +78,13 @@ export const usePayments = (filters?: any) => {
 
       console.log('Payment created successfully:', payment);
 
-      // Update session statuses - mark next N unpaid sessions as attended
+      // Update session statuses - mark next N earliest unpaid dates as attended
       if (paymentData.individual_lesson_id && paymentData.lessons_count) {
         console.log('Starting session status update...');
         console.log('Individual lesson ID:', paymentData.individual_lesson_id);
         console.log('Lessons to pay:', paymentData.lessons_count);
-        
-        // Получаем все сессии урока в порядке дат (КРИТИЧНО: сортировка по дате)
+
+        // 1) Load existing session rows for this lesson
         const { data: allSessions, error: fetchError } = await supabase
           .from('individual_lesson_sessions')
           .select('id, lesson_date, status')
@@ -92,56 +92,98 @@ export const usePayments = (filters?: any) => {
           .order('lesson_date', { ascending: true });
 
         console.log('Fetched sessions:', allSessions);
-        console.log('Fetch error:', fetchError);
+        if (fetchError) console.warn('Fetch sessions error:', fetchError);
 
-        if (!fetchError && allSessions && allSessions.length > 0) {
-          // Фильтруем неоплаченные занятия строго в порядке дат
-          // Статусы неоплаченных: scheduled, rescheduled_out, rescheduled, или пустой статус
-          const unpaidSessions = allSessions
-            .filter(s => 
-              ['scheduled', 'rescheduled_out', 'rescheduled'].includes(s.status) || !s.status
-            )
-            // Дополнительная сортировка для гарантии порядка
-            .sort((a, b) => new Date(a.lesson_date).getTime() - new Date(b.lesson_date).getTime());
+        // 2) Load lesson to get schedule (days + period)
+        const { data: lessonRow, error: lessonErr } = await supabase
+          .from('individual_lessons')
+          .select('schedule_days, period_start, period_end')
+          .eq('id', paymentData.individual_lesson_id)
+          .maybeSingle();
 
-          console.log('Unpaid sessions (in chronological order):', unpaidSessions.map(s => ({
-            id: s.id,
-            date: s.lesson_date,
-            status: s.status
-          })));
-          console.log('Total unpaid sessions:', unpaidSessions.length);
-          console.log('Paying for:', paymentData.lessons_count, 'lessons');
+        if (lessonErr) {
+          console.error('Failed to load individual lesson schedule:', lessonErr);
+        }
 
-          // Берем первые N неоплаченных занятий (самые ранние по дате)
-          const sessionsToUpdate = unpaidSessions.slice(0, paymentData.lessons_count);
-          
-          console.log('Sessions selected for update:', sessionsToUpdate.length);
-          
-          if (sessionsToUpdate.length > 0) {
-            const sessionIds = sessionsToUpdate.map(s => s.id);
-            console.log('Updating session IDs to attended (by date):', sessionsToUpdate.map(s => ({
-              id: s.id,
-              date: s.lesson_date,
-              currentStatus: s.status
-            })));
-            
-            const { error: sessionError, data: updatedSessions } = await supabase
-              .from('individual_lesson_sessions')
-              .update({ status: 'attended', created_by: user?.id, updated_at: new Date().toISOString() })
-              .in('id', sessionIds)
-              .select();
+        const DAY_MAP: Record<string, number> = {
+          monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 0,
+        };
 
-            if (sessionError) {
-              console.error('Error updating sessions:', sessionError);
-            } else {
-              console.log('Successfully updated sessions:', updatedSessions);
-              console.log('Updated', sessionsToUpdate.length, 'sessions to attended');
+        // 3) Build full list of scheduled dates within period (inclusive)
+        const scheduledDates: string[] = (() => {
+          try {
+            if (!lessonRow?.schedule_days || !lessonRow?.period_start || !lessonRow?.period_end) return [];
+            const dayNums = (lessonRow.schedule_days as string[]).map(d => DAY_MAP[d?.toLowerCase?.() || '']).filter((n) => n !== undefined);
+            const dates: string[] = [];
+            const start = new Date(lessonRow.period_start as string);
+            const end = new Date(lessonRow.period_end as string);
+            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+              if (dayNums.includes(d.getDay())) {
+                dates.push(d.toISOString().slice(0, 10));
+              }
             }
-          } else {
-            console.log('No sessions to update - slice returned empty array');
+            return dates;
+          } catch (e) {
+            console.warn('Failed to construct scheduled dates:', e);
+            return [];
           }
-        } else {
-          console.log('No sessions fetched or fetch error occurred');
+        })();
+
+        // 4) Build maps for quick lookup
+        const sessionByDate = new Map<string, { id?: string; status?: string }>();
+        (allSessions || []).forEach((s) => sessionByDate.set(s.lesson_date, { id: s.id, status: s.status }));
+
+        const isPaidStatus = (st?: string) => ['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence'].includes(st || '');
+        const isUnpaidStatus = (st?: string) => ['scheduled', 'rescheduled', 'rescheduled_out', undefined, ''].includes((st || '') as any);
+
+        // 5) Determine earliest unpaid dates (either no row or unpaid status)
+        const unpaidDatesOrdered = scheduledDates.filter((d) => {
+          const s = sessionByDate.get(d);
+          return !s ? true : isUnpaidStatus(s.status);
+        });
+
+        console.log('Total scheduled dates:', scheduledDates.length);
+        console.log('Existing sessions:', allSessions?.length || 0);
+        console.log('Unpaid dates available:', unpaidDatesOrdered.length);
+
+        const toCover = Math.max(0, paymentData.lessons_count);
+        const targetDates = unpaidDatesOrdered.slice(0, toCover);
+        console.log('Target dates to mark attended:', targetDates);
+
+        // Split into updates (existing rows) and inserts (no row yet)
+        const updateIds: string[] = [];
+        const insertRows: any[] = [];
+        targetDates.forEach((d) => {
+          const s = sessionByDate.get(d);
+          if (s?.id) {
+            updateIds.push(s.id);
+          } else {
+            insertRows.push({
+              individual_lesson_id: paymentData.individual_lesson_id,
+              lesson_date: d,
+              status: 'attended',
+              created_by: user?.id,
+              updated_at: new Date().toISOString(),
+            });
+          }
+        });
+
+        // 6) Perform updates first, then inserts
+        if (updateIds.length > 0) {
+          const { error: updErr, data: updData } = await supabase
+            .from('individual_lesson_sessions')
+            .update({ status: 'attended', created_by: user?.id, updated_at: new Date().toISOString() })
+            .in('id', updateIds)
+            .select();
+          if (updErr) console.error('Error updating existing session rows:', updErr); else console.log('Updated sessions:', updData);
+        }
+
+        if (insertRows.length > 0) {
+          const { error: insErr, data: insData } = await supabase
+            .from('individual_lesson_sessions')
+            .insert(insertRows)
+            .select();
+          if (insErr) console.error('Error inserting new attended rows:', insErr); else console.log('Inserted sessions:', insData);
         }
       } else {
         console.log('Skipping session update - no individual_lesson_id or lessons_count');
