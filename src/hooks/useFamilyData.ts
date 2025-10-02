@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+export interface PhoneNumber {
+  id: string;
+  phone: string;
+  type: string;
+  isWhatsappEnabled: boolean;
+  isTelegramEnabled: boolean;
+  isPrimary: boolean;
+}
+
 export interface FamilyMember {
   id: string;
   name: string;
@@ -12,6 +21,7 @@ export interface FamilyMember {
   isOnline?: boolean;
   isPrimaryContact: boolean;
   avatar_url?: string;
+  phoneNumbers: PhoneNumber[];
 }
 
 export interface Student {
@@ -102,19 +112,36 @@ export const useFamilyData = (familyGroupId?: string) => {
 
       if (studentsError) throw studentsError;
 
-      // Transform data
-      const members: FamilyMember[] = membersData.map(member => ({
-        id: member.clients.id,
-        name: member.clients.name,
-        phone: member.clients.phone,
-        email: member.clients.email || undefined,
-        relationship: member.relationship_type,
-        isPrimaryContact: member.is_primary_contact,
-        unreadMessages: Math.floor(Math.random() * 3), // Mock data for now
-        isOnline: Math.random() > 0.5, // Mock data for now
-        lastContact: member.relationship_type === 'main' ? 'Сейчас в чате' : '2 дня назад', // Mock data
-        avatar_url: member.clients.avatar_url || undefined
-      }));
+      // Transform data - fetch phone numbers for each member
+      const members: FamilyMember[] = await Promise.all(
+        membersData.map(async (member) => {
+          const { data: phoneNumbers } = await supabase
+            .from('client_phone_numbers')
+            .select('*')
+            .eq('client_id', member.clients.id);
+
+          return {
+            id: member.clients.id,
+            name: member.clients.name,
+            phone: member.clients.phone,
+            email: member.clients.email || undefined,
+            relationship: member.relationship_type,
+            isPrimaryContact: member.is_primary_contact,
+            unreadMessages: Math.floor(Math.random() * 3), // Mock data for now
+            isOnline: Math.random() > 0.5, // Mock data for now
+            lastContact: member.relationship_type === 'main' ? 'Сейчас в чате' : '2 дня назад', // Mock data
+            avatar_url: member.clients.avatar_url || undefined,
+            phoneNumbers: (phoneNumbers || []).map(p => ({
+              id: p.id,
+              phone: p.phone,
+              type: p.phone_type,
+              isWhatsappEnabled: p.is_whatsapp_enabled || false,
+              isTelegramEnabled: p.is_telegram_enabled || false,
+              isPrimary: p.is_primary || false,
+            })),
+          };
+        })
+      );
 
       // Transform students data from database
       const students: Student[] = studentsData.map(student => ({

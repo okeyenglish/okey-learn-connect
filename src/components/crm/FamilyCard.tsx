@@ -9,7 +9,8 @@ import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
 import { PhoneNumberManager } from "./PhoneNumberManager";
 import { EditContactModal } from "./EditContactModal";
 import { useFamilyData, FamilyMember, Student } from "@/hooks/useFamilyData";
-import type { PhoneNumber } from "@/types/phone";
+import type { PhoneNumber as PhoneNumberType } from "@/types/phone";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   Users, 
   Phone, 
@@ -57,27 +58,6 @@ export const FamilyCard = ({
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [activePhoneId, setActivePhoneId] = useState<string>(propActivePhoneId);
-  const [memberPhoneNumbers, setMemberPhoneNumbers] = useState<Record<string, PhoneNumber[]>>({
-    // Mock data for demonstration
-    'main-member': [
-      {
-        id: '1',
-        phone: '+7 (985) 261-50-56',
-        phoneType: 'mobile' as const,
-        isPrimary: true,
-        isWhatsappEnabled: true,
-        isTelegramEnabled: false
-      },
-      {
-        id: '2',
-        phone: '+7 (916) 185-33-85',
-        phoneType: 'mobile' as const,
-        isPrimary: false,
-        isWhatsappEnabled: true,
-        isTelegramEnabled: true
-      }
-    ]
-  });
   const { familyData, loading, error, refetch } = useFamilyData(familyGroupId);
   
   if (loading) {
@@ -150,12 +130,29 @@ export const FamilyCard = ({
     setIsStudentModalOpen(true);
   };
 
-  const handlePhoneNumbersUpdate = (memberId: string, phoneNumbers: PhoneNumber[]) => {
-    setMemberPhoneNumbers(prev => ({
-      ...prev,
-      [memberId]: phoneNumbers
-    }));
-    // Here you would typically update the database
+  const handlePhoneNumbersUpdate = async (memberId: string, phoneNumbers: PhoneNumberType[]) => {
+    // Update phone numbers in the database
+    // Delete existing phone numbers and insert new ones
+    await supabase
+      .from('client_phone_numbers')
+      .delete()
+      .eq('client_id', memberId);
+    
+    if (phoneNumbers.length > 0) {
+      await supabase
+        .from('client_phone_numbers')
+        .insert(phoneNumbers.map(p => ({
+          client_id: memberId,
+          phone: p.phone,
+          phone_type: p.phoneType,
+          is_whatsapp_enabled: p.isWhatsappEnabled,
+          is_telegram_enabled: p.isTelegramEnabled,
+          is_primary: p.isPrimary,
+        })));
+    }
+    
+    // Refresh family data
+    refetch();
   };
 
   const handleContactSave = (contactData: any) => {
@@ -170,13 +167,14 @@ export const FamilyCard = ({
   };
 
   const getActivePhone = () => {
-    const phones = memberPhoneNumbers['main-member'] || [];
+    if (!activeMember) return null;
+    const phones = activeMember.phoneNumbers || [];
     return phones.find(p => p.id === activePhoneId) || phones.find(p => p.isPrimary) || phones[0];
   };
 
   const getDisplayPhone = () => {
     const activePhone = getActivePhone();
-    return activePhone ? activePhone.phone : activeMember.phone;
+    return activePhone ? activePhone.phone : activeMember?.phone || '';
   };
 
   return (
@@ -222,7 +220,14 @@ export const FamilyCard = ({
                   dateOfBirth: "1993-12-25",
                   branch: selectedBranch,
                   notes: "",
-                  phoneNumbers: memberPhoneNumbers[activeMember.id] || memberPhoneNumbers['main-member'] || []
+                  phoneNumbers: activeMember.phoneNumbers.map(p => ({
+                    id: p.id,
+                    phone: p.phone,
+                    phoneType: (p.type as 'mobile' | 'work' | 'home' | 'other') || 'mobile',
+                    isPrimary: p.isPrimary,
+                    isWhatsappEnabled: p.isWhatsappEnabled,
+                    isTelegramEnabled: p.isTelegramEnabled,
+                  })) || []
                 }}
                 onSave={(data) => {
                   console.log('Saving contact data:', data);
@@ -253,8 +258,8 @@ export const FamilyCard = ({
               </div>
             </div>
             {/* Additional Phone Numbers */}
-            {memberPhoneNumbers['main-member'] && 
-             memberPhoneNumbers['main-member'].filter(phone => phone.id !== getActivePhone()?.id).map((phone) => (
+            {activeMember.phoneNumbers && 
+             activeMember.phoneNumbers.filter(phone => phone.id !== getActivePhone()?.id).map((phone) => (
               <div key={phone.id} className="flex items-center gap-2">
                 <Phone className="h-3 w-3 text-muted-foreground" />
                 <span 
