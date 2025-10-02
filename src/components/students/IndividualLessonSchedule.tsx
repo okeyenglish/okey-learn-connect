@@ -99,7 +99,7 @@ export function IndividualLessonSchedule({
     if (session?.status) {
       switch (session.status) {
         case 'cancelled':
-          return 'bg-gray-900 text-white border-gray-900'; // Черный - отменено
+          return 'bg-black text-white border-black'; // Черный - отменено
         case 'rescheduled':
           return 'bg-orange-500 text-white border-orange-500'; // Оранжевый - перенесено
         case 'attended':

@@ -69,23 +69,39 @@ export const usePayments = (filters?: any) => {
 
       // Update session statuses - mark next N unpaid sessions as attended
       if (paymentData.individual_lesson_id && paymentData.lessons_count) {
-        const { data: sessions, error: fetchError } = await supabase
+        // Получаем все сессии урока в порядке дат
+        const { data: allSessions, error: fetchError } = await supabase
           .from('individual_lesson_sessions')
-          .select('id')
+          .select('id, lesson_date, status')
           .eq('individual_lesson_id', paymentData.individual_lesson_id)
-          .not('status', 'in', '("attended","paid_absence","partially_paid","partially_paid_absence","cancelled")')
-          .order('lesson_date', { ascending: true })
-          .limit(paymentData.lessons_count);
+          .order('lesson_date', { ascending: true });
 
-        if (!fetchError && sessions && sessions.length > 0) {
-          const sessionIds = sessions.map(s => s.id);
-          const { error: sessionError } = await supabase
-            .from('individual_lesson_sessions')
-            .update({ status: 'attended' })
-            .in('id', sessionIds);
+        if (!fetchError && allSessions && allSessions.length > 0) {
+          // Фильтруем только неоплаченные занятия (исключаем отмененные и уже оплаченные)
+          const unpaidSessions = allSessions.filter(s => 
+            !['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence', 'cancelled'].includes(s.status)
+          );
 
-          if (sessionError) {
-            console.error('Error updating sessions:', sessionError);
+          console.log('Unpaid sessions:', unpaidSessions);
+          console.log('Paying for:', paymentData.lessons_count, 'lessons');
+
+          // Берем первые N неоплаченных занятий
+          const sessionsToUpdate = unpaidSessions.slice(0, paymentData.lessons_count);
+          
+          if (sessionsToUpdate.length > 0) {
+            const sessionIds = sessionsToUpdate.map(s => s.id);
+            console.log('Updating session IDs:', sessionIds);
+            
+            const { error: sessionError } = await supabase
+              .from('individual_lesson_sessions')
+              .update({ status: 'attended' })
+              .in('id', sessionIds);
+
+            if (sessionError) {
+              console.error('Error updating sessions:', sessionError);
+            } else {
+              console.log('Successfully updated', sessionsToUpdate.length, 'sessions');
+            }
           }
         }
       }
