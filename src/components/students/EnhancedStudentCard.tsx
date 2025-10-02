@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import * as React from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -62,10 +63,19 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
   }, [studentDetails?.notes]);
 
   const handleSaveNotes = async () => {
-    // TODO: Implement save notes API call
-    console.log('Saving notes:', notesValue);
-    setIsEditingNotes(false);
-    // refetch();
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ notes: notesValue })
+        .eq('id', student.id);
+
+      if (error) throw error;
+      
+      setIsEditingNotes(false);
+      refetch();
+    } catch (error) {
+      console.error('Error saving notes:', error);
+    }
   };
 
   const handleNotesKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
