@@ -165,6 +165,15 @@ export function IndividualLessonStatusModal({
         onInteractOutside={(e) => {
           e.preventDefault();
         }}
+        onCloseAutoFocus={(e) => {
+          e.preventDefault();
+        }}
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+        }}
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
       >
         <DialogHeader>
           <DialogTitle className="text-lg">

@@ -150,7 +150,12 @@ export function IndividualLessonSchedule({
 
   return (
     <>
-      <div className={cn("flex items-center gap-2", className)}>
+      <div
+        className={cn("flex items-center gap-2", className)}
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         <div className="flex gap-1 flex-wrap">
           {lessonDates.map((date, index) => {
             const dateStr = format(date, 'yyyy-MM-dd');
