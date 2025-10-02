@@ -13,6 +13,8 @@ import { useUpdateIndividualLesson } from "@/hooks/useIndividualLessons";
 import { getBranchesForSelect } from "@/lib/branches";
 import { supabase } from "@/integrations/supabase/client";
 import { Separator } from "@/components/ui/separator";
+import { useProficiencyLevels } from "@/hooks/useReferences";
+import { useTeachers, getTeacherFullName } from "@/hooks/useTeachers";
 
 interface EditIndividualLessonModalProps {
   lessonId: string | null;
@@ -55,6 +57,8 @@ export const EditIndividualLessonModal = ({
   
   const { toast } = useToast();
   const updateLesson = useUpdateIndividualLesson();
+  const { data: proficiencyLevels } = useProficiencyLevels();
+  const { teachers } = useTeachers();
 
   useEffect(() => {
     if (lessonId && open) {
@@ -257,13 +261,22 @@ export const EditIndividualLessonModal = ({
 
                   <div className="space-y-2">
                     <Label htmlFor="level">Уровень *</Label>
-                    <Input
-                      id="level"
-                      value={formData.level}
-                      onChange={(e) => setFormData({ ...formData, level: e.target.value })}
-                      placeholder="Например: A1, B2"
+                    <Select 
+                      value={formData.level} 
+                      onValueChange={(value) => setFormData({ ...formData, level: value })}
                       required
-                    />
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Выберите уровень" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-[100]">
+                        {proficiencyLevels?.filter(level => level.is_active).map((level) => (
+                          <SelectItem key={level.id} value={level.name}>
+                            {level.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
@@ -308,11 +321,21 @@ export const EditIndividualLessonModal = ({
 
                 <div className="space-y-2">
                   <Label htmlFor="teacher_name">Преподаватель</Label>
-                  <Input
-                    id="teacher_name"
-                    value={formData.teacher_name}
-                    onChange={(e) => setFormData({ ...formData, teacher_name: e.target.value })}
-                  />
+                  <Select 
+                    value={formData.teacher_name} 
+                    onValueChange={(value) => setFormData({ ...formData, teacher_name: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Выберите преподавателя" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-[100]">
+                      {teachers.map((teacher) => (
+                        <SelectItem key={teacher.id} value={getTeacherFullName(teacher)}>
+                          {getTeacherFullName(teacher)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
