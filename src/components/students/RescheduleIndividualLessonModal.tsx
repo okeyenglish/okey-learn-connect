@@ -164,7 +164,13 @@ export function RescheduleIndividualLessonModal({
                   {newDate ? format(newDate, 'dd MMMM yyyy', { locale: ru }) : "Выберите дату"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent 
+                className="w-auto p-0" 
+                align="start"
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
                 <Calendar
                   mode="single"
                   selected={newDate}
