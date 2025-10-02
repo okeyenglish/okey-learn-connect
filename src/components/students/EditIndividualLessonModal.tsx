@@ -13,7 +13,7 @@ import { useUpdateIndividualLesson } from "@/hooks/useIndividualLessons";
 import { getBranchesForSelect } from "@/lib/branches";
 import { supabase } from "@/integrations/supabase/client";
 import { Separator } from "@/components/ui/separator";
-import { useProficiencyLevels } from "@/hooks/useReferences";
+import { useProficiencyLevels, useClassrooms } from "@/hooks/useReferences";
 import { useTeachers, getTeacherFullName } from "@/hooks/useTeachers";
 
 interface EditIndividualLessonModalProps {
@@ -59,12 +59,46 @@ export const EditIndividualLessonModal = ({
   const updateLesson = useUpdateIndividualLesson();
   const { data: proficiencyLevels } = useProficiencyLevels();
   const { teachers } = useTeachers();
+  const { data: classrooms } = useClassrooms();
+
+  // Генерация часов и минут для выбора времени
+  const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+  const minutes = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, '0'));
+
+  // Парсинг времени из строки формата "HH:mm-HH:mm"
+  const parseTimeRange = (timeRange: string) => {
+    if (!timeRange || !timeRange.includes('-')) return { startHour: '', startMinute: '', endHour: '', endMinute: '' };
+    const [start, end] = timeRange.split('-');
+    const [startHour, startMinute] = start.split(':');
+    const [endHour, endMinute] = end.split(':');
+    return { startHour, startMinute, endHour, endMinute };
+  };
+
+  const [timeSelection, setTimeSelection] = useState(parseTimeRange(formData.schedule_time));
 
   useEffect(() => {
     if (lessonId && open) {
       loadLessonData();
     }
   }, [lessonId, open]);
+
+  useEffect(() => {
+    // Обновляем timeSelection когда загружаются данные
+    if (formData.schedule_time) {
+      setTimeSelection(parseTimeRange(formData.schedule_time));
+    }
+  }, [formData.schedule_time]);
+
+  useEffect(() => {
+    // Формируем строку времени из выбранных значений
+    const { startHour, startMinute, endHour, endMinute } = timeSelection;
+    if (startHour && startMinute && endHour && endMinute) {
+      const timeRange = `${startHour}:${startMinute}-${endHour}:${endMinute}`;
+      if (timeRange !== formData.schedule_time) {
+        setFormData(prev => ({ ...prev, schedule_time: timeRange }));
+      }
+    }
+  }, [timeSelection]);
 
   const loadLessonData = async () => {
     if (!lessonId) return;
@@ -369,13 +403,65 @@ export const EditIndividualLessonModal = ({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="schedule_time">Время занятий</Label>
-                  <Input
-                    id="schedule_time"
-                    value={formData.schedule_time}
-                    onChange={(e) => setFormData({ ...formData, schedule_time: e.target.value })}
-                    placeholder="Например: 10:00-11:30"
-                  />
+                  <Label>Время занятий</Label>
+                  <div className="grid grid-cols-5 gap-2 items-center">
+                    <Select 
+                      value={timeSelection.startHour} 
+                      onValueChange={(value) => setTimeSelection(prev => ({ ...prev, startHour: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="ЧЧ" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-[100]">
+                        {hours.map((hour) => (
+                          <SelectItem key={hour} value={hour}>{hour}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span className="text-center">:</span>
+                    <Select 
+                      value={timeSelection.startMinute} 
+                      onValueChange={(value) => setTimeSelection(prev => ({ ...prev, startMinute: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="ММ" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-[100]">
+                        {minutes.map((minute) => (
+                          <SelectItem key={minute} value={minute}>{minute}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span className="text-center">-</span>
+                    <div className="col-span-1"></div>
+                    <Select 
+                      value={timeSelection.endHour} 
+                      onValueChange={(value) => setTimeSelection(prev => ({ ...prev, endHour: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="ЧЧ" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-[100]">
+                        {hours.map((hour) => (
+                          <SelectItem key={hour} value={hour}>{hour}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span className="text-center">:</span>
+                    <Select 
+                      value={timeSelection.endMinute} 
+                      onValueChange={(value) => setTimeSelection(prev => ({ ...prev, endMinute: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="ММ" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-[100]">
+                        {minutes.map((minute) => (
+                          <SelectItem key={minute} value={minute}>{minute}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -406,38 +492,51 @@ export const EditIndividualLessonModal = ({
                   <Label htmlFor="lesson_location">Место проведения</Label>
                   <Select 
                     value={formData.lesson_location} 
-                    onValueChange={(value) => setFormData({ ...formData, lesson_location: value })}
+                    onValueChange={(value) => {
+                      setFormData({ ...formData, lesson_location: value });
+                      // Очищаем аудиторию при выборе онлайн
+                      if (value === 'skype') {
+                        setFormData(prev => ({ ...prev, audit_location: '' }));
+                      }
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-background z-[100]">
                       <SelectItem value="office">В офисе</SelectItem>
-                      <SelectItem value="skype">По Skype</SelectItem>
+                      <SelectItem value="skype">Онлайн</SelectItem>
                       <SelectItem value="home">На дому</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="is_skype_only"
-                    checked={formData.is_skype_only}
-                    onCheckedChange={(checked) => setFormData({ ...formData, is_skype_only: checked as boolean })}
-                  />
-                  <Label htmlFor="is_skype_only" className="cursor-pointer">
-                    Только онлайн (Skype)
-                  </Label>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="audit_location">Аудитория</Label>
-                  <Input
-                    id="audit_location"
-                    value={formData.audit_location}
-                    onChange={(e) => setFormData({ ...formData, audit_location: e.target.value })}
-                  />
-                </div>
+                {formData.lesson_location !== 'skype' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="audit_location">Аудитория</Label>
+                    <Select 
+                      value={formData.audit_location} 
+                      onValueChange={(value) => setFormData({ ...formData, audit_location: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Выберите аудиторию" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-[100]">
+                        {classrooms
+                          ?.filter(classroom => 
+                            classroom.is_active && 
+                            classroom.branch === formData.branch &&
+                            !classroom.is_online
+                          )
+                          .map((classroom) => (
+                            <SelectItem key={classroom.id} value={classroom.name}>
+                              {classroom.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="finance" className="space-y-4 mt-4">
