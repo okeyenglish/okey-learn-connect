@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { useStudents } from "@/hooks/useStudents";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
+import { StudentCard } from "@/components/students/StudentCard";
 
 interface StudentsModalProps {
   open?: boolean;
@@ -43,6 +44,8 @@ export const StudentsModal = ({ open, onOpenChange, children }: StudentsModalPro
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
+  const [showStudentCard, setShowStudentCard] = useState(false);
   
   // Expandable sections state
   const [expandedSections, setExpandedSections] = useState({
@@ -98,6 +101,10 @@ export const StudentsModal = ({ open, onOpenChange, children }: StudentsModalPro
       setVisibleColumns={setVisibleColumns}
       students={students}
       isLoading={isLoading}
+      selectedStudent={selectedStudent}
+      setSelectedStudent={setSelectedStudent}
+      showStudentCard={showStudentCard}
+      setShowStudentCard={setShowStudentCard}
     />;
   }
 
@@ -152,6 +159,10 @@ export const StudentsModal = ({ open, onOpenChange, children }: StudentsModalPro
           setVisibleColumns={setVisibleColumns}
           students={students}
           isLoading={isLoading}
+          selectedStudent={selectedStudent}
+          setSelectedStudent={setSelectedStudent}
+          showStudentCard={showStudentCard}
+          setShowStudentCard={setShowStudentCard}
         />
       </DialogContent>
     </Dialog>
@@ -182,6 +193,10 @@ interface StudentsContentProps {
   setVisibleColumns: (columns: any) => void;
   students: any[];
   isLoading: boolean;
+  selectedStudent: any | null;
+  setSelectedStudent: (student: any | null) => void;
+  showStudentCard: boolean;
+  setShowStudentCard: (show: boolean) => void;
 }
 
 const StudentsContent = ({ 
@@ -190,7 +205,8 @@ const StudentsContent = ({
   selectedLevel, setSelectedLevel, selectedStudents, setSelectedStudents,
   showAddModal, setShowAddModal, showAdvancedFilters, setShowAdvancedFilters,
   expandedSections, setExpandedSections,
-  visibleColumns, setVisibleColumns, students, isLoading 
+  visibleColumns, setVisibleColumns, students, isLoading,
+  selectedStudent, setSelectedStudent, showStudentCard, setShowStudentCard
 }: StudentsContentProps) => {
   // Filter students based on current filters with proper null checks
   const filteredStudents = students.filter(student => {
@@ -252,6 +268,11 @@ const StudentsContent = ({
 
   const handleMassAction = (action: string) => {
     console.log(`Mass action: ${action} for students:`, selectedStudents);
+  };
+
+  const handleStudentClick = (student: any) => {
+    setSelectedStudent(student);
+    setShowStudentCard(true);
   };
 
   return (
@@ -442,7 +463,12 @@ const StudentsContent = ({
                             onCheckedChange={(checked) => handleStudentSelect(student.id, checked as boolean)}
                           />
                         </TableCell>
-                        <TableCell className="font-medium">{student.name}</TableCell>
+                        <TableCell 
+                          className="font-medium cursor-pointer hover:text-primary hover:underline"
+                          onClick={() => handleStudentClick(student)}
+                        >
+                          {student.name}
+                        </TableCell>
                         <TableCell>{student.age || '—'}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-xs">
@@ -484,6 +510,18 @@ const StudentsContent = ({
           </div>
         </div>
       </div>
+
+      {/* Student Card Modal */}
+      {selectedStudent && (
+        <StudentCard
+          student={selectedStudent}
+          open={showStudentCard}
+          onOpenChange={(open) => {
+            setShowStudentCard(open);
+            if (!open) setSelectedStudent(null);
+          }}
+        />
+      )}
     </div>
   );
 };
