@@ -36,6 +36,9 @@ export function CreatePaymentModal({
   onPaymentSuccess
 }: CreatePaymentModalProps) {
   const [selectedPackage, setSelectedPackage] = useState<number | null>(null);
+  const [customLessonsCount, setCustomLessonsCount] = useState<string>('');
+  const [useCustomAmount, setUseCustomAmount] = useState(false);
+  const [customAmount, setCustomAmount] = useState<string>('');
   const [formData, setFormData] = useState({
     method: 'card' as const,
     description: '',
@@ -47,17 +50,29 @@ export function CreatePaymentModal({
   const { createPayment } = usePayments();
   const { toast } = useToast();
 
+  const getLessonsCount = () => {
+    if (customLessonsCount) {
+      return parseInt(customLessonsCount) || 0;
+    }
+    return selectedPackage || 0;
+  };
+
   const calculateAmount = () => {
-    return (selectedPackage || 0) * pricePerLesson;
+    if (useCustomAmount) {
+      return parseFloat(customAmount) || 0;
+    }
+    return getLessonsCount() * pricePerLesson;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (individualLessonId && !selectedPackage) {
+    const lessonsCount = getLessonsCount();
+    
+    if (individualLessonId && !lessonsCount && !useCustomAmount) {
       toast({
         title: "Ошибка",
-        description: "Выберите пакет занятий для оплаты",
+        description: "Выберите пакет занятий или укажите количество",
         variant: "destructive",
       });
       return;
@@ -81,9 +96,9 @@ export function CreatePaymentModal({
         amount,
         method: formData.method,
         payment_date: formData.payment_date,
-        description: formData.description || `Оплата ${selectedPackage} занятий`,
+        description: formData.description || `Оплата ${lessonsCount} занятий`,
         notes: formData.notes,
-        lessons_count: selectedPackage || 0,
+        lessons_count: lessonsCount,
         individual_lesson_id: individualLessonId
       });
       
@@ -95,6 +110,9 @@ export function CreatePaymentModal({
         payment_date: new Date().toISOString().split('T')[0]
       });
       setSelectedPackage(null);
+      setCustomLessonsCount('');
+      setUseCustomAmount(false);
+      setCustomAmount('');
       
       if (onPaymentSuccess) {
         onPaymentSuccess();
@@ -135,7 +153,10 @@ export function CreatePaymentModal({
                     <button
                       key={count}
                       type="button"
-                      onClick={() => setSelectedPackage(count)}
+                      onClick={() => {
+                        setSelectedPackage(count);
+                        setCustomLessonsCount('');
+                      }}
                       disabled={count > totalUnpaidCount}
                       className={cn(
                         "p-4 rounded-lg border-2 transition-all text-center",
@@ -154,15 +175,59 @@ export function CreatePaymentModal({
                 </div>
               </div>
 
-              {selectedPackage && (
+              <div>
+                <Label htmlFor="custom-lessons">Или укажите количество занятий</Label>
+                <Input
+                  id="custom-lessons"
+                  type="number"
+                  min="1"
+                  max={totalUnpaidCount}
+                  value={customLessonsCount}
+                  onChange={(e) => {
+                    setCustomLessonsCount(e.target.value);
+                    setSelectedPackage(null);
+                  }}
+                  placeholder="Введите количество..."
+                />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="custom-amount"
+                  checked={useCustomAmount}
+                  onCheckedChange={(checked) => setUseCustomAmount(checked as boolean)}
+                />
+                <Label htmlFor="custom-amount" className="text-sm cursor-pointer">
+                  Указать произвольную сумму
+                </Label>
+              </div>
+
+              {useCustomAmount && (
+                <div>
+                  <Label htmlFor="amount">Сумма оплаты (руб.)</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={customAmount}
+                    onChange={(e) => setCustomAmount(e.target.value)}
+                    placeholder="Введите сумму..."
+                  />
+                </div>
+              )}
+
+              {(selectedPackage || customLessonsCount || useCustomAmount) && (
                 <div className="p-4 bg-primary/10 rounded-lg">
                   <div className="flex justify-between items-center">
                     <span className="font-medium">К оплате:</span>
                     <span className="text-2xl font-bold">{calculateAmount()} руб.</span>
                   </div>
-                  <div className="text-sm text-muted-foreground mt-1">
-                    {selectedPackage} {selectedPackage === 1 ? 'занятие' : selectedPackage < 5 ? 'занятия' : 'занятий'}
-                  </div>
+                  {!useCustomAmount && (
+                    <div className="text-sm text-muted-foreground mt-1">
+                      {getLessonsCount()} {getLessonsCount() === 1 ? 'занятие' : getLessonsCount() < 5 ? 'занятия' : 'занятий'}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
