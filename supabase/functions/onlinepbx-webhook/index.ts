@@ -1,10 +1,24 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Validation schema for webhook data
+const WebhookSchema = z.object({
+  event: z.string().optional(),
+  direction: z.enum(['incoming', 'outgoing']).optional(),
+  caller: z.string().optional(),
+  callee: z.string().optional(),
+  uuid: z.string().optional(),
+  call_duration: z.string().or(z.number()).optional(),
+  dialog_duration: z.string().or(z.number()).optional(),
+  download_url: z.string().url().optional(),
+  hangup_cause: z.string().optional(),
+}).passthrough(); // Allow additional fields
 
 interface OnlinePBXWebhookData {
   call_id?: string;
@@ -97,8 +111,25 @@ serve(async (req) => {
         return statusMap[pbxStatus?.toUpperCase()] || 'failed';
       };
 
+      // Validate webhook data
+      try {
+        WebhookSchema.parse(webhookData);
+      } catch (validationError) {
+        console.warn('Webhook validation warning:', validationError);
+        // Continue processing but log the warning
+      }
+
       const status = mapStatus(webhookData.status || (webhookData as any).call_status || '');
-      const direction = (webhookData.direction as 'incoming' | 'outgoing') || (webhookData as any).call_direction || (webhookData as any)['Direction'] || 'incoming';
+      let direction = (webhookData.direction as 'incoming' | 'outgoing') || (webhookData as any).call_direction || (webhookData as any)['Direction'];
+      
+      // Fix: The database only accepts 'inbound' or 'outbound', not 'incoming'/'outgoing'
+      if (direction === 'incoming') {
+        direction = 'inbound' as any;
+      } else if (direction === 'outgoing') {
+        direction = 'outbound' as any;
+      } else if (!direction) {
+        direction = 'inbound' as any; // Default to inbound if not specified
+      }
       const rawFrom = webhookData.from || (webhookData as any).src || (webhookData as any).caller_number || (webhookData as any).caller || (webhookData as any).callerid;
       const rawTo = webhookData.to || (webhookData as any).dst || (webhookData as any).called_number || (webhookData as any).callee || (webhookData as any).calledid;
       const selectedPhone = direction === 'incoming' ? (rawFrom || rawTo) : (rawTo || rawFrom);
