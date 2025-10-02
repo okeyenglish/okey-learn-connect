@@ -475,40 +475,6 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
 
                               {/* Статистика оплат и кнопка оплаты */}
                               <div className="space-y-3 mb-3">
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div className="bg-green-500/10 rounded-lg p-3">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <CheckCircle className="h-4 w-4 text-green-600" />
-                                      <span className="text-xs font-medium text-green-600">Оплачено</span>
-                                    </div>
-                                    <p className="text-lg font-bold text-green-600">
-                                      {lesson.sessions?.filter(s => 
-                                        ['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence'].includes(s.status)
-                                      ).length || 0} занятий
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {((lesson.sessions?.filter(s => 
-                                        ['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence'].includes(s.status)
-                                      ).length || 0) * (lesson.pricePerLesson || 0)).toFixed(2)} руб.
-                                    </p>
-                                  </div>
-                                  <div className="bg-red-500/10 rounded-lg p-3">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <XCircle className="h-4 w-4 text-red-600" />
-                                      <span className="text-xs font-medium text-red-600">Не оплачено</span>
-                                    </div>
-                                    <p className="text-lg font-bold text-red-600">
-                                      {lesson.sessions?.filter(s => 
-                                        !['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence', 'cancelled'].includes(s.status)
-                                      ).length || 0} занятий
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {((lesson.sessions?.filter(s => 
-                                        !['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence', 'cancelled'].includes(s.status)
-                                      ).length || 0) * (lesson.pricePerLesson || 0)).toFixed(2)} руб.
-                                    </p>
-                                  </div>
-                                </div>
                                 
                                 {(lesson.sessions?.filter(s => 
                                   !['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence', 'cancelled'].includes(s.status)
