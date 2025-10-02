@@ -273,7 +273,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                     Обзор
                   </TabsTrigger>
                   <TabsTrigger value="groups" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
-                    Группы
+                    Занятия
                   </TabsTrigger>
                   <TabsTrigger value="payments" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
                     Платежи
@@ -473,118 +473,219 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                 </TabsContent>
 
                 <TabsContent value="groups" className="mt-0">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Все занятия студента</CardTitle>
-                      <CardDescription>
-                        Полный список групп и индивидуальных занятий, включая неактивные
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {studentDetails.groups.length === 0 && studentDetails.individualLessons.length === 0 ? (
-                        <div className="text-center py-12">
-                          <Users className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-                          <p className="text-lg text-muted-foreground mb-2">Студент не добавлен в группы</p>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            Добавьте студента в группу для начала обучения
-                          </p>
-                          <Button>
-                            <Users className="h-4 w-4 mr-2" />
-                            Добавить в группу
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          {studentDetails.groups.map((group) => (
-                            <div key={group.id} className="p-4 border rounded-lg">
-                              <div className="flex items-start justify-between mb-4">
-                                <div>
-                                  <h4 className="font-semibold text-lg mb-1">{group.name}</h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    {group.format} • {group.subject} • {group.level}
-                                  </p>
+                  {studentDetails.groups.length === 0 && studentDetails.individualLessons.length === 0 ? (
+                    <Card>
+                      <CardContent className="text-center py-12">
+                        <Users className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
+                        <p className="text-lg text-muted-foreground mb-2">Студент не добавлен в группы</p>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Добавьте студента в группу для начала обучения
+                        </p>
+                        <Button>
+                          <Users className="h-4 w-4 mr-2" />
+                          Добавить в группу
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="space-y-6">
+                      {/* Active Lessons */}
+                      {([...studentDetails.groups, ...studentDetails.individualLessons].filter(item => item.status === 'active').length > 0) && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <CheckCircle className="h-5 w-5 text-green-600" />
+                              Активные занятия
+                            </CardTitle>
+                            <CardDescription>
+                              Текущие группы и индивидуальные занятия
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            {/* Active Groups */}
+                            {studentDetails.groups.filter(g => g.status === 'active').map((group) => (
+                              <div key={group.id} className="p-4 border rounded-lg">
+                                <div className="flex items-start justify-between mb-4">
+                                  <div>
+                                    <h4 className="font-semibold text-lg mb-1">{group.name}</h4>
+                                    <p className="text-sm text-muted-foreground">
+                                      {group.format} • {group.subject} • {group.level}
+                                    </p>
+                                  </div>
+                                  <Badge variant="default">Активна</Badge>
                                 </div>
-                                <Badge variant={group.status === 'active' ? 'default' : 'secondary'}>
-                                  {group.status === 'active' ? 'Активна' : 'Завершена'}
-                                </Badge>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
+                                  <div>
+                                    <p className="text-muted-foreground text-xs mb-1">Преподаватель</p>
+                                    <p className="font-medium">{group.teacher}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground text-xs mb-1">Филиал</p>
+                                    <div className="flex items-center gap-1">
+                                      <MapPin className="h-3 w-3" />
+                                      <span>{group.branch}</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground text-xs mb-1">Дата записи</p>
+                                    <div className="flex items-center gap-1">
+                                      <Calendar className="h-3 w-3" />
+                                      <span>{formatDate(group.enrollmentDate)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="mb-4">
+                                  <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
+                                  <LessonScheduleStrip sessions={group.sessions} />
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button variant="outline" size="sm">
+                                    Подробнее
+                                  </Button>
+                                  <Button variant="outline" size="sm">
+                                    <MessageSquare className="h-3 w-3 mr-1" />
+                                    Чат группы
+                                  </Button>
+                                </div>
                               </div>
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
-                                <div>
-                                  <p className="text-muted-foreground text-xs mb-1">Преподаватель</p>
-                                  <p className="font-medium">{group.teacher}</p>
+                            ))}
+                            
+                            {/* Active Individual Lessons */}
+                            {studentDetails.individualLessons.filter(l => l.status === 'active').map((lesson) => (
+                              <div key={lesson.id} className="p-4 border rounded-lg bg-amber-50/50">
+                                <div className="flex items-start justify-between mb-4">
+                                  <div>
+                                    <h4 className="font-semibold text-lg mb-1">{lesson.subject}</h4>
+                                    <p className="text-sm text-muted-foreground">
+                                      {lesson.format} • {lesson.level}
+                                    </p>
+                                  </div>
+                                  <Badge variant="outline" className="bg-amber-100">Индивидуально</Badge>
                                 </div>
-                                <div>
-                                  <p className="text-muted-foreground text-xs mb-1">Филиал</p>
-                                  <div className="flex items-center gap-1">
-                                    <MapPin className="h-3 w-3" />
-                                    <span>{group.branch}</span>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
+                                  <div>
+                                    <p className="text-muted-foreground text-xs mb-1">Преподаватель</p>
+                                    <p className="font-medium">{lesson.teacherName || 'Не назначен'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground text-xs mb-1">Филиал</p>
+                                    <div className="flex items-center gap-1">
+                                      <MapPin className="h-3 w-3" />
+                                      <span>{lesson.branch}</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground text-xs mb-1">Стоимость</p>
+                                    <p className="font-medium">{lesson.pricePerLesson ? `${lesson.pricePerLesson}₽/урок` : 'Не указана'}</p>
                                   </div>
                                 </div>
                                 <div>
-                                  <p className="text-muted-foreground text-xs mb-1">Дата записи</p>
-                                  <div className="flex items-center gap-1">
-                                    <Calendar className="h-3 w-3" />
-                                    <span>{formatDate(group.enrollmentDate)}</span>
-                                  </div>
+                                  <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
+                                  <LessonScheduleStrip sessions={lesson.sessions} />
                                 </div>
                               </div>
-                              <div className="mb-4">
-                                <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
-                                <LessonScheduleStrip sessions={group.sessions} />
-                              </div>
-                              <div className="flex gap-2">
-                                <Button variant="outline" size="sm">
-                                  Подробнее
-                                </Button>
-                                <Button variant="outline" size="sm">
-                                  <MessageSquare className="h-3 w-3 mr-1" />
-                                  Чат группы
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                          
-                          {/* Individual Lessons */}
-                          {studentDetails.individualLessons.map((lesson) => (
-                            <div key={lesson.id} className="p-4 border rounded-lg bg-amber-50/50">
-                              <div className="flex items-start justify-between mb-4">
-                                <div>
-                                  <h4 className="font-semibold text-lg mb-1">{lesson.subject}</h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    {lesson.format} • {lesson.level}
-                                  </p>
-                                </div>
-                                <Badge variant="outline" className="bg-amber-100">
-                                  Индивидуально
-                                </Badge>
-                              </div>
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
-                                <div>
-                                  <p className="text-muted-foreground text-xs mb-1">Преподаватель</p>
-                                  <p className="font-medium">{lesson.teacherName || 'Не назначен'}</p>
-                                </div>
-                                <div>
-                                  <p className="text-muted-foreground text-xs mb-1">Филиал</p>
-                                  <div className="flex items-center gap-1">
-                                    <MapPin className="h-3 w-3" />
-                                    <span>{lesson.branch}</span>
-                                  </div>
-                                </div>
-                                <div>
-                                  <p className="text-muted-foreground text-xs mb-1">Стоимость</p>
-                                  <p className="font-medium">{lesson.pricePerLesson ? `${lesson.pricePerLesson}₽/урок` : 'Не указана'}</p>
-                                </div>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
-                                <LessonScheduleStrip sessions={lesson.sessions} />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                            ))}
+                          </CardContent>
+                        </Card>
                       )}
-                    </CardContent>
-                  </Card>
+
+                      {/* Inactive Lessons */}
+                      {([...studentDetails.groups, ...studentDetails.individualLessons].filter(item => item.status !== 'active').length > 0) && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <XCircle className="h-5 w-5 text-muted-foreground" />
+                              Завершенные занятия
+                            </CardTitle>
+                            <CardDescription>
+                              История предыдущих групп и занятий с полной информацией
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            {/* Inactive Groups */}
+                            {studentDetails.groups.filter(g => g.status !== 'active').map((group) => (
+                              <div key={group.id} className="p-4 border rounded-lg bg-muted/30">
+                                <div className="flex items-start justify-between mb-4">
+                                  <div>
+                                    <h4 className="font-semibold text-lg mb-1">{group.name}</h4>
+                                    <p className="text-sm text-muted-foreground">
+                                      {group.format} • {group.subject} • {group.level}
+                                    </p>
+                                  </div>
+                                  <Badge variant="secondary">Завершена</Badge>
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
+                                  <div>
+                                    <p className="text-muted-foreground text-xs mb-1">Преподаватель</p>
+                                    <p className="font-medium">{group.teacher}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground text-xs mb-1">Филиал</p>
+                                    <div className="flex items-center gap-1">
+                                      <MapPin className="h-3 w-3" />
+                                      <span>{group.branch}</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground text-xs mb-1">Период обучения</p>
+                                    <div className="flex items-center gap-1">
+                                      <Calendar className="h-3 w-3" />
+                                      <span>{formatDate(group.enrollmentDate)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="mb-4">
+                                  <p className="text-muted-foreground text-xs mb-2">История посещений</p>
+                                  <LessonScheduleStrip sessions={group.sessions} />
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button variant="outline" size="sm">
+                                    Подробнее
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                            
+                            {/* Inactive Individual Lessons */}
+                            {studentDetails.individualLessons.filter(l => l.status !== 'active').map((lesson) => (
+                              <div key={lesson.id} className="p-4 border rounded-lg bg-muted/30">
+                                <div className="flex items-start justify-between mb-4">
+                                  <div>
+                                    <h4 className="font-semibold text-lg mb-1">{lesson.subject}</h4>
+                                    <p className="text-sm text-muted-foreground">
+                                      {lesson.format} • {lesson.level}
+                                    </p>
+                                  </div>
+                                  <Badge variant="secondary">Завершено</Badge>
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
+                                  <div>
+                                    <p className="text-muted-foreground text-xs mb-1">Преподаватель</p>
+                                    <p className="font-medium">{lesson.teacherName || 'Не назначен'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground text-xs mb-1">Филиал</p>
+                                    <div className="flex items-center gap-1">
+                                      <MapPin className="h-3 w-3" />
+                                      <span>{lesson.branch}</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground text-xs mb-1">Стоимость</p>
+                                    <p className="font-medium">{lesson.pricePerLesson ? `${lesson.pricePerLesson}₽/урок` : 'Не указана'}</p>
+                                  </div>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground text-xs mb-2">История посещений</p>
+                                  <LessonScheduleStrip sessions={lesson.sessions} />
+                                </div>
+                              </div>
+                            ))}
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="payments" className="mt-0">
