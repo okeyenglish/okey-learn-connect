@@ -53,6 +53,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState('');
+  const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const { data: studentDetails, isLoading, refetch } = useStudentDetails(student.id);
 
   // Update notes value when student details load
@@ -403,7 +404,11 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                           
                           {/* Individual Lessons */}
                           {studentDetails.individualLessons.map((lesson) => (
-                            <div key={lesson.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-amber-50/50">
+                            <div 
+                              key={lesson.id} 
+                              className="p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-amber-50/50 cursor-pointer"
+                              onClick={() => setSelectedLessonId(lesson.id)}
+                            >
                               <div className="flex items-start justify-between mb-3">
                                 <div>
                                   <h4 className="font-semibold text-lg">{lesson.subject}</h4>
@@ -567,7 +572,11 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                             
                             {/* Active Individual Lessons */}
                             {studentDetails.individualLessons.filter(l => l.status === 'active').map((lesson) => (
-                              <div key={lesson.id} className="p-4 border rounded-lg bg-amber-50/50">
+                              <div 
+                                key={lesson.id} 
+                                className="p-4 border rounded-lg bg-amber-50/50 cursor-pointer"
+                                onClick={() => setSelectedLessonId(lesson.id)}
+                              >
                                 <div className="flex items-start justify-between mb-4">
                                   <div>
                                     <h4 className="font-semibold text-lg mb-1">{lesson.subject}</h4>
@@ -663,7 +672,11 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                             
                             {/* Inactive Individual Lessons */}
                             {studentDetails.individualLessons.filter(l => l.status !== 'active').map((lesson) => (
-                              <div key={lesson.id} className="p-4 border rounded-lg bg-muted/30">
+                              <div 
+                                key={lesson.id} 
+                                className="p-4 border rounded-lg bg-muted/30 cursor-pointer"
+                                onClick={() => setSelectedLessonId(lesson.id)}
+                              >
                                 <div className="flex items-start justify-between mb-4">
                                   <div>
                                     <h4 className="font-semibold text-lg mb-1">{lesson.subject}</h4>
@@ -876,6 +889,19 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
         studentId={student.id}
         onPaymentCreated={() => refetch()}
       />
+
+      {/* Модал редактирования индивидуального урока */}
+      {selectedLessonId && (
+        <Dialog open={!!selectedLessonId} onOpenChange={(open) => !open && setSelectedLessonId(null)}>
+          <DialogContent className="max-w-2xl">
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Редактирование индивидуального занятия</h3>
+              <p className="text-sm text-muted-foreground">ID урока: {selectedLessonId}</p>
+              <p className="text-sm text-muted-foreground">Функционал редактирования в разработке</p>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </Dialog>
   );
 }
