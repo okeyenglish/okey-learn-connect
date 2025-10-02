@@ -38,6 +38,10 @@ export function RescheduleIndividualLessonModal({
 }: RescheduleIndividualLessonModalProps) {
   const [newDate, setNewDate] = useState<Date | undefined>(originalDate);
   const [newTime, setNewTime] = useState(currentTime || "");
+  const [startHour, setStartHour] = useState(currentTime?.split('-')[0]?.split(':')[0] || "09");
+  const [startMinute, setStartMinute] = useState(currentTime?.split('-')[0]?.split(':')[1] || "00");
+  const [endHour, setEndHour] = useState(currentTime?.split('-')[1]?.split(':')[0]?.trim() || "10");
+  const [endMinute, setEndMinute] = useState(currentTime?.split('-')[1]?.split(':')[1]?.trim() || "00");
   const [newTeacher, setNewTeacher] = useState(currentTeacher || "");
   const [newClassroom, setNewClassroom] = useState(currentClassroom || "");
   const [loading, setLoading] = useState(false);
@@ -58,7 +62,19 @@ export function RescheduleIndividualLessonModal({
       if (data) {
         setBranch(data.branch);
         if (!currentTeacher) setNewTeacher(data.teacher_name || "");
-        if (!currentTime) setNewTime(data.schedule_time || "");
+        if (!currentTime && data.schedule_time) {
+          const [start, end] = data.schedule_time.split('-');
+          if (start) {
+            const [h, m] = start.trim().split(':');
+            setStartHour(h || "09");
+            setStartMinute(m || "00");
+          }
+          if (end) {
+            const [h, m] = end.trim().split(':');
+            setEndHour(h || "10");
+            setEndMinute(m || "00");
+          }
+        }
         if (!currentClassroom) setNewClassroom(data.lesson_location || "");
       }
     };
@@ -83,6 +99,8 @@ export function RescheduleIndividualLessonModal({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Пользователь не авторизован');
 
+      const newTimeStr = `${startHour}:${startMinute} - ${endHour}:${endMinute}`;
+
       // Create/Update the new session on the chosen date
       const { error } = await supabase
         .from('individual_lesson_sessions')
@@ -90,7 +108,7 @@ export function RescheduleIndividualLessonModal({
           individual_lesson_id: lessonId,
           lesson_date: format(newDate, 'yyyy-MM-dd'),
           status: 'rescheduled',
-          notes: `Перенесено с ${format(originalDate, 'dd.MM.yyyy', { locale: ru })}${currentTime ? ` ${currentTime}` : ''}${newTime ? ` на ${newTime}` : ''}${newTeacher ? ` (${newTeacher})` : ''}${newClassroom ? ` - ${newClassroom}` : ''}`,
+          notes: `Перенесено с ${format(originalDate, 'dd.MM.yyyy', { locale: ru })}${currentTime ? ` ${currentTime}` : ''} на ${newTimeStr}${newTeacher ? ` (${newTeacher})` : ''}${newClassroom ? ` - ${newClassroom}` : ''}`,
           created_by: user.id
         }, {
           onConflict: 'individual_lesson_id,lesson_date'
@@ -104,7 +122,7 @@ export function RescheduleIndividualLessonModal({
           individual_lesson_id: lessonId,
           lesson_date: format(originalDate, 'yyyy-MM-dd'),
           status: 'rescheduled_out',
-          notes: `Перенесено на ${format(newDate, 'dd.MM.yyyy', { locale: ru })}${newTime ? ` ${newTime}` : ''}`,
+          notes: `Перенесено на ${format(newDate, 'dd.MM.yyyy', { locale: ru })} ${newTimeStr}`,
           created_by: user.id
         }, {
           onConflict: 'individual_lesson_id,lesson_date'
@@ -114,7 +132,7 @@ export function RescheduleIndividualLessonModal({
 
       toast({
         title: "Успешно",
-        description: `Урок перенесен на ${format(newDate, 'dd MMMM yyyy', { locale: ru })}`
+        description: `Урок перенесен на ${format(newDate, 'dd MMMM yyyy', { locale: ru })} ${newTimeStr}`
       });
 
       onRescheduled?.();
@@ -182,18 +200,66 @@ export function RescheduleIndividualLessonModal({
             </Popover>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="time">Время</Label>
-            <Input
-              id="time"
-              type="time"
-              value={newTime}
-              onChange={(e) => setNewTime(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-              onPointerDown={(e) => e.stopPropagation()}
-              placeholder="09:00"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Время начала</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Select value={startHour} onValueChange={setStartHour}>
+                  <SelectTrigger onClick={(e) => e.stopPropagation()}>
+                    <SelectValue placeholder="Час" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0')).map((hour) => (
+                      <SelectItem key={hour} value={hour}>
+                        {hour}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={startMinute} onValueChange={setStartMinute}>
+                  <SelectTrigger onClick={(e) => e.stopPropagation()}>
+                    <SelectValue placeholder="Мин" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, '0')).map((minute) => (
+                      <SelectItem key={minute} value={minute}>
+                        {minute}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Время окончания</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Select value={endHour} onValueChange={setEndHour}>
+                  <SelectTrigger onClick={(e) => e.stopPropagation()}>
+                    <SelectValue placeholder="Час" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0')).map((hour) => (
+                      <SelectItem key={hour} value={hour}>
+                        {hour}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={endMinute} onValueChange={setEndMinute}>
+                  <SelectTrigger onClick={(e) => e.stopPropagation()}>
+                    <SelectValue placeholder="Мин" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, '0')).map((minute) => (
+                      <SelectItem key={minute} value={minute}>
+                        {minute}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
 
           <div className="space-y-2">
