@@ -38,6 +38,7 @@ import { useStudentDetails, StudentFullDetails } from '@/hooks/useStudentDetails
 import { Student } from '@/hooks/useStudents';
 import { LessonScheduleStrip } from './LessonScheduleStrip';
 import { CreatePaymentModal } from '@/components/finances/CreatePaymentModal';
+import { EditIndividualLessonModal } from './EditIndividualLessonModal';
 
 interface EnhancedStudentCardProps {
   student: {
@@ -891,17 +892,12 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
       />
 
       {/* Модал редактирования индивидуального урока */}
-      {selectedLessonId && (
-        <Dialog open={!!selectedLessonId} onOpenChange={(open) => !open && setSelectedLessonId(null)}>
-          <DialogContent className="max-w-2xl">
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Редактирование индивидуального занятия</h3>
-              <p className="text-sm text-muted-foreground">ID урока: {selectedLessonId}</p>
-              <p className="text-sm text-muted-foreground">Функционал редактирования в разработке</p>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      <EditIndividualLessonModal
+        lessonId={selectedLessonId}
+        open={!!selectedLessonId}
+        onOpenChange={(open) => !open && setSelectedLessonId(null)}
+        onLessonUpdated={() => refetch()}
+      />
     </Dialog>
   );
 }
