@@ -847,6 +847,47 @@ export type Database = {
           },
         ]
       }
+      individual_lesson_sessions: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          individual_lesson_id: string
+          lesson_date: string
+          notes: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          individual_lesson_id: string
+          lesson_date: string
+          notes?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          individual_lesson_id?: string
+          lesson_date?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "individual_lesson_sessions_individual_lesson_id_fkey"
+            columns: ["individual_lesson_id"]
+            isOneToOne: false
+            referencedRelation: "individual_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       individual_lessons: {
         Row: {
           academic_hours: number | null

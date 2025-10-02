@@ -468,6 +468,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                               {/* Расписание занятий */}
                               <div className="mt-3 pt-3 border-t">
                                 <IndividualLessonSchedule 
+                                  lessonId={lesson.id}
                                   scheduleDays={lesson.scheduleDays}
                                   scheduleTime={lesson.scheduleTime}
                                   periodStart={lesson.periodStart}
@@ -643,6 +644,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                               <div>
                                 <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
                                 <IndividualLessonSchedule 
+                                  lessonId={lesson.id}
                                   scheduleDays={lesson.scheduleDays}
                                   scheduleTime={lesson.scheduleTime}
                                   periodStart={lesson.periodStart}
@@ -748,6 +750,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                               <div>
                                 <p className="text-muted-foreground text-xs mb-2">История посещений</p>
                                 <IndividualLessonSchedule 
+                                  lessonId={lesson.id}
                                   scheduleDays={lesson.scheduleDays}
                                   scheduleTime={lesson.scheduleTime}
                                   periodStart={lesson.periodStart}

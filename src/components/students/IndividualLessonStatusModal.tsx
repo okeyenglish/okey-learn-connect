@@ -9,14 +9,19 @@ import {
   UserX, 
   Calendar, 
   User, 
-  MapPin 
+  MapPin,
+  XCircle
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface IndividualLessonStatusModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedDate: Date | null;
   scheduleTime?: string;
+  lessonId?: string;
+  onStatusUpdated?: () => void;
 }
 
 const lessonStatusOptions = [
@@ -39,7 +44,7 @@ const lessonStatusOptions = [
     label: 'Бесплатное занятие',
     description: 'Занятие без оплаты',
     icon: Gift,
-    color: 'text-purple-600',
+    color: 'text-yellow-600',
   },
   {
     value: 'paid_absence',
@@ -54,6 +59,13 @@ const lessonStatusOptions = [
     description: 'Пропуск с частичной оплатой',
     icon: UserX,
     color: 'text-amber-600',
+  },
+  {
+    value: 'cancelled',
+    label: 'Отменено',
+    description: 'Занятие отменено',
+    icon: XCircle,
+    color: 'text-gray-900',
   },
   {
     value: 'reschedule',
@@ -83,13 +95,54 @@ export function IndividualLessonStatusModal({
   onOpenChange,
   selectedDate,
   scheduleTime,
+  lessonId,
+  onStatusUpdated,
 }: IndividualLessonStatusModalProps) {
+  const { toast } = useToast();
+  
   if (!selectedDate) return null;
 
-  const handleStatusSelect = (statusValue: string) => {
-    // TODO: Implement status update logic
-    console.log('Selected status:', statusValue, 'for date:', selectedDate);
-    onOpenChange(false);
+  const handleStatusSelect = async (statusValue: string) => {
+    if (!lessonId) {
+      toast({
+        title: "Ошибка",
+        description: "ID занятия не найден",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const lessonDate = format(selectedDate, 'yyyy-MM-dd');
+      
+      const { error } = await supabase
+        .from('individual_lesson_sessions')
+        .upsert({
+          individual_lesson_id: lessonId,
+          lesson_date: lessonDate,
+          status: statusValue,
+          created_by: (await supabase.auth.getUser()).data.user?.id
+        }, {
+          onConflict: 'individual_lesson_id,lesson_date'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Успешно",
+        description: "Статус занятия обновлен"
+      });
+
+      onStatusUpdated?.();
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error updating lesson status:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось обновить статус занятия",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
