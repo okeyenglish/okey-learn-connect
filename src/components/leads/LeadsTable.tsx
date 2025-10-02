@@ -58,10 +58,8 @@ export function LeadsTable({ leads, isLoading, onFiltersChange }: LeadsTableProp
             <TableRow>
               <TableHead>Клиент</TableHead>
               <TableHead>Контакты</TableHead>
-              <TableHead>Предмет</TableHead>
               <TableHead>Филиал</TableHead>
               <TableHead>Статус</TableHead>
-              <TableHead>Источник</TableHead>
               <TableHead>Дата создания</TableHead>
               <TableHead className="w-[70px]"></TableHead>
             </TableRow>
@@ -97,17 +95,6 @@ export function LeadsTable({ leads, isLoading, onFiltersChange }: LeadsTableProp
                   </div>
                 </TableCell>
                 
-                <TableCell>
-                  <div>
-                    <div className="font-medium">{lead.subject}</div>
-                    {lead.level && (
-                      <div className="text-sm text-muted-foreground">
-                        {lead.level}
-                      </div>
-                    )}
-                  </div>
-                </TableCell>
-                
                 <TableCell>{lead.branch}</TableCell>
                 
                 <TableCell>
@@ -118,14 +105,6 @@ export function LeadsTable({ leads, isLoading, onFiltersChange }: LeadsTableProp
                     >
                       {lead.lead_status.name}
                     </Badge>
-                  )}
-                </TableCell>
-                
-                <TableCell>
-                  {lead.lead_source?.name && (
-                    <span className="text-sm text-muted-foreground">
-                      {lead.lead_source.name}
-                    </span>
                   )}
                 </TableCell>
                 
