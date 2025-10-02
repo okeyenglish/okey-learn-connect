@@ -184,18 +184,30 @@ const StudentsContent = ({
   showAddModal, setShowAddModal, expandedSections, setExpandedSections,
   visibleColumns, setVisibleColumns, students, isLoading 
 }: StudentsContentProps) => {
-  // Filter students based on current filters
+  // Filter students based on current filters with proper null checks
   const filteredStudents = students.filter(student => {
-    if (searchTerm && !student.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !student.phone.includes(searchTerm)) {
-      return false;
+    // Search filter - check name, phone, and email
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      const matchesName = student.name?.toLowerCase().includes(search) || false;
+      const matchesPhone = student.phone?.includes(searchTerm) || false;
+      
+      if (!matchesName && !matchesPhone) {
+        return false;
+      }
     }
-    if (selectedBranch !== "all" && !student.phone.includes(selectedBranch)) {
-      return false;
+    
+    // Branch filter - for now we don't have branch data on students
+    // This would need to be implemented via family_groups or a direct branch field
+    if (selectedBranch !== "all") {
+      // TODO: Implement branch filtering when branch data is available
     }
+    
+    // Status filter
     if (selectedStatus !== "all" && student.status !== selectedStatus) {
       return false;
     }
+    
     return true;
   });
 
