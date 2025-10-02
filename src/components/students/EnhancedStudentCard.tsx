@@ -408,12 +408,17 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                           {studentDetails.individualLessons.map((lesson) => (
                             <div 
                               key={lesson.id} 
-                              className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer relative"
-                              onClick={() => setSelectedLessonId(lesson.id)}
+                              className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-default relative"
                             >
                               {/* Заголовок с именем студента */}
                               <div className="flex items-start justify-between mb-2">
-                                <h4 className="font-medium text-base text-primary">
+                                <h4 
+                                  className="font-medium text-base text-primary cursor-pointer hover:underline"
+                                  onClick={(e) => { e.stopPropagation(); setSelectedLessonId(lesson.id); }}
+                                  role="button"
+                                  tabIndex={0}
+                                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedLessonId(lesson.id); } }}
+                                >
                                   {studentDetails.name}
                                 </h4>
                                 <Badge variant="outline" className="text-xs">
