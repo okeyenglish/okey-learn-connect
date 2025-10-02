@@ -48,6 +48,9 @@ export const usePayments = (filters?: any) => {
   };
 
   const createPayment = async (paymentData: any) => {
+    console.log('=== CREATE PAYMENT START ===');
+    console.log('Payment data received:', paymentData);
+    
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -68,16 +71,28 @@ export const usePayments = (filters?: any) => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating payment record:', error);
+        throw error;
+      }
+
+      console.log('Payment created successfully:', payment);
 
       // Update session statuses - mark next N unpaid sessions as attended
       if (paymentData.individual_lesson_id && paymentData.lessons_count) {
+        console.log('Starting session status update...');
+        console.log('Individual lesson ID:', paymentData.individual_lesson_id);
+        console.log('Lessons to pay:', paymentData.lessons_count);
+        
         // Получаем все сессии урока в порядке дат (КРИТИЧНО: сортировка по дате)
         const { data: allSessions, error: fetchError } = await supabase
           .from('individual_lesson_sessions')
           .select('id, lesson_date, status')
           .eq('individual_lesson_id', paymentData.individual_lesson_id)
           .order('lesson_date', { ascending: true });
+
+        console.log('Fetched sessions:', allSessions);
+        console.log('Fetch error:', fetchError);
 
         if (!fetchError && allSessions && allSessions.length > 0) {
           // Фильтруем неоплаченные занятия строго в порядке дат
@@ -90,33 +105,46 @@ export const usePayments = (filters?: any) => {
             .sort((a, b) => new Date(a.lesson_date).getTime() - new Date(b.lesson_date).getTime());
 
           console.log('Unpaid sessions (in chronological order):', unpaidSessions.map(s => ({
+            id: s.id,
             date: s.lesson_date,
             status: s.status
           })));
+          console.log('Total unpaid sessions:', unpaidSessions.length);
           console.log('Paying for:', paymentData.lessons_count, 'lessons');
 
           // Берем первые N неоплаченных занятий (самые ранние по дате)
           const sessionsToUpdate = unpaidSessions.slice(0, paymentData.lessons_count);
           
+          console.log('Sessions selected for update:', sessionsToUpdate.length);
+          
           if (sessionsToUpdate.length > 0) {
             const sessionIds = sessionsToUpdate.map(s => s.id);
             console.log('Updating session IDs to attended (by date):', sessionsToUpdate.map(s => ({
               id: s.id,
-              date: s.lesson_date
+              date: s.lesson_date,
+              currentStatus: s.status
             })));
             
-            const { error: sessionError } = await supabase
+            const { error: sessionError, data: updatedSessions } = await supabase
               .from('individual_lesson_sessions')
               .update({ status: 'attended' })
-              .in('id', sessionIds);
+              .in('id', sessionIds)
+              .select();
 
             if (sessionError) {
               console.error('Error updating sessions:', sessionError);
             } else {
-              console.log('Successfully updated', sessionsToUpdate.length, 'sessions to attended');
+              console.log('Successfully updated sessions:', updatedSessions);
+              console.log('Updated', sessionsToUpdate.length, 'sessions to attended');
             }
+          } else {
+            console.log('No sessions to update - slice returned empty array');
           }
+        } else {
+          console.log('No sessions fetched or fetch error occurred');
         }
+      } else {
+        console.log('Skipping session update - no individual_lesson_id or lessons_count');
       }
 
       toast({
@@ -124,6 +152,7 @@ export const usePayments = (filters?: any) => {
         description: `Платеж на сумму ${paymentData.amount} руб. добавлен`,
       });
 
+      console.log('=== CREATE PAYMENT END ===');
       fetchPayments();
       return payment;
     } catch (error) {
