@@ -223,11 +223,6 @@ export function IndividualLessonSchedule({
             </button>
           )}
         </div>
-        {scheduleTime && (
-          <div className="text-sm text-muted-foreground whitespace-nowrap">
-            {scheduleTime}
-          </div>
-        )}
       </div>
 
       <IndividualLessonStatusModal
