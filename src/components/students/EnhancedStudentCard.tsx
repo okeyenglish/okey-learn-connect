@@ -429,7 +429,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                     Индивидуально
                                   </Badge>
                                   {(lesson.sessions?.filter(s => 
-                                    !['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence', 'cancelled'].includes(s.status)
+                                    ['scheduled', 'rescheduled_out', 'rescheduled'].includes(s.status) || !s.status
                                   ).length || 0) > 0 && (
                                     <Button
                                       size="icon"
