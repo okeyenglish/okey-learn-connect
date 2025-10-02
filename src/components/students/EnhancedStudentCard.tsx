@@ -297,46 +297,6 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
 
               <ScrollArea className="flex-1 px-6 py-4">
                 <TabsContent value="overview" className="mt-0 space-y-4">
-                  {/* Stats Grid */}
-                  <div className="grid grid-cols-4 gap-4">
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="text-center">
-                          <Users className="h-8 w-8 mx-auto mb-2 text-blue-600" />
-                          <p className="text-2xl font-bold">{studentDetails.groups.length + studentDetails.individualLessons.length}</p>
-                          <p className="text-xs text-muted-foreground">Активных занятий</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="text-center">
-                          <DollarSign className="h-8 w-8 mx-auto mb-2 text-green-600" />
-                          <p className="text-2xl font-bold">{studentDetails.payments.length}</p>
-                          <p className="text-xs text-muted-foreground">Платежей</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="text-center">
-                          <CheckCircle className="h-8 w-8 mx-auto mb-2 text-emerald-600" />
-                          <p className="text-2xl font-bold">-</p>
-                          <p className="text-xs text-muted-foreground">Уроков посещено</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="text-center">
-                          <TrendingUp className="h-8 w-8 mx-auto mb-2 text-purple-600" />
-                          <p className="text-2xl font-bold">-</p>
-                          <p className="text-xs text-muted-foreground">Средняя оценка</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
                   {/* Current Groups and Individual Lessons */}
                   <Card>
                     <CardHeader>
