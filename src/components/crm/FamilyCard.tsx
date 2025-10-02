@@ -322,7 +322,7 @@ export const FamilyCard = ({
         <div className="relative overflow-hidden">
           <TabsList className="grid w-full grid-cols-2 relative">
             <TabsTrigger value="children" className="relative flex items-center justify-between">
-              <span>Дети ({familyData.students.length})</span>
+              <span>Ученики ({familyData.students.length})</span>
               {activeTab === 'children' && (
                 <AddStudentModal 
                   familyGroupId={familyGroupId}
