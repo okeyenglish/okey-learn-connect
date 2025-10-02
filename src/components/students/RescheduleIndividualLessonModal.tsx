@@ -158,6 +158,7 @@ export function RescheduleIndividualLessonModal({
                     "w-full justify-start text-left font-normal",
                     !newDate && "text-muted-foreground"
                   )}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {newDate ? format(newDate, 'dd MMMM yyyy', { locale: ru }) : "Выберите дату"}
