@@ -1,6 +1,8 @@
 import { cn } from '@/lib/utils';
 import { format, addDays, isBefore, isAfter, startOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { useState } from 'react';
+import { IndividualLessonStatusModal } from './IndividualLessonStatusModal';
 
 interface IndividualLessonScheduleProps {
   scheduleDays?: string[];
@@ -27,6 +29,9 @@ export function IndividualLessonSchedule({
   periodEnd,
   className 
 }: IndividualLessonScheduleProps) {
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   if (!scheduleDays || scheduleDays.length === 0) {
     return (
       <div className={cn("text-sm text-muted-foreground", className)}>
@@ -34,6 +39,11 @@ export function IndividualLessonSchedule({
       </div>
     );
   }
+
+  const handleDateClick = (date: Date) => {
+    setSelectedDate(date);
+    setIsModalOpen(true);
+  };
 
   // Generate lesson dates based on schedule days
   const generateLessonDates = () => {
@@ -67,24 +77,34 @@ export function IndividualLessonSchedule({
   }
 
   return (
-    <div className={cn("flex items-center gap-2", className)}>
-      <div className="flex gap-1 flex-wrap">
-        {lessonDates.map((date, index) => (
-          <div
-            key={index}
-            className="h-8 px-2 rounded bg-primary/20 border border-primary/30 flex items-center justify-center"
-          >
-            <span className="text-xs font-medium text-primary whitespace-nowrap">
-              {format(date, 'dd.MM', { locale: ru })}
-            </span>
-          </div>
-        ))}
-      </div>
-      {scheduleTime && (
-        <div className="text-sm text-muted-foreground whitespace-nowrap">
-          {scheduleTime}
+    <>
+      <div className={cn("flex items-center gap-2", className)}>
+        <div className="flex gap-1 flex-wrap">
+          {lessonDates.map((date, index) => (
+            <button
+              key={index}
+              onClick={() => handleDateClick(date)}
+              className="h-8 px-2 rounded bg-primary/20 border border-primary/30 flex items-center justify-center hover:bg-primary/30 transition-colors cursor-pointer"
+            >
+              <span className="text-xs font-medium text-primary whitespace-nowrap">
+                {format(date, 'dd.MM', { locale: ru })}
+              </span>
+            </button>
+          ))}
         </div>
-      )}
-    </div>
+        {scheduleTime && (
+          <div className="text-sm text-muted-foreground whitespace-nowrap">
+            {scheduleTime}
+          </div>
+        )}
+      </div>
+
+      <IndividualLessonStatusModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        selectedDate={selectedDate}
+        scheduleTime={scheduleTime}
+      />
+    </>
   );
 }
