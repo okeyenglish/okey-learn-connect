@@ -1988,11 +1988,6 @@ const CRMContent = () => {
                           </div>
                         )}
                         
-                        {!["Расписание", "Финансы", "Мои задачи", "Настройки", "Ученики"].includes(item.label) && (
-                          <div className="text-center py-8">
-                            <p className="text-muted-foreground">Функция "{item.label}" в разработке</p>
-                          </div>
-                        )}
                       </div>
                     </PinnableDialogContent>
                   </Dialog>
