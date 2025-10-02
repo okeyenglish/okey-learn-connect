@@ -136,18 +136,18 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
       <DialogContent className="w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-w-full overflow-hidden p-0">
         {/* Header */}
         <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-background border-b px-6 py-4">
-          <div className="flex items-start justify-between">
-            <div className="flex items-start gap-4 flex-1">
+          <div className="flex items-start justify-between gap-6">
+            <div className="flex items-start gap-4">
               <Avatar className="h-16 w-16 border-2 border-background shadow-md">
                 <AvatarFallback className="bg-primary/20 text-primary text-xl font-semibold">
                   {getInitials(studentDetails.name)}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1">
+              <div>
                 <h2 className="text-2xl font-bold text-foreground mb-1">
                   {studentDetails.lastName} {studentDetails.firstName} {studentDetails.middleName}
                 </h2>
-                <div className="flex items-center gap-3 text-sm text-muted-foreground mb-3">
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   {studentDetails.age && (
                     <span className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
@@ -165,13 +165,19 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                     С {formatDate(studentDetails.createdAt)}
                   </span>
                 </div>
-                
-                {/* Notes Section */}
-                <div className="mt-2 max-w-2xl">
-                  <div className="flex items-center gap-2 mb-1">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium text-muted-foreground">Заметки:</span>
-                  </div>
+              </div>
+            </div>
+
+            {/* Notes Section */}
+            <div className="flex-1 max-w-md">
+              <Card className="bg-background/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Заметки
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
                   {isEditingNotes ? (
                     <Textarea
                       value={notesValue}
@@ -193,9 +199,10 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                   <p className="text-xs text-muted-foreground/70 mt-1">
                     {isEditingNotes ? 'Нажмите Enter для сохранения' : 'Нажмите на текст для редактирования'}
                   </p>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             </div>
+            
             <div className="flex items-center gap-2">
               {getStatusBadge(studentDetails.status)}
               <Button variant="outline" size="sm">
