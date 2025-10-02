@@ -170,37 +170,26 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
 
             {/* Notes Section */}
             <div className="flex-1 max-w-md">
-              <Card className="bg-background/50">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    Заметки
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {isEditingNotes ? (
-                    <Textarea
-                      value={notesValue}
-                      onChange={(e) => setNotesValue(e.target.value)}
-                      onKeyDown={handleNotesKeyDown}
-                      onBlur={handleSaveNotes}
-                      placeholder="Введите заметки о студенте..."
-                      className="min-h-[60px] text-sm resize-none"
-                      autoFocus
-                    />
-                  ) : (
-                    <div
-                      onClick={() => setIsEditingNotes(true)}
-                      className="text-sm text-muted-foreground cursor-pointer hover:bg-muted/50 p-2 rounded border border-transparent hover:border-border transition-colors min-h-[60px]"
-                    >
-                      {notesValue || 'Нажмите, чтобы добавить заметки...'}
-                    </div>
-                  )}
-                  <p className="text-xs text-muted-foreground/70 mt-1">
-                    {isEditingNotes ? 'Нажмите Enter для сохранения' : 'Нажмите на текст для редактирования'}
-                  </p>
-                </CardContent>
-              </Card>
+              <div className="border rounded-lg p-3 bg-background/30">
+                {isEditingNotes ? (
+                  <Textarea
+                    value={notesValue}
+                    onChange={(e) => setNotesValue(e.target.value)}
+                    onKeyDown={handleNotesKeyDown}
+                    onBlur={handleSaveNotes}
+                    placeholder="Заметки о студенте..."
+                    className="min-h-[80px] text-sm resize-none border-0 p-0 bg-transparent focus-visible:ring-0"
+                    autoFocus
+                  />
+                ) : (
+                  <div
+                    onClick={() => setIsEditingNotes(true)}
+                    className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors min-h-[80px]"
+                  >
+                    {notesValue || 'Заметки о студенте...'}
+                  </div>
+                )}
+              </div>
             </div>
             
             <div className="flex items-center gap-2">
