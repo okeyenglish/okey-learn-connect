@@ -189,6 +189,9 @@ export function RescheduleIndividualLessonModal({
               type="time"
               value={newTime}
               onChange={(e) => setNewTime(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
               placeholder="09:00"
             />
           </div>
