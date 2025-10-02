@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import { RescheduleIndividualLessonModal } from "./RescheduleIndividualLessonModal";
 
 interface IndividualLessonStatusModalProps {
   open: boolean;
@@ -99,6 +101,8 @@ export function IndividualLessonStatusModal({
   onStatusUpdated,
 }: IndividualLessonStatusModalProps) {
   const { toast } = useToast();
+  const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false);
+  const [lessonData, setLessonData] = useState<{teacher?: string, classroom?: string}>({});
   
   if (!selectedDate) return null;
 
@@ -108,6 +112,47 @@ export function IndividualLessonStatusModal({
         title: "Ошибка",
         description: "ID занятия не найден",
         variant: "destructive"
+      });
+      return;
+    }
+
+    // Special handling for reschedule
+    if (statusValue === 'reschedule') {
+      // Load lesson data
+      const { data } = await supabase
+        .from('individual_lessons')
+        .select('teacher_name, lesson_location')
+        .eq('id', lessonId)
+        .single();
+      
+      if (data) {
+        setLessonData({
+          teacher: data.teacher_name || undefined,
+          classroom: data.lesson_location || undefined
+        });
+      }
+      
+      setRescheduleModalOpen(true);
+      onOpenChange(false);
+      return;
+    }
+
+    // Special handling for substitute teacher
+    if (statusValue === 'substitute_teacher') {
+      // TODO: Open substitute teacher modal
+      toast({
+        title: "В разработке",
+        description: "Функция замены преподавателя находится в разработке"
+      });
+      return;
+    }
+
+    // Special handling for substitute classroom
+    if (statusValue === 'substitute_classroom') {
+      // TODO: Open substitute classroom modal
+      toast({
+        title: "В разработке",
+        description: "Функция замены аудитории находится в разработке"
       });
       return;
     }
@@ -156,59 +201,74 @@ export function IndividualLessonStatusModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent 
-        className="max-w-md"
-        onPointerDownOutside={(e) => {
-          e.preventDefault();
-        }}
-        onInteractOutside={(e) => {
-          e.preventDefault();
-        }}
-        onCloseAutoFocus={(e) => {
-          e.preventDefault();
-        }}
-        onOpenAutoFocus={(e) => {
-          e.preventDefault();
-        }}
-        onClick={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        <DialogHeader>
-          <DialogTitle className="text-lg">
-            Управление уроком
-          </DialogTitle>
-          <div className="text-sm text-muted-foreground">
-            {format(selectedDate, 'dd MMMM yyyy', { locale: ru })}
-            {scheduleTime && ` • ${scheduleTime}`}
-          </div>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent 
+          className="max-w-md"
+          onPointerDownOutside={(e) => {
+            e.preventDefault();
+          }}
+          onInteractOutside={(e) => {
+            e.preventDefault();
+          }}
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
+          }}
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <DialogHeader>
+            <DialogTitle className="text-lg">
+              Управление уроком
+            </DialogTitle>
+            <div className="text-sm text-muted-foreground">
+              {format(selectedDate, 'dd MMMM yyyy', { locale: ru })}
+              {scheduleTime && ` • ${scheduleTime}`}
+            </div>
+          </DialogHeader>
 
-        <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
-          {lessonStatusOptions.map((option) => {
-            const Icon = option.icon;
-            return (
-              <Button
-                key={option.value}
-                variant="outline"
-                className="w-full justify-start h-auto py-3 px-4 hover:bg-accent"
-                onClick={(e) => { e.stopPropagation(); handleStatusSelect(option.value); }}
-              >
-                <div className="flex items-start gap-3 text-left w-full">
-                  <Icon className={`h-5 w-5 mt-0.5 ${option.color} flex-shrink-0`} />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm">{option.label}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {option.description}
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
+            {lessonStatusOptions.map((option) => {
+              const Icon = option.icon;
+              return (
+                <Button
+                  key={option.value}
+                  variant="outline"
+                  className="w-full justify-start h-auto py-3 px-4 hover:bg-accent"
+                  onClick={(e) => { e.stopPropagation(); handleStatusSelect(option.value); }}
+                >
+                  <div className="flex items-start gap-3 text-left w-full">
+                    <Icon className={`h-5 w-5 mt-0.5 ${option.color} flex-shrink-0`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm">{option.label}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {option.description}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Button>
-            );
-          })}
-        </div>
-      </DialogContent>
-    </Dialog>
+                </Button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {lessonId && (
+        <RescheduleIndividualLessonModal
+          open={rescheduleModalOpen}
+          onOpenChange={setRescheduleModalOpen}
+          lessonId={lessonId}
+          originalDate={selectedDate}
+          currentTime={scheduleTime}
+          currentTeacher={lessonData.teacher}
+          currentClassroom={lessonData.classroom}
+          onRescheduled={onStatusUpdated}
+        />
+      )}
+    </>
   );
 }
