@@ -137,10 +137,11 @@ export function IndividualLessonSchedule({
       currentDate = addDays(currentDate, 1);
     }
     
-    // Добавляем даты с сессиями статуса "rescheduled" (перенесенные на другие даты)
+    // Добавляем даты с сессиями статуса "rescheduled" (перенесенные на эту дату)
+    // и "rescheduled_out" (перенесенные с этой даты)
     Object.keys(lessonSessions).forEach(dateStr => {
       const session = lessonSessions[dateStr];
-      if (session.status === 'rescheduled') {
+      if (session.status === 'rescheduled' || session.status === 'rescheduled_out') {
         const sessionDate = startOfDay(new Date(dateStr));
         // Добавляем только если даты еще нет в списке
         if (!dates.some(d => d.getTime() === sessionDate.getTime())) {
