@@ -48,6 +48,8 @@ export interface StudentIndividualLesson {
   pricePerLesson?: number;
   scheduleTime?: string;
   scheduleDays?: string[];
+  periodStart?: string;
+  periodEnd?: string;
   status: string;
   nextLesson?: string;
   format?: string;
@@ -277,6 +279,8 @@ export const useStudentDetails = (studentId: string) => {
             pricePerLesson: il.price_per_lesson,
             scheduleTime: il.schedule_time,
             scheduleDays: il.schedule_days,
+            periodStart: il.period_start,
+            periodEnd: il.period_end,
             status: il.status || 'active',
             nextLesson: undefined,
             format: 'Индивидуальное',
