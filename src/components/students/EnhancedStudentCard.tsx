@@ -470,6 +470,32 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                 <span className="font-medium">{lesson.branch}</span>
                               </div>
 
+                              {/* Статистика оплат */}
+                              <div className="grid grid-cols-2 gap-2 mb-3">
+                                <div className="flex items-center gap-2 text-sm">
+                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                  <div>
+                                    <span className="text-muted-foreground text-xs">Оплачено</span>
+                                    <p className="font-semibold text-green-600">
+                                      {lesson.sessions?.filter(s => 
+                                        ['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence'].includes(s.status)
+                                      ).length || 0} занятий
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <XCircle className="h-4 w-4 text-red-600" />
+                                  <div>
+                                    <span className="text-muted-foreground text-xs">Не оплачено</span>
+                                    <p className="font-semibold text-red-600">
+                                      {lesson.sessions?.filter(s => 
+                                        ['scheduled', 'rescheduled'].includes(s.status)
+                                      ).length || 0} занятий
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+
                               {/* Расписание занятий */}
                               <div className="mt-3 pt-3 border-t">
                                 <IndividualLessonSchedule 

@@ -243,32 +243,21 @@ export const useStudentDetails = (studentId: string) => {
         .eq('student_id', studentId)
         .eq('is_active', true);
 
-      // For individual lessons, we need to find sessions from student_lesson_sessions
+      // For individual lessons, we need to fetch sessions from individual_lesson_sessions
       const individualLessons: StudentIndividualLesson[] = await Promise.all(
         (individualLessonsData || []).map(async (il: any) => {
-          // Fetch sessions for this individual lesson via student_id
-          const { data: studentSessions } = await supabase
-            .from('student_lesson_sessions')
-            .select(`
-              lesson_sessions:lesson_session_id (
-                id,
-                lesson_date,
-                status,
-                lesson_number,
-                group_id
-              )
-            `)
-            .eq('student_id', studentId);
+          // Fetch sessions for this individual lesson
+          const { data: lessonSessions } = await supabase
+            .from('individual_lesson_sessions')
+            .select('id, lesson_date, status, notes')
+            .eq('individual_lesson_id', il.id)
+            .order('lesson_date', { ascending: true });
 
-          // Filter sessions that don't have a group_id (individual lessons)
-          const sessions: LessonSession[] = (studentSessions || [])
-            .filter((ss: any) => !ss.lesson_sessions?.group_id)
-            .map((ss: any) => ({
-              id: ss.lesson_sessions?.id || '',
-              lessonDate: ss.lesson_sessions?.lesson_date || '',
-              status: ss.lesson_sessions?.status || 'scheduled',
-              lessonNumber: ss.lesson_sessions?.lesson_number,
-            }));
+          const sessions: LessonSession[] = (lessonSessions || []).map((ls: any) => ({
+            id: ls.id,
+            lessonDate: ls.lesson_date,
+            status: ls.status,
+          }));
 
           return {
             id: il.id,
