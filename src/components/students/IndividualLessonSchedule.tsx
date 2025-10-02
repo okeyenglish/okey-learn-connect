@@ -40,7 +40,9 @@ export function IndividualLessonSchedule({
     );
   }
 
-  const handleDateClick = (date: Date) => {
+  const handleDateClick = (date: Date, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setSelectedDate(date);
     setIsModalOpen(true);
   };
@@ -83,7 +85,7 @@ export function IndividualLessonSchedule({
           {lessonDates.map((date, index) => (
             <button
               key={index}
-              onClick={() => handleDateClick(date)}
+              onClick={(e) => handleDateClick(date, e)}
               className="h-8 px-2 rounded bg-primary/20 border border-primary/30 flex items-center justify-center hover:bg-primary/30 transition-colors cursor-pointer"
             >
               <span className="text-xs font-medium text-primary whitespace-nowrap">
