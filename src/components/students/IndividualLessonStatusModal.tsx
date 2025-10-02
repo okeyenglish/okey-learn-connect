@@ -167,8 +167,8 @@ export function IndividualLessonStatusModal({
         throw new Error('Пользователь не авторизован');
       }
       
-      // Special handling for cancelling a paid lesson - transfer payment to next unpaid lesson
-      if (statusValue === 'cancelled') {
+      // Special handling for cancelling or making free a paid lesson - transfer payment to next unpaid lesson
+      if (statusValue === 'cancelled' || statusValue === 'free') {
         // Check if this lesson was paid
         const { data: currentSession } = await supabase
           .from('individual_lesson_sessions')
@@ -180,7 +180,7 @@ export function IndividualLessonStatusModal({
         const wasPaid = currentSession && ['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence'].includes(currentSession.status);
 
         if (wasPaid) {
-          console.log('Cancelling paid lesson, transferring payment to next unpaid lesson');
+          console.log(`Changing paid lesson to ${statusValue}, transferring payment to next unpaid lesson`);
           
           // Find next unpaid lesson after this date
           const { data: allSessions } = await supabase
@@ -192,7 +192,7 @@ export function IndividualLessonStatusModal({
 
           // Filter for unpaid sessions
           const unpaidSessions = allSessions?.filter(s => 
-            !['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence', 'cancelled'].includes(s.status)
+            !['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence', 'cancelled', 'free'].includes(s.status)
           );
 
           if (unpaidSessions && unpaidSessions.length > 0) {
@@ -202,7 +202,7 @@ export function IndividualLessonStatusModal({
             
             await supabase
               .from('individual_lesson_sessions')
-              .update({ status: 'attended' })
+              .update({ status: 'attended', created_by: user.id, updated_at: new Date().toISOString() })
               .eq('id', nextSession.id);
 
             toast({
