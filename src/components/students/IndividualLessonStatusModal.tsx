@@ -157,7 +157,15 @@ export function IndividualLessonStatusModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent 
+        className="max-w-md"
+        onPointerDownOutside={(e) => {
+          e.preventDefault();
+        }}
+        onInteractOutside={(e) => {
+          e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="text-lg">
             Управление уроком
@@ -176,7 +184,7 @@ export function IndividualLessonStatusModal({
                 key={option.value}
                 variant="outline"
                 className="w-full justify-start h-auto py-3 px-4 hover:bg-accent"
-                onClick={() => handleStatusSelect(option.value)}
+                onClick={(e) => { e.stopPropagation(); handleStatusSelect(option.value); }}
               >
                 <div className="flex items-start gap-3 text-left w-full">
                   <Icon className={`h-5 w-5 mt-0.5 ${option.color} flex-shrink-0`} />
