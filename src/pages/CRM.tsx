@@ -1186,6 +1186,7 @@ const CRMContent = () => {
                             <ClientsList 
                               onSelectClient={(clientId) => {
                                 handleChatClick(clientId, 'client');
+                                handleMenuModalClose();
                               }}
                               selectedClientId={activeChatId}
                             />
