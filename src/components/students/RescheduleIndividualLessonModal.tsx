@@ -1,18 +1,12 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Loader2 } from "lucide-react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useTeachers, getTeacherFullName } from "@/hooks/useTeachers";
-import { useClassrooms } from "@/hooks/useReferences";
 import { cn } from "@/lib/utils";
 
 interface RescheduleIndividualLessonModalProps {
@@ -37,36 +31,9 @@ export function RescheduleIndividualLessonModal({
   onRescheduled,
 }: RescheduleIndividualLessonModalProps) {
   const [newDate, setNewDate] = useState<Date | undefined>(originalDate);
-  const [newTime, setNewTime] = useState(currentTime || "");
-  const [newTeacher, setNewTeacher] = useState(currentTeacher || "");
-  const [newClassroom, setNewClassroom] = useState(currentClassroom || "");
   const [loading, setLoading] = useState(false);
-  const [branch, setBranch] = useState("");
   
   const { toast } = useToast();
-  const { teachers = [] } = useTeachers();
-  const { data: classrooms = [] } = useClassrooms();
-
-  useEffect(() => {
-    const loadLesson = async () => {
-      const { data } = await supabase
-        .from('individual_lessons')
-        .select('branch, teacher_name, schedule_time, lesson_location')
-        .eq('id', lessonId)
-        .single();
-      
-      if (data) {
-        setBranch(data.branch);
-        if (!currentTeacher) setNewTeacher(data.teacher_name || "");
-        if (!currentTime) setNewTime(data.schedule_time || "");
-        if (!currentClassroom) setNewClassroom(data.lesson_location || "");
-      }
-    };
-    
-    if (open) {
-      loadLesson();
-    }
-  }, [open, lessonId, currentTeacher, currentTime, currentClassroom]);
 
   const handleReschedule = async () => {
     if (!newDate) {
@@ -83,14 +50,14 @@ export function RescheduleIndividualLessonModal({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Пользователь не авторизован');
 
-      // Update or create the session with new date/time/teacher/classroom
+      // Create/Update the new session on the chosen date
       const { error } = await supabase
         .from('individual_lesson_sessions')
         .upsert({
           individual_lesson_id: lessonId,
           lesson_date: format(newDate, 'yyyy-MM-dd'),
           status: 'rescheduled',
-          notes: `Перенесено с ${format(originalDate, 'dd.MM.yyyy', { locale: ru })}${newTime ? ` ${newTime}` : ''}${newTeacher ? ` (${newTeacher})` : ''}${newClassroom ? ` - ${newClassroom}` : ''}`,
+          notes: `Перенесено с ${format(originalDate, 'dd.MM.yyyy', { locale: ru })}`,
           created_by: user.id
         }, {
           onConflict: 'individual_lesson_id,lesson_date'
@@ -98,14 +65,13 @@ export function RescheduleIndividualLessonModal({
 
       if (error) throw error;
 
-      // Mark original date as rescheduled
       const { error: originalError } = await supabase
         .from('individual_lesson_sessions')
         .upsert({
           individual_lesson_id: lessonId,
           lesson_date: format(originalDate, 'yyyy-MM-dd'),
           status: 'rescheduled_out',
-          notes: `Перенесено на ${format(newDate, 'dd.MM.yyyy', { locale: ru })}${newTime ? ` ${newTime}` : ''}`,
+          notes: `Перенесено на ${format(newDate, 'dd.MM.yyyy', { locale: ru })}`,
           created_by: user.id
         }, {
           onConflict: 'individual_lesson_id,lesson_date'
@@ -132,14 +98,17 @@ export function RescheduleIndividualLessonModal({
     }
   };
 
-  const availableClassrooms = classrooms.filter(c => 
-    c.is_active && (!branch || c.branch === branch)
-  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-
+      <DialogContent 
+        className="max-w-md"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         <DialogHeader>
           <DialogTitle>Перенос урока</DialogTitle>
           <div className="text-sm text-muted-foreground">
@@ -148,76 +117,14 @@ export function RescheduleIndividualLessonModal({
           </div>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label>Новая дата</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !newDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {newDate ? format(newDate, 'dd MMMM yyyy', { locale: ru }) : "Выберите дату"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={newDate}
-                  onSelect={setNewDate}
-                  initialFocus
-                  className={cn("p-3 pointer-events-auto")}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="time">Время</Label>
-            <Input
-              id="time"
-              type="time"
-              value={newTime}
-              onChange={(e) => setNewTime(e.target.value)}
-              placeholder="09:00"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Преподаватель</Label>
-            <Select value={newTeacher} onValueChange={setNewTeacher}>
-              <SelectTrigger>
-                <SelectValue placeholder="Выберите преподавателя" />
-              </SelectTrigger>
-              <SelectContent>
-                {teachers.map((teacher) => (
-                  <SelectItem key={teacher.id} value={getTeacherFullName(teacher)}>
-                    {getTeacherFullName(teacher)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Аудитория</Label>
-            <Select value={newClassroom} onValueChange={setNewClassroom}>
-              <SelectTrigger>
-                <SelectValue placeholder="Выберите аудиторию" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableClassrooms.map((classroom) => (
-                  <SelectItem key={classroom.id} value={classroom.name}>
-                    {classroom.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="py-2">
+          <Calendar
+            mode="single"
+            selected={newDate}
+            onSelect={setNewDate}
+            initialFocus
+            className={cn("p-3 pointer-events-auto")}
+          />
         </div>
 
         <div className="flex justify-end gap-2">
