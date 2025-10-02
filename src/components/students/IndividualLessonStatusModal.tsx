@@ -144,11 +144,7 @@ export function IndividualLessonStatusModal({
       });
 
       onStatusUpdated?.();
-      
-      // Close modal with delay to prevent click propagation
-      requestAnimationFrame(() => {
-        onOpenChange(false);
-      });
+      onOpenChange(false);
     } catch (error: any) {
       console.error('Error updating lesson status:', error);
       toast({
@@ -161,19 +157,7 @@ export function IndividualLessonStatusModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent 
-        className="max-w-md"
-        onPointerDownOutside={(e) => {
-          e.preventDefault();
-        }}
-        onInteractOutside={(e) => {
-          e.preventDefault();
-          // Delay closing to prevent click from bubbling to underlying elements
-          requestAnimationFrame(() => {
-            onOpenChange(false);
-          });
-        }}
-      >
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="text-lg">
             Управление уроком
