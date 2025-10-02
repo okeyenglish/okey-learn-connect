@@ -98,6 +98,7 @@ import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
 import VoiceAssistant from '@/components/VoiceAssistant';
 import { TeacherMessagesPanel } from "@/components/crm/TeacherMessagesPanel";
 import { UserPermissionsManager } from "@/components/admin/UserPermissionsManager";
+import { LeadsModalContent } from "@/components/leads/LeadsModalContent";
 import { StudentsModal } from "@/components/crm/StudentsModal";
 import FinancesSection from "@/components/finances/FinancesSection";
 import ScheduleSection from "@/components/crm/sections/ScheduleSection";
@@ -1173,24 +1174,7 @@ const CRMContent = () => {
                       </PinnableModalHeader>
                       <div className="py-4">
                         {item.label === "Лиды" && (
-                          <div className="space-y-4">
-                            <div className="flex justify-between items-center">
-                              <h3 className="font-medium">Клиенты</h3>
-                              <AddClientModal>
-                                <Button size="sm">
-                                  <User className="h-4 w-4 mr-2" />
-                                  Добавить клиента
-                                </Button>
-                              </AddClientModal>
-                            </div>
-                            <ClientsList 
-                              onSelectClient={(clientId) => {
-                                handleChatClick(clientId, 'client');
-                                handleMenuModalClose();
-                              }}
-                              selectedClientId={activeChatId}
-                            />
-                          </div>
+                          <LeadsModalContent />
                         )}
                         {item.label === "Расписание" && (
                           <div className="h-full">
