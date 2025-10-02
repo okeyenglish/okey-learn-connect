@@ -67,7 +67,11 @@ export function CreatePaymentModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('=== PAYMENT MODAL SUBMIT ===');
+    
     const lessonsCount = getLessonsCount();
+    console.log('Lessons count:', lessonsCount);
+    console.log('Individual lesson ID:', individualLessonId);
     
     if (individualLessonId && !lessonsCount && !useCustomAmount) {
       toast({
@@ -79,6 +83,7 @@ export function CreatePaymentModal({
     }
 
     const amount = calculateAmount();
+    console.log('Calculated amount:', amount);
     
     if (!amount) {
       toast({
@@ -91,7 +96,7 @@ export function CreatePaymentModal({
 
     setLoading(true);
     try {
-      await createPayment({
+      const paymentPayload = {
         student_id: studentId,
         amount,
         method: formData.method,
@@ -100,7 +105,13 @@ export function CreatePaymentModal({
         notes: formData.notes,
         lessons_count: lessonsCount,
         individual_lesson_id: individualLessonId
-      });
+      };
+      
+      console.log('Payment payload to send:', paymentPayload);
+      
+      await createPayment(paymentPayload);
+      
+      console.log('Payment created successfully in modal');
       
       // Reset form
       setFormData({
@@ -115,12 +126,13 @@ export function CreatePaymentModal({
       setCustomAmount('');
       
       if (onPaymentSuccess) {
+        console.log('Calling onPaymentSuccess callback');
         onPaymentSuccess();
       }
       
       onOpenChange(false);
     } catch (error) {
-      console.error('Error creating payment:', error);
+      console.error('Error in payment modal submit:', error);
     } finally {
       setLoading(false);
     }
