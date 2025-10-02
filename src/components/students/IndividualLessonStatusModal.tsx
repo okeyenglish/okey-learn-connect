@@ -169,51 +169,93 @@ export function IndividualLessonStatusModal({
       
       // Special handling for cancelling or making free a paid lesson - transfer payment to next unpaid lesson
       if (statusValue === 'cancelled' || statusValue === 'free') {
-        // Check if this lesson was paid
+        // Check if this lesson was paid on the selected date
         const { data: currentSession } = await supabase
           .from('individual_lesson_sessions')
           .select('status')
           .eq('individual_lesson_id', lessonId)
           .eq('lesson_date', lessonDate)
-          .single();
+          .maybeSingle();
 
         const wasPaid = currentSession && ['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence'].includes(currentSession.status);
 
         if (wasPaid) {
           console.log(`Changing paid lesson to ${statusValue}, transferring payment to next unpaid lesson`);
-          
-          // Find next unpaid lesson after this date
-          const { data: allSessions } = await supabase
-            .from('individual_lesson_sessions')
-            .select('id, lesson_date, status')
-            .eq('individual_lesson_id', lessonId)
-            .gt('lesson_date', lessonDate)
-            .order('lesson_date', { ascending: true });
 
-          // Filter for unpaid sessions
-          const unpaidSessions = allSessions?.filter(s => 
-            !['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence', 'cancelled', 'free'].includes(s.status)
-          );
-
-          if (unpaidSessions && unpaidSessions.length > 0) {
-            // Transfer payment to first unpaid session
-            const nextSession = unpaidSessions[0];
-            console.log('Transferring payment to session:', nextSession.lesson_date);
-            
-            await supabase
+          // Load all existing sessions and the lesson schedule
+          const [{ data: allSessions }, { data: lessonRow }] = await Promise.all([
+            supabase
               .from('individual_lesson_sessions')
-              .update({ status: 'attended', created_by: user.id, updated_at: new Date().toISOString() })
-              .eq('id', nextSession.id);
+              .select('id, lesson_date, status')
+              .eq('individual_lesson_id', lessonId)
+              .order('lesson_date', { ascending: true }),
+            supabase
+              .from('individual_lessons')
+              .select('schedule_days, period_start, period_end')
+              .eq('id', lessonId)
+              .maybeSingle()
+          ]);
+
+          const sessionByDate = new Map<string, { id?: string; status?: string }>();
+          (allSessions || []).forEach((s) => sessionByDate.set(s.lesson_date, { id: s.id, status: s.status }));
+
+          // Helper predicates
+          const isPaid = (st?: string) => ['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence'].includes(st || '');
+          const isUnpaid = (st?: string) => ['scheduled', 'rescheduled', 'rescheduled_out', undefined, ''].includes((st || '') as any);
+
+          // Build future scheduled dates after current lessonDate
+          let targetDate: string | null = null;
+          if (lessonRow?.schedule_days && lessonRow?.period_start && lessonRow?.period_end) {
+            const DAY_MAP: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 0 };
+            const dayNums = (lessonRow.schedule_days as string[]).map((d) => DAY_MAP[d?.toLowerCase?.() || '']).filter((n) => n !== undefined);
+            const start = new Date(lessonRow.period_start as string);
+            const end = new Date(lessonRow.period_end as string);
+            // Begin from the day after current lessonDate
+            const startFrom = new Date(lessonDate);
+            startFrom.setDate(startFrom.getDate() + 1);
+
+            for (let d = new Date(startFrom); d <= end; d.setDate(d.getDate() + 1)) {
+              if (d >= start && dayNums.includes(d.getDay())) {
+                const ds = d.toISOString().slice(0, 10);
+                const s = sessionByDate.get(ds);
+                if (!s || isUnpaid(s.status)) { // no row or unpaid status
+                  targetDate = ds;
+                  break;
+                }
+              }
+            }
+          }
+
+          if (targetDate) {
+            const targetSession = sessionByDate.get(targetDate);
+            if (targetSession?.id) {
+              // Update existing session to attended
+              await supabase
+                .from('individual_lesson_sessions')
+                .update({ status: 'attended', created_by: user.id, updated_at: new Date().toISOString() })
+                .eq('id', targetSession.id);
+            } else {
+              // Insert a new attended session row
+              await supabase
+                .from('individual_lesson_sessions')
+                .insert({
+                  individual_lesson_id: lessonId,
+                  lesson_date: targetDate,
+                  status: 'attended',
+                  created_by: user.id,
+                  updated_at: new Date().toISOString(),
+                });
+            }
 
             toast({
-              title: "Оплата перенесена",
-              description: `Оплата перенесена на занятие ${format(new Date(nextSession.lesson_date), 'dd.MM.yyyy', { locale: ru })}`,
+              title: 'Оплата перенесена',
+              description: `Оплата перенесена на занятие ${format(new Date(targetDate), 'dd.MM.yyyy', { locale: ru })}`,
             });
           } else {
             toast({
-              title: "Предупреждение",
-              description: "Нет неоплаченных занятий для переноса оплаты",
-              variant: "destructive"
+              title: 'Предупреждение',
+              description: 'Нет неоплаченных занятий для переноса оплаты',
+              variant: 'destructive',
             });
           }
         }
