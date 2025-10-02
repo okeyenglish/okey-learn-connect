@@ -141,10 +141,6 @@ export function CreatePaymentModal({
 
           {individualLessonId && (
             <div className="space-y-3">
-              <div>
-                <Label>Неоплачено занятий</Label>
-                <div className="text-2xl font-bold text-muted-foreground">{totalUnpaidCount}</div>
-              </div>
 
               <div>
                 <Label>Выберите пакет занятий</Label>
