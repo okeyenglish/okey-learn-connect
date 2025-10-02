@@ -101,7 +101,19 @@ export function RescheduleIndividualLessonModal({
 
       const newTimeStr = `${startHour}:${startMinute} - ${endHour}:${endMinute}`;
 
-      // Create/Update the new session on the chosen date
+      // Determine original session status to decide if it should become cancelled
+      const originalDateStr = format(originalDate, 'yyyy-MM-dd');
+      const { data: originalSession } = await supabase
+        .from('individual_lesson_sessions')
+        .select('status')
+        .eq('individual_lesson_id', lessonId)
+        .eq('lesson_date', originalDateStr)
+        .maybeSingle();
+
+      const paidStatuses = ['attended','paid_absence','partially_paid','partially_paid_absence'];
+      const makeOriginalCancelled = originalSession && paidStatuses.includes(originalSession.status);
+
+      // Create/Update the new session on the chosen date (orange)
       const { error } = await supabase
         .from('individual_lesson_sessions')
         .upsert({
@@ -109,21 +121,24 @@ export function RescheduleIndividualLessonModal({
           lesson_date: format(newDate, 'yyyy-MM-dd'),
           status: 'rescheduled',
           notes: `Перенесено с ${format(originalDate, 'dd.MM.yyyy', { locale: ru })}${currentTime ? ` ${currentTime}` : ''} на ${newTimeStr}${newTeacher ? ` (${newTeacher})` : ''}${newClassroom ? ` - ${newClassroom}` : ''}`,
-          created_by: user.id
+          created_by: user.id,
+          updated_at: new Date().toISOString()
         }, {
           onConflict: 'individual_lesson_id,lesson_date'
         });
 
       if (error) throw error;
 
+      // Mark original date
       const { error: originalError } = await supabase
         .from('individual_lesson_sessions')
         .upsert({
           individual_lesson_id: lessonId,
-          lesson_date: format(originalDate, 'yyyy-MM-dd'),
-          status: 'rescheduled_out',
+          lesson_date: originalDateStr,
+          status: makeOriginalCancelled ? 'cancelled' : 'rescheduled_out',
           notes: `Перенесено на ${format(newDate, 'dd.MM.yyyy', { locale: ru })} ${newTimeStr}`,
-          created_by: user.id
+          created_by: user.id,
+          updated_at: new Date().toISOString()
         }, {
           onConflict: 'individual_lesson_id,lesson_date'
         });
