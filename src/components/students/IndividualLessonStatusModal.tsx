@@ -167,6 +167,58 @@ export function IndividualLessonStatusModal({
         throw new Error('Пользователь не авторизован');
       }
       
+      // Special handling for cancelling a paid lesson - transfer payment to next unpaid lesson
+      if (statusValue === 'cancelled') {
+        // Check if this lesson was paid
+        const { data: currentSession } = await supabase
+          .from('individual_lesson_sessions')
+          .select('status')
+          .eq('individual_lesson_id', lessonId)
+          .eq('lesson_date', lessonDate)
+          .single();
+
+        const wasPaid = currentSession && ['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence'].includes(currentSession.status);
+
+        if (wasPaid) {
+          console.log('Cancelling paid lesson, transferring payment to next unpaid lesson');
+          
+          // Find next unpaid lesson after this date
+          const { data: allSessions } = await supabase
+            .from('individual_lesson_sessions')
+            .select('id, lesson_date, status')
+            .eq('individual_lesson_id', lessonId)
+            .gt('lesson_date', lessonDate)
+            .order('lesson_date', { ascending: true });
+
+          // Filter for unpaid sessions
+          const unpaidSessions = allSessions?.filter(s => 
+            !['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence', 'cancelled'].includes(s.status)
+          );
+
+          if (unpaidSessions && unpaidSessions.length > 0) {
+            // Transfer payment to first unpaid session
+            const nextSession = unpaidSessions[0];
+            console.log('Transferring payment to session:', nextSession.lesson_date);
+            
+            await supabase
+              .from('individual_lesson_sessions')
+              .update({ status: 'attended' })
+              .eq('id', nextSession.id);
+
+            toast({
+              title: "Оплата перенесена",
+              description: `Оплата перенесена на занятие ${format(new Date(nextSession.lesson_date), 'dd.MM.yyyy', { locale: ru })}`,
+            });
+          } else {
+            toast({
+              title: "Предупреждение",
+              description: "Нет неоплаченных занятий для переноса оплаты",
+              variant: "destructive"
+            });
+          }
+        }
+      }
+      
       const { error } = await supabase
         .from('individual_lesson_sessions')
         .upsert({
