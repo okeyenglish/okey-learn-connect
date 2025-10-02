@@ -31,13 +31,14 @@ import {
   Smartphone,
   MessageCircleIcon,
   Plus,
-  FileText
+  FileText,
+  Wallet
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useStudentDetails, StudentFullDetails } from '@/hooks/useStudentDetails';
 import { Student } from '@/hooks/useStudents';
 import { LessonScheduleStrip } from './LessonScheduleStrip';
-import { CreatePaymentModal } from '@/components/finances/CreatePaymentModal';
+import { CreatePaymentModal } from './CreatePaymentModal';
 import { EditIndividualLessonModal } from './EditIndividualLessonModal';
 import { IndividualLessonSchedule } from './IndividualLessonSchedule';
 
@@ -56,6 +57,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState('');
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
+  const [selectedLesson, setSelectedLesson] = useState<any>(null);
   const { data: studentDetails, isLoading, refetch } = useStudentDetails(student.id);
 
   // Update notes value when student details load
@@ -470,30 +472,57 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                 <span className="font-medium">{lesson.branch}</span>
                               </div>
 
-                              {/* Статистика оплат */}
-                              <div className="grid grid-cols-2 gap-2 mb-3">
-                                <div className="flex items-center gap-2 text-sm">
-                                  <CheckCircle className="h-4 w-4 text-green-600" />
-                                  <div>
-                                    <span className="text-muted-foreground text-xs">Оплачено</span>
-                                    <p className="font-semibold text-green-600">
+                              {/* Статистика оплат и кнопка оплаты */}
+                              <div className="space-y-3 mb-3">
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div className="bg-green-500/10 rounded-lg p-3">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <CheckCircle className="h-4 w-4 text-green-600" />
+                                      <span className="text-xs font-medium text-green-600">Оплачено</span>
+                                    </div>
+                                    <p className="text-lg font-bold text-green-600">
                                       {lesson.sessions?.filter(s => 
                                         ['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence'].includes(s.status)
                                       ).length || 0} занятий
                                     </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {((lesson.sessions?.filter(s => 
+                                        ['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence'].includes(s.status)
+                                      ).length || 0) * (lesson.pricePerLesson || 0)).toFixed(2)} руб.
+                                    </p>
                                   </div>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm">
-                                  <XCircle className="h-4 w-4 text-red-600" />
-                                  <div>
-                                    <span className="text-muted-foreground text-xs">Не оплачено</span>
-                                    <p className="font-semibold text-red-600">
+                                  <div className="bg-red-500/10 rounded-lg p-3">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <XCircle className="h-4 w-4 text-red-600" />
+                                      <span className="text-xs font-medium text-red-600">Не оплачено</span>
+                                    </div>
+                                    <p className="text-lg font-bold text-red-600">
                                       {lesson.sessions?.filter(s => 
                                         ['scheduled', 'rescheduled'].includes(s.status)
                                       ).length || 0} занятий
                                     </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {((lesson.sessions?.filter(s => 
+                                        ['scheduled', 'rescheduled'].includes(s.status)
+                                      ).length || 0) * (lesson.pricePerLesson || 0)).toFixed(2)} руб.
+                                    </p>
                                   </div>
                                 </div>
+                                
+                                {(lesson.sessions?.filter(s => 
+                                  ['scheduled', 'rescheduled'].includes(s.status)
+                                ).length || 0) > 0 && (
+                                  <Button
+                                    className="w-full"
+                                    onClick={() => {
+                                      setSelectedLesson(lesson);
+                                      setPaymentModalOpen(true);
+                                    }}
+                                  >
+                                    <Wallet className="h-4 w-4 mr-2" />
+                                    Внести оплату
+                                  </Button>
+                                )}
                               </div>
 
                               {/* Расписание занятий */}
@@ -964,12 +993,23 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
       </DialogContent>
 
       {/* Модал создания платежа */}
-      <CreatePaymentModal 
-        open={paymentModalOpen}
-        onOpenChange={setPaymentModalOpen}
-        studentId={student.id}
-        onPaymentCreated={() => refetch()}
-      />
+      {selectedLesson && (
+        <CreatePaymentModal
+          open={paymentModalOpen}
+          onOpenChange={setPaymentModalOpen}
+          studentId={student.id}
+          studentName={studentDetails?.name || student.name}
+          individualLessonId={selectedLesson.id}
+          unpaidSessions={selectedLesson.sessions?.filter((s: any) => 
+            ['scheduled', 'rescheduled'].includes(s.status)
+          ) || []}
+          pricePerLesson={selectedLesson.pricePerLesson || 0}
+          onPaymentSuccess={() => {
+            refetch();
+            setSelectedLesson(null);
+          }}
+        />
+      )}
 
       {/* Модал редактирования индивидуального урока */}
       <EditIndividualLessonModal

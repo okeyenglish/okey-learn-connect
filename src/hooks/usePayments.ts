@@ -9,10 +9,12 @@ export interface Payment {
   method: 'cash' | 'card' | 'transfer' | 'online';
   payment_date: string;
   description?: string;
-  status: 'completed' | 'pending' | 'refunded';
+  status: 'completed' | 'pending' | 'refunded' | 'failed';
   created_at: string;
   created_by?: string;
   notes?: string;
+  session_ids?: string[];
+  individual_lesson_id?: string;
 }
 
 export const usePayments = (filters?: any) => {
@@ -23,8 +25,19 @@ export const usePayments = (filters?: any) => {
   const fetchPayments = async () => {
     setLoading(true);
     try {
-      // Временная заглушка - показываем пустой массив
-      setPayments([]);
+      let query = supabase
+        .from('payments')
+        .select('*')
+        .order('payment_date', { ascending: false });
+
+      if (filters?.student_id) {
+        query = query.eq('student_id', filters.student_id);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setPayments(data || []);
     } catch (error) {
       console.error('Error fetching payments:', error);
       setPayments([]);
@@ -35,12 +48,46 @@ export const usePayments = (filters?: any) => {
 
   const createPayment = async (paymentData: any) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { data: payment, error } = await supabase
+        .from('payments')
+        .insert({
+          student_id: paymentData.student_id,
+          amount: paymentData.amount,
+          method: paymentData.method,
+          payment_date: paymentData.payment_date,
+          description: paymentData.description,
+          notes: paymentData.notes,
+          status: 'completed',
+          created_by: user?.id
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update session statuses if session_ids provided
+      if (paymentData.session_ids && paymentData.session_ids.length > 0) {
+        const { error: sessionError } = await supabase
+          .from('individual_lesson_sessions')
+          .update({ status: 'attended' })
+          .in('id', paymentData.session_ids);
+
+        if (sessionError) {
+          console.error('Error updating sessions:', sessionError);
+        }
+      }
+
       toast({
         title: "Успешно",
-        description: "Платеж добавлен",
+        description: `Платеж на сумму ${paymentData.amount} руб. добавлен`,
       });
-      return { id: 'mock', ...paymentData };
+
+      fetchPayments();
+      return payment;
     } catch (error) {
+      console.error('Error creating payment:', error);
       toast({
         title: "Ошибка",
         description: "Не удалось добавить платеж",
@@ -52,12 +99,24 @@ export const usePayments = (filters?: any) => {
 
   const updatePayment = async (id: string, updates: any) => {
     try {
+      const { data, error } = await supabase
+        .from('payments')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
       toast({
         title: "Успешно",
         description: "Платеж обновлен",
       });
-      return { id, ...updates };
+
+      fetchPayments();
+      return data;
     } catch (error) {
+      console.error('Error updating payment:', error);
       toast({
         title: "Ошибка",
         description: "Не удалось обновить платеж",
