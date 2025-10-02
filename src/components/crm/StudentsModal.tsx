@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   Search, 
   Filter, 
@@ -14,8 +15,7 @@ import {
   Mail, 
   MessageSquare,
   Plus, 
-  Edit, 
-  Trash2, 
+  Edit,
   UserPlus,
   Phone,
   ChevronRight,
@@ -42,6 +42,7 @@ export const StudentsModal = ({ open, onOpenChange, children }: StudentsModalPro
   const [selectedLevel, setSelectedLevel] = useState("all");
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   
   // Expandable sections state
   const [expandedSections, setExpandedSections] = useState({
@@ -89,6 +90,8 @@ export const StudentsModal = ({ open, onOpenChange, children }: StudentsModalPro
       setSelectedStudents={setSelectedStudents}
       showAddModal={showAddModal}
       setShowAddModal={setShowAddModal}
+      showAdvancedFilters={showAdvancedFilters}
+      setShowAdvancedFilters={setShowAdvancedFilters}
       expandedSections={expandedSections}
       setExpandedSections={setExpandedSections}
       visibleColumns={visibleColumns}
@@ -141,6 +144,8 @@ export const StudentsModal = ({ open, onOpenChange, children }: StudentsModalPro
           setSelectedStudents={setSelectedStudents}
           showAddModal={showAddModal}
           setShowAddModal={setShowAddModal}
+          showAdvancedFilters={showAdvancedFilters}
+          setShowAdvancedFilters={setShowAdvancedFilters}
           expandedSections={expandedSections}
           setExpandedSections={setExpandedSections}
           visibleColumns={visibleColumns}
@@ -169,6 +174,8 @@ interface StudentsContentProps {
   setSelectedStudents: (students: string[]) => void;
   showAddModal: boolean;
   setShowAddModal: (show: boolean) => void;
+  showAdvancedFilters: boolean;
+  setShowAdvancedFilters: (show: boolean) => void;
   expandedSections: any;
   setExpandedSections: (sections: any) => void;
   visibleColumns: any;
@@ -181,7 +188,8 @@ const StudentsContent = ({
   searchTerm, setSearchTerm, selectedBranch, setSelectedBranch, 
   selectedStatus, setSelectedStatus, selectedCategory, setSelectedCategory,
   selectedLevel, setSelectedLevel, selectedStudents, setSelectedStudents,
-  showAddModal, setShowAddModal, expandedSections, setExpandedSections,
+  showAddModal, setShowAddModal, showAdvancedFilters, setShowAdvancedFilters,
+  expandedSections, setExpandedSections,
   visibleColumns, setVisibleColumns, students, isLoading 
 }: StudentsContentProps) => {
   // Filter students based on current filters with proper null checks
@@ -250,80 +258,94 @@ const StudentsContent = ({
     <div className="flex flex-col h-full overflow-hidden">
       {/* Filters Section - Top */}
       <div className="shrink-0 border-b bg-muted/30 p-4">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-          {/* Search */}
-          <div className="lg:col-span-2">
-            <label className="text-xs font-medium text-muted-foreground">Поиск</label>
+        {/* Main Search */}
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Поиск по имени, фамилии или телефону</label>
             <div className="relative mt-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Имя, телефон, email..."
+                placeholder="Введите имя, фамилию или телефон..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 h-9"
+                className="pl-9 h-10"
               />
             </div>
           </div>
 
-          {/* Branch */}
-          <div>
-            <label className="text-xs font-medium text-muted-foreground">Филиал</label>
-            <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-              <SelectTrigger className="h-9 mt-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Все филиалы</SelectItem>
-                <SelectItem value="Окская">Окская</SelectItem>
-                <SelectItem value="Мытищи">Мытищи</SelectItem>
-                <SelectItem value="Люберцы">Люберцы</SelectItem>
-                <SelectItem value="Котельники">Котельники</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Advanced Filters Collapsible */}
+          <Collapsible open={showAdvancedFilters} onOpenChange={setShowAdvancedFilters}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="w-full justify-start">
+                {showAdvancedFilters ? (
+                  <ChevronDown className="h-4 w-4 mr-2" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 mr-2" />
+                )}
+                Дополнительные параметры
+              </Button>
+            </CollapsibleTrigger>
+            
+            <CollapsibleContent className="pt-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Branch */}
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Филиал</label>
+                  <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                    <SelectTrigger className="h-9 mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Все филиалы</SelectItem>
+                      <SelectItem value="Окская">Окская</SelectItem>
+                      <SelectItem value="Мытищи">Мытищи</SelectItem>
+                      <SelectItem value="Люберцы">Люберцы</SelectItem>
+                      <SelectItem value="Котельники">Котельники</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          {/* Status */}
-          <div>
-            <label className="text-xs font-medium text-muted-foreground">Статус</label>
-            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger className="h-9 mt-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Все статусы</SelectItem>
-                <SelectItem value="active">Активные</SelectItem>
-                <SelectItem value="trial">Пробные</SelectItem>
-                <SelectItem value="inactive">Неактивные</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+                {/* Status */}
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Статус</label>
+                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                    <SelectTrigger className="h-9 mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Все статусы</SelectItem>
+                      <SelectItem value="active">Активные</SelectItem>
+                      <SelectItem value="trial">Пробные</SelectItem>
+                      <SelectItem value="inactive">Неактивные</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          {/* Category */}
-          <div>
-            <label className="text-xs font-medium text-muted-foreground">Категория</label>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="h-9 mt-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Все категории</SelectItem>
-                <SelectItem value="preschool">Дошкольники</SelectItem>
-                <SelectItem value="school">Школьники</SelectItem>
-                <SelectItem value="adult">Взрослые</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+                {/* Category */}
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Категория</label>
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger className="h-9 mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Все категории</SelectItem>
+                      <SelectItem value="preschool">Дошкольники</SelectItem>
+                      <SelectItem value="school">Школьники</SelectItem>
+                      <SelectItem value="adult">Взрослые</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         </div>
 
         {/* Action Buttons Row */}
         <div className="flex items-center justify-between mt-4">
           <div className="flex items-center gap-2">
-            <Button variant="default" size="sm">
-              <Search className="h-3 w-3 mr-1" />
-              Искать
-            </Button>
             <Button variant="outline" size="sm" onClick={resetFilters}>
-              Сбросить
+              Сбросить фильтры
             </Button>
           </div>
           
@@ -381,7 +403,7 @@ const StudentsContent = ({
           </div>
           
           <div className="flex-1 overflow-auto">
-              <Table>
+            <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-12">
@@ -393,12 +415,8 @@ const StudentsContent = ({
                     <TableHead>ФИО</TableHead>
                     <TableHead>Возраст</TableHead>
                     <TableHead>Филиал</TableHead>
-                    <TableHead>Категория</TableHead>
-                    <TableHead>Дисциплина</TableHead>
-                    <TableHead>Группа</TableHead>
-                    <TableHead>Дата визита</TableHead>
+                    <TableHead>Статус</TableHead>
                     <TableHead>Контакты</TableHead>
-                    <TableHead>Комментарий</TableHead>
                     <TableHead className="w-32">Действия</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -416,7 +434,7 @@ const StudentsContent = ({
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredStudents.map((student) => (
+                     filteredStudents.map((student) => (
                       <TableRow key={student.id}>
                         <TableCell>
                           <Checkbox 
@@ -428,6 +446,7 @@ const StudentsContent = ({
                         <TableCell>{student.age || '—'}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-xs">
+                            <Building className="h-3 w-3 mr-1" />
                             Не указан
                           </Badge>
                         </TableCell>
@@ -436,11 +455,6 @@ const StudentsContent = ({
                             {student.status === 'active' ? 'Активный' : 
                              student.status === 'trial' ? 'Пробный' : 'Неактивный'}
                           </Badge>
-                        </TableCell>
-                        <TableCell>English</TableCell>
-                        <TableCell>—</TableCell>
-                        <TableCell>
-                          {student.created_at ? new Date(student.created_at).toLocaleDateString() : '—'}
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
@@ -452,16 +466,13 @@ const StudentsContent = ({
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground max-w-32 truncate">
-                          Данные учеников
-                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
                               <Edit className="h-3 w-3" />
                             </Button>
                             <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                              <Trash2 className="h-3 w-3" />
+                              <MessageSquare className="h-3 w-3" />
                             </Button>
                           </div>
                         </TableCell>
