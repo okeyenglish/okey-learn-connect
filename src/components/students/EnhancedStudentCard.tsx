@@ -149,7 +149,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-w-full overflow-hidden p-0 bg-background">
+      <DialogContent className="w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-w-full overflow-hidden p-0 bg-background flex flex-col">
         {/* Header */}
         <div className="bg-muted/30 border-b px-6 py-4">
           <div className="flex items-start justify-between gap-6">
@@ -219,7 +219,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
         </div>
 
         {/* Main Content */}
-        <div className="flex h-[calc(100%-88px)]">
+        <div className="flex-1 min-h-0 flex">
           {/* Sidebar */}
           <div className="w-80 border-r bg-muted/20 p-4 overflow-y-auto">
             <ScrollArea className="h-full">
@@ -326,7 +326,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
           </div>
 
           {/* Main Content Area */}
-          <div className="flex-1 flex flex-col overflow-y-auto">
+          <div className="flex-1 min-h-0 flex flex-col">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
               <div className="border-b px-6 pt-4">
                 <TabsList className="h-auto p-0 bg-transparent border-b-0">
