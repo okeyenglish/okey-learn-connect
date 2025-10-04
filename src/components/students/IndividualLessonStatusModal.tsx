@@ -179,6 +179,9 @@ export function IndividualLessonStatusModal({
 
         const wasPaid = currentSession && ['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence'].includes(currentSession.status);
 
+        console.log('Current session for', lessonDate, ':', currentSession);
+        console.log('Was this lesson paid?', wasPaid);
+
         if (wasPaid) {
           console.log(`Changing paid lesson to ${statusValue}, transferring payment to next unpaid lesson`);
 
@@ -199,6 +202,10 @@ export function IndividualLessonStatusModal({
           const sessionByDate = new Map<string, { id?: string; status?: string }>();
           (allSessions || []).forEach((s) => sessionByDate.set(s.lesson_date, { id: s.id, status: s.status }));
 
+          console.log('All sessions loaded:', allSessions);
+          console.log('Lesson schedule:', lessonRow);
+          console.log('Session map:', Array.from(sessionByDate.entries()));
+
           // Helper predicates
           const isPaid = (st?: string) => ['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence'].includes(st || '');
           const isUnpaid = (st?: string) => ['scheduled', 'rescheduled', 'rescheduled_out', undefined, ''].includes((st || '') as any);
@@ -218,24 +225,31 @@ export function IndividualLessonStatusModal({
               if (d >= start && dayNums.includes(d.getDay())) {
                 const ds = d.toISOString().slice(0, 10);
                 const s = sessionByDate.get(ds);
+                console.log(`Checking date ${ds}: session exists?`, !!s, 'status:', s?.status, 'isUnpaid:', !s || isUnpaid(s.status));
                 if (!s || isUnpaid(s.status)) { // no row or unpaid status
                   targetDate = ds;
+                  console.log(`Found target date for payment transfer: ${targetDate}`);
                   break;
                 }
               }
             }
           }
 
+          console.log('Final target date:', targetDate);
+
           if (targetDate) {
             const targetSession = sessionByDate.get(targetDate);
+            console.log('Target session:', targetSession);
             if (targetSession?.id) {
               // Update existing session to attended
+              console.log('Updating existing session to attended');
               await supabase
                 .from('individual_lesson_sessions')
                 .update({ status: 'attended', created_by: user.id, updated_at: new Date().toISOString() })
                 .eq('id', targetSession.id);
             } else {
               // Insert a new attended session row
+              console.log('Inserting new attended session for', targetDate);
               await supabase
                 .from('individual_lesson_sessions')
                 .insert({
