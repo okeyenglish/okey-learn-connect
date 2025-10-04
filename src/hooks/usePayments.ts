@@ -153,7 +153,7 @@ export const usePayments = (filters?: any) => {
 
         const isUnpaid = (s?: { payment_id?: string }) => !s?.payment_id;
         const canBePaid = (s?: { status?: string }) => 
-          !s?.status || s.status === 'scheduled' || s.status === 'completed' || s.status === 'absent';
+          !s?.status || s.status === 'scheduled' || s.status === 'completed' || s.status === 'absent' || s.status === 'attended';
 
         // 5) Determine earliest unpaid dates (either no row or no payment_id)
         // Исключаем отменённые/перенесённые/бесплатные
