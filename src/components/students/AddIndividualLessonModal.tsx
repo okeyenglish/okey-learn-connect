@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useIndividualLessons } from '@/hooks/useIndividualLessons';
+import { useTeachers, getTeacherFullName } from '@/hooks/useTeachers';
 import { useToast } from '@/hooks/use-toast';
 import { calculateLessonPrice, LESSON_DURATIONS, getDurationLabel } from '@/utils/lessonPricing';
 
@@ -32,6 +33,7 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
   const [loading, setLoading] = useState(false);
   
   const { createIndividualLesson } = useIndividualLessons();
+  const { teachers } = useTeachers();
   const { toast } = useToast();
 
   // Автоматически рассчитываем стоимость при изменении продолжительности
@@ -158,12 +160,24 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="teacher_name">Преподаватель *</Label>
-              <Input
-                id="teacher_name"
-                value={formData.teacher_name}
-                onChange={(e) => setFormData(prev => ({...prev, teacher_name: e.target.value}))}
-                placeholder="Имя преподавателя"
-              />
+              <Select 
+                value={formData.teacher_name} 
+                onValueChange={(value) => setFormData(prev => ({...prev, teacher_name: value}))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите преподавателя" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  {teachers?.map((teacher) => {
+                    const fullName = getTeacherFullName(teacher);
+                    return (
+                      <SelectItem key={teacher.id} value={fullName}>
+                        {fullName}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
