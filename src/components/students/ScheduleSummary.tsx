@@ -59,43 +59,52 @@ export function ScheduleSummary({ lessonId, scheduleDays, scheduleTime, periodSt
   // Формируем строки периодов по истории
   const rows: { from?: string; to?: string | null; days?: string; time?: string }[] = [];
 
-  history.forEach((rec) => {
+  const baseDays = fmtDays(scheduleDays);
+  const baseTime = scheduleTime || '';
+
+  // Вспомогательная функция извлечения значений из записи истории
+  const getValues = (rec: any) => {
     const changes = Array.isArray(rec.changes) ? rec.changes : [rec.changes];
     const daysChange = changes.find((c: any) => c.field === 'schedule_days');
     const timeChange = changes.find((c: any) => c.field === 'schedule_time');
+    return {
+      daysNew: fmtDays(daysChange?.new_value) || undefined,
+      daysOld: fmtDays(daysChange?.old_value) || undefined,
+      timeNew: timeChange?.new_value as string | undefined,
+      timeOld: timeChange?.old_value as string | undefined,
+    };
+  };
+
+  const first = history[0];
+  if (first?.applied_from_date) {
+    const { daysOld, timeOld } = getValues(first);
+    rows.push({
+      from: undefined,
+      to: first.applied_from_date,
+      days: daysOld || baseDays,
+      time: timeOld || baseTime,
+    });
+  }
+
+  history.forEach((rec) => {
+    const { daysNew, timeNew } = getValues(rec);
     rows.push({
       from: rec.applied_from_date,
       to: rec.applied_to_date,
-      days: fmtDays(timeChange ? undefined : daysChange?.new_value) || fmtDays(daysChange?.new_value),
-      time: timeChange?.new_value || scheduleTime,
+      days: daysNew || baseDays,
+      time: timeNew || baseTime,
     });
   });
-
-  // Добавляем период ДО первой записи (если можем восстановить старые значения)
-  const first = history[0];
-  if (first) {
-    const ch = Array.isArray(first.changes) ? first.changes : [first.changes];
-    const daysOld = ch.find((c: any) => c.field === 'schedule_days')?.old_value as string[] | undefined;
-    const timeOld = ch.find((c: any) => c.field === 'schedule_time')?.old_value as string | undefined;
-    if (first.applied_from_date && (daysOld || timeOld) && (periodStart || periodStart === null)) {
-      rows.unshift({
-        from: undefined,
-        to: first.applied_from_date,
-        days: fmtDays(daysOld) || fmtDays(scheduleDays),
-        time: timeOld || scheduleTime,
-      });
-    }
-  }
 
   return (
     <div className={cn('text-sm text-muted-foreground mb-2 space-y-0.5', className)}>
       {rows.map((r, i) => (
         <div key={i}>
           {r.from
-            ? `с ${format(new Date(r.from), 'dd.MM.yy', { locale: ru })}${r.to ? ` по ${format(new Date(r.to), 'dd.MM.yy', { locale: ru })}` : ''} — ${r.days || fmtDays(scheduleDays)} ${r.time || ''}`
+            ? `с ${format(new Date(r.from), 'dd.MM.yy', { locale: ru })}${r.to ? ` по ${format(new Date(r.to), 'dd.MM.yy', { locale: ru })}` : ''} — ${r.days || baseDays} ${r.time || baseTime}`
             : r.to
-              ? `до ${format(new Date(r.to), 'dd.MM.yy', { locale: ru })} — ${r.days || fmtDays(scheduleDays)} ${r.time || ''}`
-              : `${fmtDays(scheduleDays)} ${scheduleTime || ''}`}
+              ? `до ${format(new Date(r.to), 'dd.MM.yy', { locale: ru })} — ${r.days || baseDays} ${r.time || baseTime}`
+              : `${baseDays} ${baseTime}`}
         </div>
       ))}
     </div>

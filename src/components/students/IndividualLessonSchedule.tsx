@@ -159,8 +159,7 @@ export function IndividualLessonSchedule({
           changes,
           applied_from_date,
           applied_to_date,
-          notes,
-          profiles:changed_by(first_name, last_name)
+          notes
         `)
         .eq('lesson_id', lessonId)
         .order('changed_at', { ascending: false });
@@ -456,9 +455,7 @@ export function IndividualLessonSchedule({
                       <div className="text-xs font-medium text-muted-foreground">Изменения параметров</div>
                       {lessonHistory.map((record: any) => {
                         const changes = Array.isArray(record.changes) ? record.changes : [record.changes];
-                        const userName = record.profiles
-                          ? `${record.profiles.first_name || ''} ${record.profiles.last_name || ''}`.trim()
-                          : 'Не указан';
+                        const userName = record.changed_by ? 'Пользователь' : '—';
                         
                         return (
                           <div key={record.id} className="text-xs space-y-1 pb-2 border-b last:border-0 last:pb-0">
