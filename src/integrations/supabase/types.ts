@@ -2606,6 +2606,53 @@ export type Database = {
           },
         ]
       }
+      student_history: {
+        Row: {
+          changed_by: string | null
+          created_at: string | null
+          description: string | null
+          event_category: string
+          event_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          student_id: string
+          title: string
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string | null
+          description?: string | null
+          event_category: string
+          event_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          student_id: string
+          title: string
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string | null
+          description?: string | null
+          event_category?: string
+          event_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          student_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_history_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_lesson_sessions: {
         Row: {
           created_at: string

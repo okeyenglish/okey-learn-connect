@@ -52,6 +52,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useStudentDetails, StudentFullDetails } from '@/hooks/useStudentDetails';
 import { Student } from '@/hooks/useStudents';
 import { usePayments } from '@/hooks/usePayments';
+import { useStudentHistory } from '@/hooks/useStudentHistory';
 import { AddAdditionalLessonModal } from './AddAdditionalLessonModal';
 
 import { LessonScheduleStrip } from './LessonScheduleStrip';
@@ -119,6 +120,7 @@ export function EnhancedStudentCard({
   const { data: studentDetails, isLoading, refetch } = useStudentDetails(student.id);
   const { data: balance } = useStudentBalance(student.id);
   const { deletePayment } = usePayments();
+  const { data: history, isLoading: historyLoading } = useStudentHistory(student.id);
 
   const handleCopyStudentLink = () => {
     const url = `${window.location.origin}/newcrm/main?studentId=${student.id}`;
@@ -1300,24 +1302,104 @@ export function EnhancedStudentCard({
                     <CardHeader>
                       <CardTitle>История взаимодействий</CardTitle>
                       <CardDescription>
-                        Хронология всех действий и событий
+                        Хронология всех действий и событий связанных со студентом
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-4">
-                        <div className="flex gap-4">
-                          <div className="flex flex-col items-center">
-                            <div className="w-2 h-2 rounded-full bg-primary"></div>
-                            <div className="w-0.5 h-full bg-border"></div>
-                          </div>
-                          <div className="flex-1 pb-8">
-                            <p className="font-medium mb-1">Студент зарегистрирован</p>
-                            <p className="text-sm text-muted-foreground">
-                              {formatDate(studentDetails.createdAt)}
-                            </p>
-                          </div>
+                      {historyLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                         </div>
-                      </div>
+                      ) : !history || history.length === 0 ? (
+                        <div className="text-center py-12">
+                          <Clock className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
+                          <p className="text-lg text-muted-foreground mb-2">История пуста</p>
+                          <p className="text-sm text-muted-foreground">
+                            События будут отображаться здесь по мере их возникновения
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-6">
+                          {history.map((event, index) => (
+                            <div key={event.id} className="flex gap-4">
+                              <div className="flex flex-col items-center">
+                                <div className={`w-3 h-3 rounded-full ${
+                                  event.event_category === 'financial' ? 'bg-green-500' :
+                                  event.event_category === 'personal_info' ? 'bg-blue-500' :
+                                  event.event_category === 'contact_info' ? 'bg-purple-500' :
+                                  event.event_category === 'status' ? 'bg-orange-500' :
+                                  event.event_category === 'lessons' ? 'bg-cyan-500' :
+                                  event.event_category === 'groups' ? 'bg-pink-500' :
+                                  'bg-gray-500'
+                                }`}></div>
+                                {index < history.length - 1 && (
+                                  <div className="w-0.5 h-full min-h-[40px] bg-border"></div>
+                                )}
+                              </div>
+                              <div className="flex-1 pb-6">
+                                <div className="flex items-start justify-between gap-4 mb-2">
+                                  <div className="flex-1">
+                                    <p className="font-medium text-foreground">{event.title}</p>
+                                    {event.description && (
+                                      <p className="text-sm text-muted-foreground mt-1">
+                                        {event.description}
+                                      </p>
+                                    )}
+                                     {event.old_value && (
+                                      <div className="mt-2 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded text-xs">
+                                        <p className="text-red-700 dark:text-red-400 font-medium mb-2">Было:</p>
+                                        <div className="space-y-1">
+                                          {Object.entries(event.old_value).map(([key, value]) => (
+                                            <div key={key} className="flex gap-2">
+                                              <span className="text-red-600 dark:text-red-500 font-medium">{key}:</span>
+                                              <span className="text-red-700 dark:text-red-400">{String(value)}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {event.new_value && (
+                                      <div className="mt-2 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded text-xs">
+                                        <p className="text-green-700 dark:text-green-400 font-medium mb-2">Стало:</p>
+                                        <div className="space-y-1">
+                                          {Object.entries(event.new_value).map(([key, value]) => (
+                                            <div key={key} className="flex gap-2">
+                                              <span className="text-green-600 dark:text-green-500 font-medium">{key}:</span>
+                                              <span className="text-green-700 dark:text-green-400">{String(value)}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <Badge variant="outline" className="shrink-0">
+                                    {event.event_category === 'financial' ? 'Финансы' :
+                                     event.event_category === 'personal_info' ? 'Личные данные' :
+                                     event.event_category === 'contact_info' ? 'Контакты' :
+                                     event.event_category === 'status' ? 'Статус' :
+                                     event.event_category === 'lessons' ? 'Занятия' :
+                                     event.event_category === 'groups' ? 'Группы' :
+                                     event.event_category === 'notes' ? 'Заметки' :
+                                     event.event_category === 'student' ? 'Студент' :
+                                     event.event_category}
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <Clock className="h-3 w-3" />
+                                  <span>{format(new Date(event.created_at), 'dd.MM.yyyy HH:mm', { locale: ru })}</span>
+                                  {event.user_name && (
+                                    <>
+                                      <span>•</span>
+                                      <User className="h-3 w-3" />
+                                      <span>{event.user_name}</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>
