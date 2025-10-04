@@ -166,10 +166,16 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
       
       if (dateOfBirthValue) {
         updateData.date_of_birth = format(dateOfBirthValue, 'yyyy-MM-dd');
-      }
-      
-      if (ageValue !== undefined) {
-        updateData.age = ageValue;
+        
+        // Автоматически вычисляем возраст из даты рождения
+        const today = new Date();
+        const birthDate = new Date(dateOfBirthValue);
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
+        updateData.age = age;
       }
 
       const { error } = await supabase
@@ -181,7 +187,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
       
       setIsEditingAge(false);
       refetch();
-      toast.success('Возраст и дата рождения обновлены');
+      toast.success('Дата рождения обновлена');
     } catch (error) {
       console.error('Error saving age:', error);
       toast.error('Не удалось сохранить данные');
@@ -374,15 +380,6 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   {isEditingAge ? (
                     <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        value={ageValue || ''}
-                        onChange={(e) => setAgeValue(e.target.value ? parseInt(e.target.value) : undefined)}
-                        placeholder="Возраст"
-                        className="h-8 w-20"
-                        min={0}
-                        max={120}
-                      />
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -416,7 +413,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                     <span 
                       className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors"
                       onClick={() => setIsEditingAge(true)}
-                      title="Нажмите, чтобы редактировать возраст и дату рождения"
+                      title="Нажмите, чтобы редактировать дату рождения"
                     >
                       <Calendar className="h-4 w-4" />
                       {studentDetails.age && `${studentDetails.age} лет`}
@@ -425,7 +422,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                           ({formatDate(studentDetails.dateOfBirth)})
                         </span>
                       )}
-                      {!studentDetails.age && !studentDetails.dateOfBirth && 'Добавить возраст'}
+                      {!studentDetails.age && !studentDetails.dateOfBirth && 'Добавить дату рождения'}
                     </span>
                   )}
                   {studentDetails.phone && (
