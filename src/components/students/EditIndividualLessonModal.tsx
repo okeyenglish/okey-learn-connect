@@ -67,7 +67,11 @@ export const EditIndividualLessonModal = ({
     return { startHour, startMinute, endHour, endMinute };
   };
 
-  const [timeSelection, setTimeSelection] = useState(parseTimeRange(formData.schedule_time));
+  const [timeSelection, setTimeSelection] = useState({
+    startHour: '',
+    startMinute: '',
+    duration: '60' // по умолчанию 60 минут
+  });
 
   useEffect(() => {
     if (lessonId && open) {
@@ -78,14 +82,25 @@ export const EditIndividualLessonModal = ({
   useEffect(() => {
     // Обновляем timeSelection когда загружаются данные
     if (formData.schedule_time) {
-      setTimeSelection(parseTimeRange(formData.schedule_time));
+      const parsed = parseTimeRange(formData.schedule_time);
+      setTimeSelection({
+        startHour: parsed.startHour,
+        startMinute: parsed.startMinute,
+        duration: '60' // можно вычислить из разницы времен, но пока оставим по умолчанию
+      });
     }
   }, [formData.schedule_time]);
 
   useEffect(() => {
     // Формируем строку времени из выбранных значений
-    const { startHour, startMinute, endHour, endMinute } = timeSelection;
-    if (startHour && startMinute && endHour && endMinute) {
+    const { startHour, startMinute, duration } = timeSelection;
+    if (startHour && startMinute && duration) {
+      // Вычисляем время окончания
+      const startMinutes = parseInt(startHour) * 60 + parseInt(startMinute);
+      const endMinutes = startMinutes + parseInt(duration);
+      const endHour = Math.floor(endMinutes / 60).toString().padStart(2, '0');
+      const endMinute = (endMinutes % 60).toString().padStart(2, '0');
+      
       const timeRange = `${startHour}:${startMinute}-${endHour}:${endMinute}`;
       if (timeRange !== formData.schedule_time) {
         setFormData(prev => ({ ...prev, schedule_time: timeRange }));
@@ -434,15 +449,15 @@ export const EditIndividualLessonModal = ({
             </div>
 
             {/* Время занятия */}
-            <div className="space-y-2">
-              <Label>Время занятия:</Label>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Время начала:</Label>
+                <div className="flex items-center gap-2">
                   <Select 
                     value={timeSelection.startHour} 
                     onValueChange={(value) => setTimeSelection(prev => ({ ...prev, startHour: value }))}
                   >
-                    <SelectTrigger className="w-20">
+                    <SelectTrigger className="w-24">
                       <SelectValue placeholder="ЧЧ" />
                     </SelectTrigger>
                     <SelectContent className="bg-background z-[100]">
@@ -456,7 +471,7 @@ export const EditIndividualLessonModal = ({
                     value={timeSelection.startMinute} 
                     onValueChange={(value) => setTimeSelection(prev => ({ ...prev, startMinute: value }))}
                   >
-                    <SelectTrigger className="w-20">
+                    <SelectTrigger className="w-24">
                       <SelectValue placeholder="ММ" />
                     </SelectTrigger>
                     <SelectContent className="bg-background z-[100]">
@@ -466,38 +481,24 @@ export const EditIndividualLessonModal = ({
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
 
-                <span className="text-muted-foreground px-2">до</span>
-
-                <div className="flex items-center gap-1">
-                  <Select 
-                    value={timeSelection.endHour} 
-                    onValueChange={(value) => setTimeSelection(prev => ({ ...prev, endHour: value }))}
-                  >
-                    <SelectTrigger className="w-20">
-                      <SelectValue placeholder="ЧЧ" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background z-[100]">
-                      {hours.map((hour) => (
-                        <SelectItem key={hour} value={hour}>{hour}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <span>:</span>
-                  <Select 
-                    value={timeSelection.endMinute} 
-                    onValueChange={(value) => setTimeSelection(prev => ({ ...prev, endMinute: value }))}
-                  >
-                    <SelectTrigger className="w-20">
-                      <SelectValue placeholder="ММ" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background z-[100]">
-                      {minutes.map((minute) => (
-                        <SelectItem key={minute} value={minute}>{minute}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="duration">Продолжительность:</Label>
+                <Select 
+                  value={timeSelection.duration} 
+                  onValueChange={(value) => setTimeSelection(prev => ({ ...prev, duration: value }))}
+                >
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-[100]">
+                    <SelectItem value="40">40 минут</SelectItem>
+                    <SelectItem value="60">60 минут</SelectItem>
+                    <SelectItem value="80">80 минут</SelectItem>
+                    <SelectItem value="100">100 минут</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
