@@ -379,6 +379,10 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                 )}
               </TabsContent>
 
+              <TabsContent value="schedule" className="space-y-6 mt-0">
+                <GroupScheduleCalendar groupId={group.id} />
+              </TabsContent>
+
               <TabsContent value="homework" className="space-y-6 mt-0">
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold text-blue-600">Домашние задания / планы занятий</h3>
