@@ -440,7 +440,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
             </div>
 
             {/* Notes Section */}
-            <div className="flex-1 max-w-md">
+            <div className="flex-1 max-w-2xl">
               <div className="border border-border rounded-lg p-3 bg-background h-[64px] overflow-y-auto">
                 {isEditingNotes ? (
                   <Textarea
