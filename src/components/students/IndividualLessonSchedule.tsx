@@ -273,6 +273,63 @@ export function IndividualLessonSchedule({
     return String(value);
   };
 
+  // Определяет актуальное время занятий на конкретную дату с учётом истории изменений
+  const getEffectiveTimeForDate = (date: Date): string | undefined => {
+    const d = new Date(date);
+    d.setHours(0,0,0,0);
+
+    if (!lessonHistory || lessonHistory.length === 0) {
+      return scheduleTime;
+    }
+
+    // Сортируем записи по applied_from_date по возрастанию (null в конец)
+    const records = [...lessonHistory].sort((a, b) => {
+      const aFrom = a.applied_from_date ? new Date(a.applied_from_date).getTime() : Number.POSITIVE_INFINITY;
+      const bFrom = b.applied_from_date ? new Date(b.applied_from_date).getTime() : Number.POSITIVE_INFINITY;
+      return aFrom - bFrom;
+    });
+
+    // 1) Попробуем найти запись, диапазон которой покрывает дату
+    for (const rec of records) {
+      if (!rec.applied_from_date) continue;
+      const from = new Date(rec.applied_from_date);
+      from.setHours(0,0,0,0);
+      const to = rec.applied_to_date ? new Date(rec.applied_to_date) : null;
+      if (to) to.setHours(0,0,0,0);
+
+      if (d.getTime() >= from.getTime() && (!to || d.getTime() <= to.getTime())) {
+        const changes = Array.isArray(rec.changes) ? rec.changes : [rec.changes];
+        const timeChange = changes.find((c: any) => c.field === 'schedule_time');
+        if (timeChange?.new_value) return timeChange.new_value as string;
+      }
+    }
+
+    // 2) Если дата раньше первой записи — берём старое значение из первой записи (old_value)
+    const firstWithFrom = records.find(r => r.applied_from_date);
+    if (firstWithFrom) {
+      const firstFrom = new Date(firstWithFrom.applied_from_date);
+      firstFrom.setHours(0,0,0,0);
+      if (d.getTime() < firstFrom.getTime()) {
+        const changes = Array.isArray(firstWithFrom.changes) ? firstWithFrom.changes : [firstWithFrom.changes];
+        const timeChange = changes.find((c: any) => c.field === 'schedule_time');
+        if (timeChange?.old_value) return timeChange.old_value as string;
+      }
+    }
+
+    // 3) Иначе берём последнее известное новое значение до даты
+    let lastKnown: string | undefined = undefined;
+    for (const rec of records) {
+      if (!rec.applied_from_date) continue;
+      const from = new Date(rec.applied_from_date);
+      from.setHours(0,0,0,0);
+      if (from.getTime() <= d.getTime()) {
+        const changes = Array.isArray(rec.changes) ? rec.changes : [rec.changes];
+        const timeChange = changes.find((c: any) => c.field === 'schedule_time');
+        if (timeChange?.new_value) lastKnown = timeChange.new_value as string;
+      }
+    }
+    return lastKnown || scheduleTime;
+  };
   // Generate lesson dates based on schedule days and include all sessions with custom statuses
   const generateLessonDates = () => {
     if (!periodStart || !periodEnd) return [];
@@ -376,19 +433,22 @@ export function IndividualLessonSchedule({
                     <div className="text-xs space-y-1">
                       <div className="font-semibold">Занятие №{lessonNumber} ({duration} мин.)</div>
                       <div className="text-muted-foreground">{format(date, 'dd MMMM yyyy', { locale: ru })}</div>
-                      {scheduleTime && (
-                        <div className="text-muted-foreground">
-                          {(() => {
-                            try {
-                              const startTime = parse(scheduleTime, 'HH:mm', new Date());
-                              const endTime = addMinutes(startTime, duration);
-                              return `${scheduleTime}-${format(endTime, 'HH:mm')} (исходя из продолжительности)`;
-                            } catch {
-                              return scheduleTime;
+                      <div className="text-muted-foreground">
+                        {(() => {
+                          try {
+                            const effective = getEffectiveTimeForDate(date);
+                            if (effective) return effective;
+                            if (scheduleTime) {
+                              const start = parse(scheduleTime.split('-')[0], 'HH:mm', new Date());
+                              const end = addMinutes(start, duration);
+                              return `${format(start, 'HH:mm')}-${format(end, 'HH:mm')}`;
                             }
-                          })()}
-                        </div>
-                      )}
+                            return null;
+                          } catch {
+                            return scheduleTime;
+                          }
+                        })()}
+                      </div>
                       {session && (
                         <div className="whitespace-pre-line pt-1 border-t">
                           {getPaymentTooltip(session, lessonNumber)}
