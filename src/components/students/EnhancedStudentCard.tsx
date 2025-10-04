@@ -317,11 +317,18 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
         <div className="bg-muted/30 border-b px-6 py-4">
           <div className="flex items-start justify-between gap-6">
             <div className="flex items-start gap-4">
-              <Avatar className="h-16 w-16 border-2 border-border">
-                <AvatarFallback className="bg-muted text-foreground text-xl font-semibold">
-                  {getInitials(studentDetails.name)}
-                </AvatarFallback>
-              </Avatar>
+              <div className="relative">
+                <Avatar className="h-16 w-16 border-2 border-border">
+                  <AvatarFallback className="bg-muted text-foreground text-xl font-semibold">
+                    {getInitials(studentDetails.name)}
+                  </AvatarFallback>
+                </Avatar>
+                {studentDetails.status === 'active' && (
+                  <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-1 border-2 border-background">
+                    <Check className="h-3 w-3 text-white" />
+                  </div>
+                )}
+              </div>
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   {isEditingName ? (
@@ -374,7 +381,6 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                   )}
                   {!isEditingName && (
                     <>
-                      {getStatusBadge(studentDetails.status)}
                       <Button variant="outline" size="sm" title="Редактировать">
                         <Edit className="h-4 w-4" />
                       </Button>
