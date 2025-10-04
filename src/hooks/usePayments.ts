@@ -87,7 +87,7 @@ export const usePayments = (filters?: any) => {
         // 1) Load existing session rows for this lesson
         const { data: allSessions, error: fetchError } = await supabase
           .from('individual_lesson_sessions')
-          .select('id, lesson_date, status, payment_id')
+          .select('id, lesson_date, status, payment_id, is_additional')
           .eq('individual_lesson_id', paymentData.individual_lesson_id)
           .order('lesson_date', { ascending: true });
 
@@ -129,19 +129,43 @@ export const usePayments = (filters?: any) => {
           }
         })();
 
-        // 4) Build maps for quick lookup
-        const sessionByDate = new Map<string, { id?: string; status?: string; payment_id?: string }>();
-        (allSessions || []).forEach((s) => sessionByDate.set(s.lesson_date, { id: s.id, status: s.status, payment_id: s.payment_id }));
-
-        const isUnpaid = (s?: { payment_id?: string }) => !s?.payment_id;
-
-        // 5) Determine earliest unpaid dates (either no row or no payment_id)
-        const unpaidDatesOrdered = scheduledDates.filter((d) => {
-          const s = sessionByDate.get(d);
-          return !s ? true : isUnpaid(s);
+        // 4) Build maps for quick lookup and add additional lessons to scheduled dates
+        const sessionByDate = new Map<string, { id?: string; status?: string; payment_id?: string; is_additional?: boolean }>();
+        const additionalLessonDates: string[] = [];
+        
+        (allSessions || []).forEach((s) => {
+          sessionByDate.set(s.lesson_date, { 
+            id: s.id, 
+            status: s.status, 
+            payment_id: s.payment_id,
+            is_additional: s.is_additional 
+          });
+          // Добавляем дополнительные занятия в список дат
+          if (s.is_additional && s.status === 'scheduled') {
+            additionalLessonDates.push(s.lesson_date);
+          }
         });
 
-        console.log('Total scheduled dates:', scheduledDates.length);
+        // Объединяем обычные и дополнительные занятия
+        const allScheduledDates = [...scheduledDates, ...additionalLessonDates]
+          .filter((date, index, self) => self.indexOf(date) === index) // уникальные
+          .sort(); // сортируем по дате
+
+        const isUnpaid = (s?: { payment_id?: string }) => !s?.payment_id;
+        const canBePaid = (s?: { status?: string }) => 
+          !s?.status || s.status === 'scheduled' || s.status === 'completed' || s.status === 'absent';
+
+        // 5) Determine earliest unpaid dates (either no row or no payment_id)
+        // Исключаем отменённые/перенесённые/бесплатные
+        const unpaidDatesOrdered = allScheduledDates.filter((d) => {
+          const s = sessionByDate.get(d);
+          if (!s) return true; // нет сессии - можно оплатить
+          return isUnpaid(s) && canBePaid(s); // не оплачено и можно оплачивать
+        });
+
+        console.log('Total regular scheduled dates:', scheduledDates.length);
+        console.log('Additional lesson dates:', additionalLessonDates.length);
+        console.log('All scheduled dates (incl. additional):', allScheduledDates.length);
         console.log('Existing sessions:', allSessions?.length || 0);
         console.log('Unpaid dates available:', unpaidDatesOrdered.length);
 
