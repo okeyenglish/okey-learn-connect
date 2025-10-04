@@ -233,26 +233,87 @@ export function IndividualLessonStatusModal({
         .maybeSingle();
 
       const wasPaid = currentSession?.payment_id != null;
+      const hasPaidMinutes = (currentSession as any)?.paid_minutes > 0;
       
       let paymentToAssign: string | null = null;
       
-      // If reverting to scheduled and current is unpaid, pull payment back from the nearest future scheduled paid session
-      if (statusValue === 'scheduled' && !currentSession?.payment_id) {
-        const { data: futureSessions } = await supabase
+      // If reverting to scheduled and current has no paid minutes, pull minutes back from future sessions
+      if (statusValue === 'scheduled') {
+        const currentPaidMinutes = (currentSession as any)?.paid_minutes || 0;
+        
+        // Get the duration for this session
+        const { data: sessionWithDuration } = await supabase
           .from('individual_lesson_sessions')
-          .select('id, lesson_date, payment_id, status')
+          .select('duration')
           .eq('individual_lesson_id', lessonId)
-          .gt('lesson_date', lessonDate)
-          .order('lesson_date', { ascending: true });
-
-        const donor = (futureSessions || []).find((s) => s.payment_id && (s.status === 'scheduled' || !s.status));
-        if (donor && donor.payment_id) {
-          paymentToAssign = donor.payment_id as string;
-          // remove payment from donor now, we'll assign to current in update/insert below
-          await supabase
+          .eq('lesson_date', lessonDate)
+          .maybeSingle();
+        
+        const sessionDuration = sessionWithDuration?.duration || 60;
+        const neededMinutes = sessionDuration - currentPaidMinutes;
+        
+        if (neededMinutes > 0) {
+          // Get all future sessions ordered by date
+          const { data: futureSessions } = await supabase
             .from('individual_lesson_sessions')
-            .update({ payment_id: null, updated_at: new Date().toISOString() })
-            .eq('id', donor.id);
+            .select('id, lesson_date, duration, paid_minutes, status')
+            .eq('individual_lesson_id', lessonId)
+            .gt('lesson_date', lessonDate)
+            .order('lesson_date', { ascending: true });
+
+          let collectedMinutes = 0;
+          const updatedSessions: string[] = [];
+
+          if (futureSessions) {
+            for (const futureSession of futureSessions) {
+              if (collectedMinutes >= neededMinutes) break;
+              
+              // Skip cancelled, free, or rescheduled sessions
+              if (futureSession.status === 'cancelled' || futureSession.status === 'free' || futureSession.status === 'rescheduled') {
+                continue;
+              }
+
+              const futurePaidMinutes = futureSession.paid_minutes || 0;
+              
+              if (futurePaidMinutes > 0) {
+                const minutesToTake = Math.min(futurePaidMinutes, neededMinutes - collectedMinutes);
+                const newFuturePaidMinutes = futurePaidMinutes - minutesToTake;
+
+                await supabase
+                  .from('individual_lesson_sessions')
+                  .update({ 
+                    paid_minutes: newFuturePaidMinutes,
+                    updated_at: new Date().toISOString() 
+                  })
+                  .eq('id', futureSession.id);
+
+                collectedMinutes += minutesToTake;
+                updatedSessions.push(format(new Date(futureSession.lesson_date), 'dd.MM', { locale: ru }));
+              }
+            }
+          }
+
+          // Update current session with collected minutes
+          if (collectedMinutes > 0) {
+            await supabase
+              .from('individual_lesson_sessions')
+              .update({ 
+                paid_minutes: currentPaidMinutes + collectedMinutes,
+                status: 'scheduled',
+                updated_at: new Date().toISOString() 
+              })
+              .eq('individual_lesson_id', lessonId)
+              .eq('lesson_date', lessonDate);
+
+            toast({
+              title: 'Минуты возвращены',
+              description: `${collectedMinutes} минут возвращено с занятий: ${updatedSessions.join(', ')}`,
+            });
+            
+            onStatusUpdated?.();
+            onOpenChange(false);
+            return;
+          }
         }
       }
       
