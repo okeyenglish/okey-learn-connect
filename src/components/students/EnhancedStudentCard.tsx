@@ -536,17 +536,30 @@ export function EnhancedStudentCard({
                     <CardTitle className="text-sm font-medium">Быстрые действия</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    <Button variant="outline" size="sm" className="w-full justify-start">
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      Написать сообщение
-                    </Button>
+                    {studentDetails.phone ? (
+                      <>
+                        <Button variant="outline" size="sm" className="w-full justify-start">
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          Написать
+                        </Button>
+                        <Button variant="outline" size="sm" className="w-full justify-start">
+                          <Phone className="h-4 w-4 mr-2" />
+                          Позвонить
+                        </Button>
+                      </>
+                    ) : (
+                      <Button variant="outline" size="sm" className="w-full justify-start">
+                        <Phone className="h-4 w-4 mr-2" />
+                        Добавить номер
+                      </Button>
+                    )}
                     <Button variant="outline" size="sm" className="w-full justify-start">
                       <Users className="h-4 w-4 mr-2" />
                       Добавить в группу
                     </Button>
                     <Button variant="outline" size="sm" className="w-full justify-start">
-                      <BookOpen className="h-4 w-4 mr-2" />
-                      Записать на урок
+                      <User className="h-4 w-4 mr-2" />
+                      Добавить индивидуально
                     </Button>
                     <Button 
                       variant="outline" 
