@@ -166,22 +166,21 @@ export function IndividualLessonStatusModal({
       if (userError || !user) {
         throw new Error('Пользователь не авторизован');
       }
+
+      // Check if current session exists and what its status is
+      const { data: currentSession } = await supabase
+        .from('individual_lesson_sessions')
+        .select('status')
+        .eq('individual_lesson_id', lessonId)
+        .eq('lesson_date', lessonDate)
+        .maybeSingle();
+
+      const wasPaid = currentSession && ['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence'].includes(currentSession.status);
+      const wasUnpaid = !currentSession || ['scheduled', 'rescheduled', 'rescheduled_out', 'completed', 'free'].includes(currentSession.status);
       
       // Special handling for cancelling or making free a paid lesson - transfer payment to next unpaid lesson
-      if (statusValue === 'cancelled' || statusValue === 'free' || statusValue === 'completed') {
-        // Check if this lesson was paid on the selected date
-        const { data: currentSession } = await supabase
-          .from('individual_lesson_sessions')
-          .select('status')
-          .eq('individual_lesson_id', lessonId)
-          .eq('lesson_date', lessonDate)
-          .maybeSingle();
-
-        const wasPaid = currentSession && ['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence'].includes(currentSession.status);
-
-        if (wasPaid) {
-
-          // Load all existing sessions and the lesson schedule
+      if ((statusValue === 'cancelled' || statusValue === 'free' || statusValue === 'completed') && wasPaid) {
+        // Load all existing sessions and the lesson schedule
           const [{ data: allSessions }, { data: lessonRow }] = await Promise.all([
             supabase
               .from('individual_lesson_sessions')
@@ -275,6 +274,51 @@ export function IndividualLessonStatusModal({
               title: 'Предупреждение',
               description: 'Нет неоплаченных занятий для переноса оплаты',
               variant: 'destructive',
+            });
+          }
+      }
+      
+      // Reverse logic: if creating new unpaid lesson (completed) among paid ones, shift payment from next paid lesson
+      if (statusValue === 'completed' && wasUnpaid) {
+        const [{ data: allSessions }, { data: lessonRow }] = await Promise.all([
+          supabase
+            .from('individual_lesson_sessions')
+            .select('id, lesson_date, status')
+            .eq('individual_lesson_id', lessonId)
+            .order('lesson_date', { ascending: true }),
+          supabase
+            .from('individual_lessons')
+            .select('schedule_days, period_start, period_end')
+            .eq('id', lessonId)
+            .maybeSingle()
+        ]);
+
+        const sessionByDate = new Map<string, { id?: string; status?: string }>();
+        (allSessions || []).forEach((s) => sessionByDate.set(s.lesson_date, { id: s.id, status: s.status }));
+
+        const isPaid = (st?: string) => ['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence'].includes(st || '');
+
+        // Find next paid lesson after current date
+        let nextPaidDate: string | null = null;
+        for (const sess of (allSessions as { lesson_date: string; status?: string }[]) || []) {
+          if (sess.lesson_date > lessonDate && isPaid(sess.status)) {
+            nextPaidDate = sess.lesson_date;
+            break;
+          }
+        }
+
+        if (nextPaidDate) {
+          const nextPaidSession = sessionByDate.get(nextPaidDate);
+          if (nextPaidSession?.id) {
+            // Change next paid to scheduled (unpaid)
+            await supabase
+              .from('individual_lesson_sessions')
+              .update({ status: 'scheduled', updated_at: new Date().toISOString() })
+              .eq('id', nextPaidSession.id);
+
+            toast({
+              title: 'Оплата смещена',
+              description: `Оплата перенесена с занятия ${format(new Date(nextPaidDate), 'dd.MM.yyyy', { locale: ru })} на новое занятие`,
             });
           }
         }
