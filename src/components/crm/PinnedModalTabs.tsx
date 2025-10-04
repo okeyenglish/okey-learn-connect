@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { X, CheckSquare, FileText, User, Users } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { X, CheckSquare, FileText, User, Users, MoreHorizontal } from "lucide-react";
 import { PinnedModal } from "@/hooks/usePinnedModalsDB";
 
 interface PinnedModalTabsProps {
@@ -47,10 +48,14 @@ const getModalColor = (type: string) => {
 export const PinnedModalTabs = ({ pinnedModals, onOpenModal, onUnpinModal }: PinnedModalTabsProps) => {
   if (pinnedModals.length === 0) return null;
 
+  const MAX_VISIBLE_TABS = 5;
+  const visibleModals = pinnedModals.slice(0, MAX_VISIBLE_TABS);
+  const hiddenModals = pinnedModals.slice(MAX_VISIBLE_TABS);
+
   return (
     <div className="flex items-center">
       <div className="flex flex-wrap gap-1.5 items-center">
-        {pinnedModals.map((modal) => (
+        {visibleModals.map((modal) => (
           <Card
             key={`${modal.type}-${modal.id}`}
             className={`p-0 border rounded shadow-none ${getModalColor(modal.type)}`}
@@ -82,6 +87,49 @@ export const PinnedModalTabs = ({ pinnedModals, onOpenModal, onUnpinModal }: Pin
             </div>
           </Card>
         ))}
+        
+        {hiddenModals.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-2 gap-1 bg-muted hover:bg-muted/80"
+              >
+                <MoreHorizontal className="h-3 w-3" />
+                <span className="text-xs">+{hiddenModals.length}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              {hiddenModals.map((modal) => (
+                <DropdownMenuItem
+                  key={`${modal.type}-${modal.id}`}
+                  className="flex items-center justify-between gap-2"
+                  onClick={() => onOpenModal(modal.id, modal.type)}
+                >
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className={`p-1 rounded ${getModalColor(modal.type)}`}>
+                      {getModalIcon(modal.type)}
+                    </div>
+                    <span className="text-sm truncate">{modal.title}</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 hover:bg-destructive/10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onUnpinModal(modal.id, modal.type);
+                    }}
+                    aria-label="Открепить"
+                  >
+                    <X className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                  </Button>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </div>
   );
