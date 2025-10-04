@@ -224,6 +224,11 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
               <div>
                 <h2 className="text-2xl font-bold text-foreground mb-1">
                   {studentDetails.lastName} {studentDetails.firstName} {studentDetails.middleName}
+                  {studentDetails.studentNumber && (
+                    <span className="ml-3 text-sm font-mono text-muted-foreground">
+                      #{studentDetails.studentNumber}
+                    </span>
+                  )}
                 </h2>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   {studentDetails.age && (
@@ -449,7 +454,14 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                             <div key={group.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                               <div className="flex items-start justify-between mb-3">
                                 <div>
-                                  <h4 className="font-semibold text-lg">{group.name}</h4>
+                                  <h4 className="font-semibold text-lg">
+                                    {group.name}
+                                    {group.groupNumber && (
+                                      <span className="ml-2 text-xs font-mono text-muted-foreground">
+                                        #{group.groupNumber}
+                                      </span>
+                                    )}
+                                  </h4>
                                   <p className="text-sm text-muted-foreground">
                                     {group.format} • {group.subject} • {group.level}
                                   </p>
@@ -494,6 +506,11 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedLessonId(lesson.id); } }}
                                 >
                                   Индивидуально с {lesson.teacherName || 'Преподаватель не назначен'}
+                                  {lesson.lessonNumber && (
+                                    <span className="ml-2 text-xs font-mono text-muted-foreground">
+                                      #{lesson.lessonNumber}
+                                    </span>
+                                  )}
                                 </h4>
                                 <div className="flex items-center gap-2">
                                   <Badge variant="outline" className="text-xs">

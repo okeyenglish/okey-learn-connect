@@ -206,7 +206,14 @@ export const FamilyCard = ({
                 )}
               </div>
               <div>
-                <CardTitle className="text-base">{activeMember.name}</CardTitle>
+                <CardTitle className="text-base">
+                  {activeMember.name}
+                  {activeMember.clientNumber && (
+                    <span className="ml-2 text-xs font-mono text-muted-foreground">
+                      #{activeMember.clientNumber}
+                    </span>
+                  )}
+                </CardTitle>
                 <p className="text-sm text-muted-foreground">
                   {getRelationshipLabel(activeMember.relationship)}
                 </p>
@@ -385,6 +392,9 @@ export const FamilyCard = ({
                         <div className="flex items-center gap-2">
                           <User className="h-4 w-4 text-muted-foreground" />
                           <p className="font-medium text-sm">{student.firstName}</p>
+                          {student.studentNumber && (
+                            <span className="text-xs font-mono text-muted-foreground">#{student.studentNumber}</span>
+                          )}
                           <Badge variant="outline" className="text-xs bg-slate-100 text-slate-700 border-slate-300">{student.age} {student.age === 1 ? 'год' : 'лет'}</Badge>
                         </div>
                         <Badge 

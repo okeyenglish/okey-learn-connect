@@ -26,6 +26,7 @@ export interface LessonSession {
 
 export interface StudentGroup {
   id: string;
+  groupNumber?: string;
   name: string;
   subject: string;
   level: string;
@@ -41,6 +42,7 @@ export interface StudentGroup {
 
 export interface StudentIndividualLesson {
   id: string;
+  lessonNumber?: string;
   subject: string;
   level: string;
   teacherName?: string;
@@ -91,6 +93,7 @@ export interface StudentSubscription {
 
 export interface StudentFullDetails {
   id: string;
+  studentNumber?: string;
   name: string;
   firstName: string;
   lastName: string;
@@ -224,6 +227,7 @@ export const useStudentDetails = (studentId: string) => {
 
           return {
             id: groupId || '',
+            groupNumber: gs.learning_groups?.group_number,
             name: gs.learning_groups?.name || '',
             subject: gs.learning_groups?.subject || '',
             level: gs.learning_groups?.level || '',
@@ -264,6 +268,7 @@ export const useStudentDetails = (studentId: string) => {
 
           return {
             id: il.id,
+            lessonNumber: il.lesson_number,
             subject: il.subject || 'Не указан',
             level: il.level || 'Не указан',
             teacherName: il.teacher_name,
@@ -309,6 +314,7 @@ export const useStudentDetails = (studentId: string) => {
 
       return {
         id: student.id,
+        studentNumber: student.student_number,
         name: student.name,
         firstName: student.first_name || student.name.split(' ')[1] || '',
         lastName: student.last_name || student.name.split(' ')[0] || '',

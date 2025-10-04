@@ -453,6 +453,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           branch: string | null
+          client_number: string | null
           created_at: string
           email: string | null
           id: string
@@ -468,6 +469,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           branch?: string | null
+          client_number?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -483,6 +485,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           branch?: string | null
+          client_number?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -972,6 +975,7 @@ export type Database = {
           is_skype_only: boolean | null
           lesson_end_month: string | null
           lesson_location: string | null
+          lesson_number: string | null
           lesson_start_month: string | null
           lesson_type: string
           level: string
@@ -1005,6 +1009,7 @@ export type Database = {
           is_skype_only?: boolean | null
           lesson_end_month?: string | null
           lesson_location?: string | null
+          lesson_number?: string | null
           lesson_start_month?: string | null
           lesson_type?: string
           level: string
@@ -1038,6 +1043,7 @@ export type Database = {
           is_skype_only?: boolean | null
           lesson_end_month?: string | null
           lesson_location?: string | null
+          lesson_number?: string | null
           lesson_start_month?: string | null
           lesson_type?: string
           level?: string
@@ -1536,6 +1542,7 @@ export type Database = {
           debt_count: number | null
           default_price: number | null
           description: string | null
+          group_number: string | null
           group_type: Database["public"]["Enums"]["group_type"]
           id: string
           is_active: boolean
@@ -1573,6 +1580,7 @@ export type Database = {
           debt_count?: number | null
           default_price?: number | null
           description?: string | null
+          group_number?: string | null
           group_type?: Database["public"]["Enums"]["group_type"]
           id?: string
           is_active?: boolean
@@ -1610,6 +1618,7 @@ export type Database = {
           debt_count?: number | null
           default_price?: number | null
           description?: string | null
+          group_number?: string | null
           group_type?: Database["public"]["Enums"]["group_type"]
           id?: string
           is_active?: boolean
@@ -2556,6 +2565,7 @@ export type Database = {
           notes: string | null
           phone: string | null
           status: Database["public"]["Enums"]["student_status"]
+          student_number: string | null
           updated_at: string
         }
         Insert: {
@@ -2571,6 +2581,7 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           status?: Database["public"]["Enums"]["student_status"]
+          student_number?: string | null
           updated_at?: string
         }
         Update: {
@@ -2586,6 +2597,7 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           status?: Database["public"]["Enums"]["student_status"]
+          student_number?: string | null
           updated_at?: string
         }
         Relationships: [

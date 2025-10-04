@@ -12,6 +12,7 @@ export interface PhoneNumber {
 
 export interface FamilyMember {
   id: string;
+  clientNumber?: string;
   name: string;
   phone: string;
   email?: string;
@@ -26,6 +27,7 @@ export interface FamilyMember {
 
 export interface Student {
   id: string;
+  studentNumber?: string;
   name: string;
   firstName: string;
   lastName: string;
@@ -83,6 +85,7 @@ export const useFamilyData = (familyGroupId?: string) => {
           *,
           clients (
             id,
+            client_number,
             name,
             phone,
             email,
@@ -112,6 +115,7 @@ export const useFamilyData = (familyGroupId?: string) => {
 
           return {
             id: member.clients.id,
+            clientNumber: member.clients.client_number,
             name: member.clients.name,
             phone: member.clients.phone,
             email: member.clients.email || undefined,
@@ -205,6 +209,7 @@ export const useFamilyData = (familyGroupId?: string) => {
 
           return {
             id: student.id,
+            studentNumber: student.student_number,
             name: student.name,
             firstName: student.first_name || student.name.split(' ')[0],
             lastName: student.last_name || student.name.split(' ').slice(1).join(' '),
