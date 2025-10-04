@@ -87,7 +87,7 @@ export const usePayments = (filters?: any) => {
         // 1) Load existing session rows for this lesson
         const { data: allSessions, error: fetchError } = await supabase
           .from('individual_lesson_sessions')
-          .select('id, lesson_date, status')
+          .select('id, lesson_date, status, payment_id')
           .eq('individual_lesson_id', paymentData.individual_lesson_id)
           .order('lesson_date', { ascending: true });
 
@@ -130,16 +130,15 @@ export const usePayments = (filters?: any) => {
         })();
 
         // 4) Build maps for quick lookup
-        const sessionByDate = new Map<string, { id?: string; status?: string }>();
-        (allSessions || []).forEach((s) => sessionByDate.set(s.lesson_date, { id: s.id, status: s.status }));
+        const sessionByDate = new Map<string, { id?: string; status?: string; payment_id?: string }>();
+        (allSessions || []).forEach((s) => sessionByDate.set(s.lesson_date, { id: s.id, status: s.status, payment_id: s.payment_id }));
 
-        const isPaidStatus = (st?: string) => ['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence'].includes(st || '');
-        const isUnpaidStatus = (st?: string) => ['scheduled', 'rescheduled', 'rescheduled_out', undefined, ''].includes((st || '') as any);
+        const isUnpaid = (s?: { payment_id?: string }) => !s?.payment_id;
 
-        // 5) Determine earliest unpaid dates (either no row or unpaid status)
+        // 5) Determine earliest unpaid dates (either no row or no payment_id)
         const unpaidDatesOrdered = scheduledDates.filter((d) => {
           const s = sessionByDate.get(d);
-          return !s ? true : isUnpaidStatus(s.status);
+          return !s ? true : isUnpaid(s);
         });
 
         console.log('Total scheduled dates:', scheduledDates.length);
@@ -148,7 +147,7 @@ export const usePayments = (filters?: any) => {
 
         const toCover = Math.max(0, paymentData.lessons_count);
         const targetDates = unpaidDatesOrdered.slice(0, toCover);
-        console.log('Target dates to mark attended:', targetDates);
+        console.log('Target dates to mark as paid:', targetDates);
 
         // Split into updates (existing rows) and inserts (no row yet)
         const updateIds: string[] = [];
@@ -161,18 +160,19 @@ export const usePayments = (filters?: any) => {
             insertRows.push({
               individual_lesson_id: paymentData.individual_lesson_id,
               lesson_date: d,
-              status: 'attended',
+              status: 'scheduled',
+              payment_id: payment.id,
               created_by: user?.id,
               updated_at: new Date().toISOString(),
             });
           }
         });
 
-        // 6) Perform updates first, then inserts
+        // 6) Perform updates first, then inserts - set payment_id instead of status
         if (updateIds.length > 0) {
           const { error: updErr, data: updData } = await supabase
             .from('individual_lesson_sessions')
-            .update({ status: 'attended', created_by: user?.id, updated_at: new Date().toISOString() })
+            .update({ payment_id: payment.id, updated_at: new Date().toISOString() })
             .in('id', updateIds)
             .select();
           if (updErr) console.error('Error updating existing session rows:', updErr); else console.log('Updated sessions:', updData);
@@ -183,7 +183,7 @@ export const usePayments = (filters?: any) => {
             .from('individual_lesson_sessions')
             .insert(insertRows)
             .select();
-          if (insErr) console.error('Error inserting new attended rows:', insErr); else console.log('Inserted sessions:', insData);
+          if (insErr) console.error('Error inserting new paid rows:', insErr); else console.log('Inserted sessions:', insData);
         }
       } else {
         console.log('Skipping session update - no individual_lesson_id or lessons_count');
@@ -246,46 +246,37 @@ export const usePayments = (filters?: any) => {
       if (individualLessonId && lessonsCount && lessonsCount > 0) {
         console.log('Fetching sessions for lesson:', individualLessonId);
         
-        // Получаем все сессии урока, отсортированные по дате
+        // Получаем все сессии урока с этим payment_id
         const { data: allSessions, error: fetchError } = await supabase
           .from('individual_lesson_sessions')
-          .select('id, lesson_date, status')
+          .select('id, lesson_date, status, payment_id')
           .eq('individual_lesson_id', individualLessonId)
+          .eq('payment_id', paymentId)
           .order('lesson_date', { ascending: true });
 
-        console.log('All sessions:', allSessions);
+        console.log('Sessions with this payment:', allSessions);
 
         if (!fetchError && allSessions && allSessions.length > 0) {
-          // Находим первые N оплаченных занятий (attended) по дате
-          const paidSessions = allSessions
-            .filter(s => s.status === 'attended')
-            .sort((a, b) => new Date(a.lesson_date).getTime() - new Date(b.lesson_date).getTime())
-            .slice(0, lessonsCount);
+          const sessionIds = allSessions.map(s => s.id);
+          console.log('Removing payment from sessions:', allSessions.map(s => ({
+            id: s.id,
+            date: s.lesson_date
+          })));
 
-          console.log('Paid sessions to revert:', paidSessions);
+          // Убираем payment_id у занятий
+          const { error: sessionError } = await supabase
+            .from('individual_lesson_sessions')
+            .update({ payment_id: null, updated_at: new Date().toISOString() })
+            .in('id', sessionIds);
 
-          if (paidSessions.length > 0) {
-            const sessionIds = paidSessions.map(s => s.id);
-            console.log('Reverting sessions to scheduled:', paidSessions.map(s => ({
-              id: s.id,
-              date: s.lesson_date
-            })));
-
-            // Возвращаем статус занятий в scheduled
-            const { error: sessionError } = await supabase
-              .from('individual_lesson_sessions')
-              .update({ status: 'scheduled', created_by: user?.id, updated_at: new Date().toISOString() })
-              .in('id', sessionIds);
-
-            if (sessionError) {
-              console.error('Error reverting sessions:', sessionError);
-              throw sessionError;
-            }
-            
-            console.log('Successfully reverted', paidSessions.length, 'sessions');
-          } else {
-            console.log('No paid sessions found to revert');
+          if (sessionError) {
+            console.error('Error removing payment from sessions:', sessionError);
+            throw sessionError;
           }
+          
+          console.log('Successfully removed payment from', allSessions.length, 'sessions');
+        } else {
+          console.log('No sessions found with this payment');
         }
       } else {
         console.log('Skipping session revert - no individualLessonId or lessonsCount');

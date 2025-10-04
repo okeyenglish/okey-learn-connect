@@ -34,7 +34,7 @@ export const useAttendance = (sessionId: string, sessionType: 'group' | 'individ
         lessonSessionId: record.lesson_session_id,
         individualLessonSessionId: record.individual_lesson_session_id,
         studentId: record.student_id,
-        status: record.status as 'present' | 'absent' | 'late' | 'excused',
+        status: record.status as 'present' | 'absent' | 'late' | 'excused' | 'completed',
         notes: record.notes,
         markedBy: record.marked_by,
         markedAt: record.marked_at,

@@ -21,6 +21,7 @@ interface IndividualLessonScheduleProps {
 interface LessonSession {
   lesson_date: string;
   status: string;
+  payment_id?: string;
 }
 
 const DAY_MAP: Record<string, number> = {
@@ -61,7 +62,7 @@ export function IndividualLessonSchedule({
     try {
       const { data, error } = await supabase
         .from('individual_lesson_sessions')
-        .select('lesson_date, status, updated_at')
+        .select('lesson_date, status, payment_id, updated_at')
         .eq('individual_lesson_id', lessonId)
         .order('updated_at', { ascending: false });
 
@@ -70,7 +71,11 @@ export function IndividualLessonSchedule({
       const sessionsMap: Record<string, LessonSession> = {};
       data?.forEach(session => {
         if (!sessionsMap[session.lesson_date]) {
-          sessionsMap[session.lesson_date] = { lesson_date: session.lesson_date, status: session.status };
+          sessionsMap[session.lesson_date] = { 
+            lesson_date: session.lesson_date, 
+            status: session.status,
+            payment_id: session.payment_id 
+          };
         }
       });
       setLessonSessions(sessionsMap);
@@ -102,6 +107,11 @@ export function IndividualLessonSchedule({
     const dateStr = format(date, 'yyyy-MM-dd');
     const session = lessonSessions[dateStr];
     
+    // Check if paid (has payment_id)
+    if (session?.payment_id) {
+      return 'bg-green-600 text-white border-green-600'; // Зеленый - оплачено
+    }
+    
     // Если есть статус занятия
     if (session?.status) {
       switch (session.status) {
@@ -111,12 +121,9 @@ export function IndividualLessonSchedule({
           return 'bg-orange-500 text-white border-orange-500'; // Оранжевый - перенесено
         case 'free':
           return 'bg-yellow-500 text-white border-yellow-500'; // Желтый - бесплатное
-        case 'attended': // Оплаченное занятие (через payments)
-        case 'partially_paid':
-        case 'paid_absence':
-        case 'partially_paid_absence':
-          return 'bg-green-600 text-white border-green-600'; // Зеленый - оплачено
         case 'scheduled':
+        case 'completed':
+        case 'absent':
         case 'rescheduled_out':
         default:
           return 'bg-white text-gray-500 border-gray-300'; // Белый фон, серые цифры - не оплачено

@@ -855,6 +855,7 @@ export type Database = {
           individual_lesson_id: string
           lesson_date: string
           notes: string | null
+          payment_id: string | null
           status: string
           updated_at: string | null
         }
@@ -865,6 +866,7 @@ export type Database = {
           individual_lesson_id: string
           lesson_date: string
           notes?: string | null
+          payment_id?: string | null
           status?: string
           updated_at?: string | null
         }
@@ -875,6 +877,7 @@ export type Database = {
           individual_lesson_id?: string
           lesson_date?: string
           notes?: string | null
+          payment_id?: string | null
           status?: string
           updated_at?: string | null
         }
@@ -884,6 +887,13 @@ export type Database = {
             columns: ["individual_lesson_id"]
             isOneToOne: false
             referencedRelation: "individual_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "individual_lesson_sessions_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
             referencedColumns: ["id"]
           },
         ]
