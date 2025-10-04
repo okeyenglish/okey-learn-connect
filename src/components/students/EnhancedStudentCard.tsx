@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -67,6 +68,7 @@ interface EnhancedStudentCardProps {
 }
 
 export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStudentCardProps) {
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('overview');
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
@@ -1108,8 +1110,12 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
         open={!!selectedLessonId}
         onOpenChange={(open) => !open && setSelectedLessonId(null)}
         onLessonUpdated={() => {
-          refetch();
-          setRefreshTrigger(prev => prev + 1);
+          // Инвалидируем кэш для принудительного обновления данных
+          queryClient.invalidateQueries({ queryKey: ['student-details', student.id] });
+          setTimeout(() => {
+            refetch();
+            setRefreshTrigger(prev => prev + 1);
+          }, 100);
         }}
       />
 
