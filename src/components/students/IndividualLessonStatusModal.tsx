@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
+import { format, addMinutes, parse } from "date-fns";
 import { ru } from "date-fns/locale";
 import { 
   Check, 
@@ -492,9 +492,21 @@ export function IndividualLessonStatusModal({
             <DialogTitle className="text-lg">
               Управление уроком
             </DialogTitle>
-            <div className="text-sm text-muted-foreground">
-              {format(selectedDate, 'dd MMMM yyyy', { locale: ru })}
-              {scheduleTime && ` • ${scheduleTime}`}
+            <div className="text-sm text-muted-foreground space-y-1">
+              <div>{format(selectedDate, 'dd MMMM yyyy', { locale: ru })}</div>
+              {scheduleTime && sessionData.duration && (
+                <div>
+                  {(() => {
+                    try {
+                      const startTime = parse(scheduleTime, 'HH:mm', new Date());
+                      const endTime = addMinutes(startTime, sessionData.duration);
+                      return `${scheduleTime}-${format(endTime, 'HH:mm')} (исходя из продолжительности)`;
+                    } catch {
+                      return scheduleTime;
+                    }
+                  })()}
+                </div>
+              )}
             </div>
           </DialogHeader>
 
