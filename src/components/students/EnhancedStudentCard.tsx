@@ -116,6 +116,8 @@ export function EnhancedStudentCard({
   const [paymentToDelete, setPaymentToDelete] = useState<any>(null);
   const [addLessonModalOpen, setAddLessonModalOpen] = useState(false);
   const [addLessonForId, setAddLessonForId] = useState<string | null>(null);
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [phoneValue, setPhoneValue] = useState('');
   
   const { data: studentDetails, isLoading, refetch } = useStudentDetails(student.id);
   const { data: balance } = useStudentBalance(student.id);
@@ -145,6 +147,7 @@ export function EnhancedStudentCard({
       setLastNameValue(studentDetails.lastName || '');
       setMiddleNameValue(studentDetails.middleName || '');
       setAgeValue(studentDetails.age);
+      setPhoneValue(studentDetails.phone || '');
       if (studentDetails.dateOfBirth) {
         setDateOfBirthValue(new Date(studentDetails.dateOfBirth));
       }
@@ -213,6 +216,29 @@ export function EnhancedStudentCard({
     } catch (error) {
       console.error('Error saving age:', error);
       toast.error('Не удалось сохранить данные');
+    }
+  };
+
+  const handleSavePhone = async () => {
+    if (!phoneValue.trim()) {
+      toast.error('Введите номер телефона');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ phone: phoneValue.trim() })
+        .eq('id', student.id);
+
+      if (error) throw error;
+      
+      setIsEditingPhone(false);
+      refetch();
+      toast.success('Номер телефона добавлен');
+    } catch (error) {
+      console.error('Error saving phone:', error);
+      toast.error('Не удалось сохранить номер');
     }
   };
 
@@ -430,27 +456,62 @@ export function EnhancedStudentCard({
                       </Button>
                     </div>
                   ) : (
-                    <span 
-                      className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors"
-                      onClick={() => setIsEditingAge(true)}
-                      title="Нажмите, чтобы редактировать возраст/дату рождения"
+                    <>
+                      <span 
+                        className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors"
+                        onClick={() => setIsEditingAge(true)}
+                        title="Нажмите, чтобы редактировать возраст/дату рождения"
+                      >
+                        <Calendar className="h-4 w-4" />
+                        {studentDetails.age && `${studentDetails.age} лет`}
+                        {studentDetails.dateOfBirth && (
+                          <span className="text-muted-foreground/80">
+                            ({formatDate(studentDetails.dateOfBirth)})
+                          </span>
+                        )}
+                        {!studentDetails.age && !studentDetails.dateOfBirth && 'Добавить возраст/дату'}
+                      </span>
+                    </>
+                  )}
+                </div>
+                {isEditingPhone ? (
+                  <div className="flex items-center gap-2 mt-2">
+                    <Input
+                      value={phoneValue}
+                      onChange={(e) => setPhoneValue(e.target.value)}
+                      placeholder="+7 (XXX) XXX-XX-XX"
+                      className="h-8 w-48"
+                    />
+                    <Button size="sm" variant="ghost" onClick={handleSavePhone} title="Сохранить">
+                      <Check className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setIsEditingPhone(false)} title="Отменить">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                 ) : studentDetails.phone ? (
+                  <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                    <Phone className="h-4 w-4" />
+                    <span>{studentDetails.phone}</span>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-7 px-2"
+                      title="Написать"
                     >
-                      <Calendar className="h-4 w-4" />
-                      {studentDetails.age && `${studentDetails.age} лет`}
-                      {studentDetails.dateOfBirth && (
-                        <span className="text-muted-foreground/80">
-                          ({formatDate(studentDetails.dateOfBirth)})
-                        </span>
-                      )}
-                      {!studentDetails.age && !studentDetails.dateOfBirth && 'Добавить возраст/дату'}
-                    </span>
-                  )}
-                  {studentDetails.phone && (
-                    <span className="flex items-center gap-1">
-                      <Phone className="h-4 w-4" />
-                      {studentDetails.phone}
-                    </span>
-                  )}
+                      <MessageSquare className="h-3 w-3" />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-7 px-2"
+                      title="Позвонить"
+                    >
+                      <Phone className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : null}
+                <div className="flex items-center gap-3 text-sm text-muted-foreground mt-2">
                   <span className="flex items-center gap-1">
                     <Clock className="h-4 w-4" />
                     С {formatDate(studentDetails.createdAt)}
@@ -536,19 +597,13 @@ export function EnhancedStudentCard({
                     <CardTitle className="text-sm font-medium">Быстрые действия</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    {studentDetails.phone ? (
-                      <>
-                        <Button variant="outline" size="sm" className="w-full justify-start">
-                          <MessageSquare className="h-4 w-4 mr-2" />
-                          Написать
-                        </Button>
-                        <Button variant="outline" size="sm" className="w-full justify-start">
-                          <Phone className="h-4 w-4 mr-2" />
-                          Позвонить
-                        </Button>
-                      </>
-                    ) : (
-                      <Button variant="outline" size="sm" className="w-full justify-start">
+                    {!studentDetails.phone && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full justify-start"
+                        onClick={() => setIsEditingPhone(true)}
+                      >
                         <Phone className="h-4 w-4 mr-2" />
                         Добавить номер
                       </Button>
