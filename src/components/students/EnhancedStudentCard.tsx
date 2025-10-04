@@ -235,10 +235,29 @@ export function EnhancedStudentCard({
       
       setIsEditingPhone(false);
       refetch();
-      toast.success('Номер телефона добавлен');
+      toast.success('Номер телефона обновлен');
     } catch (error) {
       console.error('Error saving phone:', error);
       toast.error('Не удалось сохранить номер');
+    }
+  };
+
+  const handleDeletePhone = async () => {
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ phone: null })
+        .eq('id', student.id);
+
+      if (error) throw error;
+      
+      setIsEditingPhone(false);
+      setPhoneValue('');
+      refetch();
+      toast.success('Номер телефона удален');
+    } catch (error) {
+      console.error('Error deleting phone:', error);
+      toast.error('Не удалось удалить номер');
     }
   };
 
@@ -488,8 +507,19 @@ export function EnhancedStudentCard({
                     <Button size="sm" variant="ghost" onClick={() => setIsEditingPhone(false)} title="Отменить">
                       <X className="h-4 w-4" />
                     </Button>
+                    {studentDetails.phone && (
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        onClick={handleDeletePhone}
+                        title="Удалить номер"
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
-                 ) : studentDetails.phone ? (
+                ) : studentDetails.phone ? (
                   <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
                     <Phone className="h-4 w-4" />
                     <span>{studentDetails.phone}</span>
@@ -508,6 +538,18 @@ export function EnhancedStudentCard({
                       title="Позвонить"
                     >
                       <Phone className="h-3 w-3" />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-7 px-2"
+                      onClick={() => {
+                        setPhoneValue(studentDetails.phone || '');
+                        setIsEditingPhone(true);
+                      }}
+                      title="Редактировать"
+                    >
+                      <Edit className="h-3 w-3" />
                     </Button>
                   </div>
                 ) : null}
