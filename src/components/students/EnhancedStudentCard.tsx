@@ -139,18 +139,25 @@ export function EnhancedStudentCard({
       today.setHours(0, 0, 0, 0);
       const todayStr = today.toISOString().split('T')[0];
       
+      alert(`Начинаем проверку архивации урока ${lessonId}. Сегодня: ${todayStr}`);
+      
+      // Сначала проверим ВСЕ сессии для этого урока
+      const { data: allSessions, error: allError } = await supabase
+        .from('individual_lesson_sessions')
+        .select('*')
+        .eq('individual_lesson_id', lessonId);
+      
       console.log('=== ARCHIVE LESSON DEBUG ===');
       console.log('Lesson ID:', lessonId);
       console.log('Today date:', todayStr);
-      
-      // Сначала проверим все сессии для этого урока
-      const { data: allSessions, error: allError } = await supabase
-        .from('individual_lesson_sessions')
-        .select('id, lesson_date, status, individual_lesson_id')
-        .eq('individual_lesson_id', lessonId);
-      
       console.log('All sessions for this lesson:', allSessions);
-      console.log('All sessions error:', allError);
+      
+      if (allError) {
+        alert(`Ошибка при получении всех сессий: ${allError.message}`);
+        console.error('Error fetching all sessions:', allError);
+      }
+      
+      alert(`Всего сессий найдено: ${allSessions?.length || 0}`);
       
       // Проверяем наличие будущих запланированных занятий
       const { data: futureSessions, error: sessionsError } = await supabase
@@ -161,19 +168,23 @@ export function EnhancedStudentCard({
         .gte('lesson_date', todayStr);
 
       if (sessionsError) {
+        alert(`Ошибка при получении будущих сессий: ${sessionsError.message}`);
         console.error('Error fetching future sessions:', sessionsError);
         throw sessionsError;
       }
 
       console.log('Future scheduled sessions (>= today):', futureSessions);
-      console.log('Future sessions count:', futureSessions?.length || 0);
+      alert(`Будущих запланированных сессий: ${futureSessions?.length || 0}`);
 
       if (futureSessions && futureSessions.length > 0) {
+        const dates = futureSessions.map(s => s.lesson_date).join(', ');
+        alert(`БЛОКИРОВКА АРХИВАЦИИ! Найдено ${futureSessions.length} будущих занятий: ${dates}`);
         console.log('BLOCKING ARCHIVE - Found future sessions');
         toast.error(`Невозможно архивировать курс с ${futureSessions.length} запланированными занятиями в будущем`);
         return;
       }
 
+      alert('Будущих занятий не найдено, архивируем...');
       console.log('PROCEEDING WITH ARCHIVE - No future sessions found');
       await updateIndividualLesson.mutateAsync({
         id: lessonId,
@@ -182,6 +193,7 @@ export function EnhancedStudentCard({
       toast.success('Занятие архивировано');
     } catch (error) {
       console.error('Error archiving lesson:', error);
+      alert(`Ошибка: ${error}`);
       toast.error('Ошибка при архивации занятия');
     }
   };
