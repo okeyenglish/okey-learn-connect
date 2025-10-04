@@ -155,19 +155,114 @@ export function IndividualLessonStatusModal({
 
       const wasPaid = currentSession?.payment_id != null;
       
-      // Special handling for cancelling or making free a paid lesson - remove payment link
+      // Special handling for cancelling or making free a paid lesson - transfer payment to next unpaid lesson
       if ((statusValue === 'cancelled' || statusValue === 'free') && wasPaid) {
-        // Remove payment_id from current session
-        await supabase
-          .from('individual_lesson_sessions')
-          .update({ payment_id: null, updated_at: new Date().toISOString() })
-          .eq('individual_lesson_id', lessonId)
-          .eq('lesson_date', lessonDate);
+        // Load all existing sessions and the lesson schedule
+        const [{ data: allSessions }, { data: lessonRow }] = await Promise.all([
+          supabase
+            .from('individual_lesson_sessions')
+            .select('id, lesson_date, status, payment_id')
+            .eq('individual_lesson_id', lessonId)
+            .order('lesson_date', { ascending: true }),
+          supabase
+            .from('individual_lessons')
+            .select('schedule_days, period_start, period_end')
+            .eq('id', lessonId)
+            .maybeSingle()
+        ]);
 
-        toast({
-          title: 'Оплата удалена',
-          description: 'Оплата снята с этого занятия',
-        });
+        const sessionByDate = new Map<string, { id?: string; status?: string; payment_id?: string }>();
+        (allSessions || []).forEach((s) => sessionByDate.set(s.lesson_date, { id: s.id, status: s.status, payment_id: s.payment_id }));
+
+        const isUnpaid = (session?: { payment_id?: string }) => !session?.payment_id;
+
+        // Build future scheduled dates after current lessonDate
+        let targetDate: string | null = null;
+        if (lessonRow?.schedule_days && lessonRow?.period_start && lessonRow?.period_end) {
+          const DAY_MAP: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 0 };
+          const dayNums = (lessonRow.schedule_days as string[]).map((d) => DAY_MAP[d?.toLowerCase?.() || '']).filter((n) => n !== undefined);
+          const start = new Date(lessonRow.period_start as string);
+          const end = new Date(lessonRow.period_end as string);
+          const startFrom = new Date(lessonDate);
+          startFrom.setDate(startFrom.getDate() + 1);
+
+          // Prefer existing future unpaid session rows first
+          if (!targetDate && (allSessions || []).length) {
+            for (const sess of (allSessions as { lesson_date: string; payment_id?: string }[])) {
+              if (sess.lesson_date > lessonDate && isUnpaid(sess)) {
+                targetDate = sess.lesson_date;
+                break;
+              }
+            }
+          }
+
+          // If none, fallback to generating next scheduled date
+          for (let d = new Date(startFrom); d <= end; d.setDate(d.getDate() + 1)) {
+            if (d >= start) {
+              const ds = format(d, 'yyyy-MM-dd');
+              const s = sessionByDate.get(ds);
+              const isScheduledDay = dayNums.includes(d.getDay());
+
+              if (s) {
+                if (isUnpaid(s)) {
+                  targetDate = ds;
+                  break;
+                }
+              } else if (isScheduledDay) {
+                targetDate = ds;
+                break;
+              }
+            }
+          }
+        }
+
+        if (targetDate) {
+          const targetSession = sessionByDate.get(targetDate);
+          if (targetSession?.id) {
+            // Update existing session - transfer payment_id
+            await supabase
+              .from('individual_lesson_sessions')
+              .update({ payment_id: currentSession.payment_id, updated_at: new Date().toISOString() })
+              .eq('id', targetSession.id);
+          } else {
+            // Insert a new session with payment_id
+            await supabase
+              .from('individual_lesson_sessions')
+              .insert({
+                individual_lesson_id: lessonId,
+                lesson_date: targetDate,
+                status: 'scheduled',
+                payment_id: currentSession.payment_id,
+                created_by: user.id,
+                updated_at: new Date().toISOString(),
+              });
+          }
+
+          // Remove payment from current session
+          await supabase
+            .from('individual_lesson_sessions')
+            .update({ payment_id: null, updated_at: new Date().toISOString() })
+            .eq('individual_lesson_id', lessonId)
+            .eq('lesson_date', lessonDate);
+
+          toast({
+            title: 'Оплата перенесена',
+            description: `Оплата перенесена на занятие ${format(new Date(targetDate), 'dd.MM.yyyy', { locale: ru })}`,
+          });
+        } else {
+          // Just remove payment if no future lessons
+          await supabase
+            .from('individual_lesson_sessions')
+            .update({ payment_id: null, updated_at: new Date().toISOString() })
+            .eq('individual_lesson_id', lessonId)
+            .eq('lesson_date', lessonDate);
+
+          toast({
+            title: 'Оплата удалена',
+            description: 'Нет будущих занятий для переноса оплаты',
+            variant: 'destructive',
+          });
+        }
       }
       
       // Try update first to avoid duplicate rows
