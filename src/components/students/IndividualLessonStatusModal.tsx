@@ -221,6 +221,18 @@ export function IndividualLessonStatusModal({
             const startFrom = new Date(lessonDate);
             startFrom.setDate(startFrom.getDate() + 1);
 
+            // Prefer existing future unpaid session rows first (handles reschedules)
+            if (!targetDate && (allSessions || []).length) {
+              for (const sess of (allSessions as { lesson_date: string; status?: string }[])) {
+                if (sess.lesson_date > lessonDate && isUnpaid(sess.status)) {
+                  targetDate = sess.lesson_date;
+                  console.log('Picked existing future unpaid session for transfer:', targetDate, sess);
+                  break;
+                }
+              }
+            }
+
+            // If none, fallback to generating next scheduled date
             for (let d = new Date(startFrom); d <= end; d.setDate(d.getDate() + 1)) {
               if (d >= start) {
                 const ds = format(d, 'yyyy-MM-dd');
