@@ -255,6 +255,11 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                     <span className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
                       {studentDetails.age} лет
+                      {studentDetails.dateOfBirth && (
+                        <span className="text-muted-foreground/80">
+                          ({formatDate(studentDetails.dateOfBirth)})
+                        </span>
+                      )}
                     </span>
                   )}
                   {studentDetails.phone && (
