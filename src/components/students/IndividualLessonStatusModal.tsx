@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { format, addMinutes, parse } from "date-fns";
+import { Checkbox } from "@/components/ui/checkbox";
+import { format, addMinutes, parse, eachDayOfInterval, isAfter, isBefore } from "date-fns";
 import { ru } from "date-fns/locale";
 import { 
   Check, 
@@ -93,10 +94,17 @@ export function IndividualLessonStatusModal({
   const [durationModalOpen, setDurationModalOpen] = useState(false);
   const [lessonData, setLessonData] = useState<{teacher?: string, classroom?: string}>({});
   const [sessionData, setSessionData] = useState<{id?: string, duration?: number}>({});
+  const [futureDates, setFutureDates] = useState<Date[]>([]);
+  const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
+  const [showDateSelection, setShowDateSelection] = useState(false);
+  const [selectedAction, setSelectedAction] = useState<string | null>(null);
   
   useEffect(() => {
     if (open && lessonId && selectedDate) {
       loadSessionData();
+      loadFutureDates();
+      // Автоматически выбираем текущую дату
+      setSelectedDates(new Set([format(selectedDate, 'yyyy-MM-dd')]));
     }
   }, [open, lessonId, selectedDate]);
 
@@ -124,8 +132,55 @@ export function IndividualLessonStatusModal({
       setSessionData({ duration: lesson?.duration || 60 });
     }
   };
+
+  const loadFutureDates = async () => {
+    if (!lessonId || !selectedDate) return;
+
+    const { data: lesson } = await supabase
+      .from('individual_lessons')
+      .select('schedule_days, period_end')
+      .eq('id', lessonId)
+      .single();
+
+    if (!lesson || !lesson.schedule_days || !lesson.period_end) return;
+
+    const dayMapping: Record<string, number> = {
+      'Пн': 1, 'Monday': 1, 'monday': 1,
+      'Вт': 2, 'Tuesday': 2, 'tuesday': 2,
+      'Ср': 3, 'Wednesday': 3, 'wednesday': 3,
+      'Чт': 4, 'Thursday': 4, 'thursday': 4,
+      'Пт': 5, 'Friday': 5, 'friday': 5,
+      'Сб': 6, 'Saturday': 6, 'saturday': 6,
+      'Вс': 0, 'Sunday': 0, 'sunday': 0,
+    };
+
+    const scheduledDays = lesson.schedule_days.map(day => dayMapping[day]).filter(d => d !== undefined);
+    const endDate = new Date(lesson.period_end);
+    const dates = eachDayOfInterval({ start: selectedDate, end: endDate })
+      .filter(date => scheduledDays.includes(date.getDay()));
+
+    setFutureDates(dates);
+  };
   
   if (!selectedDate) return null;
+
+  const toggleDateSelection = (dateStr: string) => {
+    const newSelection = new Set(selectedDates);
+    if (newSelection.has(dateStr)) {
+      newSelection.delete(dateStr);
+    } else {
+      newSelection.add(dateStr);
+    }
+    setSelectedDates(newSelection);
+  };
+
+  const selectAllDates = () => {
+    setSelectedDates(new Set(futureDates.map(d => format(d, 'yyyy-MM-dd'))));
+  };
+
+  const clearAllDates = () => {
+    setSelectedDates(new Set());
+  };
 
   const handleStatusSelect = async (statusValue: string) => {
     if (!lessonId) {
@@ -134,6 +189,13 @@ export function IndividualLessonStatusModal({
         description: "ID занятия не найден",
         variant: "destructive"
       });
+      return;
+    }
+
+    // Для действий, которые применяются к нескольким датам
+    if (['scheduled', 'free', 'cancelled'].includes(statusValue)) {
+      setSelectedAction(statusValue);
+      setShowDateSelection(true);
       return;
     }
 
@@ -450,18 +512,96 @@ export function IndividualLessonStatusModal({
         }
       }
 
-      toast({
-        title: "Успешно",
-        description: "Статус занятия обновлен"
-      });
+      // Не закрываем модал, если показываем выбор дат
+      if (!showDateSelection) {
+        toast({
+          title: "Успешно",
+          description: "Статус занятия обновлен"
+        });
 
-      onStatusUpdated?.();
-      onOpenChange(false);
+        onStatusUpdated?.();
+        onOpenChange(false);
+      }
     } catch (error: any) {
       console.error('Error updating lesson status:', error);
       toast({
         title: "Ошибка",
         description: error.message || "Не удалось обновить статус занятия",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const applyToSelectedDates = async () => {
+    if (!selectedAction || selectedDates.size === 0 || !lessonId) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Не авторизован');
+
+      let successCount = 0;
+      const dateArray = Array.from(selectedDates);
+
+      for (const dateStr of dateArray) {
+        try {
+          // Проверяем, существует ли уже сессия для этой даты
+          const { data: existingSession } = await supabase
+            .from('individual_lesson_sessions')
+            .select('id, is_additional')
+            .eq('individual_lesson_id', lessonId)
+            .eq('lesson_date', dateStr)
+            .maybeSingle();
+
+          const updateData: any = {
+            status: selectedAction,
+            created_by: user.id,
+            updated_at: new Date().toISOString()
+          };
+
+          // Если статус меняется на scheduled и это было доп. занятие, убираем флаг
+          if (selectedAction === 'scheduled' && existingSession?.is_additional) {
+            updateData.is_additional = false;
+          }
+
+          if (existingSession) {
+            // Обновляем существующую сессию
+            await supabase
+              .from('individual_lesson_sessions')
+              .update(updateData)
+              .eq('id', existingSession.id);
+          } else {
+            // Создаём новую сессию
+            await supabase
+              .from('individual_lesson_sessions')
+              .insert({
+                individual_lesson_id: lessonId,
+                lesson_date: dateStr,
+                status: selectedAction,
+                created_by: user.id,
+                is_additional: false,
+              });
+          }
+
+          successCount++;
+        } catch (error) {
+          console.error(`Error updating ${dateStr}:`, error);
+        }
+      }
+
+      toast({
+        title: "Успешно",
+        description: `Статус обновлен для ${successCount} из ${dateArray.length} занятий`
+      });
+
+      onStatusUpdated?.();
+      setShowDateSelection(false);
+      setSelectedAction(null);
+      setSelectedDates(new Set());
+      onOpenChange(false);
+    } catch (error: any) {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось обновить статусы",
         variant: "destructive"
       });
     }
@@ -490,49 +630,111 @@ export function IndividualLessonStatusModal({
         >
           <DialogHeader>
             <DialogTitle className="text-lg">
-              Управление уроком
+              {showDateSelection ? 'Выберите занятия' : 'Управление уроком'}
             </DialogTitle>
             <div className="text-sm text-muted-foreground space-y-1">
-              <div>{format(selectedDate, 'dd MMMM yyyy', { locale: ru })}</div>
-              {scheduleTime && sessionData.duration && (
-                <div>
-                  {(() => {
-                    try {
-                      const startTime = parse(scheduleTime, 'HH:mm', new Date());
-                      const endTime = addMinutes(startTime, sessionData.duration);
-                      return `${scheduleTime}-${format(endTime, 'HH:mm')} (исходя из продолжительности)`;
-                    } catch {
-                      return scheduleTime;
-                    }
-                  })()}
-                </div>
+              {!showDateSelection && (
+                <>
+                  <div>{format(selectedDate, 'dd MMMM yyyy', { locale: ru })}</div>
+                  {scheduleTime && sessionData.duration && (
+                    <div>
+                      {(() => {
+                        try {
+                          const startTime = parse(scheduleTime, 'HH:mm', new Date());
+                          const endTime = addMinutes(startTime, sessionData.duration);
+                          return `${scheduleTime}-${format(endTime, 'HH:mm')} (исходя из продолжительности)`;
+                        } catch {
+                          return scheduleTime;
+                        }
+                      })()}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </DialogHeader>
 
-          <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
-            {lessonStatusOptions.map((option) => {
-              const Icon = option.icon;
-              return (
-                <Button
-                  key={option.value}
-                  variant="outline"
-                  className="w-full justify-start h-auto py-3 px-4 hover:bg-accent"
-                  onClick={(e) => { e.stopPropagation(); handleStatusSelect(option.value); }}
-                >
-                  <div className="flex items-start gap-3 text-left w-full">
-                    <Icon className={`h-5 w-5 mt-0.5 ${option.color} flex-shrink-0`} />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm">{option.label}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {option.description}
+          {!showDateSelection ? (
+            <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
+              {lessonStatusOptions.map((option) => {
+                const Icon = option.icon;
+                return (
+                  <Button
+                    key={option.value}
+                    variant="outline"
+                    className="w-full justify-start h-auto py-3 px-4 hover:bg-accent"
+                    onClick={(e) => { e.stopPropagation(); handleStatusSelect(option.value); }}
+                  >
+                    <div className="flex items-start gap-3 text-left w-full">
+                      <Icon className={`h-5 w-5 mt-0.5 ${option.color} flex-shrink-0`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm">{option.label}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {option.description}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </Button>
+                );
+              })}
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm text-muted-foreground">
+                  Выбрано: {selectedDates.size} из {futureDates.length}
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="sm" onClick={selectAllDates}>
+                    Выбрать все
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={clearAllDates}>
+                    Очистить
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-2 mb-4">
+                {futureDates.map((date) => {
+                  const dateStr = format(date, 'yyyy-MM-dd');
+                  const isSelected = selectedDates.has(dateStr);
+                  return (
+                    <div
+                      key={dateStr}
+                      className="flex items-center space-x-2 p-2 rounded hover:bg-muted/50 cursor-pointer"
+                      onClick={() => toggleDateSelection(dateStr)}
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleDateSelection(dateStr)}
+                      />
+                      <label className="text-sm cursor-pointer flex-1">
+                        {format(date, 'dd MMMM yyyy (EEEE)', { locale: ru })}
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowDateSelection(false);
+                    setSelectedAction(null);
+                  }}
+                  className="flex-1"
+                >
+                  Отмена
                 </Button>
-              );
-            })}
-          </div>
+                <Button
+                  onClick={applyToSelectedDates}
+                  disabled={selectedDates.size === 0}
+                  className="flex-1"
+                >
+                  Применить
+                </Button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
