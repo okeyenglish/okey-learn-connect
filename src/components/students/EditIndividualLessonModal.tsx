@@ -45,6 +45,9 @@ export const EditIndividualLessonModal = ({
     color: "#ffffff",
   });
   
+  const [applyFromDate, setApplyFromDate] = useState<string>("");
+  const [hasCompletedSessions, setHasCompletedSessions] = useState(false);
+  
   const { toast } = useToast();
   const updateLesson = useUpdateIndividualLesson();
   const { teachers } = useTeachers();
@@ -120,6 +123,26 @@ export const EditIndividualLessonModal = ({
           audit_location: data.audit_location || "",
           color: (data as any).color || "#ffffff",
         });
+        
+        // Проверяем наличие проведенных занятий
+        const { data: sessions } = await supabase
+          .from('individual_lesson_sessions')
+          .select('lesson_date, status')
+          .eq('individual_lesson_id', lessonId)
+          .neq('status', 'scheduled')
+          .order('lesson_date', { ascending: false })
+          .limit(1);
+        
+        if (sessions && sessions.length > 0) {
+          setHasCompletedSessions(true);
+          // Устанавливаем минимальную дату применения - следующий день после последнего проведенного
+          const lastCompletedDate = new Date(sessions[0].lesson_date);
+          lastCompletedDate.setDate(lastCompletedDate.getDate() + 1);
+          setApplyFromDate(lastCompletedDate.toISOString().split('T')[0]);
+        } else {
+          setHasCompletedSessions(false);
+          setApplyFromDate("");
+        }
       }
     } catch (error) {
       console.error('Error loading lesson:', error);
@@ -138,23 +161,64 @@ export const EditIndividualLessonModal = ({
     if (!lessonId) return;
     
     try {
-      await updateLesson.mutateAsync({
-        id: lessonId,
-        branch: formData.branch,
-        teacher_name: formData.teacher_name || undefined,
-        schedule_days: formData.schedule_days.length > 0 ? formData.schedule_days : undefined,
-        schedule_time: formData.schedule_time || undefined,
-        lesson_location: formData.lesson_location || undefined,
-        period_start: formData.period_start || undefined,
-        period_end: formData.period_end || undefined,
-        academic_hours: formData.academic_hours ? parseFloat(formData.academic_hours) : undefined,
-        audit_location: formData.audit_location || undefined,
-      });
+      // Если есть проведенные занятия и указана дата применения
+      if (hasCompletedSessions && applyFromDate) {
+        // Обновляем период начала в individual_lessons
+        await updateLesson.mutateAsync({
+          id: lessonId,
+          period_start: applyFromDate,
+        });
+        
+        // Вычисляем время начала и конца из schedule_time
+        let startTime: string | undefined;
+        let endTime: string | undefined;
+        if (formData.schedule_time && formData.schedule_time.includes('-')) {
+          const [start, end] = formData.schedule_time.split('-');
+          startTime = start;
+          endTime = end;
+        }
+        
+        // Обновляем все запланированные занятия начиная с указанной даты
+        const { error: sessionsError } = await supabase
+          .from('individual_lesson_sessions')
+          .update({
+            ...(formData.teacher_name && { teacher_name: formData.teacher_name }),
+            ...(formData.audit_location && { classroom: formData.audit_location }),
+            ...(formData.branch && { branch: formData.branch }),
+            ...(startTime && { start_time: startTime }),
+            ...(endTime && { end_time: endTime }),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('individual_lesson_id', lessonId)
+          .gte('lesson_date', applyFromDate)
+          .eq('status', 'scheduled');
+        
+        if (sessionsError) throw sessionsError;
+        
+        toast({
+          title: "Успешно",
+          description: `Изменения применены к занятиям с ${new Date(applyFromDate).toLocaleDateString('ru-RU')}`
+        });
+      } else {
+        // Обычное обновление для всех занятий
+        await updateLesson.mutateAsync({
+          id: lessonId,
+          branch: formData.branch,
+          teacher_name: formData.teacher_name || undefined,
+          schedule_days: formData.schedule_days.length > 0 ? formData.schedule_days : undefined,
+          schedule_time: formData.schedule_time || undefined,
+          lesson_location: formData.lesson_location || undefined,
+          period_start: formData.period_start || undefined,
+          period_end: formData.period_end || undefined,
+          academic_hours: formData.academic_hours ? parseFloat(formData.academic_hours) : undefined,
+          audit_location: formData.audit_location || undefined,
+        });
 
-      toast({
-        title: "Успешно",
-        description: "Данные занятия обновлены"
-      });
+        toast({
+          title: "Успешно",
+          description: "Данные занятия обновлены"
+        });
+      }
 
       onOpenChange(false);
       onLessonUpdated?.();
@@ -254,25 +318,47 @@ export const EditIndividualLessonModal = ({
               )}
             </div>
 
-            {/* Период */}
-            <div className="space-y-2">
-              <Label>Период:</Label>
-              <div className="flex items-center gap-2">
+            {/* Применить изменения с даты (если есть проведенные занятия) */}
+            {hasCompletedSessions && (
+              <div className="space-y-2 p-4 border border-warning/20 bg-warning/5 rounded-lg">
+                <Label htmlFor="apply_from_date" className="text-warning-foreground font-medium">
+                  Применить изменения с даты:
+                </Label>
                 <Input
+                  id="apply_from_date"
                   type="date"
-                  value={formData.period_start}
-                  onChange={(e) => setFormData({ ...formData, period_start: e.target.value })}
+                  value={applyFromDate}
+                  onChange={(e) => setApplyFromDate(e.target.value)}
                   className="flex-1"
                 />
-                <span className="text-muted-foreground px-2">до</span>
-                <Input
-                  type="date"
-                  value={formData.period_end}
-                  onChange={(e) => setFormData({ ...formData, period_end: e.target.value })}
-                  className="flex-1"
-                />
+                <p className="text-xs text-muted-foreground">
+                  Изменения будут применены только к занятиям начиная с указанной даты. 
+                  Ранее проведенные занятия сохранят текущие настройки.
+                </p>
               </div>
-            </div>
+            )}
+
+            {/* Период */}
+            {!hasCompletedSessions && (
+              <div className="space-y-2">
+                <Label>Период:</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="date"
+                    value={formData.period_start}
+                    onChange={(e) => setFormData({ ...formData, period_start: e.target.value })}
+                    className="flex-1"
+                  />
+                  <span className="text-muted-foreground px-2">до</span>
+                  <Input
+                    type="date"
+                    value={formData.period_end}
+                    onChange={(e) => setFormData({ ...formData, period_end: e.target.value })}
+                    className="flex-1"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Дни недели */}
             <div className="space-y-2">
