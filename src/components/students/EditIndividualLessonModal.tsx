@@ -267,6 +267,67 @@ export const EditIndividualLessonModal = ({
               notes: `Изменения применены к будущим занятиям`
             });
         }
+
+        // Перестраиваем будущие занятия в выбранном диапазоне под новое расписание
+        if (formData.schedule_days && formData.schedule_days.length > 0) {
+          const dayMap: { [key: string]: number } = {
+            sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
+            thursday: 4, friday: 5, saturday: 6
+          };
+
+          const start = new Date(applyFromDate);
+          const end = new Date(applyToDate || formData.period_end || applyFromDate);
+          start.setHours(0,0,0,0);
+          end.setHours(0,0,0,0);
+
+          const allowedDays = formData.schedule_days.map(d => dayMap[d]);
+
+          const genDates: string[] = [];
+          const cursor = new Date(start);
+          while (cursor <= end) {
+            if (allowedDays.includes(cursor.getDay())) {
+              genDates.push(cursor.toISOString().split('T')[0]);
+            }
+            cursor.setDate(cursor.getDate() + 1);
+          }
+
+          // Удаляем только незатронутые оплатами/переносами запланированные занятия
+          let delQuery = supabase
+            .from('individual_lesson_sessions')
+            .delete()
+            .eq('individual_lesson_id', lessonId)
+            .eq('is_additional', false)
+            .eq('status', 'scheduled')
+            .is('payment_id', null)
+            .gte('lesson_date', applyFromDate);
+          if (applyToDate) delQuery = delQuery.lte('lesson_date', applyToDate);
+          await delQuery;
+
+          // Получаем оставшиеся сессии, чтобы не дублировать даты (перенесенные/оплаченные и т.п.)
+          let remainQuery = supabase
+            .from('individual_lesson_sessions')
+            .select('lesson_date')
+            .eq('individual_lesson_id', lessonId)
+            .gte('lesson_date', applyFromDate);
+          if (applyToDate) remainQuery = remainQuery.lte('lesson_date', applyToDate);
+          const { data: remaining } = await remainQuery;
+          const existing = new Set((remaining || []).map(r => r.lesson_date as string));
+
+          const toInsert = genDates
+            .filter(d => !existing.has(d))
+            .map(d => ({
+              individual_lesson_id: lessonId,
+              lesson_date: d,
+              status: 'scheduled',
+              duration: parseInt(timeSelection.duration || '60', 10),
+              created_by: user?.id || null,
+              is_additional: false,
+            }));
+
+          if (toInsert.length > 0) {
+            await supabase.from('individual_lesson_sessions').insert(toInsert as any);
+          }
+        }
         
         const fromDateStr = new Date(applyFromDate).toLocaleDateString('ru-RU');
         const toDateStr = applyToDate ? ` по ${new Date(applyToDate).toLocaleDateString('ru-RU')}` : '';

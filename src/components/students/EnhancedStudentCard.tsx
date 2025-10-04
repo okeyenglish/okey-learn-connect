@@ -45,6 +45,7 @@ import { AddAdditionalLessonModal } from './AddAdditionalLessonModal';
 import { LessonScheduleStrip } from './LessonScheduleStrip';
 import { CreatePaymentModal } from './CreatePaymentModal';
 import { EditIndividualLessonModal } from './EditIndividualLessonModal';
+import { ScheduleSummary } from './ScheduleSummary';
 import { IndividualLessonSchedule } from './IndividualLessonSchedule';
 import { calculateLessonPrice } from '@/utils/lessonPricing';
 import { 
@@ -562,18 +563,14 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                 </Badge>
                               </div>
 
-                              {/* Период */}
-                              {(lesson.periodStart || lesson.periodEnd) && (
-                                <div className="text-sm text-muted-foreground mb-2">
-                                  {lesson.periodStart && lesson.periodEnd
-                                    ? `с ${new Date(lesson.periodStart).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })} по ${new Date(lesson.periodEnd).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })}`
-                                    : lesson.periodStart
-                                      ? new Date(lesson.periodStart).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })
-                                      : ''
-                                  }
-                                </div>
-                              )}
-
+                              {/* Период и актуальный график */}
+                              <ScheduleSummary
+                                lessonId={lesson.id}
+                                scheduleDays={lesson.scheduleDays}
+                                scheduleTime={lesson.scheduleTime}
+                                periodStart={lesson.periodStart}
+                                periodEnd={lesson.periodEnd}
+                              />
                               {/* Аудитория */}
                               <div className="text-sm mb-3">
                                 <span className="text-muted-foreground">Ауд. </span>
