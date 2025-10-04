@@ -28,6 +28,13 @@ interface IndividualLessonStatusModalProps {
 
 const lessonStatusOptions = [
   {
+    value: 'scheduled',
+    label: 'Обычное занятие',
+    description: 'Вернуть к запланированному статусу',
+    icon: Calendar,
+    color: 'text-gray-600',
+  },
+  {
     value: 'partially_paid',
     label: 'Частично оплачиваемое занятие',
     description: 'Занятие оплачено частично',
@@ -64,21 +71,21 @@ const lessonStatusOptions = [
   },
   {
     value: 'reschedule',
-    label: 'Перенести на другой день..',
+    label: 'Перенести на другой день',
     description: 'Перенос занятия на другую дату',
     icon: Calendar,
     color: 'text-indigo-600',
   },
   {
     value: 'substitute_teacher',
-    label: 'Подменить преподавателя на день..',
+    label: 'Подменить преподавателя на день',
     description: 'Замена преподавателя для этого урока',
     icon: User,
     color: 'text-teal-600',
   },
   {
     value: 'substitute_classroom',
-    label: 'Подменить аудиторию на день..',
+    label: 'Подменить аудиторию на день',
     description: 'Замена аудитории для этого урока',
     icon: MapPin,
     color: 'text-cyan-600',
