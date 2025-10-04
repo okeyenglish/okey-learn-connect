@@ -116,7 +116,6 @@ export function IndividualLessonSchedule({
         case 'paid_absence':
         case 'partially_paid_absence':
           return 'bg-green-600 text-white border-green-600'; // Зеленый - оплачено
-        case 'completed': // Проведено, но не оплачено
         case 'scheduled':
         case 'rescheduled_out':
         default:

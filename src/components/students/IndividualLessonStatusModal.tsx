@@ -28,13 +28,6 @@ interface IndividualLessonStatusModalProps {
 
 const lessonStatusOptions = [
   {
-    value: 'completed',
-    label: 'Занятие',
-    description: 'Студент присутствовал на занятии',
-    icon: Check,
-    color: 'text-gray-600',
-  },
-  {
     value: 'partially_paid',
     label: 'Частично оплачиваемое занятие',
     description: 'Занятие оплачено частично',
@@ -176,10 +169,9 @@ export function IndividualLessonStatusModal({
         .maybeSingle();
 
       const wasPaid = currentSession && ['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence'].includes(currentSession.status);
-      const wasUnpaid = !currentSession || ['scheduled', 'rescheduled', 'rescheduled_out', 'completed', 'free'].includes(currentSession.status);
       
       // Special handling for cancelling or making free a paid lesson - transfer payment to next unpaid lesson
-      if ((statusValue === 'cancelled' || statusValue === 'free' || statusValue === 'completed') && wasPaid) {
+      if ((statusValue === 'cancelled' || statusValue === 'free') && wasPaid) {
         // Load all existing sessions and the lesson schedule
           const [{ data: allSessions }, { data: lessonRow }] = await Promise.all([
             supabase
@@ -276,52 +268,6 @@ export function IndividualLessonStatusModal({
               variant: 'destructive',
             });
           }
-      }
-      
-      // Reverse logic: if creating new unpaid lesson (completed) among paid ones, shift payment from next paid lesson
-      if (statusValue === 'completed' && wasUnpaid) {
-        const [{ data: allSessions }, { data: lessonRow }] = await Promise.all([
-          supabase
-            .from('individual_lesson_sessions')
-            .select('id, lesson_date, status')
-            .eq('individual_lesson_id', lessonId)
-            .order('lesson_date', { ascending: true }),
-          supabase
-            .from('individual_lessons')
-            .select('schedule_days, period_start, period_end')
-            .eq('id', lessonId)
-            .maybeSingle()
-        ]);
-
-        const sessionByDate = new Map<string, { id?: string; status?: string }>();
-        (allSessions || []).forEach((s) => sessionByDate.set(s.lesson_date, { id: s.id, status: s.status }));
-
-        const isPaid = (st?: string) => ['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence'].includes(st || '');
-
-        // Find next paid lesson after current date
-        let nextPaidDate: string | null = null;
-        for (const sess of (allSessions as { lesson_date: string; status?: string }[]) || []) {
-          if (sess.lesson_date > lessonDate && isPaid(sess.status)) {
-            nextPaidDate = sess.lesson_date;
-            break;
-          }
-        }
-
-        if (nextPaidDate) {
-          const nextPaidSession = sessionByDate.get(nextPaidDate);
-          if (nextPaidSession?.id) {
-            // Change next paid to scheduled (unpaid)
-            await supabase
-              .from('individual_lesson_sessions')
-              .update({ status: 'scheduled', updated_at: new Date().toISOString() })
-              .eq('id', nextPaidSession.id);
-
-            toast({
-              title: 'Оплата смещена',
-              description: `Оплата перенесена с занятия ${format(new Date(nextPaidDate), 'dd.MM.yyyy', { locale: ru })} на новое занятие`,
-            });
-          }
-        }
       }
       
       // Try update first to avoid duplicate rows
