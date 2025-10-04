@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -78,6 +79,15 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState('');
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
+
+  const handleCopyStudentLink = () => {
+    const url = `${window.location.origin}/newcrm/main?studentId=${student.id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success('Ссылка скопирована в буфер обмена');
+    }).catch(() => {
+      toast.error('Не удалось скопировать ссылку');
+    });
+  };
   const [selectedLesson, setSelectedLesson] = useState<any>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -225,7 +235,11 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                 <h2 className="text-2xl font-bold text-foreground mb-1">
                   {studentDetails.lastName} {studentDetails.firstName} {studentDetails.middleName}
                   {studentDetails.studentNumber && (
-                    <span className="ml-3 text-sm font-mono text-muted-foreground">
+                    <span 
+                      className="ml-3 text-sm font-mono text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+                      onClick={handleCopyStudentLink}
+                      title="Нажмите, чтобы скопировать ссылку"
+                    >
                       #{studentDetails.studentNumber}
                     </span>
                   )}
