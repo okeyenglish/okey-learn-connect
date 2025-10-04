@@ -58,6 +58,8 @@ import { useStudentHistory } from '@/hooks/useStudentHistory';
 import { AddAdditionalLessonModal } from './AddAdditionalLessonModal';
 import { AddToGroupModal } from './AddToGroupModal';
 import { AddIndividualLessonModal } from './AddIndividualLessonModal';
+import { GroupDetailModal } from '@/components/learning-groups/GroupDetailModal';
+import { LearningGroup } from '@/hooks/useLearningGroups';
 
 import { LessonScheduleStrip } from './LessonScheduleStrip';
 import { CreatePaymentModal } from './CreatePaymentModal';
@@ -125,6 +127,7 @@ export function EnhancedStudentCard({
   const [phoneValue, setPhoneValue] = useState('');
   const [showAddToGroup, setShowAddToGroup] = useState(false);
   const [showAddIndividualLesson, setShowAddIndividualLesson] = useState(false);
+  const [selectedGroupForModal, setSelectedGroupForModal] = useState<LearningGroup | null>(null);
   
   const { data: studentDetails, isLoading, refetch } = useStudentDetails(student.id);
   const { data: balance } = useStudentBalance(student.id);
@@ -898,7 +901,8 @@ export function EnhancedStudentCard({
                               {/* Заголовок с названием группы */}
                               <div className="flex items-start justify-between mb-2">
                                 <h4 
-                                  className="font-medium text-base text-primary"
+                                  className="font-medium text-base text-primary cursor-pointer hover:underline"
+                                  onClick={() => setSelectedGroupForModal(group as any)}
                                 >
                                   {group.name}
                                   {group.groupNumber && (
@@ -1199,7 +1203,10 @@ export function EnhancedStudentCard({
                               >
                                 {/* Заголовок с названием группы */}
                                 <div className="flex items-start justify-between mb-2">
-                                  <h4 className="font-medium text-base text-primary">
+                                  <h4 
+                                    className="font-medium text-base text-primary cursor-pointer hover:underline"
+                                    onClick={() => setSelectedGroupForModal(group as any)}
+                                  >
                                     {group.name}
                                     {group.groupNumber && (
                                       <span className="ml-2 text-xs font-mono text-muted-foreground">
@@ -1429,7 +1436,10 @@ export function EnhancedStudentCard({
                               >
                                 {/* Заголовок с названием группы */}
                                 <div className="flex items-start justify-between mb-2">
-                                  <h4 className="font-medium text-base text-muted-foreground">
+                                  <h4 
+                                    className="font-medium text-base text-muted-foreground cursor-pointer hover:underline"
+                                    onClick={() => setSelectedGroupForModal(group as any)}
+                                  >
                                     {group.name}
                                     {group.groupNumber && (
                                       <span className="ml-2 text-xs font-mono text-muted-foreground">
@@ -1991,6 +2001,13 @@ export function EnhancedStudentCard({
         onOpenChange={setShowAddIndividualLesson}
         studentId={student.id}
         studentName={studentDetails?.name || student.name}
+      />
+
+      {/* Модальное окно детальной информации о группе */}
+      <GroupDetailModal
+        group={selectedGroupForModal}
+        open={!!selectedGroupForModal}
+        onOpenChange={(open) => !open && setSelectedGroupForModal(null)}
       />
     </Dialog>
   );
