@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AdditionalLessonsList } from './AdditionalLessonsList';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface IndividualLessonScheduleProps {
   lessonId?: string;
@@ -28,6 +29,8 @@ interface LessonSession {
   payment_id?: string;
   is_additional?: boolean;
   notes?: string;
+  duration?: number;
+  paid_minutes?: number;
 }
 
 const DAY_MAP: Record<string, number> = {
@@ -71,7 +74,7 @@ export function IndividualLessonSchedule({
     try {
       const { data, error } = await supabase
         .from('individual_lesson_sessions')
-        .select('id, lesson_date, status, payment_id, is_additional, notes, updated_at')
+        .select('id, lesson_date, status, payment_id, is_additional, notes, duration, paid_minutes, updated_at')
         .eq('individual_lesson_id', lessonId)
         .order('updated_at', { ascending: false });
 
@@ -86,7 +89,9 @@ export function IndividualLessonSchedule({
             status: session.status,
             payment_id: session.payment_id,
             is_additional: session.is_additional,
-            notes: session.notes
+            notes: session.notes,
+            duration: session.duration,
+            paid_minutes: session.paid_minutes || 0
           };
         }
       });
@@ -156,13 +161,39 @@ export function IndividualLessonSchedule({
       }
     }
 
-    // Затем проверяем оплату (применимо для обычных статусов: scheduled/completed/absent/...)
-    if (session?.payment_id) {
+    // Проверяем частичную оплату
+    const duration = session?.duration || 60;
+    const paidMinutes = session?.paid_minutes || 0;
+    
+    if (paidMinutes > 0 && paidMinutes < duration) {
+      // Частичная оплата - используем градиент
+      const percentage = (paidMinutes / duration) * 100;
+      return `partial-payment-${Math.round(percentage)}`;
+    }
+
+    // Полная оплата
+    if (paidMinutes >= duration || session?.payment_id) {
       return 'bg-green-600 text-white border-green-600'; // Зеленый - оплачено
     }
 
     // По умолчанию — не оплачено
     return 'bg-white text-gray-500 border-gray-300'; // Белый фон, серые цифры
+  };
+
+  const getPaymentTooltip = (session?: LessonSession) => {
+    if (!session) return null;
+    
+    const duration = session.duration || 60;
+    const paidMinutes = session.paid_minutes || 0;
+    const unpaidMinutes = duration - paidMinutes;
+
+    if (paidMinutes === 0) {
+      return `Не оплачено: ${duration} мин`;
+    } else if (paidMinutes >= duration) {
+      return `Оплачено: ${duration} мин`;
+    } else {
+      return `Оплачено: ${paidMinutes} мин\nНе оплачено: ${unpaidMinutes} мин`;
+    }
   };
 
   // Generate lesson dates based on schedule days and include all sessions with custom statuses
@@ -219,39 +250,64 @@ export function IndividualLessonSchedule({
 
   return (
     <>
-      <div className={cn("space-y-3", className)}>
-        <div
-          className="flex items-center gap-2"
-          onClick={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <div className="flex gap-1 flex-wrap">
-          {displayedDates.map((date, index) => {
-            const dateStr = format(date, 'yyyy-MM-dd');
-            const colorClass = getLessonColor(date, lessonSessions[dateStr]?.status);
-            
-            return (
-              <button
-                key={index}
-                onClick={(e) => handleDateClick(date, e)}
-                className={cn(
-                  "h-8 px-2 rounded border flex items-center justify-center hover:opacity-80 transition-all cursor-pointer relative",
-                  colorClass
-                )}
-              >
-                <span className="text-xs font-medium whitespace-nowrap">
-                  {format(date, 'dd.MM', { locale: ru })}
-                </span>
-                <AttendanceIndicator
-                  lessonDate={date}
-                  lessonId={lessonId || ''}
-                  sessionType="individual"
-                  onClick={(e) => handleAttendanceClick(date, e)}
-                />
-              </button>
-            );
-          })}
+      <TooltipProvider>
+        <div className={cn("space-y-3", className)}>
+          <div
+            className="flex items-center gap-2"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <div className="flex gap-1 flex-wrap">
+            {displayedDates.map((date, index) => {
+              const dateStr = format(date, 'yyyy-MM-dd');
+              const session = lessonSessions[dateStr];
+              const colorClass = getLessonColor(date, session?.status);
+              const duration = session?.duration || 60;
+              const paidMinutes = session?.paid_minutes || 0;
+              const isPartialPayment = paidMinutes > 0 && paidMinutes < duration;
+              const paymentPercentage = isPartialPayment ? (paidMinutes / duration) * 100 : 0;
+              
+              return (
+                <Tooltip key={index}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={(e) => handleDateClick(date, e)}
+                      className={cn(
+                        "h-8 px-2 rounded border flex items-center justify-center hover:opacity-80 transition-all cursor-pointer relative overflow-hidden",
+                        !isPartialPayment && colorClass
+                      )}
+                      style={isPartialPayment ? {
+                        background: `linear-gradient(to right, rgb(22 163 74) ${paymentPercentage}%, rgb(243 244 246) ${paymentPercentage}%)`,
+                        borderColor: 'rgb(209 213 219)',
+                        color: paymentPercentage > 50 ? 'white' : 'rgb(107 114 128)'
+                      } : undefined}
+                    >
+                      <span className="text-xs font-medium whitespace-nowrap relative z-10">
+                        {format(date, 'dd.MM', { locale: ru })}
+                      </span>
+                      <AttendanceIndicator
+                        lessonDate={date}
+                        lessonId={lessonId || ''}
+                        sessionType="individual"
+                        onClick={(e) => handleAttendanceClick(date, e)}
+                      />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="text-xs">
+                      <div>{format(date, 'dd MMMM yyyy', { locale: ru })}</div>
+                      {session && (
+                        <>
+                          <div>Продолжительность: {duration} мин</div>
+                          <div className="whitespace-pre-line">{getPaymentTooltip(session)}</div>
+                        </>
+                      )}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
             {!showAll && hasMoreLessons && (
               <button
                 onClick={(e) => {
@@ -308,7 +364,8 @@ export function IndividualLessonSchedule({
             )}
           </div>
         )}
-      </div>
+        </div>
+      </TooltipProvider>
 
       <IndividualLessonStatusModal
         open={isModalOpen}

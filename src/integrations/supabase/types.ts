@@ -851,11 +851,13 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
+          duration: number | null
           id: string
           individual_lesson_id: string
           is_additional: boolean | null
           lesson_date: string
           notes: string | null
+          paid_minutes: number | null
           payment_id: string | null
           status: string
           updated_at: string | null
@@ -863,11 +865,13 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by?: string | null
+          duration?: number | null
           id?: string
           individual_lesson_id: string
           is_additional?: boolean | null
           lesson_date: string
           notes?: string | null
+          paid_minutes?: number | null
           payment_id?: string | null
           status?: string
           updated_at?: string | null
@@ -875,11 +879,13 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string | null
+          duration?: number | null
           id?: string
           individual_lesson_id?: string
           is_additional?: boolean | null
           lesson_date?: string
           notes?: string | null
+          paid_minutes?: number | null
           payment_id?: string | null
           status?: string
           updated_at?: string | null

@@ -10,12 +10,14 @@ import {
   Calendar, 
   User, 
   MapPin,
-  XCircle
+  XCircle,
+  Clock
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { RescheduleIndividualLessonModal } from "./RescheduleIndividualLessonModal";
+import { ChangeLessonDurationModal } from "./ChangeLessonDurationModal";
 
 interface IndividualLessonStatusModalProps {
   open: boolean;
@@ -27,6 +29,13 @@ interface IndividualLessonStatusModalProps {
 }
 
 const lessonStatusOptions = [
+  {
+    value: 'change_duration',
+    label: 'Изменить продолжительность',
+    description: 'Изменить длительность только этого занятия',
+    icon: Clock,
+    color: 'text-purple-600',
+  },
   {
     value: 'scheduled',
     label: 'Обычное занятие',
@@ -81,7 +90,40 @@ export function IndividualLessonStatusModal({
 }: IndividualLessonStatusModalProps) {
   const { toast } = useToast();
   const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false);
+  const [durationModalOpen, setDurationModalOpen] = useState(false);
   const [lessonData, setLessonData] = useState<{teacher?: string, classroom?: string}>({});
+  const [sessionData, setSessionData] = useState<{id?: string, duration?: number}>({});
+  
+  useEffect(() => {
+    if (open && lessonId && selectedDate) {
+      loadSessionData();
+    }
+  }, [open, lessonId, selectedDate]);
+
+  const loadSessionData = async () => {
+    if (!lessonId || !selectedDate) return;
+    
+    const lessonDate = format(selectedDate, 'yyyy-MM-dd');
+    const { data: session } = await supabase
+      .from('individual_lesson_sessions')
+      .select('id, duration')
+      .eq('individual_lesson_id', lessonId)
+      .eq('lesson_date', lessonDate)
+      .maybeSingle();
+    
+    if (session) {
+      setSessionData({ id: session.id, duration: session.duration || undefined });
+    } else {
+      // If no session exists, get default duration from lesson
+      const { data: lesson } = await supabase
+        .from('individual_lessons')
+        .select('duration')
+        .eq('id', lessonId)
+        .single();
+      
+      setSessionData({ duration: lesson?.duration || 60 });
+    }
+  };
   
   if (!selectedDate) return null;
 
@@ -92,6 +134,43 @@ export function IndividualLessonStatusModal({
         description: "ID занятия не найден",
         variant: "destructive"
       });
+      return;
+    }
+
+    // Special handling for change duration
+    if (statusValue === 'change_duration') {
+      // Ensure we have session data
+      if (!sessionData.id) {
+        // Create session if it doesn't exist
+        const lessonDate = format(selectedDate!, 'yyyy-MM-dd');
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        const { data: newSession, error } = await supabase
+          .from('individual_lesson_sessions')
+          .insert({
+            individual_lesson_id: lessonId,
+            lesson_date: lessonDate,
+            status: 'scheduled',
+            duration: sessionData.duration || 60,
+            created_by: user?.id,
+          })
+          .select('id')
+          .single();
+        
+        if (error || !newSession) {
+          toast({
+            title: "Ошибка",
+            description: "Не удалось создать занятие",
+            variant: "destructive"
+          });
+          return;
+        }
+        
+        setSessionData({ ...sessionData, id: newSession.id });
+      }
+      
+      setDurationModalOpen(true);
+      onOpenChange(false);
       return;
     }
 
@@ -404,16 +483,32 @@ export function IndividualLessonStatusModal({
       </Dialog>
 
       {lessonId && (
-        <RescheduleIndividualLessonModal
-          open={rescheduleModalOpen}
-          onOpenChange={setRescheduleModalOpen}
-          lessonId={lessonId}
-          originalDate={selectedDate}
-          currentTime={scheduleTime}
-          currentTeacher={lessonData.teacher}
-          currentClassroom={lessonData.classroom}
-          onRescheduled={onStatusUpdated}
-        />
+        <>
+          <RescheduleIndividualLessonModal
+            open={rescheduleModalOpen}
+            onOpenChange={setRescheduleModalOpen}
+            lessonId={lessonId}
+            originalDate={selectedDate}
+            currentTime={scheduleTime}
+            currentTeacher={lessonData.teacher}
+            currentClassroom={lessonData.classroom}
+            onRescheduled={onStatusUpdated}
+          />
+          
+          {sessionData.id && (
+            <ChangeLessonDurationModal
+              open={durationModalOpen}
+              onOpenChange={setDurationModalOpen}
+              sessionId={sessionData.id}
+              currentDuration={sessionData.duration || 60}
+              lessonDate={format(selectedDate, 'yyyy-MM-dd')}
+              onDurationChanged={() => {
+                onStatusUpdated?.();
+                loadSessionData();
+              }}
+            />
+          )}
+        </>
       )}
     </>
   );
