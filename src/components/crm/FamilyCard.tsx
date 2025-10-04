@@ -409,21 +409,21 @@ export const FamilyCard = ({
                       
                       <div className="space-y-1">
                         <div className="flex flex-wrap gap-1">
-                          {student.courses.map((course, courseIndex) => (
+                          {student.courses.filter(course => course.isActive).map((course, courseIndex) => (
                             <Badge key={courseIndex} variant="outline" className="text-xs">
                               {course.name}
                             </Badge>
                           ))}
                         </div>
                         
-                        {student.courses.map(course => course.nextLesson && (
+                        {student.courses.filter(course => course.isActive).map(course => course.nextLesson && (
                           <div key={course.id} className="flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded">
                             <Bell className="h-3 w-3" />
                             {course.nextLesson}
                           </div>
                         ))}
                         
-                        {student.courses.map(course => course.nextPayment && (
+                        {student.courses.filter(course => course.isActive).map(course => course.nextPayment && (
                           <div key={course.id} className="flex items-center gap-1 text-xs text-orange-700 bg-orange-100 px-2 py-1 rounded">
                             <Clock className="h-3 w-3" />
                             {course.nextPayment}
