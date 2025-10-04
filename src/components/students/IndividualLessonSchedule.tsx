@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { format, addDays, isBefore, isAfter, startOfDay, isPast, isToday } from 'date-fns';
+import { format, addDays, isBefore, startOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useState, useEffect } from 'react';
 import { IndividualLessonStatusModal } from './IndividualLessonStatusModal';
