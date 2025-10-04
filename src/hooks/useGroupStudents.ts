@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useQueryClient } from '@tanstack/react-query';
 import { Student } from './useStudents';
 
 export interface GroupStudent {
@@ -17,6 +18,7 @@ export const useGroupStudents = (groupId?: string) => {
   const [groupStudents, setGroupStudents] = useState<GroupStudent[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const fetchGroupStudents = async () => {
     if (!groupId) return;
@@ -37,11 +39,27 @@ export const useGroupStudents = (groupId?: string) => {
     if (!groupId) return false;
 
     try {
-      // Пока не работает, имитируем успех
+      const { error } = await supabase
+        .from('group_students')
+        .insert({
+          group_id: groupId,
+          student_id: studentId,
+          status: 'active',
+          enrollment_date: new Date().toISOString().split('T')[0],
+          notes: notes || null,
+        });
+
+      if (error) throw error;
+
       toast({
         title: "Успешно",
         description: "Студент добавлен в группу",
       });
+
+      // Инвалидируем кеш для обновления данных студента
+      queryClient.invalidateQueries({ queryKey: ['student-details', studentId] });
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      queryClient.invalidateQueries({ queryKey: ['learning-groups'] });
 
       fetchGroupStudents();
       return true;
