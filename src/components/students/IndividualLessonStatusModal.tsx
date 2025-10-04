@@ -210,12 +210,13 @@ export function IndividualLessonStatusModal({
 
           // Prefer existing future unpaid session rows first
           if (!targetDate && (allSessions || []).length) {
-            for (const sess of (allSessions as { lesson_date: string; payment_id?: string; status?: string }[])) {
-              if (sess.lesson_date > lessonDate && isUnpaid(sess)) {
-                targetDate = sess.lesson_date;
-                break;
-              }
+            const candidates = (allSessions as { lesson_date: string; payment_id?: string; status?: string }[])
+              .filter((s) => s.lesson_date > lessonDate && isUnpaid(s))
+              .sort((a, b) => (a.lesson_date < b.lesson_date ? -1 : 1));
+            if (candidates.length > 0) {
+              targetDate = candidates[0].lesson_date;
             }
+            console.log('[LessonStatus] candidates (existing)', { lessonId, lessonDate, candidates, picked: targetDate });
           }
 
           // If none, fallback to generating next scheduled date
@@ -240,6 +241,7 @@ export function IndividualLessonStatusModal({
 
         if (targetDate) {
           const targetSession = sessionByDate.get(targetDate);
+          console.log('[LessonStatus] Will transfer payment', { from: lessonDate, to: targetDate, hasTargetRow: !!targetSession?.id, targetSession });
           if (targetSession?.id) {
             // Update existing session - transfer payment_id
             await supabase
