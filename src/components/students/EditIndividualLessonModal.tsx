@@ -520,7 +520,10 @@ export const EditIndividualLessonModal = ({
                     </SelectTrigger>
                     <SelectContent className="bg-background z-[100]">
                       {classrooms
-                        ?.filter(c => c.is_active && c.branch === formData.branch && !c.is_online)
+                        ?.filter(c => {
+                          const selectedBranch = branches.find(b => b.value === formData.branch);
+                          return c.is_active && c.branch === selectedBranch?.label && !c.is_online;
+                        })
                         .map((classroom) => (
                           <SelectItem key={classroom.id} value={classroom.name}>
                             {classroom.name}
