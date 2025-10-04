@@ -64,7 +64,7 @@ export function AddAdditionalLessonModal({
         return;
       }
 
-      const { error } = await supabase
+      const { data: insertedRows, error } = await supabase
         .from('individual_lesson_sessions')
         .insert({
           individual_lesson_id: lessonId,
@@ -73,9 +73,45 @@ export function AddAdditionalLessonModal({
           notes: notes || (time ? `Дополнительное занятие, время: ${time}` : 'Дополнительное занятие'),
           is_additional: true,
           created_by: user.id,
-        });
+        })
+        .select('id, lesson_date, status, payment_id')
+        .single();
 
       if (error) throw error;
+
+      // Rebalance payments: ensure the earliest N scheduled lessons are paid (window model)
+      const { data: allSessions } = await supabase
+        .from('individual_lesson_sessions')
+        .select('id, lesson_date, status, payment_id')
+        .eq('individual_lesson_id', lessonId)
+        .order('lesson_date', { ascending: true });
+
+      const sessions = (allSessions || []) as { id: string; lesson_date: string; status?: string | null; payment_id?: string | null }[];
+      const scheduledSorted = sessions.filter(s => !s.status || s.status === 'scheduled');
+      const paidScheduled = scheduledSorted
+        .map((s, idx) => ({ ...s, idx }))
+        .filter(s => !!s.payment_id);
+
+      const windowSize = paidScheduled.length; // сколько занятий сейчас оплачено среди scheduled
+      const insertedIdx = scheduledSorted.findIndex(s => s.id === insertedRows.id);
+
+      if (windowSize > 0 && insertedIdx > -1 && insertedIdx < windowSize && !insertedRows.payment_id) {
+        // Сдвигаем окно оплаты влево: переносим оплату с самого "правого" оплаченного scheduled на новое более раннее
+        const donor = paidScheduled.sort((a, b) => b.idx - a.idx)[0];
+        if (donor && donor.id !== insertedRows.id && donor.payment_id) {
+          // Назначаем оплату новому занятию
+          await supabase
+            .from('individual_lesson_sessions')
+            .update({ payment_id: donor.payment_id })
+            .eq('id', insertedRows.id);
+
+          // Снимаем оплату с донора
+          await supabase
+            .from('individual_lesson_sessions')
+            .update({ payment_id: null })
+            .eq('id', donor.id);
+        }
+      }
 
       toast({
         title: "Успешно",

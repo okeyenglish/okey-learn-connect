@@ -39,6 +39,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useStudentDetails, StudentFullDetails } from '@/hooks/useStudentDetails';
 import { Student } from '@/hooks/useStudents';
 import { usePayments } from '@/hooks/usePayments';
+import { AddAdditionalLessonModal } from './AddAdditionalLessonModal';
 
 import { LessonScheduleStrip } from './LessonScheduleStrip';
 import { CreatePaymentModal } from './CreatePaymentModal';
@@ -74,6 +75,8 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [paymentToDelete, setPaymentToDelete] = useState<any>(null);
+  const [addLessonModalOpen, setAddLessonModalOpen] = useState(false);
+  const [addLessonForId, setAddLessonForId] = useState<string | null>(null);
   const { data: studentDetails, isLoading, refetch } = useStudentDetails(student.id);
   const { deletePayment } = usePayments();
   
@@ -483,7 +486,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                     size="icon"
                                     variant="ghost"
                                     className="h-8 w-8"
-onClick={(e) => {
+                                    onClick={(e) => {
                                       e.stopPropagation();
                                       // Open payment modal; validation of available/unpaid sessions occurs inside modal
                                       setSelectedLesson(lesson);
@@ -491,6 +494,19 @@ onClick={(e) => {
                                     }}
                                   >
                                     <Wallet className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setAddLessonForId(lesson.id);
+                                      setAddLessonModalOpen(true);
+                                    }}
+                                    title="Добавить дополнительное занятие"
+                                  >
+                                    <Plus className="h-4 w-4" />
                                   </Button>
                                 </div>
                               </div>
@@ -1017,6 +1033,22 @@ onClick={(e) => {
           </div>
         </div>
       </DialogContent>
+
+      {/* Модал добавления дополнительного занятия */}
+      {addLessonForId && (
+        <AddAdditionalLessonModal
+          open={addLessonModalOpen}
+          onOpenChange={(open) => {
+            setAddLessonModalOpen(open);
+            if (!open) setAddLessonForId(null);
+          }}
+          lessonId={addLessonForId}
+          onAdded={() => {
+            refetch();
+            setRefreshTrigger(prev => prev + 1);
+          }}
+        />
+      )}
 
       {/* Модал создания платежа */}
       {selectedLesson && (

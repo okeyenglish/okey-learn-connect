@@ -6,9 +6,8 @@ import { IndividualLessonStatusModal } from './IndividualLessonStatusModal';
 import { MarkAttendanceModal } from './MarkAttendanceModal';
 import { AttendanceIndicator } from './AttendanceIndicator';
 import { supabase } from '@/integrations/supabase/client';
-import { AddAdditionalLessonModal } from './AddAdditionalLessonModal';
 import { AdditionalLessonsList } from './AdditionalLessonsList';
-import { Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface IndividualLessonScheduleProps {
@@ -56,7 +55,6 @@ export function IndividualLessonSchedule({
   const [showAll, setShowAll] = useState(false);
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
   const [attendanceDate, setAttendanceDate] = useState<Date | null>(null);
-  const [addLessonModalOpen, setAddLessonModalOpen] = useState(false);
   const [showAdditionalLessons, setShowAdditionalLessons] = useState(false);
   const [additionalLessons, setAdditionalLessons] = useState<LessonSession[]>([]);
 
@@ -286,18 +284,6 @@ export function IndividualLessonSchedule({
                 </span>
               </button>
             )}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={(e) => {
-                e.stopPropagation();
-                setAddLessonModalOpen(true);
-              }}
-              className="h-8 gap-1"
-            >
-              <Plus className="h-3 w-3" />
-              <span className="text-xs">Добавить</span>
-            </Button>
           </div>
         </div>
 
@@ -350,14 +336,6 @@ export function IndividualLessonSchedule({
         />
       )}
 
-      {lessonId && (
-        <AddAdditionalLessonModal
-          open={addLessonModalOpen}
-          onOpenChange={setAddLessonModalOpen}
-          lessonId={lessonId}
-          onAdded={handleAdditionalLessonAdded}
-        />
-      )}
     </>
   );
 }
