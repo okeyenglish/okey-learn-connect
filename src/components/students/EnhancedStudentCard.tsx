@@ -132,60 +132,20 @@ export function EnhancedStudentCard({
   const { data: history, isLoading: historyLoading } = useStudentHistory(student.id);
   const updateIndividualLesson = useUpdateIndividualLesson();
 
+  // Проверка наличия будущих запланированных занятий
+  const hasFutureSessions = (lesson: any) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return lesson.sessions?.some((session: any) => {
+      const lessonDate = new Date(session.lessonDate);
+      lessonDate.setHours(0, 0, 0, 0);
+      return lessonDate >= today && session.status === 'scheduled';
+    }) || false;
+  };
+
   const handleArchiveLesson = async (lessonId: string) => {
     try {
-      // Получаем сегодняшнюю дату в формате YYYY-MM-DD
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayStr = today.toISOString().split('T')[0];
-      
-      alert(`Начинаем проверку архивации урока ${lessonId}. Сегодня: ${todayStr}`);
-      
-      // Сначала проверим ВСЕ сессии для этого урока
-      const { data: allSessions, error: allError } = await supabase
-        .from('individual_lesson_sessions')
-        .select('*')
-        .eq('individual_lesson_id', lessonId);
-      
-      console.log('=== ARCHIVE LESSON DEBUG ===');
-      console.log('Lesson ID:', lessonId);
-      console.log('Today date:', todayStr);
-      console.log('All sessions for this lesson:', allSessions);
-      
-      if (allError) {
-        alert(`Ошибка при получении всех сессий: ${allError.message}`);
-        console.error('Error fetching all sessions:', allError);
-      }
-      
-      alert(`Всего сессий найдено: ${allSessions?.length || 0}`);
-      
-      // Проверяем наличие будущих запланированных занятий
-      const { data: futureSessions, error: sessionsError } = await supabase
-        .from('individual_lesson_sessions')
-        .select('id, lesson_date, status')
-        .eq('individual_lesson_id', lessonId)
-        .eq('status', 'scheduled')
-        .gte('lesson_date', todayStr);
-
-      if (sessionsError) {
-        alert(`Ошибка при получении будущих сессий: ${sessionsError.message}`);
-        console.error('Error fetching future sessions:', sessionsError);
-        throw sessionsError;
-      }
-
-      console.log('Future scheduled sessions (>= today):', futureSessions);
-      alert(`Будущих запланированных сессий: ${futureSessions?.length || 0}`);
-
-      if (futureSessions && futureSessions.length > 0) {
-        const dates = futureSessions.map(s => s.lesson_date).join(', ');
-        alert(`БЛОКИРОВКА АРХИВАЦИИ! Найдено ${futureSessions.length} будущих занятий: ${dates}`);
-        console.log('BLOCKING ARCHIVE - Found future sessions');
-        toast.error(`Невозможно архивировать курс с ${futureSessions.length} запланированными занятиями в будущем`);
-        return;
-      }
-
-      alert('Будущих занятий не найдено, архивируем...');
-      console.log('PROCEEDING WITH ARCHIVE - No future sessions found');
       await updateIndividualLesson.mutateAsync({
         id: lessonId,
         status: 'finished'
@@ -193,7 +153,6 @@ export function EnhancedStudentCard({
       toast.success('Занятие архивировано');
     } catch (error) {
       console.error('Error archiving lesson:', error);
-      alert(`Ошибка: ${error}`);
       toast.error('Ошибка при архивации занятия');
     }
   };
@@ -951,11 +910,16 @@ export function EnhancedStudentCard({
                                     size="icon"
                                     variant="ghost"
                                     className="h-8 w-8"
+                                    disabled={hasFutureSessions(lesson)}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleArchiveLesson(lesson.id);
                                     }}
-                                    title="Архивировать занятие"
+                                    title={
+                                      hasFutureSessions(lesson)
+                                        ? "Нельзя архивировать курс с запланированными занятиями"
+                                        : "Архивировать занятие"
+                                    }
                                   >
                                     <Archive className="h-4 w-4" />
                                   </Button>
@@ -1226,11 +1190,16 @@ export function EnhancedStudentCard({
                                       size="icon"
                                       variant="ghost"
                                       className="h-8 w-8"
+                                      disabled={hasFutureSessions(lesson)}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleArchiveLesson(lesson.id);
                                       }}
-                                      title="Архивировать занятие"
+                                      title={
+                                        hasFutureSessions(lesson)
+                                          ? "Нельзя архивировать курс с запланированными занятиями"
+                                          : "Архивировать занятие"
+                                      }
                                     >
                                       <Archive className="h-4 w-4" />
                                     </Button>
