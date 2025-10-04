@@ -225,6 +225,14 @@ export const EditIndividualLessonModal = ({
               label: 'Время занятий'
             });
           }
+          if (JSON.stringify(currentLesson.schedule_days) !== JSON.stringify(formData.schedule_days)) {
+            changes.push({
+              field: 'schedule_days',
+              old_value: currentLesson.schedule_days,
+              new_value: formData.schedule_days,
+              label: 'Дни недели'
+            });
+          }
           if (currentLesson.audit_location !== formData.audit_location) {
             changes.push({
               field: 'audit_location',
