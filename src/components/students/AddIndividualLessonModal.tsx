@@ -27,6 +27,8 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
     price_per_lesson: '',
     schedule_days: [] as string[],
     schedule_time: '',
+    start_hour: '09',
+    start_minute: '00',
     lesson_location: '',
     notes: '',
     branch: 'Окская'
@@ -38,13 +40,27 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
   const { data: classrooms } = useClassrooms(formData.branch);
   const { toast } = useToast();
 
-  // Временные слоты для выбора
-  const timeSlots = [
-    '08:00-09:00', '09:00-10:00', '10:00-11:00', '11:00-12:00',
-    '12:00-13:00', '13:00-14:00', '14:00-15:00', '15:00-16:00',
-    '16:00-17:00', '17:00-18:00', '18:00-19:00', '19:00-20:00',
-    '20:00-21:00', '21:00-22:00'
-  ];
+  // Генерация часов (0-23)
+  const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+  
+  // Генерация минут с шагом 5 (0, 5, 10, ..., 55)
+  const minutes = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, '0'));
+
+  // Функция для расчета времени окончания
+  const calculateEndTime = (startHour: string, startMinute: string, durationMinutes: number) => {
+    const startTotalMinutes = parseInt(startHour) * 60 + parseInt(startMinute);
+    const endTotalMinutes = startTotalMinutes + durationMinutes;
+    const endHour = Math.floor(endTotalMinutes / 60) % 24;
+    const endMinute = endTotalMinutes % 60;
+    return `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+  };
+
+  // Автоматически формируем schedule_time при изменении времени начала или продолжительности
+  useEffect(() => {
+    const startTime = `${formData.start_hour}:${formData.start_minute}`;
+    const endTime = calculateEndTime(formData.start_hour, formData.start_minute, formData.duration);
+    setFormData(prev => ({ ...prev, schedule_time: `${startTime}-${endTime}` }));
+  }, [formData.start_hour, formData.start_minute, formData.duration]);
 
   // Автоматически рассчитываем стоимость при изменении продолжительности
   useEffect(() => {
@@ -96,6 +112,8 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
         price_per_lesson: '',
         schedule_days: [],
         schedule_time: '',
+        start_hour: '09',
+        start_minute: '00',
         lesson_location: '',
         notes: '',
         branch: 'Окская'
@@ -239,22 +257,43 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="schedule_time">Время</Label>
-              <Select 
-                value={formData.schedule_time} 
-                onValueChange={(value) => setFormData(prev => ({...prev, schedule_time: value}))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите время" />
-                </SelectTrigger>
-                <SelectContent className="bg-background z-50">
-                  {timeSlots.map((slot) => (
-                    <SelectItem key={slot} value={slot}>
-                      {slot}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Время начала</Label>
+              <div className="flex gap-2">
+                <Select 
+                  value={formData.start_hour} 
+                  onValueChange={(value) => setFormData(prev => ({...prev, start_hour: value}))}
+                >
+                  <SelectTrigger className="w-[100px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50">
+                    {hours.map((hour) => (
+                      <SelectItem key={hour} value={hour}>
+                        {hour}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className="flex items-center">:</span>
+                <Select 
+                  value={formData.start_minute} 
+                  onValueChange={(value) => setFormData(prev => ({...prev, start_minute: value}))}
+                >
+                  <SelectTrigger className="w-[100px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50">
+                    {minutes.map((minute) => (
+                      <SelectItem key={minute} value={minute}>
+                        {minute}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Окончание: {calculateEndTime(formData.start_hour, formData.start_minute, formData.duration)}
+              </div>
             </div>
 
             <div>
