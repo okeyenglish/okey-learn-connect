@@ -82,14 +82,26 @@ export const EditIndividualLessonModal = ({
   }, [lessonId, open]);
 
   useEffect(() => {
-    // Обновляем timeSelection когда загружаются данные
+    // Синхронизируем timeSelection с schedule_time и вычисляем продолжительность
     if (formData.schedule_time) {
       const parsed = parseTimeRange(formData.schedule_time);
-      setTimeSelection({
-        startHour: parsed.startHour,
-        startMinute: parsed.startMinute,
-        duration: '60' // можно вычислить из разницы времен, но пока оставим по умолчанию
-      });
+      if (parsed.startHour && parsed.startMinute && parsed.endHour && parsed.endMinute) {
+        const start = parseInt(parsed.startHour) * 60 + parseInt(parsed.startMinute);
+        const end = parseInt(parsed.endHour) * 60 + parseInt(parsed.endMinute);
+        const durationMin = Math.max(5, end - start);
+        setTimeSelection(prev => ({
+          startHour: parsed.startHour,
+          startMinute: parsed.startMinute,
+          duration: durationMin.toString(),
+        }));
+      } else {
+        // если нет времени окончания, сохраняем текущую длительность
+        setTimeSelection(prev => ({
+          ...prev,
+          startHour: parsed.startHour,
+          startMinute: parsed.startMinute,
+        }));
+      }
     }
   }, [formData.schedule_time]);
 
