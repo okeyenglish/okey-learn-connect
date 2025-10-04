@@ -555,20 +555,6 @@ export const EditIndividualLessonModal = ({
               </Select>
             </div>
 
-            {/* Цвет */}
-            <div className="space-y-2">
-              <Label htmlFor="color">Цвет:</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="color"
-                  type="color"
-                  value={formData.color}
-                  onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                  className="w-20 h-10 cursor-pointer"
-                />
-              </div>
-            </div>
-
             {/* Кнопки */}
             <div className="flex justify-end gap-3 pt-4">
               <Button 
