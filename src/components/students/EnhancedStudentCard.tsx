@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
 import { 
   Phone, 
   Mail, 
@@ -35,7 +36,9 @@ import {
   Plus,
   FileText,
   Wallet,
-  Trash2
+  Trash2,
+  Check,
+  X
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useStudentDetails, StudentFullDetails } from '@/hooks/useStudentDetails';
@@ -79,6 +82,20 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState('');
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [firstNameValue, setFirstNameValue] = useState('');
+  const [lastNameValue, setLastNameValue] = useState('');
+  const [middleNameValue, setMiddleNameValue] = useState('');
+  const [selectedLesson, setSelectedLesson] = useState<any>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [paymentToDelete, setPaymentToDelete] = useState<any>(null);
+  const [addLessonModalOpen, setAddLessonModalOpen] = useState(false);
+  const [addLessonForId, setAddLessonForId] = useState<string | null>(null);
+  
+  const { data: studentDetails, isLoading, refetch } = useStudentDetails(student.id);
+  const { data: balance } = useStudentBalance(student.id);
+  const { deletePayment } = usePayments();
 
   const handleCopyStudentLink = () => {
     const url = `${window.location.origin}/newcrm/main?studentId=${student.id}`;
@@ -88,17 +105,6 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
       toast.error('Не удалось скопировать ссылку');
     });
   };
-  const [selectedLesson, setSelectedLesson] = useState<any>(null);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [paymentToDelete, setPaymentToDelete] = useState<any>(null);
-  const [addLessonModalOpen, setAddLessonModalOpen] = useState(false);
-  const [addLessonForId, setAddLessonForId] = useState<string | null>(null);
-  const { data: studentDetails, isLoading, refetch } = useStudentDetails(student.id);
-  const { data: balance } = useStudentBalance(student.id);
-  const { deletePayment } = usePayments();
-  
-
 
   // Update notes value when student details load
   React.useEffect(() => {
@@ -106,6 +112,42 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
       setNotesValue(studentDetails.notes);
     }
   }, [studentDetails?.notes]);
+
+  // Update name values when student details load
+  React.useEffect(() => {
+    if (studentDetails) {
+      setFirstNameValue(studentDetails.firstName || '');
+      setLastNameValue(studentDetails.lastName || '');
+      setMiddleNameValue(studentDetails.middleName || '');
+    }
+  }, [studentDetails]);
+
+  const handleSaveName = async () => {
+    if (!firstNameValue.trim() || !lastNameValue.trim()) {
+      toast.error('Имя и фамилия обязательны');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ 
+          first_name: firstNameValue.trim(),
+          last_name: lastNameValue.trim(),
+          middle_name: middleNameValue.trim()
+        })
+        .eq('id', student.id);
+
+      if (error) throw error;
+      
+      setIsEditingName(false);
+      refetch();
+      toast.success('ФИО обновлено');
+    } catch (error) {
+      console.error('Error saving name:', error);
+      toast.error('Не удалось сохранить ФИО');
+    }
+  };
 
   const handleSaveNotes = async () => {
     try {
@@ -233,22 +275,62 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
               </Avatar>
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <h2 className="text-2xl font-bold text-foreground">
-                    {studentDetails.lastName} {studentDetails.firstName} {studentDetails.middleName}
-                    {studentDetails.studentNumber && (
-                      <span 
-                        className="ml-3 text-sm font-mono text-muted-foreground cursor-pointer hover:text-primary transition-colors"
-                        onClick={handleCopyStudentLink}
-                        title="Нажмите, чтобы скопировать ссылку"
-                      >
-                        #{studentDetails.studentNumber}
-                      </span>
-                    )}
-                  </h2>
-                  {getStatusBadge(studentDetails.status)}
-                  <Button variant="outline" size="sm" title="Редактировать">
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                  {isEditingName ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={lastNameValue}
+                        onChange={(e) => setLastNameValue(e.target.value)}
+                        placeholder="Фамилия"
+                        className="h-8 w-32"
+                      />
+                      <Input
+                        value={firstNameValue}
+                        onChange={(e) => setFirstNameValue(e.target.value)}
+                        placeholder="Имя"
+                        className="h-8 w-32"
+                      />
+                      <Input
+                        value={middleNameValue}
+                        onChange={(e) => setMiddleNameValue(e.target.value)}
+                        placeholder="Отчество"
+                        className="h-8 w-32"
+                      />
+                      <Button size="sm" variant="ghost" onClick={handleSaveName} title="Сохранить">
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setIsEditingName(false)} title="Отменить">
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <h2 
+                      className="text-2xl font-bold text-foreground cursor-pointer hover:text-primary transition-colors"
+                      onClick={() => setIsEditingName(true)}
+                      title="Нажмите, чтобы редактировать ФИО"
+                    >
+                      {studentDetails.lastName} {studentDetails.firstName} {studentDetails.middleName}
+                      {studentDetails.studentNumber && (
+                        <span 
+                          className="ml-3 text-sm font-mono text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopyStudentLink();
+                          }}
+                          title="Нажмите, чтобы скопировать ссылку"
+                        >
+                          #{studentDetails.studentNumber}
+                        </span>
+                      )}
+                    </h2>
+                  )}
+                  {!isEditingName && (
+                    <>
+                      {getStatusBadge(studentDetails.status)}
+                      <Button variant="outline" size="sm" title="Редактировать">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
                 </div>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   {studentDetails.age && (
