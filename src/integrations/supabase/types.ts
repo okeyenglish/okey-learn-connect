@@ -80,6 +80,61 @@ export type Database = {
         }
         Relationships: []
       }
+      balance_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string
+          id: string
+          lesson_session_id: string | null
+          payment_id: string | null
+          student_id: string
+          transaction_type: Database["public"]["Enums"]["balance_transaction_type"]
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description: string
+          id?: string
+          lesson_session_id?: string | null
+          payment_id?: string | null
+          student_id: string
+          transaction_type: Database["public"]["Enums"]["balance_transaction_type"]
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string
+          id?: string
+          lesson_session_id?: string | null
+          payment_id?: string | null
+          student_id?: string
+          transaction_type?: Database["public"]["Enums"]["balance_transaction_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "balance_transactions_lesson_session_id_fkey"
+            columns: ["lesson_session_id"]
+            isOneToOne: false
+            referencedRelation: "individual_lesson_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "balance_transactions_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "balance_transactions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bonus_accounts: {
         Row: {
           balance: number
@@ -2469,6 +2524,38 @@ export type Database = {
           },
         ]
       }
+      student_balances: {
+        Row: {
+          balance: number
+          created_at: string
+          id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          id?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_balances_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_courses: {
         Row: {
           course_name: string
@@ -3288,6 +3375,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_balance_transaction: {
+        Args: {
+          _amount: number
+          _description: string
+          _lesson_session_id?: string
+          _payment_id?: string
+          _student_id: string
+          _transaction_type: Database["public"]["Enums"]["balance_transaction_type"]
+        }
+        Returns: undefined
+      }
       binary_quantize: {
         Args: { "": string } | { "": unknown }
         Returns: unknown
@@ -3433,6 +3531,15 @@ export type Database = {
           conflicting_group_id: string
           conflicting_teacher: string
           conflicting_time_range: string
+        }[]
+      }
+      get_student_balance: {
+        Args: { _student_id: string }
+        Returns: {
+          balance: number
+          created_at: string
+          student_id: string
+          updated_at: string
         }[]
       }
       get_student_by_user_id: {
@@ -3653,6 +3760,7 @@ export type Database = {
         | "receptionist"
         | "head_teacher"
         | "branch_manager"
+      balance_transaction_type: "credit" | "debit" | "transfer_in" | "refund"
       bonus_transaction_type: "earned" | "spent" | "expired"
       day_of_week:
         | "monday"
@@ -3837,6 +3945,7 @@ export const Constants = {
         "head_teacher",
         "branch_manager",
       ],
+      balance_transaction_type: ["credit", "debit", "transfer_in", "refund"],
       bonus_transaction_type: ["earned", "spent", "expired"],
       day_of_week: [
         "monday",

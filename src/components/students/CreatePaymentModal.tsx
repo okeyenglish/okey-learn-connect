@@ -146,6 +146,8 @@ export function CreatePaymentModal({
             // Используем ту же логику, что и в карточке - всегда вычисляем цену по формуле
             const duration = lesson.duration || 60;
             const price = calculateLessonPrice(duration);
+            // 1 академический час = 40 минут, поэтому 60 мин = 1.5 ак.ч.
+            const academicHours = duration / 40;
             lessons.push({
               id: lesson.id,
               type: 'individual',
@@ -156,7 +158,7 @@ export function CreatePaymentModal({
               branch: lesson.branch || '',
               duration: duration,
               pricePerLesson: price,
-              academicHours: lesson.academic_hours_per_day || 1,
+              academicHours: academicHours,
               scheduleTime: lesson.schedule_time,
               scheduleDays: lesson.schedule_days,
             });
