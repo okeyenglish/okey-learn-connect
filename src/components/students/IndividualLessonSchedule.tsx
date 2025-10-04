@@ -31,6 +31,9 @@ interface LessonSession {
   notes?: string;
   duration?: number;
   paid_minutes?: number;
+  payment_date?: string;
+  payment_amount?: number;
+  lessons_count?: number;
 }
 
 const DAY_MAP: Record<string, number> = {
@@ -74,7 +77,22 @@ export function IndividualLessonSchedule({
     try {
       const { data, error } = await supabase
         .from('individual_lesson_sessions')
-        .select('id, lesson_date, status, payment_id, is_additional, notes, duration, paid_minutes, updated_at')
+        .select(`
+          id, 
+          lesson_date, 
+          status, 
+          payment_id, 
+          is_additional, 
+          notes, 
+          duration, 
+          paid_minutes, 
+          updated_at,
+          payments:payment_id (
+            payment_date,
+            amount,
+            lessons_count
+          )
+        `)
         .eq('individual_lesson_id', lessonId)
         .order('updated_at', { ascending: false });
 
@@ -83,6 +101,7 @@ export function IndividualLessonSchedule({
       const sessionsMap: Record<string, LessonSession> = {};
       data?.forEach(session => {
         if (!sessionsMap[session.lesson_date]) {
+          const payment = Array.isArray(session.payments) ? session.payments[0] : session.payments;
           sessionsMap[session.lesson_date] = { 
             id: session.id,
             lesson_date: session.lesson_date, 
@@ -91,7 +110,10 @@ export function IndividualLessonSchedule({
             is_additional: session.is_additional,
             notes: session.notes,
             duration: session.duration,
-            paid_minutes: session.paid_minutes || 0
+            paid_minutes: session.paid_minutes || 0,
+            payment_date: payment?.payment_date,
+            payment_amount: payment?.amount,
+            lessons_count: payment?.lessons_count
           };
         }
       });
@@ -180,19 +202,26 @@ export function IndividualLessonSchedule({
     return 'bg-white text-gray-500 border-gray-300'; // Белый фон, серые цифры
   };
 
-  const getPaymentTooltip = (session?: LessonSession) => {
+  const getPaymentTooltip = (session?: LessonSession, lessonNumber?: number) => {
     if (!session) return null;
     
     const duration = session.duration || 60;
     const paidMinutes = session.paid_minutes || 0;
     const unpaidMinutes = duration - paidMinutes;
 
+    let paymentInfo = '';
+    if (session.payment_date && session.payment_amount && session.lessons_count) {
+      const paymentDate = format(new Date(session.payment_date), 'dd.MM.yyyy', { locale: ru });
+      const pricePerLesson = Math.round(session.payment_amount / session.lessons_count);
+      paymentInfo = `\nОплата от ${paymentDate} (${session.payment_amount.toLocaleString('ru-RU')} ₽ за ${session.lessons_count} ${session.lessons_count === 1 ? 'занятие' : 'занятия'})`;
+    }
+
     if (paidMinutes === 0) {
       return `Не оплачено: ${duration} мин`;
     } else if (paidMinutes >= duration) {
-      return `Оплачено: ${duration} мин`;
+      return `Оплачено: ${duration} мин${paymentInfo}`;
     } else {
-      return `Оплачено: ${paidMinutes} мин\nНе оплачено: ${unpaidMinutes} мин`;
+      return `Оплачено: ${paidMinutes} мин\nНе оплачено: ${unpaidMinutes} мин${paymentInfo}`;
     }
   };
 
@@ -267,6 +296,7 @@ export function IndividualLessonSchedule({
               const paidMinutes = session?.paid_minutes || 0;
               const isPartialPayment = paidMinutes > 0 && paidMinutes < duration;
               const paymentPercentage = isPartialPayment ? (paidMinutes / duration) * 100 : 0;
+              const lessonNumber = index + 1;
               
               return (
                 <Tooltip key={index}>
@@ -295,13 +325,13 @@ export function IndividualLessonSchedule({
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <div className="text-xs">
-                      <div>{format(date, 'dd MMMM yyyy', { locale: ru })}</div>
+                    <div className="text-xs space-y-1">
+                      <div className="font-semibold">Занятие №{lessonNumber} ({duration} мин.)</div>
+                      <div className="text-muted-foreground">{format(date, 'dd MMMM yyyy', { locale: ru })}</div>
                       {session && (
-                        <>
-                          <div>Продолжительность: {duration} мин</div>
-                          <div className="whitespace-pre-line">{getPaymentTooltip(session)}</div>
-                        </>
+                        <div className="whitespace-pre-line pt-1 border-t">
+                          {getPaymentTooltip(session, lessonNumber)}
+                        </div>
                       )}
                     </div>
                   </TooltipContent>
