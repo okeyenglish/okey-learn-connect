@@ -182,45 +182,16 @@ export const EditIndividualLessonModal = ({
     try {
       // Если есть проведенные занятия и указана дата применения
       if (hasCompletedSessions && applyFromDate) {
-        // Вычисляем время начала и конца из schedule_time
-        let startTime: string | undefined;
-        let endTime: string | undefined;
-        if (formData.schedule_time && formData.schedule_time.includes('-')) {
-          const [start, end] = formData.schedule_time.split('-');
-          startTime = start;
-          endTime = end;
-        }
-        
-        // Обновляем все запланированные занятия в указанном диапазоне дат
-        let query = supabase
-          .from('individual_lesson_sessions')
-          .update({
-            ...(formData.teacher_name && { teacher_name: formData.teacher_name }),
-            ...(formData.audit_location && { classroom: formData.audit_location }),
-            ...(formData.branch && { branch: formData.branch }),
-            ...(startTime && { start_time: startTime }),
-            ...(endTime && { end_time: endTime }),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('individual_lesson_id', lessonId)
-          .gte('lesson_date', applyFromDate)
-          .eq('status', 'scheduled');
-        
-        if (applyToDate) {
-          query = query.lte('lesson_date', applyToDate);
-        }
-        
-        const { error: sessionsError } = await query;
-        
-        if (sessionsError) throw sessionsError;
-        
-        // Также обновляем основную запись с новыми параметрами
+        // Для индивидуальных занятий преподаватель, филиал и время хранятся 
+        // только в основной таблице individual_lessons
+        // Обновляем только основную запись
         await updateLesson.mutateAsync({
           id: lessonId,
           branch: formData.branch,
           teacher_name: formData.teacher_name || undefined,
           schedule_time: formData.schedule_time || undefined,
           audit_location: formData.audit_location || undefined,
+          schedule_days: formData.schedule_days.length > 0 ? formData.schedule_days : undefined,
         });
         
         const fromDateStr = new Date(applyFromDate).toLocaleDateString('ru-RU');
