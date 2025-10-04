@@ -10,6 +10,7 @@ interface Props {
   scheduleTime?: string;
   periodStart?: string | null;
   periodEnd?: string | null;
+  refreshTrigger?: number;
   className?: string;
 }
 
@@ -28,7 +29,7 @@ function fmtDays(days?: string[]) {
   return days.map(d => dayLabels[d?.toLowerCase()] || d).join('/');
 }
 
-export function ScheduleSummary({ lessonId, scheduleDays, scheduleTime, periodStart, periodEnd, className }: Props) {
+export function ScheduleSummary({ lessonId, scheduleDays, scheduleTime, periodStart, periodEnd, refreshTrigger, className }: Props) {
   const [history, setHistory] = useState<any[]>([]);
 
   useEffect(() => {
@@ -40,7 +41,7 @@ export function ScheduleSummary({ lessonId, scheduleDays, scheduleTime, periodSt
         .order('changed_at', { ascending: true });
       if (!error) setHistory(data || []);
     })();
-  }, [lessonId]);
+  }, [lessonId, refreshTrigger]);
 
   // Если истории нет — выводим обычный период
   if (!history || history.length === 0) {

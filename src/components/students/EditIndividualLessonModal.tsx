@@ -192,56 +192,30 @@ export const EditIndividualLessonModal = ({
       // Получаем текущего пользователя
       const { data: { user } } = await supabase.auth.getUser();
       
+      // Собираем изменения для истории на основе текущих данных
+      const changes: any[] = [];
+      if (currentLesson) {
+        if (currentLesson.branch !== formData.branch) {
+          changes.push({ field: 'branch', old_value: currentLesson.branch, new_value: formData.branch, label: 'Филиал' });
+        }
+        if (currentLesson.teacher_name !== formData.teacher_name) {
+          changes.push({ field: 'teacher_name', old_value: currentLesson.teacher_name, new_value: formData.teacher_name, label: 'Преподаватель' });
+        }
+        if (currentLesson.schedule_time !== formData.schedule_time) {
+          changes.push({ field: 'schedule_time', old_value: currentLesson.schedule_time, new_value: formData.schedule_time, label: 'Время занятий' });
+        }
+        if (JSON.stringify(currentLesson.schedule_days) !== JSON.stringify(formData.schedule_days)) {
+          changes.push({ field: 'schedule_days', old_value: currentLesson.schedule_days, new_value: formData.schedule_days, label: 'Дни недели' });
+        }
+        if (currentLesson.audit_location !== formData.audit_location) {
+          changes.push({ field: 'audit_location', old_value: currentLesson.audit_location, new_value: formData.audit_location, label: 'Аудитория' });
+        }
+      }
+
       // Если есть проведенные занятия и указана дата применения
       if (hasCompletedSessions && applyFromDate) {
         // Для индивидуальных занятий преподаватель, филиал и время хранятся 
         // только в основной таблице individual_lessons
-        
-        // Собираем изменения для истории
-        const changes: any[] = [];
-        
-        if (currentLesson) {
-          if (currentLesson.branch !== formData.branch) {
-            changes.push({
-              field: 'branch',
-              old_value: currentLesson.branch,
-              new_value: formData.branch,
-              label: 'Филиал'
-            });
-          }
-          if (currentLesson.teacher_name !== formData.teacher_name) {
-            changes.push({
-              field: 'teacher_name',
-              old_value: currentLesson.teacher_name,
-              new_value: formData.teacher_name,
-              label: 'Преподаватель'
-            });
-          }
-          if (currentLesson.schedule_time !== formData.schedule_time) {
-            changes.push({
-              field: 'schedule_time',
-              old_value: currentLesson.schedule_time,
-              new_value: formData.schedule_time,
-              label: 'Время занятий'
-            });
-          }
-          if (JSON.stringify(currentLesson.schedule_days) !== JSON.stringify(formData.schedule_days)) {
-            changes.push({
-              field: 'schedule_days',
-              old_value: currentLesson.schedule_days,
-              new_value: formData.schedule_days,
-              label: 'Дни недели'
-            });
-          }
-          if (currentLesson.audit_location !== formData.audit_location) {
-            changes.push({
-              field: 'audit_location',
-              old_value: currentLesson.audit_location,
-              new_value: formData.audit_location,
-              label: 'Аудитория'
-            });
-          }
-        }
         
         // Обновляем только основную запись
         await updateLesson.mutateAsync({
@@ -255,7 +229,7 @@ export const EditIndividualLessonModal = ({
         
         // Записываем историю изменений, если есть изменения
         if (changes.length > 0 && user) {
-          await supabase
+          const { error: histError } = await supabase
             .from('individual_lesson_history')
             .insert({
               lesson_id: lessonId,
@@ -266,6 +240,9 @@ export const EditIndividualLessonModal = ({
               applied_to_date: applyToDate || null,
               notes: `Изменения применены к будущим занятиям`
             });
+          if (histError) {
+            console.error('History insert error:', histError);
+          }
         }
 
         // Перестраиваем будущие занятия в выбранном диапазоне под новое расписание
@@ -350,6 +327,24 @@ export const EditIndividualLessonModal = ({
           academic_hours: formData.academic_hours ? parseFloat(formData.academic_hours) : undefined,
           audit_location: formData.audit_location || undefined,
         });
+
+        // Пишем историю и для полного обновления
+        if (changes.length > 0 && user) {
+          const { error: histError2 } = await supabase
+            .from('individual_lesson_history')
+            .insert({
+              lesson_id: lessonId,
+              changed_by: user.id,
+              change_type: 'schedule_update',
+              changes: changes,
+              applied_from_date: null,
+              applied_to_date: null,
+              notes: 'Изменения применены ко всем занятиям'
+            });
+          if (histError2) {
+            console.error('History insert error:', histError2);
+          }
+        }
 
         toast({
           title: "Успешно",

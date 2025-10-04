@@ -570,6 +570,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                 scheduleTime={lesson.scheduleTime}
                                 periodStart={lesson.periodStart}
                                 periodEnd={lesson.periodEnd}
+                                refreshTrigger={refreshTrigger}
                               />
                               {/* Аудитория */}
                               <div className="text-sm mb-3">
