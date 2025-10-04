@@ -47,6 +47,8 @@ import { CreatePaymentModal } from './CreatePaymentModal';
 import { EditIndividualLessonModal } from './EditIndividualLessonModal';
 import { ScheduleSummary } from './ScheduleSummary';
 import { IndividualLessonSchedule } from './IndividualLessonSchedule';
+import { StudentBalanceModal } from './StudentBalanceModal';
+import { useStudentBalance } from '@/hooks/useStudentBalance';
 import { calculateLessonPrice } from '@/utils/lessonPricing';
 import { 
   AlertDialog,
@@ -72,6 +74,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('overview');
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [balanceModalOpen, setBalanceModalOpen] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState('');
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
@@ -82,6 +85,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
   const [addLessonModalOpen, setAddLessonModalOpen] = useState(false);
   const [addLessonForId, setAddLessonForId] = useState<string | null>(null);
   const { data: studentDetails, isLoading, refetch } = useStudentDetails(student.id);
+  const { data: balance } = useStudentBalance(student.id);
   const { deletePayment } = usePayments();
   
 
@@ -308,6 +312,15 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                     >
                       <CreditCard className="h-4 w-4 mr-2" />
                       Создать платеж
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full justify-start"
+                      onClick={() => setBalanceModalOpen(true)}
+                    >
+                      <Wallet className="h-4 w-4 mr-2" />
+                      Личный баланс {balance?.balance ? `(${balance.balance.toFixed(2)} ₽)` : ''}
                     </Button>
                   </CardContent>
                 </Card>
@@ -1115,6 +1128,14 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
             setRefreshTrigger(prev => prev + 1);
           }, 100);
         }}
+      />
+
+      {/* Модал личного баланса */}
+      <StudentBalanceModal
+        studentId={student.id}
+        studentName={studentDetails?.name || student.name}
+        open={balanceModalOpen}
+        onOpenChange={setBalanceModalOpen}
       />
 
       {/* Диалог подтверждения удаления платежа */}
