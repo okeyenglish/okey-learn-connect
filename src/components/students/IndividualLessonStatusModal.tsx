@@ -227,7 +227,7 @@ export function IndividualLessonStatusModal({
 
       const { data: currentSession } = await supabase
         .from('individual_lesson_sessions')
-        .select('status, payment_id')
+        .select('status, payment_id, is_additional')
         .eq('individual_lesson_id', lessonId)
         .eq('lesson_date', lessonDate)
         .maybeSingle();
@@ -411,6 +411,11 @@ export function IndividualLessonStatusModal({
       // Try update first to avoid duplicate rows
       const updateData: any = { status: statusValue, created_by: user.id, updated_at: new Date().toISOString() };
       if (paymentToAssign) updateData.payment_id = paymentToAssign;
+      
+      // Когда дополнительное занятие становится обычным, убираем флаг is_additional
+      if (statusValue === 'scheduled' && currentSession?.is_additional) {
+        updateData.is_additional = false;
+      }
 
       const { data: updatedRows, error: updateError } = await supabase
         .from('individual_lesson_sessions')
@@ -431,6 +436,7 @@ export function IndividualLessonStatusModal({
           lesson_date: lessonDate,
           status: statusValue,
           created_by: user.id,
+          is_additional: false, // Новое обычное занятие
         };
         if (paymentToAssign) insertData.payment_id = paymentToAssign;
 

@@ -101,21 +101,22 @@ export const usePayments = (filters?: any) => {
 
         console.log('Total minutes to distribute:', remainingMinutesToDistribute);
 
-        // Загружаем все сессии урока
+        // Загружаем все сессии урока (исключая дополнительные занятия)
         const { data: allSessions } = await supabase
           .from('individual_lesson_sessions')
-          .select('id, lesson_date, status, payment_id, duration, paid_minutes')
+          .select('id, lesson_date, status, payment_id, duration, paid_minutes, is_additional')
           .eq('individual_lesson_id', paymentData.individual_lesson_id)
           .order('lesson_date', { ascending: true });
 
         console.log('All sessions:', allSessions);
 
-        // ШАГ 1: Сначала заполняем частично оплаченные занятия
+        // ШАГ 1: Сначала заполняем частично оплаченные занятия (только обычные, не дополнительные)
         const partiallyPaidSessions = (allSessions || []).filter(s => {
           const sessionDuration = s.duration || lessonDuration;
           const paidMinutes = s.paid_minutes || 0;
           return paidMinutes > 0 && paidMinutes < sessionDuration && 
-                 (!s.status || ['scheduled', 'completed', 'attended'].includes(s.status));
+                 (!s.status || ['scheduled', 'completed', 'attended'].includes(s.status)) &&
+                 !s.is_additional; // Исключаем дополнительные занятия
         });
 
         console.log('Partially paid sessions found:', partiallyPaidSessions.length);
@@ -154,7 +155,8 @@ export const usePayments = (filters?: any) => {
           const unpaidSessions = (allSessions || []).filter(s => {
             const paidMinutes = s.paid_minutes || 0;
             return paidMinutes === 0 && 
-                   (!s.status || ['scheduled', 'completed', 'attended'].includes(s.status));
+                   (!s.status || ['scheduled', 'completed', 'attended'].includes(s.status)) &&
+                   !s.is_additional; // Исключаем дополнительные занятия
           });
 
           console.log('Unpaid sessions found:', unpaidSessions.length);
