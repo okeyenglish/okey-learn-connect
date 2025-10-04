@@ -100,6 +100,7 @@ import { TeacherMessagesPanel } from "@/components/crm/TeacherMessagesPanel";
 import { UserPermissionsManager } from "@/components/admin/UserPermissionsManager";
 import { LeadsModalContent } from "@/components/leads/LeadsModalContent";
 import { StudentsModal } from "@/components/crm/StudentsModal";
+import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
 import FinancesSection from "@/components/finances/FinancesSection";
 import ScheduleSection from "@/components/crm/sections/ScheduleSection";
 import { cn } from "@/lib/utils";
@@ -3043,6 +3044,19 @@ const CRMContent = () => {
               onOpenChange={() => closePinnedModal(modal.id, modal.type)}
               clientName={modal.props.clientName}
               isPinned={true}
+              onUnpin={() => unpinModal(modal.id, modal.type)}
+            />
+          );
+        }
+        if (modal.type === 'student' && modal.isOpen) {
+          return (
+            <EnhancedStudentCard
+              key={`pinned-student-${modal.id}`}
+              student={modal.props.student}
+              open={true}
+              onOpenChange={() => closePinnedModal(modal.id, modal.type)}
+              isPinned={true}
+              onPin={() => {}}
               onUnpin={() => unpinModal(modal.id, modal.type)}
             />
           );
