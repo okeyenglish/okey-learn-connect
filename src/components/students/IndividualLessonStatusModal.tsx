@@ -220,22 +220,25 @@ export function IndividualLessonStatusModal({
           }
 
           // If none, fallback to generating next scheduled date
-          for (let d = new Date(startFrom); d <= end; d.setDate(d.getDate() + 1)) {
-            if (d >= start) {
-              const ds = format(d, 'yyyy-MM-dd');
-              const s = sessionByDate.get(ds);
-              const isScheduledDay = dayNums.includes(d.getDay());
+          if (!targetDate) {
+            for (let d = new Date(startFrom); d <= end; d.setDate(d.getDate() + 1)) {
+              if (d >= start) {
+                const ds = format(d, 'yyyy-MM-dd');
+                const s = sessionByDate.get(ds);
+                const isScheduledDay = dayNums.includes(d.getDay());
 
-              if (s) {
-                if (isUnpaid(s)) {
+                if (s) {
+                  if (isUnpaid(s)) {
+                    targetDate = ds;
+                    break;
+                  }
+                } else if (isScheduledDay) {
                   targetDate = ds;
                   break;
                 }
-              } else if (isScheduledDay) {
-                targetDate = ds;
-                break;
               }
             }
+            console.log('[LessonStatus] fallback picked ->', { lessonDate, picked: targetDate });
           }
         }
 
@@ -247,7 +250,8 @@ export function IndividualLessonStatusModal({
             await supabase
               .from('individual_lesson_sessions')
               .update({ payment_id: currentSession.payment_id, updated_at: new Date().toISOString() })
-              .eq('id', targetSession.id);
+              .eq('id', targetSession.id)
+              .eq('status', 'scheduled');
           } else {
             // Insert a new session with payment_id
             await supabase
