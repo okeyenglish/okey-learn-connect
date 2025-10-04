@@ -11,6 +11,7 @@ import { EditContactModal } from "./EditContactModal";
 import { useFamilyData, FamilyMember, Student } from "@/hooks/useFamilyData";
 import type { PhoneNumber as PhoneNumberType } from "@/types/phone";
 import { supabase } from "@/integrations/supabase/client";
+import { usePinnedModalsDB } from "@/hooks/usePinnedModalsDB";
 import { 
   Users, 
   Phone, 
@@ -47,6 +48,7 @@ export const FamilyCard = ({
   activePhoneId: propActivePhoneId = '1'
 }: FamilyCardProps) => {
   const [activeTab, setActiveTab] = useState("children");
+  const { pinModal, unpinModal, isPinned } = usePinnedModalsDB();
   
   // Force re-render when familyGroupId changes
   useEffect(() => {
@@ -526,6 +528,14 @@ export const FamilyCard = ({
           student={{ id: selectedStudent.id, name: selectedStudent.name }}
           open={isStudentModalOpen}
           onOpenChange={setIsStudentModalOpen}
+          isPinned={isPinned(selectedStudent.id, 'student')}
+          onPin={() => pinModal({
+            id: selectedStudent.id,
+            type: 'student',
+            title: selectedStudent.name,
+            props: { student: { id: selectedStudent.id, name: selectedStudent.name } }
+          })}
+          onUnpin={() => unpinModal(selectedStudent.id, 'student')}
         />
       )}
     </div>

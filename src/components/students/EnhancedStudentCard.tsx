@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { PinnableDialogContent, PinnableModalHeader } from '@/components/crm/PinnableModal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -76,9 +77,19 @@ interface EnhancedStudentCardProps {
   };
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  isPinned?: boolean;
+  onPin?: () => void;
+  onUnpin?: () => void;
 }
 
-export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStudentCardProps) {
+export function EnhancedStudentCard({ 
+  student, 
+  open, 
+  onOpenChange,
+  isPinned = false,
+  onPin = () => {},
+  onUnpin = () => {}
+}: EnhancedStudentCardProps) {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('overview');
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -312,9 +323,21 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-w-full overflow-hidden p-0 bg-background flex flex-col">
+      <PinnableDialogContent 
+        className="w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-w-full overflow-hidden p-0 bg-background flex flex-col"
+        preventOutsideClose={isPinned}
+      >
         {/* Header */}
         <div className="bg-muted/30 border-b px-6 py-4">
+          <PinnableModalHeader
+            title={`${studentDetails.lastName} ${studentDetails.firstName}`}
+            isPinned={isPinned}
+            onPin={onPin}
+            onUnpin={onUnpin}
+            onClose={() => onOpenChange(false)}
+          >
+            <User className="h-5 w-5" />
+          </PinnableModalHeader>
           <div className="flex items-start justify-between gap-6">
             <div className="flex items-start gap-4">
               <div className="relative">
@@ -1267,7 +1290,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
             </Tabs>
           </div>
         </div>
-      </DialogContent>
+      </PinnableDialogContent>
 
       {/* Модал добавления дополнительного занятия */}
       {addLessonForId && (

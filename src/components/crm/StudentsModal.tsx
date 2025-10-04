@@ -27,6 +27,7 @@ import {
 import { useStudents } from "@/hooks/useStudents";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
 import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
+import { usePinnedModalsDB } from "@/hooks/usePinnedModalsDB";
 
 interface StudentsModalProps {
   open?: boolean;
@@ -46,6 +47,7 @@ export const StudentsModal = ({ open, onOpenChange, children }: StudentsModalPro
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
   const [showStudentCard, setShowStudentCard] = useState(false);
+  const pinnedModalsHook = usePinnedModalsDB();
   
   // Expandable sections state
   const [expandedSections, setExpandedSections] = useState({
@@ -520,6 +522,14 @@ const StudentsContent = ({
             setShowStudentCard(open);
             if (!open) setSelectedStudent(null);
           }}
+          isPinned={pinnedModalsHook.isPinned(selectedStudent.id, 'student')}
+          onPin={() => pinnedModalsHook.pinModal({
+            id: selectedStudent.id,
+            type: 'student',
+            title: selectedStudent.name,
+            props: { student: selectedStudent }
+          })}
+          onUnpin={() => pinnedModalsHook.unpinModal(selectedStudent.id, 'student')}
         />
       )}
     </div>
