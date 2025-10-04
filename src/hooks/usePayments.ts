@@ -352,9 +352,133 @@ export const usePayments = (filters?: any) => {
 
       if (error) throw error;
 
+      // Перераспределяем оставшиеся платежи по самым ранним датам
+      if (individualLessonId) {
+        console.log('Rebalancing payments after deletion for lesson:', individualLessonId);
+
+        // Загружаем оставшиеся платежи
+        const { data: remainingPayments, error: remErr } = await supabase
+          .from('payments')
+          .select('id, lessons_count, payment_date')
+          .eq('individual_lesson_id', individualLessonId)
+          .eq('status', 'completed')
+          .order('payment_date', { ascending: true });
+        if (remErr) console.error('Failed to load remaining payments:', remErr);
+
+        // Загружаем все сессии урока
+        const { data: allSessions, error: sessErr } = await supabase
+          .from('individual_lesson_sessions')
+          .select('id, lesson_date, status, payment_id')
+          .eq('individual_lesson_id', individualLessonId)
+          .order('lesson_date', { ascending: true });
+        if (sessErr) console.error('Failed to load sessions for rebalance:', sessErr);
+
+        // Загружаем расписание
+        const { data: lessonRow } = await supabase
+          .from('individual_lessons')
+          .select('schedule_days, period_start, period_end')
+          .eq('id', individualLessonId)
+          .maybeSingle();
+
+        const DAY_MAP: Record<string, number> = {
+          monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 0,
+        };
+
+        const scheduledDates: string[] = (() => {
+          try {
+            if (!lessonRow?.schedule_days || !lessonRow?.period_start || !lessonRow?.period_end) return [];
+            const dayNums = (lessonRow.schedule_days as string[]).map(d => DAY_MAP[d?.toLowerCase?.() || '']).filter((n) => n !== undefined);
+            const dates: string[] = [];
+            const start = new Date(lessonRow.period_start as string);
+            const end = new Date(lessonRow.period_end as string);
+            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+              if (dayNums.includes(d.getDay())) {
+                dates.push(d.toISOString().slice(0, 10));
+              }
+            }
+            return dates;
+          } catch (e) {
+            console.warn('Failed to construct scheduled dates (rebalance):', e);
+            return [];
+          }
+        })();
+
+        const sessionByDate = new Map<string, { id?: string; status?: string }>();
+        const existingPayableDates: string[] = [];
+        (allSessions || []).forEach((s) => {
+          sessionByDate.set(s.lesson_date, { id: s.id, status: s.status });
+          if (!s.status || ['scheduled','completed','absent','attended'].includes(s.status)) {
+            existingPayableDates.push(s.lesson_date);
+          }
+        });
+
+        const allPayableDates = [...scheduledDates, ...existingPayableDates]
+          .filter((date, index, self) => self.indexOf(date) === index)
+          .sort();
+
+        const canBePaid = (s?: { status?: string }) => !s?.status || ['scheduled','completed','absent','attended'].includes(s.status);
+        const payableDatesOrdered = allPayableDates.filter((d) => {
+          const s = sessionByDate.get(d);
+          if (!s) return true;
+          return canBePaid(s);
+        });
+
+        // Сбрасываем payment_id у всех сессий перед распределением
+        if ((allSessions || []).length > 0) {
+          const allIds = (allSessions || []).map(s => s.id);
+          const { error: clearErr } = await supabase
+            .from('individual_lesson_sessions')
+            .update({ payment_id: null, updated_at: new Date().toISOString() })
+            .in('id', allIds);
+          if (clearErr) console.error('Error clearing payments prior to rebalance:', clearErr);
+        }
+
+        let currentDateIndex = 0;
+        const updatesByPaymentId: Record<string, string[]> = {};
+
+        for (const pmt of (remainingPayments || [])) {
+          const cnt = pmt.lessons_count || 0;
+          const sessionIds: string[] = [];
+          for (let i = 0; i < cnt && currentDateIndex < payableDatesOrdered.length; i++) {
+            const date = payableDatesOrdered[currentDateIndex];
+            const sess = sessionByDate.get(date);
+            if (sess?.id) {
+              sessionIds.push(sess.id);
+            } else {
+              const { data: newSess } = await supabase
+                .from('individual_lesson_sessions')
+                .insert({
+                  individual_lesson_id: individualLessonId,
+                  lesson_date: date,
+                  status: 'scheduled',
+                  payment_id: pmt.id,
+                  created_by: user?.id,
+                  updated_at: new Date().toISOString(),
+                })
+                .select('id')
+                .single();
+              if (newSess) sessionByDate.set(date, { id: newSess.id, status: 'scheduled' });
+            }
+            currentDateIndex++;
+          }
+          if (sessionIds.length > 0) updatesByPaymentId[pmt.id] = sessionIds;
+        }
+
+        for (const [pId, sIds] of Object.entries(updatesByPaymentId)) {
+          if (sIds.length > 0) {
+            await supabase
+              .from('individual_lesson_sessions')
+              .update({ payment_id: pId, updated_at: new Date().toISOString() })
+              .in('id', sIds);
+          }
+        }
+
+        console.log('Rebalance after deletion complete');
+      }
+
       toast({
         title: "Успешно",
-        description: "Платеж удален, статусы занятий восстановлены",
+        description: "Платеж удален, средства перераспределены на самые ранние занятия",
       });
 
       fetchPayments();
