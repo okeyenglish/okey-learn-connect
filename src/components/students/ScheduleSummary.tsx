@@ -98,16 +98,14 @@ export function ScheduleSummary({ lessonId, scheduleDays, scheduleTime, periodSt
   });
 
   return (
-    <div className={cn('text-sm text-muted-foreground mb-2 space-y-0.5', className)}>
-      {rows.map((r, i) => (
-        <div key={i}>
-          {r.from
-            ? `с ${format(new Date(r.from), 'dd.MM.yy', { locale: ru })}${r.to ? ` по ${format(new Date(r.to), 'dd.MM.yy', { locale: ru })}` : ''} — ${r.days || baseDays} ${r.time || baseTime}`
-            : r.to
-              ? `до ${format(new Date(r.to), 'dd.MM.yy', { locale: ru })} — ${r.days || baseDays} ${r.time || baseTime}`
-              : `${baseDays} ${baseTime}`}
-        </div>
-      ))}
+    <div className={cn('text-sm text-muted-foreground mb-2', className)}>
+      {periodStart && periodEnd
+        ? `с ${format(new Date(periodStart!), 'dd.MM.yy', { locale: ru })} по ${format(new Date(periodEnd!), 'dd.MM.yy', { locale: ru })}`
+        : periodStart
+          ? format(new Date(periodStart!), 'dd.MM.yy', { locale: ru })
+          : periodEnd
+            ? `по ${format(new Date(periodEnd!), 'dd.MM.yy', { locale: ru })}`
+            : null}
     </div>
   );
 }
