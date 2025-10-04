@@ -232,18 +232,24 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                 </AvatarFallback>
               </Avatar>
               <div>
-                <h2 className="text-2xl font-bold text-foreground mb-1">
-                  {studentDetails.lastName} {studentDetails.firstName} {studentDetails.middleName}
-                  {studentDetails.studentNumber && (
-                    <span 
-                      className="ml-3 text-sm font-mono text-muted-foreground cursor-pointer hover:text-primary transition-colors"
-                      onClick={handleCopyStudentLink}
-                      title="Нажмите, чтобы скопировать ссылку"
-                    >
-                      #{studentDetails.studentNumber}
-                    </span>
-                  )}
-                </h2>
+                <div className="flex items-center gap-2 mb-1">
+                  <h2 className="text-2xl font-bold text-foreground">
+                    {studentDetails.lastName} {studentDetails.firstName} {studentDetails.middleName}
+                    {studentDetails.studentNumber && (
+                      <span 
+                        className="ml-3 text-sm font-mono text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+                        onClick={handleCopyStudentLink}
+                        title="Нажмите, чтобы скопировать ссылку"
+                      >
+                        #{studentDetails.studentNumber}
+                      </span>
+                    )}
+                  </h2>
+                  {getStatusBadge(studentDetails.status)}
+                  <Button variant="outline" size="sm" title="Редактировать">
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                </div>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   {studentDetails.age && (
                     <span className="flex items-center gap-1">
@@ -287,13 +293,6 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                   </div>
                 )}
               </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              {getStatusBadge(studentDetails.status)}
-              <Button variant="outline" size="sm" title="Редактировать">
-                <Edit className="h-4 w-4" />
-              </Button>
             </div>
           </div>
         </div>
