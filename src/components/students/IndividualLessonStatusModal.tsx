@@ -155,6 +155,28 @@ export function IndividualLessonStatusModal({
 
       const wasPaid = currentSession?.payment_id != null;
       
+      let paymentToAssign: string | null = null;
+      
+      // If reverting to scheduled and current is unpaid, pull payment back from the nearest future scheduled paid session
+      if (statusValue === 'scheduled' && !currentSession?.payment_id) {
+        const { data: futureSessions } = await supabase
+          .from('individual_lesson_sessions')
+          .select('id, lesson_date, payment_id, status')
+          .eq('individual_lesson_id', lessonId)
+          .gt('lesson_date', lessonDate)
+          .order('lesson_date', { ascending: true });
+
+        const donor = (futureSessions || []).find((s) => s.payment_id && (s.status === 'scheduled' || !s.status));
+        if (donor && donor.payment_id) {
+          paymentToAssign = donor.payment_id as string;
+          // remove payment from donor now, we'll assign to current in update/insert below
+          await supabase
+            .from('individual_lesson_sessions')
+            .update({ payment_id: null, updated_at: new Date().toISOString() })
+            .eq('id', donor.id);
+        }
+      }
+      
       // Special handling for cancelling or making free a paid lesson - transfer payment to next unpaid lesson
       if ((statusValue === 'cancelled' || statusValue === 'free') && wasPaid) {
         // Load all existing sessions and the lesson schedule
@@ -266,9 +288,12 @@ export function IndividualLessonStatusModal({
       }
       
       // Try update first to avoid duplicate rows
+      const updateData: any = { status: statusValue, created_by: user.id, updated_at: new Date().toISOString() };
+      if (paymentToAssign) updateData.payment_id = paymentToAssign;
+
       const { data: updatedRows, error: updateError } = await supabase
         .from('individual_lesson_sessions')
-        .update({ status: statusValue, created_by: user.id, updated_at: new Date().toISOString() })
+        .update(updateData)
         .eq('individual_lesson_id', lessonId)
         .eq('lesson_date', lessonDate)
         .select('id');
@@ -280,14 +305,17 @@ export function IndividualLessonStatusModal({
 
       if (!updatedRows || updatedRows.length === 0) {
         // No row existed - insert new
+        const insertData: any = {
+          individual_lesson_id: lessonId,
+          lesson_date: lessonDate,
+          status: statusValue,
+          created_by: user.id,
+        };
+        if (paymentToAssign) insertData.payment_id = paymentToAssign;
+
         const { error: insertError } = await supabase
           .from('individual_lesson_sessions')
-          .insert({
-            individual_lesson_id: lessonId,
-            lesson_date: lessonDate,
-            status: statusValue,
-            created_by: user.id
-          });
+          .insert(insertData);
 
         if (insertError) {
           console.error('Insert error:', insertError);
