@@ -143,13 +143,8 @@ export function IndividualLessonSchedule({
   const getLessonColor = (date: Date, status?: string) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     const session = lessonSessions[dateStr];
-    
-    // Check if paid (has payment_id)
-    if (session?.payment_id) {
-      return 'bg-green-600 text-white border-green-600'; // Зеленый - оплачено
-    }
-    
-    // Если есть статус занятия
+
+    // Сначала учитываем специальные статусы, они важнее оплаты
     if (session?.status) {
       switch (session.status) {
         case 'cancelled':
@@ -158,16 +153,15 @@ export function IndividualLessonSchedule({
           return 'bg-orange-500 text-white border-orange-500'; // Оранжевый - перенесено
         case 'free':
           return 'bg-yellow-500 text-white border-yellow-500'; // Желтый - бесплатное
-        case 'scheduled':
-        case 'completed':
-        case 'absent':
-        case 'rescheduled_out':
-        default:
-          return 'bg-white text-gray-500 border-gray-300'; // Белый фон, серые цифры - не оплачено
       }
     }
-    
-    // Если статуса нет - не оплачено
+
+    // Затем проверяем оплату (применимо для обычных статусов: scheduled/completed/absent/...)
+    if (session?.payment_id) {
+      return 'bg-green-600 text-white border-green-600'; // Зеленый - оплачено
+    }
+
+    // По умолчанию — не оплачено
     return 'bg-white text-gray-500 border-gray-300'; // Белый фон, серые цифры
   };
 
