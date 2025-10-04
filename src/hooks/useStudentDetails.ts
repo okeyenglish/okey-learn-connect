@@ -266,6 +266,26 @@ export const useStudentDetails = (studentId: string) => {
             status: ls.status,
           }));
 
+          // Определяем статус на основе дат
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          let lessonStatus = il.status || 'active';
+
+          if (il.period_start && il.period_end) {
+            const startDate = new Date(il.period_start);
+            const endDate = new Date(il.period_end);
+            startDate.setHours(0, 0, 0, 0);
+            endDate.setHours(0, 0, 0, 0);
+
+            if (today < startDate) {
+              lessonStatus = 'forming'; // Еще не начались
+            } else if (today > endDate) {
+              lessonStatus = 'finished'; // Уже закончились
+            } else {
+              lessonStatus = 'active'; // Идут сейчас
+            }
+          }
+
           return {
             id: il.id,
             lessonNumber: il.lesson_number,
@@ -279,7 +299,7 @@ export const useStudentDetails = (studentId: string) => {
             scheduleDays: il.schedule_days,
             periodStart: il.period_start,
             periodEnd: il.period_end,
-            status: il.status || 'active',
+            status: lessonStatus,
             nextLesson: undefined,
             format: 'Индивидуальное',
             sessions,
