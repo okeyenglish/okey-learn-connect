@@ -46,7 +46,9 @@ import {
   Check,
   X,
   Pin,
-  PinOff
+  PinOff,
+  Archive,
+  ArchiveRestore
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useStudentDetails, StudentFullDetails } from '@/hooks/useStudentDetails';
@@ -65,6 +67,7 @@ import { IndividualLessonSchedule } from './IndividualLessonSchedule';
 import { StudentBalanceModal } from './StudentBalanceModal';
 import { useStudentBalance } from '@/hooks/useStudentBalance';
 import { calculateLessonPrice } from '@/utils/lessonPricing';
+import { useUpdateIndividualLesson } from '@/hooks/useIndividualLessons';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -127,6 +130,33 @@ export function EnhancedStudentCard({
   const { data: balance } = useStudentBalance(student.id);
   const { deletePayment } = usePayments();
   const { data: history, isLoading: historyLoading } = useStudentHistory(student.id);
+  const updateIndividualLesson = useUpdateIndividualLesson();
+
+  const handleArchiveLesson = async (lessonId: string) => {
+    try {
+      await updateIndividualLesson.mutateAsync({
+        id: lessonId,
+        status: 'finished'
+      });
+      toast.success('Занятие архивировано');
+    } catch (error) {
+      console.error('Error archiving lesson:', error);
+      toast.error('Ошибка при архивации занятия');
+    }
+  };
+
+  const handleUnarchiveLesson = async (lessonId: string) => {
+    try {
+      await updateIndividualLesson.mutateAsync({
+        id: lessonId,
+        status: 'active'
+      });
+      toast.success('Занятие разархивировано');
+    } catch (error) {
+      console.error('Error unarchiving lesson:', error);
+      toast.error('Ошибка при разархивации занятия');
+    }
+  };
 
   const handleCopyStudentLink = () => {
     const url = `${window.location.origin}/newcrm/main?studentId=${student.id}`;
@@ -870,6 +900,18 @@ export function EnhancedStudentCard({
                                     className="h-8 w-8"
                                     onClick={(e) => {
                                       e.stopPropagation();
+                                      handleArchiveLesson(lesson.id);
+                                    }}
+                                    title="Архивировать занятие"
+                                  >
+                                    <Archive className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
                                       // Open payment modal; validation of available/unpaid sessions occurs inside modal
                                       setSelectedLesson(lesson);
                                       setPaymentModalOpen(true);
@@ -1115,7 +1157,21 @@ export function EnhancedStudentCard({
                                       {lesson.format} • {lesson.level}
                                     </p>
                                   </div>
-                                  <Badge variant="outline" className="bg-amber-100">Индивидуально</Badge>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="bg-amber-100">Индивидуально</Badge>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-8 w-8"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleArchiveLesson(lesson.id);
+                                      }}
+                                      title="Архивировать занятие"
+                                    >
+                                      <Archive className="h-4 w-4" />
+                                    </Button>
+                                  </div>
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
                                   <div>
@@ -1221,7 +1277,21 @@ export function EnhancedStudentCard({
                                       {lesson.format} • {lesson.level}
                                     </p>
                                   </div>
-                                  <Badge variant="secondary">Завершено</Badge>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="secondary">Завершено</Badge>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-8 w-8"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleUnarchiveLesson(lesson.id);
+                                      }}
+                                      title="Разархивировать занятие"
+                                    >
+                                      <ArchiveRestore className="h-4 w-4" />
+                                    </Button>
+                                  </div>
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
                                   <div>
