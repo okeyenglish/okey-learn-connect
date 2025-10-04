@@ -256,119 +256,94 @@ export function IndividualLessonStatusModal({
         }
       }
       
-      // Special handling for cancelling or making free a paid lesson - transfer payment to next unpaid lesson
+      // Special handling for cancelling or making free a paid lesson - transfer payment minutes to next unpaid lessons
       if ((statusValue === 'cancelled' || statusValue === 'free') && wasPaid) {
-        // Load all existing sessions and the lesson schedule
-        const [{ data: allSessions }, { data: lessonRow }] = await Promise.all([
-          supabase
+        // Get paid_minutes from current session
+        const { data: currentSessionFull } = await supabase
+          .from('individual_lesson_sessions')
+          .select('paid_minutes, payment_id')
+          .eq('individual_lesson_id', lessonId)
+          .eq('lesson_date', lessonDate)
+          .single();
+
+        const freedMinutes = currentSessionFull?.paid_minutes || 0;
+
+        if (freedMinutes > 0) {
+          // Get all future sessions ordered by date
+          const { data: futureSessions } = await supabase
             .from('individual_lesson_sessions')
-            .select('id, lesson_date, status, payment_id')
+            .select('id, lesson_date, duration, paid_minutes, status')
             .eq('individual_lesson_id', lessonId)
-            .order('lesson_date', { ascending: true }),
-          supabase
-            .from('individual_lessons')
-            .select('schedule_days, period_start, period_end')
-            .eq('id', lessonId)
-            .maybeSingle()
-        ]);
+            .gt('lesson_date', lessonDate)
+            .order('lesson_date', { ascending: true });
 
-        const sessionByDate = new Map<string, { id?: string; status?: string; payment_id?: string }>();
-        (allSessions || []).forEach((s) => sessionByDate.set(s.lesson_date, { id: s.id, status: s.status, payment_id: s.payment_id }));
+          let remainingMinutes = freedMinutes;
+          const updatedSessions: string[] = [];
 
-        const isUnpaid = (session?: { payment_id?: string; status?: string }) => !session?.payment_id && (!session?.status || session?.status === 'scheduled');
+          if (futureSessions) {
+            for (const futureSession of futureSessions) {
+              if (remainingMinutes <= 0) break;
+              
+              // Skip cancelled, free, or rescheduled sessions
+              if (futureSession.status === 'cancelled' || futureSession.status === 'free' || futureSession.status === 'rescheduled') {
+                continue;
+              }
 
-        // Build future scheduled dates after current lessonDate
-        let targetDate: string | null = null;
-        if (lessonRow?.schedule_days && lessonRow?.period_start && lessonRow?.period_end) {
-          const DAY_MAP: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 0 };
-          const dayNums = (lessonRow.schedule_days as string[]).map((d) => DAY_MAP[d?.toLowerCase?.() || '']).filter((n) => n !== undefined);
-          const start = new Date(lessonRow.period_start as string);
-          const end = new Date(lessonRow.period_end as string);
-          const startFrom = new Date(lessonDate);
-          startFrom.setDate(startFrom.getDate() + 1);
+              const sessionDuration = futureSession.duration || 60;
+              const currentPaid = futureSession.paid_minutes || 0;
+              const unpaidMinutes = sessionDuration - currentPaid;
 
-          // Prefer existing future unpaid session rows first
-          if (!targetDate && (allSessions || []).length) {
-            const candidates = (allSessions as { lesson_date: string; payment_id?: string; status?: string }[])
-              .filter((s) => s.lesson_date > lessonDate && isUnpaid(s))
-              .sort((a, b) => (a.lesson_date < b.lesson_date ? -1 : 1));
-            if (candidates.length > 0) {
-              targetDate = candidates[0].lesson_date;
-            }
-            console.log('[LessonStatus] candidates (existing)', { lessonId, lessonDate, candidates, picked: targetDate });
-          }
+              if (unpaidMinutes > 0) {
+                const minutesToAdd = Math.min(remainingMinutes, unpaidMinutes);
+                const newPaidMinutes = currentPaid + minutesToAdd;
 
-          // If none, fallback to generating next scheduled date
-          if (!targetDate) {
-            for (let d = new Date(startFrom); d <= end; d.setDate(d.getDate() + 1)) {
-              if (d >= start) {
-                const ds = format(d, 'yyyy-MM-dd');
-                const s = sessionByDate.get(ds);
-                const isScheduledDay = dayNums.includes(d.getDay());
+                await supabase
+                  .from('individual_lesson_sessions')
+                  .update({ 
+                    paid_minutes: newPaidMinutes,
+                    updated_at: new Date().toISOString() 
+                  })
+                  .eq('id', futureSession.id);
 
-                if (s) {
-                  if (isUnpaid(s)) {
-                    targetDate = ds;
-                    break;
-                  }
-                } else if (isScheduledDay) {
-                  targetDate = ds;
-                  break;
-                }
+                remainingMinutes -= minutesToAdd;
+                updatedSessions.push(format(new Date(futureSession.lesson_date), 'dd.MM', { locale: ru }));
               }
             }
-            console.log('[LessonStatus] fallback picked ->', { lessonDate, picked: targetDate });
           }
-        }
 
-        if (targetDate) {
-          const targetSession = sessionByDate.get(targetDate);
-          console.log('[LessonStatus] Will transfer payment', { from: lessonDate, to: targetDate, hasTargetRow: !!targetSession?.id, targetSession });
-          if (targetSession?.id) {
-            // Update existing session - transfer payment_id
-            await supabase
-              .from('individual_lesson_sessions')
-              .update({ payment_id: currentSession.payment_id, updated_at: new Date().toISOString() })
-              .eq('id', targetSession.id)
-              .eq('status', 'scheduled');
+          // Update current session - remove paid_minutes and payment_id
+          await supabase
+            .from('individual_lesson_sessions')
+            .update({ 
+              paid_minutes: 0, 
+              payment_id: null,
+              updated_at: new Date().toISOString() 
+            })
+            .eq('individual_lesson_id', lessonId)
+            .eq('lesson_date', lessonDate);
+
+          if (updatedSessions.length > 0) {
+            toast({
+              title: 'Минуты перенесены',
+              description: `${freedMinutes} минут перенесено на занятия: ${updatedSessions.join(', ')}`,
+            });
           } else {
-            // Insert a new session with payment_id
-            await supabase
-              .from('individual_lesson_sessions')
-              .insert({
-                individual_lesson_id: lessonId,
-                lesson_date: targetDate,
-                status: 'scheduled',
-                payment_id: currentSession.payment_id,
-                created_by: user.id,
-                updated_at: new Date().toISOString(),
-              });
+            toast({
+              title: 'Внимание',
+              description: `${freedMinutes} минут освобождено, но нет подходящих занятий для переноса`,
+              variant: 'destructive',
+            });
           }
-
-          // Remove payment from current session
-          await supabase
-            .from('individual_lesson_sessions')
-            .update({ payment_id: null, updated_at: new Date().toISOString() })
-            .eq('individual_lesson_id', lessonId)
-            .eq('lesson_date', lessonDate);
-
-          toast({
-            title: 'Оплата перенесена',
-            description: `Оплата перенесена на занятие ${format(new Date(targetDate), 'dd.MM.yyyy', { locale: ru })}`,
-          });
         } else {
-          // Just remove payment if no future lessons
+          // Just remove payment_id if no paid minutes
           await supabase
             .from('individual_lesson_sessions')
-            .update({ payment_id: null, updated_at: new Date().toISOString() })
+            .update({ 
+              payment_id: null,
+              updated_at: new Date().toISOString() 
+            })
             .eq('individual_lesson_id', lessonId)
             .eq('lesson_date', lessonDate);
-
-          toast({
-            title: 'Оплата удалена',
-            description: 'Нет будущих занятий для переноса оплаты',
-            variant: 'destructive',
-          });
         }
       }
       
