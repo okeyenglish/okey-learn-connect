@@ -174,7 +174,7 @@ export function IndividualLessonStatusModal({
         const sessionByDate = new Map<string, { id?: string; status?: string; payment_id?: string }>();
         (allSessions || []).forEach((s) => sessionByDate.set(s.lesson_date, { id: s.id, status: s.status, payment_id: s.payment_id }));
 
-        const isUnpaid = (session?: { payment_id?: string }) => !session?.payment_id;
+        const isUnpaid = (session?: { payment_id?: string; status?: string }) => !session?.payment_id && (!session?.status || session?.status === 'scheduled');
 
         // Build future scheduled dates after current lessonDate
         let targetDate: string | null = null;
