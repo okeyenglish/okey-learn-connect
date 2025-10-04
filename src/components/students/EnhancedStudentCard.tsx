@@ -522,7 +522,16 @@ export function EnhancedStudentCard({
                  ) : studentDetails.phone ? (
                   <div className="flex items-center gap-1 mt-2 text-sm text-muted-foreground">
                     <Phone className="h-4 w-4" />
-                    <span>{studentDetails.phone}</span>
+                    <span 
+                      className="cursor-pointer hover:text-primary transition-colors"
+                      onClick={() => {
+                        setPhoneValue(studentDetails.phone || '');
+                        setIsEditingPhone(true);
+                      }}
+                      title="Нажмите для редактирования"
+                    >
+                      {studentDetails.phone}
+                    </span>
                     <Button 
                       size="sm" 
                       variant="ghost" 
@@ -538,18 +547,6 @@ export function EnhancedStudentCard({
                       title="Позвонить"
                     >
                       <Phone className="h-3 w-3" />
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      className="h-7 px-1.5"
-                      onClick={() => {
-                        setPhoneValue(studentDetails.phone || '');
-                        setIsEditingPhone(true);
-                      }}
-                      title="Редактировать"
-                    >
-                      <Edit className="h-3 w-3" />
                     </Button>
                   </div>
                 ) : null}
