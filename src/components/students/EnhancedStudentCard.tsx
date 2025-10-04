@@ -139,7 +139,18 @@ export function EnhancedStudentCard({
       today.setHours(0, 0, 0, 0);
       const todayStr = today.toISOString().split('T')[0];
       
-      console.log('Checking for future lessons after:', todayStr);
+      console.log('=== ARCHIVE LESSON DEBUG ===');
+      console.log('Lesson ID:', lessonId);
+      console.log('Today date:', todayStr);
+      
+      // Сначала проверим все сессии для этого урока
+      const { data: allSessions, error: allError } = await supabase
+        .from('individual_lesson_sessions')
+        .select('id, lesson_date, status, individual_lesson_id')
+        .eq('individual_lesson_id', lessonId);
+      
+      console.log('All sessions for this lesson:', allSessions);
+      console.log('All sessions error:', allError);
       
       // Проверяем наличие будущих запланированных занятий
       const { data: futureSessions, error: sessionsError } = await supabase
@@ -154,13 +165,16 @@ export function EnhancedStudentCard({
         throw sessionsError;
       }
 
-      console.log('Future sessions found:', futureSessions);
+      console.log('Future scheduled sessions (>= today):', futureSessions);
+      console.log('Future sessions count:', futureSessions?.length || 0);
 
       if (futureSessions && futureSessions.length > 0) {
+        console.log('BLOCKING ARCHIVE - Found future sessions');
         toast.error(`Невозможно архивировать курс с ${futureSessions.length} запланированными занятиями в будущем`);
         return;
       }
 
+      console.log('PROCEEDING WITH ARCHIVE - No future sessions found');
       await updateIndividualLesson.mutateAsync({
         id: lessonId,
         status: 'finished'
