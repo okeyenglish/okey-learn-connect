@@ -315,9 +315,9 @@ export const EditIndividualLessonModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl">
+          <DialogTitle className="text-lg font-semibold">
             Редактирование расписания для {formData.student_name}
           </DialogTitle>
         </DialogHeader>
@@ -327,16 +327,50 @@ export const EditIndividualLessonModal = ({
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-6 mt-6">
-            {/* Филиал и Аудитория */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="branch">Филиал</Label>
+          <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+            {/* Применить изменения с даты (если есть проведенные занятия) */}
+            {hasCompletedSessions && (
+              <div className="space-y-3 p-3 border border-warning/20 bg-warning/5 rounded-lg">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="apply_from_date" className="text-sm font-medium">
+                      Применить с:
+                    </Label>
+                    <Input
+                      id="apply_from_date"
+                      type="date"
+                      value={applyFromDate}
+                      onChange={(e) => setApplyFromDate(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                    <Label htmlFor="apply_to_date" className="text-sm font-medium">
+                      Применить до:
+                    </Label>
+                    <Input
+                      id="apply_to_date"
+                      type="date"
+                      value={applyToDate}
+                      onChange={(e) => setApplyToDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+                
+                <p className="text-xs text-muted-foreground">
+                  Изменения применятся к занятиям в указанном диапазоне
+                </p>
+              </div>
+            )}
+
+            {/* Основная информация */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="branch" className="text-sm">Филиал</Label>
                 <Select 
                   value={formData.branch} 
                   onValueChange={(value) => {
                     setFormData({ ...formData, branch: value });
-                    // Сбрасываем аудиторию при смене филиала
                     if (formData.lesson_location !== 'skype') {
                       setFormData(prev => ({ ...prev, audit_location: '' }));
                     }
@@ -356,14 +390,14 @@ export const EditIndividualLessonModal = ({
               </div>
 
               {formData.lesson_location !== 'skype' && (
-                <div className="space-y-2">
-                  <Label htmlFor="audit_location">Аудитория:</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="audit_location" className="text-sm">Аудитория</Label>
                   <Select 
                     value={formData.audit_location} 
                     onValueChange={(value) => setFormData({ ...formData, audit_location: value })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Выберите аудиторию" />
+                      <SelectValue placeholder="Выберите" />
                     </SelectTrigger>
                     <SelectContent className="bg-background z-[100]">
                       {classrooms
@@ -377,78 +411,61 @@ export const EditIndividualLessonModal = ({
                   </Select>
                 </div>
               )}
+
+              <div className="space-y-1.5">
+                <Label htmlFor="teacher_name" className="text-sm">Преподаватель</Label>
+                <Select 
+                  value={formData.teacher_name} 
+                  onValueChange={(value) => setFormData({ ...formData, teacher_name: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-[100]">
+                    {teachers.map((teacher) => (
+                      <SelectItem key={teacher.id} value={getTeacherFullName(teacher)}>
+                        {getTeacherFullName(teacher)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            {/* Применить изменения с даты (если есть проведенные занятия) */}
-            {hasCompletedSessions && (
-              <div className="space-y-3 p-4 border border-warning/20 bg-warning/5 rounded-lg">
-                <div className="space-y-2">
-                  <Label htmlFor="apply_from_date" className="text-warning-foreground font-medium">
-                    Применить изменения с даты:
-                  </Label>
-                  <Input
-                    id="apply_from_date"
-                    type="date"
-                    value={applyFromDate}
-                    onChange={(e) => setApplyFromDate(e.target.value)}
-                    className="flex-1"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="apply_to_date" className="text-warning-foreground font-medium">
-                    Применить изменения до даты:
-                  </Label>
-                  <Input
-                    id="apply_to_date"
-                    type="date"
-                    value={applyToDate}
-                    onChange={(e) => setApplyToDate(e.target.value)}
-                    className="flex-1"
-                  />
-                </div>
-                
-                <p className="text-xs text-muted-foreground">
-                  Изменения будут применены только к занятиям в указанном диапазоне дат. 
-                  Ранее проведенные занятия сохранят текущие настройки.
-                </p>
-              </div>
-            )}
-
-            {/* Период */}
+            {/* Период (если нет проведенных занятий) */}
             {!hasCompletedSessions && (
-              <div className="space-y-2">
-                <Label>Период:</Label>
-                <div className="flex items-center gap-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Период начала</Label>
                   <Input
                     type="date"
                     value={formData.period_start}
                     onChange={(e) => setFormData({ ...formData, period_start: e.target.value })}
-                    className="flex-1"
                   />
-                  <span className="text-muted-foreground px-2">до</span>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Период окончания</Label>
                   <Input
                     type="date"
                     value={formData.period_end}
                     onChange={(e) => setFormData({ ...formData, period_end: e.target.value })}
-                    className="flex-1"
                   />
                 </div>
               </div>
             )}
 
-            {/* Дни недели */}
+            {/* Расписание */}
             <div className="space-y-2">
-              <Label>Дни недели:</Label>
-              <div className="flex gap-4">
+              <Label className="text-sm">Дни недели</Label>
+              <div className="flex gap-2 flex-wrap">
                 {weekDays.map((day) => (
-                  <div key={day.value} className="flex items-center space-x-2">
+                  <div key={day.value} className="flex items-center space-x-1.5">
                     <Checkbox
                       id={day.value}
                       checked={formData.schedule_days.includes(day.value)}
                       onCheckedChange={() => handleDayToggle(day.value)}
                     />
-                    <Label htmlFor={day.value} className="cursor-pointer font-normal">
+                    <Label htmlFor={day.value} className="cursor-pointer text-sm font-normal">
                       {day.label}
                     </Label>
                   </div>
@@ -456,41 +473,16 @@ export const EditIndividualLessonModal = ({
               </div>
             </div>
 
-            {/* Ак. часов */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="academic_hours">Ак. часов (всего):</Label>
-                <Input
-                  id="academic_hours"
-                  type="text"
-                  value={totalAcademicHours}
-                  readOnly
-                  className="bg-muted"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="academic_hours_per_day">Ак. часов в день:</Label>
-                <Input
-                  id="academic_hours_per_day"
-                  type="text"
-                  value={academicHoursPerDay}
-                  readOnly
-                  className="bg-muted"
-                />
-              </div>
-            </div>
-
-            {/* Время занятия */}
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Время начала:</Label>
-                <div className="flex items-center gap-2">
+            {/* Время и продолжительность */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-sm">Время начала</Label>
+                <div className="flex items-center gap-1">
                   <Select 
                     value={timeSelection.startHour} 
                     onValueChange={(value) => setTimeSelection(prev => ({ ...prev, startHour: value }))}
                   >
-                    <SelectTrigger className="w-24">
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="ЧЧ" />
                     </SelectTrigger>
                     <SelectContent className="bg-background z-[100]">
@@ -499,12 +491,12 @@ export const EditIndividualLessonModal = ({
                       ))}
                     </SelectContent>
                   </Select>
-                  <span>:</span>
+                  <span className="text-sm">:</span>
                   <Select 
                     value={timeSelection.startMinute} 
                     onValueChange={(value) => setTimeSelection(prev => ({ ...prev, startMinute: value }))}
                   >
-                    <SelectTrigger className="w-24">
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="ММ" />
                     </SelectTrigger>
                     <SelectContent className="bg-background z-[100]">
@@ -516,47 +508,50 @@ export const EditIndividualLessonModal = ({
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="duration">Продолжительность:</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="duration" className="text-sm">Продолжительность</Label>
                 <Select 
                   value={timeSelection.duration} 
                   onValueChange={(value) => setTimeSelection(prev => ({ ...prev, duration: value }))}
                 >
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-background z-[100]">
-                    <SelectItem value="40">40 минут</SelectItem>
-                    <SelectItem value="60">60 минут</SelectItem>
-                    <SelectItem value="80">80 минут</SelectItem>
-                    <SelectItem value="100">100 минут</SelectItem>
+                    <SelectItem value="40">40 мин</SelectItem>
+                    <SelectItem value="60">60 мин</SelectItem>
+                    <SelectItem value="80">80 мин</SelectItem>
+                    <SelectItem value="100">100 мин</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="academic_hours_per_day" className="text-sm">Ак. ч./день</Label>
+                <Input
+                  id="academic_hours_per_day"
+                  type="text"
+                  value={academicHoursPerDay}
+                  readOnly
+                  className="bg-muted"
+                />
+              </div>
             </div>
 
-            {/* Преподаватель */}
-            <div className="space-y-2">
-              <Label htmlFor="teacher_name">Преподаватель:</Label>
-              <Select 
-                value={formData.teacher_name} 
-                onValueChange={(value) => setFormData({ ...formData, teacher_name: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите преподавателя" />
-                </SelectTrigger>
-                <SelectContent className="bg-background z-[100]">
-                  {teachers.map((teacher) => (
-                    <SelectItem key={teacher.id} value={getTeacherFullName(teacher)}>
-                      {getTeacherFullName(teacher)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Академические часы */}
+            <div className="space-y-1.5">
+              <Label htmlFor="academic_hours" className="text-sm">Ак. часов всего</Label>
+              <Input
+                id="academic_hours"
+                type="text"
+                value={totalAcademicHours}
+                readOnly
+                className="bg-muted"
+              />
             </div>
 
             {/* Кнопки */}
-            <div className="flex justify-end gap-3 pt-4">
+            <div className="flex justify-end gap-2 pt-2 border-t">
               <Button 
                 type="button" 
                 variant="outline" 
