@@ -54,6 +54,8 @@ import { Student } from '@/hooks/useStudents';
 import { usePayments } from '@/hooks/usePayments';
 import { useStudentHistory } from '@/hooks/useStudentHistory';
 import { AddAdditionalLessonModal } from './AddAdditionalLessonModal';
+import { AddToGroupModal } from './AddToGroupModal';
+import { AddIndividualLessonModal } from './AddIndividualLessonModal';
 
 import { LessonScheduleStrip } from './LessonScheduleStrip';
 import { CreatePaymentModal } from './CreatePaymentModal';
@@ -118,6 +120,8 @@ export function EnhancedStudentCard({
   const [addLessonForId, setAddLessonForId] = useState<string | null>(null);
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [phoneValue, setPhoneValue] = useState('');
+  const [showAddToGroup, setShowAddToGroup] = useState(false);
+  const [showAddIndividualLesson, setShowAddIndividualLesson] = useState(false);
   
   const { data: studentDetails, isLoading, refetch } = useStudentDetails(student.id);
   const { data: balance } = useStudentBalance(student.id);
@@ -641,11 +645,21 @@ export function EnhancedStudentCard({
                         Добавить номер
                       </Button>
                     )}
-                    <Button variant="outline" size="sm" className="w-full justify-start">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full justify-start"
+                      onClick={() => setShowAddToGroup(true)}
+                    >
                       <Users className="h-4 w-4 mr-2" />
                       Добавить в группу
                     </Button>
-                    <Button variant="outline" size="sm" className="w-full justify-start">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full justify-start"
+                      onClick={() => setShowAddIndividualLesson(true)}
+                    >
                       <User className="h-4 w-4 mr-2" />
                       Добавить индивидуально
                     </Button>
@@ -1621,6 +1635,22 @@ export function EnhancedStudentCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Модальное окно добавления в группу */}
+      <AddToGroupModal
+        open={showAddToGroup}
+        onOpenChange={setShowAddToGroup}
+        studentId={student.id}
+        studentName={studentDetails?.name || student.name}
+      />
+
+      {/* Модальное окно добавления индивидуальных занятий */}
+      <AddIndividualLessonModal
+        open={showAddIndividualLesson}
+        onOpenChange={setShowAddIndividualLesson}
+        studentId={student.id}
+        studentName={studentDetails?.name || student.name}
+      />
     </Dialog>
   );
 }
