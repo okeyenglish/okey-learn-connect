@@ -519,14 +519,14 @@ export function EnhancedStudentCard({
                       </Button>
                     )}
                   </div>
-                ) : studentDetails.phone ? (
-                  <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                 ) : studentDetails.phone ? (
+                  <div className="flex items-center gap-1 mt-2 text-sm text-muted-foreground">
                     <Phone className="h-4 w-4" />
                     <span>{studentDetails.phone}</span>
                     <Button 
                       size="sm" 
                       variant="ghost" 
-                      className="h-7 px-2"
+                      className="h-7 px-1.5"
                       title="Написать"
                     >
                       <MessageSquare className="h-3 w-3" />
@@ -534,7 +534,7 @@ export function EnhancedStudentCard({
                     <Button 
                       size="sm" 
                       variant="ghost" 
-                      className="h-7 px-2"
+                      className="h-7 px-1.5"
                       title="Позвонить"
                     >
                       <Phone className="h-3 w-3" />
@@ -542,7 +542,7 @@ export function EnhancedStudentCard({
                     <Button 
                       size="sm" 
                       variant="ghost" 
-                      className="h-7 px-2"
+                      className="h-7 px-1.5"
                       onClick={() => {
                         setPhoneValue(studentDetails.phone || '');
                         setIsEditingPhone(true);
