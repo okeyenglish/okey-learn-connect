@@ -260,6 +260,39 @@ export const EditIndividualLessonModal = ({
     }
   };
 
+  // Автоматический расчет академических часов
+  const academicHoursPerDay = timeSelection.duration ? (parseInt(timeSelection.duration) / 40).toFixed(1) : "1";
+  
+  // Расчет общего количества академических часов
+  const calculateTotalAcademicHours = () => {
+    if (!formData.period_start || !formData.period_end || !formData.schedule_days.length || !timeSelection.duration) {
+      return "0";
+    }
+    
+    const start = new Date(formData.period_start);
+    const end = new Date(formData.period_end);
+    const dayMap: { [key: string]: number } = {
+      sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
+      thursday: 4, friday: 5, saturday: 6
+    };
+    
+    let lessonCount = 0;
+    const currentDate = new Date(start);
+    
+    while (currentDate <= end) {
+      const dayOfWeek = Object.keys(dayMap).find(key => dayMap[key] === currentDate.getDay());
+      if (dayOfWeek && formData.schedule_days.includes(dayOfWeek)) {
+        lessonCount++;
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    const hoursPerLesson = parseInt(timeSelection.duration) / 40;
+    return (lessonCount * hoursPerLesson).toFixed(1);
+  };
+  
+  const totalAcademicHours = calculateTotalAcademicHours();
+
   const handleDayToggle = (day: string) => {
     setFormData(prev => ({
       ...prev,
@@ -429,10 +462,10 @@ export const EditIndividualLessonModal = ({
                 <Label htmlFor="academic_hours">Ак. часов (всего):</Label>
                 <Input
                   id="academic_hours"
-                  type="number"
-                  step="0.5"
-                  value={formData.academic_hours}
-                  onChange={(e) => setFormData({ ...formData, academic_hours: e.target.value })}
+                  type="text"
+                  value={totalAcademicHours}
+                  readOnly
+                  className="bg-muted"
                 />
               </div>
 
@@ -440,10 +473,10 @@ export const EditIndividualLessonModal = ({
                 <Label htmlFor="academic_hours_per_day">Ак. часов в день:</Label>
                 <Input
                   id="academic_hours_per_day"
-                  type="number"
-                  step="0.5"
-                  value={formData.academic_hours_per_day}
-                  onChange={(e) => setFormData({ ...formData, academic_hours_per_day: e.target.value })}
+                  type="text"
+                  value={academicHoursPerDay}
+                  readOnly
+                  className="bg-muted"
                 />
               </div>
             </div>
