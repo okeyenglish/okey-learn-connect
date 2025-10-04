@@ -111,11 +111,13 @@ export function IndividualLessonSchedule({
           return 'bg-orange-500 text-white border-orange-500'; // Оранжевый - перенесено
         case 'free':
           return 'bg-yellow-500 text-white border-yellow-500'; // Желтый - бесплатное
-        case 'attended':
+        case 'attended': // Оплаченное занятие (через payments)
         case 'partially_paid':
         case 'paid_absence':
         case 'partially_paid_absence':
           return 'bg-green-600 text-white border-green-600'; // Зеленый - оплачено
+        case 'completed': // Проведено, но не оплачено
+          return 'bg-blue-500 text-white border-blue-500'; // Синий - проведено
         case 'scheduled':
         case 'rescheduled_out':
         default:

@@ -7,7 +7,7 @@ export interface AttendanceRecord {
   lessonSessionId?: string;
   individualLessonSessionId?: string;
   studentId: string;
-  status: 'present' | 'absent' | 'late' | 'excused';
+  status: 'present' | 'absent' | 'late' | 'excused' | 'completed';
   notes?: string;
   markedBy?: string;
   markedAt?: string;

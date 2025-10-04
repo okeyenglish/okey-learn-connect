@@ -28,7 +28,7 @@ interface IndividualLessonStatusModalProps {
 
 const lessonStatusOptions = [
   {
-    value: 'attended',
+    value: 'completed',
     label: 'Занятие',
     description: 'Студент присутствовал на занятии',
     icon: Check,
@@ -168,7 +168,7 @@ export function IndividualLessonStatusModal({
       }
       
       // Special handling for cancelling or making free a paid lesson - transfer payment to next unpaid lesson
-      if (statusValue === 'cancelled' || statusValue === 'free') {
+      if (statusValue === 'cancelled' || statusValue === 'free' || statusValue === 'completed') {
         // Check if this lesson was paid on the selected date
         const { data: currentSession } = await supabase
           .from('individual_lesson_sessions')
@@ -179,11 +179,7 @@ export function IndividualLessonStatusModal({
 
         const wasPaid = currentSession && ['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence'].includes(currentSession.status);
 
-        console.log('Current session for', lessonDate, ':', currentSession);
-        console.log('Was this lesson paid?', wasPaid);
-
         if (wasPaid) {
-          console.log(`Changing paid lesson to ${statusValue}, transferring payment to next unpaid lesson`);
 
           // Load all existing sessions and the lesson schedule
           const [{ data: allSessions }, { data: lessonRow }] = await Promise.all([
@@ -202,13 +198,9 @@ export function IndividualLessonStatusModal({
           const sessionByDate = new Map<string, { id?: string; status?: string }>();
           (allSessions || []).forEach((s) => sessionByDate.set(s.lesson_date, { id: s.id, status: s.status }));
 
-          console.log('All sessions loaded:', allSessions);
-          console.log('Lesson schedule:', lessonRow);
-          console.log('Session map:', Array.from(sessionByDate.entries()));
-
           // Helper predicates
           const isPaid = (st?: string) => ['attended', 'paid_absence', 'partially_paid', 'partially_paid_absence'].includes(st || '');
-          const isUnpaid = (st?: string) => ['scheduled', 'rescheduled', 'rescheduled_out', undefined, ''].includes((st || '') as any);
+          const isUnpaid = (st?: string) => ['scheduled', 'rescheduled', 'rescheduled_out', 'completed', 'free', undefined, ''].includes((st || '') as any);
 
           // Build future scheduled dates after current lessonDate
           let targetDate: string | null = null;
@@ -226,7 +218,6 @@ export function IndividualLessonStatusModal({
               for (const sess of (allSessions as { lesson_date: string; status?: string }[])) {
                 if (sess.lesson_date > lessonDate && isUnpaid(sess.status)) {
                   targetDate = sess.lesson_date;
-                  console.log('Picked existing future unpaid session for transfer:', targetDate, sess);
                   break;
                 }
               }
@@ -238,40 +229,32 @@ export function IndividualLessonStatusModal({
                 const ds = format(d, 'yyyy-MM-dd');
                 const s = sessionByDate.get(ds);
                 const isScheduledDay = dayNums.includes(d.getDay());
-                console.log(`Checking date ${ds}: session exists?`, !!s, 'status:', s?.status, 'scheduledDay:', isScheduledDay, 'isUnpaid:', s ? isUnpaid(s.status) : 'n/a');
 
                 if (s) {
                   // Prefer existing unpaid session (even if it's a non-scheduled rescheduled day)
                   if (isUnpaid(s.status)) {
                     targetDate = ds;
-                    console.log(`Found existing unpaid session for transfer: ${targetDate}`);
                     break;
                   }
                 } else if (isScheduledDay) {
                   // No existing session - use next scheduled day as target (we will create a session)
                   targetDate = ds;
-                  console.log(`No session found; next scheduled day for transfer: ${targetDate}`);
                   break;
                 }
               }
             }
           }
 
-          console.log('Final target date:', targetDate);
-
           if (targetDate) {
             const targetSession = sessionByDate.get(targetDate);
-            console.log('Target session:', targetSession);
             if (targetSession?.id) {
               // Update existing session to attended
-              console.log('Updating existing session to attended');
               await supabase
                 .from('individual_lesson_sessions')
                 .update({ status: 'attended', created_by: user.id, updated_at: new Date().toISOString() })
                 .eq('id', targetSession.id);
             } else {
               // Insert a new attended session row
-              console.log('Inserting new attended session for', targetDate);
               await supabase
                 .from('individual_lesson_sessions')
                 .insert({
