@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useIndividualLessons } from '@/hooks/useIndividualLessons';
 import { useTeachers, getTeacherFullName } from '@/hooks/useTeachers';
+import { useClassrooms } from '@/hooks/useScheduleData';
 import { useToast } from '@/hooks/use-toast';
 import { calculateLessonPrice, LESSON_DURATIONS, getDurationLabel } from '@/utils/lessonPricing';
 
@@ -34,7 +35,16 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
   
   const { createIndividualLesson } = useIndividualLessons();
   const { teachers } = useTeachers();
+  const { data: classrooms } = useClassrooms(formData.branch);
   const { toast } = useToast();
+
+  // Временные слоты для выбора
+  const timeSlots = [
+    '08:00-09:00', '09:00-10:00', '10:00-11:00', '11:00-12:00',
+    '12:00-13:00', '13:00-14:00', '14:00-15:00', '15:00-16:00',
+    '16:00-17:00', '17:00-18:00', '18:00-19:00', '19:00-20:00',
+    '20:00-21:00', '21:00-22:00'
+  ];
 
   // Автоматически рассчитываем стоимость при изменении продолжительности
   useEffect(() => {
@@ -230,22 +240,40 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="schedule_time">Время</Label>
-              <Input
-                id="schedule_time"
-                value={formData.schedule_time}
-                onChange={(e) => setFormData(prev => ({...prev, schedule_time: e.target.value}))}
-                placeholder="например, 10:00-11:00"
-              />
+              <Select 
+                value={formData.schedule_time} 
+                onValueChange={(value) => setFormData(prev => ({...prev, schedule_time: value}))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите время" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  {timeSlots.map((slot) => (
+                    <SelectItem key={slot} value={slot}>
+                      {slot}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
-              <Label htmlFor="lesson_location">Место проведения</Label>
-              <Input
-                id="lesson_location"
-                value={formData.lesson_location}
-                onChange={(e) => setFormData(prev => ({...prev, lesson_location: e.target.value}))}
-                placeholder="например, Аудитория 1"
-              />
+              <Label htmlFor="lesson_location">Аудитория</Label>
+              <Select 
+                value={formData.lesson_location} 
+                onValueChange={(value) => setFormData(prev => ({...prev, lesson_location: value}))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите аудиторию" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  {classrooms?.map((classroom) => (
+                    <SelectItem key={classroom.id} value={classroom.name}>
+                      {classroom.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
