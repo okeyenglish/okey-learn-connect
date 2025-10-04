@@ -473,7 +473,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                   tabIndex={0}
                                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedLessonId(lesson.id); } }}
                                 >
-                                  {studentDetails.name}
+                                  Индивидуально с {lesson.teacherName || 'Преподаватель не назначен'}
                                 </h4>
                                 <div className="flex items-center gap-2">
                                   <Badge variant="outline" className="text-xs">
