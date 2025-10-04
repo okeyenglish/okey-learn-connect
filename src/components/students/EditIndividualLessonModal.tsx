@@ -5,13 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2 } from "lucide-react";
+import { Loader2, History } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUpdateIndividualLesson } from "@/hooks/useIndividualLessons";
 import { getBranchesForSelect } from "@/lib/branches";
 import { supabase } from "@/integrations/supabase/client";
 import { useClassrooms } from "@/hooks/useReferences";
 import { useTeachers, getTeacherFullName } from "@/hooks/useTeachers";
+import { LessonHistoryModal } from "./LessonHistoryModal";
 
 interface EditIndividualLessonModalProps {
   lessonId: string | null;
@@ -48,6 +49,7 @@ export const EditIndividualLessonModal = ({
   const [applyFromDate, setApplyFromDate] = useState<string>("");
   const [applyToDate, setApplyToDate] = useState<string>("");
   const [hasCompletedSessions, setHasCompletedSessions] = useState(false);
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
   
   const { toast } = useToast();
   const updateLesson = useUpdateIndividualLesson();
@@ -180,10 +182,59 @@ export const EditIndividualLessonModal = ({
     if (!lessonId) return;
     
     try {
+      // Получаем текущее состояние урока ДО изменений
+      const { data: currentLesson } = await supabase
+        .from('individual_lessons')
+        .select('branch, teacher_name, schedule_time, audit_location, schedule_days')
+        .eq('id', lessonId)
+        .single();
+
+      // Получаем текущего пользователя
+      const { data: { user } } = await supabase.auth.getUser();
+      
       // Если есть проведенные занятия и указана дата применения
       if (hasCompletedSessions && applyFromDate) {
         // Для индивидуальных занятий преподаватель, филиал и время хранятся 
         // только в основной таблице individual_lessons
+        
+        // Собираем изменения для истории
+        const changes: any[] = [];
+        
+        if (currentLesson) {
+          if (currentLesson.branch !== formData.branch) {
+            changes.push({
+              field: 'branch',
+              old_value: currentLesson.branch,
+              new_value: formData.branch,
+              label: 'Филиал'
+            });
+          }
+          if (currentLesson.teacher_name !== formData.teacher_name) {
+            changes.push({
+              field: 'teacher_name',
+              old_value: currentLesson.teacher_name,
+              new_value: formData.teacher_name,
+              label: 'Преподаватель'
+            });
+          }
+          if (currentLesson.schedule_time !== formData.schedule_time) {
+            changes.push({
+              field: 'schedule_time',
+              old_value: currentLesson.schedule_time,
+              new_value: formData.schedule_time,
+              label: 'Время занятий'
+            });
+          }
+          if (currentLesson.audit_location !== formData.audit_location) {
+            changes.push({
+              field: 'audit_location',
+              old_value: currentLesson.audit_location,
+              new_value: formData.audit_location,
+              label: 'Аудитория'
+            });
+          }
+        }
+        
         // Обновляем только основную запись
         await updateLesson.mutateAsync({
           id: lessonId,
@@ -193,6 +244,21 @@ export const EditIndividualLessonModal = ({
           audit_location: formData.audit_location || undefined,
           schedule_days: formData.schedule_days.length > 0 ? formData.schedule_days : undefined,
         });
+        
+        // Записываем историю изменений, если есть изменения
+        if (changes.length > 0 && user) {
+          await supabase
+            .from('individual_lesson_history')
+            .insert({
+              lesson_id: lessonId,
+              changed_by: user.id,
+              change_type: 'schedule_update',
+              changes: changes,
+              applied_from_date: applyFromDate,
+              applied_to_date: applyToDate || null,
+              notes: `Изменения применены к будущим занятиям`
+            });
+        }
         
         const fromDateStr = new Date(applyFromDate).toLocaleDateString('ru-RU');
         const toDateStr = applyToDate ? ` по ${new Date(applyToDate).toLocaleDateString('ru-RU')}` : '';
@@ -288,13 +354,28 @@ export const EditIndividualLessonModal = ({
   ];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-lg font-semibold">
-            Редактирование расписания для {formData.student_name}
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-lg font-semibold">
+                Редактирование расписания для {formData.student_name}
+              </DialogTitle>
+              {lessonId && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setHistoryModalOpen(true)}
+                  className="flex items-center gap-2"
+                >
+                  <History className="h-4 w-4" />
+                  История
+                </Button>
+              )}
+            </div>
+          </DialogHeader>
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -551,5 +632,13 @@ export const EditIndividualLessonModal = ({
         )}
       </DialogContent>
     </Dialog>
+
+    {/* История изменений */}
+    <LessonHistoryModal
+      open={historyModalOpen}
+      onOpenChange={setHistoryModalOpen}
+      lessonId={lessonId}
+    />
+  </>
   );
 };

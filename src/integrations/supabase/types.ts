@@ -847,6 +847,53 @@ export type Database = {
           },
         ]
       }
+      individual_lesson_history: {
+        Row: {
+          applied_from_date: string | null
+          applied_to_date: string | null
+          change_type: string
+          changed_at: string
+          changed_by: string | null
+          changes: Json
+          created_at: string
+          id: string
+          lesson_id: string
+          notes: string | null
+        }
+        Insert: {
+          applied_from_date?: string | null
+          applied_to_date?: string | null
+          change_type: string
+          changed_at?: string
+          changed_by?: string | null
+          changes: Json
+          created_at?: string
+          id?: string
+          lesson_id: string
+          notes?: string | null
+        }
+        Update: {
+          applied_from_date?: string | null
+          applied_to_date?: string | null
+          change_type?: string
+          changed_at?: string
+          changed_by?: string | null
+          changes?: Json
+          created_at?: string
+          id?: string
+          lesson_id?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "individual_lesson_history_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "individual_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       individual_lesson_sessions: {
         Row: {
           created_at: string | null
