@@ -137,6 +137,16 @@ export function EnhancedStudentCard({
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
+    // Проверяем период обучения - если period_end в будущем, курс нельзя архивировать
+    if (lesson.periodEnd) {
+      const endDate = new Date(lesson.periodEnd);
+      endDate.setHours(0, 0, 0, 0);
+      if (endDate >= today) {
+        return true; // Период еще не закончился
+      }
+    }
+    
+    // Дополнительно проверяем записи сессий в БД (если они есть)
     return lesson.sessions?.some((session: any) => {
       const lessonDate = new Date(session.lessonDate);
       lessonDate.setHours(0, 0, 0, 0);
