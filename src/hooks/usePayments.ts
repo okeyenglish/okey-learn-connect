@@ -80,11 +80,25 @@ export const usePayments = (filters?: any) => {
 
       // Update session statuses - mark next N earliest unpaid dates as attended
       if (paymentData.individual_lesson_id && paymentData.lessons_count) {
-        console.log('Starting session status update...');
+        console.log('Starting session rebalancing...');
         console.log('Individual lesson ID:', paymentData.individual_lesson_id);
         console.log('Lessons to pay:', paymentData.lessons_count);
 
-        // 1) Load existing session rows for this lesson
+        // ШАГ 1: Загружаем ВСЕ платежи для этого урока (чтобы пересортировать)
+        const { data: allPayments, error: paymentsErr } = await supabase
+          .from('payments')
+          .select('id, lessons_count, payment_date')
+          .eq('individual_lesson_id', paymentData.individual_lesson_id)
+          .eq('status', 'completed')
+          .order('payment_date', { ascending: true });
+
+        if (paymentsErr) {
+          console.error('Failed to load payments:', paymentsErr);
+        }
+
+        console.log('All payments for this lesson:', allPayments);
+
+        // ШАГ 2: Загружаем все существующие сессии
         const { data: allSessions, error: fetchError } = await supabase
           .from('individual_lesson_sessions')
           .select('id, lesson_date, status, payment_id, is_additional')
@@ -94,7 +108,7 @@ export const usePayments = (filters?: any) => {
         console.log('Fetched sessions:', allSessions);
         if (fetchError) console.warn('Fetch sessions error:', fetchError);
 
-        // 2) Load lesson to get schedule (days + period)
+        // ШАГ 3: Загружаем расписание урока
         const { data: lessonRow, error: lessonErr } = await supabase
           .from('individual_lessons')
           .select('schedule_days, period_start, period_end')
@@ -109,7 +123,7 @@ export const usePayments = (filters?: any) => {
           monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 0,
         };
 
-        // 3) Build full list of scheduled dates within period (inclusive)
+        // ШАГ 4: Строим список дат по расписанию
         const scheduledDates: string[] = (() => {
           try {
             if (!lessonRow?.schedule_days || !lessonRow?.period_start || !lessonRow?.period_end) return [];
@@ -129,85 +143,110 @@ export const usePayments = (filters?: any) => {
           }
         })();
 
-        // 4) Build maps for quick lookup and include existing payable sessions (incl. off-schedule)
-        const sessionByDate = new Map<string, { id?: string; status?: string; payment_id?: string }>();
+        // ШАГ 5: Собираем карту сессий и все даты с оплачиваемыми занятиями
+        const sessionByDate = new Map<string, { id?: string; status?: string }>();
         const existingPayableDates: string[] = [];
         
         (allSessions || []).forEach((s) => {
           sessionByDate.set(s.lesson_date, { 
             id: s.id, 
-            status: s.status, 
-            payment_id: s.payment_id
+            status: s.status
           });
-          // Собираем все даты существующих занятий, которые можно оплатить (в т.ч. перенесённые и вне расписания)
+          // Собираем все даты существующих занятий, которые можно оплатить
           if (!s.status || ['scheduled','completed','absent','attended'].includes(s.status)) {
             existingPayableDates.push(s.lesson_date);
           }
         });
 
-        // Объединяем даты по шаблону и существующие оплачиваемые занятия
-        const allScheduledDates = [...scheduledDates, ...existingPayableDates]
+        // Объединяем даты по расписанию и существующие оплачиваемые занятия
+        const allPayableDates = [...scheduledDates, ...existingPayableDates]
           .filter((date, index, self) => self.indexOf(date) === index) // уникальные
           .sort(); // сортируем по дате
 
-        const isUnpaid = (s?: { payment_id?: string }) => !s?.payment_id;
         const canBePaid = (s?: { status?: string }) => 
-          !s?.status || s.status === 'scheduled' || s.status === 'completed' || s.status === 'absent' || s.status === 'attended';
+          !s?.status || ['scheduled','completed','absent','attended'].includes(s.status);
 
-        // 5) Determine earliest unpaid dates (either no row or no payment_id)
-        // Исключаем отменённые/перенесённые/бесплатные
-        const unpaidDatesOrdered = allScheduledDates.filter((d) => {
+        // ШАГ 6: Фильтруем только те даты, которые можно оплатить
+        const payableDatesOrdered = allPayableDates.filter((d) => {
           const s = sessionByDate.get(d);
-          if (!s) return true; // нет сессии - можно оплатить
-          return isUnpaid(s) && canBePaid(s); // не оплачено и можно оплачивать
+          if (!s) return true; // нет сессии - можно создать и оплатить
+          return canBePaid(s); // можно оплачивать
         });
 
-        console.log('Total regular scheduled dates:', scheduledDates.length);
-        console.log('Existing payable session dates:', existingPayableDates.length);
-        console.log('All considered dates (pattern + existing):', allScheduledDates.length);
-        console.log('Existing sessions:', allSessions?.length || 0);
-        console.log('Unpaid dates available:', unpaidDatesOrdered.length);
+        console.log('Total payable dates:', payableDatesOrdered.length);
+        console.log('All payments count:', allPayments?.length || 0);
 
-        const toCover = Math.max(0, paymentData.lessons_count);
-        const targetDates = unpaidDatesOrdered.slice(0, toCover);
-        console.log('Target dates to mark as paid:', targetDates);
+        // ШАГ 7: ПЕРЕРАСПРЕДЕЛЯЕМ оплату - снимаем payment_id со всех, затем распределяем заново
+        // Сначала убираем payment_id у всех сессий
+        if ((allSessions || []).length > 0) {
+          const allSessionIds = (allSessions || []).map(s => s.id);
+          const { error: clearErr } = await supabase
+            .from('individual_lesson_sessions')
+            .update({ payment_id: null, updated_at: new Date().toISOString() })
+            .in('id', allSessionIds);
+          if (clearErr) console.error('Error clearing payment_id:', clearErr);
+          else console.log('Cleared payment_id from all sessions');
+        }
 
-        // Split into updates (existing rows) and inserts (no row yet)
-        const updateIds: string[] = [];
-        const insertRows: any[] = [];
-        targetDates.forEach((d) => {
-          const s = sessionByDate.get(d);
-          if (s?.id) {
-            updateIds.push(s.id);
-          } else {
-            insertRows.push({
-              individual_lesson_id: paymentData.individual_lesson_id,
-              lesson_date: d,
-              status: 'scheduled',
-              payment_id: payment.id,
-              created_by: user?.id,
-              updated_at: new Date().toISOString(),
-            });
+        // ШАГ 8: Распределяем платежи в хронологическом порядке по датам занятий
+        let currentDateIndex = 0;
+        const updatesByPaymentId: Record<string, string[]> = {};
+
+        for (const pmt of (allPayments || [])) {
+          const lessonsForThisPayment = pmt.lessons_count || 0;
+          const sessionIdsForThisPayment: string[] = [];
+
+          for (let i = 0; i < lessonsForThisPayment && currentDateIndex < payableDatesOrdered.length; i++) {
+            const date = payableDatesOrdered[currentDateIndex];
+            const sess = sessionByDate.get(date);
+            
+            if (sess?.id) {
+              sessionIdsForThisPayment.push(sess.id);
+            } else {
+              // Нет сессии - создаём новую
+              const { data: newSess, error: insertErr } = await supabase
+                .from('individual_lesson_sessions')
+                .insert({
+                  individual_lesson_id: paymentData.individual_lesson_id,
+                  lesson_date: date,
+                  status: 'scheduled',
+                  payment_id: pmt.id,
+                  created_by: user?.id,
+                  updated_at: new Date().toISOString(),
+                })
+                .select('id')
+                .single();
+              
+              if (!insertErr && newSess) {
+                sessionByDate.set(date, { id: newSess.id, status: 'scheduled' });
+              }
+            }
+            
+            currentDateIndex++;
           }
-        });
 
-        // 6) Perform updates first, then inserts - set payment_id instead of status
-        if (updateIds.length > 0) {
-          const { error: updErr, data: updData } = await supabase
-            .from('individual_lesson_sessions')
-            .update({ payment_id: payment.id, updated_at: new Date().toISOString() })
-            .in('id', updateIds)
-            .select();
-          if (updErr) console.error('Error updating existing session rows:', updErr); else console.log('Updated sessions:', updData);
+          if (sessionIdsForThisPayment.length > 0) {
+            updatesByPaymentId[pmt.id] = sessionIdsForThisPayment;
+          }
         }
 
-        if (insertRows.length > 0) {
-          const { error: insErr, data: insData } = await supabase
-            .from('individual_lesson_sessions')
-            .insert(insertRows)
-            .select();
-          if (insErr) console.error('Error inserting new paid rows:', insErr); else console.log('Inserted sessions:', insData);
+        // ШАГ 9: Проставляем payment_id для каждого платежа
+        for (const [paymentId, sessionIds] of Object.entries(updatesByPaymentId)) {
+          if (sessionIds.length > 0) {
+            const { error: updErr } = await supabase
+              .from('individual_lesson_sessions')
+              .update({ payment_id: paymentId, updated_at: new Date().toISOString() })
+              .in('id', sessionIds);
+            
+            if (updErr) {
+              console.error(`Error updating sessions for payment ${paymentId}:`, updErr);
+            } else {
+              console.log(`Assigned ${sessionIds.length} sessions to payment ${paymentId}`);
+            }
+          }
         }
+
+        console.log('Payment rebalancing completed');
       } else {
         console.log('Skipping session update - no individual_lesson_id or lessons_count');
       }
