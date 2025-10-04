@@ -1151,7 +1151,7 @@ export function EnhancedStudentCard({
                         <div>
                           <CardTitle>Финансы студента</CardTitle>
                           <CardDescription>
-                            Полная информация о платежах и финансовых операциях
+                            Полная информация о платежах, балансе и финансовых операциях
                           </CardDescription>
                         </div>
                         <Button 
@@ -1164,6 +1164,25 @@ export function EnhancedStudentCard({
                       </div>
                     </CardHeader>
                     <CardContent>
+                      {/* Balance Section */}
+                      <div className="p-4 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-lg mb-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-muted-foreground mb-1">Личный баланс</p>
+                            <p className="text-3xl font-bold">
+                              {balance?.balance ? balance.balance.toFixed(2) : '0.00'} ₽
+                            </p>
+                          </div>
+                          <Button 
+                            size="sm"
+                            onClick={() => setBalanceModalOpen(true)}
+                          >
+                            <Wallet className="h-4 w-4 mr-2" />
+                            Управление
+                          </Button>
+                        </div>
+                      </div>
+
                       {/* Финансовая сводка */}
                       <div className="grid grid-cols-3 gap-4 mb-6">
                         <div className="p-4 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
@@ -1288,38 +1307,7 @@ export function EnhancedStudentCard({
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="history" className="mt-0 space-y-4">
-                  {/* Balance Card */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Wallet className="h-5 w-5" />
-                        Личный баланс
-                      </CardTitle>
-                      <CardDescription>
-                        Текущий баланс и история транзакций
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg mb-4">
-                        <div>
-                          <p className="text-sm text-muted-foreground mb-1">Доступный баланс</p>
-                          <p className="text-3xl font-bold">
-                            {balance?.balance ? balance.balance.toFixed(2) : '0.00'} ₽
-                          </p>
-                        </div>
-                        <Button 
-                          size="sm"
-                          onClick={() => setBalanceModalOpen(true)}
-                        >
-                          <Wallet className="h-4 w-4 mr-2" />
-                          Управление
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* History Card */}
+                <TabsContent value="history" className="mt-0">
                   <Card>
                     <CardHeader>
                       <CardTitle>История взаимодействий</CardTitle>
