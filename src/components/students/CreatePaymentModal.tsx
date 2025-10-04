@@ -143,7 +143,9 @@ export function CreatePaymentModal({
         // Добавляем индивидуальные занятия
         if (individualData) {
           individualData.forEach((lesson: any) => {
-            const price = lesson.price_per_lesson || calculateLessonPrice(lesson.duration || 60);
+            // Используем ту же логику, что и в карточке - всегда вычисляем цену по формуле
+            const duration = lesson.duration || 60;
+            const price = calculateLessonPrice(duration);
             lessons.push({
               id: lesson.id,
               type: 'individual',
@@ -152,7 +154,7 @@ export function CreatePaymentModal({
               level: lesson.level || '',
               teacher: lesson.teacher_name || '',
               branch: lesson.branch || '',
-              duration: lesson.duration || 60,
+              duration: duration,
               pricePerLesson: price,
               academicHours: lesson.academic_hours_per_day || 1,
               scheduleTime: lesson.schedule_time,
