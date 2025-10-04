@@ -6,6 +6,10 @@ import { IndividualLessonStatusModal } from './IndividualLessonStatusModal';
 import { MarkAttendanceModal } from './MarkAttendanceModal';
 import { AttendanceIndicator } from './AttendanceIndicator';
 import { supabase } from '@/integrations/supabase/client';
+import { AddAdditionalLessonModal } from './AddAdditionalLessonModal';
+import { AdditionalLessonsList } from './AdditionalLessonsList';
+import { Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface IndividualLessonScheduleProps {
   lessonId?: string;
@@ -19,9 +23,12 @@ interface IndividualLessonScheduleProps {
 }
 
 interface LessonSession {
+  id?: string;
   lesson_date: string;
   status: string;
   payment_id?: string;
+  is_additional?: boolean;
+  notes?: string;
 }
 
 const DAY_MAP: Record<string, number> = {
@@ -49,10 +56,14 @@ export function IndividualLessonSchedule({
   const [showAll, setShowAll] = useState(false);
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
   const [attendanceDate, setAttendanceDate] = useState<Date | null>(null);
+  const [addLessonModalOpen, setAddLessonModalOpen] = useState(false);
+  const [showAdditionalLessons, setShowAdditionalLessons] = useState(false);
+  const [additionalLessons, setAdditionalLessons] = useState<LessonSession[]>([]);
 
   useEffect(() => {
     if (lessonId) {
       loadLessonSessions();
+      loadAdditionalLessons();
     }
   }, [lessonId, refreshTrigger]);
 
@@ -62,7 +73,7 @@ export function IndividualLessonSchedule({
     try {
       const { data, error } = await supabase
         .from('individual_lesson_sessions')
-        .select('lesson_date, status, payment_id, updated_at')
+        .select('id, lesson_date, status, payment_id, is_additional, notes, updated_at')
         .eq('individual_lesson_id', lessonId)
         .order('updated_at', { ascending: false });
 
@@ -72,9 +83,12 @@ export function IndividualLessonSchedule({
       data?.forEach(session => {
         if (!sessionsMap[session.lesson_date]) {
           sessionsMap[session.lesson_date] = { 
+            id: session.id,
             lesson_date: session.lesson_date, 
             status: session.status,
-            payment_id: session.payment_id 
+            payment_id: session.payment_id,
+            is_additional: session.is_additional,
+            notes: session.notes
           };
         }
       });
@@ -84,8 +98,33 @@ export function IndividualLessonSchedule({
     }
   };
 
+  const loadAdditionalLessons = async () => {
+    if (!lessonId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('individual_lesson_sessions')
+        .select('id, lesson_date, status, notes')
+        .eq('individual_lesson_id', lessonId)
+        .eq('is_additional', true)
+        .order('lesson_date', { ascending: true });
+
+      if (error) throw error;
+
+      setAdditionalLessons(data || []);
+    } catch (error) {
+      console.error('Error loading additional lessons:', error);
+    }
+  };
+
   const handleStatusUpdated = () => {
     loadLessonSessions();
+    loadAdditionalLessons();
+  };
+
+  const handleAdditionalLessonAdded = () => {
+    loadLessonSessions();
+    loadAdditionalLessons();
   };
 
   if (!scheduleDays || scheduleDays.length === 0) {
@@ -188,13 +227,14 @@ export function IndividualLessonSchedule({
 
   return (
     <>
-      <div
-        className={cn("flex items-center gap-2", className)}
-        onClick={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        <div className="flex gap-1 flex-wrap">
+      <div className={cn("space-y-3", className)}>
+        <div
+          className="flex items-center gap-2"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <div className="flex gap-1 flex-wrap">
           {displayedDates.map((date, index) => {
             const dateStr = format(date, 'yyyy-MM-dd');
             const colorClass = getLessonColor(date, lessonSessions[dateStr]?.status);
@@ -220,33 +260,74 @@ export function IndividualLessonSchedule({
               </button>
             );
           })}
-          {!showAll && hasMoreLessons && (
-            <button
+            {!showAll && hasMoreLessons && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowAll(true);
+                }}
+                className="h-8 px-3 rounded border border-primary bg-primary/10 text-primary hover:bg-primary/20 transition-all"
+              >
+                <span className="text-xs font-medium whitespace-nowrap">
+                  +{lessonDates.length - 30} еще
+                </span>
+              </button>
+            )}
+            {showAll && hasMoreLessons && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowAll(false);
+                }}
+                className="h-8 px-3 rounded border border-muted-foreground bg-muted text-muted-foreground hover:bg-muted/80 transition-all"
+              >
+                <span className="text-xs font-medium whitespace-nowrap">
+                  Скрыть
+                </span>
+              </button>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
               onClick={(e) => {
                 e.stopPropagation();
-                setShowAll(true);
+                setAddLessonModalOpen(true);
               }}
-              className="h-8 px-3 rounded border border-primary bg-primary/10 text-primary hover:bg-primary/20 transition-all"
+              className="h-8 gap-1"
             >
-              <span className="text-xs font-medium whitespace-nowrap">
-                +{lessonDates.length - 30} еще
-              </span>
-            </button>
-          )}
-          {showAll && hasMoreLessons && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowAll(false);
-              }}
-              className="h-8 px-3 rounded border border-muted-foreground bg-muted text-muted-foreground hover:bg-muted/80 transition-all"
-            >
-              <span className="text-xs font-medium whitespace-nowrap">
-                Скрыть
-              </span>
-            </button>
-          )}
+              <Plus className="h-3 w-3" />
+              <span className="text-xs">Добавить</span>
+            </Button>
+          </div>
         </div>
+
+        {additionalLessons.length > 0 && (
+          <div className="pt-2 border-t">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowAdditionalLessons(!showAdditionalLessons)}
+              className="w-full justify-between h-8 text-xs"
+            >
+              <span>Показать дополнительные занятия ({additionalLessons.length})</span>
+              {showAdditionalLessons ? (
+                <ChevronUp className="h-3 w-3" />
+              ) : (
+                <ChevronDown className="h-3 w-3" />
+              )}
+            </Button>
+            {showAdditionalLessons && (
+              <AdditionalLessonsList
+                lessons={additionalLessons}
+                onDelete={handleAdditionalLessonAdded}
+                onEdit={(lesson) => {
+                  setSelectedDate(new Date(lesson.lesson_date));
+                  setIsModalOpen(true);
+                }}
+              />
+            )}
+          </div>
+        )}
       </div>
 
       <IndividualLessonStatusModal
@@ -266,6 +347,15 @@ export function IndividualLessonSchedule({
           lessonId={lessonId}
           sessionType="individual"
           onMarked={loadLessonSessions}
+        />
+      )}
+
+      {lessonId && (
+        <AddAdditionalLessonModal
+          open={addLessonModalOpen}
+          onOpenChange={setAddLessonModalOpen}
+          lessonId={lessonId}
+          onAdded={handleAdditionalLessonAdded}
         />
       )}
     </>

@@ -853,6 +853,7 @@ export type Database = {
           created_by: string | null
           id: string
           individual_lesson_id: string
+          is_additional: boolean | null
           lesson_date: string
           notes: string | null
           payment_id: string | null
@@ -864,6 +865,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           individual_lesson_id: string
+          is_additional?: boolean | null
           lesson_date: string
           notes?: string | null
           payment_id?: string | null
@@ -875,6 +877,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           individual_lesson_id?: string
+          is_additional?: boolean | null
           lesson_date?: string
           notes?: string | null
           payment_id?: string | null
