@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { PinnableDialogContent, PinnableModalHeader } from '@/components/crm/PinnableModal';
+import { usePinnedModalsDB } from '@/hooks/usePinnedModalsDB';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -88,11 +89,13 @@ export function EnhancedStudentCard({
   student, 
   open, 
   onOpenChange,
-  isPinned = false,
+  isPinned: propIsPinned = false,
   onPin = () => {},
   onUnpin = () => {}
 }: EnhancedStudentCardProps) {
   const queryClient = useQueryClient();
+  const { isPinned: checkIsPinned, pinModal, unpinModal } = usePinnedModalsDB();
+  const isPinned = checkIsPinned(student.id, 'student');
   const [activeTab, setActiveTab] = useState('overview');
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [balanceModalOpen, setBalanceModalOpen] = useState(false);
@@ -484,7 +487,20 @@ export function EnhancedStudentCard({
                 variant="ghost" 
                 size="icon" 
                 className="h-8 w-8"
-                onClick={isPinned ? onUnpin : onPin}
+                onClick={() => {
+                  if (isPinned) {
+                    unpinModal(student.id, 'student');
+                    onUnpin();
+                  } else {
+                    pinModal({
+                      id: student.id,
+                      type: 'student',
+                      title: studentDetails.name,
+                      props: { student }
+                    });
+                    onPin();
+                  }
+                }}
                 title={isPinned ? "Открепить" : "Закрепить"}
               >
                 {isPinned ? (
