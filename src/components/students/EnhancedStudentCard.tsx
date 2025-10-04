@@ -511,12 +511,6 @@ export function EnhancedStudentCard({
                     </Button>
                   </div>
                 ) : null}
-                <div className="flex items-center gap-3 text-sm text-muted-foreground mt-2">
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-4 w-4" />
-                    С {formatDate(studentDetails.createdAt)}
-                  </span>
-                </div>
               </div>
             </div>
 
@@ -1384,6 +1378,15 @@ export function EnhancedStudentCard({
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
+                      {/* Дата создания студента */}
+                      <div className="mb-6 p-4 bg-muted/50 border border-border rounded-lg">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium">Студент добавлен в систему:</span>
+                          <span className="text-muted-foreground">{formatDate(studentDetails.createdAt)}</span>
+                        </div>
+                      </div>
+
                       {historyLoading ? (
                         <div className="flex items-center justify-center py-8">
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
