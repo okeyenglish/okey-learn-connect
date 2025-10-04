@@ -182,12 +182,6 @@ export const EditIndividualLessonModal = ({
     try {
       // Если есть проведенные занятия и указана дата применения
       if (hasCompletedSessions && applyFromDate) {
-        // Обновляем период начала в individual_lessons
-        await updateLesson.mutateAsync({
-          id: lessonId,
-          period_start: applyFromDate,
-        });
-        
         // Вычисляем время начала и конца из schedule_time
         let startTime: string | undefined;
         let endTime: string | undefined;
@@ -219,6 +213,15 @@ export const EditIndividualLessonModal = ({
         const { error: sessionsError } = await query;
         
         if (sessionsError) throw sessionsError;
+        
+        // Также обновляем основную запись с новыми параметрами
+        await updateLesson.mutateAsync({
+          id: lessonId,
+          branch: formData.branch,
+          teacher_name: formData.teacher_name || undefined,
+          schedule_time: formData.schedule_time || undefined,
+          audit_location: formData.audit_location || undefined,
+        });
         
         const fromDateStr = new Date(applyFromDate).toLocaleDateString('ru-RU');
         const toDateStr = applyToDate ? ` по ${new Date(applyToDate).toLocaleDateString('ru-RU')}` : '';
@@ -254,7 +257,7 @@ export const EditIndividualLessonModal = ({
       console.error('Error updating lesson:', error);
       toast({
         title: "Ошибка",
-        description: "Не удалось обновить данные занятия",
+        description: error instanceof Error ? error.message : "Не удалось обновить данные занятия",
         variant: "destructive"
       });
     }
@@ -422,11 +425,14 @@ export const EditIndividualLessonModal = ({
                     <SelectValue placeholder="Выберите" />
                   </SelectTrigger>
                   <SelectContent className="bg-background z-[100]">
-                    {teachers.map((teacher) => (
-                      <SelectItem key={teacher.id} value={getTeacherFullName(teacher)}>
-                        {getTeacherFullName(teacher)}
-                      </SelectItem>
-                    ))}
+                    {teachers.map((teacher, index) => {
+                      const fullName = getTeacherFullName(teacher);
+                      return (
+                        <SelectItem key={`${teacher.id}-${index}`} value={fullName}>
+                          {fullName}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
