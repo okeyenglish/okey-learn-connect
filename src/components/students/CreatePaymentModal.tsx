@@ -6,7 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { usePayments } from '@/hooks/usePayments';
+import { useAddBalanceTransaction } from '@/hooks/useStudentBalance';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -37,6 +39,7 @@ export function CreatePaymentModal({
   pricePerLesson = 0,
   onPaymentSuccess
 }: CreatePaymentModalProps) {
+  const [paymentType, setPaymentType] = useState<'lessons' | 'balance'>('lessons');
   const [selectedPackage, setSelectedPackage] = useState<number | null>(null);
   const [customLessonsCount, setCustomLessonsCount] = useState<string>('');
   const [useCustomAmount, setUseCustomAmount] = useState(false);
@@ -52,6 +55,7 @@ export function CreatePaymentModal({
   const [loading, setLoading] = useState(false);
   
   const { createPayment } = usePayments();
+  const { mutateAsync: addBalanceTransaction } = useAddBalanceTransaction();
   const { toast } = useToast();
 
   // Загружаем duration из individual_lessons
@@ -93,22 +97,9 @@ export function CreatePaymentModal({
     e.preventDefault();
     
     console.log('=== PAYMENT MODAL SUBMIT ===');
+    console.log('Payment type:', paymentType);
     
-    const lessonsCount = getLessonsCount();
-    console.log('Lessons count:', lessonsCount);
-    console.log('Individual lesson ID:', individualLessonId);
-    
-    if (individualLessonId && !lessonsCount && !useCustomAmount) {
-      toast({
-        title: "Ошибка",
-        description: "Выберите пакет занятий или укажите количество",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const amount = calculateAmount();
-    console.log('Calculated amount:', amount);
+    const amount = paymentType === 'balance' ? parseFloat(customAmount) : calculateAmount();
     
     if (!amount) {
       toast({
@@ -121,22 +112,51 @@ export function CreatePaymentModal({
 
     setLoading(true);
     try {
-      const paymentPayload = {
-        student_id: studentId,
-        amount,
-        method: formData.method,
-        payment_date: formData.payment_date,
-        description: formData.description || `Оплата ${lessonsCount} занятий`,
-        notes: formData.notes,
-        lessons_count: lessonsCount,
-        individual_lesson_id: individualLessonId
-      };
-      
-      console.log('Payment payload to send:', paymentPayload);
-      
-      await createPayment(paymentPayload);
-      
-      console.log('Payment created successfully in modal');
+      if (paymentType === 'balance') {
+        // Пополнение личного баланса
+        await addBalanceTransaction({
+          studentId: studentId,
+          amount,
+          transactionType: 'credit',
+          description: formData.description || 'Пополнение личного баланса',
+        });
+        
+        toast({
+          title: "Успех",
+          description: `Баланс пополнен на ${amount} ₽`,
+        });
+      } else {
+        // Оплата занятий
+        const lessonsCount = getLessonsCount();
+        
+        if (individualLessonId && !lessonsCount && !useCustomAmount) {
+          toast({
+            title: "Ошибка",
+            description: "Выберите пакет занятий или укажите количество",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+        
+        const paymentPayload = {
+          student_id: studentId,
+          amount,
+          method: formData.method,
+          payment_date: formData.payment_date,
+          description: formData.description || `Оплата ${lessonsCount} занятий`,
+          notes: formData.notes,
+          lessons_count: lessonsCount,
+          individual_lesson_id: individualLessonId
+        };
+        
+        await createPayment(paymentPayload);
+        
+        toast({
+          title: "Успех",
+          description: `Оплачено ${lessonsCount} занятий`,
+        });
+      }
       
       // Reset form
       setFormData({
@@ -145,13 +165,13 @@ export function CreatePaymentModal({
         notes: '',
         payment_date: new Date().toISOString().split('T')[0]
       });
+      setPaymentType('lessons');
       setSelectedPackage(null);
       setCustomLessonsCount('');
       setUseCustomAmount(false);
       setCustomAmount('');
       
       if (onPaymentSuccess) {
-        console.log('Calling onPaymentSuccess callback');
         onPaymentSuccess();
       }
       
@@ -176,7 +196,45 @@ export function CreatePaymentModal({
             <div className="text-sm text-muted-foreground">{studentName}</div>
           </div>
 
-          {individualLessonId && (
+          <div>
+            <Label>Тип оплаты</Label>
+            <RadioGroup value={paymentType} onValueChange={(value: 'lessons' | 'balance') => setPaymentType(value)}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="lessons" id="type-lessons" />
+                <Label htmlFor="type-lessons" className="cursor-pointer">Оплата занятий</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="balance" id="type-balance" />
+                <Label htmlFor="type-balance" className="cursor-pointer">Пополнение личного баланса</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {paymentType === 'balance' && (
+            <div>
+              <Label htmlFor="balance-amount">Сумма пополнения (руб.)</Label>
+              <Input
+                id="balance-amount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={customAmount}
+                onChange={(e) => setCustomAmount(e.target.value)}
+                placeholder="Введите сумму..."
+                required
+              />
+              {parseFloat(customAmount) > 0 && (
+                <div className="mt-2 p-3 bg-primary/10 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">К пополнению:</span>
+                    <span className="text-2xl font-bold">{parseFloat(customAmount)} руб.</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {paymentType === 'lessons' && individualLessonId && (
             <div className="space-y-3">
 
               <div>

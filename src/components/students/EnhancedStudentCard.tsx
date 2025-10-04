@@ -313,10 +313,13 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                       variant="outline" 
                       size="sm" 
                       className="w-full justify-start"
-                      onClick={() => setPaymentModalOpen(true)}
+                      onClick={() => {
+                        setSelectedLesson(null);
+                        setPaymentModalOpen(true);
+                      }}
                     >
                       <CreditCard className="h-4 w-4 mr-2" />
-                      Создать платеж
+                      Внести оплату
                     </Button>
                     <Button 
                       variant="outline" 
@@ -1104,33 +1107,31 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
       )}
 
       {/* Модал создания платежа */}
-      {selectedLesson && (
-        <CreatePaymentModal
-          open={paymentModalOpen}
-          onOpenChange={(open) => {
-            setPaymentModalOpen(open);
-            if (!open) {
-              // При закрытии модала обновляем данные
-              setTimeout(() => {
-                refetch();
-                setRefreshTrigger(prev => prev + 1);
-              }, 300);
-            }
-          }}
-          studentId={student.id}
-          studentName={studentDetails?.name || student.name}
-          individualLessonId={selectedLesson.id}
-          totalUnpaidCount={selectedLesson.sessions?.filter((s: any) => 
-            ['scheduled', 'rescheduled_out', 'rescheduled'].includes(s.status) || !s.status
-          ).length || 0}
-          pricePerLesson={selectedLesson.pricePerLesson || 0}
-          onPaymentSuccess={() => {
-            refetch();
+      <CreatePaymentModal
+        open={paymentModalOpen}
+        onOpenChange={(open) => {
+          setPaymentModalOpen(open);
+          if (!open) {
             setSelectedLesson(null);
-            setRefreshTrigger(prev => prev + 1);
-          }}
-        />
-      )}
+            setTimeout(() => {
+              refetch();
+              setRefreshTrigger(prev => prev + 1);
+            }, 300);
+          }
+        }}
+        studentId={student.id}
+        studentName={studentDetails?.name || student.name}
+        individualLessonId={selectedLesson?.id}
+        totalUnpaidCount={selectedLesson?.sessions?.filter((s: any) => 
+          ['scheduled', 'rescheduled_out', 'rescheduled'].includes(s.status) || !s.status
+        ).length || 0}
+        pricePerLesson={selectedLesson?.pricePerLesson || 0}
+        onPaymentSuccess={() => {
+          refetch();
+          setSelectedLesson(null);
+          setRefreshTrigger(prev => prev + 1);
+        }}
+      />
 
       {/* Модал редактирования индивидуального урока */}
       <EditIndividualLessonModal
