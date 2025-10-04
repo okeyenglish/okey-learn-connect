@@ -43,7 +43,9 @@ import {
   Wallet,
   Trash2,
   Check,
-  X
+  X,
+  Pin,
+  PinOff
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useStudentDetails, StudentFullDetails } from '@/hooks/useStudentDetails';
@@ -329,15 +331,6 @@ export function EnhancedStudentCard({
       >
         {/* Header */}
         <div className="bg-muted/30 border-b px-6 py-4">
-          <PinnableModalHeader
-            title={`${studentDetails.lastName} ${studentDetails.firstName}`}
-            isPinned={isPinned}
-            onPin={onPin}
-            onUnpin={onUnpin}
-            onClose={() => onOpenChange(false)}
-          >
-            <User className="h-5 w-5" />
-          </PinnableModalHeader>
           <div className="flex items-start justify-between gap-6">
             <div className="flex items-start gap-4">
               <div className="relative">
@@ -462,7 +455,7 @@ export function EnhancedStudentCard({
             </div>
 
             {/* Notes Section */}
-            <div className="flex-1 max-w-3xl mr-12">
+            <div className="flex-1 max-w-lg mr-2">
               <div className="border border-border rounded-lg p-3 bg-background h-[64px] overflow-y-auto">
                 {isEditingNotes ? (
                   <Textarea
@@ -483,6 +476,32 @@ export function EnhancedStudentCard({
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Pin and Close buttons */}
+            <div className="flex items-center gap-1">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8"
+                onClick={isPinned ? onUnpin : onPin}
+                title={isPinned ? "Открепить" : "Закрепить"}
+              >
+                {isPinned ? (
+                  <PinOff className="h-4 w-4 text-orange-600" />
+                ) : (
+                  <Pin className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8"
+                onClick={() => onOpenChange(false)}
+                title="Закрыть"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>

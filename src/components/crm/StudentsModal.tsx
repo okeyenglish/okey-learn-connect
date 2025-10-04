@@ -47,7 +47,7 @@ export const StudentsModal = ({ open, onOpenChange, children }: StudentsModalPro
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
   const [showStudentCard, setShowStudentCard] = useState(false);
-  const pinnedModalsHook = usePinnedModalsDB();
+  const pinnedModals = usePinnedModalsDB();
   
   // Expandable sections state
   const [expandedSections, setExpandedSections] = useState({
@@ -107,6 +107,7 @@ export const StudentsModal = ({ open, onOpenChange, children }: StudentsModalPro
       setSelectedStudent={setSelectedStudent}
       showStudentCard={showStudentCard}
       setShowStudentCard={setShowStudentCard}
+      pinnedModals={pinnedModals}
     />;
   }
 
@@ -165,6 +166,7 @@ export const StudentsModal = ({ open, onOpenChange, children }: StudentsModalPro
           setSelectedStudent={setSelectedStudent}
           showStudentCard={showStudentCard}
           setShowStudentCard={setShowStudentCard}
+          pinnedModals={pinnedModals}
         />
       </DialogContent>
     </Dialog>
@@ -199,6 +201,11 @@ interface StudentsContentProps {
   setSelectedStudent: (student: any | null) => void;
   showStudentCard: boolean;
   setShowStudentCard: (show: boolean) => void;
+  pinnedModals: {
+    isPinned: (id: string, type: string) => boolean;
+    pinModal: (modal: any) => void;
+    unpinModal: (id: string, type: string) => void;
+  };
 }
 
 const StudentsContent = ({ 
@@ -208,7 +215,8 @@ const StudentsContent = ({
   showAddModal, setShowAddModal, showAdvancedFilters, setShowAdvancedFilters,
   expandedSections, setExpandedSections,
   visibleColumns, setVisibleColumns, students, isLoading,
-  selectedStudent, setSelectedStudent, showStudentCard, setShowStudentCard
+  selectedStudent, setSelectedStudent, showStudentCard, setShowStudentCard,
+  pinnedModals
 }: StudentsContentProps) => {
   // Filter students based on current filters with proper null checks
   const filteredStudents = students.filter(student => {
@@ -522,14 +530,14 @@ const StudentsContent = ({
             setShowStudentCard(open);
             if (!open) setSelectedStudent(null);
           }}
-          isPinned={pinnedModalsHook.isPinned(selectedStudent.id, 'student')}
-          onPin={() => pinnedModalsHook.pinModal({
+          isPinned={pinnedModals.isPinned(selectedStudent.id, 'student')}
+          onPin={() => pinnedModals.pinModal({
             id: selectedStudent.id,
             type: 'student',
             title: selectedStudent.name,
             props: { student: selectedStudent }
           })}
-          onUnpin={() => pinnedModalsHook.unpinModal(selectedStudent.id, 'student')}
+          onUnpin={() => pinnedModals.unpinModal(selectedStudent.id, 'student')}
         />
       )}
     </div>
