@@ -134,6 +134,21 @@ export function EnhancedStudentCard({
 
   const handleArchiveLesson = async (lessonId: string) => {
     try {
+      // Проверяем наличие будущих запланированных занятий
+      const { data: futureSessions, error: sessionsError } = await supabase
+        .from('individual_lesson_sessions')
+        .select('id, lesson_date, status')
+        .eq('individual_lesson_id', lessonId)
+        .eq('status', 'scheduled')
+        .gte('lesson_date', new Date().toISOString().split('T')[0]);
+
+      if (sessionsError) throw sessionsError;
+
+      if (futureSessions && futureSessions.length > 0) {
+        toast.error('Невозможно архивировать курс с запланированными занятиями в будущем');
+        return;
+      }
+
       await updateIndividualLesson.mutateAsync({
         id: lessonId,
         status: 'finished'

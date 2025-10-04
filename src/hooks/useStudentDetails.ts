@@ -269,34 +269,32 @@ export const useStudentDetails = (studentId: string) => {
           // Определяем статус на основе будущих занятий
           const today = new Date();
           today.setHours(0, 0, 0, 0);
-          let lessonStatus = il.status || 'active';
+          
+          // Проверяем наличие запланированных занятий в будущем
+          const hasFutureLessons = sessions.some((session) => {
+            const lessonDate = new Date(session.lessonDate);
+            lessonDate.setHours(0, 0, 0, 0);
+            return lessonDate >= today && session.status === 'scheduled';
+          });
 
-          // Если статус уже 'finished' в БД, используем его
-          if (il.status === 'finished') {
-            lessonStatus = 'finished';
+          let lessonStatus: string;
+          
+          // Если есть будущие занятия, курс всегда активный
+          if (hasFutureLessons) {
+            lessonStatus = 'active';
           } else {
-            // Проверяем наличие запланированных занятий в будущем
-            const hasFutureLessons = sessions.some((session) => {
-              const lessonDate = new Date(session.lessonDate);
-              lessonDate.setHours(0, 0, 0, 0);
-              return lessonDate >= today && session.status === 'scheduled';
-            });
-
+            // Проверяем дату начала, если нет будущих занятий
             if (il.period_start) {
               const startDate = new Date(il.period_start);
               startDate.setHours(0, 0, 0, 0);
               
               if (today < startDate) {
                 lessonStatus = 'forming'; // Еще не начались
-              } else if (hasFutureLessons) {
-                lessonStatus = 'active'; // Есть будущие занятия
               } else {
-                lessonStatus = 'finished'; // Нет будущих занятий
+                lessonStatus = 'finished'; // Нет будущих занятий и уже начались
               }
-            } else if (hasFutureLessons) {
-              lessonStatus = 'active';
             } else {
-              lessonStatus = 'finished';
+              lessonStatus = 'finished'; // Нет будущих занятий и нет даты начала
             }
           }
 
