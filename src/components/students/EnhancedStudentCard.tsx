@@ -12,6 +12,10 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
 import { 
   Phone, 
   Mail, 
@@ -86,6 +90,9 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
   const [firstNameValue, setFirstNameValue] = useState('');
   const [lastNameValue, setLastNameValue] = useState('');
   const [middleNameValue, setMiddleNameValue] = useState('');
+  const [isEditingAge, setIsEditingAge] = useState(false);
+  const [ageValue, setAgeValue] = useState<number | undefined>(undefined);
+  const [dateOfBirthValue, setDateOfBirthValue] = useState<Date | undefined>(undefined);
   const [selectedLesson, setSelectedLesson] = useState<any>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -119,6 +126,10 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
       setFirstNameValue(studentDetails.firstName || '');
       setLastNameValue(studentDetails.lastName || '');
       setMiddleNameValue(studentDetails.middleName || '');
+      setAgeValue(studentDetails.age);
+      if (studentDetails.dateOfBirth) {
+        setDateOfBirthValue(new Date(studentDetails.dateOfBirth));
+      }
     }
   }, [studentDetails]);
 
@@ -146,6 +157,34 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
     } catch (error) {
       console.error('Error saving name:', error);
       toast.error('Не удалось сохранить ФИО');
+    }
+  };
+
+  const handleSaveAge = async () => {
+    try {
+      const updateData: any = {};
+      
+      if (dateOfBirthValue) {
+        updateData.date_of_birth = format(dateOfBirthValue, 'yyyy-MM-dd');
+      }
+      
+      if (ageValue !== undefined) {
+        updateData.age = ageValue;
+      }
+
+      const { error } = await supabase
+        .from('students')
+        .update(updateData)
+        .eq('id', student.id);
+
+      if (error) throw error;
+      
+      setIsEditingAge(false);
+      refetch();
+      toast.success('Возраст и дата рождения обновлены');
+    } catch (error) {
+      console.error('Error saving age:', error);
+      toast.error('Не удалось сохранить данные');
     }
   };
 
@@ -333,15 +372,60 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                   )}
                 </div>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                  {studentDetails.age && (
-                    <span className="flex items-center gap-1">
+                  {isEditingAge ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={ageValue || ''}
+                        onChange={(e) => setAgeValue(e.target.value ? parseInt(e.target.value) : undefined)}
+                        placeholder="Возраст"
+                        className="h-8 w-20"
+                        min={0}
+                        max={120}
+                      />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={`h-8 justify-start text-left font-normal ${!dateOfBirthValue && "text-muted-foreground"}`}
+                          >
+                            <Calendar className="h-4 w-4 mr-2" />
+                            {dateOfBirthValue ? format(dateOfBirthValue, 'dd.MM.yyyy', { locale: ru }) : 'Выберите дату'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={dateOfBirthValue}
+                            onSelect={setDateOfBirthValue}
+                            disabled={(date) => date > new Date() || date < new Date('1900-01-01')}
+                            initialFocus
+                            className="p-3 pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <Button size="sm" variant="ghost" onClick={handleSaveAge} title="Сохранить">
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setIsEditingAge(false)} title="Отменить">
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <span 
+                      className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors"
+                      onClick={() => setIsEditingAge(true)}
+                      title="Нажмите, чтобы редактировать возраст и дату рождения"
+                    >
                       <Calendar className="h-4 w-4" />
-                      {studentDetails.age} лет
+                      {studentDetails.age && `${studentDetails.age} лет`}
                       {studentDetails.dateOfBirth && (
                         <span className="text-muted-foreground/80">
                           ({formatDate(studentDetails.dateOfBirth)})
                         </span>
                       )}
+                      {!studentDetails.age && !studentDetails.dateOfBirth && 'Добавить возраст'}
                     </span>
                   )}
                   {studentDetails.phone && (
