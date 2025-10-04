@@ -183,7 +183,7 @@ export const useStudentDetails = (studentId: string) => {
         .from('group_students')
         .select(`
           *,
-          learning_groups:group_id (
+          learning_groups (
             id,
             name,
             subject,
@@ -191,6 +191,7 @@ export const useStudentDetails = (studentId: string) => {
             branch,
             status,
             category,
+            group_number,
             teacher:teacher_id (
               id,
               name
