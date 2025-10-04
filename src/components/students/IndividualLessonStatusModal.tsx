@@ -188,7 +188,7 @@ export function IndividualLessonStatusModal({
 
           // Prefer existing future unpaid session rows first
           if (!targetDate && (allSessions || []).length) {
-            for (const sess of (allSessions as { lesson_date: string; payment_id?: string }[])) {
+            for (const sess of (allSessions as { lesson_date: string; payment_id?: string; status?: string }[])) {
               if (sess.lesson_date > lessonDate && isUnpaid(sess)) {
                 targetDate = sess.lesson_date;
                 break;
