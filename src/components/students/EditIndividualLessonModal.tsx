@@ -535,24 +535,6 @@ export const EditIndividualLessonModal = ({
               </div>
             </div>
 
-            {/* Перерыв */}
-            <div className="space-y-2">
-              <Label htmlFor="break_minutes">Перерыв (мин):</Label>
-              <Select 
-                value={formData.break_minutes} 
-                onValueChange={(value) => setFormData({ ...formData, break_minutes: value })}
-              >
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-background z-[100]">
-                  {[0, 5, 10, 15, 20, 30].map((min) => (
-                    <SelectItem key={min} value={min.toString()}>{min}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* Преподаватель */}
             <div className="space-y-2">
               <Label htmlFor="teacher_name">Преподаватель:</Label>
