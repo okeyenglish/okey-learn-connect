@@ -222,13 +222,23 @@ export function IndividualLessonStatusModal({
             startFrom.setDate(startFrom.getDate() + 1);
 
             for (let d = new Date(startFrom); d <= end; d.setDate(d.getDate() + 1)) {
-              if (d >= start && dayNums.includes(d.getDay())) {
+              if (d >= start) {
                 const ds = format(d, 'yyyy-MM-dd');
                 const s = sessionByDate.get(ds);
-                console.log(`Checking date ${ds}: session exists?`, !!s, 'status:', s?.status, 'isUnpaid:', !s || isUnpaid(s.status));
-                if (!s || isUnpaid(s.status)) { // no row or unpaid status
+                const isScheduledDay = dayNums.includes(d.getDay());
+                console.log(`Checking date ${ds}: session exists?`, !!s, 'status:', s?.status, 'scheduledDay:', isScheduledDay, 'isUnpaid:', s ? isUnpaid(s.status) : 'n/a');
+
+                if (s) {
+                  // Prefer existing unpaid session (even if it's a non-scheduled rescheduled day)
+                  if (isUnpaid(s.status)) {
+                    targetDate = ds;
+                    console.log(`Found existing unpaid session for transfer: ${targetDate}`);
+                    break;
+                  }
+                } else if (isScheduledDay) {
+                  // No existing session - use next scheduled day as target (we will create a session)
                   targetDate = ds;
-                  console.log(`Found target date for payment transfer: ${targetDate}`);
+                  console.log(`No session found; next scheduled day for transfer: ${targetDate}`);
                   break;
                 }
               }
