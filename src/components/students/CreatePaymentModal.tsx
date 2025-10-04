@@ -434,73 +434,16 @@ export function CreatePaymentModal({
               </div>
 
               {selectedLesson && (
-                <>
-                  <div className="p-3 bg-muted rounded-lg space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Преподаватель:</span>
-                      <span className="font-medium">{getSelectedLessonInfo()?.teacher || 'Не назначен'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Предмет:</span>
-                      <span className="font-medium">{getSelectedLessonInfo()?.subject}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Уровень:</span>
-                      <span className="font-medium">{getSelectedLessonInfo()?.level}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Филиал:</span>
-                      <span className="font-medium">{getSelectedLessonInfo()?.branch}</span>
-                    </div>
-                    {getSelectedLessonInfo()?.type === 'individual' && (
-                      <>
-                        {getSelectedLessonInfo()?.scheduleDays && getSelectedLessonInfo()!.scheduleDays!.length > 0 && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Дни недели:</span>
-                            <span className="font-medium">
-                              {getSelectedLessonInfo()!.scheduleDays!.map(day => {
-                                const dayLabels: Record<string, string> = {
-                                  monday: 'Пн', tuesday: 'Вт', wednesday: 'Ср',
-                                  thursday: 'Чт', friday: 'Пт', saturday: 'Сб', sunday: 'Вс'
-                                };
-                                return dayLabels[day.toLowerCase()] || day;
-                              }).join('/')}
-                            </span>
-                          </div>
-                        )}
-                        {getSelectedLessonInfo()?.scheduleTime && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Время:</span>
-                            <span className="font-medium">
-                              {(() => {
-                                const time = getSelectedLessonInfo()!.scheduleTime!;
-                                const startTime = time.split('-')[0];
-                                const [hours, minutes] = startTime.split(':').map(Number);
-                                const duration = getSelectedLessonInfo()!.duration || 60;
-                                const totalMinutes = hours * 60 + minutes + duration;
-                                const endHours = Math.floor(totalMinutes / 60) % 24;
-                                const endMinutes = totalMinutes % 60;
-                                return `${startTime} - ${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
-                              })()}
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Продолжительность:</span>
-                          <span className="font-medium">{getSelectedLessonInfo()?.duration} мин</span>
-                        </div>
-                      </>
-                    )}
-                    <div className="flex justify-between border-t pt-2 mt-2">
-                      <span className="text-muted-foreground font-medium">Стоимость урока:</span>
-                      <span className="font-bold text-primary">{calculatedPricePerLesson} ₽</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Ак. часов за урок:</span>
-                      <span className="font-medium">{getSelectedLessonInfo()?.academicHours || 1} ак.ч.</span>
-                    </div>
+                <div className="p-3 bg-muted rounded-lg space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground font-medium">Стоимость урока:</span>
+                    <span className="font-bold text-primary">{calculatedPricePerLesson} ₽</span>
                   </div>
-                </>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Ак. часов за урок:</span>
+                    <span className="font-medium">{getSelectedLessonInfo()?.academicHours || 1} ак.ч.</span>
+                  </div>
+                </div>
               )}
 
               <div>
