@@ -1197,9 +1197,9 @@ export function EnhancedStudentCard({
                         <div className="p-4 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                           <p className="text-sm text-muted-foreground mb-1">Реализовано</p>
                           <p className="text-2xl font-bold text-yellow-600">
-                            {(studentDetails.payments
-                              .filter(p => p.status === 'completed')
-                              .reduce((sum, p) => sum + p.amount, 0) - (balance?.balance || 0))
+                            {studentDetails.payments
+                              .filter(p => p.status === 'completed' && p.individualLessonId)
+                              .reduce((sum, p) => sum + p.amount, 0)
                               .toLocaleString('ru-RU')} ₽
                           </p>
                         </div>
