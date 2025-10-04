@@ -560,15 +560,6 @@ export function EnhancedStudentCard({
                       <CreditCard className="h-4 w-4 mr-2" />
                       Внести оплату
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full justify-start"
-                      onClick={() => setBalanceModalOpen(true)}
-                    >
-                      <Wallet className="h-4 w-4 mr-2" />
-                      Личный баланс {balance?.balance ? `(${balance.balance.toFixed(2)} ₽)` : ''}
-                    </Button>
                   </CardContent>
                 </Card>
 
@@ -1297,7 +1288,38 @@ export function EnhancedStudentCard({
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="history" className="mt-0">
+                <TabsContent value="history" className="mt-0 space-y-4">
+                  {/* Balance Card */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Wallet className="h-5 w-5" />
+                        Личный баланс
+                      </CardTitle>
+                      <CardDescription>
+                        Текущий баланс и история транзакций
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg mb-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-1">Доступный баланс</p>
+                          <p className="text-3xl font-bold">
+                            {balance?.balance ? balance.balance.toFixed(2) : '0.00'} ₽
+                          </p>
+                        </div>
+                        <Button 
+                          size="sm"
+                          onClick={() => setBalanceModalOpen(true)}
+                        >
+                          <Wallet className="h-4 w-4 mr-2" />
+                          Управление
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* History Card */}
                   <Card>
                     <CardHeader>
                       <CardTitle>История взаимодействий</CardTitle>
