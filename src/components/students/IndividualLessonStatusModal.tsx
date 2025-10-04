@@ -32,7 +32,7 @@ const lessonStatusOptions = [
     label: 'Занятие',
     description: 'Студент присутствовал на занятии',
     icon: Check,
-    color: 'text-green-600',
+    color: 'text-blue-600',
   },
   {
     value: 'partially_paid',
