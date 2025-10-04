@@ -45,6 +45,14 @@ const DAY_MAP: Record<string, number> = {
   'friday': 5,
   'saturday': 6,
   'sunday': 0,
+  // Поддержка русских названий для обратной совместимости
+  'пн': 1,
+  'вт': 2,
+  'ср': 3,
+  'чт': 4,
+  'пт': 5,
+  'сб': 6,
+  'вс': 0,
 };
 
 export function IndividualLessonSchedule({ 
@@ -337,7 +345,19 @@ export function IndividualLessonSchedule({
     const dates: Date[] = [];
     const start = startOfDay(new Date(periodStart));
     const end = startOfDay(new Date(periodEnd));
-    const scheduleDayNumbers = scheduleDays.map(day => DAY_MAP[day.toLowerCase()]).filter(d => d !== undefined);
+    
+    // Нормализуем дни недели к нижнему регистру и преобразуем в номера дней
+    const scheduleDayNumbers = scheduleDays
+      .map(day => {
+        const normalizedDay = day.toLowerCase();
+        return DAY_MAP[normalizedDay];
+      })
+      .filter(d => d !== undefined);
+    
+    if (scheduleDayNumbers.length === 0) {
+      console.warn('No valid schedule days found:', scheduleDays);
+      return [];
+    }
     
     let currentDate = start;
     while (isBefore(currentDate, end) || currentDate.getTime() === end.getTime()) {

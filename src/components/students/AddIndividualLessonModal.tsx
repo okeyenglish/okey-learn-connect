@@ -133,16 +133,24 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
     }
   };
 
-  const handleDayToggle = (day: string) => {
+  const handleDayToggle = (dayValue: string) => {
     setFormData(prev => ({
       ...prev,
-      schedule_days: prev.schedule_days.includes(day)
-        ? prev.schedule_days.filter(d => d !== day)
-        : [...prev.schedule_days, day]
+      schedule_days: prev.schedule_days.includes(dayValue)
+        ? prev.schedule_days.filter(d => d !== dayValue)
+        : [...prev.schedule_days, dayValue]
     }));
   };
 
-  const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  const daysOfWeek = [
+    { label: 'Пн', value: 'monday' },
+    { label: 'Вт', value: 'tuesday' },
+    { label: 'Ср', value: 'wednesday' },
+    { label: 'Чт', value: 'thursday' },
+    { label: 'Пт', value: 'friday' },
+    { label: 'Сб', value: 'saturday' },
+    { label: 'Вс', value: 'sunday' }
+  ];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -247,15 +255,15 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
           <div>
             <Label>Дни недели</Label>
             <div className="flex gap-2 flex-wrap">
-              {days.map((day) => (
+              {daysOfWeek.map(({ label, value }) => (
                 <Button
-                  key={day}
+                  key={value}
                   type="button"
-                  variant={formData.schedule_days.includes(day) ? "default" : "outline"}
+                  variant={formData.schedule_days.includes(value) ? "default" : "outline"}
                   size="sm"
-                  onClick={() => handleDayToggle(day)}
+                  onClick={() => handleDayToggle(value)}
                 >
-                  {day}
+                  {label}
                 </Button>
               ))}
             </div>
