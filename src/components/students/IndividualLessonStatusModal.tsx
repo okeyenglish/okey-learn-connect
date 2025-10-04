@@ -223,7 +223,7 @@ export function IndividualLessonStatusModal({
 
             for (let d = new Date(startFrom); d <= end; d.setDate(d.getDate() + 1)) {
               if (d >= start && dayNums.includes(d.getDay())) {
-                const ds = d.toISOString().slice(0, 10);
+                const ds = format(d, 'yyyy-MM-dd');
                 const s = sessionByDate.get(ds);
                 console.log(`Checking date ${ds}: session exists?`, !!s, 'status:', s?.status, 'isUnpaid:', !s || isUnpaid(s.status));
                 if (!s || isUnpaid(s.status)) { // no row or unpaid status
