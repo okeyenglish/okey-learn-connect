@@ -46,6 +46,7 @@ export const EditIndividualLessonModal = ({
   });
   
   const [applyFromDate, setApplyFromDate] = useState<string>("");
+  const [applyToDate, setApplyToDate] = useState<string>("");
   const [hasCompletedSessions, setHasCompletedSessions] = useState(false);
   
   const { toast } = useToast();
@@ -139,9 +140,12 @@ export const EditIndividualLessonModal = ({
           const lastCompletedDate = new Date(sessions[0].lesson_date);
           lastCompletedDate.setDate(lastCompletedDate.getDate() + 1);
           setApplyFromDate(lastCompletedDate.toISOString().split('T')[0]);
+          // По умолчанию дата окончания - конец курса
+          setApplyToDate(data.period_end || "");
         } else {
           setHasCompletedSessions(false);
           setApplyFromDate("");
+          setApplyToDate("");
         }
       }
     } catch (error) {
@@ -178,8 +182,8 @@ export const EditIndividualLessonModal = ({
           endTime = end;
         }
         
-        // Обновляем все запланированные занятия начиная с указанной даты
-        const { error: sessionsError } = await supabase
+        // Обновляем все запланированные занятия в указанном диапазоне дат
+        let query = supabase
           .from('individual_lesson_sessions')
           .update({
             ...(formData.teacher_name && { teacher_name: formData.teacher_name }),
@@ -193,11 +197,20 @@ export const EditIndividualLessonModal = ({
           .gte('lesson_date', applyFromDate)
           .eq('status', 'scheduled');
         
+        if (applyToDate) {
+          query = query.lte('lesson_date', applyToDate);
+        }
+        
+        const { error: sessionsError } = await query;
+        
         if (sessionsError) throw sessionsError;
+        
+        const fromDateStr = new Date(applyFromDate).toLocaleDateString('ru-RU');
+        const toDateStr = applyToDate ? ` по ${new Date(applyToDate).toLocaleDateString('ru-RU')}` : '';
         
         toast({
           title: "Успешно",
-          description: `Изменения применены к занятиям с ${new Date(applyFromDate).toLocaleDateString('ru-RU')}`
+          description: `Изменения применены к занятиям с ${fromDateStr}${toDateStr}`
         });
       } else {
         // Обычное обновление для всех занятий
@@ -320,19 +333,35 @@ export const EditIndividualLessonModal = ({
 
             {/* Применить изменения с даты (если есть проведенные занятия) */}
             {hasCompletedSessions && (
-              <div className="space-y-2 p-4 border border-warning/20 bg-warning/5 rounded-lg">
-                <Label htmlFor="apply_from_date" className="text-warning-foreground font-medium">
-                  Применить изменения с даты:
-                </Label>
-                <Input
-                  id="apply_from_date"
-                  type="date"
-                  value={applyFromDate}
-                  onChange={(e) => setApplyFromDate(e.target.value)}
-                  className="flex-1"
-                />
+              <div className="space-y-3 p-4 border border-warning/20 bg-warning/5 rounded-lg">
+                <div className="space-y-2">
+                  <Label htmlFor="apply_from_date" className="text-warning-foreground font-medium">
+                    Применить изменения с даты:
+                  </Label>
+                  <Input
+                    id="apply_from_date"
+                    type="date"
+                    value={applyFromDate}
+                    onChange={(e) => setApplyFromDate(e.target.value)}
+                    className="flex-1"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="apply_to_date" className="text-warning-foreground font-medium">
+                    Применить изменения до даты:
+                  </Label>
+                  <Input
+                    id="apply_to_date"
+                    type="date"
+                    value={applyToDate}
+                    onChange={(e) => setApplyToDate(e.target.value)}
+                    className="flex-1"
+                  />
+                </div>
+                
                 <p className="text-xs text-muted-foreground">
-                  Изменения будут применены только к занятиям начиная с указанной даты. 
+                  Изменения будут применены только к занятиям в указанном диапазоне дат. 
                   Ранее проведенные занятия сохранят текущие настройки.
                 </p>
               </div>
