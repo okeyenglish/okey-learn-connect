@@ -129,25 +129,24 @@ export const usePayments = (filters?: any) => {
           }
         })();
 
-        // 4) Build maps for quick lookup and add additional lessons to scheduled dates
-        const sessionByDate = new Map<string, { id?: string; status?: string; payment_id?: string; is_additional?: boolean }>();
-        const additionalLessonDates: string[] = [];
+        // 4) Build maps for quick lookup and include existing payable sessions (incl. off-schedule)
+        const sessionByDate = new Map<string, { id?: string; status?: string; payment_id?: string }>();
+        const existingPayableDates: string[] = [];
         
         (allSessions || []).forEach((s) => {
           sessionByDate.set(s.lesson_date, { 
             id: s.id, 
             status: s.status, 
-            payment_id: s.payment_id,
-            is_additional: s.is_additional 
+            payment_id: s.payment_id
           });
-          // Добавляем дополнительные занятия в список дат
-          if (s.is_additional && s.status === 'scheduled') {
-            additionalLessonDates.push(s.lesson_date);
+          // Собираем все даты существующих занятий, которые можно оплатить (в т.ч. перенесённые и вне расписания)
+          if (!s.status || ['scheduled','completed','absent','attended'].includes(s.status)) {
+            existingPayableDates.push(s.lesson_date);
           }
         });
 
-        // Объединяем обычные и дополнительные занятия
-        const allScheduledDates = [...scheduledDates, ...additionalLessonDates]
+        // Объединяем даты по шаблону и существующие оплачиваемые занятия
+        const allScheduledDates = [...scheduledDates, ...existingPayableDates]
           .filter((date, index, self) => self.indexOf(date) === index) // уникальные
           .sort(); // сортируем по дате
 
@@ -164,8 +163,8 @@ export const usePayments = (filters?: any) => {
         });
 
         console.log('Total regular scheduled dates:', scheduledDates.length);
-        console.log('Additional lesson dates:', additionalLessonDates.length);
-        console.log('All scheduled dates (incl. additional):', allScheduledDates.length);
+        console.log('Existing payable session dates:', existingPayableDates.length);
+        console.log('All considered dates (pattern + existing):', allScheduledDates.length);
         console.log('Existing sessions:', allSessions?.length || 0);
         console.log('Unpaid dates available:', unpaidDatesOrdered.length);
 
