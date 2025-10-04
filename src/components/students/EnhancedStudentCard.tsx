@@ -45,6 +45,7 @@ import { LessonScheduleStrip } from './LessonScheduleStrip';
 import { CreatePaymentModal } from './CreatePaymentModal';
 import { EditIndividualLessonModal } from './EditIndividualLessonModal';
 import { IndividualLessonSchedule } from './IndividualLessonSchedule';
+import { calculateLessonPrice } from '@/utils/lessonPricing';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -532,7 +533,17 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                 </span>
                                 {lesson.scheduleTime && (
                                   <span className="text-muted-foreground">
-                                    с {lesson.scheduleTime.split('-')[0]} до {lesson.scheduleTime.split('-')[1]}
+                                    с {lesson.scheduleTime.split('-')[0]} до {
+                                      (() => {
+                                        const startTime = lesson.scheduleTime.split('-')[0];
+                                        const [hours, minutes] = startTime.split(':').map(Number);
+                                        const duration = lesson.duration || 60;
+                                        const totalMinutes = hours * 60 + minutes + duration;
+                                        const endHours = Math.floor(totalMinutes / 60) % 24;
+                                        const endMinutes = totalMinutes % 60;
+                                        return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
+                                      })()
+                                    }
                                   </span>
                                 )}
                               </div>
@@ -543,12 +554,10 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                   <Clock className="h-3 w-3 mr-1" />
                                   {lesson.duration || 60} мин
                                 </Badge>
-                                {lesson.pricePerLesson && (
-                                  <Badge variant="outline" className="text-xs">
-                                    <DollarSign className="h-3 w-3 mr-1" />
-                                    {lesson.pricePerLesson} ₽/урок
-                                  </Badge>
-                                )}
+                                <Badge variant="outline" className="text-xs">
+                                  <DollarSign className="h-3 w-3 mr-1" />
+                                  {calculateLessonPrice(lesson.duration || 60)} ₽/урок
+                                </Badge>
                               </div>
 
                               {/* Период */}
