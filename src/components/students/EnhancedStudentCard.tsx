@@ -291,9 +291,8 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
             
             <div className="flex items-center gap-2">
               {getStatusBadge(studentDetails.status)}
-              <Button variant="outline" size="sm">
-                <Edit className="h-4 w-4 mr-2" />
-                Редактировать
+              <Button variant="outline" size="sm" title="Редактировать">
+                <Edit className="h-4 w-4" />
               </Button>
             </div>
           </div>
