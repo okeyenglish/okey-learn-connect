@@ -74,12 +74,35 @@ export const useGroupStudents = (groupId?: string) => {
     }
   };
 
-  const removeStudentFromGroup = async (groupStudentId: string) => {
+  const removeStudentFromGroup = async (groupStudentId: string, studentId: string, transferFunds: boolean = true) => {
     try {
+      // Update status to dropped instead of deleting
+      const { error: updateError } = await supabase
+        .from('group_students')
+        .update({ 
+          status: 'dropped',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', groupStudentId);
+
+      if (updateError) throw updateError;
+
+      // If transferFunds is true, calculate and transfer any remaining paid balance
+      if (transferFunds) {
+        // This would require calculating unpaid sessions and transferring to student balance
+        // For now, we just mark the student as removed
+        console.log('Fund transfer logic would be implemented here');
+      }
+
       toast({
         title: "Успешно",
         description: "Студент исключен из группы",
       });
+
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['student-details', studentId] });
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      queryClient.invalidateQueries({ queryKey: ['learning-groups'] });
 
       fetchGroupStudents();
       return true;

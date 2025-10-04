@@ -180,6 +180,46 @@ export function EnhancedStudentCard({
     }
   };
 
+  const handleRemoveFromGroup = async (groupId: string, studentId: string) => {
+    try {
+      // Find the group_students record
+      const { data: groupStudent } = await supabase
+        .from('group_students')
+        .select('id')
+        .eq('group_id', groupId)
+        .eq('student_id', studentId)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (!groupStudent) {
+        toast.error('Студент не найден в этой группе');
+        return;
+      }
+
+      // Update status to dropped
+      const { error } = await supabase
+        .from('group_students')
+        .update({ 
+          status: 'dropped',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', groupStudent.id);
+
+      if (error) throw error;
+
+      toast.success('Студент исключен из группы');
+      
+      // Refetch student details
+      queryClient.invalidateQueries({ queryKey: ['student-details', studentId] });
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      queryClient.invalidateQueries({ queryKey: ['learning-groups'] });
+      refetch();
+    } catch (error) {
+      console.error('Error removing student from group:', error);
+      toast.error('Не удалось исключить студента из группы');
+    }
+  };
+
   const handleCopyStudentLink = () => {
     const url = `${window.location.origin}/newcrm/main?studentId=${student.id}`;
     navigator.clipboard.writeText(url).then(() => {
@@ -851,39 +891,68 @@ export function EnhancedStudentCard({
                         <div className="space-y-3">
                           {/* Groups */}
                           {studentDetails.groups.filter((g) => g.status === 'active').map((group) => (
-                            <div key={group.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                              <div className="flex items-start justify-between mb-3">
-                                <div>
-                                  <h4 className="font-semibold text-lg">
-                                    {group.name}
-                                    {group.groupNumber && (
-                                      <span className="ml-2 text-xs font-mono text-muted-foreground">
-                                        #{group.groupNumber}
-                                      </span>
-                                    )}
-                                  </h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    {group.format} • {group.subject} • {group.level}
-                                  </p>
+                            <div 
+                              key={group.id} 
+                              className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-default relative"
+                            >
+                              {/* Заголовок с названием группы */}
+                              <div className="flex items-start justify-between mb-2">
+                                <h4 
+                                  className="font-medium text-base text-primary"
+                                >
+                                  {group.name}
+                                  {group.groupNumber && (
+                                    <span className="ml-2 text-xs font-mono text-muted-foreground">
+                                      #{group.groupNumber}
+                                    </span>
+                                  )}
+                                </h4>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    {group.format}
+                                  </Badge>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRemoveFromGroup(group.id, student.id);
+                                    }}
+                                    title="Удалить из группы"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
                                 </div>
-                                <Badge variant={group.status === 'active' ? 'default' : 'secondary'}>
-                                  {group.status === 'active' ? 'Активна' : 'Неактивна'}
+                              </div>
+
+                              {/* Предмет и уровень */}
+                              <div className="flex items-center gap-2 text-sm mb-2">
+                                <span className="font-medium">{group.subject}</span>
+                                <span className="text-muted-foreground">•</span>
+                                <span className="text-muted-foreground">{group.level}</span>
+                              </div>
+
+                              {/* Преподаватель и филиал */}
+                              <div className="flex items-center gap-3 text-sm mb-3">
+                                <Badge variant="secondary" className="text-xs">
+                                  <User className="h-3 w-3 mr-1" />
+                                  {group.teacher}
+                                </Badge>
+                                <Badge variant="outline" className="text-xs">
+                                  <Building className="h-3 w-3 mr-1" />
+                                  {group.branch}
                                 </Badge>
                               </div>
-                              <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                                <div>
-                                  <p className="text-muted-foreground text-xs mb-1">Преподаватель</p>
-                                  <p className="font-medium">{group.teacher}</p>
-                                </div>
-                                <div>
-                                  <p className="text-muted-foreground text-xs mb-1">Филиал</p>
-                                  <div className="flex items-center gap-1">
-                                    <Building className="h-3 w-3" />
-                                    <span>{group.branch}</span>
-                                  </div>
-                                </div>
+
+                              {/* Дата зачисления */}
+                              <div className="text-sm mb-3">
+                                <span className="text-muted-foreground">Зачислен: </span>
+                                <span className="font-medium">{formatDate(group.enrollmentDate)}</span>
                               </div>
-                              <div className="mt-3">
+
+                              {/* Расписание занятий */}
+                              <div className="mt-3 pt-3 border-t">
                                 <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
                                 <LessonScheduleStrip sessions={group.sessions} groupId={group.id} />
                               </div>
@@ -1124,48 +1193,68 @@ export function EnhancedStudentCard({
                           <CardContent className="space-y-4">
                             {/* Active Groups */}
                             {studentDetails.groups.filter(g => g.status === 'active').map((group) => (
-                              <div key={group.id} className="p-4 border rounded-lg">
-                                <div className="flex items-start justify-between mb-4">
-                                  <div>
-                                    <h4 className="font-semibold text-lg mb-1">{group.name}</h4>
-                                    <p className="text-sm text-muted-foreground">
-                                      {group.format} • {group.subject} • {group.level}
-                                    </p>
+                              <div 
+                                key={group.id} 
+                                className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-default relative"
+                              >
+                                {/* Заголовок с названием группы */}
+                                <div className="flex items-start justify-between mb-2">
+                                  <h4 className="font-medium text-base text-primary">
+                                    {group.name}
+                                    {group.groupNumber && (
+                                      <span className="ml-2 text-xs font-mono text-muted-foreground">
+                                        #{group.groupNumber}
+                                      </span>
+                                    )}
+                                  </h4>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="text-xs">
+                                      {group.format}
+                                    </Badge>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-8 w-8"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRemoveFromGroup(group.id, student.id);
+                                      }}
+                                      title="Удалить из группы"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
                                   </div>
-                                  <Badge variant="default">Активна</Badge>
                                 </div>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
-                                  <div>
-                                    <p className="text-muted-foreground text-xs mb-1">Преподаватель</p>
-                                    <p className="font-medium">{group.teacher}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground text-xs mb-1">Филиал</p>
-                                    <div className="flex items-center gap-1">
-                                      <MapPin className="h-3 w-3" />
-                                      <span>{group.branch}</span>
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground text-xs mb-1">Дата записи</p>
-                                    <div className="flex items-center gap-1">
-                                      <Calendar className="h-3 w-3" />
-                                      <span>{formatDate(group.enrollmentDate)}</span>
-                                    </div>
-                                  </div>
+
+                                {/* Предмет и уровень */}
+                                <div className="flex items-center gap-2 text-sm mb-2">
+                                  <span className="font-medium">{group.subject}</span>
+                                  <span className="text-muted-foreground">•</span>
+                                  <span className="text-muted-foreground">{group.level}</span>
                                 </div>
-                                <div className="mb-4">
+
+                                {/* Преподаватель и филиал */}
+                                <div className="flex items-center gap-3 text-sm mb-3">
+                                  <Badge variant="secondary" className="text-xs">
+                                    <User className="h-3 w-3 mr-1" />
+                                    {group.teacher}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs">
+                                    <Building className="h-3 w-3 mr-1" />
+                                    {group.branch}
+                                  </Badge>
+                                </div>
+
+                                {/* Дата зачисления */}
+                                <div className="text-sm mb-3">
+                                  <span className="text-muted-foreground">Зачислен: </span>
+                                  <span className="font-medium">{formatDate(group.enrollmentDate)}</span>
+                                </div>
+
+                                {/* Расписание занятий */}
+                                <div className="mt-3 pt-3 border-t">
                                   <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
-                                  <LessonScheduleStrip sessions={group.sessions} />
-                                </div>
-                                <div className="flex gap-2">
-                                  <Button variant="outline" size="sm">
-                                    Подробнее
-                                  </Button>
-                                  <Button variant="outline" size="sm">
-                                    <MessageSquare className="h-3 w-3 mr-1" />
-                                    Чат группы
-                                  </Button>
+                                  <LessonScheduleStrip sessions={group.sessions} groupId={group.id} />
                                 </div>
                               </div>
                             ))}
@@ -1334,44 +1423,56 @@ export function EnhancedStudentCard({
                           <CardContent className="space-y-4">
                             {/* Inactive Groups */}
                             {studentDetails.groups.filter(g => g.status !== 'active').map((group) => (
-                              <div key={group.id} className="p-4 border rounded-lg bg-muted/30">
-                                <div className="flex items-start justify-between mb-4">
-                                  <div>
-                                    <h4 className="font-semibold text-lg mb-1">{group.name}</h4>
-                                    <p className="text-sm text-muted-foreground">
-                                      {group.format} • {group.subject} • {group.level}
-                                    </p>
-                                  </div>
-                                  <Badge variant="secondary">Завершена</Badge>
-                                </div>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
-                                  <div>
-                                    <p className="text-muted-foreground text-xs mb-1">Преподаватель</p>
-                                    <p className="font-medium">{group.teacher}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground text-xs mb-1">Филиал</p>
-                                    <div className="flex items-center gap-1">
-                                      <MapPin className="h-3 w-3" />
-                                      <span>{group.branch}</span>
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground text-xs mb-1">Период обучения</p>
-                                    <div className="flex items-center gap-1">
-                                      <Calendar className="h-3 w-3" />
-                                      <span>{formatDate(group.enrollmentDate)}</span>
-                                    </div>
+                              <div 
+                                key={group.id} 
+                                className="p-4 border rounded-lg bg-muted/30 hover:bg-muted/40 transition-colors cursor-default relative"
+                              >
+                                {/* Заголовок с названием группы */}
+                                <div className="flex items-start justify-between mb-2">
+                                  <h4 className="font-medium text-base text-muted-foreground">
+                                    {group.name}
+                                    {group.groupNumber && (
+                                      <span className="ml-2 text-xs font-mono text-muted-foreground">
+                                        #{group.groupNumber}
+                                      </span>
+                                    )}
+                                  </h4>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="text-xs bg-muted">
+                                      Завершено
+                                    </Badge>
                                   </div>
                                 </div>
-                                <div className="mb-4">
+
+                                {/* Предмет и уровень */}
+                                <div className="flex items-center gap-2 text-sm mb-2">
+                                  <span className="font-medium text-muted-foreground">{group.subject}</span>
+                                  <span className="text-muted-foreground">•</span>
+                                  <span className="text-muted-foreground">{group.level}</span>
+                                </div>
+
+                                {/* Преподаватель и филиал */}
+                                <div className="flex items-center gap-3 text-sm mb-3">
+                                  <Badge variant="secondary" className="text-xs">
+                                    <User className="h-3 w-3 mr-1" />
+                                    {group.teacher}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs">
+                                    <Building className="h-3 w-3 mr-1" />
+                                    {group.branch}
+                                  </Badge>
+                                </div>
+
+                                {/* Период обучения */}
+                                <div className="text-sm mb-3">
+                                  <span className="text-muted-foreground">Период: </span>
+                                  <span className="font-medium">{formatDate(group.enrollmentDate)}</span>
+                                </div>
+
+                                {/* История посещений */}
+                                <div className="mt-3 pt-3 border-t">
                                   <p className="text-muted-foreground text-xs mb-2">История посещений</p>
-                                  <LessonScheduleStrip sessions={group.sessions} />
-                                </div>
-                                <div className="flex gap-2">
-                                  <Button variant="outline" size="sm">
-                                    Подробнее
-                                  </Button>
+                                  <LessonScheduleStrip sessions={group.sessions} groupId={group.id} />
                                 </div>
                               </div>
                             ))}

@@ -90,7 +90,19 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
 
   const handleRemoveStudentFromGroup = async (studentId: string) => {
     try {
-      const success = await removeStudentFromGroup(studentId);
+      // Find the group_students record to get its ID
+      const groupStudentRecord = groupStudents.find(gs => gs.student_id === studentId);
+      
+      if (!groupStudentRecord) {
+        toast({
+          title: "Ошибка",
+          description: "Студент не найден в группе",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const success = await removeStudentFromGroup(groupStudentRecord.id, studentId);
       if (success) {
         toast({
           title: "Успешно",
