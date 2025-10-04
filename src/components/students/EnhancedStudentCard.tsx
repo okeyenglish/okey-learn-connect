@@ -45,7 +45,6 @@ import { LessonScheduleStrip } from './LessonScheduleStrip';
 import { CreatePaymentModal } from './CreatePaymentModal';
 import { EditIndividualLessonModal } from './EditIndividualLessonModal';
 import { IndividualLessonSchedule } from './IndividualLessonSchedule';
-import { LessonScheduleHistory } from './LessonScheduleHistory';
 import { calculateLessonPrice } from '@/utils/lessonPricing';
 import { 
   AlertDialog,
@@ -588,17 +587,6 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                   scheduleTime={lesson.scheduleTime}
                                   periodStart={lesson.periodStart}
                                   periodEnd={lesson.periodEnd}
-                                  refreshTrigger={refreshTrigger}
-                                />
-                                
-                                {/* История изменений расписания */}
-                                <LessonScheduleHistory
-                                  lessonId={lesson.id}
-                                  currentSchedule={{
-                                    scheduleDays: lesson.scheduleDays,
-                                    scheduleTime: lesson.scheduleTime,
-                                    duration: lesson.duration
-                                  }}
                                   refreshTrigger={refreshTrigger}
                                 />
                               </div>

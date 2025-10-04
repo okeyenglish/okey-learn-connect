@@ -7,9 +7,10 @@ import { MarkAttendanceModal } from './MarkAttendanceModal';
 import { AttendanceIndicator } from './AttendanceIndicator';
 import { supabase } from '@/integrations/supabase/client';
 import { AdditionalLessonsList } from './AdditionalLessonsList';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, History as HistoryIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface IndividualLessonScheduleProps {
   lessonId?: string;
@@ -63,11 +64,13 @@ export function IndividualLessonSchedule({
   const [attendanceDate, setAttendanceDate] = useState<Date | null>(null);
   const [showAdditionalLessons, setShowAdditionalLessons] = useState(false);
   const [additionalLessons, setAdditionalLessons] = useState<LessonSession[]>([]);
+  const [lessonHistory, setLessonHistory] = useState<any[]>([]);
 
   useEffect(() => {
     if (lessonId) {
       loadLessonSessions();
       loadAdditionalLessons();
+      loadLessonHistory();
     }
   }, [lessonId, refreshTrigger]);
 
@@ -142,14 +145,43 @@ export function IndividualLessonSchedule({
     }
   };
 
+  const loadLessonHistory = async () => {
+    if (!lessonId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('individual_lesson_history')
+        .select(`
+          id,
+          changed_at,
+          changed_by,
+          change_type,
+          changes,
+          applied_from_date,
+          applied_to_date,
+          notes,
+          profiles:changed_by(first_name, last_name)
+        `)
+        .eq('lesson_id', lessonId)
+        .order('changed_at', { ascending: false });
+
+      if (error) throw error;
+      setLessonHistory(data || []);
+    } catch (error) {
+      console.error('Error loading lesson history:', error);
+    }
+  };
+
   const handleStatusUpdated = () => {
     loadLessonSessions();
     loadAdditionalLessons();
+    loadLessonHistory();
   };
 
   const handleAdditionalLessonAdded = () => {
     loadLessonSessions();
     loadAdditionalLessons();
+    loadLessonHistory();
   };
 
   if (!scheduleDays || scheduleDays.length === 0) {
@@ -223,6 +255,23 @@ export function IndividualLessonSchedule({
     } else {
       return `Оплачено: ${paidMinutes} мин\nНе оплачено: ${unpaidMinutes} мин${paymentInfo}`;
     }
+  };
+
+  const formatChangeValue = (value: any): string => {
+    if (value === null || value === undefined) return 'не указано';
+    if (Array.isArray(value)) {
+      const dayLabels: Record<string, string> = {
+        monday: 'Пн',
+        tuesday: 'Вт',
+        wednesday: 'Ср',
+        thursday: 'Чт',
+        friday: 'Пт',
+        saturday: 'Сб',
+        sunday: 'Вс'
+      };
+      return value.map(v => dayLabels[v.toLowerCase()] || v).join('/');
+    }
+    return String(value);
   };
 
   // Generate lesson dates based on schedule days and include all sessions with custom statuses
@@ -380,7 +429,7 @@ export function IndividualLessonSchedule({
           </div>
         </div>
 
-        {additionalLessons.length > 0 && (
+        {(additionalLessons.length > 0 || lessonHistory.length > 0) && (
           <div className="pt-2 border-t">
             <Button
               variant="ghost"
@@ -388,7 +437,10 @@ export function IndividualLessonSchedule({
               onClick={() => setShowAdditionalLessons(!showAdditionalLessons)}
               className="w-full justify-between h-8 text-xs"
             >
-              <span>Показать дополнительные занятия ({additionalLessons.length})</span>
+              <div className="flex items-center gap-2">
+                <HistoryIcon className="h-3 w-3" />
+                <span>История изменений</span>
+              </div>
               {showAdditionalLessons ? (
                 <ChevronUp className="h-3 w-3" />
               ) : (
@@ -396,14 +448,67 @@ export function IndividualLessonSchedule({
               )}
             </Button>
             {showAdditionalLessons && (
-              <AdditionalLessonsList
-                lessons={additionalLessons}
-                onDelete={handleAdditionalLessonAdded}
-                onEdit={(lesson) => {
-                  setSelectedDate(new Date(lesson.lesson_date));
-                  setIsModalOpen(true);
-                }}
-              />
+              <div className="space-y-3 mt-2">
+                {/* История изменений параметров урока */}
+                {lessonHistory.length > 0 && (
+                  <Card className="bg-muted/30">
+                    <CardContent className="p-3 space-y-2">
+                      <div className="text-xs font-medium text-muted-foreground">Изменения параметров</div>
+                      {lessonHistory.map((record: any) => {
+                        const changes = Array.isArray(record.changes) ? record.changes : [record.changes];
+                        const userName = record.profiles
+                          ? `${record.profiles.first_name || ''} ${record.profiles.last_name || ''}`.trim()
+                          : 'Не указан';
+                        
+                        return (
+                          <div key={record.id} className="text-xs space-y-1 pb-2 border-b last:border-0 last:pb-0">
+                            <div className="flex items-center justify-between text-muted-foreground">
+                              <span>{format(new Date(record.changed_at), 'dd.MM.yyyy HH:mm', { locale: ru })}</span>
+                              <span>{userName}</span>
+                            </div>
+                            {record.applied_from_date && (
+                              <div className="text-muted-foreground">
+                                Применено: с {format(new Date(record.applied_from_date), 'dd.MM.yy', { locale: ru })}
+                                {record.applied_to_date && ` по ${format(new Date(record.applied_to_date), 'dd.MM.yy', { locale: ru })}`}
+                              </div>
+                            )}
+                            <div className="space-y-0.5">
+                              {changes.map((change: any, idx: number) => (
+                                <div key={idx} className="text-foreground">
+                                  <span className="font-medium">{change.label || change.field}:</span>{' '}
+                                  <span className="line-through text-muted-foreground">{formatChangeValue(change.old_value)}</span>
+                                  {' → '}
+                                  <span>{formatChangeValue(change.new_value)}</span>
+                                </div>
+                              ))}
+                            </div>
+                            {record.notes && (
+                              <div className="text-muted-foreground italic">{record.notes}</div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {/* Дополнительные занятия */}
+                {additionalLessons.length > 0 && (
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground mb-2">
+                      Дополнительные занятия ({additionalLessons.length})
+                    </div>
+                    <AdditionalLessonsList
+                      lessons={additionalLessons}
+                      onDelete={handleAdditionalLessonAdded}
+                      onEdit={(lesson) => {
+                        setSelectedDate(new Date(lesson.lesson_date));
+                        setIsModalOpen(true);
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
