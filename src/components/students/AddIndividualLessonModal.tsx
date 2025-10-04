@@ -31,7 +31,9 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
     start_minute: '00',
     lesson_location: '',
     notes: '',
-    branch: 'Окская'
+    branch: 'Окская',
+    period_start: '',
+    period_end: ''
   });
   const [loading, setLoading] = useState(false);
   
@@ -71,10 +73,10 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.level || !formData.teacher_name) {
+    if (!formData.level || !formData.teacher_name || !formData.period_start || !formData.period_end) {
       toast({
         title: "Ошибка",
-        description: "Заполните обязательные поля",
+        description: "Заполните обязательные поля: уровень, преподаватель, даты начала и окончания",
         variant: "destructive",
       });
       return;
@@ -98,7 +100,9 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
         lesson_type: 'individual' as const,
         status: 'active' as const,
         category: 'all' as const,
-        is_active: true
+        is_active: true,
+        period_start: formData.period_start,
+        period_end: formData.period_end
       };
 
       await createIndividualLesson(lessonData);
@@ -116,7 +120,9 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
         start_minute: '00',
         lesson_location: '',
         notes: '',
-        branch: 'Окская'
+        branch: 'Окская',
+        period_start: '',
+        period_end: ''
       });
       
       onOpenChange(false);
@@ -333,6 +339,28 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
                 <SelectItem value="Онлайн школа">Онлайн школа</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="period_start">Дата начала *</Label>
+              <Input
+                id="period_start"
+                type="date"
+                value={formData.period_start}
+                onChange={(e) => setFormData(prev => ({...prev, period_start: e.target.value}))}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="period_end">Дата окончания *</Label>
+              <Input
+                id="period_end"
+                type="date"
+                value={formData.period_end}
+                onChange={(e) => setFormData(prev => ({...prev, period_end: e.target.value}))}
+              />
+            </div>
           </div>
 
           <div>
