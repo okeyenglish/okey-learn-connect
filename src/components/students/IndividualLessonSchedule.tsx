@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { format, addDays, isBefore, startOfDay } from 'date-fns';
+import { format, addDays, isBefore, startOfDay, parse, addMinutes } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useState, useEffect } from 'react';
 import { IndividualLessonStatusModal } from './IndividualLessonStatusModal';
@@ -328,6 +328,19 @@ export function IndividualLessonSchedule({
                     <div className="text-xs space-y-1">
                       <div className="font-semibold">Занятие №{lessonNumber} ({duration} мин.)</div>
                       <div className="text-muted-foreground">{format(date, 'dd MMMM yyyy', { locale: ru })}</div>
+                      {scheduleTime && (
+                        <div className="text-muted-foreground">
+                          {(() => {
+                            try {
+                              const startTime = parse(scheduleTime, 'HH:mm', new Date());
+                              const endTime = addMinutes(startTime, duration);
+                              return `${scheduleTime}-${format(endTime, 'HH:mm')} (исходя из продолжительности)`;
+                            } catch {
+                              return scheduleTime;
+                            }
+                          })()}
+                        </div>
+                      )}
                       {session && (
                         <div className="whitespace-pre-line pt-1 border-t">
                           {getPaymentTooltip(session, lessonNumber)}
