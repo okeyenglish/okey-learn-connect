@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,8 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { calculateLessonPrice } from '@/utils/lessonPricing';
 
 interface CreatePaymentModalProps {
   open: boolean;
@@ -39,6 +41,8 @@ export function CreatePaymentModal({
   const [customLessonsCount, setCustomLessonsCount] = useState<string>('');
   const [useCustomAmount, setUseCustomAmount] = useState(false);
   const [customAmount, setCustomAmount] = useState<string>('');
+  const [lessonDuration, setLessonDuration] = useState<number>(60);
+  const [calculatedPricePerLesson, setCalculatedPricePerLesson] = useState(pricePerLesson);
   const [formData, setFormData] = useState({
     method: 'card' as const,
     description: '',
@@ -49,6 +53,27 @@ export function CreatePaymentModal({
   
   const { createPayment } = usePayments();
   const { toast } = useToast();
+
+  // Загружаем duration из individual_lessons
+  useEffect(() => {
+    const fetchLessonDuration = async () => {
+      if (individualLessonId) {
+        const { data, error } = await supabase
+          .from('individual_lessons')
+          .select('duration')
+          .eq('id', individualLessonId)
+          .single();
+        
+        if (data && data.duration) {
+          setLessonDuration(data.duration);
+          const price = calculateLessonPrice(data.duration);
+          setCalculatedPricePerLesson(price);
+        }
+      }
+    };
+    
+    fetchLessonDuration();
+  }, [individualLessonId]);
 
   const getLessonsCount = () => {
     if (customLessonsCount) {
@@ -61,7 +86,7 @@ export function CreatePaymentModal({
     if (useCustomAmount) {
       return parseFloat(customAmount) || 0;
     }
-    return getLessonsCount() * pricePerLesson;
+    return getLessonsCount() * calculatedPricePerLesson;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -174,7 +199,7 @@ export function CreatePaymentModal({
                     >
                       <div className="text-lg font-bold">{count}</div>
                       <div className="text-[10px] text-muted-foreground leading-tight">
-                        {count * pricePerLesson} ₽
+                        {count * calculatedPricePerLesson} ₽
                       </div>
                     </button>
                   ))}

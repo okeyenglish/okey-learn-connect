@@ -537,6 +537,20 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                                 )}
                               </div>
 
+                              {/* Продолжительность и стоимость */}
+                              <div className="flex items-center gap-3 text-sm mb-2">
+                                <Badge variant="secondary" className="text-xs">
+                                  <Clock className="h-3 w-3 mr-1" />
+                                  {lesson.duration || 60} мин
+                                </Badge>
+                                {lesson.pricePerLesson && (
+                                  <Badge variant="outline" className="text-xs">
+                                    <DollarSign className="h-3 w-3 mr-1" />
+                                    {lesson.pricePerLesson} ₽/урок
+                                  </Badge>
+                                )}
+                              </div>
+
                               {/* Период */}
                               {(lesson.periodStart || lesson.periodEnd) && (
                                 <div className="text-sm text-muted-foreground mb-2">

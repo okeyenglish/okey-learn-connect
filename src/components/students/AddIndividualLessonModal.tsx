@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useIndividualLessons } from '@/hooks/useIndividualLessons';
 import { useToast } from '@/hooks/use-toast';
+import { calculateLessonPrice, LESSON_DURATIONS, getDurationLabel } from '@/utils/lessonPricing';
 
 interface AddIndividualLessonModalProps {
   open: boolean;
@@ -20,6 +21,7 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
     subject: 'Английский',
     level: '',
     teacher_name: '',
+    duration: 60,
     price_per_lesson: '',
     schedule_days: [] as string[],
     schedule_time: '',
@@ -31,6 +33,12 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
   
   const { createIndividualLesson } = useIndividualLessons();
   const { toast } = useToast();
+
+  // Автоматически рассчитываем стоимость при изменении продолжительности
+  useEffect(() => {
+    const price = calculateLessonPrice(formData.duration);
+    setFormData(prev => ({ ...prev, price_per_lesson: price.toString() }));
+  }, [formData.duration]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +60,7 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
         subject: formData.subject,
         level: formData.level,
         teacher_name: formData.teacher_name,
+        duration: formData.duration,
         price_per_lesson: formData.price_per_lesson ? parseFloat(formData.price_per_lesson) : null,
         schedule_days: formData.schedule_days,
         schedule_time: formData.schedule_time,
@@ -71,6 +80,7 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
         subject: 'Английский',
         level: '',
         teacher_name: '',
+        duration: 60,
         price_per_lesson: '',
         schedule_days: [],
         schedule_time: '',
@@ -157,14 +167,32 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
             </div>
 
             <div>
-              <Label htmlFor="price_per_lesson">Стоимость урока</Label>
-              <Input
-                id="price_per_lesson"
-                type="number"
-                value={formData.price_per_lesson}
-                onChange={(e) => setFormData(prev => ({...prev, price_per_lesson: e.target.value}))}
-                placeholder="0"
-              />
+              <Label htmlFor="duration">Продолжительность *</Label>
+              <Select 
+                value={formData.duration.toString()} 
+                onValueChange={(value) => setFormData(prev => ({...prev, duration: parseInt(value)}))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LESSON_DURATIONS.map(duration => (
+                    <SelectItem key={duration} value={duration.toString()}>
+                      {getDurationLabel(duration)} — {calculateLessonPrice(duration)} ₽
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="p-3 bg-primary/10 rounded-lg">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium">Стоимость урока:</span>
+              <span className="text-lg font-bold">{formData.price_per_lesson} ₽</span>
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Автоматически рассчитывается на основе продолжительности
             </div>
           </div>
 

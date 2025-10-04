@@ -11,6 +11,7 @@ export interface IndividualLesson {
   category: 'preschool' | 'school' | 'adult' | 'all';
   lesson_type: string;
   status: 'reserve' | 'forming' | 'active' | 'suspended' | 'finished';
+  duration?: number;
   academic_hours?: number;
   debt_hours?: number;
   teacher_name?: string;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,10 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Loader2, User, BookOpen, MapPin, Calendar, DollarSign } from "lucide-react";
+import { Plus, Loader2, User, BookOpen, MapPin, Calendar, DollarSign, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateIndividualLesson, IndividualLesson } from "@/hooks/useIndividualLessons";
 import { getBranchesForSelect } from "@/lib/branches";
+import { calculateLessonPrice, LESSON_DURATIONS, getDurationLabel } from "@/utils/lessonPricing";
 
 interface AddIndividualLessonModalProps {
   onLessonAdded?: () => void;
@@ -29,6 +30,7 @@ export const AddIndividualLessonModal = ({ onLessonAdded }: AddIndividualLessonM
     academic_hours: "",
     debt_hours: "",
     teacher_name: "",
+    duration: 60,
     schedule_days: [] as string[],
     schedule_time: "",
     lesson_location: "office",
@@ -44,6 +46,12 @@ export const AddIndividualLessonModal = ({ onLessonAdded }: AddIndividualLessonM
   const { toast } = useToast();
   const createLesson = useCreateIndividualLesson();
 
+  // Автоматически рассчитываем стоимость при изменении продолжительности
+  useEffect(() => {
+    const price = calculateLessonPrice(formData.duration);
+    setFormData(prev => ({ ...prev, price_per_lesson: price.toString() }));
+  }, [formData.duration]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -56,6 +64,7 @@ export const AddIndividualLessonModal = ({ onLessonAdded }: AddIndividualLessonM
         category: formData.category,
         lesson_type: formData.lesson_type,
         status: formData.status,
+        duration: formData.duration,
         academic_hours: formData.academic_hours ? parseFloat(formData.academic_hours) : undefined,
         debt_hours: formData.debt_hours ? parseFloat(formData.debt_hours) : undefined,
         teacher_name: formData.teacher_name || undefined,
@@ -91,6 +100,7 @@ export const AddIndividualLessonModal = ({ onLessonAdded }: AddIndividualLessonM
         academic_hours: "",
         debt_hours: "",
         teacher_name: "",
+        duration: 60,
         schedule_days: [],
         schedule_time: "",
         lesson_location: "office",
@@ -291,6 +301,40 @@ export const AddIndividualLessonModal = ({ onLessonAdded }: AddIndividualLessonM
                   </div>
 
                   <div className="space-y-2">
+                    <Label className="flex items-center gap-2 font-medium">
+                      <Clock className="h-4 w-4 text-orange-600" />
+                      Продолжительность *
+                    </Label>
+                    <Select
+                      value={formData.duration.toString()}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, duration: parseInt(value) }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {LESSON_DURATIONS.map(duration => (
+                          <SelectItem key={duration} value={duration.toString()}>
+                            {getDurationLabel(duration)} — {calculateLessonPrice(duration)} ₽
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-green-50 border-l-4 border-l-green-500 rounded">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-green-900">Стоимость урока:</span>
+                    <span className="text-lg font-bold text-green-700">{formData.price_per_lesson} ₽</span>
+                  </div>
+                  <div className="text-xs text-green-600 mt-1">
+                    Автоматически рассчитывается на основе продолжительности
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
                     <Label>Тип занятия</Label>
                     <Select
                       value={formData.lesson_location}
@@ -305,6 +349,15 @@ export const AddIndividualLessonModal = ({ onLessonAdded }: AddIndividualLessonM
                         <SelectItem value="home">На дому</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Место проведения</Label>
+                    <Input
+                      value={formData.audit_location}
+                      onChange={(e) => setFormData(prev => ({ ...prev, audit_location: e.target.value }))}
+                      placeholder="LAS VEGAS, CAMBRIDGE"
+                    />
                   </div>
                 </div>
 
@@ -340,21 +393,6 @@ export const AddIndividualLessonModal = ({ onLessonAdded }: AddIndividualLessonM
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-green-600" />
-                      Цена за занятие
-                    </Label>
-                    <Input
-                      type="number"
-                      value={formData.price_per_lesson}
-                      onChange={(e) => setFormData(prev => ({ ...prev, price_per_lesson: e.target.value }))}
-                      placeholder="1200"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
                     <Label>Период начала</Label>
                     <Input
                       type="date"
@@ -362,7 +400,9 @@ export const AddIndividualLessonModal = ({ onLessonAdded }: AddIndividualLessonM
                       onChange={(e) => setFormData(prev => ({ ...prev, period_start: e.target.value }))}
                     />
                   </div>
+                </div>
 
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Период окончания</Label>
                     <Input
@@ -371,15 +411,7 @@ export const AddIndividualLessonModal = ({ onLessonAdded }: AddIndividualLessonM
                       onChange={(e) => setFormData(prev => ({ ...prev, period_end: e.target.value }))}
                     />
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Аудит</Label>
-                  <Input
-                    value={formData.audit_location}
-                    onChange={(e) => setFormData(prev => ({ ...prev, audit_location: e.target.value }))}
-                    placeholder="LAS VEGAS, CAMBRIDGE, На территории ученика"
-                  />
+                  <div /> {/* Empty div for grid layout */}
                 </div>
 
                 <div className="space-y-2">

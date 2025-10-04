@@ -913,6 +913,7 @@ export type Database = {
           created_at: string
           debt_hours: number | null
           description: string | null
+          duration: number | null
           id: string
           is_active: boolean
           is_skype_only: boolean | null
@@ -945,6 +946,7 @@ export type Database = {
           created_at?: string
           debt_hours?: number | null
           description?: string | null
+          duration?: number | null
           id?: string
           is_active?: boolean
           is_skype_only?: boolean | null
@@ -977,6 +979,7 @@ export type Database = {
           created_at?: string
           debt_hours?: number | null
           description?: string | null
+          duration?: number | null
           id?: string
           is_active?: boolean
           is_skype_only?: boolean | null

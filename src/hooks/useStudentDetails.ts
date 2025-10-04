@@ -45,6 +45,7 @@ export interface StudentIndividualLesson {
   level: string;
   teacherName?: string;
   branch: string;
+  duration?: number;
   pricePerLesson?: number;
   scheduleTime?: string;
   scheduleDays?: string[];
@@ -267,6 +268,7 @@ export const useStudentDetails = (studentId: string) => {
             level: il.level || 'Не указан',
             teacherName: il.teacher_name,
             branch: il.branch || 'Не указан',
+            duration: il.duration || 60,
             pricePerLesson: il.price_per_lesson,
             scheduleTime: il.schedule_time,
             scheduleDays: il.schedule_days,
