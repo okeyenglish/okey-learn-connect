@@ -660,18 +660,6 @@ export const EditIndividualLessonModal = ({
               </div>
             </div>
 
-            {/* Академические часы */}
-            <div className="space-y-1.5">
-              <Label htmlFor="academic_hours" className="text-sm">Ак. часов всего</Label>
-              <Input
-                id="academic_hours"
-                type="text"
-                value={totalAcademicHours}
-                readOnly
-                className="bg-muted"
-              />
-            </div>
-
             {/* Кнопки */}
             <div className="flex justify-end gap-2 pt-2 border-t">
               <Button 
