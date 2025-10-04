@@ -453,7 +453,7 @@ export function EnhancedStudentCard({ student, open, onOpenChange }: EnhancedStu
                               </div>
                               <div className="mt-3">
                                 <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
-                                <LessonScheduleStrip sessions={group.sessions} />
+                                <LessonScheduleStrip sessions={group.sessions} groupId={group.id} />
                               </div>
                             </div>
                           ))}

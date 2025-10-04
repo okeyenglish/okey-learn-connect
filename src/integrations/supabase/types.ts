@@ -2330,6 +2330,67 @@ export type Database = {
         }
         Relationships: []
       }
+      student_attendance: {
+        Row: {
+          created_at: string | null
+          id: string
+          individual_lesson_session_id: string | null
+          lesson_session_id: string | null
+          marked_at: string | null
+          marked_by: string | null
+          notes: string | null
+          status: string
+          student_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          individual_lesson_session_id?: string | null
+          lesson_session_id?: string | null
+          marked_at?: string | null
+          marked_by?: string | null
+          notes?: string | null
+          status?: string
+          student_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          individual_lesson_session_id?: string | null
+          lesson_session_id?: string | null
+          marked_at?: string | null
+          marked_by?: string | null
+          notes?: string | null
+          status?: string
+          student_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_attendance_individual_lesson_session_id_fkey"
+            columns: ["individual_lesson_session_id"]
+            isOneToOne: false
+            referencedRelation: "individual_lesson_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_attendance_lesson_session_id_fkey"
+            columns: ["lesson_session_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_attendance_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_courses: {
         Row: {
           course_name: string

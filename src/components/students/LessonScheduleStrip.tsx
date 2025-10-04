@@ -3,6 +3,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { AttendanceIndicator } from './AttendanceIndicator';
+import { MarkAttendanceModal } from './MarkAttendanceModal';
 
 interface LessonSession {
   id: string;
@@ -14,10 +16,13 @@ interface LessonSession {
 interface LessonScheduleStripProps {
   sessions: LessonSession[];
   className?: string;
+  groupId?: string;
 }
 
-export function LessonScheduleStrip({ sessions, className }: LessonScheduleStripProps) {
+export function LessonScheduleStrip({ sessions, className, groupId }: LessonScheduleStripProps) {
   const [startIndex, setStartIndex] = useState(0);
+  const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const visibleCount = 50;
   
   const sortedSessions = [...sessions].sort((a, b) => 
@@ -66,6 +71,13 @@ export function LessonScheduleStrip({ sessions, className }: LessonScheduleStrip
     });
   };
 
+  const handleAttendanceClick = (dateString: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setSelectedDate(new Date(dateString));
+    setAttendanceModalOpen(true);
+  };
+
   if (sortedSessions.length === 0) {
     return (
       <div className={cn("text-sm text-muted-foreground text-center py-2", className)}>
@@ -94,7 +106,7 @@ export function LessonScheduleStrip({ sessions, className }: LessonScheduleStrip
                 <TooltipTrigger asChild>
                   <button
                     className={cn(
-                      "h-8 w-8 rounded shrink-0 transition-colors",
+                      "h-8 w-8 rounded shrink-0 transition-colors relative",
                       getStatusColor(session.status)
                     )}
                     aria-label={`Занятие ${session.lessonNumber || startIndex + index + 1}`}
@@ -102,6 +114,14 @@ export function LessonScheduleStrip({ sessions, className }: LessonScheduleStrip
                     <span className="text-xs text-white font-medium">
                       {session.lessonNumber || startIndex + index + 1}
                     </span>
+                    {groupId && (
+                      <AttendanceIndicator
+                        lessonDate={new Date(session.lessonDate)}
+                        lessonId={groupId}
+                        sessionType="group"
+                        onClick={(e) => handleAttendanceClick(session.lessonDate, e)}
+                      />
+                    )}
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -130,6 +150,16 @@ export function LessonScheduleStrip({ sessions, className }: LessonScheduleStrip
       <div className="text-xs text-muted-foreground shrink-0 ml-2">
         {sortedSessions.length} занятий
       </div>
+
+      {selectedDate && groupId && (
+        <MarkAttendanceModal
+          open={attendanceModalOpen}
+          onOpenChange={setAttendanceModalOpen}
+          lessonDate={selectedDate}
+          lessonId={groupId}
+          sessionType="group"
+        />
+      )}
     </div>
   );
 }

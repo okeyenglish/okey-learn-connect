@@ -3,6 +3,8 @@ import { format, addDays, isBefore, isAfter, startOfDay, isPast, isToday } from 
 import { ru } from 'date-fns/locale';
 import { useState, useEffect } from 'react';
 import { IndividualLessonStatusModal } from './IndividualLessonStatusModal';
+import { MarkAttendanceModal } from './MarkAttendanceModal';
+import { AttendanceIndicator } from './AttendanceIndicator';
 import { supabase } from '@/integrations/supabase/client';
 
 interface IndividualLessonScheduleProps {
@@ -44,6 +46,8 @@ export function IndividualLessonSchedule({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [lessonSessions, setLessonSessions] = useState<Record<string, LessonSession>>({});
   const [showAll, setShowAll] = useState(false);
+  const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
+  const [attendanceDate, setAttendanceDate] = useState<Date | null>(null);
 
   useEffect(() => {
     if (lessonId) {
@@ -160,6 +164,13 @@ export function IndividualLessonSchedule({
   const displayedDates = showAll ? lessonDates : lessonDates.slice(0, 30);
   const hasMoreLessons = lessonDates.length > 30;
 
+  const handleAttendanceClick = (date: Date, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setAttendanceDate(date);
+    setAttendanceModalOpen(true);
+  };
+
   if (lessonDates.length === 0) {
     return (
       <div className={cn("text-sm text-muted-foreground", className)}>
@@ -186,13 +197,19 @@ export function IndividualLessonSchedule({
                 key={index}
                 onClick={(e) => handleDateClick(date, e)}
                 className={cn(
-                  "h-8 px-2 rounded border flex items-center justify-center hover:opacity-80 transition-all cursor-pointer",
+                  "h-8 px-2 rounded border flex items-center justify-center hover:opacity-80 transition-all cursor-pointer relative",
                   colorClass
                 )}
               >
                 <span className="text-xs font-medium whitespace-nowrap">
                   {format(date, 'dd.MM', { locale: ru })}
                 </span>
+                <AttendanceIndicator
+                  lessonDate={date}
+                  lessonId={lessonId || ''}
+                  sessionType="individual"
+                  onClick={(e) => handleAttendanceClick(date, e)}
+                />
               </button>
             );
           })}
@@ -233,6 +250,17 @@ export function IndividualLessonSchedule({
         lessonId={lessonId}
         onStatusUpdated={handleStatusUpdated}
       />
+
+      {attendanceDate && lessonId && (
+        <MarkAttendanceModal
+          open={attendanceModalOpen}
+          onOpenChange={setAttendanceModalOpen}
+          lessonDate={attendanceDate}
+          lessonId={lessonId}
+          sessionType="individual"
+          onMarked={loadLessonSessions}
+        />
+      )}
     </>
   );
 }
