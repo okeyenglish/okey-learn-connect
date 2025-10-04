@@ -266,23 +266,37 @@ export const useStudentDetails = (studentId: string) => {
             status: ls.status,
           }));
 
-          // Определяем статус на основе дат
+          // Определяем статус на основе будущих занятий
           const today = new Date();
           today.setHours(0, 0, 0, 0);
           let lessonStatus = il.status || 'active';
 
-          if (il.period_start && il.period_end) {
-            const startDate = new Date(il.period_start);
-            const endDate = new Date(il.period_end);
-            startDate.setHours(0, 0, 0, 0);
-            endDate.setHours(0, 0, 0, 0);
+          // Если статус уже 'finished' в БД, используем его
+          if (il.status === 'finished') {
+            lessonStatus = 'finished';
+          } else {
+            // Проверяем наличие запланированных занятий в будущем
+            const hasFutureLessons = sessions.some((session) => {
+              const lessonDate = new Date(session.lessonDate);
+              lessonDate.setHours(0, 0, 0, 0);
+              return lessonDate >= today && session.status === 'scheduled';
+            });
 
-            if (today < startDate) {
-              lessonStatus = 'forming'; // Еще не начались
-            } else if (today > endDate) {
-              lessonStatus = 'finished'; // Уже закончились
+            if (il.period_start) {
+              const startDate = new Date(il.period_start);
+              startDate.setHours(0, 0, 0, 0);
+              
+              if (today < startDate) {
+                lessonStatus = 'forming'; // Еще не начались
+              } else if (hasFutureLessons) {
+                lessonStatus = 'active'; // Есть будущие занятия
+              } else {
+                lessonStatus = 'finished'; // Нет будущих занятий
+              }
+            } else if (hasFutureLessons) {
+              lessonStatus = 'active';
             } else {
-              lessonStatus = 'active'; // Идут сейчас
+              lessonStatus = 'finished';
             }
           }
 
