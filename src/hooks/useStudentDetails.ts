@@ -192,10 +192,7 @@ export const useStudentDetails = (studentId: string) => {
             status,
             category,
             group_number,
-            teacher:teacher_id (
-              id,
-              name
-            )
+            responsible_teacher
           )
         `)
         .eq('student_id', studentId);
@@ -232,8 +229,8 @@ export const useStudentDetails = (studentId: string) => {
             name: gs.learning_groups?.name || '',
             subject: gs.learning_groups?.subject || '',
             level: gs.learning_groups?.level || '',
-            teacher: gs.learning_groups?.teacher?.name || 'Не назначен',
-            teacherId: gs.learning_groups?.teacher?.id || '',
+            teacher: gs.learning_groups?.responsible_teacher || 'Не назначен',
+            teacherId: '',
             branch: gs.learning_groups?.branch || '',
             schedule: '',
             status: gs.status,
