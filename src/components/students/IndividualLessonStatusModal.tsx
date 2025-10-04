@@ -257,7 +257,7 @@ export function IndividualLessonStatusModal({
       }
       
       // Special handling for cancelling or making free a paid lesson - transfer payment minutes to next unpaid lessons
-      if ((statusValue === 'cancelled' || statusValue === 'free') && wasPaid) {
+      if (statusValue === 'cancelled' || statusValue === 'free') {
         // Get paid_minutes from current session
         const { data: currentSessionFull } = await supabase
           .from('individual_lesson_sessions')
