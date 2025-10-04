@@ -831,7 +831,7 @@ export function EnhancedStudentCard({
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      {studentDetails.groups.length === 0 && studentDetails.individualLessons.length === 0 ? (
+                      {(studentDetails.groups.filter(g => g.status === 'active').length === 0 && studentDetails.individualLessons.filter(l => l.status === 'active').length === 0) ? (
                         <div className="text-center py-8">
                           <Users className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
                           <p className="text-muted-foreground">Студент пока не добавлен ни в одну группу</p>
@@ -843,7 +843,7 @@ export function EnhancedStudentCard({
                       ) : (
                         <div className="space-y-3">
                           {/* Groups */}
-                          {studentDetails.groups.map((group) => (
+                          {studentDetails.groups.filter((g) => g.status === 'active').map((group) => (
                             <div key={group.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                               <div className="flex items-start justify-between mb-3">
                                 <div>
@@ -884,7 +884,7 @@ export function EnhancedStudentCard({
                           ))}
                           
                           {/* Individual Lessons */}
-                          {studentDetails.individualLessons.map((lesson) => (
+                          {studentDetails.individualLessons.filter((lesson) => lesson.status === 'active').map((lesson) => (
                             <div 
                               key={lesson.id} 
                               className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-default relative"
