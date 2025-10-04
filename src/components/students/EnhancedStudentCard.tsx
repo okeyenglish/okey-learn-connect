@@ -1881,6 +1881,7 @@ export function EnhancedStudentCard({
         onOpenChange={setShowAddToGroup}
         studentId={student.id}
         studentName={studentDetails?.name || student.name}
+        onSuccess={refetch}
       />
 
       {/* Модальное окно добавления индивидуальных занятий */}

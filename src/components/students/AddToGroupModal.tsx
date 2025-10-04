@@ -13,9 +13,10 @@ interface AddToGroupModalProps {
   onOpenChange: (open: boolean) => void;
   studentId: string;
   studentName: string;
+  onSuccess?: () => void;
 }
 
-export function AddToGroupModal({ open, onOpenChange, studentId, studentName }: AddToGroupModalProps) {
+export function AddToGroupModal({ open, onOpenChange, studentId, studentName, onSuccess }: AddToGroupModalProps) {
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
@@ -43,6 +44,10 @@ export function AddToGroupModal({ open, onOpenChange, studentId, studentName }: 
     if (success) {
       setSelectedGroupId('');
       setNotes('');
+      // Небольшая задержка для гарантированного обновления данных
+      setTimeout(() => {
+        onSuccess?.();
+      }, 300);
       onOpenChange(false);
     }
   };
