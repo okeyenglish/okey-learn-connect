@@ -266,7 +266,7 @@ export const useStudentDetails = (studentId: string) => {
             status: ls.status,
           }));
 
-          // Определяем статус на основе будущих занятий
+          // Определяем статус: приоритет у статуса из БД (ручная архивация/разархивация)
           const today = new Date();
           today.setHours(0, 0, 0, 0);
           
@@ -278,23 +278,27 @@ export const useStudentDetails = (studentId: string) => {
           });
 
           let lessonStatus: string;
-          
-          // Если есть будущие занятия, курс всегда активный
-          if (hasFutureLessons) {
+
+          // 1) Если явно архивирован в БД
+          if (il.status === 'finished') {
+            lessonStatus = 'finished';
+          // 2) Если явно активен в БД — считаем активным даже без будущих занятий
+          } else if (il.status === 'active') {
+            lessonStatus = 'active';
+          // 3) Если в БД "формируется", уважаем это состояние
+          } else if (il.status === 'forming') {
+            lessonStatus = 'forming';
+          // 4) Если есть будущие занятия — активен
+          } else if (hasFutureLessons) {
             lessonStatus = 'active';
           } else {
-            // Проверяем дату начала, если нет будущих занятий
+            // 5) Иначе определяем по дате начала
             if (il.period_start) {
               const startDate = new Date(il.period_start);
               startDate.setHours(0, 0, 0, 0);
-              
-              if (today < startDate) {
-                lessonStatus = 'forming'; // Еще не начались
-              } else {
-                lessonStatus = 'finished'; // Нет будущих занятий и уже начались
-              }
+              lessonStatus = (today < startDate) ? 'forming' : 'finished';
             } else {
-              lessonStatus = 'finished'; // Нет будущих занятий и нет даты начала
+              lessonStatus = 'finished';
             }
           }
 
