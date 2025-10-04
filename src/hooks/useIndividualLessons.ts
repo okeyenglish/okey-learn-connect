@@ -166,7 +166,10 @@ export const useUpdateIndividualLesson = () => {
       return data;
     },
     onSuccess: () => {
+      // Инвалидируем кэш индивидуальных уроков
       queryClient.invalidateQueries({ queryKey: ['individual-lessons'] });
+      // Инвалидируем все кэши деталей студентов для обновления данных
+      queryClient.invalidateQueries({ queryKey: ['student-details'] });
     },
   });
 };
