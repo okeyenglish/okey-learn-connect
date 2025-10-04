@@ -9,7 +9,7 @@ export interface GroupStudent {
   group_id: string;
   student_id: string;
   enrollment_date: string;
-  status: 'active' | 'inactive' | 'completed';
+  status: 'active' | 'inactive' | 'completed' | 'dropped' | 'paused';
   notes?: string;
   student?: Student;
 }
@@ -25,8 +25,29 @@ export const useGroupStudents = (groupId?: string) => {
     
     setLoading(true);
     try {
-      // Пока группа студентов не работает из-за отсутствия таблицы, возвращаем пустой массив
-      setGroupStudents([]);
+      const { data, error } = await supabase
+        .from('group_students')
+        .select(`
+          *,
+          student:students (
+            id,
+            name,
+            first_name,
+            last_name,
+            middle_name,
+            phone,
+            age,
+            status,
+            created_at,
+            updated_at
+          )
+        `)
+        .eq('group_id', groupId)
+        .eq('status', 'active');
+
+      if (error) throw error;
+
+      setGroupStudents(data || []);
     } catch (error) {
       console.error('Error fetching group students:', error);
       setGroupStudents([]);

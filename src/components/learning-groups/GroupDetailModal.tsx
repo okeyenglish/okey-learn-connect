@@ -281,33 +281,36 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                       </div>
                     ) : (
                       <div className="divide-y divide-gray-200">
-                        {groupStudents.map((student) => (
-                          <div key={student.id} className="p-4 flex items-center justify-between">
+                        {groupStudents.map((gs) => (
+                          <div key={gs.id} className="p-4 flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               <Avatar className="h-10 w-10">
                                 <AvatarFallback>
-                                  {student.student_id.substring(0, 2).toUpperCase()}
+                                  {gs.student?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'ST'}
                                 </AvatarFallback>
                               </Avatar>
                               <div>
-                                <p className="font-medium text-gray-900">Студент {student.student_id}</p>
+                                <p className="font-medium text-gray-900">
+                                  {gs.student?.name || `Студент ${gs.student_id}`}
+                                </p>
                                 <p className="text-sm text-gray-500">
-                                  Записан: {new Date(student.enrollment_date).toLocaleDateString()}
+                                  Записан: {new Date(gs.enrollment_date).toLocaleDateString('ru-RU')}
+                                  {gs.student?.phone && ` • ${gs.student.phone}`}
                                 </p>
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
                               <Badge 
-                                variant={student.status === 'active' ? 'default' : 'secondary'}
-                                className={student.status === 'active' ? 'bg-green-100 text-green-800' : ''}
+                                variant={gs.status === 'active' ? 'default' : 'secondary'}
+                                className={gs.status === 'active' ? 'bg-green-100 text-green-800' : ''}
                               >
-                                {student.status === 'active' ? 'Активен' : 'Неактивен'}
+                                {gs.status === 'active' ? 'Активен' : 'Неактивен'}
                               </Badge>
                               <Button
                                 size="sm"
                                 variant="outline"
                                 className="text-red-600 hover:bg-red-50"
-                                onClick={() => handleRemoveStudentFromGroup(student.id)}
+                                onClick={() => handleRemoveStudentFromGroup(gs.student_id)}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
