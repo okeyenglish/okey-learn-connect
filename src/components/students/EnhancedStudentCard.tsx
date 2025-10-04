@@ -1147,18 +1147,28 @@ export function EnhancedStudentCard({
                             {studentDetails.individualLessons.filter(l => l.status === 'active').map((lesson) => (
                               <div 
                                 key={lesson.id} 
-                                className="p-4 border rounded-lg bg-amber-50/50 cursor-pointer"
-                                onClick={() => setSelectedLessonId(lesson.id)}
+                                className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-default relative"
                               >
-                                <div className="flex items-start justify-between mb-4">
-                                  <div>
-                                    <h4 className="font-semibold text-lg mb-1">{lesson.subject}</h4>
-                                    <p className="text-sm text-muted-foreground">
-                                      {lesson.format} • {lesson.level}
-                                    </p>
-                                  </div>
+                                {/* Заголовок с именем преподавателя */}
+                                <div className="flex items-start justify-between mb-2">
+                                  <h4 
+                                    className="font-medium text-base text-primary cursor-pointer hover:underline"
+                                    onClick={(e) => { e.stopPropagation(); setSelectedLessonId(lesson.id); }}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedLessonId(lesson.id); } }}
+                                  >
+                                    Индивидуально с {lesson.teacherName || 'Преподаватель не назначен'}
+                                    {lesson.lessonNumber && (
+                                      <span className="ml-2 text-xs font-mono text-muted-foreground">
+                                        #{lesson.lessonNumber}
+                                      </span>
+                                    )}
+                                  </h4>
                                   <div className="flex items-center gap-2">
-                                    <Badge variant="outline" className="bg-amber-100">Индивидуально</Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                      Индивидуально
+                                    </Badge>
                                     <Button
                                       size="icon"
                                       variant="ghost"
@@ -1171,36 +1181,107 @@ export function EnhancedStudentCard({
                                     >
                                       <Archive className="h-4 w-4" />
                                     </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-8 w-8"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedLesson(lesson);
+                                        setPaymentModalOpen(true);
+                                      }}
+                                    >
+                                      <Wallet className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-8 w-8"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setAddLessonForId(lesson.id);
+                                        setAddLessonModalOpen(true);
+                                      }}
+                                      title="Добавить дополнительное занятие"
+                                    >
+                                      <Plus className="h-4 w-4" />
+                                    </Button>
                                   </div>
                                 </div>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
-                                  <div>
-                                    <p className="text-muted-foreground text-xs mb-1">Преподаватель</p>
-                                    <p className="font-medium">{lesson.teacherName || 'Не назначен'}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground text-xs mb-1">Филиал</p>
-                                    <div className="flex items-center gap-1">
-                                      <MapPin className="h-3 w-3" />
-                                      <span>{lesson.branch}</span>
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground text-xs mb-1">Стоимость</p>
-                                    <p className="font-medium">{lesson.pricePerLesson ? `${lesson.pricePerLesson}₽/урок` : 'Не указана'}</p>
+
+                                {/* Дни недели и время */}
+                                <div className="flex items-center gap-2 text-sm mb-1">
+                                  <span className="font-medium">
+                                    {lesson.scheduleDays && lesson.scheduleDays.length > 0
+                                      ? lesson.scheduleDays.map(day => {
+                                          const dayLabels: Record<string, string> = {
+                                            monday: 'Пн',
+                                            tuesday: 'Вт',
+                                            wednesday: 'Ср',
+                                            thursday: 'Чт',
+                                            friday: 'Пт',
+                                            saturday: 'Сб',
+                                            sunday: 'Вс'
+                                          };
+                                          return dayLabels[day.toLowerCase()] || day;
+                                        }).join('/')
+                                      : 'Не указаны'
+                                    }
+                                  </span>
+                                  {lesson.scheduleTime && (
+                                    <span className="text-muted-foreground">
+                                      с {lesson.scheduleTime.split('-')[0]} до {
+                                        (() => {
+                                          const startTime = lesson.scheduleTime.split('-')[0];
+                                          const [hours, minutes] = startTime.split(':').map(Number);
+                                          const duration = lesson.duration || 60;
+                                          const totalMinutes = hours * 60 + minutes + duration;
+                                          const endHours = Math.floor(totalMinutes / 60) % 24;
+                                          const endMinutes = totalMinutes % 60;
+                                          return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
+                                        })()
+                                      }
+                                    </span>
+                                  )}
                                 </div>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
+
+                                {/* Продолжительность и стоимость */}
+                                <div className="flex items-center gap-3 text-sm mb-2">
+                                  <Badge variant="secondary" className="text-xs">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    {lesson.duration || 60} мин
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs">
+                                    <DollarSign className="h-3 w-3 mr-1" />
+                                    {calculateLessonPrice(lesson.duration || 60)} ₽/урок
+                                  </Badge>
+                                </div>
+
+                                {/* Период и актуальный график */}
+                                <ScheduleSummary
+                                  lessonId={lesson.id}
+                                  scheduleDays={lesson.scheduleDays}
+                                  scheduleTime={lesson.scheduleTime}
+                                  periodStart={lesson.periodStart}
+                                  periodEnd={lesson.periodEnd}
+                                  refreshTrigger={refreshTrigger}
+                                />
+                                
+                                {/* Аудитория */}
+                                <div className="text-sm mb-3">
+                                  <span className="text-muted-foreground">Ауд. </span>
+                                  <span className="font-medium">{lesson.branch}</span>
+                                </div>
+
                                 <IndividualLessonSchedule 
                                   lessonId={lesson.id}
                                   scheduleDays={lesson.scheduleDays}
                                   scheduleTime={lesson.scheduleTime}
                                   periodStart={lesson.periodStart}
                                   periodEnd={lesson.periodEnd}
+                                  refreshTrigger={refreshTrigger}
                                 />
                               </div>
-                            </div>
                             ))}
                           </CardContent>
                         </Card>
@@ -1267,18 +1348,28 @@ export function EnhancedStudentCard({
                             {studentDetails.individualLessons.filter(l => l.status !== 'active').map((lesson) => (
                               <div 
                                 key={lesson.id} 
-                                className="p-4 border rounded-lg bg-muted/30 cursor-pointer"
-                                onClick={() => setSelectedLessonId(lesson.id)}
+                                className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-default relative"
                               >
-                                <div className="flex items-start justify-between mb-4">
-                                  <div>
-                                    <h4 className="font-semibold text-lg mb-1">{lesson.subject}</h4>
-                                    <p className="text-sm text-muted-foreground">
-                                      {lesson.format} • {lesson.level}
-                                    </p>
-                                  </div>
+                                {/* Заголовок с именем преподавателя */}
+                                <div className="flex items-start justify-between mb-2">
+                                  <h4 
+                                    className="font-medium text-base text-primary cursor-pointer hover:underline"
+                                    onClick={(e) => { e.stopPropagation(); setSelectedLessonId(lesson.id); }}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedLessonId(lesson.id); } }}
+                                  >
+                                    Индивидуально с {lesson.teacherName || 'Преподаватель не назначен'}
+                                    {lesson.lessonNumber && (
+                                      <span className="ml-2 text-xs font-mono text-muted-foreground">
+                                        #{lesson.lessonNumber}
+                                      </span>
+                                    )}
+                                  </h4>
                                   <div className="flex items-center gap-2">
-                                    <Badge variant="secondary">Завершено</Badge>
+                                    <Badge variant="secondary" className="text-xs">
+                                      Завершено
+                                    </Badge>
                                     <Button
                                       size="icon"
                                       variant="ghost"
@@ -1293,34 +1384,80 @@ export function EnhancedStudentCard({
                                     </Button>
                                   </div>
                                 </div>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
-                                  <div>
-                                    <p className="text-muted-foreground text-xs mb-1">Преподаватель</p>
-                                    <p className="font-medium">{lesson.teacherName || 'Не назначен'}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground text-xs mb-1">Филиал</p>
-                                    <div className="flex items-center gap-1">
-                                      <MapPin className="h-3 w-3" />
-                                      <span>{lesson.branch}</span>
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground text-xs mb-1">Стоимость</p>
-                                    <p className="font-medium">{lesson.pricePerLesson ? `${lesson.pricePerLesson}₽/урок` : 'Не указана'}</p>
+
+                                {/* Дни недели и время */}
+                                <div className="flex items-center gap-2 text-sm mb-1">
+                                  <span className="font-medium">
+                                    {lesson.scheduleDays && lesson.scheduleDays.length > 0
+                                      ? lesson.scheduleDays.map(day => {
+                                          const dayLabels: Record<string, string> = {
+                                            monday: 'Пн',
+                                            tuesday: 'Вт',
+                                            wednesday: 'Ср',
+                                            thursday: 'Чт',
+                                            friday: 'Пт',
+                                            saturday: 'Сб',
+                                            sunday: 'Вс'
+                                          };
+                                          return dayLabels[day.toLowerCase()] || day;
+                                        }).join('/')
+                                      : 'Не указаны'
+                                    }
+                                  </span>
+                                  {lesson.scheduleTime && (
+                                    <span className="text-muted-foreground">
+                                      с {lesson.scheduleTime.split('-')[0]} до {
+                                        (() => {
+                                          const startTime = lesson.scheduleTime.split('-')[0];
+                                          const [hours, minutes] = startTime.split(':').map(Number);
+                                          const duration = lesson.duration || 60;
+                                          const totalMinutes = hours * 60 + minutes + duration;
+                                          const endHours = Math.floor(totalMinutes / 60) % 24;
+                                          const endMinutes = totalMinutes % 60;
+                                          return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
+                                        })()
+                                      }
+                                    </span>
+                                  )}
                                 </div>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground text-xs mb-2">История посещений</p>
+
+                                {/* Продолжительность и стоимость */}
+                                <div className="flex items-center gap-3 text-sm mb-2">
+                                  <Badge variant="secondary" className="text-xs">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    {lesson.duration || 60} мин
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs">
+                                    <DollarSign className="h-3 w-3 mr-1" />
+                                    {calculateLessonPrice(lesson.duration || 60)} ₽/урок
+                                  </Badge>
+                                </div>
+
+                                {/* Период и актуальный график */}
+                                <ScheduleSummary
+                                  lessonId={lesson.id}
+                                  scheduleDays={lesson.scheduleDays}
+                                  scheduleTime={lesson.scheduleTime}
+                                  periodStart={lesson.periodStart}
+                                  periodEnd={lesson.periodEnd}
+                                  refreshTrigger={refreshTrigger}
+                                />
+                                
+                                {/* Аудитория */}
+                                <div className="text-sm mb-3">
+                                  <span className="text-muted-foreground">Ауд. </span>
+                                  <span className="font-medium">{lesson.branch}</span>
+                                </div>
+
                                 <IndividualLessonSchedule 
                                   lessonId={lesson.id}
                                   scheduleDays={lesson.scheduleDays}
                                   scheduleTime={lesson.scheduleTime}
                                   periodStart={lesson.periodStart}
                                   periodEnd={lesson.periodEnd}
+                                  refreshTrigger={refreshTrigger}
                                 />
                               </div>
-                            </div>
                             ))}
                           </CardContent>
                         </Card>
