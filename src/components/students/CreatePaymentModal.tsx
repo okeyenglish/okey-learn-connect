@@ -29,6 +29,19 @@ interface CreatePaymentModalProps {
 
 const LESSON_PACKAGES = [1, 4, 8, 24, 80];
 
+interface StudentLesson {
+  id: string;
+  type: 'group' | 'individual';
+  name: string;
+  subject: string;
+  level: string;
+  teacher: string;
+  branch: string;
+  duration?: number;
+  pricePerLesson?: number;
+  academicHours?: number;
+}
+
 export function CreatePaymentModal({ 
   open, 
   onOpenChange, 
@@ -39,11 +52,13 @@ export function CreatePaymentModal({
   pricePerLesson = 0,
   onPaymentSuccess
 }: CreatePaymentModalProps) {
-  const [paymentType, setPaymentType] = useState<'lessons' | 'balance'>('lessons');
+  const [paymentType, setPaymentType] = useState<'lessons' | 'balance' | 'textbooks'>('lessons');
+  const [selectedLesson, setSelectedLesson] = useState<string>('');
+  const [studentLessons, setStudentLessons] = useState<StudentLesson[]>([]);
   const [selectedPackage, setSelectedPackage] = useState<number | null>(null);
   const [customLessonsCount, setCustomLessonsCount] = useState<string>('');
   const [useCustomAmount, setUseCustomAmount] = useState(false);
-  const [customAmount, setCustomAmount] = useState<string>('');
+  const [customAmount, setCustomAmount] = useState<string>('5000');
   const [lessonDuration, setLessonDuration] = useState<number>(60);
   const [calculatedPricePerLesson, setCalculatedPricePerLesson] = useState(pricePerLesson);
   const [formData, setFormData] = useState({
@@ -58,26 +73,93 @@ export function CreatePaymentModal({
   const { mutateAsync: addBalanceTransaction } = useAddBalanceTransaction();
   const { toast } = useToast();
 
-  // Загружаем duration из individual_lessons
+  // Загружаем занятия студента
   useEffect(() => {
-    const fetchLessonDuration = async () => {
-      if (individualLessonId) {
-        const { data, error } = await supabase
-          .from('individual_lessons')
-          .select('duration')
-          .eq('id', individualLessonId)
-          .single();
+    const fetchStudentLessons = async () => {
+      if (!open || !studentId) return;
+      
+      try {
+        // Загружаем групповые занятия
+        const { data: groupsData, error: groupsError } = await supabase
+          .from('group_students')
+          .select(`
+            group_id,
+            learning_groups (
+              id,
+              name,
+              subject,
+              level,
+              teacher_name,
+              branch,
+              academic_hours_per_day
+            )
+          `)
+          .eq('student_id', studentId)
+          .eq('status', 'active');
         
-        if (data && data.duration) {
-          setLessonDuration(data.duration);
-          const price = calculateLessonPrice(data.duration);
-          setCalculatedPricePerLesson(price);
+        // Загружаем индивидуальные занятия
+        const { data: individualData, error: individualError } = await supabase
+          .from('individual_lessons')
+          .select('id, student_name, subject, level, teacher_name, branch, duration, price_per_lesson, academic_hours_per_day')
+          .eq('student_id', studentId)
+          .eq('status', 'active');
+        
+        const lessons: StudentLesson[] = [];
+        
+        // Добавляем групповые занятия
+        if (groupsData) {
+          groupsData.forEach((item: any) => {
+            const group = item.learning_groups;
+            if (group) {
+              lessons.push({
+                id: group.id,
+                type: 'group',
+                name: group.name,
+                subject: group.subject || '',
+                level: group.level || '',
+                teacher: group.teacher_name || '',
+                branch: group.branch || '',
+                academicHours: group.academic_hours_per_day || 1,
+              });
+            }
+          });
         }
+        
+        // Добавляем индивидуальные занятия
+        if (individualData) {
+          individualData.forEach((lesson: any) => {
+            lessons.push({
+              id: lesson.id,
+              type: 'individual',
+              name: `Индивидуально с ${lesson.teacher_name || 'преподавателем'}`,
+              subject: lesson.subject || '',
+              level: lesson.level || '',
+              teacher: lesson.teacher_name || '',
+              branch: lesson.branch || '',
+              duration: lesson.duration || 60,
+              pricePerLesson: lesson.price_per_lesson || calculateLessonPrice(lesson.duration || 60),
+              academicHours: lesson.academic_hours_per_day || 1,
+            });
+          });
+        }
+        
+        setStudentLessons(lessons);
+        
+        // Если передан individualLessonId, автоматически выбираем его
+        if (individualLessonId) {
+          setSelectedLesson(individualLessonId);
+          const lesson = lessons.find(l => l.id === individualLessonId);
+          if (lesson && lesson.pricePerLesson) {
+            setCalculatedPricePerLesson(lesson.pricePerLesson);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching student lessons:', error);
       }
     };
     
-    fetchLessonDuration();
-  }, [individualLessonId]);
+    fetchStudentLessons();
+  }, [open, studentId, individualLessonId]);
 
   const getLessonsCount = () => {
     if (customLessonsCount) {
@@ -87,10 +169,17 @@ export function CreatePaymentModal({
   };
 
   const calculateAmount = () => {
+    if (paymentType === 'textbooks') {
+      return parseFloat(customAmount) || 5000;
+    }
     if (useCustomAmount) {
       return parseFloat(customAmount) || 0;
     }
     return getLessonsCount() * calculatedPricePerLesson;
+  };
+  
+  const getSelectedLessonInfo = () => {
+    return studentLessons.find(l => l.id === selectedLesson);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -125,11 +214,39 @@ export function CreatePaymentModal({
           title: "Успех",
           description: `Баланс пополнен на ${amount} ₽`,
         });
+      } else if (paymentType === 'textbooks') {
+        // Оплата учебных пособий
+        const paymentPayload = {
+          student_id: studentId,
+          amount,
+          method: formData.method,
+          payment_date: formData.payment_date,
+          description: formData.description || 'Оплата учебных пособий',
+          notes: formData.notes,
+          lessons_count: 0
+        };
+        
+        await createPayment(paymentPayload);
+        
+        toast({
+          title: "Успех",
+          description: 'Оплата учебных пособий прошла успешно',
+        });
       } else {
         // Оплата занятий
         const lessonsCount = getLessonsCount();
         
-        if (individualLessonId && !lessonsCount && !useCustomAmount) {
+        if (!selectedLesson) {
+          toast({
+            title: "Ошибка",
+            description: "Выберите занятие для оплаты",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+        
+        if (!lessonsCount && !useCustomAmount) {
           toast({
             title: "Ошибка",
             description: "Выберите пакет занятий или укажите количество",
@@ -139,22 +256,26 @@ export function CreatePaymentModal({
           return;
         }
         
+        const lessonInfo = getSelectedLessonInfo();
+        const academicHours = lessonsCount * (lessonInfo?.academicHours || 1);
+        
         const paymentPayload = {
           student_id: studentId,
           amount,
           method: formData.method,
           payment_date: formData.payment_date,
-          description: formData.description || `Оплата ${lessonsCount} занятий`,
+          description: formData.description || `Оплата ${lessonsCount} занятий (${academicHours} ак.ч.)`,
           notes: formData.notes,
           lessons_count: lessonsCount,
-          individual_lesson_id: individualLessonId
+          individual_lesson_id: lessonInfo?.type === 'individual' ? selectedLesson : undefined,
+          group_id: lessonInfo?.type === 'group' ? selectedLesson : undefined
         };
         
         await createPayment(paymentPayload);
         
         toast({
           title: "Успех",
-          description: `Оплачено ${lessonsCount} занятий`,
+          description: `Оплачено ${lessonsCount} занятий (${academicHours} ак.ч.)`,
         });
       }
       
@@ -166,10 +287,11 @@ export function CreatePaymentModal({
         payment_date: new Date().toISOString().split('T')[0]
       });
       setPaymentType('lessons');
+      setSelectedLesson('');
       setSelectedPackage(null);
       setCustomLessonsCount('');
       setUseCustomAmount(false);
-      setCustomAmount('');
+      setCustomAmount('5000');
       
       if (onPaymentSuccess) {
         onPaymentSuccess();
@@ -198,7 +320,7 @@ export function CreatePaymentModal({
 
           <div>
             <Label>Тип оплаты</Label>
-            <RadioGroup value={paymentType} onValueChange={(value: 'lessons' | 'balance') => setPaymentType(value)}>
+            <RadioGroup value={paymentType} onValueChange={(value: 'lessons' | 'balance' | 'textbooks') => setPaymentType(value)}>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="lessons" id="type-lessons" />
                 <Label htmlFor="type-lessons" className="cursor-pointer">Оплата занятий</Label>
@@ -206,6 +328,10 @@ export function CreatePaymentModal({
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="balance" id="type-balance" />
                 <Label htmlFor="type-balance" className="cursor-pointer">Пополнение личного баланса</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="textbooks" id="type-textbooks" />
+                <Label htmlFor="type-textbooks" className="cursor-pointer">Учебные пособия</Label>
               </div>
             </RadioGroup>
           </div>
@@ -234,8 +360,75 @@ export function CreatePaymentModal({
             </div>
           )}
 
-          {paymentType === 'lessons' && individualLessonId && (
+          {paymentType === 'textbooks' && (
+            <div>
+              <Label htmlFor="textbooks-amount">Сумма за учебные пособия (руб.)</Label>
+              <Input
+                id="textbooks-amount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={customAmount}
+                onChange={(e) => setCustomAmount(e.target.value)}
+                placeholder="5000"
+                required
+              />
+              {parseFloat(customAmount) > 0 && (
+                <div className="mt-2 p-3 bg-primary/10 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">К оплате:</span>
+                    <span className="text-2xl font-bold">{parseFloat(customAmount)} руб.</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {paymentType === 'lessons' && (
             <div className="space-y-3">
+              <div>
+                <Label htmlFor="lesson-select">Выберите занятие</Label>
+                <Select value={selectedLesson} onValueChange={(value) => {
+                  setSelectedLesson(value);
+                  const lesson = studentLessons.find(l => l.id === value);
+                  if (lesson && lesson.pricePerLesson) {
+                    setCalculatedPricePerLesson(lesson.pricePerLesson);
+                  }
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите занятие..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {studentLessons.map(lesson => (
+                      <SelectItem key={lesson.id} value={lesson.id}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{lesson.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {lesson.subject} • {lesson.level} • {lesson.branch}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedLesson && (
+                <div className="p-3 bg-muted rounded-lg space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Преподаватель:</span>
+                    <span className="font-medium">{getSelectedLessonInfo()?.teacher}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Стоимость урока:</span>
+                    <span className="font-medium">{calculatedPricePerLesson} ₽</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Академических часов за урок:</span>
+                    <span className="font-medium">{getSelectedLessonInfo()?.academicHours || 1} ак.ч.</span>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <Label>Выберите пакет занятий</Label>
@@ -305,16 +498,21 @@ export function CreatePaymentModal({
                 </div>
               )}
 
-              {(selectedPackage || customLessonsCount || useCustomAmount) && (
-                <div className="p-4 bg-primary/10 rounded-lg">
+              {(selectedPackage || customLessonsCount || useCustomAmount) && selectedLesson && (
+                <div className="p-4 bg-primary/10 rounded-lg space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="font-medium">К оплате:</span>
                     <span className="text-2xl font-bold">{calculateAmount()} руб.</span>
                   </div>
                   {!useCustomAmount && (
-                    <div className="text-sm text-muted-foreground mt-1">
-                      {getLessonsCount()} {getLessonsCount() === 1 ? 'занятие' : getLessonsCount() < 5 ? 'занятия' : 'занятий'}
-                    </div>
+                    <>
+                      <div className="text-sm text-muted-foreground">
+                        {getLessonsCount()} {getLessonsCount() === 1 ? 'занятие' : getLessonsCount() < 5 ? 'занятия' : 'занятий'}
+                      </div>
+                      <div className="text-sm font-medium text-primary">
+                        Всего: {getLessonsCount() * (getSelectedLessonInfo()?.academicHours || 1)} ак.ч.
+                      </div>
+                    </>
                   )}
                 </div>
               )}
