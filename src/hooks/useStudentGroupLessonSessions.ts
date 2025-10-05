@@ -186,6 +186,8 @@ export const useStudentGroupLessonSessions = (
   useEffect(() => {
     if (!groupId) return;
 
+    console.log('🔴 Subscribing to lesson_sessions changes for group:', groupId);
+
     const channel = supabase
       .channel(`lesson_sessions_${groupId}`)
       .on(
@@ -196,7 +198,8 @@ export const useStudentGroupLessonSessions = (
           table: 'lesson_sessions',
           filter: `group_id=eq.${groupId}`
         },
-        () => {
+        (payload) => {
+          console.log('🔴 Realtime event for lesson_sessions:', payload);
           // Инвалидируем кеш при любом изменении занятий группы
           queryClient.invalidateQueries({ 
             queryKey: ['student-group-lesson-sessions', studentId, groupId] 
@@ -206,9 +209,12 @@ export const useStudentGroupLessonSessions = (
           });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('🔴 Lesson sessions channel status:', status);
+      });
 
     return () => {
+      console.log('🔴 Unsubscribing from lesson_sessions for group:', groupId);
       supabase.removeChannel(channel);
     };
   }, [groupId, studentId, queryClient]);
@@ -216,6 +222,8 @@ export const useStudentGroupLessonSessions = (
   // Realtime подписка на изменения в student_lesson_sessions
   useEffect(() => {
     if (!studentId) return;
+
+    console.log('🟡 Subscribing to student_lesson_sessions changes for student:', studentId);
 
     const channel = supabase
       .channel(`student_lesson_sessions_${studentId}`)
@@ -227,7 +235,8 @@ export const useStudentGroupLessonSessions = (
           table: 'student_lesson_sessions',
           filter: `student_id=eq.${studentId}`
         },
-        () => {
+        (payload) => {
+          console.log('🟡 Realtime event for student_lesson_sessions:', payload);
           // Инвалидируем кеш при изменении персональных данных студента
           queryClient.invalidateQueries({ 
             queryKey: ['student-group-lesson-sessions', studentId, groupId] 
@@ -237,9 +246,12 @@ export const useStudentGroupLessonSessions = (
           });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('🟡 Student lesson sessions channel status:', status);
+      });
 
     return () => {
+      console.log('🟡 Unsubscribing from student_lesson_sessions for student:', studentId);
       supabase.removeChannel(channel);
     };
   }, [studentId, groupId, queryClient]);
@@ -247,6 +259,8 @@ export const useStudentGroupLessonSessions = (
   // Realtime подписка на изменения платежей
   useEffect(() => {
     if (!studentId || !groupId) return;
+
+    console.log('🟢 Subscribing to payments changes for student:', studentId);
 
     const channel = supabase
       .channel(`payments_${studentId}_${groupId}`)
@@ -258,7 +272,8 @@ export const useStudentGroupLessonSessions = (
           table: 'payments',
           filter: `student_id=eq.${studentId}`
         },
-        () => {
+        (payload) => {
+          console.log('🟢 Realtime event for payments:', payload);
           // Инвалидируем кеш при изменении платежей
           queryClient.invalidateQueries({ 
             queryKey: ['student-group-lesson-sessions', studentId, groupId] 
@@ -268,9 +283,12 @@ export const useStudentGroupLessonSessions = (
           });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('🟢 Payments channel status:', status);
+      });
 
     return () => {
+      console.log('🟢 Unsubscribing from payments for student:', studentId);
       supabase.removeChannel(channel);
     };
   }, [studentId, groupId, queryClient]);
