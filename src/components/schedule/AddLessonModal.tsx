@@ -227,6 +227,8 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
           sessionData.notes = formData.notes.trim();
         }
 
+        console.log('Creating session with data:', sessionData);
+
         await createSession.mutateAsync(sessionData);
         createdCount++;
       }
