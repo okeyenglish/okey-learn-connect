@@ -115,8 +115,8 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
   const lessonDuration = derivedDuration || pricing?.duration_minutes || 80;
   
   const totalPaidAmount = payments.reduce((sum, p) => sum + Number(p.amount), 0);
-  const totalPaidLessons = payments.reduce((sum, p) => sum + (p.lessons_count || 0), 0);
-  const totalPaidMinutes = totalPaidLessons * lessonDuration;
+  const totalPaidAcademicHours = payments.reduce((sum, p) => sum + (p.lessons_count || 0), 0);
+  const totalPaidMinutes = totalPaidAcademicHours * 40;
 
   // Calculate used sessions - only after enrollment, not cancelled for student, and actually conducted
   const todayObj = new Date();

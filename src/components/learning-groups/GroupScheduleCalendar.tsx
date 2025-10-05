@@ -72,11 +72,12 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
         .eq('group_id', groupId)
         .order('created_at', { ascending: true });
 
-      // Создаем Map с количеством оплаченных занятий для каждого студента
-      const paidLessonsMap = new Map<string, number>();
+      // Создаем Map с оплаченных минут (академические часы × 40) для каждого студента
+      const paidMinutesMap = new Map<string, number>();
       payments?.forEach(payment => {
-        const current = paidLessonsMap.get(payment.student_id) || 0;
-        paidLessonsMap.set(payment.student_id, current + (payment.lessons_count || 0));
+        const current = paidMinutesMap.get(payment.student_id) || 0;
+        const paidAcademicHours = payment.lessons_count || 0; // всегда в а.ч.
+        paidMinutesMap.set(payment.student_id, current + paidAcademicHours * 40);
       });
 
       // Группируем по студентам, создавая записи для всех занятий группы
@@ -91,7 +92,7 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
         const studentId = groupStudent.student_id;
         grouped[studentId] = [];
         
-        const totalPaidLessons = paidLessonsMap.get(studentId) || 0;
+        const totalPaidMinutes = paidMinutesMap.get(studentId) || 0;
         const enrollmentDate = groupStudent.enrollment_date ? new Date(groupStudent.enrollment_date) : null;
         
         // Устанавливаем время на начало дня для корректного сравнения
@@ -109,17 +110,25 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
           : sortedSessions;
         
         // Для каждого занятия студента (после зачисления) создаем запись
+        let remainingPaidMinutes = (paidMinutesMap.get(studentId) || 0);
+        const getDuration = (s: any) => {
+          if (s.start_time && s.end_time) {
+            try {
+              const [sh, sm] = String(s.start_time).split(':').map(Number);
+              const [eh, em] = String(s.end_time).split(':').map(Number);
+              return (eh * 60 + em) - (sh * 60 + sm);
+            } catch { return 80; }
+          }
+          return 80;
+        };
         studentLessons.forEach((lessonSession) => {
           const key = `${studentId}_${lessonSession.id}`;
           const personalData = studentSessionsMap.get(key);
           
-          // Находим индекс занятия среди отфильтрованных занятий студента
-          const studentLessonIndex = studentLessons.findIndex(s => s.id === lessonSession.id);
-          
           const lessonDate = new Date(lessonSession.lesson_date);
           lessonDate.setHours(0, 0, 0, 0);
           
-          // Определяем статус оплаты на основе порядкового номера занятия после зачисления
+          // Определяем статус оплаты на основе оставшихся оплаченных минут
           let payment_status = 'not_paid';
           let is_cancelled_for_student = personalData?.is_cancelled_for_student || false;
           let cancellation_reason = personalData?.cancellation_reason || null;
@@ -127,9 +136,12 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
           if (personalData?.payment_status && personalData.payment_status !== 'not_paid') {
             // Если уже есть явный статус - используем его
             payment_status = personalData.payment_status;
-          } else if (studentLessonIndex >= 0 && studentLessonIndex < totalPaidLessons) {
-            // Если занятие попадает в диапазон оплаченных (считаем с даты зачисления)
-            payment_status = 'paid';
+          } else {
+            const duration = getDuration(lessonSession);
+            if (remainingPaidMinutes >= duration) {
+              payment_status = 'paid';
+              remainingPaidMinutes -= duration;
+            }
           }
           
           // Если есть персональные данные - используем их, иначе создаем дефолтную запись

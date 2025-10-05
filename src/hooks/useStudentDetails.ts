@@ -235,11 +235,11 @@ export const useStudentDetails = (studentId: string) => {
         .select('group_id, lessons_count')
         .eq('student_id', studentId)
         .not('group_id', 'is', null);
-      const paidLessonsMap = new Map<string, number>();
+      const paidAcademicHoursMap = new Map<string, number>();
       (paymentsByGroup || []).forEach((p: any) => {
         if (!p.group_id) return;
-        const current = paidLessonsMap.get(p.group_id) || 0;
-        paidLessonsMap.set(p.group_id, current + (p.lessons_count || 0));
+        const current = paidAcademicHoursMap.get(p.group_id) || 0;
+        paidAcademicHoursMap.set(p.group_id, current + (p.lessons_count || 0));
       });
 
       // Fetch lesson sessions for each group
