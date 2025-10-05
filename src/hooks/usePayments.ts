@@ -270,8 +270,18 @@ export const usePayments = (filters?: any) => {
 
         console.log('Payment distribution completed. Remaining:', remainingMinutesToDistribute);
       } else if (paymentData.group_id) {
-        // Группы оплачиваются только в академических часах, распределение по занятиям не выполняем
-        console.log('Group payment recorded in academic hours; no session linking performed.');
+        // Группы оплачиваются академическими часами, распределение делает UI-логика
+        console.log('Group payment recorded in academic hours; triggering UI refresh.');
+
+        // Немедленно обновляем расписание и статистику группы для этого студента
+        try {
+          queryClient.invalidateQueries({ queryKey: ['student-group-lesson-sessions', paymentData.student_id, paymentData.group_id] });
+          queryClient.invalidateQueries({ queryKey: ['student-group-payment-stats', paymentData.student_id, paymentData.group_id] });
+          queryClient.refetchQueries({ queryKey: ['student-group-lesson-sessions', paymentData.student_id, paymentData.group_id] });
+          queryClient.refetchQueries({ queryKey: ['student-group-payment-stats', paymentData.student_id, paymentData.group_id] });
+        } catch (e) {
+          console.warn('Failed to force refresh after group payment, will rely on realtime:', e);
+        }
       }
 
       // Обновляем расписание и статистику урока немедленно (не ждём realtime)
