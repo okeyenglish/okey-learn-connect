@@ -151,16 +151,19 @@ export const useFamilyData = (familyGroupId?: string) => {
                 id,
                 name,
                 subject,
-                level
+                level,
+                status
               )
             `)
-            .eq('student_id', student.id)
-            .eq('status', 'active');
+            .eq('student_id', student.id);
 
           // Add group courses with next lesson info
           if (groupStudents) {
             for (const gs of groupStudents) {
               if (gs.learning_groups) {
+                // Check if both student status in group and group itself are active
+                const isActive = gs.status === 'active' && gs.learning_groups.status === 'active';
+                
                 // Get next lesson for this group
                 const { data: nextLesson } = await supabase
                   .from('lesson_sessions')
@@ -180,7 +183,7 @@ export const useFamilyData = (familyGroupId?: string) => {
                     `${new Date(nextLesson.lesson_date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })} в ${nextLesson.start_time.slice(0, 5)}` : undefined,
                   nextPayment: undefined,
                   paymentAmount: undefined,
-                  isActive: true
+                  isActive: isActive
                 });
               }
             }
@@ -190,19 +193,21 @@ export const useFamilyData = (familyGroupId?: string) => {
           const { data: individualLessons } = await supabase
             .from('individual_lessons')
             .select('*')
-            .eq('student_id', student.id)
-            .eq('is_active', true);
+            .eq('student_id', student.id);
 
           // Add individual lessons
           if (individualLessons) {
             for (const il of individualLessons) {
+              // Check if individual lesson is active and has active status
+              const isActive = il.is_active && il.status === 'active';
+              
               courses.push({
                 id: il.id,
                 name: `${il.subject} (инд.)`,
                 nextLesson: undefined,
                 nextPayment: undefined,
                 paymentAmount: il.price_per_lesson || undefined,
-                isActive: il.is_active
+                isActive: isActive
               });
             }
           }
