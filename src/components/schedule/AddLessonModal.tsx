@@ -136,7 +136,7 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
     try {
       // Create the lesson session first
       const newSession = await createSession.mutateAsync({
-        group_id: formData.group_id || undefined,
+        group_id: formData.group_id && formData.group_id !== 'none' ? formData.group_id : undefined,
         teacher_name: formData.teacher_name,
         branch: formData.branch,
         classroom: formData.classroom,
@@ -208,7 +208,7 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
                   <SelectValue placeholder="Выберите группу или оставьте пустым для индивидуального занятия" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Индивидуальное занятие</SelectItem>
+                  <SelectItem value="none">Индивидуальное занятие</SelectItem>
                   {groups.map(group => (
                     <SelectItem key={group.id} value={group.id}>
                       {group.name} ({group.level})
