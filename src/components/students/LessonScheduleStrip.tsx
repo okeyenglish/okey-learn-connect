@@ -36,15 +36,19 @@ export function LessonScheduleStrip({ sessions, className, groupId }: LessonSche
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'completed':
-        return 'bg-green-500 hover:bg-green-600';
+        return 'bg-green-600 text-white border-green-600';
       case 'scheduled':
-        return 'bg-blue-500 hover:bg-blue-600';
+        return 'bg-white text-gray-500 border-gray-300';
       case 'cancelled':
-        return 'bg-red-500 hover:bg-red-600';
+        return 'bg-black text-white border-black';
+      case 'rescheduled':
+        return 'bg-orange-500 text-white border-orange-500';
       case 'in_progress':
-        return 'bg-yellow-500 hover:bg-yellow-600';
+        return 'bg-blue-500 text-white border-blue-500';
+      case 'free':
+        return 'bg-yellow-500 text-white border-yellow-500';
       default:
-        return 'bg-gray-300 hover:bg-gray-400';
+        return 'bg-gray-300 text-gray-600 border-gray-300';
     }
   };
 
@@ -56,8 +60,12 @@ export function LessonScheduleStrip({ sessions, className, groupId }: LessonSche
         return 'Запланировано';
       case 'cancelled':
         return 'Отменено';
+      case 'rescheduled':
+        return 'Перенесено';
       case 'in_progress':
         return 'В процессе';
+      case 'free':
+        return 'Бесплатное';
       default:
         return 'Не определено';
     }
@@ -113,12 +121,12 @@ export function LessonScheduleStrip({ sessions, className, groupId }: LessonSche
                 <TooltipTrigger asChild>
                   <button
                     className={cn(
-                      "h-8 w-14 rounded shrink-0 transition-colors relative flex items-center justify-center",
+                      "h-8 w-14 rounded shrink-0 transition-colors relative flex items-center justify-center border",
                       getStatusColor(session.status)
                     )}
                     aria-label={`Занятие ${formatDate(session.lessonDate)}`}
                   >
-                    <span className="text-[10px] text-white font-medium leading-none">
+                    <span className="text-[10px] font-medium leading-none">
                       {formatShortDate(session.lessonDate)}
                     </span>
                     {groupId && (
@@ -132,9 +140,9 @@ export function LessonScheduleStrip({ sessions, className, groupId }: LessonSche
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <div className="text-sm">
-                    <div className="font-medium">Занятие №{session.lessonNumber || startIndex + index + 1}</div>
-                    <div>{formatDate(session.lessonDate)}</div>
+                  <div className="text-xs space-y-1">
+                    <div className="font-semibold">Занятие №{session.lessonNumber || startIndex + index + 1}</div>
+                    <div className="text-muted-foreground">{formatDate(session.lessonDate)}</div>
                     <div className="text-muted-foreground">{getStatusLabel(session.status)}</div>
                   </div>
                 </TooltipContent>
