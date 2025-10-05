@@ -61,8 +61,8 @@ export function GroupLessonScheduleStrip({
       return 'bg-gray-500 text-white border-gray-500';
     }
 
-    // Будущее запланированное — зелёный
-    return 'bg-green-500 text-white border-green-500';
+    // Будущее запланированное — белый
+    return 'bg-white text-gray-900 border-gray-300';
   };
 
   const getStatusLabel = (status: string) => {
