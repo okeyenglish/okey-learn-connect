@@ -121,10 +121,16 @@ export const FamilyCard = ({
   const getChildStatusLabel = (status: string) => {
     switch (status) {
       case 'active': return 'Занимается';
-      case 'inactive': return 'Неактивный';
+      case 'inactive': return 'Не занимается';
       case 'trial': return 'Пробный';
       default: return status;
     }
+  };
+
+  // Helper to get effective status based on active courses
+  const getEffectiveStatus = (student: Student) => {
+    const hasActiveCourses = student.courses.some(course => course.isActive);
+    return hasActiveCourses ? student.status : 'inactive';
   };
 
   const handleStudentClick = (student: Student) => {
@@ -400,10 +406,10 @@ export const FamilyCard = ({
                           <Badge variant="outline" className="text-xs bg-slate-100 text-slate-700 border-slate-300">{student.age} {student.age === 1 ? 'год' : 'лет'}</Badge>
                         </div>
                         <Badge 
-                          variant={getChildStatusColor(student.status)} 
-                          className={`text-xs ${student.status === 'active' ? 'bg-green-500 text-white hover:bg-green-600' : ''}`}
+                          variant={getChildStatusColor(getEffectiveStatus(student))} 
+                          className={`text-xs ${getEffectiveStatus(student) === 'active' ? 'bg-green-500 text-white hover:bg-green-600' : ''}`}
                         >
-                          {getChildStatusLabel(student.status)}
+                          {getChildStatusLabel(getEffectiveStatus(student))}
                         </Badge>
                       </div>
                       
