@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useStudentGroupLessonSessions } from "./useStudentGroupLessonSessions";
 
 interface PaymentStats {
   paidMinutes: number;
@@ -174,12 +175,15 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
 };
 
 export const useStudentGroupPaymentStats = (studentId: string | undefined, groupId: string | undefined) => {
+  // Используем централизованный хук для получения занятий
+  const { data: sessions } = useStudentGroupLessonSessions(studentId, groupId);
+  
   return useQuery({
     queryKey: ['student-group-payment-stats', studentId, groupId],
     queryFn: () => fetchPaymentStats(studentId!, groupId!),
-    enabled: !!studentId && !!groupId,
-    staleTime: 0, // Always consider stale to recalc latest balances
-    gcTime: 10 * 60 * 1000,
+    enabled: !!studentId && !!groupId && !!sessions,
+    staleTime: 0,
+    gcTime: 5 * 60 * 1000,
     refetchOnMount: true,
     refetchOnWindowFocus: true
   });
