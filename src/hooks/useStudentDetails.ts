@@ -230,29 +230,15 @@ export const useStudentDetails = (studentId: string) => {
         .eq('student_id', studentId);
 
       // Собираем оплаты по группам для расчета оплаченных занятий
-      // IMPORTANT: lessons_count в таблице payments = академические часы (40 мин каждый)
-      // Для групповых занятий: 1 занятие (80 мин) = 2 академических часа
       const { data: paymentsByGroup } = await supabase
         .from('payments')
         .select('group_id, lessons_count')
         .eq('student_id', studentId)
         .not('group_id', 'is', null);
-      
-      // Получаем информацию о курсах для конвертации
-      const { data: groupPrices } = await supabase
-        .from('group_course_prices')
-        .select('course_name, duration_minutes');
-      
-      const courseDurationMap = new Map<string, number>();
-      (groupPrices || []).forEach((price: any) => {
-        courseDurationMap.set(price.course_name, price.duration_minutes || 80);
-      });
-      
       const paidLessonsMap = new Map<string, number>();
       (paymentsByGroup || []).forEach((p: any) => {
         if (!p.group_id) return;
         const current = paidLessonsMap.get(p.group_id) || 0;
-        // lessons_count уже в академических часах, сохраняем как есть
         paidLessonsMap.set(p.group_id, current + (p.lessons_count || 0));
       });
 
@@ -284,22 +270,14 @@ export const useStudentDetails = (studentId: string) => {
             const enrollDate = gs.enrollment_date ? new Date(gs.enrollment_date) : null;
             if (enrollDate) enrollDate.setHours(0, 0, 0, 0);
 
-            // Получаем длительность занятия для этого курса
-            const courseDuration = courseDurationMap.get(gs.learning_groups?.subject || '') || 80;
-            
-            // Конвертируем оплаченные академические часы в количество занятий
-            const totalPaidAcademicHours = paidLessonsMap.get(groupId) || 0;
-            const academicHoursPerLesson = courseDuration / 40; // 80 мин = 2 а.ч., 60 мин = 1.5 а.ч.
-            const totalPaidLessons = Math.floor(totalPaidAcademicHours / academicHoursPerLesson);
+            // Количество оплаченных занятий берём напрямую из платежей
+            const totalPaidLessons = paidLessonsMap.get(groupId) || 0;
 
             console.log('Group enrollment check:', {
               groupId: groupId,
               studentId: studentId,
               enrollmentDate: gs.enrollment_date,
               enrollDate: enrollDate?.toISOString(),
-              totalPaidAcademicHours,
-              courseDuration,
-              academicHoursPerLesson,
               totalPaidLessons
             });
 

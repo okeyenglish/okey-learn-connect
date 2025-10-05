@@ -96,11 +96,9 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
   // Get actual lesson duration from pricing, fallback to 80 if not found
   const lessonDuration = pricing?.duration_minutes || 80;
   
-  // Calculate total paid
-  // IMPORTANT: lessons_count in payments table stores ACADEMIC HOURS (40 min each), not number of lessons
   const totalPaidAmount = payments.reduce((sum, p) => sum + Number(p.amount), 0);
-  const totalPaidAcademicHours = payments.reduce((sum, p) => sum + (p.lessons_count || 0), 0);
-  const totalPaidMinutes = totalPaidAcademicHours * 40; // Convert academic hours to minutes
+  const totalPaidLessons = payments.reduce((sum, p) => sum + (p.lessons_count || 0), 0);
+  const totalPaidMinutes = totalPaidLessons * lessonDuration;
 
   // Calculate used sessions - only after enrollment, not cancelled for student, and actually conducted
   const todayObj = new Date();
