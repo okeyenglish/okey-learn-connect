@@ -6,11 +6,9 @@ import { Plus } from "lucide-react";
 import { CoursePricingTable } from "./pricing/CoursePricingTable";
 import { SubscriptionPlansTable } from "./pricing/SubscriptionPlansTable";
 import { AddCoursePriceModal } from "./pricing/AddCoursePriceModal";
-import { AddSubscriptionPlanModal } from "./pricing/AddSubscriptionPlanModal";
 
 export function AdminCoursePricing() {
   const [showAddPrice, setShowAddPrice] = useState(false);
-  const [showAddPlan, setShowAddPlan] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -47,17 +45,11 @@ export function AdminCoursePricing() {
 
         <TabsContent value="group" className="space-y-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <div>
-                <CardTitle>Групповые занятия</CardTitle>
-                <CardDescription>
-                  Управление ценами за групповые занятия и абонементами
-                </CardDescription>
-              </div>
-              <Button onClick={() => setShowAddPlan(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Добавить абонемент
-              </Button>
+            <CardHeader>
+              <CardTitle>Групповые занятия</CardTitle>
+              <CardDescription>
+                Управление ценами за групповые занятия и абонементами (8, 24, 80 занятий)
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <SubscriptionPlansTable />
@@ -69,11 +61,6 @@ export function AdminCoursePricing() {
       <AddCoursePriceModal 
         open={showAddPrice} 
         onOpenChange={setShowAddPrice}
-      />
-      
-      <AddSubscriptionPlanModal 
-        open={showAddPlan} 
-        onOpenChange={setShowAddPlan}
       />
     </div>
   );

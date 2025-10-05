@@ -884,6 +884,39 @@ export type Database = {
         }
         Relationships: []
       }
+      group_course_prices: {
+        Row: {
+          course_name: string
+          created_at: string
+          duration_minutes: number
+          id: string
+          price_24_lessons: number
+          price_8_lessons: number
+          price_80_lessons: number
+          updated_at: string
+        }
+        Insert: {
+          course_name: string
+          created_at?: string
+          duration_minutes?: number
+          id?: string
+          price_24_lessons?: number
+          price_8_lessons?: number
+          price_80_lessons?: number
+          updated_at?: string
+        }
+        Update: {
+          course_name?: string
+          created_at?: string
+          duration_minutes?: number
+          id?: string
+          price_24_lessons?: number
+          price_8_lessons?: number
+          price_80_lessons?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       group_students: {
         Row: {
           created_at: string
