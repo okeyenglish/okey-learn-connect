@@ -553,23 +553,81 @@ export function IndividualLessonStatusModal({
       if (!user) throw new Error('Не авторизован');
 
       let successCount = 0;
-      const dateArray = Array.from(selectedDates);
+      let totalMinutesFreed = 0;
+      const dateArray = Array.from(selectedDates).sort();
 
       for (const dateStr of dateArray) {
         try {
           // Проверяем, существует ли уже сессия для этой даты
           const { data: existingSession } = await supabase
             .from('individual_lesson_sessions')
-            .select('id, is_additional')
+            .select('id, is_additional, paid_minutes, payment_id')
             .eq('individual_lesson_id', lessonId)
             .eq('lesson_date', dateStr)
             .maybeSingle();
+
+          // Если делаем урок бесплатным или отменяем - переносим минуты
+          if ((selectedAction === 'free' || selectedAction === 'cancelled') && existingSession) {
+            const freedMinutes = existingSession.paid_minutes || 0;
+            
+            if (freedMinutes > 0) {
+              totalMinutesFreed += freedMinutes;
+              
+              // Переносим минуты на следующие неоплаченные уроки
+              const { data: futureSessions } = await supabase
+                .from('individual_lesson_sessions')
+                .select('id, lesson_date, duration, paid_minutes, status')
+                .eq('individual_lesson_id', lessonId)
+                .gt('lesson_date', dateStr)
+                .order('lesson_date', { ascending: true });
+
+              let remainingMinutes = freedMinutes;
+
+              if (futureSessions) {
+                for (const futureSession of futureSessions) {
+                  if (remainingMinutes <= 0) break;
+                  
+                  // Пропускаем отмененные, бесплатные или перенесенные
+                  if (futureSession.status === 'cancelled' || 
+                      futureSession.status === 'free' || 
+                      futureSession.status === 'rescheduled') {
+                    continue;
+                  }
+
+                  const sessionDuration = futureSession.duration || 60;
+                  const currentPaid = futureSession.paid_minutes || 0;
+                  const unpaidMinutes = sessionDuration - currentPaid;
+
+                  if (unpaidMinutes > 0) {
+                    const minutesToAdd = Math.min(remainingMinutes, unpaidMinutes);
+                    const newPaidMinutes = currentPaid + minutesToAdd;
+
+                    await supabase
+                      .from('individual_lesson_sessions')
+                      .update({ 
+                        paid_minutes: newPaidMinutes,
+                        updated_at: new Date().toISOString() 
+                      })
+                      .eq('id', futureSession.id);
+
+                    remainingMinutes -= minutesToAdd;
+                  }
+                }
+              }
+            }
+          }
 
           const updateData: any = {
             status: selectedAction,
             created_by: user.id,
             updated_at: new Date().toISOString()
           };
+
+          // Для бесплатных и отмененных - обнуляем оплату
+          if (selectedAction === 'free' || selectedAction === 'cancelled') {
+            updateData.paid_minutes = 0;
+            updateData.payment_id = null;
+          }
 
           // Если статус меняется на scheduled и это было доп. занятие, убираем флаг
           if (selectedAction === 'scheduled' && existingSession?.is_additional) {
@@ -601,9 +659,14 @@ export function IndividualLessonStatusModal({
         }
       }
 
+      let description = `Статус обновлен для ${successCount} из ${dateArray.length} занятий`;
+      if (totalMinutesFreed > 0) {
+        description += `\n${totalMinutesFreed} минут перенесено на будущие уроки`;
+      }
+
       toast({
         title: "Успешно",
-        description: `Статус обновлен для ${successCount} из ${dateArray.length} занятий`
+        description
       });
 
       onStatusUpdated?.();
