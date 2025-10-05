@@ -231,7 +231,6 @@ export const useStudentDetails = (studentId: string) => {
                 lesson_date, 
                 status, 
                 lesson_number, 
-                duration,
                 paid_minutes,
                 payment_id,
                 payment_date,
