@@ -51,7 +51,7 @@ export function LessonScheduleStrip({ sessions, className, groupId, onStatusUpda
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
-  const visibleCount = 50;
+  const visibleCount = 10;
   
   // Normalize incoming sessions to a consistent shape (camelCase),
   // accepting both camelCase and snake_case sources
