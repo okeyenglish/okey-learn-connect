@@ -7,6 +7,22 @@ import { AttendanceIndicator } from './AttendanceIndicator';
 import { MarkAttendanceModal } from './MarkAttendanceModal';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface LessonSession {
   id: string;
@@ -32,6 +48,8 @@ export function LessonScheduleStrip({ sessions, className, groupId }: LessonSche
   const [startIndex, setStartIndex] = useState(0);
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
   const visibleCount = 50;
   
   // Normalize incoming sessions to a consistent shape (camelCase),
@@ -173,6 +191,39 @@ export function LessonScheduleStrip({ sessions, className, groupId }: LessonSche
     setAttendanceModalOpen(true);
   };
 
+  const handleSessionClick = (sessionId: string, dateString: string) => {
+    setSelectedSessionId(sessionId);
+    setSelectedDate(new Date(dateString));
+    setStatusModalOpen(true);
+  };
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!selectedSessionId) return;
+
+    const { error } = await supabase
+      .from('lesson_sessions')
+      .update({ status: newStatus as 'scheduled' | 'completed' | 'cancelled' | 'rescheduled' })
+      .eq('id', selectedSessionId);
+
+    if (error) {
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось обновить статус занятия',
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Успешно',
+        description: 'Статус занятия обновлен',
+      });
+      setStatusModalOpen(false);
+      // Trigger refresh
+      window.location.reload();
+    }
+  };
+
+  const { toast } = useToast();
+
   if (sortedSessions.length === 0) {
     return (
       <div className={cn("text-sm text-muted-foreground text-center py-2", className)}>
@@ -205,8 +256,9 @@ export function LessonScheduleStrip({ sessions, className, groupId }: LessonSche
                 <Tooltip key={session.id}>
                   <TooltipTrigger asChild>
                     <button
+                      onClick={() => handleSessionClick(session.id, session.lessonDate)}
                       className={cn(
-                        "h-8 w-14 rounded shrink-0 transition-colors relative flex items-center justify-center border",
+                        "h-8 w-14 rounded shrink-0 transition-colors relative flex items-center justify-center border hover:opacity-80",
                         !isPartialPayment && colorClass
                       )}
                       style={isPartialPayment ? {
@@ -266,13 +318,42 @@ export function LessonScheduleStrip({ sessions, className, groupId }: LessonSche
       </div>
 
       {selectedDate && groupId && (
-        <MarkAttendanceModal
-          open={attendanceModalOpen}
-          onOpenChange={setAttendanceModalOpen}
-          lessonDate={selectedDate}
-          lessonId={groupId}
-          sessionType="group"
-        />
+        <>
+          <MarkAttendanceModal
+            open={attendanceModalOpen}
+            onOpenChange={setAttendanceModalOpen}
+            lessonDate={selectedDate}
+            lessonId={groupId}
+            sessionType="group"
+          />
+          
+          <Dialog open={statusModalOpen} onOpenChange={setStatusModalOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Изменить статус занятия</DialogTitle>
+                <DialogDescription>
+                  {selectedDate && format(selectedDate, 'dd MMMM yyyy', { locale: ru })}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Статус</label>
+                  <Select onValueChange={handleStatusChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Выберите статус" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="scheduled">Запланировано</SelectItem>
+                      <SelectItem value="completed">Проведено</SelectItem>
+                      <SelectItem value="cancelled">Отменено</SelectItem>
+                      <SelectItem value="rescheduled">Перенесено</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </>
       )}
     </div>
   );
