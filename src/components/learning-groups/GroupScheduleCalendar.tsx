@@ -8,6 +8,7 @@ import { format, startOfMonth, endOfMonth, addMonths, subMonths, startOfWeek, en
 import { ru } from "date-fns/locale";
 import { GroupLessonScheduleStrip } from "./GroupLessonScheduleStrip";
 import { StudentLessonScheduleStrip } from "./StudentLessonScheduleStrip";
+import { StudentPaymentInfo } from "./StudentPaymentInfo";
 import { supabase } from "@/integrations/supabase/client";
 
 interface GroupScheduleCalendarProps {
@@ -202,8 +203,8 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
 
                   return (
                     <div key={student.id} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
+                      <div className="flex items-start justify-between mb-3 gap-4">
+                        <div className="flex items-center gap-2 flex-1">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -216,22 +217,36 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
                               <ChevronDown className="h-4 w-4" />
                             )}
                           </Button>
-                          <span className="font-medium text-gray-900">
-                            {student.name || `Студент ${student.id}`}
-                          </span>
-                          <span className="text-sm text-gray-500">
-                            ({sessions.length} занятий)
-                          </span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="font-medium text-gray-900">
+                                {student.name || `Студент ${student.id}`}
+                              </span>
+                              <span className="text-sm text-gray-500">
+                                ({sessions.length} занятий)
+                              </span>
+                            </div>
+                            
+                            {/* Информация о платежах */}
+                            <div className="mt-2 pl-3 border-l-2 border-gray-200">
+                              <StudentPaymentInfo 
+                                studentId={student.id}
+                                groupId={groupId}
+                              />
+                            </div>
+                          </div>
                         </div>
                       </div>
 
                       {isExpanded && (
-                        <StudentLessonScheduleStrip
-                          studentId={student.id}
-                          studentName={student.name || `Студент ${student.id}`}
-                          sessions={sessions}
-                          onSessionUpdated={refetch}
-                        />
+                        <div className="mt-3">
+                          <StudentLessonScheduleStrip
+                            studentId={student.id}
+                            studentName={student.name || `Студент ${student.id}`}
+                            sessions={sessions}
+                            onSessionUpdated={refetch}
+                          />
+                        </div>
                       )}
                     </div>
                   );
