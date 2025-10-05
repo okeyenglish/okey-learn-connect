@@ -1,6 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useStudentGroupLessonSessions } from "./useStudentGroupLessonSessions";
+import { useEffect } from "react";
 
 interface PaymentStats {
   paidMinutes: number;
@@ -175,13 +176,52 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
 };
 
 export const useStudentGroupPaymentStats = (studentId: string | undefined, groupId: string | undefined) => {
+  const queryClient = useQueryClient();
+  
   // Используем централизованный хук для получения занятий
   const { data: sessions } = useStudentGroupLessonSessions(studentId, groupId);
+  
+  // Realtime подписка на изменения платежей для этого студента и группы
+  useEffect(() => {
+    if (!studentId || !groupId) return;
+
+    console.log('💰 Subscribing to payments changes for payment stats:', { studentId, groupId });
+
+    const channel = supabase
+      .channel(`payment_stats_${studentId}_${groupId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'payments',
+          filter: `student_id=eq.${studentId}`
+        },
+        (payload) => {
+          console.log('💰 Realtime payment event for stats:', payload);
+          // Немедленно инвалидируем и рефетчим при изменении платежей
+          queryClient.invalidateQueries({ 
+            queryKey: ['student-group-payment-stats', studentId, groupId] 
+          });
+          queryClient.refetchQueries({ 
+            queryKey: ['student-group-payment-stats', studentId, groupId] 
+          });
+        }
+      )
+      .subscribe((status) => {
+        console.log('💰 Payment stats channel status:', status);
+      });
+
+    return () => {
+      console.log('💰 Unsubscribing from payments for stats:', { studentId, groupId });
+      supabase.removeChannel(channel);
+    };
+  }, [studentId, groupId, queryClient]);
   
   return useQuery({
     queryKey: ['student-group-payment-stats', studentId, groupId],
     queryFn: () => fetchPaymentStats(studentId!, groupId!),
-    enabled: !!studentId && !!groupId && !!sessions,
+    enabled: !!studentId && !!groupId,
     staleTime: 0,
     gcTime: 5 * 60 * 1000,
     refetchOnMount: true,
