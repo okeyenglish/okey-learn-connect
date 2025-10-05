@@ -200,13 +200,15 @@ export const useStudentGroupLessonSessions = (
         },
         (payload) => {
           console.log('🔴 Realtime event for lesson_sessions:', payload);
-          // Инвалидируем кеш при любом изменении занятий группы
+          // Инвалидируем и сразу рефетчим кеш при любом изменении занятий группы
           queryClient.invalidateQueries({ 
             queryKey: ['student-group-lesson-sessions', studentId, groupId] 
           });
           queryClient.invalidateQueries({ 
             queryKey: ['student-group-payment-stats', studentId, groupId] 
           });
+          queryClient.refetchQueries({ queryKey: ['student-group-lesson-sessions', studentId, groupId] });
+          queryClient.refetchQueries({ queryKey: ['student-group-payment-stats', studentId, groupId] });
         }
       )
       .subscribe((status) => {
@@ -237,13 +239,15 @@ export const useStudentGroupLessonSessions = (
         },
         (payload) => {
           console.log('🟡 Realtime event for student_lesson_sessions:', payload);
-          // Инвалидируем кеш при изменении персональных данных студента
+          // Инвалидируем и сразу рефетчим кеш при изменении персональных данных студента
           queryClient.invalidateQueries({ 
             queryKey: ['student-group-lesson-sessions', studentId, groupId] 
           });
           queryClient.invalidateQueries({ 
             queryKey: ['student-group-payment-stats', studentId, groupId] 
           });
+          queryClient.refetchQueries({ queryKey: ['student-group-lesson-sessions', studentId, groupId] });
+          queryClient.refetchQueries({ queryKey: ['student-group-payment-stats', studentId, groupId] });
         }
       )
       .subscribe((status) => {
@@ -274,13 +278,15 @@ export const useStudentGroupLessonSessions = (
         },
         (payload) => {
           console.log('🟢 Realtime event for payments:', payload);
-          // Инвалидируем кеш при изменении платежей
+          // Инвалидируем и сразу рефетчим кеш при изменении платежей
           queryClient.invalidateQueries({ 
             queryKey: ['student-group-lesson-sessions', studentId, groupId] 
           });
           queryClient.invalidateQueries({ 
             queryKey: ['student-group-payment-stats', studentId, groupId] 
           });
+          queryClient.refetchQueries({ queryKey: ['student-group-lesson-sessions', studentId, groupId] });
+          queryClient.refetchQueries({ queryKey: ['student-group-payment-stats', studentId, groupId] });
         }
       )
       .subscribe((status) => {
