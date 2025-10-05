@@ -45,9 +45,15 @@ export function GroupLessonScheduleStrip({
     const sessionDate = new Date(session.lesson_date);
     sessionDate.setHours(0, 0, 0, 0);
 
+    // Бесплатное занятие - оранжевый
+    if (session.payment_amount === 0 || session.payment_amount === '0') {
+      return 'bg-orange-500 text-white border-orange-500';
+    }
+
     switch (session.status) {
       case 'completed':
-        return 'bg-green-600 text-white border-green-600';
+        // Проведенное занятие - серый
+        return 'bg-gray-500 text-white border-gray-500';
       case 'cancelled':
         return 'bg-black text-white border-black';
       case 'rescheduled':
