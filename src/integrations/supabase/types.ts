@@ -555,6 +555,33 @@ export type Database = {
         }
         Relationships: []
       }
+      course_prices: {
+        Row: {
+          course_name: string
+          created_at: string
+          id: string
+          price_per_40_min: number
+          price_per_academic_hour: number
+          updated_at: string
+        }
+        Insert: {
+          course_name: string
+          created_at?: string
+          id?: string
+          price_per_40_min: number
+          price_per_academic_hour: number
+          updated_at?: string
+        }
+        Update: {
+          course_name?: string
+          created_at?: string
+          id?: string
+          price_per_40_min?: number
+          price_per_academic_hour?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       course_units: {
         Row: {
           course_id: string

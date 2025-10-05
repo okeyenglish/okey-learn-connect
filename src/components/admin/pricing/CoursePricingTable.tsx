@@ -4,70 +4,33 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Pencil, Save } from "lucide-react";
-import { EditCoursePriceModal } from "./EditCoursePriceModal";
 import { toast } from "@/hooks/use-toast";
-
-// Импортируем данные из централизованного прайс-листа
-const COURSE_PRICES = {
-  'super safari 1': { pricePerLesson: 1250, academicHoursPerLesson: 1.5, packagePrice: 10000 },
-  'super safari 2': { pricePerLesson: 1250, academicHoursPerLesson: 1.5, packagePrice: 10000 },
-  'super safari 3': { pricePerLesson: 2000, academicHoursPerLesson: 2, packagePrice: 16000 },
-  "kid's box 1": { pricePerLesson: 1500, academicHoursPerLesson: 2, packagePrice: 12000 },
-  "kid's box 2": { pricePerLesson: 1500, academicHoursPerLesson: 2, packagePrice: 12000 },
-  "kid's box 3": { pricePerLesson: 1500, academicHoursPerLesson: 2, packagePrice: 12000 },
-  "kid's box 4": { pricePerLesson: 1500, academicHoursPerLesson: 2, packagePrice: 12000 },
-  "kid's box 5": { pricePerLesson: 1500, academicHoursPerLesson: 2, packagePrice: 12000 },
-  "kid's box 6": { pricePerLesson: 1500, academicHoursPerLesson: 2, packagePrice: 12000 },
-  'prepare 1': { pricePerLesson: 1750, academicHoursPerLesson: 2, packagePrice: 14000 },
-  'prepare 2': { pricePerLesson: 1750, academicHoursPerLesson: 2, packagePrice: 14000 },
-  'prepare 3': { pricePerLesson: 1750, academicHoursPerLesson: 2, packagePrice: 14000 },
-  'prepare 4': { pricePerLesson: 1750, academicHoursPerLesson: 2, packagePrice: 14000 },
-  'prepare 5': { pricePerLesson: 1750, academicHoursPerLesson: 2, packagePrice: 14000 },
-  'prepare 6': { pricePerLesson: 1750, academicHoursPerLesson: 2, packagePrice: 14000 },
-  'prepare 7': { pricePerLesson: 1750, academicHoursPerLesson: 2, packagePrice: 14000 },
-  'empower a1': { pricePerLesson: 1750, academicHoursPerLesson: 2, packagePrice: 14000 },
-  'empower a2': { pricePerLesson: 1750, academicHoursPerLesson: 2, packagePrice: 14000 },
-  'empower b1': { pricePerLesson: 1750, academicHoursPerLesson: 2, packagePrice: 14000 },
-  'empower b1+': { pricePerLesson: 1750, academicHoursPerLesson: 2, packagePrice: 14000 },
-  'empower b2': { pricePerLesson: 1750, academicHoursPerLesson: 2, packagePrice: 14000 },
-  'empower c1': { pricePerLesson: 1750, academicHoursPerLesson: 2, packagePrice: 14000 },
-};
+import { useCoursePrices, useUpdateCoursePrices } from "@/hooks/useCoursePrices";
 
 interface CoursePrice {
   id: string;
   courseName: string;
-  pricePerLesson: number;
-  academicHoursPerLesson: number;
-  packagePrice: number;
-  pricePer40Min?: number;
-  pricePerAcademicHour?: number;
+  pricePer40Min: number;
+  pricePerAcademicHour: number;
 }
 
 export function CoursePricingTable() {
-  const [editingPrice, setEditingPrice] = useState<CoursePrice | null>(null);
   const [selectedPrices, setSelectedPrices] = useState<Set<string>>(new Set());
   const [isEditing, setIsEditing] = useState(false);
   const [editedPrices, setEditedPrices] = useState<Map<string, { pricePer40Min: number; pricePerAcademicHour: number }>>(new Map());
   const [bulkPrice40Min, setBulkPrice40Min] = useState<string>("");
   const [bulkPriceAcademicHour, setBulkPriceAcademicHour] = useState<string>("");
 
-  // Преобразуем объект в массив для отображения
-  const prices: CoursePrice[] = Object.entries(COURSE_PRICES).map(([name, data], index) => {
-    const pricePer40Min = data.pricePerLesson;
-    const pricePerAcademicHour = Math.round(data.pricePerLesson / data.academicHoursPerLesson);
-    
-    return {
-      id: index.toString(),
-      courseName: name,
-      ...data,
-      pricePer40Min,
-      pricePerAcademicHour,
-    };
-  });
+  const { data: coursePrices, isLoading } = useCoursePrices();
+  const updatePricesMutation = useUpdateCoursePrices();
 
-  const handleEdit = (price: CoursePrice) => {
-    setEditingPrice(price);
-  };
+  // Преобразуем данные из БД в формат для таблицы
+  const prices: CoursePrice[] = coursePrices?.map((price) => ({
+    id: price.id,
+    courseName: price.course_name,
+    pricePer40Min: Number(price.price_per_40_min),
+    pricePerAcademicHour: Number(price.price_per_academic_hour),
+  })) || [];
 
   const toggleSelectAll = () => {
     if (selectedPrices.size === prices.length) {
@@ -148,11 +111,14 @@ export function CoursePricingTable() {
     setIsEditing(true);
   };
 
-  const saveChanges = () => {
-    toast({
-      title: "Функция в разработке",
-      description: "Сохранение изменений будет доступно после подключения к базе данных",
-    });
+  const saveChanges = async () => {
+    const updates = Array.from(editedPrices.entries()).map(([id, values]) => ({
+      id,
+      price_per_40_min: values.pricePer40Min,
+      price_per_academic_hour: values.pricePerAcademicHour,
+    }));
+
+    await updatePricesMutation.mutateAsync(updates);
     setIsEditing(false);
     setSelectedPrices(new Set());
     setEditedPrices(new Map());
@@ -165,6 +131,10 @@ export function CoursePricingTable() {
     setBulkPriceAcademicHour("");
   };
 
+  if (isLoading) {
+    return <div className="text-center p-8">Загрузка...</div>;
+  }
+
   return (
     <>
       <div className="mb-4 space-y-4">
@@ -176,9 +146,13 @@ export function CoursePricingTable() {
             </Button>
           ) : (
             <>
-              <Button onClick={saveChanges} variant="default">
+              <Button 
+                onClick={saveChanges} 
+                variant="default"
+                disabled={updatePricesMutation.isPending}
+              >
                 <Save className="mr-2 h-4 w-4" />
-                Сохранить изменения
+                {updatePricesMutation.isPending ? "Сохранение..." : "Сохранить изменения"}
               </Button>
               <Button onClick={cancelEditing} variant="outline">
                 Отменить
@@ -286,14 +260,6 @@ export function CoursePricingTable() {
           </TableBody>
         </Table>
       </div>
-
-      {editingPrice && (
-        <EditCoursePriceModal
-          price={editingPrice}
-          open={!!editingPrice}
-          onOpenChange={(open) => !open && setEditingPrice(null)}
-        />
-      )}
     </>
   );
 }

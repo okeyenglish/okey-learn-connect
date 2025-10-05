@@ -10,12 +10,12 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { usePayments } from '@/hooks/usePayments';
 import { useAddBalanceTransaction } from '@/hooks/useStudentBalance';
 import { useToast } from '@/hooks/use-toast';
+import { useCoursePrices } from '@/hooks/useCoursePrices';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateLessonPrice } from '@/utils/lessonPricing';
-import { getCoursePriceInfo } from '@/utils/coursePricing';
 
 interface CreatePaymentModalProps {
   open: boolean;
@@ -78,6 +78,7 @@ export function CreatePaymentModal({
   const { createPayment } = usePayments();
   const { mutateAsync: addBalanceTransaction } = useAddBalanceTransaction();
   const { toast } = useToast();
+  const { data: coursePrices } = useCoursePrices();
 
   // Загружаем занятия студента
   useEffect(() => {
@@ -177,13 +178,22 @@ export function CreatePaymentModal({
         if (finalGroups) {
           finalGroups.forEach((group: any) => {
             // Используем course_name если есть, иначе name группы
-            const courseName = group.course_name || group.name;
-            const priceInfo = getCoursePriceInfo(courseName);
+            const courseName = (group.course_name || group.name).toLowerCase().trim();
+            
+            // Ищем цену в базе данных
+            const priceFromDB = coursePrices?.find(cp => 
+              cp.course_name.toLowerCase() === courseName
+            );
+            
+            const academicHours = priceFromDB ? Number(priceFromDB.price_per_academic_hour) * 1.5 : 2;
+            const pricePerLesson = priceFromDB ? Number(priceFromDB.price_per_40_min) : 2000;
             
             console.log('Group pricing:', {
               groupName: group.name,
               courseName: courseName,
-              priceInfo
+              priceFromDB,
+              academicHours,
+              pricePerLesson
             });
             
             lessons.push({
@@ -194,8 +204,8 @@ export function CreatePaymentModal({
               level: group.level || '',
               teacher: group.teacher_name || group.responsible_teacher || '',
               branch: group.branch || '',
-              academicHours: priceInfo.academicHoursPerLesson,
-              pricePerLesson: priceInfo.pricePerLesson,
+              academicHours: academicHours,
+              pricePerLesson: pricePerLesson,
             });
           });
         }
