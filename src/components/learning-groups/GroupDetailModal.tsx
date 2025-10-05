@@ -614,7 +614,7 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                             <span className="font-medium">{group.branch}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>Ответственный:</span>
+                            <span>Преподаватель:</span>
                             <span className="font-medium">{group.responsible_teacher || 'Не назначен'}</span>
                           </div>
                           <div className="flex justify-between">
