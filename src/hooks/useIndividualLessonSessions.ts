@@ -70,39 +70,34 @@ const calculateLessonSessions = async (
     0
   );
 
-  // Сначала вычитаем минуты, которые уже явно привязаны к платежам
+  // Сначала вычитаем минуты, которые уже указаны у сессий (частичная/полная оплата)
   for (const session of sessions) {
-    if (session.payment_id && session.paid_minutes) {
-      remainingPaidMinutes -= session.paid_minutes;
-    }
+    const duration = session.duration || defaultDuration;
+    const basePaid = Math.max(0, Math.min(duration, session.paid_minutes || 0));
+    remainingPaidMinutes -= basePaid;
   }
+  if (remainingPaidMinutes < 0) remainingPaidMinutes = 0;
 
   // Обрабатываем каждую сессию
   const result: IndividualLessonSession[] = [];
   
-  for (const session of sessions) {
+for (const session of sessions) {
     const duration = session.duration || defaultDuration;
-    let paid_minutes = 0;
+    // Базово считаем уже оплаченные минуты из БД (частично/полностью)
+    const basePaid = Math.max(0, Math.min(duration, session.paid_minutes || 0));
+    let paid_minutes = basePaid;
 
-    // Если есть явная привязка к платежу - используем сохраненное значение
-    if (session.payment_id && paymentsMap.has(session.payment_id)) {
-      paid_minutes = session.paid_minutes || duration;
-    } else if (!session.payment_id) {
-      // Автоматическое распределение оплаты на первые неоплаченные занятия
-      // Только для неотмененных и не бесплатных занятий
-      if (session.status !== 'cancelled' && session.status !== 'free' && session.status !== 'rescheduled') {
-        if (remainingPaidMinutes >= duration) {
-          paid_minutes = duration;
-          remainingPaidMinutes -= duration;
-        } else if (remainingPaidMinutes > 0) {
-          paid_minutes = remainingPaidMinutes;
-          remainingPaidMinutes = 0;
-        }
-        // Если remainingPaidMinutes = 0, то paid_minutes останется 0
+    // Автораспределение: покрываем ПЕРВЫЕ неоплаченные занятия по порядку
+    if (session.status !== 'cancelled' && session.status !== 'free' && session.status !== 'rescheduled') {
+      const need = Math.max(0, duration - paid_minutes);
+      if (need > 0 && remainingPaidMinutes > 0) {
+        const allocate = Math.min(remainingPaidMinutes, need);
+        paid_minutes += allocate;
+        remainingPaidMinutes -= allocate;
       }
     }
 
-    // Получаем информацию о платеже
+    // Информация о платеже (для UI), не влияет на расчет
     const payment = session.payment_id ? paymentsMap.get(session.payment_id) : null;
 
     result.push({
