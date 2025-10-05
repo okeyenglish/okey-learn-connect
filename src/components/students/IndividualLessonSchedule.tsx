@@ -10,6 +10,8 @@ import { ChevronDown, ChevronUp, History as HistoryIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardContent } from '@/components/ui/card';
+import { useIndividualLessonSessions } from '@/hooks/useIndividualLessonSessions';
+import { Loader2 } from 'lucide-react';
 
 interface IndividualLessonScheduleProps {
   lessonId?: string;
@@ -65,71 +67,26 @@ export function IndividualLessonSchedule({
 }: IndividualLessonScheduleProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [lessonSessions, setLessonSessions] = useState<Record<string, LessonSession>>({});
   const [showAll, setShowAll] = useState(false);
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
   const [attendanceDate, setAttendanceDate] = useState<Date | null>(null);
   const [showAdditionalLessons, setShowAdditionalLessons] = useState(false);
   const [lessonHistory, setLessonHistory] = useState<any[]>([]);
+  
+  // Используем централизованный хук для получения сессий
+  const { data: sessions = [], isLoading } = useIndividualLessonSessions(lessonId);
+  
+  // Преобразуем массив в Map для быстрого доступа
+  const lessonSessions: Record<string, any> = {};
+  sessions.forEach(session => {
+    lessonSessions[session.lesson_date] = session;
+  });
 
   useEffect(() => {
     if (lessonId) {
-      loadLessonSessions();
       loadLessonHistory();
     }
   }, [lessonId, refreshTrigger]);
-
-  const loadLessonSessions = async () => {
-    if (!lessonId) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('individual_lesson_sessions')
-        .select(`
-          id, 
-          lesson_date, 
-          status, 
-          payment_id, 
-          is_additional, 
-          notes, 
-          duration, 
-          paid_minutes, 
-          updated_at,
-          payments:payment_id (
-            payment_date,
-            amount,
-            lessons_count
-          )
-        `)
-        .eq('individual_lesson_id', lessonId)
-        .order('updated_at', { ascending: false });
-
-      if (error) throw error;
-
-      const sessionsMap: Record<string, LessonSession> = {};
-      data?.forEach(session => {
-        if (!sessionsMap[session.lesson_date]) {
-          const payment = Array.isArray(session.payments) ? session.payments[0] : session.payments;
-          sessionsMap[session.lesson_date] = { 
-            id: session.id,
-            lesson_date: session.lesson_date, 
-            status: session.status,
-            payment_id: session.payment_id,
-            is_additional: session.is_additional,
-            notes: session.notes,
-            duration: session.duration,
-            paid_minutes: session.paid_minutes || 0,
-            payment_date: payment?.payment_date,
-            payment_amount: payment?.amount,
-            lessons_count: payment?.lessons_count
-          };
-        }
-      });
-      setLessonSessions(sessionsMap);
-    } catch (error) {
-      console.error('Error loading lesson sessions:', error);
-    }
-  };
 
   const loadLessonHistory = async () => {
     if (!lessonId) return;
@@ -158,12 +115,10 @@ export function IndividualLessonSchedule({
   };
 
   const handleStatusUpdated = () => {
-    loadLessonSessions();
     loadLessonHistory();
   };
 
   const handleAdditionalLessonAdded = () => {
-    loadLessonSessions();
     loadLessonHistory();
   };
 
@@ -387,6 +342,15 @@ export function IndividualLessonSchedule({
     setAttendanceModalOpen(true);
   };
 
+  if (isLoading) {
+    return (
+      <div className={cn("flex items-center gap-2 text-sm text-muted-foreground", className)}>
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span>Загрузка расписания...</span>
+      </div>
+    );
+  }
+
   if (lessonDates.length === 0) {
     return (
       <div className={cn("text-sm text-muted-foreground", className)}>
@@ -588,7 +552,7 @@ export function IndividualLessonSchedule({
           lessonDate={attendanceDate}
           lessonId={lessonId}
           sessionType="individual"
-          onMarked={loadLessonSessions}
+          onMarked={() => {}}
         />
       )}
 
