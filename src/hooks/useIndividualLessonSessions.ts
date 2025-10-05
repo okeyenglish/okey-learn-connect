@@ -63,43 +63,35 @@ const calculateLessonSessions = async (
     paymentsMap.set(payment.id, payment);
   });
 
-  // Создаем массив платежей с их остатками для распределения по датам
-  const paymentMinutesPool: Array<{payment: any, remainingMinutes: number}> = payments.map(p => ({
-    payment: p,
-    remainingMinutes: (p.lessons_count || 0) * 40
-  }));
+  // Считаем общее количество оплаченных минут
+  // ВАЖНО: Оплата всегда в академических часах (1 а.ч. = 40 минут)
+  let remainingPaidMinutes = payments.reduce(
+    (sum, p) => sum + (p.lessons_count || 0) * 40,
+    0
+  );
 
   // Обрабатываем каждую сессию
   const result: IndividualLessonSession[] = [];
   
   for (const session of sessions) {
     const duration = session.duration || defaultDuration;
-    let paid_minutes = session.paid_minutes || 0;
-    const sessionDate = new Date(session.lesson_date);
+    let paid_minutes = 0;
 
-    // Если есть явная привязка к платежу
+    // Если есть явная привязка к платежу - используем её
     if (session.payment_id && paymentsMap.has(session.payment_id)) {
-      const payment = paymentsMap.get(session.payment_id);
-      // Используем сохраненное значение или duration
       paid_minutes = session.paid_minutes || duration;
     } else if (!session.payment_id) {
-      // Автоматическое распределение оплаты ТОЛЬКО на занятия ПОСЛЕ даты платежа
+      // Автоматическое распределение оплаты на первые неоплаченные занятия
       // Только для неотмененных и не бесплатных занятий
       if (session.status !== 'cancelled' && session.status !== 'free' && session.status !== 'rescheduled') {
-        // Ищем платежи, которые были сделаны ДО или В ДЕНЬ занятия
-        for (const pool of paymentMinutesPool) {
-          if (pool.remainingMinutes <= 0) continue;
-          
-          const paymentDate = new Date(pool.payment.payment_date || pool.payment.created_at);
-          // Платеж может покрыть занятие только если он был сделан ДО или В ДЕНЬ занятия
-          if (paymentDate <= sessionDate) {
-            const minutesToTake = Math.min(pool.remainingMinutes, duration - paid_minutes);
-            paid_minutes += minutesToTake;
-            pool.remainingMinutes -= minutesToTake;
-            
-            if (paid_minutes >= duration) break;
-          }
+        if (remainingPaidMinutes >= duration) {
+          paid_minutes = duration;
+          remainingPaidMinutes -= duration;
+        } else if (remainingPaidMinutes > 0) {
+          paid_minutes = remainingPaidMinutes;
+          remainingPaidMinutes = 0;
         }
+        // Если remainingPaidMinutes = 0, то paid_minutes останется 0
       }
     }
 

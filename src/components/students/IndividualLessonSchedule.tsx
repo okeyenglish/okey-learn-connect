@@ -171,8 +171,8 @@ export function IndividualLessonSchedule({
       return `partial-payment-${Math.round(percentage)}`;
     }
 
-    // Полная оплата
-    if (paidMinutes >= duration || session?.payment_id) {
+    // Полная оплата - проверяем ТОЛЬКО paid_minutes, не payment_id
+    if (paidMinutes >= duration) {
       if (isPast) {
         return 'bg-gray-500 text-white border-gray-500'; // Серый - оплачено и прошло
       }
