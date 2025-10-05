@@ -99,41 +99,6 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
         </CardContent>
       </Card>
 
-      {/* Статистика */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600">
-              {groupSessions.filter(s => s.status === 'scheduled').length}
-            </div>
-            <div className="text-sm text-gray-600">Запланировано</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">
-              {groupSessions.filter(s => s.status === 'completed').length}
-            </div>
-            <div className="text-sm text-gray-600">Проведено</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-red-600">
-              {groupSessions.filter(s => s.status === 'cancelled').length}
-            </div>
-            <div className="text-sm text-gray-600">Отменено</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-yellow-600">
-              {groupSessions.filter(s => s.status === 'rescheduled').length}
-            </div>
-            <div className="text-sm text-gray-600">Перенесено</div>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 };
