@@ -229,6 +229,19 @@ export const useStudentDetails = (studentId: string) => {
         `)
         .eq('student_id', studentId);
 
+      // Собираем оплаты по группам для расчета оплаченных занятий
+      const { data: paymentsByGroup } = await supabase
+        .from('payments')
+        .select('group_id, lessons_count')
+        .eq('student_id', studentId)
+        .not('group_id', 'is', null);
+      const paidLessonsMap = new Map<string, number>();
+      (paymentsByGroup || []).forEach((p: any) => {
+        if (!p.group_id) return;
+        const current = paidLessonsMap.get(p.group_id) || 0;
+        paidLessonsMap.set(p.group_id, current + (p.lessons_count || 0));
+      });
+
       // Fetch lesson sessions for each group
       const groups: StudentGroup[] = await Promise.all(
         (groupStudents || []).map(async (gs: any) => {
@@ -264,31 +277,34 @@ export const useStudentDetails = (studentId: string) => {
               enrollDate: enrollDate?.toISOString(),
             });
 
-            sessions = (sessionsData || []).map((s: any) => {
+            // Сортируем занятия и распределяем оплаченные занятия после даты зачисления
+            const sortedSessions = (sessionsData || []).sort((a: any, b: any) =>
+              new Date(a.lesson_date).getTime() - new Date(b.lesson_date).getTime()
+            );
+            const totalPaidLessons = paidLessonsMap.get(groupId) || 0;
+            let paidAssigned = 0;
+
+            sessions = sortedSessions.map((s: any) => {
               const sessionDate = new Date(s.lesson_date);
               sessionDate.setHours(0, 0, 0, 0);
               const beforeEnrollment = enrollDate && sessionDate < enrollDate;
-              const computedStatus = beforeEnrollment
-                ? 'cancelled' // до даты зачисления показываем как отмененные для этого ученика
-                : (s.status || 'scheduled');
-              
-              if (beforeEnrollment) {
-                console.log('Session before enrollment:', {
-                  lessonDate: s.lesson_date,
-                  sessionDate: sessionDate.toISOString(),
-                  enrollDate: enrollDate?.toISOString(),
-                  originalStatus: s.status,
-                  newStatus: computedStatus
-                });
+              const duration = s.duration || calculateDuration(s.start_time, s.end_time);
+              const computedStatus = beforeEnrollment ? 'cancelled' : (s.status || 'scheduled');
+
+              // Помечаем как оплаченное первые N занятий после зачисления
+              let paid_minutes = 0;
+              if (!beforeEnrollment && paidAssigned < totalPaidLessons) {
+                paid_minutes = duration;
+                paidAssigned++;
               }
-              
+
               return {
                 id: s.id,
                 lessonDate: s.lesson_date,
                 status: computedStatus,
                 lessonNumber: s.lesson_number,
-                duration: s.duration || calculateDuration(s.start_time, s.end_time),
-                paid_minutes: s.paid_minutes,
+                duration,
+                paid_minutes,
                 payment_id: s.payment_id,
                 payment_date: s.payment_date,
                 payment_amount: s.payment_amount,

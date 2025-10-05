@@ -13,7 +13,7 @@ interface PaymentStats {
 
 const fetchPaymentStats = async (studentId: string, groupId: string): Promise<PaymentStats> => {
   // Single query to get all data at once
-  const [groupResponse, paymentsResponse, pricingResponse, allSessionsResponse, studentSessionsResponse] = await Promise.all([
+  const [groupResponse, paymentsResponse, pricingResponse, allSessionsResponse, studentSessionsResponse, groupStudentResponse] = await Promise.all([
     // Get group info
     supabase
       .from('learning_groups')
@@ -42,15 +42,41 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
     // Get student's session records
     supabase
       .from('student_lesson_sessions')
-      .select('lesson_session_id, attendance_status, payment_status, payment_amount')
+      .select('lesson_session_id, attendance_status, payment_status, payment_amount, is_cancelled_for_student')
+      .eq('student_id', studentId),
+
+    // Get student's enrollment date in the group
+    supabase
+      .from('group_students')
+      .select('enrollment_date, status')
       .eq('student_id', studentId)
+      .eq('group_id', groupId)
+      .maybeSingle()
   ]);
 
   const group = groupResponse.data;
   const payments = paymentsResponse.data || [];
   const allSessions = allSessionsResponse.data || [];
   const studentSessions = studentSessionsResponse.data || [];
+  const groupStudent = groupStudentResponse.data as { enrollment_date?: string } | null;
 
+  // Enrollment date normalization
+  const enrollmentDate = groupStudent?.enrollment_date ? new Date(groupStudent.enrollment_date) : null;
+  if (enrollmentDate) enrollmentDate.setHours(0, 0, 0, 0);
+
+  // Build a set of sessions cancelled for this student
+  const cancelledForStudent = new Set(
+    (studentSessions as any[]).filter(s => s.is_cancelled_for_student).map(s => s.lesson_session_id)
+  );
+
+  // Consider only sessions after enrollment and not cancelled for student
+  const effectiveSessions = (allSessions as any[]).filter((session: any) => {
+    const d = new Date(session.lesson_date);
+    d.setHours(0, 0, 0, 0);
+    if (enrollmentDate && d < enrollmentDate) return false;
+    if (cancelledForStudent.has(session.id)) return false;
+    return true;
+  });
   // Now fetch pricing if we have a subject
   const { data: pricing } = await supabase
     .from('group_course_prices')
@@ -73,17 +99,19 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
   const totalPaidLessons = payments.reduce((sum, p) => sum + (p.lessons_count || 0), 0);
   const totalPaidMinutes = totalPaidLessons * lessonDuration;
 
-  // Calculate used sessions - sessions that have passed or are completed
-  const today = new Date().toISOString().split('T')[0];
-  const usedSessionsCount = allSessions.filter(session => {
-    const sessionDate = session.lesson_date;
-    return session.status === 'completed' || (sessionDate < today && session.status !== 'cancelled');
+  // Calculate used sessions - only after enrollment and not cancelled for student
+  const todayObj = new Date();
+  todayObj.setHours(0, 0, 0, 0);
+  const usedSessionsCount = (effectiveSessions as any[]).filter((session: any) => {
+    const d = new Date(session.lesson_date);
+    d.setHours(0, 0, 0, 0);
+    return session.status === 'completed' || (d < todayObj && session.status !== 'cancelled');
   }).length;
 
   const usedMinutes = usedSessionsCount * lessonDuration;
 
-  // Calculate total course minutes based on total planned sessions
-  const totalCourseLessons = allSessions.length || 0;
+  // Calculate total course minutes based on sessions after enrollment
+  const totalCourseLessons = (effectiveSessions as any[]).length || 0;
   const totalCourseMinutes = totalCourseLessons * lessonDuration;
 
   // Calculate remaining and unpaid
