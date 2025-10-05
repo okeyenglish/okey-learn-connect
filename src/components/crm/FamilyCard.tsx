@@ -9,6 +9,8 @@ import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
 import { PhoneNumberManager } from "./PhoneNumberManager";
 import { EditContactModal } from "./EditContactModal";
 import { useFamilyData, FamilyMember, Student } from "@/hooks/useFamilyData";
+import { GroupDetailModal } from "@/components/teacher/GroupDetailModal";
+import { IndividualLessonModal } from "@/components/teacher/IndividualLessonModal";
 import type { PhoneNumber as PhoneNumberType } from "@/types/phone";
 import { supabase } from "@/integrations/supabase/client";
 import { usePinnedModalsDB } from "@/hooks/usePinnedModalsDB";
@@ -60,6 +62,8 @@ export const FamilyCard = ({
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [activePhoneId, setActivePhoneId] = useState<string>(propActivePhoneId);
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [selectedCourseType, setSelectedCourseType] = useState<'group' | 'individual' | null>(null);
   const { familyData, loading, error, refetch } = useFamilyData(familyGroupId);
   
   if (loading) {
@@ -136,6 +140,13 @@ export const FamilyCard = ({
   const handleStudentClick = (student: Student) => {
     setSelectedStudent(student);
     setIsStudentModalOpen(true);
+  };
+
+  const handleCourseClick = (courseId: string, courseName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const isIndividual = courseName.includes('(инд.)');
+    setSelectedCourseId(courseId);
+    setSelectedCourseType(isIndividual ? 'individual' : 'group');
   };
 
   const handlePhoneNumbersUpdate = async (memberId: string, phoneNumbers: PhoneNumberType[]) => {
@@ -426,7 +437,12 @@ export const FamilyCard = ({
                       <div className="space-y-1">
                         <div className="flex flex-wrap gap-1">
                           {student.courses.filter(course => course.isActive).map((course, courseIndex) => (
-                            <Badge key={courseIndex} variant="outline" className="text-xs">
+                            <Badge 
+                              key={courseIndex} 
+                              variant="outline" 
+                              className="text-xs cursor-pointer hover:bg-primary/10 transition-colors"
+                              onClick={(e) => handleCourseClick(course.id, course.name, e)}
+                            >
                               {course.name}
                             </Badge>
                           ))}
@@ -553,6 +569,32 @@ export const FamilyCard = ({
           })}
           onUnpin={() => unpinModal(selectedStudent.id, 'student')}
           onUpdate={refetch}
+        />
+      )}
+
+      {selectedCourseType === 'group' && selectedCourseId && (
+        <GroupDetailModal
+          groupId={selectedCourseId}
+          open={!!selectedCourseId}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedCourseId(null);
+              setSelectedCourseType(null);
+            }
+          }}
+        />
+      )}
+
+      {selectedCourseType === 'individual' && selectedCourseId && (
+        <IndividualLessonModal
+          lessonId={selectedCourseId}
+          open={!!selectedCourseId}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedCourseId(null);
+              setSelectedCourseType(null);
+            }
+          }}
         />
       )}
     </div>
