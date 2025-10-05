@@ -34,14 +34,52 @@ export function LessonScheduleStrip({ sessions, className, groupId }: LessonSche
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const visibleCount = 50;
   
-  const sortedSessions = [...sessions].sort((a, b) => 
+  // Normalize incoming sessions to a consistent shape (camelCase),
+  // accepting both camelCase and snake_case sources
+  const calculateDurationFromTimes = (start?: string, end?: string): number | undefined => {
+    if (!start || !end) return undefined;
+    try {
+      const [sh, sm] = start.split(':').map(Number);
+      const [eh, em] = end.split(':').map(Number);
+      return eh * 60 + em - (sh * 60 + sm);
+    } catch {
+      return undefined;
+    }
+  };
+
+  const normalizedSessions: LessonSession[] = sessions
+    .map((s: any) => {
+      const lessonDate = s.lessonDate || s.lesson_date || s.date;
+      const startTime = s.start_time as string | undefined;
+      const endTime = s.end_time as string | undefined;
+      const duration = s.duration ?? calculateDurationFromTimes(startTime, endTime);
+      const lesson_time = s.lesson_time ?? (startTime && endTime ? `${startTime}-${endTime}` : undefined);
+      return lessonDate
+        ? {
+            id: s.id,
+            lessonDate,
+            status: s.status || s.session_status || 'scheduled',
+            lessonNumber: s.lessonNumber ?? s.lesson_number,
+            duration,
+            paid_minutes: s.paid_minutes,
+            payment_id: s.payment_id,
+            payment_date: s.payment_date,
+            payment_amount: s.payment_amount,
+            lessons_count: s.lessons_count,
+            lesson_time,
+          }
+        : null;
+    })
+    .filter(Boolean) as LessonSession[];
+  
+  const sortedSessions = [...normalizedSessions].sort((a, b) =>
     new Date(a.lessonDate).getTime() - new Date(b.lessonDate).getTime()
   );
 
   const visibleSessions = sortedSessions.slice(startIndex, startIndex + visibleCount);
   const canGoBack = startIndex > 0;
   const canGoForward = startIndex + visibleCount < sortedSessions.length;
-
+  
   const getLessonColor = (session: LessonSession) => {
     // Сначала учитываем специальные статусы, они важнее оплаты
     if (session.status) {
