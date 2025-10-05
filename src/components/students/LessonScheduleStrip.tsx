@@ -42,9 +42,10 @@ interface LessonScheduleStripProps {
   sessions: LessonSession[];
   className?: string;
   groupId?: string;
+  onStatusUpdate?: () => void;
 }
 
-export function LessonScheduleStrip({ sessions, className, groupId }: LessonScheduleStripProps) {
+export function LessonScheduleStrip({ sessions, className, groupId, onStatusUpdate }: LessonScheduleStripProps) {
   const [startIndex, setStartIndex] = useState(0);
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -223,8 +224,10 @@ export function LessonScheduleStrip({ sessions, className, groupId }: LessonSche
         description: 'Статус занятия обновлен',
       });
       setStatusModalOpen(false);
-      // Trigger refresh
-      window.location.reload();
+      // Trigger refresh via callback instead of page reload
+      if (onStatusUpdate) {
+        onStatusUpdate();
+      }
     }
   };
 

@@ -981,7 +981,11 @@ export function EnhancedStudentCard({
                               {/* Расписание занятий */}
                               <div className="mt-3 pt-3 border-t">
                                 <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
-                                <LessonScheduleStrip sessions={group.sessions} groupId={group.id} />
+                                <LessonScheduleStrip 
+                                  sessions={group.sessions} 
+                                  groupId={group.id} 
+                                  onStatusUpdate={() => refetch()}
+                                />
                               </div>
                             </div>
                           ))}
@@ -1305,7 +1309,11 @@ export function EnhancedStudentCard({
                                 {/* Расписание занятий */}
                                 <div className="mt-3 pt-3 border-t">
                                   <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
-                                  <LessonScheduleStrip sessions={group.sessions} groupId={group.id} />
+                                  <LessonScheduleStrip 
+                                    sessions={group.sessions} 
+                                    groupId={group.id} 
+                                    onStatusUpdate={() => refetch()}
+                                  />
                                 </div>
                               </div>
                             ))}
@@ -1526,7 +1534,11 @@ export function EnhancedStudentCard({
                                 {/* История посещений */}
                                 <div className="mt-3 pt-3 border-t">
                                   <p className="text-muted-foreground text-xs mb-2">История посещений</p>
-                                  <LessonScheduleStrip sessions={group.sessions} groupId={group.id} />
+                                  <LessonScheduleStrip 
+                                    sessions={group.sessions} 
+                                    groupId={group.id} 
+                                    onStatusUpdate={() => refetch()}
+                                  />
                                 </div>
                               </div>
                             ))}
