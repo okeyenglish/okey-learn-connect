@@ -112,15 +112,21 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
           
           // Определяем статус оплаты на основе порядкового номера занятия после зачисления
           let payment_status = 'not_paid';
-          if (personalData?.payment_status && personalData.payment_status !== 'not_paid') {
+          let is_cancelled_for_student = personalData?.is_cancelled_for_student || false;
+          let cancellation_reason = personalData?.cancellation_reason || null;
+          
+          // Проверяем, было ли занятие до зачисления студента
+          if (studentLessonIndex < 0) {
+            // Занятие было до зачисления студента - помечаем как отмененное для него
+            is_cancelled_for_student = true;
+            cancellation_reason = cancellation_reason || 'Студент еще не был зачислен в группу';
+            payment_status = 'not_paid';
+          } else if (personalData?.payment_status && personalData.payment_status !== 'not_paid') {
             // Если уже есть явный статус - используем его
             payment_status = personalData.payment_status;
           } else if (studentLessonIndex >= 0 && studentLessonIndex < totalPaidLessons) {
             // Если занятие попадает в диапазон оплаченных (считаем с даты зачисления)
             payment_status = 'paid';
-          } else if (studentLessonIndex < 0) {
-            // Занятие было до зачисления студента - помечаем как не применимое
-            payment_status = 'not_paid';
           }
           
           // Если есть персональные данные - используем их, иначе создаем дефолтную запись
@@ -132,8 +138,8 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
             attendance_status: personalData?.attendance_status || 'not_marked',
             payment_status,
             payment_amount: personalData?.payment_amount || 0,
-            is_cancelled_for_student: personalData?.is_cancelled_for_student || false,
-            cancellation_reason: personalData?.cancellation_reason || null,
+            is_cancelled_for_student,
+            cancellation_reason,
             notes: personalData?.notes || null,
             // Добавляем флаг что это временная запись (нужна для правильной обработки)
             _isTemp: !personalData
