@@ -134,9 +134,8 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
 
   // Calculate debt: if used more than paid, student owes money
   const debtMinutes = Math.max(0, usedMinutes - totalPaidMinutes);
-  const debtAmount = totalPaidMinutes > 0 
-    ? debtMinutes * (totalPaidAmount / totalPaidMinutes)
-    : (pricePerMinute > 0 ? debtMinutes * pricePerMinute : 0);
+  // For debt, always use course price from price list, not actual paid price
+  const debtAmount = debtMinutes * pricePerMinute;
 
   return {
     paidMinutes: totalPaidMinutes,
