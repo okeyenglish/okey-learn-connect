@@ -27,7 +27,7 @@ export const StudentPaymentInfo = ({ studentId, groupId }: StudentPaymentInfoPro
   }
 
   // 1 academic hour = 40 minutes
-  const formatMinutesToHours = (minutes: number) => {
+  const formatMinutesToAcademicHours = (minutes: number) => {
     const hours = minutes / 40;
     return hours.toFixed(1);
   };
@@ -47,7 +47,7 @@ export const StudentPaymentInfo = ({ studentId, groupId }: StudentPaymentInfoPro
       <div className="flex items-center gap-2">
         <span className="font-semibold text-gray-700">Остаток:</span>
         <span className="text-gray-900">
-          {formatMinutesToHours(stats.remainingMinutes)} а.ч. / {formatMoney(stats.remainingAmount)}
+          {formatMinutesToAcademicHours(stats.remainingMinutes)} а.ч. / {formatMoney(stats.remainingAmount)}
         </span>
       </div>
       
@@ -57,7 +57,7 @@ export const StudentPaymentInfo = ({ studentId, groupId }: StudentPaymentInfoPro
           Оплачено:
         </span>
         <span className="text-gray-900">
-          {formatMinutesToHours(stats.paidMinutes)} а.ч. / {formatMoney(stats.paidAmount)}
+          {formatMinutesToAcademicHours(stats.paidMinutes)} а.ч. / {formatMoney(stats.paidAmount)}
         </span>
       </div>
       
@@ -68,14 +68,14 @@ export const StudentPaymentInfo = ({ studentId, groupId }: StudentPaymentInfoPro
             Осталось оплатить:
           </span>
           <span className="text-gray-900">
-            {formatMinutesToHours(stats.unpaidMinutes)} а.ч.
+            {formatMinutesToAcademicHours(stats.unpaidMinutes)} а.ч.
           </span>
         </div>
       )}
       
       {/* Курс (общая информация) */}
       <div className="text-xs text-muted-foreground">
-        Курс: {formatMinutesToHours(stats.totalCourseMinutes)} а.ч.
+        Курс: {formatMinutesToAcademicHours(stats.totalCourseMinutes)} а.ч.
       </div>
     </div>
   );
