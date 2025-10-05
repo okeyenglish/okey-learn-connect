@@ -21,34 +21,24 @@ import {
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-
-interface LessonSession {
-  id: string;
-  lessonDate: string;
-  status: string;
-  lessonNumber?: number;
-  duration?: number;
-  paid_minutes?: number;
-  payment_id?: string;
-  payment_date?: string;
-  payment_amount?: number;
-  lessons_count?: number;
-  lesson_time?: string;
-}
+import { useStudentGroupLessonSessions } from '@/hooks/useStudentGroupLessonSessions';
+import { Loader2 } from 'lucide-react';
 
 interface GroupLessonScheduleProps {
-  sessions: LessonSession[];
+  studentId: string;
   groupId: string;
   className?: string;
   onRefresh?: () => void;
 }
 
 export function GroupLessonSchedule({ 
-  sessions,
+  studentId,
   groupId,
   className,
   onRefresh
 }: GroupLessonScheduleProps) {
+  // Используем централизованный хук для получения занятий
+  const { data: sessions = [], isLoading } = useStudentGroupLessonSessions(studentId, groupId);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
@@ -56,19 +46,27 @@ export function GroupLessonSchedule({
   const [showAll, setShowAll] = useState(false);
   const { toast } = useToast();
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-4">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   // Sort sessions by date
   const sortedSessions = [...sessions].sort((a, b) =>
-    new Date(a.lessonDate).getTime() - new Date(b.lessonDate).getTime()
+    new Date(a.lesson_date).getTime() - new Date(b.lesson_date).getTime()
   );
 
   const displayedSessions = showAll ? sortedSessions : sortedSessions.slice(0, 30);
   const hasMoreLessons = sortedSessions.length > 30;
 
-  const handleDateClick = (session: LessonSession, e: React.MouseEvent) => {
+  const handleDateClick = (session: typeof sessions[0], e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setSelectedDate(new Date(session.lessonDate));
-    setSelectedSessionId(session.id);
+    setSelectedDate(new Date(session.lesson_date));
+    setSelectedSessionId(session.lesson_session_id);
     setStatusModalOpen(true);
   };
 
@@ -79,65 +77,63 @@ export function GroupLessonSchedule({
     setAttendanceModalOpen(true);
   };
 
-  const getLessonColor = (session: LessonSession) => {
+  const getLessonColor = (session: typeof sessions[0]) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    const lessonDate = new Date(session.lessonDate);
+    const lessonDate = new Date(session.lesson_date);
     lessonDate.setHours(0, 0, 0, 0);
     
     const isPast = lessonDate < today;
 
-    // Специальные статусы
-    if (session.status === 'cancelled' || session.status === 'rescheduled') {
+    // Отменено для студента
+    if (session.is_cancelled_for_student) {
       return 'bg-black text-white border-black';
     }
-    if (session.status === 'free') {
+
+    // Бесплатное или бонусное
+    if (session.payment_status === 'free' || session.payment_status === 'bonus') {
       return 'bg-orange-500 text-white border-orange-500';
     }
 
-    // Проверяем частичную оплату
-    const duration = session.duration || 80;
-    const paidMinutes = session.paid_minutes || 0;
+    // Проверяем оплату
+    if (session.payment_status === 'paid') {
+      return isPast
+        ? 'bg-gray-500 text-white border-gray-500'
+        : 'bg-green-600 text-white border-green-600';
+    }
     
-    if (paidMinutes > 0 && paidMinutes < duration) {
-      const percentage = (paidMinutes / duration) * 100;
-      return `partial-payment-${Math.round(percentage)}`;
-    }
-
-    // Полная оплата
-    if (paidMinutes >= duration || session.payment_id) {
-      if (isPast) {
-        return 'bg-gray-500 text-white border-gray-500';
-      }
-      return 'bg-green-600 text-white border-green-600';
-    }
-
     // Не оплачено
-    if (isPast) {
-      return 'bg-red-500 text-white border-red-500';
-    } else {
-      return 'bg-white text-gray-900 border-gray-300';
-    }
+    return isPast
+      ? 'bg-gray-400 text-white border-gray-400'
+      : 'bg-white text-gray-900 border-gray-300';
   };
 
-  const getPaymentTooltip = (session: LessonSession) => {
+  const getTooltipText = (session: typeof sessions[0]) => {
     const duration = session.duration || 80;
-    const paidMinutes = session.paid_minutes || 0;
-    const unpaidMinutes = duration - paidMinutes;
 
-    let paymentInfo = '';
-    if (session.payment_date && session.payment_amount && session.lessons_count) {
-      const paymentDate = format(new Date(session.payment_date), 'dd.MM.yyyy', { locale: ru });
-      paymentInfo = `\nОплата от ${paymentDate} (${session.payment_amount.toLocaleString('ru-RU')} ₽)`;
+    let tooltipParts = [
+      `${format(new Date(session.lesson_date), 'd MMMM', { locale: ru })}`
+    ];
+
+    if (session.is_cancelled_for_student) {
+      const reason = session.cancellation_reason || 'Отменено';
+      return tooltipParts.join('\n') + '\n' + reason;
     }
 
-    if (paidMinutes === 0) {
-      return `Не оплачено: ${duration} мин`;
-    } else if (paidMinutes >= duration) {
-      return `Оплачено: ${duration} мин${paymentInfo}`;
+    if (session.payment_status === 'free') {
+      return tooltipParts.join('\n') + '\nБесплатное занятие';
+    }
+
+    if (session.payment_status === 'bonus') {
+      return tooltipParts.join('\n') + '\nБонусное занятие';
+    }
+
+    // Информация об оплате
+    if (session.payment_status === 'paid') {
+      return `${tooltipParts.join('\n')}\nОплачено: ${duration} мин`;
     } else {
-      return `Оплачено: ${paidMinutes} мин\nНе оплачено: ${unpaidMinutes} мин${paymentInfo}`;
+      return `${tooltipParts.join('\n')}\nНе оплачено: ${duration} мин`;
     }
   };
 
@@ -191,55 +187,42 @@ export function GroupLessonSchedule({
               {displayedSessions.map((session, index) => {
                 const colorClass = getLessonColor(session);
                 const duration = session.duration || 80;
-                const paidMinutes = session.paid_minutes || 0;
-                const isPartialPayment = paidMinutes > 0 && paidMinutes < duration;
-                const paymentPercentage = isPartialPayment ? (paidMinutes / duration) * 100 : 0;
-                const lessonNumber = index + 1;
+                const lessonNumber = session.lesson_number || (index + 1);
                 
                 return (
                   <Tooltip key={session.id}>
                     <TooltipTrigger asChild>
                       <button
                         onClick={(e) => handleDateClick(session, e)}
+                        disabled={session.is_cancelled_for_student}
                         className={cn(
-                          "h-8 px-2 rounded border flex items-center justify-center hover:opacity-80 transition-all cursor-pointer relative overflow-hidden",
-                          !isPartialPayment && colorClass
+                          "h-8 px-2 rounded border flex items-center justify-center hover:opacity-80 transition-all relative overflow-hidden",
+                          colorClass,
+                          session.is_cancelled_for_student ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
                         )}
-                        style={isPartialPayment ? {
-                          background: `linear-gradient(to right, rgb(22 163 74) ${paymentPercentage}%, rgb(243 244 246) ${paymentPercentage}%)`,
-                          borderColor: 'rgb(209 213 219)',
-                          color: paymentPercentage > 50 ? 'white' : 'rgb(107 114 128)'
-                        } : undefined}
                       >
                         <span className="text-xs font-medium whitespace-nowrap relative z-10">
-                          {format(new Date(session.lessonDate), 'dd.MM', { locale: ru })}
+                          {format(new Date(session.lesson_date), 'dd.MM', { locale: ru })}
                         </span>
-                        <AttendanceIndicator
-                          lessonDate={new Date(session.lessonDate)}
-                          lessonId={groupId}
-                          sessionType="group"
-                          onClick={(e) => handleAttendanceClick(new Date(session.lessonDate), e)}
-                        />
+                        {!session.is_cancelled_for_student && (
+                          <AttendanceIndicator
+                            lessonDate={new Date(session.lesson_date)}
+                            lessonId={groupId}
+                            sessionType="group"
+                            onClick={(e) => handleAttendanceClick(new Date(session.lesson_date), e)}
+                          />
+                        )}
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>
                       <div className="text-xs space-y-1">
-                        <div className="font-semibold">Занятие №{session.lessonNumber || lessonNumber} ({duration} мин.)</div>
-                        <div className="text-muted-foreground">{format(new Date(session.lessonDate), 'dd MMMM yyyy', { locale: ru })}</div>
-                        {session.lesson_time && (
-                          <div className="text-muted-foreground">{session.lesson_time}</div>
-                        )}
-                        {session.status && (
-                          <div className="text-muted-foreground">
-                            {session.status === 'cancelled' ? 'Отменено' : 
-                             session.status === 'free' ? 'Бесплатное занятие' : 
-                             session.status === 'rescheduled' ? 'Перенесено' :
-                             session.status === 'completed' ? 'Проведено' : 
-                             'Запланировано'}
-                          </div>
+                        <div className="font-semibold">Занятие №{lessonNumber} ({duration} мин.)</div>
+                        <div className="text-muted-foreground">{format(new Date(session.lesson_date), 'dd MMMM yyyy', { locale: ru })}</div>
+                        {session.start_time && session.end_time && (
+                          <div className="text-muted-foreground">{session.start_time}-{session.end_time}</div>
                         )}
                         <div className="whitespace-pre-line pt-1 border-t">
-                          {getPaymentTooltip(session)}
+                          {getTooltipText(session)}
                         </div>
                       </div>
                     </TooltipContent>

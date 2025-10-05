@@ -1064,7 +1064,7 @@ export function EnhancedStudentCard({
                               {/* Расписание занятий */}
                               <div className="mt-3 pt-3 border-t">
                                 <GroupLessonSchedule 
-                                  sessions={group.sessions} 
+                                  studentId={student.id}
                                   groupId={group.id} 
                                   onRefresh={() => refetch()}
                                 />
@@ -1391,7 +1391,7 @@ export function EnhancedStudentCard({
                                  {/* Расписание занятий */}
                                 <div className="mt-3 pt-3 border-t">
                                   <GroupLessonSchedule 
-                                    sessions={group.sessions} 
+                                    studentId={student.id}
                                     groupId={group.id} 
                                     onRefresh={() => refetch()}
                                   />
@@ -1624,7 +1624,7 @@ export function EnhancedStudentCard({
                                 {/* История посещений */}
                                 <div className="mt-3 pt-3 border-t">
                                   <GroupLessonSchedule 
-                                    sessions={group.sessions} 
+                                    studentId={student.id}
                                     groupId={group.id} 
                                     onRefresh={() => refetch()}
                                   />
