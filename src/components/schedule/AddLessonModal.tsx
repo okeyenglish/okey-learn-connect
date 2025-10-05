@@ -142,9 +142,11 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
       'sunday': 0
     };
     
+    // Если дни недели не указаны или массив пустой, добавляем все дни
+    const filterByWeekdays = weekdays && weekdays.length > 0;
+    
     for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
-      // Если указаны дни недели, фильтруем по ним
-      if (weekdays && weekdays.length > 0) {
+      if (filterByWeekdays) {
         const dayOfWeek = date.getDay();
         const isSelectedDay = weekdays.some(day => weekdayMap[day] === dayOfWeek);
         if (isSelectedDay) {
@@ -191,8 +193,17 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
 
     try {
       const endTime = calculateEndTime(formData.start_time, parseInt(formData.duration));
+      
+      // Генерируем список дат
+      // Если выбран период И выбраны дни недели - фильтруем по дням
+      // Если выбран период БЕЗ дней - создаем на каждый день
+      // Если не выбран период - создаем только на start_date
       const datesToCreate = formData.end_date 
-        ? generateDateRange(formData.start_date, formData.end_date, selectedWeekdays.length > 0 ? selectedWeekdays : undefined)
+        ? generateDateRange(
+            formData.start_date, 
+            formData.end_date, 
+            selectedWeekdays.length > 0 ? selectedWeekdays : undefined
+          )
         : [formData.start_date];
 
       let createdCount = 0;
@@ -250,10 +261,18 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
             <div className="bg-muted p-4 rounded-lg space-y-2">
               <div className="font-medium text-sm">Группа: {currentGroup.name}</div>
               <div className="text-sm text-muted-foreground">
-                <div>Преподаватель: {currentGroup.responsible_teacher || 'Не указан'}</div>
+                <div>Преподаватель: {currentGroup.responsible_teacher || <span className="text-destructive font-medium">Не указан</span>}</div>
                 <div>Филиал: {currentGroup.branch}</div>
                 <div>Аудитория по умолчанию: {currentGroup.schedule_room || 'Не указана'}</div>
               </div>
+              {!currentGroup.responsible_teacher && (
+                <Alert variant="destructive" className="mt-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    У группы не указан преподаватель. Пожалуйста, укажите преподавателя в настройках группы перед созданием занятий.
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
           )}
 
@@ -403,7 +422,12 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
             </Button>
             <Button 
               type="submit" 
-              disabled={createSession.isPending || conflicts.length > 0 || !currentGroup}
+              disabled={
+                createSession.isPending || 
+                conflicts.length > 0 || 
+                !currentGroup ||
+                !currentGroup.responsible_teacher
+              }
               className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
             >
               {createSession.isPending ? (
