@@ -118,6 +118,8 @@ export function EnhancedStudentCard({
   const [ageValue, setAgeValue] = useState<number | undefined>(undefined);
   const [dateOfBirthValue, setDateOfBirthValue] = useState<Date | undefined>(undefined);
   const [selectedLesson, setSelectedLesson] = useState<any>(null);
+  const [selectedGroup, setSelectedGroup] = useState<any>(null);
+  const [groupPaymentModalOpen, setGroupPaymentModalOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [paymentToDelete, setPaymentToDelete] = useState<any>(null);
@@ -921,6 +923,19 @@ export function EnhancedStudentCard({
                                     className="h-8 w-8"
                                     onClick={(e) => {
                                       e.stopPropagation();
+                                      setSelectedGroup(group);
+                                      setGroupPaymentModalOpen(true);
+                                    }}
+                                    title="Оплатить занятия"
+                                  >
+                                    <Wallet className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
                                       handleRemoveFromGroup(group.id, student.id);
                                     }}
                                     title="Удалить из группы"
@@ -938,7 +953,7 @@ export function EnhancedStudentCard({
                               </div>
 
                               {/* Преподаватель и филиал */}
-                              <div className="flex items-center gap-3 text-sm mb-3">
+                              <div className="flex items-center gap-3 text-sm mb-2">
                                 <Badge variant="secondary" className="text-xs">
                                   <User className="h-3 w-3 mr-1" />
                                   {group.teacher}
@@ -948,6 +963,14 @@ export function EnhancedStudentCard({
                                   {group.branch}
                                 </Badge>
                               </div>
+
+                              {/* Расписание группы (если есть) */}
+                              {group.schedule && (
+                                <div className="text-sm mb-2">
+                                  <span className="text-muted-foreground">Расписание: </span>
+                                  <span className="font-medium">{group.schedule}</span>
+                                </div>
+                              )}
 
                               {/* Дата зачисления */}
                               <div className="text-sm mb-3">
@@ -1224,6 +1247,19 @@ export function EnhancedStudentCard({
                                       className="h-8 w-8"
                                       onClick={(e) => {
                                         e.stopPropagation();
+                                        setSelectedGroup(group);
+                                        setGroupPaymentModalOpen(true);
+                                      }}
+                                      title="Оплатить занятия"
+                                    >
+                                      <Wallet className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-8 w-8"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
                                         handleRemoveFromGroup(group.id, student.id);
                                       }}
                                       title="Удалить из группы"
@@ -1241,7 +1277,7 @@ export function EnhancedStudentCard({
                                 </div>
 
                                 {/* Преподаватель и филиал */}
-                                <div className="flex items-center gap-3 text-sm mb-3">
+                                <div className="flex items-center gap-3 text-sm mb-2">
                                   <Badge variant="secondary" className="text-xs">
                                     <User className="h-3 w-3 mr-1" />
                                     {group.teacher}
@@ -1251,6 +1287,14 @@ export function EnhancedStudentCard({
                                     {group.branch}
                                   </Badge>
                                 </div>
+
+                                {/* Расписание группы (если есть) */}
+                                {group.schedule && (
+                                  <div className="text-sm mb-2">
+                                    <span className="text-muted-foreground">Расписание: </span>
+                                    <span className="font-medium">{group.schedule}</span>
+                                  </div>
+                                )}
 
                                 {/* Дата зачисления */}
                                 <div className="text-sm mb-3">
@@ -1932,6 +1976,19 @@ export function EnhancedStudentCard({
         onPaymentSuccess={() => {
           refetch();
           setSelectedLesson(null);
+          setRefreshTrigger(prev => prev + 1);
+        }}
+      />
+
+      {/* Модал оплаты групповых занятий */}
+      <CreatePaymentModal
+        open={groupPaymentModalOpen}
+        onOpenChange={setGroupPaymentModalOpen}
+        studentId={student.id}
+        studentName={studentDetails?.name || student.name}
+        onPaymentSuccess={() => {
+          refetch();
+          setSelectedGroup(null);
           setRefreshTrigger(prev => prev + 1);
         }}
       />
