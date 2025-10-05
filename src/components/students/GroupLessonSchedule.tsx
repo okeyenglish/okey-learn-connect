@@ -89,7 +89,7 @@ export function GroupLessonSchedule({
     
     // Не оплачено
     return isPast
-      ? 'bg-gray-400 text-white border-gray-400'
+      ? 'bg-red-500 text-white border-red-500' // Красный для прошедших неоплаченных (задолженность)
       : 'bg-white text-gray-900 border-gray-300';
   };
 
