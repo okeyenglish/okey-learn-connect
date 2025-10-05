@@ -92,20 +92,35 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
         grouped[studentId] = [];
         
         const totalPaidLessons = paidLessonsMap.get(studentId) || 0;
+        const enrollmentDate = groupStudent.enrollment_date ? new Date(groupStudent.enrollment_date) : null;
+        
+        // Фильтруем занятия начиная с даты зачисления студента
+        const studentLessons = enrollmentDate 
+          ? sortedSessions.filter(session => {
+              const sessionDate = new Date(session.lesson_date);
+              return sessionDate >= enrollmentDate;
+            })
+          : sortedSessions;
         
         // Для каждого занятия группы создаем запись для студента
-        sortedSessions.forEach((lessonSession, index) => {
+        sortedSessions.forEach((lessonSession) => {
           const key = `${studentId}_${lessonSession.id}`;
           const personalData = studentSessionsMap.get(key);
           
-          // Определяем статус оплаты на основе порядкового номера занятия
+          // Находим индекс занятия среди отфильтрованных занятий студента
+          const studentLessonIndex = studentLessons.findIndex(s => s.id === lessonSession.id);
+          
+          // Определяем статус оплаты на основе порядкового номера занятия после зачисления
           let payment_status = 'not_paid';
           if (personalData?.payment_status && personalData.payment_status !== 'not_paid') {
             // Если уже есть явный статус - используем его
             payment_status = personalData.payment_status;
-          } else if (index < totalPaidLessons) {
-            // Если занятие попадает в диапазон оплаченных
+          } else if (studentLessonIndex >= 0 && studentLessonIndex < totalPaidLessons) {
+            // Если занятие попадает в диапазон оплаченных (считаем с даты зачисления)
             payment_status = 'paid';
+          } else if (studentLessonIndex < 0) {
+            // Занятие было до зачисления студента - помечаем как не применимое
+            payment_status = 'not_paid';
           }
           
           // Если есть персональные данные - используем их, иначе создаем дефолтную запись
