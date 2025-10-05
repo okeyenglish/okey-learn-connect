@@ -6,6 +6,7 @@ import { WhatsAppSettings } from "./WhatsAppSettings";
 import { TextbookManager } from "./TextbookManager";
 import { RoleManager } from "./RoleManager";
 import { UserPermissionsManager } from "./UserPermissionsManager";
+import { AdminCoursePricing } from "./AdminCoursePricing";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -26,6 +27,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <AdminFAQManager />;
       case "schedule":
         return <AdminScheduleManager />;
+      case "pricing":
+        return <AdminCoursePricing />;
       case "whatsapp":
         return <WhatsAppSettings />;
       case "textbooks":

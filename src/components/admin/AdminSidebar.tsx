@@ -29,6 +29,7 @@ const adminItems = [
   { title: "Dashboard", id: "dashboard", icon: BarChart3 },
   { title: "FAQ", id: "faq", icon: HelpCircle },
   { title: "Schedule", id: "schedule", icon: Calendar },
+  { title: "Courses & Pricing", id: "pricing", icon: Settings },
   { title: "WhatsApp", id: "whatsapp", icon: MessageSquare },
   { title: "Textbooks", id: "textbooks", icon: BookOpen },
   { title: "Sync", id: "sync", icon: RefreshCw },
