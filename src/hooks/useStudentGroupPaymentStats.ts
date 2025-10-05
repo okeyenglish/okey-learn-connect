@@ -56,19 +56,25 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
     .eq('group_id', groupId)
     .neq('status', 'cancelled');
 
-  // Get completed sessions for this student to calculate used lessons
+  // Get sessions that should be counted as "used" for this student
+  // Include: completed sessions OR sessions with past dates (already happened)
   const { data: completedSessions } = await supabase
     .from('lesson_sessions')
     .select(`
       id,
+      lesson_date,
+      status,
       student_lesson_sessions!inner(student_id)
     `)
     .eq('group_id', groupId)
     .eq('student_lesson_sessions.student_id', studentId)
-    .eq('status', 'completed');
+    .or(`status.eq.completed,and(lesson_date.lt.${new Date().toISOString().split('T')[0]},status.neq.cancelled)`);
+  
+  // Filter out cancelled sessions
+  const usedSessions = completedSessions?.filter(s => s.status !== 'cancelled') || [];
 
-  // Calculate used minutes (completed lessons with actual duration)
-  const usedMinutes = (completedSessions?.length || 0) * lessonDuration;
+  // Calculate used minutes (completed or past-date lessons with actual duration)
+  const usedMinutes = usedSessions.length * lessonDuration;
 
   // Calculate total course minutes based on total planned sessions
   const totalCourseLessons = allSessions?.length || 80;
