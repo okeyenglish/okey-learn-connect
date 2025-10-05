@@ -20,7 +20,7 @@ export function GroupLessonScheduleStrip({
 }: GroupLessonScheduleStripProps) {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [showAll, setShowAll] = useState(false);
+  const [showAll, setShowAll] = useState(true);
 
   // Сортируем занятия по дате
   const sortedSessions = useMemo(() => {
