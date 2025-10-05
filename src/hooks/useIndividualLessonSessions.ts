@@ -64,8 +64,9 @@ const calculateLessonSessions = async (
   });
 
   // Считаем общее количество оплаченных минут
+  // ВАЖНО: Оплата всегда в академических часах (1 а.ч. = 40 минут)
   let remainingPaidMinutes = payments.reduce(
-    (sum, p) => sum + (p.lessons_count || 0) * defaultDuration,
+    (sum, p) => sum + (p.lessons_count || 0) * 40,
     0
   );
 

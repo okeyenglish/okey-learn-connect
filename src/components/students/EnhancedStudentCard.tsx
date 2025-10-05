@@ -66,6 +66,7 @@ import { CreatePaymentModal } from './CreatePaymentModal';
 import { EditIndividualLessonModal } from './EditIndividualLessonModal';
 import { ScheduleSummary } from './ScheduleSummary';
 import { IndividualLessonSchedule } from './IndividualLessonSchedule';
+import { IndividualLessonPaymentInfo } from './IndividualLessonPaymentInfo';
 import { StudentBalanceModal } from './StudentBalanceModal';
 import { StudentPaymentInfo } from '@/components/learning-groups/StudentPaymentInfo';
 import { LessonColorLegend } from '@/components/learning-groups/LessonColorLegend';
@@ -1207,10 +1208,14 @@ export function EnhancedStudentCard({
                                 <span className="font-medium">{lesson.branch}</span>
                               </div>
 
+                              {/* Статистика оплаты */}
+                              <div className="mt-2 p-3 bg-muted/30 rounded-lg">
+                                <IndividualLessonPaymentInfo lessonId={lesson.id} />
+                              </div>
 
                               {/* Расписание занятий */}
                               <div className="mt-3 pt-3 border-t">
-                                <IndividualLessonSchedule 
+                                <IndividualLessonSchedule
                                   lessonId={lesson.id}
                                   scheduleDays={lesson.scheduleDays}
                                   scheduleTime={lesson.scheduleTime}
@@ -1534,14 +1539,22 @@ export function EnhancedStudentCard({
                                   <span className="font-medium">{lesson.branch}</span>
                                 </div>
 
-                                <IndividualLessonSchedule 
-                                  lessonId={lesson.id}
-                                  scheduleDays={lesson.scheduleDays}
-                                  scheduleTime={lesson.scheduleTime}
-                                  periodStart={lesson.periodStart}
-                                  periodEnd={lesson.periodEnd}
-                                  refreshTrigger={refreshTrigger}
-                                />
+                                {/* Статистика оплаты */}
+                                <div className="mt-2 p-3 bg-muted/30 rounded-lg">
+                                  <IndividualLessonPaymentInfo lessonId={lesson.id} />
+                                </div>
+
+                                {/* Расписание занятий */}
+                                <div className="mt-3 pt-3 border-t">
+                                  <IndividualLessonSchedule 
+                                    lessonId={lesson.id}
+                                    scheduleDays={lesson.scheduleDays}
+                                    scheduleTime={lesson.scheduleTime}
+                                    periodStart={lesson.periodStart}
+                                    periodEnd={lesson.periodEnd}
+                                    refreshTrigger={refreshTrigger}
+                                  />
+                                </div>
                               </div>
                             ))}
                           </CardContent>
@@ -1737,14 +1750,22 @@ export function EnhancedStudentCard({
                                   <span className="font-medium">{lesson.branch}</span>
                                 </div>
 
-                                <IndividualLessonSchedule 
-                                  lessonId={lesson.id}
-                                  scheduleDays={lesson.scheduleDays}
-                                  scheduleTime={lesson.scheduleTime}
-                                  periodStart={lesson.periodStart}
-                                  periodEnd={lesson.periodEnd}
-                                  refreshTrigger={refreshTrigger}
-                                />
+                                {/* Статистика оплаты */}
+                                <div className="mt-2 p-3 bg-muted/30 rounded-lg">
+                                  <IndividualLessonPaymentInfo lessonId={lesson.id} />
+                                </div>
+
+                                {/* Расписание занятий */}
+                                <div className="mt-3 pt-3 border-t">
+                                  <IndividualLessonSchedule 
+                                    lessonId={lesson.id}
+                                    scheduleDays={lesson.scheduleDays}
+                                    scheduleTime={lesson.scheduleTime}
+                                    periodStart={lesson.periodStart}
+                                    periodEnd={lesson.periodEnd}
+                                    refreshTrigger={refreshTrigger}
+                                  />
+                                </div>
                               </div>
                             ))}
                           </CardContent>

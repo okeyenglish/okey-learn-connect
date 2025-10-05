@@ -45,8 +45,9 @@ const fetchPaymentStats = async (
   const priceInfo = priceResponse.data;
 
   // Считаем общую оплаченную сумму и минуты
+  // ВАЖНО: Оплата всегда в академических часах (1 а.ч. = 40 минут)
   const totalPaidMinutes = payments.reduce(
-    (sum, p) => sum + (p.lessons_count || 0) * defaultDuration,
+    (sum, p) => sum + (p.lessons_count || 0) * 40,
     0
   );
   const totalPaidAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
