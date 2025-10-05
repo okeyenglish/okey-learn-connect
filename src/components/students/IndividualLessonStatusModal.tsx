@@ -760,6 +760,58 @@ export function IndividualLessonStatusModal({
         }
       }
 
+      // Ребалансировка оплат: если мы вернули занятия в статус scheduled,
+      // перетягиваем минуты с более поздних уроков на самые ранние неоплаченные
+      if (selectedAction === 'scheduled') {
+        const rebalanceFrom = dateArray[0]; // самая ранняя выбранная дата
+
+        const { data: lessonInfo2 } = await supabase
+          .from('individual_lessons')
+          .select('duration')
+          .eq('id', lessonId)
+          .single();
+
+        const { data: future } = await supabase
+          .from('individual_lesson_sessions')
+          .select('id, lesson_date, duration, paid_minutes, status')
+          .eq('individual_lesson_id', lessonId)
+          .gte('lesson_date', rebalanceFrom)
+          .order('lesson_date', { ascending: true });
+
+        const sessions = future || [];
+        const baseDuration = lessonInfo2?.duration || 60;
+
+        for (let i = 0; i < sessions.length; i++) {
+          const s = sessions[i];
+          if (s.status === 'cancelled' || s.status === 'free' || s.status === 'rescheduled') continue;
+          const dur = s.duration || baseDuration;
+          let need = dur - (s.paid_minutes || 0);
+          if (need <= 0) continue;
+
+          for (let j = i + 1; j < sessions.length && need > 0; j++) {
+            const donor = sessions[j];
+            if (donor.status === 'cancelled' || donor.status === 'free' || donor.status === 'rescheduled') continue;
+            const donorPaid = donor.paid_minutes || 0;
+            if (donorPaid <= 0) continue;
+            const take = Math.min(need, donorPaid);
+
+            // Обновляем в БД приемник
+            await supabase.from('individual_lesson_sessions')
+              .update({ paid_minutes: (s.paid_minutes || 0) + take, updated_at: new Date().toISOString() })
+              .eq('id', s.id);
+            s.paid_minutes = (s.paid_minutes || 0) + take;
+
+            // Обновляем в БД донор
+            await supabase.from('individual_lesson_sessions')
+              .update({ paid_minutes: donorPaid - take, updated_at: new Date().toISOString() })
+              .eq('id', donor.id);
+            donor.paid_minutes = donorPaid - take;
+
+            need -= take;
+          }
+        }
+      }
+
       let description = `Статус обновлен для ${successCount} из ${dateArray.length} занятий`;
       if (totalMinutesFreed > 0) {
         description += `\n${totalMinutesFreed} минут перенесено на будущие уроки`;
