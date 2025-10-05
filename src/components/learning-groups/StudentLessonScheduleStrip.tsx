@@ -29,36 +29,58 @@ export const StudentLessonScheduleStrip = ({
   const displayedSessions = showAll ? sortedSessions : sortedSessions.slice(0, 20);
 
   const getSessionColor = (session: any) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const lessonDate = new Date(session.lesson_date);
+    lessonDate.setHours(0, 0, 0, 0);
+    
+    const diffTime = lessonDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
     // Сначала проверяем персональную отмену
     if (session.is_cancelled_for_student) {
-      return 'bg-gray-400 hover:bg-gray-500';
+      return 'bg-black hover:bg-black text-white'; // Пропуск - черный
     }
 
     // Проверяем оплату
     if (session.payment_status === 'paid') {
-      return 'bg-green-500 hover:bg-green-600';
+      // Текущие занятия - голубой
+      if (diffDays >= 0 && diffDays <= 7) {
+        return 'bg-cyan-400 hover:bg-cyan-500 text-white';
+      }
+      // Занятия закончатся в течение недели - желтый
+      if (diffDays < 0 && diffDays >= -7) {
+        return 'bg-yellow-400 hover:bg-yellow-500 text-white';
+      }
+      return 'bg-green-500 hover:bg-green-600 text-white';
     } else if (session.payment_status === 'free') {
-      return 'bg-blue-500 hover:bg-blue-600';
+      return 'bg-blue-500 hover:bg-blue-600 text-white';
     } else if (session.payment_status === 'bonus') {
-      return 'bg-purple-500 hover:bg-purple-600';
+      return 'bg-purple-500 hover:bg-purple-600 text-white';
     }
 
     // Проверяем посещаемость для прошедших занятий
-    const isPast = new Date(session.lesson_date) < new Date();
+    const isPast = diffDays < 0;
     if (isPast) {
       if (session.attendance_status === 'present') {
-        return 'bg-green-500 hover:bg-green-600';
+        return 'bg-green-500 hover:bg-green-600 text-white';
       } else if (session.attendance_status === 'absent') {
-        return 'bg-red-500 hover:bg-red-600';
+        return 'bg-red-500 hover:bg-red-600 text-white';
       } else if (session.attendance_status === 'excused') {
-        return 'bg-orange-500 hover:bg-orange-600';
+        return 'bg-orange-500 hover:bg-orange-600 text-white';
       } else if (session.attendance_status === 'not_marked') {
-        return 'bg-yellow-500 hover:bg-yellow-600'; // Требует внимания
+        return 'bg-yellow-500 hover:bg-yellow-600 text-white'; // Требует внимания
       }
     }
 
-    // Будущие занятия без оплаты
-    return 'bg-gray-300 hover:bg-gray-400';
+    // Занятия начнутся в ближайшее время - светло-зеленый
+    if (diffDays > 7 && diffDays <= 30) {
+      return 'bg-lime-300 hover:bg-lime-400 text-gray-800';
+    }
+
+    // Будущие занятия без оплаты - серый (нет преподавателя/не готово)
+    return 'bg-gray-400 hover:bg-gray-500 text-white';
   };
 
   const getTooltipContent = (session: any) => {

@@ -100,13 +100,22 @@ export function LessonScheduleStrip({ sessions, className, groupId, onStatusUpda
   const canGoForward = startIndex + visibleCount < sortedSessions.length;
   
   const getLessonColor = (session: LessonSession) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const lessonDate = new Date(session.lessonDate);
+    lessonDate.setHours(0, 0, 0, 0);
+    
+    const diffTime = lessonDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
     // Сначала учитываем специальные статусы, они важнее оплаты
     if (session.status) {
       switch (session.status.toLowerCase()) {
         case 'cancelled':
-          return 'bg-black text-white border-black';
+          return 'bg-black text-white border-black'; // Пропуск - черный
         case 'rescheduled':
-          return 'bg-orange-500 text-white border-orange-500';
+          return 'bg-orange-500 text-white border-orange-500'; // Преподаватель работает в другом месте
         case 'free':
           return 'bg-yellow-500 text-white border-yellow-500';
         case 'free_skip':
@@ -128,11 +137,24 @@ export function LessonScheduleStrip({ sessions, className, groupId, onStatusUpda
 
     // Полная оплата
     if (paidMinutes >= duration || session.payment_id) {
+      // Текущие занятия - голубой
+      if (diffDays >= 0 && diffDays <= 7) {
+        return 'bg-cyan-400 text-white border-cyan-400';
+      }
+      // Занятия закончатся в течение недели - желтый
+      if (diffDays < 0 && diffDays >= -7) {
+        return 'bg-yellow-400 text-white border-yellow-400';
+      }
       return 'bg-green-600 text-white border-green-600';
     }
 
-    // По умолчанию — не оплачено
-    return 'bg-white text-gray-500 border-gray-300';
+    // Занятия начнутся в ближайшее время - светло-зеленый
+    if (diffDays > 7 && diffDays <= 30) {
+      return 'bg-lime-300 text-gray-800 border-lime-300';
+    }
+
+    // По умолчанию — серый (нет преподавателя/не готово)
+    return 'bg-gray-400 text-white border-gray-400';
   };
 
   const getStatusLabel = (status: string) => {

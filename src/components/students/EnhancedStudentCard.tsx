@@ -68,6 +68,7 @@ import { ScheduleSummary } from './ScheduleSummary';
 import { IndividualLessonSchedule } from './IndividualLessonSchedule';
 import { StudentBalanceModal } from './StudentBalanceModal';
 import { StudentPaymentInfo } from '@/components/learning-groups/StudentPaymentInfo';
+import { LessonColorLegend } from '@/components/learning-groups/LessonColorLegend';
 import { useStudentBalance } from '@/hooks/useStudentBalance';
 import { calculateLessonPrice } from '@/utils/lessonPricing';
 import { getCoursePriceInfo } from '@/utils/coursePricing';
@@ -917,6 +918,9 @@ export function EnhancedStudentCard({
 
               <ScrollArea className="flex-1 px-6 py-4">
                 <TabsContent value="overview" className="mt-0 space-y-4">
+                  {/* Легенда цветов */}
+                  <LessonColorLegend />
+                  
                   {/* Current Groups and Individual Lessons */}
                   <Card>
                     <CardHeader>

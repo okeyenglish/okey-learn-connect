@@ -9,6 +9,7 @@ import { ru } from "date-fns/locale";
 import { GroupLessonScheduleStrip } from "./GroupLessonScheduleStrip";
 import { StudentLessonScheduleStrip } from "./StudentLessonScheduleStrip";
 import { StudentPaymentInfo } from "./StudentPaymentInfo";
+import { LessonColorLegend } from "./LessonColorLegend";
 import { supabase } from "@/integrations/supabase/client";
 
 interface GroupScheduleCalendarProps {
@@ -164,32 +165,7 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
   return (
     <div className="space-y-4">
       {/* Легенда статусов */}
-      <Card className="border-dashed border-gray-300">
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <Circle className="h-3 w-3 text-blue-600" />
-              <span>Запланировано</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-3 w-3 text-green-600" />
-              <span>Проведено</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <XCircle className="h-3 w-3 text-red-600" />
-              <span>Отменено</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <RotateCcw className="h-3 w-3 text-yellow-600" />
-              <span>Перенесено</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="h-3 w-3 bg-yellow-500 rounded" />
-              <span>Требует внимания</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <LessonColorLegend />
 
       {/* Общее расписание группы */}
       <Card>
