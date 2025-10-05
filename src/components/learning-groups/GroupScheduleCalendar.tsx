@@ -137,6 +137,17 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
           let is_cancelled_for_student = personalData?.is_cancelled_for_student || false;
           let cancellation_reason = personalData?.cancellation_reason || null;
           
+          // Если занятие отменено для всей группы, считаем отмененным и для студента
+          if (lessonSession.status === 'cancelled' || lessonSession.status === 'rescheduled') {
+            is_cancelled_for_student = true;
+            if (!cancellation_reason) {
+              cancellation_reason = lessonSession.status === 'cancelled' 
+                ? 'Занятие отменено для всей группы' 
+                : 'Занятие перенесено';
+            }
+          }
+          
+          // Проверяем статус оплаты
           if (personalData?.payment_status && personalData.payment_status !== 'not_paid') {
             // Если уже есть явный статус - используем его
             payment_status = personalData.payment_status;
