@@ -84,8 +84,8 @@ export const GroupDetailModal = ({ open, onOpenChange, groupId }: GroupDetailMod
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[80vh] overflow-hidden flex flex-col">
-        <DialogHeader>
+      <DialogContent className="w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-w-full overflow-hidden p-0 bg-background flex flex-col">
+        <DialogHeader className="bg-muted/30 border-b px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
               <DialogTitle className="text-xl">{group?.name || 'Загрузка...'}</DialogTitle>
@@ -104,7 +104,7 @@ export const GroupDetailModal = ({ open, onOpenChange, groupId }: GroupDetailMod
             <div className="text-center py-8">Загружаем данные...</div>
           </div>
         ) : group ? (
-          <div className="flex-1 overflow-hidden flex flex-col space-y-4">
+          <div className="flex-1 overflow-hidden flex flex-col space-y-4 px-6 py-4">
             {/* Основная информация о группе */}
             <div className="bg-muted/50 rounded-lg p-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
