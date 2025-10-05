@@ -230,6 +230,45 @@ export function EnhancedStudentCard({
     }
   };
 
+  const handleRestoreToGroup = async (studentId: string, groupId: string) => {
+    try {
+      // Find the group_student record and update status to active
+      const { data: groupStudent } = await supabase
+        .from('group_students')
+        .select('id')
+        .eq('student_id', studentId)
+        .eq('group_id', groupId)
+        .single();
+
+      if (!groupStudent) {
+        toast.error('Запись о студенте в группе не найдена');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('group_students')
+        .update({
+          status: 'active',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', groupStudent.id);
+
+      if (error) throw error;
+
+      toast.success('Студент восстановлен в группу');
+      
+      queryClient.invalidateQueries({ queryKey: ['student-details', studentId] });
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      queryClient.invalidateQueries({ queryKey: ['learning-groups'] });
+      
+      onUpdate();
+      refetch();
+    } catch (error) {
+      console.error('Error restoring student to group:', error);
+      toast.error('Не удалось восстановить студента в группу');
+    }
+  };
+
   const handleCopyStudentLink = () => {
     const url = `${window.location.origin}/newcrm/main?studentId=${student.id}`;
     navigator.clipboard.writeText(url).then(() => {
@@ -1508,6 +1547,15 @@ export function EnhancedStudentCard({
                                     <Badge variant="outline" className="text-xs bg-muted">
                                       Завершено
                                     </Badge>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleRestoreToGroup(student.id, group.id)}
+                                      className="h-7 px-2"
+                                    >
+                                      <ArchiveRestore className="h-3 w-3 mr-1" />
+                                      Вернуть
+                                    </Button>
                                   </div>
                                 </div>
 
