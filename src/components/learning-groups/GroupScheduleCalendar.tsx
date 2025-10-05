@@ -94,10 +94,16 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
         const totalPaidLessons = paidLessonsMap.get(studentId) || 0;
         const enrollmentDate = groupStudent.enrollment_date ? new Date(groupStudent.enrollment_date) : null;
         
+        // Устанавливаем время на начало дня для корректного сравнения
+        if (enrollmentDate) {
+          enrollmentDate.setHours(0, 0, 0, 0);
+        }
+        
         // Фильтруем занятия начиная с даты зачисления студента
         const studentLessons = enrollmentDate 
           ? sortedSessions.filter(session => {
               const sessionDate = new Date(session.lesson_date);
+              sessionDate.setHours(0, 0, 0, 0);
               return sessionDate >= enrollmentDate;
             })
           : sortedSessions;
@@ -110,16 +116,19 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
           // Находим индекс занятия среди отфильтрованных занятий студента
           const studentLessonIndex = studentLessons.findIndex(s => s.id === lessonSession.id);
           
+          const lessonDate = new Date(lessonSession.lesson_date);
+          lessonDate.setHours(0, 0, 0, 0);
+          
           // Определяем статус оплаты на основе порядкового номера занятия после зачисления
           let payment_status = 'not_paid';
           let is_cancelled_for_student = personalData?.is_cancelled_for_student || false;
           let cancellation_reason = personalData?.cancellation_reason || null;
           
           // Проверяем, было ли занятие до зачисления студента
-          if (studentLessonIndex < 0) {
+          if (enrollmentDate && lessonDate < enrollmentDate && !personalData?.is_cancelled_for_student) {
             // Занятие было до зачисления студента - помечаем как отмененное для него
             is_cancelled_for_student = true;
-            cancellation_reason = cancellation_reason || 'Студент еще не был зачислен в группу';
+            cancellation_reason = 'Студент еще не был зачислен в группу';
             payment_status = 'not_paid';
           } else if (personalData?.payment_status && personalData.payment_status !== 'not_paid') {
             // Если уже есть явный статус - используем его
