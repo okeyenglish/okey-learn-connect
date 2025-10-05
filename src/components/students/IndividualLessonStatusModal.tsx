@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { RescheduleIndividualLessonModal } from "./RescheduleIndividualLessonModal";
 import { ChangeLessonDurationModal } from "./ChangeLessonDurationModal";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface IndividualLessonStatusModalProps {
   open: boolean;
@@ -97,7 +98,9 @@ export function IndividualLessonStatusModal({
   const [futureDates, setFutureDates] = useState<Date[]>([]);
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
   const [showDateSelection, setShowDateSelection] = useState(false);
-  const [selectedAction, setSelectedAction] = useState<string | null>(null);
+const [selectedAction, setSelectedAction] = useState<string | null>(null);
+  
+  const queryClient = useQueryClient();
   
   useEffect(() => {
     if (open && lessonId && selectedDate) {
@@ -412,10 +415,17 @@ export function IndividualLessonStatusModal({
               .eq('individual_lesson_id', lessonId)
               .eq('lesson_date', lessonDate);
 
-            toast({
+toast({
               title: 'Оплата восстановлена',
               description: `${collectedMinutes} минут и оплата возвращены с занятий: ${updatedSessions.join(', ')}`,
             });
+            
+            if (lessonId) {
+              queryClient.invalidateQueries({ queryKey: ['individual-lesson-sessions', lessonId] });
+              queryClient.invalidateQueries({ queryKey: ['individual-lesson-payment-stats', lessonId] });
+              queryClient.refetchQueries({ queryKey: ['individual-lesson-sessions', lessonId] });
+              queryClient.refetchQueries({ queryKey: ['individual-lesson-payment-stats', lessonId] });
+            }
             
             onStatusUpdated?.();
             onOpenChange(false);
@@ -559,10 +569,17 @@ export function IndividualLessonStatusModal({
 
       // Не закрываем модал, если показываем выбор дат
       if (!showDateSelection) {
-        toast({
+toast({
           title: "Успешно",
           description: "Статус занятия обновлен"
         });
+
+        if (lessonId) {
+          queryClient.invalidateQueries({ queryKey: ['individual-lesson-sessions', lessonId] });
+          queryClient.invalidateQueries({ queryKey: ['individual-lesson-payment-stats', lessonId] });
+          queryClient.refetchQueries({ queryKey: ['individual-lesson-sessions', lessonId] });
+          queryClient.refetchQueries({ queryKey: ['individual-lesson-payment-stats', lessonId] });
+        }
 
         onStatusUpdated?.();
         onOpenChange(false);
@@ -821,10 +838,17 @@ export function IndividualLessonStatusModal({
         description += `\n${totalMinutesFreed} минут перенесено на будущие уроки`;
       }
 
-      toast({
+toast({
         title: "Успешно",
         description
       });
+
+      if (lessonId) {
+        queryClient.invalidateQueries({ queryKey: ['individual-lesson-sessions', lessonId] });
+        queryClient.invalidateQueries({ queryKey: ['individual-lesson-payment-stats', lessonId] });
+        queryClient.refetchQueries({ queryKey: ['individual-lesson-sessions', lessonId] });
+        queryClient.refetchQueries({ queryKey: ['individual-lesson-payment-stats', lessonId] });
+      }
 
       onStatusUpdated?.();
       setShowDateSelection(false);
