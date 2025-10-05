@@ -7,7 +7,11 @@ export const LessonColorLegend = () => {
         <div className="flex flex-wrap gap-4 text-sm">
           <div className="flex items-center gap-2">
             <div className="h-4 w-4 rounded bg-green-500" />
-            <span>Оплаченные занятия</span>
+            <span>Оплаченные занятия (будущие)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-4 w-4 rounded bg-gray-500" />
+            <span>Оплаченные занятия (прошедшие)</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="h-4 w-4 rounded bg-white border border-gray-300" />

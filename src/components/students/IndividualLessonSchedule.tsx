@@ -242,6 +242,9 @@ export function IndividualLessonSchedule({
 
     // Полная оплата
     if (paidMinutes >= duration || session?.payment_id) {
+      if (isPast) {
+        return 'bg-gray-500 text-white border-gray-500'; // Серый - оплачено и прошло
+      }
       return 'bg-green-600 text-white border-green-600'; // Зеленый - оплачено
     }
 

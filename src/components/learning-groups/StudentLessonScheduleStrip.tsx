@@ -49,7 +49,10 @@ export const StudentLessonScheduleStrip = ({
 
     // Проверяем оплату
     if (session.payment_status === 'paid') {
-      return 'bg-green-500 hover:bg-green-600 text-white'; // Оплачено - зеленый
+      if (isPast) {
+        return 'bg-gray-500 hover:bg-gray-600 text-white'; // Серый - оплачено и прошло
+      }
+      return 'bg-green-500 hover:bg-green-600 text-white'; // Зеленый - оплачено
     }
 
     // Не оплачено
