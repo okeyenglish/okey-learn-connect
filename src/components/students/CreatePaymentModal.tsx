@@ -11,11 +11,13 @@ import { usePayments } from '@/hooks/usePayments';
 import { useAddBalanceTransaction } from '@/hooks/useStudentBalance';
 import { useToast } from '@/hooks/use-toast';
 import { useCoursePrices } from '@/hooks/useCoursePrices';
+import { useGroupCoursePrices } from '@/hooks/useGroupCoursePrices';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateLessonPrice } from '@/utils/lessonPricing';
+import { extractCourseName } from '@/utils/courseNameExtractor';
 
 interface CreatePaymentModalProps {
   open: boolean;
@@ -67,6 +69,7 @@ export function CreatePaymentModal({
   const [customAmount, setCustomAmount] = useState<string>('5000');
   const [lessonDuration, setLessonDuration] = useState<number>(60);
   const [calculatedPricePerLesson, setCalculatedPricePerLesson] = useState(pricePerLesson);
+  const [selectedLessonCourseName, setSelectedLessonCourseName] = useState<string>('');
   const [formData, setFormData] = useState({
     method: 'card' as const,
     description: '',
@@ -79,6 +82,7 @@ export function CreatePaymentModal({
   const { mutateAsync: addBalanceTransaction } = useAddBalanceTransaction();
   const { toast } = useToast();
   const { data: coursePrices } = useCoursePrices();
+  const { data: groupCoursePrices } = useGroupCoursePrices();
 
   // Загружаем занятия студента
   useEffect(() => {
@@ -178,20 +182,29 @@ export function CreatePaymentModal({
         if (finalGroups) {
           finalGroups.forEach((group: any) => {
             // Используем course_name если есть, иначе name группы
-            const courseName = (group.course_name || group.name).toLowerCase().trim();
+            const fullCourseName = group.course_name || group.name;
             
-            // Ищем цену в базе данных
-            const priceFromDB = coursePrices?.find(cp => 
-              cp.course_name.toLowerCase() === courseName
+            // Извлекаем базовое название курса без цифр и уровней
+            const baseCourse = extractCourseName(fullCourseName);
+            
+            // Ищем цену в таблице групповых курсов
+            const priceFromDB = groupCoursePrices?.find(gcp => 
+              gcp.course_name.toLowerCase() === baseCourse.toLowerCase()
             );
             
-            const academicHours = priceFromDB ? Number(priceFromDB.price_per_academic_hour) * 1.5 : 2;
-            const pricePerLesson = priceFromDB ? Number(priceFromDB.price_per_40_min) : 2000;
+            // Для групповых занятий используем duration_minutes из БД или стандарт 80 минут
+            const durationMinutes = priceFromDB?.duration_minutes || 80;
+            // Пересчитываем в академические часы (1 ак.ч. = 40 минут)
+            const academicHours = durationMinutes / 40;
+            // Используем цену за 8 занятий как базовую стоимость за урок (деленную на 8)
+            const pricePerLesson = priceFromDB ? Number(priceFromDB.price_8_lessons) / 8 : 2000;
             
             console.log('Group pricing:', {
               groupName: group.name,
-              courseName: courseName,
+              fullCourseName,
+              baseCourse,
               priceFromDB,
+              durationMinutes,
               academicHours,
               pricePerLesson
             });
@@ -206,6 +219,7 @@ export function CreatePaymentModal({
               branch: group.branch || '',
               academicHours: academicHours,
               pricePerLesson: pricePerLesson,
+              schedule: baseCourse, // Сохраняем базовое название курса для поиска цен
             });
           });
         }
@@ -258,16 +272,25 @@ export function CreatePaymentModal({
       console.log('Selecting individual lesson:', individualLessonId);
       setSelectedLesson(individualLessonId);
       const lesson = studentLessons.find(l => l.id === individualLessonId);
-      if (lesson && lesson.pricePerLesson) {
-        setCalculatedPricePerLesson(lesson.pricePerLesson);
+      if (lesson) {
+        if (lesson.pricePerLesson) {
+          setCalculatedPricePerLesson(lesson.pricePerLesson);
+        }
+        setSelectedLessonCourseName('');
       }
     } else if (groupId) {
       console.log('Selecting group:', groupId);
       setSelectedLesson(groupId);
       const lesson = studentLessons.find(l => l.id === groupId);
       console.log('Found lesson:', lesson);
-      if (lesson && lesson.pricePerLesson) {
-        setCalculatedPricePerLesson(lesson.pricePerLesson);
+      if (lesson) {
+        if (lesson.pricePerLesson) {
+          setCalculatedPricePerLesson(lesson.pricePerLesson);
+        }
+        // Сохраняем базовое название курса для групповых занятий
+        if (lesson.type === 'group' && lesson.schedule) {
+          setSelectedLessonCourseName(lesson.schedule);
+        }
       }
     }
   }, [open, studentLessons, individualLessonId, groupId]);
@@ -279,6 +302,35 @@ export function CreatePaymentModal({
     return selectedPackage || 0;
   };
 
+  const getPackagePrice = (count: number) => {
+    const lesson = getSelectedLessonInfo();
+    
+    // Для групповых занятий используем фиксированные цены из БД
+    if (lesson?.type === 'group' && selectedLessonCourseName && groupCoursePrices) {
+      const coursePrice = groupCoursePrices.find(
+        gcp => gcp.course_name.toLowerCase() === selectedLessonCourseName.toLowerCase()
+      );
+      
+      if (coursePrice) {
+        switch (count) {
+          case 8:
+            return Number(coursePrice.price_8_lessons);
+          case 24:
+            return Number(coursePrice.price_24_lessons);
+          case 80:
+            return Number(coursePrice.price_80_lessons);
+          default:
+            // Для других пакетов рассчитываем пропорционально на основе цены за 8 занятий
+            const pricePerLesson = Number(coursePrice.price_8_lessons) / 8;
+            return count * pricePerLesson;
+        }
+      }
+    }
+    
+    // Для индивидуальных занятий умножаем цену за урок на количество
+    return count * calculatedPricePerLesson;
+  };
+
   const calculateAmount = () => {
     if (paymentType === 'textbooks') {
       return parseFloat(customAmount) || 5000;
@@ -286,7 +338,9 @@ export function CreatePaymentModal({
     if (useCustomAmount) {
       return parseFloat(customAmount) || 0;
     }
-    return getLessonsCount() * calculatedPricePerLesson;
+    
+    const count = getLessonsCount();
+    return getPackagePrice(count);
   };
   
   const getSelectedLessonInfo = () => {
@@ -502,8 +556,16 @@ export function CreatePaymentModal({
                 <Select value={selectedLesson} onValueChange={(value) => {
                   setSelectedLesson(value);
                   const lesson = studentLessons.find(l => l.id === value);
-                  if (lesson && lesson.pricePerLesson) {
-                    setCalculatedPricePerLesson(lesson.pricePerLesson);
+                  if (lesson) {
+                    if (lesson.pricePerLesson) {
+                      setCalculatedPricePerLesson(lesson.pricePerLesson);
+                    }
+                    // Сохраняем базовое название курса для групповых занятий
+                    if (lesson.type === 'group' && lesson.schedule) {
+                      setSelectedLessonCourseName(lesson.schedule);
+                    } else {
+                      setSelectedLessonCourseName('');
+                    }
                   }
                 }}>
                   <SelectTrigger>
@@ -557,7 +619,7 @@ export function CreatePaymentModal({
                     >
                       <div className="text-lg font-bold">{count}</div>
                       <div className="text-[10px] text-muted-foreground leading-tight">
-                        {count * calculatedPricePerLesson} ₽
+                        {getPackagePrice(count).toLocaleString('ru-RU')} ₽
                       </div>
                     </button>
                   ))}
