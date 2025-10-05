@@ -98,7 +98,7 @@ export function CreatePaymentModal({
           // 2) Получаем сами группы по id, только активные
           const { data: lgData } = await supabase
             .from('learning_groups')
-            .select('id, name, subject, level, branch, academic_hours_per_day, responsible_teacher, teacher_name')
+            .select('id, name, subject, level, branch, responsible_teacher, teacher_name')
             .in('id', groupIds)
             .eq('status', 'active');
           finalGroups = lgData || [];
@@ -112,7 +112,6 @@ export function CreatePaymentModal({
               subject,
               level,
               branch,
-              academic_hours_per_day,
               responsible_teacher,
               teacher_name,
               group_students!inner(student_id, status)
@@ -146,38 +145,46 @@ export function CreatePaymentModal({
         const lessons: StudentLesson[] = [];
         
         // Функция для определения цены курса
-        const getCoursePrice = (courseName: string, academicHoursPerDay: number) => {
-          const name = courseName.toLowerCase();
+        const getCoursePrice = (courseName: string, academicHoursPerLesson: number) => {
+          const name = courseName?.toLowerCase?.() || '';
           
-          // Super Safari - 9990 руб за 8 занятий (12 ак/ч) → 1.5 ак/ч на занятие
+          // Super Safari - 9990 руб за 8 занятий (12 ак/ч) → 1.5 ак.ч на занятие
           if (name.includes('super safari')) {
             return 9990 / 8; // 1248.75 руб/занятие
           }
           
-          // Kid's Box - 11990 руб за 8 занятий (16 ак/ч) → 2 ак/ч на занятие
+          // Kid's Box - 11990 руб за 8 занятий (16 ак/ч) → 2 ак.ч на занятие
           if (name.includes("kid's box") || name.includes('kids box')) {
             return 11990 / 8; // 1498.75 руб/занятие
           }
           
-          // Prepare - 13990 руб за 8 занятий (16 ак/ч) → 2 ак/ч на занятие
+          // Prepare - 13990 руб за 8 занятий (16 ак/ч) → 2 ак.ч на занятие
           if (name.includes('prepare')) {
             return 13990 / 8; // 1748.75 руб/занятие
           }
           
-          // Empower - 13990 руб за 8 занятий (16 ак/ч) → 2 ак/ч на занятие
+          // Empower - 13990 руб за 8 занятий (16 ак/ч) → 2 ак.ч на занятие
           if (name.includes('empower')) {
             return 13990 / 8; // 1748.75 руб/занятие
           }
           
-          // По умолчанию - стандартная цена за академический час
-          return 1000 * academicHoursPerDay;
+          // По умолчанию - базовая цена = 1000 ₽ за ак.ч
+          return 1000 * (academicHoursPerLesson || 2);
+        };
+
+        // Определяем ак.ч за занятие для курсов по названию
+        const getGroupAcademicHours = (courseName: string) => {
+          const name = courseName?.toLowerCase?.() || '';
+          if (name.includes('super safari')) return 1.5;
+          // По умолчанию 2 ак.ч
+          return 2;
         };
         
         // Добавляем групповые занятия
         if (finalGroups) {
           finalGroups.forEach((group: any) => {
-            const academicHoursPerDay = group.academic_hours_per_day || 1;
-            const pricePerLesson = getCoursePrice(group.name, academicHoursPerDay);
+            const academicHours = getGroupAcademicHours(group.name);
+            const pricePerLesson = getCoursePrice(group.name, academicHours);
             
             lessons.push({
               id: group.id,
@@ -187,7 +194,7 @@ export function CreatePaymentModal({
               level: group.level || '',
               teacher: group.teacher_name || group.responsible_teacher || '',
               branch: group.branch || '',
-              academicHours: academicHoursPerDay,
+              academicHours: academicHours,
               pricePerLesson: pricePerLesson,
             });
           });
