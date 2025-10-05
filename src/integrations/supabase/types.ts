@@ -3852,7 +3852,14 @@ export type Database = {
       group_status: "reserve" | "forming" | "active" | "suspended" | "finished"
       group_student_status: "active" | "paused" | "completed" | "dropped"
       group_type: "general" | "individual" | "mini" | "corporate"
-      lesson_status: "scheduled" | "cancelled" | "completed" | "rescheduled"
+      lesson_status:
+        | "scheduled"
+        | "cancelled"
+        | "completed"
+        | "rescheduled"
+        | "free"
+        | "free_skip"
+        | "paid_skip"
       message_status:
         | "queued"
         | "sent"
@@ -4033,7 +4040,15 @@ export const Constants = {
       group_status: ["reserve", "forming", "active", "suspended", "finished"],
       group_student_status: ["active", "paused", "completed", "dropped"],
       group_type: ["general", "individual", "mini", "corporate"],
-      lesson_status: ["scheduled", "cancelled", "completed", "rescheduled"],
+      lesson_status: [
+        "scheduled",
+        "cancelled",
+        "completed",
+        "rescheduled",
+        "free",
+        "free_skip",
+        "paid_skip",
+      ],
       message_status: [
         "queued",
         "sent",

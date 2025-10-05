@@ -108,6 +108,10 @@ export function LessonScheduleStrip({ sessions, className, groupId }: LessonSche
           return 'bg-orange-500 text-white border-orange-500';
         case 'free':
           return 'bg-yellow-500 text-white border-yellow-500';
+        case 'free_skip':
+          return 'bg-blue-400 text-white border-blue-400';
+        case 'paid_skip':
+          return 'bg-red-500 text-white border-red-500';
       }
     }
 
@@ -133,19 +137,21 @@ export function LessonScheduleStrip({ sessions, className, groupId }: LessonSche
   const getStatusLabel = (status: string) => {
     switch (status.toLowerCase()) {
       case 'completed':
-        return 'Проведено';
+        return 'Занятие';
       case 'scheduled':
-        return 'Запланировано';
+        return 'Занятие';
+      case 'free':
+        return 'Бесплатное занятие';
+      case 'free_skip':
+        return 'Бесплатный пропуск';
+      case 'paid_skip':
+        return 'Оплачиваемый пропуск';
       case 'cancelled':
         return 'Отменено';
       case 'rescheduled':
         return 'Перенесено';
-      case 'in_progress':
-        return 'В процессе';
-      case 'free':
-        return 'Бесплатное';
       default:
-        return 'Не определено';
+        return 'Занятие';
     }
   };
 
@@ -202,7 +208,7 @@ export function LessonScheduleStrip({ sessions, className, groupId }: LessonSche
 
     const { error } = await supabase
       .from('lesson_sessions')
-      .update({ status: newStatus as 'scheduled' | 'completed' | 'cancelled' | 'rescheduled' })
+      .update({ status: newStatus as any })
       .eq('id', selectedSessionId);
 
     if (error) {
@@ -337,16 +343,16 @@ export function LessonScheduleStrip({ sessions, className, groupId }: LessonSche
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Статус</label>
+                  <label className="text-sm font-medium">Статус занятия</label>
                   <Select onValueChange={handleStatusChange}>
                     <SelectTrigger>
                       <SelectValue placeholder="Выберите статус" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="scheduled">Запланировано</SelectItem>
-                      <SelectItem value="completed">Проведено</SelectItem>
-                      <SelectItem value="cancelled">Отменено</SelectItem>
-                      <SelectItem value="rescheduled">Перенесено</SelectItem>
+                      <SelectItem value="completed">Занятие</SelectItem>
+                      <SelectItem value="free">Бесплатное занятие</SelectItem>
+                      <SelectItem value="free_skip">Бесплатный пропуск</SelectItem>
+                      <SelectItem value="paid_skip">Оплачиваемый пропуск</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
