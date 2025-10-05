@@ -61,7 +61,7 @@ import { AddIndividualLessonModal } from './AddIndividualLessonModal';
 import { GroupDetailModal } from '@/components/learning-groups/GroupDetailModal';
 import { LearningGroup } from '@/hooks/useLearningGroups';
 
-import { LessonScheduleStrip } from './LessonScheduleStrip';
+import { GroupLessonSchedule } from './GroupLessonSchedule';
 import { CreatePaymentModal } from './CreatePaymentModal';
 import { EditIndividualLessonModal } from './EditIndividualLessonModal';
 import { ScheduleSummary } from './ScheduleSummary';
@@ -1062,15 +1062,12 @@ export function EnhancedStudentCard({
                               </div>
 
                               {/* Расписание занятий */}
-                              <div className="mt-3 pt-3 border-t max-w-full overflow-x-auto">
-                                <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
-                                <div className="min-w-0">
-                                  <LessonScheduleStrip 
-                                    sessions={group.sessions} 
-                                    groupId={group.id} 
-                                    onStatusUpdate={() => refetch()}
-                                  />
-                                </div>
+                              <div className="mt-3 pt-3 border-t">
+                                <GroupLessonSchedule 
+                                  sessions={group.sessions} 
+                                  groupId={group.id} 
+                                  onRefresh={() => refetch()}
+                                />
                               </div>
                             </div>
                           ))}
@@ -1391,13 +1388,12 @@ export function EnhancedStudentCard({
                                   <span className="font-medium">{formatDate(group.enrollmentDate)}</span>
                                 </div>
 
-                                {/* Расписание занятий */}
+                                 {/* Расписание занятий */}
                                 <div className="mt-3 pt-3 border-t">
-                                  <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
-                                  <LessonScheduleStrip 
+                                  <GroupLessonSchedule 
                                     sessions={group.sessions} 
                                     groupId={group.id} 
-                                    onStatusUpdate={() => refetch()}
+                                    onRefresh={() => refetch()}
                                   />
                                 </div>
                               </div>
@@ -1627,11 +1623,10 @@ export function EnhancedStudentCard({
 
                                 {/* История посещений */}
                                 <div className="mt-3 pt-3 border-t">
-                                  <p className="text-muted-foreground text-xs mb-2">История посещений</p>
-                                  <LessonScheduleStrip 
+                                  <GroupLessonSchedule 
                                     sessions={group.sessions} 
                                     groupId={group.id} 
-                                    onStatusUpdate={() => refetch()}
+                                    onRefresh={() => refetch()}
                                   />
                                 </div>
                               </div>
