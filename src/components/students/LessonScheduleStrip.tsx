@@ -351,7 +351,6 @@ export function LessonScheduleStrip({ sessions, className, groupId }: LessonSche
                     <SelectContent>
                       <SelectItem value="completed">Занятие</SelectItem>
                       <SelectItem value="free">Бесплатное занятие</SelectItem>
-                      <SelectItem value="free_skip">Бесплатный пропуск</SelectItem>
                       <SelectItem value="paid_skip">Оплачиваемый пропуск</SelectItem>
                     </SelectContent>
                   </Select>
