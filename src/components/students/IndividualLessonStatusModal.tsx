@@ -804,7 +804,7 @@ toast({
       }
 
       // Ребалансировка оплат: если мы вернули занятия в статус scheduled,
-      // перетягиваем минуты с более поздних уроков на самые ранние неоплаченные
+      // перетягиваем минуты и платежи с более поздних уроков на самые ранние неоплаченные
       if (selectedAction === 'scheduled') {
         const rebalanceFrom = dateArray[0]; // самая ранняя выбранная дата
 
@@ -816,7 +816,7 @@ toast({
 
         const { data: future } = await supabase
           .from('individual_lesson_sessions')
-          .select('id, lesson_date, duration, paid_minutes, status')
+          .select('id, lesson_date, duration, paid_minutes, status, payment_id')
           .eq('individual_lesson_id', lessonId)
           .gte('lesson_date', rebalanceFrom)
           .order('lesson_date', { ascending: true });
@@ -838,16 +838,44 @@ toast({
             if (donorPaid <= 0) continue;
             const take = Math.min(need, donorPaid);
 
-            // Обновляем в БД приемник
+            // Обновляем в БД приемник - переносим минуты и платеж
+            const receiverUpdate: any = { 
+              paid_minutes: (s.paid_minutes || 0) + take, 
+              updated_at: new Date().toISOString() 
+            };
+            
+            // Если у приемника еще нет платежа, а у донора есть - переносим
+            if (!s.payment_id && donor.payment_id) {
+              receiverUpdate.payment_id = donor.payment_id;
+            }
+            
             await supabase.from('individual_lesson_sessions')
-              .update({ paid_minutes: (s.paid_minutes || 0) + take, updated_at: new Date().toISOString() })
+              .update(receiverUpdate)
               .eq('id', s.id);
+            
+            if (!s.payment_id && donor.payment_id) {
+              s.payment_id = donor.payment_id;
+            }
             s.paid_minutes = (s.paid_minutes || 0) + take;
 
             // Обновляем в БД донор
+            const donorUpdate: any = {
+              paid_minutes: donorPaid - take,
+              updated_at: new Date().toISOString()
+            };
+            
+            // Если у донора забрали все минуты - убираем payment_id
+            if (donorPaid - take === 0) {
+              donorUpdate.payment_id = null;
+            }
+            
             await supabase.from('individual_lesson_sessions')
-              .update({ paid_minutes: donorPaid - take, updated_at: new Date().toISOString() })
+              .update(donorUpdate)
               .eq('id', donor.id);
+            
+            if (donorPaid - take === 0) {
+              donor.payment_id = null;
+            }
             donor.paid_minutes = donorPaid - take;
 
             need -= take;
