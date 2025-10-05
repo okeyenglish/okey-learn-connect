@@ -48,6 +48,32 @@ export const usePayments = (filters?: any) => {
     }
   };
 
+  // Realtime: initial fetch and subscribe to payments changes
+  useEffect(() => {
+    fetchPayments();
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'payments' },
+        (payload) => {
+          try {
+            const sid = (payload as any)?.new?.student_id ?? (payload as any)?.old?.student_id;
+            if (!filters?.student_id || sid === filters.student_id) {
+              fetchPayments();
+            }
+          } catch {
+            fetchPayments();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [filters?.student_id]);
+
   const createPayment = async (paymentData: any) => {
     console.log('=== CREATE PAYMENT START ===');
     console.log('Payment data received:', paymentData);

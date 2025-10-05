@@ -142,6 +142,24 @@ export function EnhancedStudentCard({
   const { data: history, isLoading: historyLoading } = useStudentHistory(student.id);
   const updateIndividualLesson = useUpdateIndividualLesson();
 
+  // Realtime: обновляем карточку студента при изменении его платежей
+  useEffect(() => {
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'payments', filter: `student_id=eq.${student.id}` },
+        () => {
+          refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [student.id, refetch]);
+
   // Проверка наличия будущих запланированных занятий
   const hasFutureSessions = (lesson: any) => {
     const today = new Date();

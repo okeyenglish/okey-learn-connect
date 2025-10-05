@@ -63,6 +63,20 @@ export function useFinances() {
     fetchInvoices();
     fetchPayments();
     fetchBonusAccounts();
+
+    // Realtime: обновляем список платежей при изменениях
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'payments' },
+        () => fetchPayments()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchCurrencies = async () => {
