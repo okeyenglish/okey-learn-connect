@@ -71,6 +71,13 @@ export function LessonScheduleStrip({ sessions, className, groupId }: LessonSche
     });
   };
 
+  const formatShortDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit'
+    });
+  };
+
   const handleAttendanceClick = (dateString: string, e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
@@ -106,13 +113,13 @@ export function LessonScheduleStrip({ sessions, className, groupId }: LessonSche
                 <TooltipTrigger asChild>
                   <button
                     className={cn(
-                      "h-8 w-8 rounded shrink-0 transition-colors relative",
+                      "h-8 w-14 rounded shrink-0 transition-colors relative flex items-center justify-center",
                       getStatusColor(session.status)
                     )}
-                    aria-label={`Занятие ${session.lessonNumber || startIndex + index + 1}`}
+                    aria-label={`Занятие ${formatDate(session.lessonDate)}`}
                   >
-                    <span className="text-xs text-white font-medium">
-                      {session.lessonNumber || startIndex + index + 1}
+                    <span className="text-[10px] text-white font-medium leading-none">
+                      {formatShortDate(session.lessonDate)}
                     </span>
                     {groupId && (
                       <AttendanceIndicator
