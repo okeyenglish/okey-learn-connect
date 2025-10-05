@@ -174,34 +174,39 @@ export function CreatePaymentModal({
         }
         
         setStudentLessons(lessons);
-        
-        console.log('Payment modal - groupId:', groupId, 'individualLessonId:', individualLessonId);
-        console.log('Available lessons:', lessons);
-        
-        // Если передан individualLessonId или groupId, автоматически выбираем его
-        if (individualLessonId) {
-          console.log('Selecting individual lesson:', individualLessonId);
-          setSelectedLesson(individualLessonId);
-          const lesson = lessons.find(l => l.id === individualLessonId);
-          if (lesson && lesson.pricePerLesson) {
-            setCalculatedPricePerLesson(lesson.pricePerLesson);
-          }
-        } else if (groupId) {
-          console.log('Selecting group:', groupId);
-          setSelectedLesson(groupId);
-          const lesson = lessons.find(l => l.id === groupId);
-          console.log('Found lesson:', lesson);
-          if (lesson && lesson.pricePerLesson) {
-            setCalculatedPricePerLesson(lesson.pricePerLesson);
-          }
-        }
       } catch (error) {
         console.error('Error fetching student lessons:', error);
       }
     };
     
     fetchStudentLessons();
-  }, [open, studentId, individualLessonId, groupId]);
+  }, [open, studentId]);
+
+  // Отдельный эффект для автовыбора курса
+  useEffect(() => {
+    if (!open || studentLessons.length === 0) return;
+    
+    console.log('Payment modal - groupId:', groupId, 'individualLessonId:', individualLessonId);
+    console.log('Available lessons:', studentLessons);
+    
+    // Если передан individualLessonId или groupId, автоматически выбираем его
+    if (individualLessonId) {
+      console.log('Selecting individual lesson:', individualLessonId);
+      setSelectedLesson(individualLessonId);
+      const lesson = studentLessons.find(l => l.id === individualLessonId);
+      if (lesson && lesson.pricePerLesson) {
+        setCalculatedPricePerLesson(lesson.pricePerLesson);
+      }
+    } else if (groupId) {
+      console.log('Selecting group:', groupId);
+      setSelectedLesson(groupId);
+      const lesson = studentLessons.find(l => l.id === groupId);
+      console.log('Found lesson:', lesson);
+      if (lesson && lesson.pricePerLesson) {
+        setCalculatedPricePerLesson(lesson.pricePerLesson);
+      }
+    }
+  }, [open, studentLessons, individualLessonId, groupId]);
 
   const getLessonsCount = () => {
     if (customLessonsCount) {
