@@ -210,15 +210,23 @@ export function IndividualLessonSchedule({
     const dateStr = format(date, 'yyyy-MM-dd');
     const session = lessonSessions[dateStr];
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const lessonDate = new Date(date);
+    lessonDate.setHours(0, 0, 0, 0);
+    
+    const isPast = lessonDate < today;
+
     // Сначала учитываем специальные статусы, они важнее оплаты
     if (session?.status) {
       switch (session.status) {
         case 'cancelled':
           return 'bg-black text-white border-black'; // Черный - отменено
         case 'rescheduled':
-          return 'bg-orange-500 text-white border-orange-500'; // Оранжевый - перенесено
+          return 'bg-black text-white border-black'; // Черный - отменено
         case 'free':
-          return 'bg-yellow-500 text-white border-yellow-500'; // Желтый - бесплатное
+          return 'bg-orange-500 text-white border-orange-500'; // Оранжевый - бесплатное
       }
     }
 
@@ -237,8 +245,14 @@ export function IndividualLessonSchedule({
       return 'bg-green-600 text-white border-green-600'; // Зеленый - оплачено
     }
 
-    // По умолчанию — не оплачено
-    return 'bg-white text-gray-500 border-gray-300'; // Белый фон, серые цифры
+    // Не оплачено
+    if (isPast) {
+      // Прошедшее и не оплаченное - красный (задолженность)
+      return 'bg-red-500 text-white border-red-500';
+    } else {
+      // Будущее и не оплаченное - белый
+      return 'bg-white text-gray-900 border-gray-300';
+    }
   };
 
   const getPaymentTooltip = (session?: LessonSession, lessonNumber?: number) => {
