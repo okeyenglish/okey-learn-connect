@@ -219,6 +219,14 @@ export const usePayments = (filters?: any) => {
         console.log('Group payment recorded in academic hours; no session linking performed.');
       }
 
+      // Обновляем расписание и статистику урока немедленно (не ждём realtime)
+      if (paymentData.individual_lesson_id) {
+        queryClient.invalidateQueries({ queryKey: ['individual-lesson-sessions', paymentData.individual_lesson_id] });
+        queryClient.invalidateQueries({ queryKey: ['individual-lesson-payment-stats', paymentData.individual_lesson_id] });
+        queryClient.refetchQueries({ queryKey: ['individual-lesson-sessions', paymentData.individual_lesson_id] });
+        queryClient.refetchQueries({ queryKey: ['individual-lesson-payment-stats', paymentData.individual_lesson_id] });
+      }
+
       toast({
         title: "Успешно",
         description: `Платеж на сумму ${paymentData.amount} руб. добавлен`,
@@ -303,10 +311,10 @@ export const usePayments = (filters?: any) => {
             date: s.lesson_date
           })));
 
-          // Убираем payment_id у занятий
+          // Убираем payment_id и оплаченные минуты у занятий
           const { error: sessionError } = await supabase
             .from('individual_lesson_sessions')
-            .update({ payment_id: null, updated_at: new Date().toISOString() })
+            .update({ payment_id: null, paid_minutes: 0, updated_at: new Date().toISOString() })
             .in('id', sessionIds);
 
           if (sessionError) {
@@ -462,6 +470,14 @@ export const usePayments = (filters?: any) => {
       // Invalidate payment stats cache
       queryClient.invalidateQueries({ queryKey: ['student-group-payment-stats'] });
       queryClient.invalidateQueries({ queryKey: ['student-details'] });
+
+      // Обновляем расписание и статистику урока сразу
+      if (individualLessonId) {
+        queryClient.invalidateQueries({ queryKey: ['individual-lesson-sessions', individualLessonId] });
+        queryClient.invalidateQueries({ queryKey: ['individual-lesson-payment-stats', individualLessonId] });
+        queryClient.refetchQueries({ queryKey: ['individual-lesson-sessions', individualLessonId] });
+        queryClient.refetchQueries({ queryKey: ['individual-lesson-payment-stats', individualLessonId] });
+      }
 
       fetchPayments();
     } catch (error) {
