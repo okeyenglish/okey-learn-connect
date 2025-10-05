@@ -231,8 +231,8 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden p-0">
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6">
+      <DialogContent className="w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-w-full overflow-hidden p-0 bg-background flex flex-col">
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 flex-shrink-0">
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-3 text-xl font-semibold">
@@ -260,9 +260,9 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
           </DialogHeader>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
-          <Tabs defaultValue="students" className="h-full">
-            <div className="border-b px-6">
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <Tabs defaultValue="students" className="flex-1 overflow-hidden flex flex-col">
+            <div className="border-b px-6 flex-shrink-0">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="students">Студенты и расписание</TabsTrigger>
                 <TabsTrigger value="homework">Домашние задания / планы занятий</TabsTrigger>
@@ -270,7 +270,7 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
               </TabsList>
             </div>
 
-            <div className="p-6">
+            <div className="flex-1 overflow-y-auto p-6">
               <TabsContent value="students" className="space-y-6 mt-0">
                 {/* Расписание */}
                 <div>
