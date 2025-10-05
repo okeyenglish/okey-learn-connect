@@ -84,23 +84,21 @@ export function CreatePaymentModal({
       if (!open || !studentId) return;
       
       try {
-        // Загружаем групповые занятия
+        // Загружаем групповые занятия через join от learning_groups
         const { data: groupsData, error: groupsError } = await supabase
-          .from('group_students')
+          .from('learning_groups')
           .select(`
-            group_id,
-            learning_groups (
-              id,
-              name,
-              subject,
-              level,
-              teacher_name,
-              branch,
-              academic_hours_per_day
-            )
+            id,
+            name,
+            subject,
+            level,
+            teacher_name,
+            branch,
+            academic_hours_per_day,
+            group_students!inner(student_id, status)
           `)
-          .eq('student_id', studentId)
-          .eq('status', 'active');
+          .eq('group_students.student_id', studentId)
+          .eq('group_students.status', 'active');
         
         // Загружаем индивидуальные занятия
         const { data: individualData, error: individualError } = await supabase
@@ -125,26 +123,23 @@ export function CreatePaymentModal({
         
         // Добавляем групповые занятия
         if (groupsData) {
-          groupsData.forEach((item: any) => {
-            const group = item.learning_groups;
-            if (group) {
-              // Для групповых занятий используем стандартную цену за академический час
-              const academicHoursPerDay = group.academic_hours_per_day || 1;
-              const pricePerAcademicHour = 1000; // Стандартная цена за академический час для групп
-              const pricePerLesson = pricePerAcademicHour * academicHoursPerDay;
-              
-              lessons.push({
-                id: group.id,
-                type: 'group',
-                name: group.name,
-                subject: group.subject || '',
-                level: group.level || '',
-                teacher: group.teacher_name || '',
-                branch: group.branch || '',
-                academicHours: academicHoursPerDay,
-                pricePerLesson: pricePerLesson,
-              });
-            }
+          groupsData.forEach((group: any) => {
+            // Для групповых занятий используем стандартную цену за академический час
+            const academicHoursPerDay = group.academic_hours_per_day || 1;
+            const pricePerAcademicHour = 1000; // Стандартная цена за академический час для групп
+            const pricePerLesson = pricePerAcademicHour * academicHoursPerDay;
+            
+            lessons.push({
+              id: group.id,
+              type: 'group',
+              name: group.name,
+              subject: group.subject || '',
+              level: group.level || '',
+              teacher: group.teacher_name || '',
+              branch: group.branch || '',
+              academicHours: academicHoursPerDay,
+              pricePerLesson: pricePerLesson,
+            });
           });
         }
         
