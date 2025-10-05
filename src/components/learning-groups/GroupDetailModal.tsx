@@ -277,145 +277,6 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                   <h3 className="text-lg font-semibold text-blue-600 mb-4">Расписание группы</h3>
                   <GroupScheduleCalendar groupId={group.id} />
                 </div>
-
-                <Separator className="my-6" />
-
-                {/* Студенты */}
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold text-blue-600">
-                    Студенты группы ({groupStudents.length}/{group.capacity})
-                  </h3>
-                  <Button 
-                    size="sm" 
-                    className="bg-blue-500 hover:bg-blue-600"
-                    onClick={() => setShowAddStudentModal(true)}
-                  >
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Добавить студента
-                  </Button>
-                </div>
-
-                <Card>
-                  <CardContent className="p-0">
-                    {studentsLoading ? (
-                      <div className="p-8 text-center">
-                        <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-                        <p className="text-gray-600">Загрузка студентов...</p>
-                      </div>
-                    ) : groupStudents.length === 0 ? (
-                      <div className="p-8 text-center">
-                        <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">Нет студентов</h3>
-                        <p className="text-gray-600">Добавьте студентов в эту группу</p>
-                      </div>
-                    ) : (
-                      <div className="divide-y divide-gray-200">
-                        {groupStudents.map((gs) => (
-                          <div key={gs.id} className="p-6">
-                            <div className="flex items-start justify-between mb-4">
-                              <div className="flex items-center gap-3">
-                                <Avatar className="h-12 w-12">
-                                  <AvatarFallback className="text-lg">
-                                    {gs.student?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'ST'}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <p className="font-semibold text-lg text-gray-900">
-                                    {gs.student?.name || `Студент ${gs.student_id}`}
-                                  </p>
-                                  <p className="text-sm text-gray-500">
-                                    Записан: {new Date(gs.enrollment_date).toLocaleDateString('ru-RU')}
-                                    {gs.student?.phone && ` • ${gs.student.phone}`}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Badge 
-                                  variant={gs.status === 'active' ? 'default' : 'secondary'}
-                                  className={gs.status === 'active' ? 'bg-green-100 text-green-800' : ''}
-                                >
-                                  {gs.status === 'active' ? 'Активен' : 'Неактивен'}
-                                </Badge>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-red-600 hover:bg-red-50"
-                                  onClick={() => handleRemoveStudentFromGroup(gs.student_id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                            
-                            {/* Payment Information */}
-                            <div className="ml-15 pl-3 border-l-2 border-gray-200">
-                              <StudentPaymentInfo 
-                                studentId={gs.student_id} 
-                                groupId={group.id} 
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Модальное окно для добавления студента */}
-                {showAddStudentModal && (
-                  <Dialog open={showAddStudentModal} onOpenChange={setShowAddStudentModal}>
-                    <DialogContent className="max-w-2xl">
-                      <DialogHeader>
-                        <DialogTitle>Добавить студента в группу</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <p className="text-muted-foreground">
-                          Выберите студентов для добавления в группу "{group.name}"
-                        </p>
-                        {availableStudentsLoading ? (
-                          <div className="text-center py-8">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                            <p className="text-gray-600 mt-2">Загрузка студентов...</p>
-                          </div>
-                        ) : availableStudents.length === 0 ? (
-                          <div className="text-center py-8">
-                            <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                            <p className="text-gray-600">Нет доступных студентов для добавления</p>
-                          </div>
-                        ) : (
-                          <div className="max-h-96 overflow-y-auto space-y-2">
-                            {availableStudents.map((student) => (
-                              <div
-                                key={student.id}
-                                className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
-                              >
-                                <div className="flex items-center gap-3">
-                                  <Avatar className="h-8 w-8">
-                                    <AvatarFallback className="text-xs">
-                                      {student.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'ST'}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <div>
-                                    <p className="font-medium">{student.name || `Студент ${student.id}`}</p>
-                                    <p className="text-sm text-gray-500">
-                                      {student.age && `${student.age} лет`} {student.phone && `• ${student.phone}`}
-                                    </p>
-                                  </div>
-                                </div>
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleAddStudentToGroup(student.id)}
-                                >
-                                  Добавить
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                )}
               </TabsContent>
 
               <TabsContent value="homework" className="space-y-6 mt-0">
@@ -536,74 +397,46 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                               <span className="font-medium">{formatMoney(groupStats.totalReceived)}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span>Осталось:</span>
-                              <span className="font-medium">{formatMoney(groupStats.balance)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>Итого:</span>
-                              <span className="font-medium">{formatMoney(groupStats.total)}</span>
-                            </div>
-                            <Separator />
-                            <div className="flex justify-between">
-                              <span>Посещений:</span>
+                              <span>Проведено занятий:</span>
                               <span className="font-medium">{groupStats.visits}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span>- оплачиваемых:</span>
+                              <span>Оплаченных посещений:</span>
                               <span className="font-medium">{groupStats.paidVisits}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span>Пропусков:</span>
+                              <span>Пропущено занятий:</span>
                               <span className="font-medium">{groupStats.skipped}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span>- оплачиваемых:</span>
-                              <span className="font-medium">{groupStats.paidSkipped}</span>
+                              <span>Ак. часов за группу:</span>
+                              <span className="font-medium">{groupStats.totalAcademicHours}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span>- неоплачиваемых:</span>
-                              <span className="font-medium">{groupStats.unpaidSkipped}</span>
-                            </div>
-                            <div className="text-blue-600 font-medium mt-3">{teacherInfo.name}</div>
-                            <div className="flex justify-between">
-                              <span>Ставка по данной группе:</span>
-                              <span className="font-medium">{groupStats.rateForGroup}</span>
+                              <span>Баланс:</span>
+                              <span className="font-medium">{formatMoney(groupStats.balance)}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span>Академ. часов всего:</span>
-                              <span className="font-medium">{groupStats.totalAcademicHours} а.ч.</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>Оплата преподавателя за всё время занятий:</span>
+                              <span>Оплата преподавателя:</span>
                               <span className="font-medium">{formatMoney(groupStats.teacherPayment)}</span>
                             </div>
                           </div>
                         ) : (
-                          <div className="text-center py-4 text-sm text-muted-foreground">
-                            Статистика недоступна
-                          </div>
+                          <p className="text-sm text-muted-foreground">Нет данных</p>
                         )}
                       </CardContent>
                     )}
                   </Card>
 
                   {/* Parameters Section */}
-                  <Card>
+                  <Card className="col-span-1">
                     <CardHeader 
                       className="cursor-pointer" 
                       onClick={() => setParametersExpanded(!parametersExpanded)}
                     >
-                      <CardTitle className="flex items-center justify-between text-lg">
-                        Параметры
-                        <div className="flex items-center gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            className="p-0 h-auto"
-                            onClick={() => setEditDetailsOpen(true)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
+                      <CardTitle className="flex items-center justify-between">
+                        <div className="flex items-center justify-between w-full text-lg">
+                          Параметры группы
                           {parametersExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                         </div>
                       </CardTitle>
