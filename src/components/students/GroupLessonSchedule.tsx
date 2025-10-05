@@ -4,23 +4,8 @@ import { ru } from 'date-fns/locale';
 import { useState } from 'react';
 import { AttendanceIndicator } from './AttendanceIndicator';
 import { MarkAttendanceModal } from './MarkAttendanceModal';
+import { StudentLessonStatusModal } from '@/components/learning-groups/StudentLessonStatusModal';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { useStudentGroupLessonSessions } from '@/hooks/useStudentGroupLessonSessions';
 import { Loader2 } from 'lucide-react';
 
@@ -44,7 +29,6 @@ export function GroupLessonSchedule({
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
   const [showAll, setShowAll] = useState(false);
-  const { toast } = useToast();
 
   if (isLoading) {
     return (
@@ -137,33 +121,7 @@ export function GroupLessonSchedule({
     }
   };
 
-  const handleStatusChange = async (newStatus: 'scheduled' | 'completed' | 'cancelled' | 'free' | 'free_skip' | 'paid_skip' | 'rescheduled') => {
-    if (!selectedSessionId) return;
-
-    try {
-      const { error } = await supabase
-        .from('lesson_sessions')
-        .update({ status: newStatus })
-        .eq('id', selectedSessionId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Успешно",
-        description: "Статус занятия обновлен",
-      });
-
-      setStatusModalOpen(false);
-      onRefresh?.();
-    } catch (error) {
-      console.error('Error updating status:', error);
-      toast({
-        title: "Ошибка",
-        description: "Не удалось обновить статус занятия",
-        variant: "destructive",
-      });
-    }
-  };
+  // Removed handleStatusChange - now using StudentLessonStatusModal
 
   if (sortedSessions.length === 0) {
     return (
@@ -260,36 +218,17 @@ export function GroupLessonSchedule({
         </div>
       </TooltipProvider>
 
-      <Dialog open={statusModalOpen} onOpenChange={setStatusModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Изменить статус занятия</DialogTitle>
-            <DialogDescription>
-              {selectedDate && format(selectedDate, 'dd MMMM yyyy', { locale: ru })}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Статус занятия</label>
-              <Select onValueChange={handleStatusChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите статус" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="scheduled">Запланировано</SelectItem>
-                  <SelectItem value="completed">Проведено</SelectItem>
-                  <SelectItem value="cancelled">Отменено</SelectItem>
-                  <SelectItem value="free">Бесплатное занятие</SelectItem>
-                  <SelectItem value="rescheduled">Перенесено</SelectItem>
-                  <SelectItem value="free_skip">Свободный пропуск</SelectItem>
-                  <SelectItem value="paid_skip">Оплаченный пропуск</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Student-specific status modal */}
+      <StudentLessonStatusModal
+        open={statusModalOpen}
+        onOpenChange={setStatusModalOpen}
+        studentId={studentId}
+        sessionId={selectedSessionId}
+        lessonDate={selectedDate}
+        onStatusUpdated={onRefresh}
+      />
 
+      {/* Attendance modal */}
       {selectedDate && (
         <MarkAttendanceModal
           open={attendanceModalOpen}

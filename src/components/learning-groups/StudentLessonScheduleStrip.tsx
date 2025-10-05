@@ -160,15 +160,14 @@ export const StudentLessonScheduleStrip = ({
 
       {selectedSession && (
         <StudentLessonStatusModal
-          isOpen={!!selectedSession}
-          onClose={() => setSelectedSession(null)}
-          studentLessonSessionId={selectedSession.id}
+          open={!!selectedSession}
+          onOpenChange={(open) => {
+            if (!open) setSelectedSession(null);
+          }}
           studentId={studentId}
-          lessonSessionId={selectedSession.lesson_session_id}
-          studentName={studentName}
-          lessonDate={selectedSession.lesson_date}
-          isTemp={selectedSession._isTemp}
-          onUpdate={() => {
+          sessionId={selectedSession.lesson_session_id}
+          lessonDate={selectedSession.lesson_date ? new Date(selectedSession.lesson_date) : null}
+          onStatusUpdated={() => {
             onSessionUpdated?.();
             setSelectedSession(null);
           }}
