@@ -108,7 +108,7 @@ export const StudentLessonScheduleStrip = ({
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1">
         {displayedSessions.map((session) => (
           <TooltipProvider key={session.id}>
             <Tooltip>
@@ -116,7 +116,7 @@ export const StudentLessonScheduleStrip = ({
                 <Button
                   variant="outline"
                   size="sm"
-                  className={`h-12 min-w-[4rem] text-white ${getSessionColor(session)}`}
+                  className={`h-8 min-w-[3rem] px-2 text-white ${getSessionColor(session)}`}
                   onClick={() => setSelectedSession(session)}
                 >
                   <div className="text-center">
