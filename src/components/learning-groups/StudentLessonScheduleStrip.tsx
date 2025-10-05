@@ -159,8 +159,11 @@ export const StudentLessonScheduleStrip = ({
           isOpen={!!selectedSession}
           onClose={() => setSelectedSession(null)}
           studentLessonSessionId={selectedSession.id}
+          studentId={studentId}
+          lessonSessionId={selectedSession.lesson_session_id}
           studentName={studentName}
           lessonDate={selectedSession.lesson_date}
+          isTemp={selectedSession._isTemp}
           onUpdate={() => {
             onSessionUpdated?.();
             setSelectedSession(null);

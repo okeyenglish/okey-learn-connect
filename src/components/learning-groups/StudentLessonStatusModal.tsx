@@ -13,18 +13,24 @@ interface StudentLessonStatusModalProps {
   isOpen: boolean;
   onClose: () => void;
   studentLessonSessionId: string;
+  studentId: string;
+  lessonSessionId: string;
   studentName: string;
   lessonDate: string;
   onUpdate?: () => void;
+  isTemp?: boolean;
 }
 
 export const StudentLessonStatusModal = ({
   isOpen,
   onClose,
   studentLessonSessionId,
+  studentId,
+  lessonSessionId,
   studentName,
   lessonDate,
-  onUpdate
+  onUpdate,
+  isTemp = false
 }: StudentLessonStatusModalProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -40,14 +46,29 @@ export const StudentLessonStatusModal = ({
   const fetchSessionData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('student_lesson_sessions')
-        .select('*')
-        .eq('id', studentLessonSessionId)
-        .single();
+      if (isTemp) {
+        // Для временных записей создаем дефолтные данные
+        setSessionData({
+          id: studentLessonSessionId,
+          lesson_session_id: lessonSessionId,
+          student_id: studentId,
+          attendance_status: 'not_marked',
+          payment_status: 'not_paid',
+          payment_amount: 0,
+          is_cancelled_for_student: false,
+          cancellation_reason: null,
+          notes: null
+        });
+      } else {
+        const { data, error } = await supabase
+          .from('student_lesson_sessions')
+          .select('*')
+          .eq('id', studentLessonSessionId)
+          .single();
 
-      if (error) throw error;
-      setSessionData(data);
+        if (error) throw error;
+        setSessionData(data);
+      }
     } catch (error) {
       console.error('Error fetching session data:', error);
       toast({
@@ -65,19 +86,38 @@ export const StudentLessonStatusModal = ({
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('student_lesson_sessions')
-        .update({
-          attendance_status: sessionData.attendance_status,
-          payment_status: sessionData.payment_status,
-          payment_amount: sessionData.payment_amount,
-          notes: sessionData.notes,
-          is_cancelled_for_student: sessionData.is_cancelled_for_student,
-          cancellation_reason: sessionData.cancellation_reason,
-        } as any)
-        .eq('id', studentLessonSessionId);
+      if (isTemp) {
+        // Создаем новую запись
+        const { error } = await supabase
+          .from('student_lesson_sessions')
+          .insert({
+            lesson_session_id: lessonSessionId,
+            student_id: studentId,
+            attendance_status: sessionData.attendance_status,
+            payment_status: sessionData.payment_status,
+            payment_amount: sessionData.payment_amount,
+            notes: sessionData.notes,
+            is_cancelled_for_student: sessionData.is_cancelled_for_student,
+            cancellation_reason: sessionData.cancellation_reason,
+          } as any);
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        // Обновляем существующую запись
+        const { error } = await supabase
+          .from('student_lesson_sessions')
+          .update({
+            attendance_status: sessionData.attendance_status,
+            payment_status: sessionData.payment_status,
+            payment_amount: sessionData.payment_amount,
+            notes: sessionData.notes,
+            is_cancelled_for_student: sessionData.is_cancelled_for_student,
+            cancellation_reason: sessionData.cancellation_reason,
+          } as any)
+          .eq('id', studentLessonSessionId);
+
+        if (error) throw error;
+      }
 
       toast({
         title: "Успешно",

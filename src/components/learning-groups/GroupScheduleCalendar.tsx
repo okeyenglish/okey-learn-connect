@@ -53,21 +53,41 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
         return;
       }
 
-      // Группируем по студентам
-      const grouped: Record<string, any[]> = {};
+      // Создаем Map для быстрого поиска персональных данных
+      const studentSessionsMap = new Map();
       data?.forEach(session => {
-        if (!grouped[session.student_id]) {
-          grouped[session.student_id] = [];
-        }
+        const key = `${session.student_id}_${session.lesson_session_id}`;
+        studentSessionsMap.set(key, session);
+      });
+
+      // Группируем по студентам, создавая записи для всех занятий группы
+      const grouped: Record<string, any[]> = {};
+      
+      groupStudents.forEach(groupStudent => {
+        const studentId = groupStudent.student_id;
+        grouped[studentId] = [];
         
-        // Добавляем информацию о дате занятия
-        const lessonSession = groupSessions.find(ls => ls.id === session.lesson_session_id);
-        if (lessonSession) {
-          grouped[session.student_id].push({
-            ...session,
-            lesson_date: lessonSession.lesson_date
+        // Для каждого занятия группы создаем запись для студента
+        groupSessions.forEach(lessonSession => {
+          const key = `${studentId}_${lessonSession.id}`;
+          const personalData = studentSessionsMap.get(key);
+          
+          // Если есть персональные данные - используем их, иначе создаем дефолтную запись
+          grouped[studentId].push({
+            id: personalData?.id || `temp_${key}`,
+            lesson_session_id: lessonSession.id,
+            student_id: studentId,
+            lesson_date: lessonSession.lesson_date,
+            attendance_status: personalData?.attendance_status || 'not_marked',
+            payment_status: personalData?.payment_status || 'not_paid',
+            payment_amount: personalData?.payment_amount || 0,
+            is_cancelled_for_student: personalData?.is_cancelled_for_student || false,
+            cancellation_reason: personalData?.cancellation_reason || null,
+            notes: personalData?.notes || null,
+            // Добавляем флаг что это временная запись (нужна для правильной обработки)
+            _isTemp: !personalData
           });
-        }
+        });
       });
 
       setStudentSessions(grouped);
