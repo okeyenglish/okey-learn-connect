@@ -318,12 +318,13 @@ export function IndividualLessonStatusModal({
           // Get all future sessions ordered by date
           const { data: futureSessions } = await supabase
             .from('individual_lesson_sessions')
-            .select('id, lesson_date, duration, paid_minutes, status')
+            .select('id, lesson_date, duration, paid_minutes, payment_id, status')
             .eq('individual_lesson_id', lessonId)
             .gt('lesson_date', lessonDate)
             .order('lesson_date', { ascending: true });
 
           let collectedMinutes = 0;
+          let foundPaymentId: string | null = null;
           const updatedSessions: string[] = [];
 
           if (futureSessions) {
@@ -336,6 +337,11 @@ export function IndividualLessonStatusModal({
               }
 
               const futurePaidMinutes = futureSession.paid_minutes || 0;
+              
+              // Запоминаем первый найденный payment_id
+              if (!foundPaymentId && futureSession.payment_id) {
+                foundPaymentId = futureSession.payment_id;
+              }
               
               if (futurePaidMinutes > 0) {
                 const minutesToTake = Math.min(futurePaidMinutes, neededMinutes - collectedMinutes);
@@ -355,21 +361,28 @@ export function IndividualLessonStatusModal({
             }
           }
 
-          // Update current session with collected minutes
+          // Update current session with collected minutes and payment
           if (collectedMinutes > 0) {
+            const updateData: any = {
+              paid_minutes: currentPaidMinutes + collectedMinutes,
+              status: 'scheduled',
+              updated_at: new Date().toISOString()
+            };
+            
+            // Привязываем payment_id, если нашли
+            if (foundPaymentId) {
+              updateData.payment_id = foundPaymentId;
+            }
+            
             await supabase
               .from('individual_lesson_sessions')
-              .update({ 
-                paid_minutes: currentPaidMinutes + collectedMinutes,
-                status: 'scheduled',
-                updated_at: new Date().toISOString() 
-              })
+              .update(updateData)
               .eq('individual_lesson_id', lessonId)
               .eq('lesson_date', lessonDate);
 
             toast({
-              title: 'Минуты возвращены',
-              description: `${collectedMinutes} минут возвращено с занятий: ${updatedSessions.join(', ')}`,
+              title: 'Оплата восстановлена',
+              description: `${collectedMinutes} минут и оплата возвращены с занятий: ${updatedSessions.join(', ')}`,
             });
             
             onStatusUpdated?.();
