@@ -6,7 +6,6 @@ import { IndividualLessonStatusModal } from './IndividualLessonStatusModal';
 import { MarkAttendanceModal } from './MarkAttendanceModal';
 import { AttendanceIndicator } from './AttendanceIndicator';
 import { supabase } from '@/integrations/supabase/client';
-import { AdditionalLessonsList } from './AdditionalLessonsList';
 import { ChevronDown, ChevronUp, History as HistoryIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -71,13 +70,11 @@ export function IndividualLessonSchedule({
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
   const [attendanceDate, setAttendanceDate] = useState<Date | null>(null);
   const [showAdditionalLessons, setShowAdditionalLessons] = useState(false);
-  const [additionalLessons, setAdditionalLessons] = useState<LessonSession[]>([]);
   const [lessonHistory, setLessonHistory] = useState<any[]>([]);
 
   useEffect(() => {
     if (lessonId) {
       loadLessonSessions();
-      loadAdditionalLessons();
       loadLessonHistory();
     }
   }, [lessonId, refreshTrigger]);
@@ -134,25 +131,6 @@ export function IndividualLessonSchedule({
     }
   };
 
-  const loadAdditionalLessons = async () => {
-    if (!lessonId) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('individual_lesson_sessions')
-        .select('id, lesson_date, status, notes')
-        .eq('individual_lesson_id', lessonId)
-        .eq('is_additional', true)
-        .order('lesson_date', { ascending: true });
-
-      if (error) throw error;
-
-      setAdditionalLessons(data || []);
-    } catch (error) {
-      console.error('Error loading additional lessons:', error);
-    }
-  };
-
   const loadLessonHistory = async () => {
     if (!lessonId) return;
     
@@ -181,13 +159,11 @@ export function IndividualLessonSchedule({
 
   const handleStatusUpdated = () => {
     loadLessonSessions();
-    loadAdditionalLessons();
     loadLessonHistory();
   };
 
   const handleAdditionalLessonAdded = () => {
     loadLessonSessions();
-    loadAdditionalLessons();
     loadLessonHistory();
   };
 
@@ -534,7 +510,7 @@ export function IndividualLessonSchedule({
           </div>
         </div>
 
-        {(additionalLessons.length > 0 || lessonHistory.length > 0) && (
+        {lessonHistory.length > 0 && (
           <div className="pt-2 border-t">
             <Button
               variant="ghost"
@@ -552,12 +528,9 @@ export function IndividualLessonSchedule({
                 <ChevronDown className="h-3 w-3" />
               )}
             </Button>
-            {showAdditionalLessons && (
-              <div className="space-y-3 mt-2">
-                {/* История изменений параметров урока */}
-                {lessonHistory.length > 0 && (
-                  <Card className="bg-muted/30">
-                    <CardContent className="p-3 space-y-2">
+            {showAdditionalLessons && lessonHistory.length > 0 && (
+              <Card className="bg-muted/30 mt-2">
+                <CardContent className="p-3 space-y-2">
                       <div className="text-xs font-medium text-muted-foreground">Изменения параметров</div>
                       {lessonHistory.map((record: any) => {
                         const changes = Array.isArray(record.changes) ? record.changes : [record.changes];
@@ -594,27 +567,8 @@ export function IndividualLessonSchedule({
                     </CardContent>
                   </Card>
                 )}
-                
-                {/* Дополнительные занятия */}
-                {additionalLessons.length > 0 && (
-                  <div>
-                    <div className="text-xs font-medium text-muted-foreground mb-2">
-                      Дополнительные занятия ({additionalLessons.length})
-                    </div>
-                    <AdditionalLessonsList
-                      lessons={additionalLessons}
-                      onDelete={handleAdditionalLessonAdded}
-                      onEdit={(lesson) => {
-                        setSelectedDate(new Date(lesson.lesson_date));
-                        setIsModalOpen(true);
-                      }}
-                    />
-                  </div>
-                )}
               </div>
             )}
-          </div>
-        )}
         </div>
       </TooltipProvider>
 

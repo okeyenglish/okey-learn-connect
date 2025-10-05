@@ -70,8 +70,8 @@ export function AddAdditionalLessonModal({
           individual_lesson_id: lessonId,
           lesson_date: lessonDate,
           status: 'scheduled',
-          notes: notes || (time ? `Дополнительное занятие, время: ${time}` : 'Дополнительное занятие'),
-          is_additional: true,
+          notes: notes || (time ? `Занятие, время: ${time}` : 'Занятие'),
+          is_additional: false,
           created_by: user.id,
         })
         .select('id, lesson_date, status, payment_id')
