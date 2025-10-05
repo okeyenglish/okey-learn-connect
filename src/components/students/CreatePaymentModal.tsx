@@ -31,7 +31,8 @@ interface CreatePaymentModalProps {
   onPaymentSuccess?: () => void;
 }
 
-const LESSON_PACKAGES = [1, 4, 8, 24, 80];
+const INDIVIDUAL_LESSON_PACKAGES = [1, 4, 8, 24, 80];
+const GROUP_LESSON_PACKAGES = [8, 24, 80];
 
 interface StudentLesson {
   id: string;
@@ -657,29 +658,40 @@ export function CreatePaymentModal({
                 {isLoadingGroupPrices && (
                   <div className="text-sm text-muted-foreground mb-2">Загрузка цен...</div>
                 )}
-                <div className="grid grid-cols-5 gap-1.5">
-                  {LESSON_PACKAGES.map(count => (
-                    <button
-                      key={count}
-                      type="button"
-                      onClick={() => {
-                        setSelectedPackage(count);
-                        setCustomLessonsCount('');
-                      }}
-                      className={cn(
-                        "p-2 rounded border-2 transition-all text-center",
-                        selectedPackage === count 
-                          ? "border-primary bg-primary/10" 
-                          : "border-muted hover:border-primary/50"
-                      )}
-                    >
-                      <div className="text-lg font-bold">{count}</div>
-                      <div className="text-[10px] text-muted-foreground leading-tight">
-                        {getPackagePrice(count).toLocaleString('ru-RU')} ₽
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                {(() => {
+                  const currentLesson = studentLessons.find(l => l.id === selectedLesson);
+                  const isGroupLesson = currentLesson?.type === 'group';
+                  const packages = isGroupLesson ? GROUP_LESSON_PACKAGES : INDIVIDUAL_LESSON_PACKAGES;
+                  
+                  return (
+                    <div className={cn(
+                      "grid gap-1.5",
+                      isGroupLesson ? "grid-cols-3" : "grid-cols-5"
+                    )}>
+                      {packages.map(count => (
+                        <button
+                          key={count}
+                          type="button"
+                          onClick={() => {
+                            setSelectedPackage(count);
+                            setCustomLessonsCount('');
+                          }}
+                          className={cn(
+                            "p-2 rounded border-2 transition-all text-center",
+                            selectedPackage === count 
+                              ? "border-primary bg-primary/10" 
+                              : "border-muted hover:border-primary/50"
+                          )}
+                        >
+                          <div className="text-lg font-bold">{count}</div>
+                          <div className="text-[10px] text-muted-foreground leading-tight">
+                            {getPackagePrice(count).toLocaleString('ru-RU')} ₽
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
 
               <div>
