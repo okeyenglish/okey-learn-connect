@@ -389,7 +389,17 @@ export const FamilyCard = ({
             </div>
           ) : (
             <div className="space-y-2">
-              {familyData.students.map((student) => (
+              {familyData.students
+                .slice()
+                .sort((a, b) => {
+                  const aEffectiveStatus = getEffectiveStatus(a);
+                  const bEffectiveStatus = getEffectiveStatus(b);
+                  // Active students first
+                  if (aEffectiveStatus === 'active' && bEffectiveStatus !== 'active') return -1;
+                  if (aEffectiveStatus !== 'active' && bEffectiveStatus === 'active') return 1;
+                  return 0;
+                })
+                .map((student) => (
                   <Card 
                     key={student.id} 
                     className="hover:bg-muted/20 transition-colors cursor-pointer"
