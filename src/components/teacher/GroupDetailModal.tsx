@@ -26,12 +26,22 @@ export const GroupDetailModal = ({ open, onOpenChange, groupId }: GroupDetailMod
       
       const { data, error } = await supabase
         .from('learning_groups')
-        .select('*')
+        .select(`
+          *,
+          courses:course_id (
+            title
+          )
+        `)
         .eq('id', groupId)
         .single();
       
       if (error) throw error;
-      return data;
+      
+      // Добавляем course_name из связанной таблицы
+      return {
+        ...data,
+        course_name: data.courses?.title || null
+      };
     },
     enabled: !!groupId && open,
   });

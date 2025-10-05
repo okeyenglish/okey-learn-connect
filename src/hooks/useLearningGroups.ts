@@ -55,7 +55,12 @@ export const useLearningGroups = (filters?: GroupFilters) => {
     queryFn: async () => {
       let query = supabase
         .from('learning_groups')
-        .select('*')
+        .select(`
+          *,
+          courses:course_id (
+            title
+          )
+        `)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
@@ -99,7 +104,14 @@ export const useLearningGroups = (filters?: GroupFilters) => {
       const { data, error } = await query;
       
       if (error) throw error;
-      return data as LearningGroup[];
+      
+      // Преобразуем данные, добавляя course_name из связанной таблицы
+      const groupsWithCourseNames = (data || []).map(group => ({
+        ...group,
+        course_name: group.courses?.title || null
+      }));
+      
+      return groupsWithCourseNames as LearningGroup[];
     },
   });
 
