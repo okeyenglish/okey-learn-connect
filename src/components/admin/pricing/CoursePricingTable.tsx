@@ -48,6 +48,8 @@ export function CoursePricingTable() {
   const [selectedPrices, setSelectedPrices] = useState<Set<string>>(new Set());
   const [isEditing, setIsEditing] = useState(false);
   const [editedPrices, setEditedPrices] = useState<Map<string, { pricePer40Min: number; pricePerAcademicHour: number }>>(new Map());
+  const [bulkPrice40Min, setBulkPrice40Min] = useState<string>("");
+  const [bulkPriceAcademicHour, setBulkPriceAcademicHour] = useState<string>("");
 
   // Преобразуем объект в массив для отображения
   const prices: CoursePrice[] = Object.entries(COURSE_PRICES).map(([name, data], index) => {
@@ -91,6 +93,37 @@ export function CoursePricingTable() {
     setEditedPrices(new Map(editedPrices.set(id, { ...current, [field]: numValue })));
   };
 
+  const applyBulkPrices = () => {
+    const price40 = parseFloat(bulkPrice40Min);
+    const priceAcad = parseFloat(bulkPriceAcademicHour);
+    
+    if (!price40 && !priceAcad) {
+      toast({
+        title: "Введите цены",
+        description: "Введите хотя бы одну цену для применения",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const newEdited = new Map(editedPrices);
+    selectedPrices.forEach(id => {
+      const current = newEdited.get(id) || { pricePer40Min: 0, pricePerAcademicHour: 0 };
+      newEdited.set(id, {
+        pricePer40Min: price40 || current.pricePer40Min,
+        pricePerAcademicHour: priceAcad || current.pricePerAcademicHour,
+      });
+    });
+    setEditedPrices(newEdited);
+    setBulkPrice40Min("");
+    setBulkPriceAcademicHour("");
+    
+    toast({
+      title: "Цены применены",
+      description: `Цены обновлены для ${selectedPrices.size} курсов`,
+    });
+  };
+
   const startEditing = () => {
     if (selectedPrices.size === 0) {
       toast({
@@ -128,26 +161,59 @@ export function CoursePricingTable() {
   const cancelEditing = () => {
     setIsEditing(false);
     setEditedPrices(new Map());
+    setBulkPrice40Min("");
+    setBulkPriceAcademicHour("");
   };
 
   return (
     <>
-      <div className="mb-4 flex gap-2">
-        {!isEditing ? (
-          <Button onClick={startEditing} disabled={selectedPrices.size === 0}>
-            <Pencil className="mr-2 h-4 w-4" />
-            Редактировать выбранные ({selectedPrices.size})
-          </Button>
-        ) : (
-          <>
-            <Button onClick={saveChanges} variant="default">
-              <Save className="mr-2 h-4 w-4" />
-              Сохранить изменения
+      <div className="mb-4 space-y-4">
+        <div className="flex gap-2">
+          {!isEditing ? (
+            <Button onClick={startEditing} disabled={selectedPrices.size === 0}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Редактировать выбранные ({selectedPrices.size})
             </Button>
-            <Button onClick={cancelEditing} variant="outline">
-              Отменить
-            </Button>
-          </>
+          ) : (
+            <>
+              <Button onClick={saveChanges} variant="default">
+                <Save className="mr-2 h-4 w-4" />
+                Сохранить изменения
+              </Button>
+              <Button onClick={cancelEditing} variant="outline">
+                Отменить
+              </Button>
+            </>
+          )}
+        </div>
+
+        {isEditing && selectedPrices.size > 0 && (
+          <div className="rounded-lg border bg-muted/50 p-4">
+            <h3 className="mb-3 text-sm font-semibold">Применить для всех выбранных курсов ({selectedPrices.size})</h3>
+            <div className="flex items-end gap-3">
+              <div className="flex-1">
+                <label className="mb-1.5 block text-xs font-medium">Стоимость за 40 минут (₽)</label>
+                <Input
+                  type="number"
+                  placeholder="Введите цену"
+                  value={bulkPrice40Min}
+                  onChange={(e) => setBulkPrice40Min(e.target.value)}
+                />
+              </div>
+              <div className="flex-1">
+                <label className="mb-1.5 block text-xs font-medium">1 ак/ч (₽)</label>
+                <Input
+                  type="number"
+                  placeholder="Введите цену"
+                  value={bulkPriceAcademicHour}
+                  onChange={(e) => setBulkPriceAcademicHour(e.target.value)}
+                />
+              </div>
+              <Button onClick={applyBulkPrices} variant="secondary">
+                Применить ко всем
+              </Button>
+            </div>
+          </div>
         )}
       </div>
 
