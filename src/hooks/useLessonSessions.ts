@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 
 export interface LessonSession {
   id: string;
@@ -41,6 +42,26 @@ export interface SessionFilters {
 
 // Hook для получения занятий с фильтрами
 export const useLessonSessions = (filters: SessionFilters = {}) => {
+  const queryClient = useQueryClient();
+
+  // Realtime подписка на любые изменения в таблице lesson_sessions
+  useEffect(() => {
+    const channel = supabase
+      .channel('lesson_sessions_realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'lesson_sessions' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['lesson_sessions'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['lesson_sessions', filters],
     queryFn: async () => {
