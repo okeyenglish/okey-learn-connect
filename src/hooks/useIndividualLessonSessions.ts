@@ -70,11 +70,13 @@ const calculateLessonSessions = async (
     0
   );
 
-  // Сначала вычитаем минуты, которые уже указаны у сессий (частичная/полная оплата)
+  // Сначала вычитаем минуты, привязанные к существующим платежам
   for (const session of sessions) {
-    const duration = session.duration || defaultDuration;
-    const basePaid = Math.max(0, Math.min(duration, session.paid_minutes || 0));
-    remainingPaidMinutes -= basePaid;
+    if (session.payment_id) {
+      const duration = session.duration || defaultDuration;
+      const basePaid = Math.max(0, Math.min(duration, session.paid_minutes || 0));
+      remainingPaidMinutes -= basePaid;
+    }
   }
   if (remainingPaidMinutes < 0) remainingPaidMinutes = 0;
 
@@ -83,8 +85,10 @@ const calculateLessonSessions = async (
   
 for (const session of sessions) {
     const duration = session.duration || defaultDuration;
-    // Базово считаем уже оплаченные минуты из БД (частично/полностью)
-    const basePaid = Math.max(0, Math.min(duration, session.paid_minutes || 0));
+    // Базово считаем оплаченные минуты только если есть связанный платеж
+    const basePaid = session.payment_id
+      ? Math.max(0, Math.min(duration, session.paid_minutes || 0))
+      : 0;
     let paid_minutes = basePaid;
 
     // Автораспределение: покрываем ПЕРВЫЕ неоплаченные занятия по порядку
