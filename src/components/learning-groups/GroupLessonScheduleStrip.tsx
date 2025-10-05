@@ -44,29 +44,36 @@ export function GroupLessonScheduleStrip({
     today.setHours(0, 0, 0, 0);
     const sessionDate = new Date(session.lesson_date);
     sessionDate.setHours(0, 0, 0, 0);
+    const isPast = sessionDate < today;
 
-    // Бесплатное занятие - оранжевый
-    if (session.payment_amount === 0 || session.payment_amount === '0' || session.payment_amount === null) {
+    // Отменено — чёрный
+    if (session.status === 'cancelled') {
+      return 'bg-black text-white border-black';
+    }
+
+    // Определяем оплату/бесплатность
+    const amount = session.payment_amount;
+    const isFree = amount === 0 || amount === '0' || amount === null;
+    const isPaid = amount !== null && Number(amount) > 0;
+
+    // Бесплатное занятие — оранжевый (всегда)
+    if (isFree) {
       return 'bg-orange-500 text-white border-orange-500';
     }
 
-    switch (session.status) {
-      case 'completed':
-        // Проведенное занятие - серый
+    // Оплаченные: будущие — зелёный, прошедшие/проведённые — серый
+    if (isPaid) {
+      if (session.status === 'completed' || isPast) {
         return 'bg-gray-500 text-white border-gray-500';
-      case 'cancelled':
-        return 'bg-black text-white border-black';
-      case 'rescheduled':
-        return 'bg-orange-500 text-white border-orange-500';
-      case 'scheduled':
-        // Если дата прошла, но статус еще scheduled - желтый
-        if (sessionDate < today) {
-          return 'bg-yellow-500 text-white border-yellow-500';
-        }
-        return 'bg-blue-500 text-white border-blue-500';
-      default:
-        return 'bg-gray-300 text-gray-700 border-gray-300';
+      }
+      return 'bg-green-500 text-white border-green-500';
     }
+
+    // Не оплачено: прошедшие — красный (долг), будущие — белый
+    if (isPast) {
+      return 'bg-red-500 text-white border-red-500';
+    }
+    return 'bg-white text-gray-900 border-gray-300';
   };
 
   const getStatusLabel = (status: string) => {
