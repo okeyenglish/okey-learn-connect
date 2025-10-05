@@ -700,31 +700,42 @@ export function IndividualLessonStatusModal({
         const endLimit = lessonInfo?.period_end ? new Date(lessonInfo.period_end) : new Date(lastCancelledDate + 'T00:00:00');
         const startObj = new Date(new Date(lastCancelledDate + 'T00:00:00').getTime() + 24 * 60 * 60 * 1000);
 
-        // Проходим по датам строго по расписанию и распределяем минуты
-        const allDates = eachDayOfInterval({ start: startObj, end: endLimit });
-        for (const d of allDates) {
-          if (remainingMinutes <= 0) break;
-          if (scheduledDaysNums.length > 0 && !scheduledDaysNums.includes(d.getDay())) continue;
+        // Даты по расписанию
+        const scheduleDatesStrs = scheduledDaysNums.length > 0
+          ? eachDayOfInterval({ start: startObj, end: endLimit })
+              .filter(d => scheduledDaysNums.includes(d.getDay()))
+              .map(d => format(d, 'yyyy-MM-dd'))
+          : [] as string[];
 
-          const dateStr = format(d, 'yyyy-MM-dd');
+        // Кандидаты = все будущие сессии + даты по расписанию (объединение)
+        const existingDatesStrs = Array.from(sessionsByDate.keys());
+        const candidateDatesStrs = Array.from(new Set([...existingDatesStrs, ...scheduleDatesStrs]))
+          .sort();
+
+        for (const dateStr of candidateDatesStrs) {
+          if (remainingMinutes <= 0) break;
+
           let session = sessionsByDate.get(dateStr);
 
-          // Если сессии нет, создаем обычную запланированную
+          // Если сессии нет, создаем только если день входит в расписание
           if (!session) {
-            const { data: created } = await supabase
-              .from('individual_lesson_sessions')
-              .insert({
-                individual_lesson_id: lessonId,
-                lesson_date: dateStr,
-                status: 'scheduled',
-                duration: lessonInfo?.duration || 60,
-                created_by: user.id,
-              })
-              .select('id, duration, paid_minutes, status')
-              .single();
-            if (created) {
-              session = created as any;
-              sessionsByDate.set(dateStr, session as any);
+            const d = new Date(dateStr + 'T00:00:00');
+            if (!scheduledDaysNums.length || scheduledDaysNums.includes(d.getDay())) {
+              const { data: created } = await supabase
+                .from('individual_lesson_sessions')
+                .insert({
+                  individual_lesson_id: lessonId,
+                  lesson_date: dateStr,
+                  status: 'scheduled',
+                  duration: lessonInfo?.duration || 60,
+                  created_by: user.id,
+                })
+                .select('id, duration, paid_minutes, status')
+                .single();
+              if (created) {
+                session = created as any;
+                sessionsByDate.set(dateStr, session as any);
+              }
             }
           }
 
