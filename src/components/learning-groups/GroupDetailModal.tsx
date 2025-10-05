@@ -15,10 +15,12 @@ import { AddScheduleModal } from "./AddScheduleModal";
 import { AddHomeworkModal } from "./AddHomeworkModal";
 import { EditGroupDetailsModal } from "./EditGroupDetailsModal";
 import { GroupScheduleCalendar } from "./GroupScheduleCalendar";
+import { StudentPaymentInfo } from "./StudentPaymentInfo";
 import { useToast } from "@/hooks/use-toast";
 import { useGroupStudents } from "@/hooks/useGroupStudents";
 import { useAvailableStudents } from "@/hooks/useAvailableStudents";
 import { useStudents } from "@/hooks/useStudents";
+import { useStudentGroupPaymentStats } from "@/hooks/useStudentGroupPaymentStats";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface GroupDetailModalProps {
@@ -303,38 +305,48 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                     ) : (
                       <div className="divide-y divide-gray-200">
                         {groupStudents.map((gs) => (
-                          <div key={gs.id} className="p-4 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-10 w-10">
-                                <AvatarFallback>
-                                  {gs.student?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'ST'}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium text-gray-900">
-                                  {gs.student?.name || `Студент ${gs.student_id}`}
-                                </p>
-                                <p className="text-sm text-gray-500">
-                                  Записан: {new Date(gs.enrollment_date).toLocaleDateString('ru-RU')}
-                                  {gs.student?.phone && ` • ${gs.student.phone}`}
-                                </p>
+                          <div key={gs.id} className="p-6">
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-12 w-12">
+                                  <AvatarFallback className="text-lg">
+                                    {gs.student?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'ST'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="font-semibold text-lg text-gray-900">
+                                    {gs.student?.name || `Студент ${gs.student_id}`}
+                                  </p>
+                                  <p className="text-sm text-gray-500">
+                                    Записан: {new Date(gs.enrollment_date).toLocaleDateString('ru-RU')}
+                                    {gs.student?.phone && ` • ${gs.student.phone}`}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge 
+                                  variant={gs.status === 'active' ? 'default' : 'secondary'}
+                                  className={gs.status === 'active' ? 'bg-green-100 text-green-800' : ''}
+                                >
+                                  {gs.status === 'active' ? 'Активен' : 'Неактивен'}
+                                </Badge>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-red-600 hover:bg-red-50"
+                                  onClick={() => handleRemoveStudentFromGroup(gs.student_id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Badge 
-                                variant={gs.status === 'active' ? 'default' : 'secondary'}
-                                className={gs.status === 'active' ? 'bg-green-100 text-green-800' : ''}
-                              >
-                                {gs.status === 'active' ? 'Активен' : 'Неактивен'}
-                              </Badge>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-red-600 hover:bg-red-50"
-                                onClick={() => handleRemoveStudentFromGroup(gs.student_id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                            
+                            {/* Payment Information */}
+                            <div className="ml-15 pl-3 border-l-2 border-gray-200">
+                              <StudentPaymentInfo 
+                                studentId={gs.student_id} 
+                                groupId={group.id} 
+                              />
                             </div>
                           </div>
                         ))}
