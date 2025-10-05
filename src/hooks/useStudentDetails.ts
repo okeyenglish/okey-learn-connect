@@ -254,19 +254,29 @@ export const useStudentDetails = (studentId: string) => {
               .eq('group_id', groupId)
               .order('lesson_date', { ascending: true });
 
-            sessions = (sessionsData || []).map((s: any) => ({
-              id: s.id,
-              lessonDate: s.lesson_date,
-              status: s.status,
-              lessonNumber: s.lesson_number,
-              duration: s.duration || calculateDuration(s.start_time, s.end_time),
-              paid_minutes: s.paid_minutes,
-              payment_id: s.payment_id,
-              payment_date: s.payment_date,
-              payment_amount: s.payment_amount,
-              lessons_count: s.lessons_count,
-              lesson_time: s.start_time && s.end_time ? `${s.start_time}-${s.end_time}` : undefined,
-            }));
+            const enrollDate = gs.enrollment_date ? new Date(gs.enrollment_date) : null;
+            if (enrollDate) enrollDate.setHours(0, 0, 0, 0);
+
+            sessions = (sessionsData || []).map((s: any) => {
+              const sessionDate = new Date(s.lesson_date);
+              sessionDate.setHours(0, 0, 0, 0);
+              const computedStatus = (enrollDate && sessionDate < enrollDate)
+                ? 'cancelled' // до даты зачисления показываем как отмененные для этого ученика
+                : (s.status || 'scheduled');
+              return {
+                id: s.id,
+                lessonDate: s.lesson_date,
+                status: computedStatus,
+                lessonNumber: s.lesson_number,
+                duration: s.duration || calculateDuration(s.start_time, s.end_time),
+                paid_minutes: s.paid_minutes,
+                payment_id: s.payment_id,
+                payment_date: s.payment_date,
+                payment_amount: s.payment_amount,
+                lessons_count: s.lessons_count,
+                lesson_time: s.start_time && s.end_time ? `${s.start_time}-${s.end_time}` : undefined,
+              };
+            });
           }
 
           const category = gs.learning_groups?.category || 'group';
