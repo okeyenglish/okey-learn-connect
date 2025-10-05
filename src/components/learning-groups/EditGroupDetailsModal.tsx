@@ -145,8 +145,12 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
       });
 
       // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['learning-groups'] });
-      queryClient.invalidateQueries({ queryKey: ['group-details', group.id] });
+      await queryClient.invalidateQueries({ queryKey: ['learning-groups'] });
+      await queryClient.invalidateQueries({ queryKey: ['learning_group'] });
+      await queryClient.invalidateQueries({ queryKey: ['group-details'] });
+      
+      // Refetch the data
+      await queryClient.refetchQueries({ queryKey: ['learning-groups'] });
       
       onSaveDetails(formData);
       onOpenChange(false);

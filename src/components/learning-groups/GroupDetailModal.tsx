@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useGroupStudents } from "@/hooks/useGroupStudents";
 import { useAvailableStudents } from "@/hooks/useAvailableStudents";
 import { useStudents } from "@/hooks/useStudents";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface GroupDetailModalProps {
   group: LearningGroup | null;
@@ -38,6 +39,7 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   // Получаем студентов группы
   const { 
@@ -174,9 +176,17 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
     });
   };
 
-  const handleSaveDetails = (details: any) => {
+  const handleSaveDetails = async (details: any) => {
     // Here you would typically make an API call to update the group
     console.log("Saving group details:", details);
+    
+    // Force re-fetch of the current group data
+    if (group?.id) {
+      await queryClient.invalidateQueries({ queryKey: ['learning-groups'] });
+      await queryClient.invalidateQueries({ queryKey: ['learning_group'] });
+      await queryClient.refetchQueries({ queryKey: ['learning-groups'] });
+    }
+    
     toast({
       title: "Успешно",
       description: "Детали группы обновлены"
@@ -601,7 +611,7 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                           </div>
                           <div className="flex justify-between">
                             <span>Категория:</span>
-                            <span className="font-medium">{getCategoryText(group.category)}</span>
+                            <span className="font-medium">{group.category ? getCategoryText(group.category) : 'Не указана'}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Уровень:</span>
