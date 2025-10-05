@@ -138,13 +138,12 @@ export const usePayments = (filters?: any) => {
 
         console.log('All sessions:', allSessions);
 
-        // ШАГ 1: Сначала заполняем частично оплаченные занятия (только обычные, не дополнительные)
+        // ШАГ 1: Сначала заполняем частично оплаченные занятия
         const partiallyPaidSessions = (allSessions || []).filter(s => {
           const sessionDuration = s.duration || lessonDuration;
           const paidMinutes = s.paid_minutes || 0;
           return paidMinutes > 0 && paidMinutes < sessionDuration && 
-                 (!s.status || ['scheduled', 'completed', 'attended'].includes(s.status)) &&
-                 !s.is_additional; // Исключаем дополнительные занятия
+                 (!s.status || ['scheduled', 'completed', 'attended'].includes(s.status));
         });
 
         console.log('Partially paid sessions found:', partiallyPaidSessions.length);
@@ -183,8 +182,7 @@ export const usePayments = (filters?: any) => {
           const unpaidSessions = (allSessions || []).filter(s => {
             const paidMinutes = s.paid_minutes || 0;
             return paidMinutes === 0 && 
-                   (!s.status || ['scheduled', 'completed', 'attended'].includes(s.status)) &&
-                   !s.is_additional; // Исключаем дополнительные занятия
+                   (!s.status || ['scheduled', 'completed', 'attended'].includes(s.status));
           });
 
           console.log('Unpaid sessions found:', unpaidSessions.length);
