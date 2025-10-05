@@ -190,6 +190,45 @@ export const usePayments = (filters?: any) => {
         }
 
         console.log('Payment distribution completed. Remaining:', remainingMinutesToDistribute);
+      } else if (paymentData.group_id) {
+        // Обработка оплаты для групповых занятий
+        console.log('Starting payment distribution for group lesson...');
+        console.log('Group ID:', paymentData.group_id);
+        console.log('Lessons count:', paymentData.lessons_count);
+
+        // Загружаем неоплаченные сессии группы
+        const { data: groupSessions, error: sessionsError } = await supabase
+          .from('lesson_sessions')
+          .select('id, lesson_date, status')
+          .eq('group_id', paymentData.group_id)
+          .is('payment_id', null)
+          .in('status', ['scheduled', 'completed'])
+          .order('lesson_date', { ascending: true })
+          .limit(paymentData.lessons_count || 8);
+
+        if (sessionsError) {
+          console.error('Error fetching group sessions:', sessionsError);
+        } else if (groupSessions && groupSessions.length > 0) {
+          console.log(`Found ${groupSessions.length} unpaid group sessions`);
+
+          // Привязываем платеж к сессиям
+          const sessionIds = groupSessions.map(s => s.id);
+          const { error: updateError } = await supabase
+            .from('lesson_sessions')
+            .update({ 
+              payment_id: payment.id,
+              updated_at: new Date().toISOString()
+            })
+            .in('id', sessionIds);
+
+          if (updateError) {
+            console.error('Error updating group sessions:', updateError);
+          } else {
+            console.log(`Successfully linked payment to ${sessionIds.length} group sessions`);
+          }
+        } else {
+          console.log('No unpaid group sessions found');
+        }
       }
 
       toast({
