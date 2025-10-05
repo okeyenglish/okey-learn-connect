@@ -142,6 +142,13 @@ export function EnhancedStudentCard({
   const { data: history, isLoading: historyLoading } = useStudentHistory(student.id);
   const updateIndividualLesson = useUpdateIndividualLesson();
 
+  // Обновляем данные при открытии модального окна
+  useEffect(() => {
+    if (open) {
+      refetch();
+    }
+  }, [open, refetch]);
+
   // Realtime: обновляем карточку студента при изменении его платежей
   useEffect(() => {
     const channel = supabase

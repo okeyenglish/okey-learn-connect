@@ -257,12 +257,31 @@ export const useStudentDetails = (studentId: string) => {
             const enrollDate = gs.enrollment_date ? new Date(gs.enrollment_date) : null;
             if (enrollDate) enrollDate.setHours(0, 0, 0, 0);
 
+            console.log('Group enrollment check:', {
+              groupId: groupId,
+              studentId: studentId,
+              enrollmentDate: gs.enrollment_date,
+              enrollDate: enrollDate?.toISOString(),
+            });
+
             sessions = (sessionsData || []).map((s: any) => {
               const sessionDate = new Date(s.lesson_date);
               sessionDate.setHours(0, 0, 0, 0);
-              const computedStatus = (enrollDate && sessionDate < enrollDate)
+              const beforeEnrollment = enrollDate && sessionDate < enrollDate;
+              const computedStatus = beforeEnrollment
                 ? 'cancelled' // до даты зачисления показываем как отмененные для этого ученика
                 : (s.status || 'scheduled');
+              
+              if (beforeEnrollment) {
+                console.log('Session before enrollment:', {
+                  lessonDate: s.lesson_date,
+                  sessionDate: sessionDate.toISOString(),
+                  enrollDate: enrollDate?.toISOString(),
+                  originalStatus: s.status,
+                  newStatus: computedStatus
+                });
+              }
+              
               return {
                 id: s.id,
                 lessonDate: s.lesson_date,
