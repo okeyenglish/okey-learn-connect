@@ -65,6 +65,7 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
       });
 
       // Получаем платежи для всех студентов группы
+      // IMPORTANT: lessons_count в таблице payments = академические часы (40 мин каждый)
       const { data: payments } = await supabase
         .from('payments')
         .select('student_id, lessons_count, created_at')
@@ -72,11 +73,30 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
         .eq('group_id', groupId)
         .order('created_at', { ascending: true });
 
+      // Получаем информацию о длительности занятий группы
+      const { data: groupInfo } = await supabase
+        .from('learning_groups')
+        .select('subject')
+        .eq('id', groupId)
+        .single();
+      
+      const { data: groupPricing } = await supabase
+        .from('group_course_prices')
+        .select('duration_minutes')
+        .eq('course_name', groupInfo?.subject || '')
+        .maybeSingle();
+      
+      const lessonDuration = groupPricing?.duration_minutes || 80;
+      const academicHoursPerLesson = lessonDuration / 40; // 80 мин = 2 а.ч., 60 мин = 1.5 а.ч.
+
       // Создаем Map с количеством оплаченных занятий для каждого студента
+      // Конвертируем академические часы в количество занятий
       const paidLessonsMap = new Map<string, number>();
       payments?.forEach(payment => {
         const current = paidLessonsMap.get(payment.student_id) || 0;
-        paidLessonsMap.set(payment.student_id, current + (payment.lessons_count || 0));
+        const academicHours = payment.lessons_count || 0;
+        const lessonsFromThisPayment = academicHours / academicHoursPerLesson;
+        paidLessonsMap.set(payment.student_id, current + lessonsFromThisPayment);
       });
 
       // Группируем по студентам, создавая записи для всех занятий группы
