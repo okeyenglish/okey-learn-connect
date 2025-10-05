@@ -34,6 +34,7 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
     classroom: "",
     notes: ""
   });
+  const [selectedWeekdays, setSelectedWeekdays] = useState<string[]>([]);
   const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
   const [currentGroup, setCurrentGroup] = useState<any>(null);
   
@@ -120,17 +121,39 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
       classroom: "",
       notes: ""
     });
+    setSelectedWeekdays([]);
     setConflicts([]);
     setCurrentGroup(null);
   };
 
-  const generateDateRange = (startDate: string, endDate: string): string[] => {
+  const generateDateRange = (startDate: string, endDate: string, weekdays?: string[]): string[] => {
     const dates: string[] = [];
     const start = new Date(startDate);
     const end = new Date(endDate);
     
+    // Маппинг дней недели
+    const weekdayMap: Record<string, number> = {
+      'monday': 1,
+      'tuesday': 2,
+      'wednesday': 3,
+      'thursday': 4,
+      'friday': 5,
+      'saturday': 6,
+      'sunday': 0
+    };
+    
     for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
-      dates.push(date.toISOString().split('T')[0]);
+      // Если указаны дни недели, фильтруем по ним
+      if (weekdays && weekdays.length > 0) {
+        const dayOfWeek = date.getDay();
+        const isSelectedDay = weekdays.some(day => weekdayMap[day] === dayOfWeek);
+        if (isSelectedDay) {
+          dates.push(date.toISOString().split('T')[0]);
+        }
+      } else {
+        // Если дни не указаны, добавляем все дни
+        dates.push(date.toISOString().split('T')[0]);
+      }
     }
     
     return dates;
@@ -169,7 +192,7 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
     try {
       const endTime = calculateEndTime(formData.start_time, parseInt(formData.duration));
       const datesToCreate = formData.end_date 
-        ? generateDateRange(formData.start_date, formData.end_date)
+        ? generateDateRange(formData.start_date, formData.end_date, selectedWeekdays.length > 0 ? selectedWeekdays : undefined)
         : [formData.start_date];
 
       let createdCount = 0;
@@ -274,10 +297,50 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
                 min={formData.start_date}
               />
               <p className="text-xs text-muted-foreground">
-                Если указана, будут созданы занятия на каждый день в диапазоне
+                Для создания занятий в периоде
               </p>
             </div>
           </div>
+
+          {/* Дни недели - показываем только если указана дата окончания */}
+          {formData.end_date && (
+            <div className="space-y-2">
+              <Label>Дни недели</Label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { value: 'monday', label: 'Пн' },
+                  { value: 'tuesday', label: 'Вт' },
+                  { value: 'wednesday', label: 'Ср' },
+                  { value: 'thursday', label: 'Чт' },
+                  { value: 'friday', label: 'Пт' },
+                  { value: 'saturday', label: 'Сб' },
+                  { value: 'sunday', label: 'Вс' }
+                ].map(day => (
+                  <Button
+                    key={day.value}
+                    type="button"
+                    variant={selectedWeekdays.includes(day.value) ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setSelectedWeekdays(prev => 
+                        prev.includes(day.value) 
+                          ? prev.filter(d => d !== day.value)
+                          : [...prev, day.value]
+                      );
+                    }}
+                  >
+                    {day.label}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {selectedWeekdays.length > 0 
+                  ? 'Занятия будут созданы только в выбранные дни недели'
+                  : 'Если не выбрано, занятия будут созданы на каждый день периода'
+                }
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
