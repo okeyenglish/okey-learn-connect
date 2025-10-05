@@ -50,7 +50,7 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
     zoom_link: group?.zoom_link || "",
     course_id: group?.course_id || "",
     total_lessons: group?.total_lessons || 0,
-    course_start_date: group?.course_start_date || ""
+    course_start_date: group?.course_start_date ? new Date(group.course_start_date as any).toISOString().slice(0,10) : ""
   });
 
   // Загружаем список курсов
@@ -70,25 +70,41 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
   // Загружаем список преподавателей
   const { teachers } = useTeachers({ branch: formData.branch });
 
+  // Загружаем актуальные данные группы при открытии модалки
+  const { data: latestGroup } = useQuery({
+    queryKey: ['learning_group_details', group?.id],
+    enabled: open && !!group?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('learning_groups')
+        .select('id, name, branch, responsible_teacher, subject, category, level, group_type, capacity, status, zoom_link, course_id, total_lessons, course_start_date')
+        .eq('id', group!.id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
+
   useEffect(() => {
-    if (group) {
+    const g: any = latestGroup || group;
+    if (g) {
       setFormData({
-        name: group.name,
-        branch: group.branch,
-        responsible_teacher: group.responsible_teacher || "",
-        subject: group.subject,
-        category: group.category,
-        level: group.level,
-        group_type: group.group_type,
-        capacity: group.capacity,
-        status: group.status || "active",
-        zoom_link: group.zoom_link || "",
-        course_id: group.course_id || "",
-        total_lessons: group.total_lessons || 0,
-        course_start_date: group.course_start_date || ""
+        name: g.name || "",
+        branch: g.branch || "",
+        responsible_teacher: g.responsible_teacher || "",
+        subject: g.subject || "",
+        category: g.category || "all",
+        level: g.level || "",
+        group_type: g.group_type || "general",
+        capacity: typeof g.capacity === 'number' ? g.capacity : parseInt(g.capacity) || 0,
+        status: g.status || "active",
+        zoom_link: g.zoom_link || "",
+        course_id: g.course_id || "",
+        total_lessons: typeof g.total_lessons === 'number' ? g.total_lessons : parseInt(g.total_lessons) || 0,
+        course_start_date: g.course_start_date ? new Date(g.course_start_date as any).toISOString().slice(0,10) : "",
       });
     }
-  }, [group]);
+  }, [latestGroup, group, open]);
 
   const branches = [
     "Котельники", "Люберцы 1", "Люберцы 2", "Мытищи", 
