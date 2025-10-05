@@ -99,6 +99,31 @@ export function CreatePaymentModal({
           `)
           .eq('group_students.student_id', studentId)
           .eq('group_students.status', 'active');
+
+        // Fallback: если по какой-то причине join от learning_groups ничего не вернул,
+        // пробуем получить через group_students с вложенной связью
+        let finalGroups: any[] | null = groupsData || null;
+        if (!finalGroups || finalGroups.length === 0) {
+          const { data: gsFallback } = await supabase
+            .from('group_students')
+            .select(`
+              status,
+              learning_groups (
+                id,
+                name,
+                subject,
+                level,
+                teacher_name,
+                branch,
+                academic_hours_per_day
+              )
+            `)
+            .eq('student_id', studentId)
+            .eq('status', 'active');
+          finalGroups = (gsFallback || [])
+            .map((r: any) => r.learning_groups)
+            .filter(Boolean);
+        }
         
         // Загружаем индивидуальные занятия
         const { data: individualData, error: individualError } = await supabase
@@ -150,8 +175,8 @@ export function CreatePaymentModal({
         };
         
         // Добавляем групповые занятия
-        if (groupsData) {
-          groupsData.forEach((group: any) => {
+        if (finalGroups) {
+          finalGroups.forEach((group: any) => {
             const academicHoursPerDay = group.academic_hours_per_day || 1;
             const pricePerLesson = getCoursePrice(group.name, academicHoursPerDay);
             
@@ -194,6 +219,8 @@ export function CreatePaymentModal({
           });
         }
         
+        console.log('Loaded groups for payment modal:', Array.isArray(finalGroups) ? finalGroups.length : 0, finalGroups);
+        console.log('Loaded individual lessons:', Array.isArray(individualData) ? individualData.length : 0);
         setStudentLessons(lessons);
       } catch (error) {
         console.error('Error fetching student lessons:', error);
