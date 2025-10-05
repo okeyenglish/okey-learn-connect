@@ -973,7 +973,7 @@ export function EnhancedStudentCard({
                           {studentDetails.groups.filter((g) => g.status === 'active').map((group) => (
                             <div 
                               key={group.id} 
-                              className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-default relative"
+                              className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-default relative min-w-0 overflow-hidden"
                             >
                               {/* Заголовок с названием группы */}
                               <div className="flex items-start justify-between mb-2">
@@ -1062,13 +1062,15 @@ export function EnhancedStudentCard({
                               </div>
 
                               {/* Расписание занятий */}
-                              <div className="mt-3 pt-3 border-t">
+                              <div className="mt-3 pt-3 border-t max-w-full overflow-x-auto">
                                 <p className="text-muted-foreground text-xs mb-2">Расписание занятий</p>
-                                <LessonScheduleStrip 
-                                  sessions={group.sessions} 
-                                  groupId={group.id} 
-                                  onStatusUpdate={() => refetch()}
-                                />
+                                <div className="min-w-0">
+                                  <LessonScheduleStrip 
+                                    sessions={group.sessions} 
+                                    groupId={group.id} 
+                                    onStatusUpdate={() => refetch()}
+                                  />
+                                </div>
                               </div>
                             </div>
                           ))}
