@@ -241,9 +241,11 @@ export const usePayments = (filters?: any) => {
       return payment;
     } catch (error) {
       console.error('Error creating payment:', error);
+      // Показываем детали ошибки, если они доступны
+      const message = (error as any)?.message || (error as any)?.details || 'Не удалось добавить платеж';
       toast({
         title: "Ошибка",
-        description: "Не удалось добавить платеж",
+        description: message,
         variant: "destructive",
       });
       throw error;

@@ -519,6 +519,8 @@ export function CreatePaymentModal({
       onOpenChange(false);
     } catch (error) {
       console.error('Error in payment modal submit:', error);
+      const message = (error as any)?.message || (error as any)?.details || 'Не удалось добавить платеж';
+      toast({ title: 'Ошибка', description: message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
