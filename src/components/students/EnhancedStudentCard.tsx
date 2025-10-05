@@ -69,6 +69,7 @@ import { IndividualLessonSchedule } from './IndividualLessonSchedule';
 import { StudentBalanceModal } from './StudentBalanceModal';
 import { useStudentBalance } from '@/hooks/useStudentBalance';
 import { calculateLessonPrice } from '@/utils/lessonPricing';
+import { getCoursePriceInfo } from '@/utils/coursePricing';
 import { useUpdateIndividualLesson } from '@/hooks/useIndividualLessons';
 import { 
   AlertDialog,

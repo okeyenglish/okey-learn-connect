@@ -15,6 +15,7 @@ import { ru } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateLessonPrice } from '@/utils/lessonPricing';
+import { getCoursePriceInfo } from '@/utils/coursePricing';
 
 interface CreatePaymentModalProps {
   open: boolean;
@@ -113,23 +114,41 @@ export function CreatePaymentModal({
               level,
               branch,
               responsible_teacher,
-              group_students!inner(student_id, status)
+              group_students!inner(student_id, status),
+              courses:course_id(title)
             `)
             .eq('group_students.student_id', studentId)
             .eq('group_students.status', 'active')
             .eq('status', 'active');
-          finalGroups = groupsData || [];
+          
+          // Преобразуем данные, добавляя course_name
+          finalGroups = (groupsData || []).map((group: any) => ({
+            ...group,
+            course_name: group.courses?.title || null
+          }));
         }
 
         // Если групп по связям нет, но модал открыт из конкретной группы — подтянем её напрямую
         if ((!finalGroups || finalGroups.length === 0) && groupId) {
           const { data: directGroup } = await supabase
             .from('learning_groups')
-            .select('id, name, subject, level, branch, responsible_teacher, status')
+            .select(`
+              id, 
+              name, 
+              subject, 
+              level, 
+              branch, 
+              responsible_teacher, 
+              status,
+              courses:course_id(title)
+            `)
             .eq('id', groupId)
             .maybeSingle();
           if (directGroup && directGroup.status === 'active') {
-            finalGroups = [directGroup];
+            finalGroups = [{
+              ...directGroup,
+              course_name: directGroup.courses?.title || null
+            }];
           }
         }
         
@@ -154,47 +173,18 @@ export function CreatePaymentModal({
         
         const lessons: StudentLesson[] = [];
         
-        // Функция для определения цены курса
-        const getCoursePrice = (courseName: string, academicHoursPerLesson: number) => {
-          const name = courseName?.toLowerCase?.() || '';
-          
-          // Super Safari - 9990 руб за 8 занятий (12 ак/ч) → 1.5 ак.ч на занятие
-          if (name.includes('super safari')) {
-            return 9990 / 8; // 1248.75 руб/занятие
-          }
-          
-          // Kid's Box - 11990 руб за 8 занятий (16 ак/ч) → 2 ак.ч на занятие
-          if (name.includes("kid's box") || name.includes('kids box')) {
-            return 11990 / 8; // 1498.75 руб/занятие
-          }
-          
-          // Prepare - 13990 руб за 8 занятий (16 ак/ч) → 2 ак.ч на занятие
-          if (name.includes('prepare')) {
-            return 13990 / 8; // 1748.75 руб/занятие
-          }
-          
-          // Empower - 13990 руб за 8 занятий (16 ак/ч) → 2 ак.ч на занятие
-          if (name.includes('empower')) {
-            return 13990 / 8; // 1748.75 руб/занятие
-          }
-          
-          // По умолчанию - базовая цена = 1000 ₽ за ак.ч
-          return 1000 * (academicHoursPerLesson || 2);
-        };
-
-        // Определяем ак.ч за занятие для курсов по названию
-        const getGroupAcademicHours = (courseName: string) => {
-          const name = courseName?.toLowerCase?.() || '';
-          if (name.includes('super safari')) return 1.5;
-          // По умолчанию 2 ак.ч
-          return 2;
-        };
-        
         // Добавляем групповые занятия
         if (finalGroups) {
           finalGroups.forEach((group: any) => {
-            const academicHours = getGroupAcademicHours(group.name);
-            const pricePerLesson = getCoursePrice(group.name, academicHours);
+            // Используем course_name если есть, иначе name группы
+            const courseName = group.course_name || group.name;
+            const priceInfo = getCoursePriceInfo(courseName);
+            
+            console.log('Group pricing:', {
+              groupName: group.name,
+              courseName: courseName,
+              priceInfo
+            });
             
             lessons.push({
               id: group.id,
@@ -204,8 +194,8 @@ export function CreatePaymentModal({
               level: group.level || '',
               teacher: group.teacher_name || group.responsible_teacher || '',
               branch: group.branch || '',
-              academicHours: academicHours,
-              pricePerLesson: pricePerLesson,
+              academicHours: priceInfo.academicHoursPerLesson,
+              pricePerLesson: priceInfo.pricePerLesson,
             });
           });
         }
