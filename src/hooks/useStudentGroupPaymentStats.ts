@@ -37,7 +37,7 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
     // Get all lesson sessions for this group
     supabase
       .from('lesson_sessions')
-      .select('id, lesson_date, status')
+      .select('id, lesson_date, status, start_time, end_time')
       .eq('group_id', groupId)
       .neq('status', 'cancelled'),
     
@@ -86,15 +86,33 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
     .eq('course_name', group?.subject || '')
     .maybeSingle();
 
+  // Try to derive actual lesson duration from sessions (start/end time)
+  const sessionDurations = (effectiveSessions as any[])
+    .map((s: any) => {
+      if (!s.start_time || !s.end_time) return null;
+      try {
+        const [sh, sm] = String(s.start_time).split(':').map(Number);
+        const [eh, em] = String(s.end_time).split(':').map(Number);
+        return (eh * 60 + em) - (sh * 60 + sm);
+      } catch {
+        return null;
+      }
+    })
+    .filter((v: number | null): v is number => typeof v === 'number' && v > 0);
+  const derivedDuration = sessionDurations.length
+    ? Math.round(sessionDurations.reduce((a, b) => a + b, 0) / sessionDurations.length)
+    : undefined;
+
   // Calculate price per minute
   let pricePerMinute = 0;
   if (pricing) {
     const avgPrice = (pricing.price_8_lessons / 8 + pricing.price_24_lessons / 24 + pricing.price_80_lessons / 80) / 3;
-    pricePerMinute = avgPrice / pricing.duration_minutes;
+    const durationForPrice = pricing.duration_minutes || derivedDuration || 80;
+    pricePerMinute = avgPrice / durationForPrice;
   }
 
-  // Get actual lesson duration from pricing, fallback to 80 if not found
-  const lessonDuration = pricing?.duration_minutes || 80;
+  // Determine lesson duration priority: derived from sessions -> pricing -> fallback 80
+  const lessonDuration = derivedDuration || pricing?.duration_minutes || 80;
   
   const totalPaidAmount = payments.reduce((sum, p) => sum + Number(p.amount), 0);
   const totalPaidLessons = payments.reduce((sum, p) => sum + (p.lessons_count || 0), 0);
