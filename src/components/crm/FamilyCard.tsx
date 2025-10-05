@@ -552,6 +552,7 @@ export const FamilyCard = ({
             props: { student: { id: selectedStudent.id, name: selectedStudent.name } }
           })}
           onUnpin={() => unpinModal(selectedStudent.id, 'student')}
+          onUpdate={refetch}
         />
       )}
     </div>

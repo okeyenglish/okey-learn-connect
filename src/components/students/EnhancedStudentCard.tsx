@@ -91,6 +91,7 @@ interface EnhancedStudentCardProps {
   isPinned?: boolean;
   onPin?: () => void;
   onUnpin?: () => void;
+  onUpdate?: () => void;
 }
 
 export function EnhancedStudentCard({ 
@@ -99,7 +100,8 @@ export function EnhancedStudentCard({
   onOpenChange,
   isPinned: propIsPinned = false,
   onPin = () => {},
-  onUnpin = () => {}
+  onUnpin = () => {},
+  onUpdate = () => {}
 }: EnhancedStudentCardProps) {
   const queryClient = useQueryClient();
   const { isPinned: checkIsPinned, pinModal, unpinModal } = usePinnedModalsDB();
@@ -218,6 +220,9 @@ export function EnhancedStudentCard({
       queryClient.invalidateQueries({ queryKey: ['student-details', studentId] });
       queryClient.invalidateQueries({ queryKey: ['students'] });
       queryClient.invalidateQueries({ queryKey: ['learning-groups'] });
+      
+      // Call parent update callback
+      onUpdate();
       refetch();
     } catch (error) {
       console.error('Error removing student from group:', error);
