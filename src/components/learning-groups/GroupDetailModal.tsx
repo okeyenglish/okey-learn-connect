@@ -263,9 +263,8 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
         <div className="flex-1 overflow-y-auto">
           <Tabs defaultValue="students" className="h-full">
             <div className="border-b px-6">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="students">Студенты</TabsTrigger>
-                <TabsTrigger value="schedule">Расписание</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="students">Студенты и расписание</TabsTrigger>
                 <TabsTrigger value="homework">Домашние задания / планы занятий</TabsTrigger>
                 <TabsTrigger value="details">Детали группы</TabsTrigger>
               </TabsList>
@@ -273,6 +272,7 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
 
             <div className="p-6">
               <TabsContent value="students" className="space-y-6 mt-0">
+                {/* Студенты */}
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold text-blue-600">
                     Студенты группы ({groupStudents.length}/{group.capacity})
@@ -408,10 +408,13 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                     </DialogContent>
                   </Dialog>
                 )}
-              </TabsContent>
 
-              <TabsContent value="schedule" className="space-y-6 mt-0">
-                <GroupScheduleCalendar groupId={group.id} />
+                {/* Расписание */}
+                <Separator className="my-6" />
+                <div>
+                  <h3 className="text-lg font-semibold text-blue-600 mb-4">Расписание группы</h3>
+                  <GroupScheduleCalendar groupId={group.id} />
+                </div>
               </TabsContent>
 
               <TabsContent value="homework" className="space-y-6 mt-0">

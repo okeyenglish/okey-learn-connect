@@ -55,25 +55,6 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
 
   return (
     <div className="space-y-4">
-      {/* Навигация */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <CalendarIcon className="h-5 w-5 text-blue-600" />
-          {format(currentMonth, "LLLL yyyy", { locale: ru })}
-        </h3>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={goToPreviousMonth}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={goToCurrentMonth}>
-            Сегодня
-          </Button>
-          <Button variant="outline" size="sm" onClick={goToNextMonth}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
       {/* Легенда статусов */}
       <Card className="border-dashed border-gray-300">
         <CardContent className="p-4">
