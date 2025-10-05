@@ -19,19 +19,19 @@ export function AdminCoursePricing() {
         <p className="text-muted-foreground">Управление курсами, стоимостью и абонементами</p>
       </div>
 
-      <Tabs defaultValue="prices" className="w-full">
+      <Tabs defaultValue="individual" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="prices">Цены на курсы</TabsTrigger>
-          <TabsTrigger value="plans">Абонементы</TabsTrigger>
+          <TabsTrigger value="individual">Индивидуально</TabsTrigger>
+          <TabsTrigger value="group">Групповые занятия</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="prices" className="space-y-4">
+        <TabsContent value="individual" className="space-y-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <div>
-                <CardTitle>Стоимость курсов</CardTitle>
+                <CardTitle>Индивидуальные занятия</CardTitle>
                 <CardDescription>
-                  Управление ценами за занятие для различных программ
+                  Управление ценами за индивидуальные занятия
                 </CardDescription>
               </div>
               <Button onClick={() => setShowAddPrice(true)}>
@@ -45,13 +45,13 @@ export function AdminCoursePricing() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="plans" className="space-y-4">
+        <TabsContent value="group" className="space-y-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <div>
-                <CardTitle>Абонементы</CardTitle>
+                <CardTitle>Групповые занятия</CardTitle>
                 <CardDescription>
-                  Управление тарифными планами и абонементами
+                  Управление ценами за групповые занятия и абонементами
                 </CardDescription>
               </div>
               <Button onClick={() => setShowAddPlan(true)}>
