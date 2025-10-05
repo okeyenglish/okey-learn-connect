@@ -63,12 +63,11 @@ const calculateLessonSessions = async (
     paymentsMap.set(payment.id, payment);
   });
 
-  // Считаем общее количество оплаченных минут
-  // ВАЖНО: Оплата всегда в академических часах (1 а.ч. = 40 минут)
-  let remainingPaidMinutes = payments.reduce(
-    (sum, p) => sum + (p.lessons_count || 0) * 40,
-    0
-  );
+  // Создаем массив платежей с их остатками для распределения по датам
+  const paymentMinutesPool: Array<{payment: any, remainingMinutes: number}> = payments.map(p => ({
+    payment: p,
+    remainingMinutes: (p.lessons_count || 0) * 40
+  }));
 
   // Обрабатываем каждую сессию
   const result: IndividualLessonSession[] = [];
@@ -76,6 +75,7 @@ const calculateLessonSessions = async (
   for (const session of sessions) {
     const duration = session.duration || defaultDuration;
     let paid_minutes = session.paid_minutes || 0;
+    const sessionDate = new Date(session.lesson_date);
 
     // Если есть явная привязка к платежу
     if (session.payment_id && paymentsMap.has(session.payment_id)) {
@@ -83,15 +83,22 @@ const calculateLessonSessions = async (
       // Используем сохраненное значение или duration
       paid_minutes = session.paid_minutes || duration;
     } else if (!session.payment_id) {
-      // Автоматическое распределение оплаты
+      // Автоматическое распределение оплаты ТОЛЬКО на занятия ПОСЛЕ даты платежа
       // Только для неотмененных и не бесплатных занятий
       if (session.status !== 'cancelled' && session.status !== 'free' && session.status !== 'rescheduled') {
-        if (remainingPaidMinutes >= duration) {
-          paid_minutes = duration;
-          remainingPaidMinutes -= duration;
-        } else if (remainingPaidMinutes > 0) {
-          paid_minutes = remainingPaidMinutes;
-          remainingPaidMinutes = 0;
+        // Ищем платежи, которые были сделаны ДО или В ДЕНЬ занятия
+        for (const pool of paymentMinutesPool) {
+          if (pool.remainingMinutes <= 0) continue;
+          
+          const paymentDate = new Date(pool.payment.payment_date || pool.payment.created_at);
+          // Платеж может покрыть занятие только если он был сделан ДО или В ДЕНЬ занятия
+          if (paymentDate <= sessionDate) {
+            const minutesToTake = Math.min(pool.remainingMinutes, duration - paid_minutes);
+            paid_minutes += minutesToTake;
+            pool.remainingMinutes -= minutesToTake;
+            
+            if (paid_minutes >= duration) break;
+          }
         }
       }
     }
