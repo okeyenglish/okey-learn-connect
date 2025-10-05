@@ -10,6 +10,7 @@ import { AlertTriangle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateLessonSession, useCheckScheduleConflicts } from "@/hooks/useLessonSessions";
 import { useLearningGroups } from "@/hooks/useLearningGroups";
+import { useTeachers } from "@/hooks/useTeachers";
 import { getClassroomsForBranch } from "@/lib/branches";
 
 interface ScheduleConflict {
@@ -32,6 +33,7 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
     start_time: "",
     duration: "80",
     classroom: "",
+    teacher_name: "",
     notes: ""
   });
   const [selectedWeekdays, setSelectedWeekdays] = useState<string[]>([]);
@@ -42,6 +44,7 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
   const createSession = useCreateLessonSession();
   const checkConflicts = useCheckScheduleConflicts();
   const { groups } = useLearningGroups({});
+  const { teachers } = useTeachers();
 
   // Загружаем данные группы при открытии модального окна
   React.useEffect(() => {
@@ -51,7 +54,8 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
         setCurrentGroup(group);
         setFormData(prev => ({ 
           ...prev, 
-          classroom: group.schedule_room || "" 
+          classroom: group.schedule_room || "",
+          teacher_name: group.responsible_teacher || ""
         }));
       }
     }
@@ -80,19 +84,15 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
   };
 
   const handleCheckConflicts = async () => {
-    if (!currentGroup || !formData.classroom || !formData.start_date || !formData.start_time || !formData.duration) {
+    if (!currentGroup || !formData.classroom || !formData.start_date || !formData.start_time || !formData.duration || !formData.teacher_name) {
       return;
-    }
-
-    if (!currentGroup.responsible_teacher) {
-      return; // Не проверяем конфликты если нет преподавателя
     }
 
     const endTime = calculateEndTime(formData.start_time, parseInt(formData.duration));
 
     try {
       const result = await checkConflicts.mutateAsync({
-        teacher_name: currentGroup.responsible_teacher,
+        teacher_name: formData.teacher_name,
         branch: currentGroup.branch,
         classroom: formData.classroom,
         lesson_date: formData.start_date,
@@ -110,7 +110,7 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
     if (currentGroup) {
       handleCheckConflicts();
     }
-  }, [currentGroup, formData.classroom, formData.start_date, formData.start_time, formData.duration]);
+  }, [currentGroup, formData.classroom, formData.start_date, formData.start_time, formData.duration, formData.teacher_name]);
 
   const resetForm = () => {
     setFormData({
@@ -119,6 +119,7 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
       start_time: "",
       duration: "80",
       classroom: "",
+      teacher_name: "",
       notes: ""
     });
     setSelectedWeekdays([]);
@@ -164,19 +165,10 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!currentGroup || !defaultGroupId || !formData.start_date || !formData.start_time || !formData.duration || !formData.classroom) {
+    if (!currentGroup || !defaultGroupId || !formData.start_date || !formData.start_time || !formData.duration || !formData.classroom || !formData.teacher_name) {
       toast({
         title: "Ошибка",
         description: "Заполните все обязательные поля",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!currentGroup.responsible_teacher) {
-      toast({
-        title: "Ошибка",
-        description: "У группы не указан преподаватель",
         variant: "destructive"
       });
       return;
@@ -212,7 +204,7 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
       for (const lessonDate of datesToCreate) {
         const sessionData: any = {
           group_id: defaultGroupId,
-          teacher_name: currentGroup.responsible_teacher,
+          teacher_name: formData.teacher_name,
           branch: currentGroup.branch,
           classroom: formData.classroom,
           lesson_date: lessonDate,
@@ -263,18 +255,9 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
             <div className="bg-muted p-4 rounded-lg space-y-2">
               <div className="font-medium text-sm">Группа: {currentGroup.name}</div>
               <div className="text-sm text-muted-foreground">
-                <div>Преподаватель: {currentGroup.responsible_teacher || <span className="text-destructive font-medium">Не указан</span>}</div>
                 <div>Филиал: {currentGroup.branch}</div>
                 <div>Аудитория по умолчанию: {currentGroup.schedule_room || 'Не указана'}</div>
               </div>
-              {!currentGroup.responsible_teacher && (
-                <Alert variant="destructive" className="mt-2">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    У группы не указан преподаватель. Пожалуйста, укажите преподавателя в настройках группы перед созданием занятий.
-                  </AlertDescription>
-                </Alert>
-              )}
             </div>
           )}
 
@@ -363,6 +346,22 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
             </div>
           )}
 
+          <div className="space-y-2">
+            <Label htmlFor="teacher_name">Преподаватель *</Label>
+            <Select value={formData.teacher_name} onValueChange={(value) => setFormData(prev => ({ ...prev, teacher_name: value }))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Выберите преподавателя" />
+              </SelectTrigger>
+              <SelectContent>
+                {teachers.map(teacher => (
+                  <SelectItem key={teacher.id} value={`${teacher.last_name} ${teacher.first_name}`}>
+                    {teacher.last_name} {teacher.first_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="start_time">Время начала *</Label>
@@ -428,7 +427,7 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
                 createSession.isPending || 
                 conflicts.length > 0 || 
                 !currentGroup ||
-                !currentGroup.responsible_teacher
+                !formData.teacher_name
               }
               className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
             >
