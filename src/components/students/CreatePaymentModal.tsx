@@ -526,16 +526,17 @@ export function CreatePaymentModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Оплата занятий</DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label>Студент</Label>
-            <div className="text-sm text-muted-foreground">{studentName}</div>
-          </div>
+        <div className="overflow-y-auto flex-1 pr-2">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Label>Студент</Label>
+              <div className="text-sm text-muted-foreground">{studentName}</div>
+            </div>
 
           <div>
             <Label>Тип оплаты</Label>
@@ -796,7 +797,7 @@ export function CreatePaymentModal({
           </div>
 
 
-          <div className="flex gap-2 justify-end">
+          <div className="flex gap-2 justify-end pt-4 sticky bottom-0 bg-background border-t mt-4">
             <Button
               type="button"
               variant="outline"
@@ -809,6 +810,7 @@ export function CreatePaymentModal({
             </Button>
           </div>
         </form>
+        </div>
       </DialogContent>
     </Dialog>
   );
