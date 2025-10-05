@@ -485,7 +485,7 @@ export function CreatePaymentModal({
           payment_date: formData.payment_date,
           description: formData.description || `Оплата ${lessonsCount} занятий (${academicHours} ак.ч.)`,
           notes: formData.notes,
-          lessons_count: lessonsCount,
+          lessons_count: academicHours, // Записываем академические часы, а не количество занятий
           individual_lesson_id: lessonInfo?.type === 'individual' ? selectedLesson : undefined,
           group_id: lessonInfo?.type === 'group' ? selectedLesson : undefined
         };
