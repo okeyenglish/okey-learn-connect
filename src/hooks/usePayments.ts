@@ -176,41 +176,94 @@ export const usePayments = (filters?: any) => {
           }
         }
 
-        // ШАГ 2: Распределяем оставшиеся минуты на неоплаченные занятия
+        // ШАГ 2: Распределяем оставшиеся минуты по самым ранним датам расписания
         if (remainingMinutesToDistribute > 0) {
-          console.log('Distributing remaining minutes to unpaid sessions...');
+          console.log('Distributing remaining minutes across earliest scheduled dates...');
 
-          const unpaidSessions = (allSessions || []).filter(s => {
-            const paidMinutes = s.paid_minutes || 0;
-            return paidMinutes === 0 && 
-                   (!s.status || ['scheduled', 'completed', 'attended'].includes(s.status)) &&
-                   !s.payment_id; // только без привязанного платежа
-          });
+          // Построим список всех дат расписания в периоде
+          const DAY_MAP: Record<string, number> = {
+            monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 0,
+          };
 
-          console.log('Unpaid sessions found:', unpaidSessions.length);
+          const scheduleDays: string[] = (lessonData?.schedule_days as string[]) || [];
+          const periodStart = lessonData?.period_start ? new Date(lessonData.period_start as string) : null;
+          const periodEnd = lessonData?.period_end ? new Date(lessonData.period_end as string) : null;
 
-          for (const session of unpaidSessions) {
+          const scheduledDates: string[] = (() => {
+            try {
+              if (!scheduleDays || scheduleDays.length === 0 || !periodStart || !periodEnd) return [];
+              const dayNums = scheduleDays.map(d => DAY_MAP[d?.toLowerCase?.() || '']).filter((n) => n !== undefined);
+              const dates: string[] = [];
+              const start = new Date(periodStart);
+              const end = new Date(periodEnd);
+              for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                if (dayNums.includes(d.getDay())) {
+                  dates.push(d.toISOString().slice(0, 10));
+                }
+              }
+              return dates;
+            } catch (e) {
+              console.warn('Failed to construct scheduled dates (createPayment):', e);
+              return [];
+            }
+          })();
+
+          const canBePaid = (s?: { status?: string }) => !s?.status || ['scheduled','completed','attended'].includes(s.status as any);
+
+          // Карта существующих сессий по дате
+          const sessionByDate = new Map<string, any>();
+          (allSessions || []).forEach((s) => sessionByDate.set(s.lesson_date, s));
+
+          // Объединяем даты расписания и уже существующие (на всякий случай)
+          const existingPayableDates = (allSessions || [])
+            .filter((s) => canBePaid(s))
+            .map((s) => s.lesson_date);
+
+          const allPayableDates = [...scheduledDates, ...existingPayableDates]
+            .filter((date, index, self) => self.indexOf(date) === index)
+            .sort();
+
+          for (const date of allPayableDates) {
             if (remainingMinutesToDistribute <= 0) break;
+            const sess = sessionByDate.get(date);
 
-            const sessionDuration = session.duration || lessonDuration;
-            const minutesToAdd = Math.min(sessionDuration, remainingMinutesToDistribute);
-
-            console.log(`Session ${session.lesson_date}: adding ${minutesToAdd} minutes`);
-
-            const { error: updateErr } = await supabase
-              .from('individual_lesson_sessions')
-              .update({ 
-                paid_minutes: minutesToAdd,
-                payment_id: payment.id,
-                updated_at: new Date().toISOString() 
-              })
-              .eq('id', session.id);
-
-            if (updateErr) {
-              console.error('Error updating session:', updateErr);
+            if (sess) {
+              // Обновляем только если нет привязанного платежа
+              if (!sess.payment_id && canBePaid(sess)) {
+                const sessionDuration = sess.duration || lessonDuration;
+                const currentPaid = sess.paid_minutes || 0;
+                const need = Math.max(0, sessionDuration - currentPaid);
+                if (need > 0) {
+                  const minutesToAdd = Math.min(need, remainingMinutesToDistribute);
+                  console.log(`Session ${date}: adding ${minutesToAdd} minutes (had ${currentPaid}/${sessionDuration})`);
+                  const { error: updErr } = await supabase
+                    .from('individual_lesson_sessions')
+                    .update({
+                      paid_minutes: currentPaid + minutesToAdd,
+                      payment_id: payment.id,
+                      updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', sess.id);
+                  if (!updErr) remainingMinutesToDistribute -= minutesToAdd;
+                }
+              }
             } else {
-              remainingMinutesToDistribute -= minutesToAdd;
-              console.log('Remaining minutes:', remainingMinutesToDistribute);
+              // Создаем сессию на эту дату и сразу списываем минуты
+              const minutesToAdd = Math.min(lessonDuration, remainingMinutesToDistribute);
+              console.log(`Creating session for ${date} with ${minutesToAdd} minutes`);
+              const { error: insErr } = await supabase
+                .from('individual_lesson_sessions')
+                .insert({
+                  individual_lesson_id: paymentData.individual_lesson_id,
+                  lesson_date: date,
+                  status: 'scheduled',
+                  duration: lessonDuration,
+                  paid_minutes: minutesToAdd,
+                  payment_id: payment.id,
+                  created_by: user?.id,
+                  updated_at: new Date().toISOString(),
+                });
+              if (!insErr) remainingMinutesToDistribute -= minutesToAdd;
             }
           }
         }
