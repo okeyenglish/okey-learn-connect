@@ -21,6 +21,7 @@ import { useGroupStudents } from "@/hooks/useGroupStudents";
 import { useAvailableStudents } from "@/hooks/useAvailableStudents";
 import { useStudents } from "@/hooks/useStudents";
 import { useStudentGroupPaymentStats } from "@/hooks/useStudentGroupPaymentStats";
+import { useGroupStatistics } from "@/hooks/useGroupStatistics";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface GroupDetailModalProps {
@@ -56,6 +57,9 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
     availableStudents,
     loading: availableStudentsLoading 
   } = useAvailableStudents(group?.id);
+
+  // Получаем статистику группы
+  const { statistics: groupStats, loading: statsLoading } = useGroupStatistics(group?.id);
   
   const [scheduleData, setScheduleData] = useState([
     { day: "Ср/Пт", time: "с 20:00 до 21:00", period: "с 03.09 по 27.02.26", room: "Ауд. London" },
@@ -124,26 +128,20 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
 
   if (!group) return null;
 
-  // Mock data for demonstration - in real app this would come from APIs
+  const formatMoney = (amount: number) => {
+    return new Intl.NumberFormat('ru-RU', {
+      style: 'currency',
+      currency: 'RUB',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+
   const teacherInfo = {
     name: group.responsible_teacher || "Не назначен",
     photo: "/placeholder.svg",
     phone: "+7 (999) 123-45-67",
     email: "teacher@okey-english.ru"
-  };
-
-  const statistics = {
-    totalReceived: "74 938,00 руб.",
-    balance: "0,00 руб. + 135 а.ч.",
-    total: "74 938,00 руб. + 135 а.ч.",
-    visits: 44,
-    paidVisits: 44,
-    skipped: 10,
-    paidSkipped: 2,
-    unpaidSkipped: 8,
-    rateForGroup: "450,00-600,00/а.ч.",
-    totalAcademicHours: "102 а.ч.",
-    teacherPayment: "45 900,00 руб."
   };
 
   const handleAddSchedule = (newSchedule: any) => {
@@ -522,57 +520,65 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                     </CardHeader>
                     {statisticsExpanded && (
                       <CardContent className="space-y-3">
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span>Получено от плательщиков:</span>
-                            <span className="font-medium">{statistics.totalReceived}</span>
+                        {statsLoading ? (
+                          <div className="text-center py-4">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+                            <p className="text-sm text-muted-foreground mt-2">Загрузка статистики...</p>
                           </div>
-                          <div className="flex justify-between">
-                            <span>Осталось:</span>
-                            <span className="font-medium">{statistics.balance}</span>
+                        ) : groupStats ? (
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span>Получено от плательщиков:</span>
+                              <span className="font-medium">{formatMoney(groupStats.totalReceived)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Осталось:</span>
+                              <span className="font-medium">{formatMoney(groupStats.balance)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Итого:</span>
+                              <span className="font-medium">{formatMoney(groupStats.total)}</span>
+                            </div>
+                            <Separator />
+                            <div className="flex justify-between">
+                              <span>Посещений:</span>
+                              <span className="font-medium">{groupStats.visits}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>- оплачиваемых:</span>
+                              <span className="font-medium">{groupStats.paidVisits}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Пропусков:</span>
+                              <span className="font-medium">{groupStats.skipped}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>- оплачиваемых:</span>
+                              <span className="font-medium">{groupStats.paidSkipped}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>- неоплачиваемых:</span>
+                              <span className="font-medium">{groupStats.unpaidSkipped}</span>
+                            </div>
+                            <div className="text-blue-600 font-medium mt-3">{teacherInfo.name}</div>
+                            <div className="flex justify-between">
+                              <span>Ставка по данной группе:</span>
+                              <span className="font-medium">{groupStats.rateForGroup}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Академ. часов всего:</span>
+                              <span className="font-medium">{groupStats.totalAcademicHours} а.ч.</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Оплата преподавателя за всё время занятий:</span>
+                              <span className="font-medium">{formatMoney(groupStats.teacherPayment)}</span>
+                            </div>
                           </div>
-                          <div className="flex justify-between">
-                            <span>Итого:</span>
-                            <span className="font-medium">{statistics.total}</span>
+                        ) : (
+                          <div className="text-center py-4 text-sm text-muted-foreground">
+                            Статистика недоступна
                           </div>
-                          <div className="flex justify-between">
-                            <span>На 21.09.2025</span>
-                          </div>
-                          <Separator />
-                          <div className="flex justify-between">
-                            <span>Посещений:</span>
-                            <span className="font-medium">{statistics.visits}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>- оплачиваемых:</span>
-                            <span className="font-medium">{statistics.paidVisits}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Пропусков:</span>
-                            <span className="font-medium">{statistics.skipped}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>- оплачиваемых:</span>
-                            <span className="font-medium">{statistics.paidSkipped}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>- неоплачиваемых:</span>
-                            <span className="font-medium">{statistics.unpaidSkipped}</span>
-                          </div>
-                          <div className="text-blue-600 font-medium">{teacherInfo.name}</div>
-                          <div className="flex justify-between">
-                            <span>Ставка по данной группе:</span>
-                            <span className="font-medium">{statistics.rateForGroup}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Академ. часов всего:</span>
-                            <span className="font-medium">{statistics.totalAcademicHours}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Оплата преподавателя за всё время занятий:</span>
-                            <span className="font-medium">{statistics.teacherPayment}</span>
-                          </div>
-                        </div>
+                        )}
                       </CardContent>
                     )}
                   </Card>
