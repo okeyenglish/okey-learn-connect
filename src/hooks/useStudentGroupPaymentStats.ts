@@ -41,10 +41,13 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
     pricePerMinute = avgPrice / pricing.duration_minutes;
   }
 
+  // Get actual lesson duration from pricing, fallback to 60 if not found
+  const lessonDuration = pricing?.duration_minutes || 60;
+  
   // Calculate total paid
   const totalPaidAmount = payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
   const totalPaidLessons = payments?.reduce((sum, p) => sum + (p.lessons_count || 0), 0) || 0;
-  const totalPaidMinutes = totalPaidLessons * (pricing?.duration_minutes || 80);
+  const totalPaidMinutes = totalPaidLessons * lessonDuration;
 
   // Get all lesson sessions for this group to calculate total course
   const { data: allSessions } = await supabase
@@ -53,7 +56,7 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
     .eq('group_id', groupId)
     .neq('status', 'cancelled');
 
-  // Get completed sessions for this student
+  // Get completed sessions for this student to calculate used lessons
   const { data: completedSessions } = await supabase
     .from('lesson_sessions')
     .select(`
@@ -64,12 +67,12 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
     .eq('student_lesson_sessions.student_id', studentId)
     .eq('status', 'completed');
 
-  // Calculate used minutes (completed lessons)
-  const usedMinutes = (completedSessions?.length || 0) * (pricing?.duration_minutes || 80);
+  // Calculate used minutes (completed lessons with actual duration)
+  const usedMinutes = (completedSessions?.length || 0) * lessonDuration;
 
   // Calculate total course minutes based on total planned sessions
   const totalCourseLessons = allSessions?.length || 80;
-  const totalCourseMinutes = totalCourseLessons * (pricing?.duration_minutes || 80);
+  const totalCourseMinutes = totalCourseLessons * lessonDuration;
 
   // Calculate remaining and unpaid
   const remainingMinutes = totalPaidMinutes - usedMinutes;
