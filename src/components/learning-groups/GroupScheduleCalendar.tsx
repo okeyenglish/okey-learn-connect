@@ -23,16 +23,8 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
   const [expandedStudents, setExpandedStudents] = useState<Record<string, boolean>>({});
   const [addLessonOpen, setAddLessonOpen] = useState(false);
   
-  // Расширяем диапазон для отображения полных недель
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
-  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
-  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
-
-  const { data: sessions = [], isLoading, refetch } = useLessonSessions({
-    date_from: format(calendarStart, 'yyyy-MM-dd'),
-    date_to: format(calendarEnd, 'yyyy-MM-dd')
-  });
+  // Загружаем ВСЕ занятия группы без ограничений по датам
+  const { data: sessions = [], isLoading, refetch } = useLessonSessions({});
 
   const { groupStudents = [], loading: studentsLoading } = useGroupStudents(groupId);
 
