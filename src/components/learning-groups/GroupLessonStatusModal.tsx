@@ -14,6 +14,7 @@ import {
   CheckCircle,
   XCircle,
   RotateCcw,
+  Gift,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -75,16 +76,50 @@ export function GroupLessonStatusModal({
 
     setLoading(true);
     try {
-      const { error } = await supabase
+      // Обновляем статус самого занятия
+      const { error: sessionError } = await supabase
         .from('lesson_sessions')
         .update({ status: newStatus as any })
         .eq('id', sessionId);
 
-      if (error) throw error;
+      if (sessionError) throw sessionError;
+
+      // Если статус "cancelled", "free" или "rescheduled" - применяем ко всем ученикам группы
+      if (['cancelled', 'free', 'rescheduled'].includes(newStatus)) {
+        // Получаем всех студентов группы
+        const { data: students, error: studentsError } = await supabase
+          .from('student_lesson_sessions')
+          .select('id')
+          .eq('lesson_session_id', sessionId);
+
+        if (studentsError) throw studentsError;
+
+        // Обновляем записи всех студентов
+        if (students && students.length > 0) {
+          const updateData: any = {};
+          
+          if (newStatus === 'cancelled') {
+            updateData.is_cancelled_for_student = true;
+            updateData.cancellation_reason = 'Занятие отменено для всей группы';
+          } else if (newStatus === 'free') {
+            updateData.payment_status = 'free';
+          } else if (newStatus === 'rescheduled') {
+            updateData.is_cancelled_for_student = true;
+            updateData.cancellation_reason = 'Занятие перенесено';
+          }
+
+          const { error: updateError } = await supabase
+            .from('student_lesson_sessions')
+            .update(updateData)
+            .in('id', students.map(s => s.id));
+
+          if (updateError) throw updateError;
+        }
+      }
 
       toast({
         title: "Успешно",
-        description: `Статус занятия изменён на "${getStatusLabel(newStatus)}"`,
+        description: `Статус занятия изменён на "${getStatusLabel(newStatus)}" для всех учеников`,
       });
 
       onStatusUpdated?.();
@@ -107,6 +142,7 @@ export function GroupLessonStatusModal({
       case 'completed': return 'Проведено';
       case 'cancelled': return 'Отменено';
       case 'rescheduled': return 'Перенесено';
+      case 'free': return 'Бесплатное';
       default: return status;
     }
   };
@@ -116,7 +152,8 @@ export function GroupLessonStatusModal({
       case 'completed': return 'bg-green-100 text-green-800 border-green-300';
       case 'cancelled': return 'bg-red-100 text-red-800 border-red-300';
       case 'rescheduled': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      default: return 'bg-blue-100 text-blue-800 border-blue-300';
+      case 'free': return 'bg-blue-100 text-blue-800 border-blue-300';
+      default: return 'bg-gray-100 text-gray-800 border-gray-300';
     }
   };
 
@@ -186,7 +223,7 @@ export function GroupLessonStatusModal({
 
           {/* Действия со статусом */}
           <div className="space-y-3">
-            <h4 className="font-semibold text-sm">Изменить статус:</h4>
+            <h4 className="font-semibold text-sm">Изменить статус для всех учеников:</h4>
             <div className="grid grid-cols-2 gap-3">
               <Button
                 variant="outline"
@@ -220,11 +257,21 @@ export function GroupLessonStatusModal({
 
               <Button
                 variant="outline"
+                onClick={() => updateStatus('free')}
+                disabled={loading || sessionData.status === 'free'}
+                className="justify-start gap-2"
+              >
+                <Gift className="h-4 w-4 text-blue-600" />
+                Бесплатное
+              </Button>
+
+              <Button
+                variant="outline"
                 onClick={() => updateStatus('scheduled')}
                 disabled={loading || sessionData.status === 'scheduled'}
                 className="justify-start gap-2"
               >
-                <Calendar className="h-4 w-4 text-blue-600" />
+                <Calendar className="h-4 w-4 text-gray-600" />
                 Запланировано
               </Button>
             </div>
