@@ -1720,7 +1720,12 @@ export type Database = {
           id: string
           lesson_date: string
           lesson_number: number | null
+          lessons_count: number | null
           notes: string | null
+          paid_minutes: number | null
+          payment_amount: number | null
+          payment_date: string | null
+          payment_id: string | null
           start_time: string
           status: Database["public"]["Enums"]["lesson_status"]
           teacher_name: string
@@ -1737,7 +1742,12 @@ export type Database = {
           id?: string
           lesson_date: string
           lesson_number?: number | null
+          lessons_count?: number | null
           notes?: string | null
+          paid_minutes?: number | null
+          payment_amount?: number | null
+          payment_date?: string | null
+          payment_id?: string | null
           start_time: string
           status?: Database["public"]["Enums"]["lesson_status"]
           teacher_name: string
@@ -1754,7 +1764,12 @@ export type Database = {
           id?: string
           lesson_date?: string
           lesson_number?: number | null
+          lessons_count?: number | null
           notes?: string | null
+          paid_minutes?: number | null
+          payment_amount?: number | null
+          payment_date?: string | null
+          payment_id?: string | null
           start_time?: string
           status?: Database["public"]["Enums"]["lesson_status"]
           teacher_name?: string
@@ -1773,6 +1788,13 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "learning_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_sessions_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
             referencedColumns: ["id"]
           },
         ]

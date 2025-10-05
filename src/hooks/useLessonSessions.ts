@@ -15,6 +15,11 @@ export interface LessonSession {
   notes?: string;
   created_at: string;
   updated_at: string;
+  paid_minutes?: number;
+  payment_id?: string;
+  payment_date?: string;
+  payment_amount?: number;
+  lessons_count?: number;
 }
 
 export interface ScheduleConflict {

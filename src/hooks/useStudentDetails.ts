@@ -22,6 +22,13 @@ export interface LessonSession {
   lessonDate: string;
   status: string;
   lessonNumber?: number;
+  duration?: number;
+  paid_minutes?: number;
+  payment_id?: string;
+  payment_date?: string;
+  payment_amount?: number;
+  lessons_count?: number;
+  lesson_time?: string;
 }
 
 export interface StudentGroup {
@@ -117,6 +124,19 @@ export interface StudentFullDetails {
 }
 
 export const useStudentDetails = (studentId: string) => {
+  // Helper function to calculate duration from time strings
+  const calculateDuration = (startTime?: string, endTime?: string): number => {
+    if (!startTime || !endTime) return 60;
+    
+    try {
+      const [startHour, startMinute] = startTime.split(':').map(Number);
+      const [endHour, endMinute] = endTime.split(':').map(Number);
+      return (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
+    } catch {
+      return 60;
+    }
+  };
+
   return useQuery({
     queryKey: ['student-details', studentId],
     queryFn: async (): Promise<StudentFullDetails | null> => {
@@ -206,7 +226,20 @@ export const useStudentDetails = (studentId: string) => {
           if (groupId) {
             const { data: sessionsData } = await supabase
               .from('lesson_sessions')
-              .select('id, lesson_date, status, lesson_number')
+              .select(`
+                id, 
+                lesson_date, 
+                status, 
+                lesson_number, 
+                duration,
+                paid_minutes,
+                payment_id,
+                payment_date,
+                payment_amount,
+                lessons_count,
+                start_time,
+                end_time
+              `)
               .eq('group_id', groupId)
               .order('lesson_date', { ascending: true });
 
@@ -215,6 +248,13 @@ export const useStudentDetails = (studentId: string) => {
               lessonDate: s.lesson_date,
               status: s.status,
               lessonNumber: s.lesson_number,
+              duration: s.duration || calculateDuration(s.start_time, s.end_time),
+              paid_minutes: s.paid_minutes,
+              payment_id: s.payment_id,
+              payment_date: s.payment_date,
+              payment_amount: s.payment_amount,
+              lessons_count: s.lessons_count,
+              lesson_time: s.start_time && s.end_time ? `${s.start_time}-${s.end_time}` : undefined,
             }));
           }
 
