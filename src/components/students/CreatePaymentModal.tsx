@@ -22,6 +22,7 @@ interface CreatePaymentModalProps {
   studentId: string;
   studentName: string;
   individualLessonId?: string;
+  groupId?: string;
   totalUnpaidCount?: number;
   pricePerLesson?: number;
   onPaymentSuccess?: () => void;
@@ -51,6 +52,7 @@ export function CreatePaymentModal({
   studentId, 
   studentName,
   individualLessonId,
+  groupId,
   totalUnpaidCount = 0,
   pricePerLesson = 0,
   onPaymentSuccess
@@ -167,10 +169,16 @@ export function CreatePaymentModal({
         
         setStudentLessons(lessons);
         
-        // Если передан individualLessonId, автоматически выбираем его
+        // Если передан individualLessonId или groupId, автоматически выбираем его
         if (individualLessonId) {
           setSelectedLesson(individualLessonId);
           const lesson = lessons.find(l => l.id === individualLessonId);
+          if (lesson && lesson.pricePerLesson) {
+            setCalculatedPricePerLesson(lesson.pricePerLesson);
+          }
+        } else if (groupId) {
+          setSelectedLesson(groupId);
+          const lesson = lessons.find(l => l.id === groupId);
           if (lesson && lesson.pricePerLesson) {
             setCalculatedPricePerLesson(lesson.pricePerLesson);
           }
@@ -181,7 +189,7 @@ export function CreatePaymentModal({
     };
     
     fetchStudentLessons();
-  }, [open, studentId, individualLessonId]);
+  }, [open, studentId, individualLessonId, groupId]);
 
   const getLessonsCount = () => {
     if (customLessonsCount) {

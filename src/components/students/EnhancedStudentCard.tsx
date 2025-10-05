@@ -2051,6 +2051,7 @@ export function EnhancedStudentCard({
         onOpenChange={setGroupPaymentModalOpen}
         studentId={student.id}
         studentName={studentDetails?.name || student.name}
+        groupId={selectedGroup?.id}
         onPaymentSuccess={() => {
           refetch();
           setSelectedGroup(null);
