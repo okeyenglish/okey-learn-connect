@@ -120,16 +120,6 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
 
   if (!group) return null;
 
-  console.log('GroupDetailModal - group data:', {
-    id: group.id,
-    name: group.name,
-    course_id: group.course_id,
-    course_name: group.course_name,
-    total_lessons: group.total_lessons,
-    course_start_date: group.course_start_date,
-    zoom_link: group.zoom_link
-  });
-
   // Mock data for demonstration - in real app this would come from APIs
   const teacherInfo = {
     name: group.responsible_teacher || "Не назначен",
@@ -623,7 +613,11 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                           </div>
                           <div className="flex justify-between">
                             <span>Вместимость:</span>
-                            <span className="font-medium">{group.capacity}</span>
+                            <span className="font-medium">{group.capacity || 0}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Численность:</span>
+                            <span className="font-medium">{group.current_students || 0}</span>
                           </div>
                           {group.course_name && (
                             <div className="flex justify-between">
@@ -631,7 +625,7 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                               <span className="font-medium">{group.course_name}</span>
                             </div>
                           )}
-                          {group.total_lessons > 0 && (
+                          {(group.total_lessons !== undefined && group.total_lessons !== null) && (
                             <div className="flex justify-between">
                               <span>Всего занятий:</span>
                               <span className="font-medium">{group.total_lessons}</span>

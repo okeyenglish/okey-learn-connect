@@ -106,11 +106,21 @@ export const useLearningGroups = (filters?: GroupFilters) => {
       if (error) throw error;
       
       // Преобразуем данные, добавляя course_name из связанной таблицы
-      const groupsWithCourseNames = (data || []).map((group: any) => ({
-        ...group,
-        course_name: group.courses?.title || null,
-        courses: undefined // Убираем вложенный объект
-      }));
+      const groupsWithCourseNames = (data || []).map((group: any) => {
+        const result: any = { ...group };
+        
+        // Добавляем course_name из вложенного объекта courses
+        if (group.courses && typeof group.courses === 'object' && !Array.isArray(group.courses)) {
+          result.course_name = group.courses.title || null;
+        } else {
+          result.course_name = null;
+        }
+        
+        // Удаляем вложенный объект courses
+        delete result.courses;
+        
+        return result;
+      });
       
       return groupsWithCourseNames as LearningGroup[];
     },
