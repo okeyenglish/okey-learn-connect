@@ -45,6 +45,11 @@ export interface StudentGroup {
   enrollmentDate: string;
   format?: string;
   sessions: LessonSession[];
+  course_id?: string;
+  course_name?: string;
+  total_lessons?: number;
+  course_start_date?: string;
+  zoom_link?: string;
 }
 
 export interface StudentIndividualLesson {
@@ -212,7 +217,14 @@ export const useStudentDetails = (studentId: string) => {
             status,
             category,
             group_number,
-            responsible_teacher
+            responsible_teacher,
+            course_id,
+            total_lessons,
+            course_start_date,
+            zoom_link,
+            courses:course_id (
+              title
+            )
           )
         `)
         .eq('student_id', studentId);
@@ -276,6 +288,11 @@ export const useStudentDetails = (studentId: string) => {
             enrollmentDate: gs.enrollment_date,
             format,
             sessions,
+            course_id: gs.learning_groups?.course_id,
+            course_name: gs.learning_groups?.courses?.title || null,
+            total_lessons: gs.learning_groups?.total_lessons,
+            course_start_date: gs.learning_groups?.course_start_date,
+            zoom_link: gs.learning_groups?.zoom_link,
           };
         })
       );

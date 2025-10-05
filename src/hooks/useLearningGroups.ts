@@ -106,9 +106,10 @@ export const useLearningGroups = (filters?: GroupFilters) => {
       if (error) throw error;
       
       // Преобразуем данные, добавляя course_name из связанной таблицы
-      const groupsWithCourseNames = (data || []).map(group => ({
+      const groupsWithCourseNames = (data || []).map((group: any) => ({
         ...group,
-        course_name: group.courses?.title || null
+        course_name: group.courses?.title || null,
+        courses: undefined // Убираем вложенный объект
       }));
       
       return groupsWithCourseNames as LearningGroup[];
