@@ -103,11 +103,13 @@ export function GroupLessonStatusModal({
           if (newStatus === 'cancelled') {
             updateData.is_cancelled_for_student = true;
             updateData.cancellation_reason = 'Занятие отменено для всей группы';
+            updateData.attendance_status = 'cancelled';
           } else if (newStatus === 'free') {
             updateData.payment_status = 'free';
           } else if (newStatus === 'rescheduled') {
             updateData.is_cancelled_for_student = true;
             updateData.cancellation_reason = 'Занятие перенесено';
+            updateData.attendance_status = 'cancelled';
           }
 
           const { error: updateError } = await supabase
@@ -119,14 +121,38 @@ export function GroupLessonStatusModal({
         }
       }
 
+      // Если возвращаем в статус "scheduled" - сбрасываем отмену у студентов
+      if (newStatus === 'scheduled') {
+        const { data: students, error: studentsError } = await supabase
+          .from('student_lesson_sessions')
+          .select('id')
+          .eq('lesson_session_id', sessionId);
+
+        if (studentsError) throw studentsError;
+
+        if (students && students.length > 0) {
+          const { error: updateError } = await supabase
+            .from('student_lesson_sessions')
+            .update({
+              is_cancelled_for_student: false,
+              cancellation_reason: null,
+              attendance_status: 'not_marked'
+            })
+            .in('id', students.map(s => s.id));
+
+          if (updateError) throw updateError;
+        }
+      }
+
       toast({
         title: "Успешно",
         description: `Статус занятия изменён на "${getStatusLabel(newStatus)}" для всех учеников`,
       });
 
-      // Invalidate payment stats cache to refresh all displays
+      // Invalidate all related caches to refresh displays
       queryClient.invalidateQueries({ queryKey: ['student-group-payment-stats'] });
       queryClient.invalidateQueries({ queryKey: ['student-details'] });
+      queryClient.invalidateQueries({ queryKey: ['lesson-sessions'] });
 
       onStatusUpdated?.();
       onOpenChange(false);
