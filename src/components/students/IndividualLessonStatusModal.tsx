@@ -142,7 +142,7 @@ export function IndividualLessonStatusModal({
       .eq('id', lessonId)
       .single();
 
-    if (!lesson || !lesson.schedule_days || !lesson.period_end) return;
+    if (!lesson || !lesson.period_end) return;
 
     const dayMapping: Record<string, number> = {
       'Пн': 1, 'Monday': 1, 'monday': 1,
@@ -154,16 +154,40 @@ export function IndividualLessonStatusModal({
       'Вс': 0, 'Sunday': 0, 'sunday': 0,
     };
 
-    const scheduledDays = lesson.schedule_days.map(day => dayMapping[day]).filter(d => d !== undefined);
-    
-    // Используем период начала занятий или текущую дату, если период не указан
-    const startDate = lesson.period_start ? new Date(lesson.period_start) : new Date();
-    const endDate = new Date(lesson.period_end);
-    
-    const dates = eachDayOfInterval({ start: startDate, end: endDate })
-      .filter(date => scheduledDays.includes(date.getDay()));
+    const scheduledDays = (lesson.schedule_days || []).map((day: string) => dayMapping[day]).filter((d: number | undefined) => d !== undefined) as number[];
 
-    setFutureDates(dates);
+    // Вычисляем интервал
+    const startBoundary = lesson.period_start ? new Date(lesson.period_start) : selectedDate;
+    const startDate = new Date(Math.max(startBoundary.getTime(), selectedDate.getTime()));
+    const endDate = new Date(lesson.period_end);
+
+    const startStr = format(startDate, 'yyyy-MM-dd');
+    const endStr = format(endDate, 'yyyy-MM-dd');
+
+    // 1) Берем ВСЕ уже созданные сессии (включая доп/перенесенные)
+    const { data: existingSessions } = await supabase
+      .from('individual_lesson_sessions')
+      .select('lesson_date')
+      .eq('individual_lesson_id', lessonId)
+      .gte('lesson_date', startStr)
+      .lte('lesson_date', endStr)
+      .order('lesson_date', { ascending: true });
+
+    const existingDateStrs = new Set<string>((existingSessions || []).map(s => s.lesson_date));
+
+    // 2) Генерируем даты по расписанию и добавляем, если их нет среди сессий
+    const generatedDates = lesson.schedule_days ?
+      eachDayOfInterval({ start: startDate, end: endDate })
+        .filter(date => scheduledDays.includes(date.getDay()))
+        .map(d => format(d, 'yyyy-MM-dd'))
+      : [] as string[];
+
+    const mergedDateStrs = Array.from(new Set([...existingDateStrs, ...generatedDates]));
+    const mergedDates = mergedDateStrs
+      .map(ds => new Date(ds + 'T00:00:00'))
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    setFutureDates(mergedDates);
   };
   
   if (!selectedDate) return null;
