@@ -269,8 +269,8 @@ export function LessonScheduleStrip({ sessions, className, groupId, onStatusUpda
         <ChevronLeft className="h-4 w-4" />
       </Button>
 
-      <div className="flex-1 overflow-hidden">
-        <div className="flex gap-1">
+      <div className="flex-1 overflow-x-auto overflow-y-visible">
+        <div className="flex gap-1 min-w-max">
           <TooltipProvider>
             {visibleSessions.map((session, index) => {
               const colorClass = getLessonColor(session);
