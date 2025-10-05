@@ -6,28 +6,24 @@ export const LessonColorLegend = () => {
       <CardContent className="p-4">
         <div className="flex flex-wrap gap-4 text-sm">
           <div className="flex items-center gap-2">
-            <div className="h-4 w-4 rounded bg-cyan-400" />
-            <span>Текущие занятия</span>
+            <div className="h-4 w-4 rounded bg-green-500" />
+            <span>Оплаченные занятия</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-4 w-4 rounded bg-yellow-400" />
-            <span>Занятия закончатся в течение недели</span>
+            <div className="h-4 w-4 rounded bg-white border border-gray-300" />
+            <span>Не оплаченные (будущие)</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-4 w-4 rounded bg-lime-300" />
-            <span>Занятия начнутся в ближайшее время</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="h-4 w-4 rounded bg-gray-400" />
-            <span>Нет преподавателя</span>
+            <div className="h-4 w-4 rounded bg-red-500" />
+            <span>Задолженность (не оплачено и прошло)</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="h-4 w-4 rounded bg-orange-500" />
-            <span>Преподаватель работает в другом месте</span>
+            <span>Бесплатное занятие</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="h-4 w-4 rounded bg-black" />
-            <span>Пропуск</span>
+            <span>Отменено</span>
           </div>
         </div>
       </CardContent>

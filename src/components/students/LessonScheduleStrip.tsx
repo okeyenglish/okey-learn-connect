@@ -106,22 +106,20 @@ export function LessonScheduleStrip({ sessions, className, groupId, onStatusUpda
     const lessonDate = new Date(session.lessonDate);
     lessonDate.setHours(0, 0, 0, 0);
     
-    const diffTime = lessonDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const isPast = lessonDate < today;
     
-    // Сначала учитываем специальные статусы, они важнее оплаты
+    // Сначала учитываем специальные статусы
     if (session.status) {
       switch (session.status.toLowerCase()) {
         case 'cancelled':
-          return 'bg-black text-white border-black'; // Пропуск - черный
+          return 'bg-black text-white border-black'; // Отменено - черный
         case 'rescheduled':
-          return 'bg-orange-500 text-white border-orange-500'; // Преподаватель работает в другом месте
+          return 'bg-black text-white border-black'; // Перенесено тоже как отменено
         case 'free':
-          return 'bg-yellow-500 text-white border-yellow-500';
         case 'free_skip':
-          return 'bg-blue-400 text-white border-blue-400';
+          return 'bg-orange-500 text-white border-orange-500'; // Бесплатное - оранжевый
         case 'paid_skip':
-          return 'bg-red-500 text-white border-red-500';
+          return 'bg-orange-500 text-white border-orange-500';
       }
     }
 
@@ -135,26 +133,19 @@ export function LessonScheduleStrip({ sessions, className, groupId, onStatusUpda
       return `partial-payment-${Math.round(percentage)}`;
     }
 
-    // Полная оплата
+    // Полная оплата - зеленый
     if (paidMinutes >= duration || session.payment_id) {
-      // Текущие занятия - голубой
-      if (diffDays >= 0 && diffDays <= 7) {
-        return 'bg-cyan-400 text-white border-cyan-400';
-      }
-      // Занятия закончатся в течение недели - желтый
-      if (diffDays < 0 && diffDays >= -7) {
-        return 'bg-yellow-400 text-white border-yellow-400';
-      }
       return 'bg-green-600 text-white border-green-600';
     }
 
-    // Занятия начнутся в ближайшее время - светло-зеленый
-    if (diffDays > 7 && diffDays <= 30) {
-      return 'bg-lime-300 text-gray-800 border-lime-300';
+    // Не оплачено
+    if (isPast) {
+      // Прошедшее и не оплаченное - красный (задолженность)
+      return 'bg-red-500 text-white border-red-500';
+    } else {
+      // Будущее и не оплаченное - белый
+      return 'bg-white text-gray-900 border-gray-300';
     }
-
-    // По умолчанию — серый (нет преподавателя/не готово)
-    return 'bg-gray-400 text-white border-gray-400';
   };
 
   const getStatusLabel = (status: string) => {
