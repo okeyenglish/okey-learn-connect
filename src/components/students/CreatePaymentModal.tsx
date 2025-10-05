@@ -128,6 +128,11 @@ export function CreatePaymentModal({
           groupsData.forEach((item: any) => {
             const group = item.learning_groups;
             if (group) {
+              // Для групповых занятий используем стандартную цену за академический час
+              const academicHoursPerDay = group.academic_hours_per_day || 1;
+              const pricePerAcademicHour = 1000; // Стандартная цена за академический час для групп
+              const pricePerLesson = pricePerAcademicHour * academicHoursPerDay;
+              
               lessons.push({
                 id: group.id,
                 type: 'group',
@@ -136,7 +141,8 @@ export function CreatePaymentModal({
                 level: group.level || '',
                 teacher: group.teacher_name || '',
                 branch: group.branch || '',
-                academicHours: group.academic_hours_per_day || 1,
+                academicHours: academicHoursPerDay,
+                pricePerLesson: pricePerLesson,
               });
             }
           });
@@ -169,16 +175,22 @@ export function CreatePaymentModal({
         
         setStudentLessons(lessons);
         
+        console.log('Payment modal - groupId:', groupId, 'individualLessonId:', individualLessonId);
+        console.log('Available lessons:', lessons);
+        
         // Если передан individualLessonId или groupId, автоматически выбираем его
         if (individualLessonId) {
+          console.log('Selecting individual lesson:', individualLessonId);
           setSelectedLesson(individualLessonId);
           const lesson = lessons.find(l => l.id === individualLessonId);
           if (lesson && lesson.pricePerLesson) {
             setCalculatedPricePerLesson(lesson.pricePerLesson);
           }
         } else if (groupId) {
+          console.log('Selecting group:', groupId);
           setSelectedLesson(groupId);
           const lesson = lessons.find(l => l.id === groupId);
+          console.log('Found lesson:', lesson);
           if (lesson && lesson.pricePerLesson) {
             setCalculatedPricePerLesson(lesson.pricePerLesson);
           }
