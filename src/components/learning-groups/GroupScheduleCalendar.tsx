@@ -108,8 +108,8 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
             })
           : sortedSessions;
         
-        // Для каждого занятия группы создаем запись для студента
-        sortedSessions.forEach((lessonSession) => {
+        // Для каждого занятия студента (после зачисления) создаем запись
+        studentLessons.forEach((lessonSession) => {
           const key = `${studentId}_${lessonSession.id}`;
           const personalData = studentSessionsMap.get(key);
           
@@ -124,13 +124,7 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
           let is_cancelled_for_student = personalData?.is_cancelled_for_student || false;
           let cancellation_reason = personalData?.cancellation_reason || null;
           
-          // Проверяем, было ли занятие до зачисления студента
-          if (enrollmentDate && lessonDate < enrollmentDate && !personalData?.is_cancelled_for_student) {
-            // Занятие было до зачисления студента - помечаем как отмененное для него
-            is_cancelled_for_student = true;
-            cancellation_reason = 'Студент еще не был зачислен в группу';
-            payment_status = 'not_paid';
-          } else if (personalData?.payment_status && personalData.payment_status !== 'not_paid') {
+          if (personalData?.payment_status && personalData.payment_status !== 'not_paid') {
             // Если уже есть явный статус - используем его
             payment_status = personalData.payment_status;
           } else if (studentLessonIndex >= 0 && studentLessonIndex < totalPaidLessons) {
