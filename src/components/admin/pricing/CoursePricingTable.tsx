@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Pencil, Save } from "lucide-react";
 import { EditCoursePriceModal } from "./EditCoursePriceModal";
+import { toast } from "@/hooks/use-toast";
 
 // Импортируем данные из централизованного прайс-листа
 const COURSE_PRICES = {
@@ -36,62 +39,183 @@ interface CoursePrice {
   pricePerLesson: number;
   academicHoursPerLesson: number;
   packagePrice: number;
+  pricePer40Min?: number;
+  pricePerAcademicHour?: number;
 }
 
 export function CoursePricingTable() {
   const [editingPrice, setEditingPrice] = useState<CoursePrice | null>(null);
+  const [selectedPrices, setSelectedPrices] = useState<Set<string>>(new Set());
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedPrices, setEditedPrices] = useState<Map<string, { pricePer40Min: number; pricePerAcademicHour: number }>>(new Map());
 
   // Преобразуем объект в массив для отображения
-  const prices: CoursePrice[] = Object.entries(COURSE_PRICES).map(([name, data], index) => ({
-    id: index.toString(),
-    courseName: name,
-    ...data,
-  }));
+  const prices: CoursePrice[] = Object.entries(COURSE_PRICES).map(([name, data], index) => {
+    const pricePer40Min = data.pricePerLesson;
+    const pricePerAcademicHour = Math.round(data.pricePerLesson / data.academicHoursPerLesson);
+    
+    return {
+      id: index.toString(),
+      courseName: name,
+      ...data,
+      pricePer40Min,
+      pricePerAcademicHour,
+    };
+  });
 
   const handleEdit = (price: CoursePrice) => {
     setEditingPrice(price);
   };
 
+  const toggleSelectAll = () => {
+    if (selectedPrices.size === prices.length) {
+      setSelectedPrices(new Set());
+    } else {
+      setSelectedPrices(new Set(prices.map(p => p.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    const newSelected = new Set(selectedPrices);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedPrices(newSelected);
+  };
+
+  const handlePriceChange = (id: string, field: 'pricePer40Min' | 'pricePerAcademicHour', value: string) => {
+    const numValue = parseFloat(value) || 0;
+    const current = editedPrices.get(id) || { pricePer40Min: 0, pricePerAcademicHour: 0 };
+    setEditedPrices(new Map(editedPrices.set(id, { ...current, [field]: numValue })));
+  };
+
+  const startEditing = () => {
+    if (selectedPrices.size === 0) {
+      toast({
+        title: "Выберите курсы",
+        description: "Выберите хотя бы один курс для редактирования",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Инициализируем editedPrices текущими значениями
+    const initialEdited = new Map();
+    prices.forEach(price => {
+      if (selectedPrices.has(price.id)) {
+        initialEdited.set(price.id, {
+          pricePer40Min: price.pricePer40Min || 0,
+          pricePerAcademicHour: price.pricePerAcademicHour || 0,
+        });
+      }
+    });
+    setEditedPrices(initialEdited);
+    setIsEditing(true);
+  };
+
+  const saveChanges = () => {
+    toast({
+      title: "Функция в разработке",
+      description: "Сохранение изменений будет доступно после подключения к базе данных",
+    });
+    setIsEditing(false);
+    setSelectedPrices(new Set());
+    setEditedPrices(new Map());
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditedPrices(new Map());
+  };
+
   return (
     <>
+      <div className="mb-4 flex gap-2">
+        {!isEditing ? (
+          <Button onClick={startEditing} disabled={selectedPrices.size === 0}>
+            <Pencil className="mr-2 h-4 w-4" />
+            Редактировать выбранные ({selectedPrices.size})
+          </Button>
+        ) : (
+          <>
+            <Button onClick={saveChanges} variant="default">
+              <Save className="mr-2 h-4 w-4" />
+              Сохранить изменения
+            </Button>
+            <Button onClick={cancelEditing} variant="outline">
+              Отменить
+            </Button>
+          </>
+        )}
+      </div>
+
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Курс / Программа</TableHead>
-              <TableHead>Цена за занятие</TableHead>
-              <TableHead>Акад. часов</TableHead>
-              <TableHead>Пакет 8 занятий</TableHead>
-              <TableHead className="text-right">Действия</TableHead>
+              <TableHead className="w-12">
+                <Checkbox
+                  checked={selectedPrices.size === prices.length}
+                  onCheckedChange={toggleSelectAll}
+                />
+              </TableHead>
+              <TableHead>Название курса</TableHead>
+              <TableHead>Стоимость за 40 минут</TableHead>
+              <TableHead>1 ак/ч</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {prices.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                <TableCell colSpan={4} className="text-center text-muted-foreground">
                   Нет данных о ценах
                 </TableCell>
               </TableRow>
             ) : (
-              prices.map((price) => (
-                <TableRow key={price.id}>
-                  <TableCell className="font-medium capitalize">{price.courseName}</TableCell>
-                  <TableCell>{price.pricePerLesson.toLocaleString('ru-RU')} ₽</TableCell>
-                  <TableCell>{price.academicHoursPerLesson}</TableCell>
-                  <TableCell>{price.packagePrice.toLocaleString('ru-RU')} ₽</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEdit(price)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+              prices.map((price) => {
+                const edited = editedPrices.get(price.id);
+                const isSelected = selectedPrices.has(price.id);
+                const isEditingThis = isEditing && isSelected;
+
+                return (
+                  <TableRow key={price.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleSelect(price.id)}
+                        disabled={isEditing}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium capitalize">{price.courseName}</TableCell>
+                    <TableCell>
+                      {isEditingThis ? (
+                        <Input
+                          type="number"
+                          value={edited?.pricePer40Min || price.pricePer40Min}
+                          onChange={(e) => handlePriceChange(price.id, 'pricePer40Min', e.target.value)}
+                          className="w-32"
+                        />
+                      ) : (
+                        `${price.pricePer40Min?.toLocaleString('ru-RU')} ₽`
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditingThis ? (
+                        <Input
+                          type="number"
+                          value={edited?.pricePerAcademicHour || price.pricePerAcademicHour}
+                          onChange={(e) => handlePriceChange(price.id, 'pricePerAcademicHour', e.target.value)}
+                          className="w-32"
+                        />
+                      ) : (
+                        `${price.pricePerAcademicHour?.toLocaleString('ru-RU')} ₽`
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
