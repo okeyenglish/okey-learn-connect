@@ -99,6 +99,9 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
   const totalPaidLessons = payments.reduce((sum, p) => sum + (p.lessons_count || 0), 0);
   const totalPaidMinutes = totalPaidLessons * lessonDuration;
 
+  // Calculate price per minute from actual payments (not from price list)
+  const actualPricePerMinute = totalPaidMinutes > 0 ? totalPaidAmount / totalPaidMinutes : 0;
+
   // Calculate used sessions - only after enrollment and not cancelled for student
   const todayObj = new Date();
   todayObj.setHours(0, 0, 0, 0);
@@ -114,9 +117,9 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
   const totalCourseLessons = (effectiveSessions as any[]).length || 0;
   const totalCourseMinutes = totalCourseLessons * lessonDuration;
 
-  // Calculate remaining and unpaid
+  // Calculate remaining and unpaid based on actual paid amount
   const remainingMinutes = Math.max(0, totalPaidMinutes - usedMinutes);
-  const remainingAmount = Math.max(0, remainingMinutes * pricePerMinute);
+  const remainingAmount = Math.max(0, remainingMinutes * actualPricePerMinute);
   const unpaidMinutes = Math.max(0, totalCourseMinutes - totalPaidMinutes);
 
   return {
