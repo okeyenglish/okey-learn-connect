@@ -35,7 +35,6 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
     status: 'reserve' | 'forming' | 'active' | 'suspended' | 'finished';
     zoom_link: string;
     course_id: string;
-    course_name: string;
     total_lessons: number;
     course_start_date: string;
   }>({
@@ -50,7 +49,6 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
     status: group?.status || "active",
     zoom_link: group?.zoom_link || "",
     course_id: group?.course_id || "",
-    course_name: group?.course_name || "",
     total_lessons: group?.total_lessons || 0,
     course_start_date: group?.course_start_date || ""
   });
@@ -86,7 +84,6 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
         status: group.status || "active",
         zoom_link: group.zoom_link || "",
         course_id: group.course_id || "",
-        course_name: group.course_name || "",
         total_lessons: group.total_lessons || 0,
         course_start_date: group.course_start_date || ""
       });
@@ -134,7 +131,6 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
           status: formData.status,
           zoom_link: formData.zoom_link,
           course_id: formData.course_id || null,
-          course_name: formData.course_name,
           total_lessons: formData.total_lessons,
           course_start_date: formData.course_start_date || null,
           updated_at: new Date().toISOString()
@@ -310,11 +306,9 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
             <Select 
               value={formData.course_id} 
               onValueChange={(value) => {
-                const selectedCourse = courses?.find(c => c.id === value);
                 setFormData(prev => ({ 
                   ...prev, 
-                  course_id: value,
-                  course_name: selectedCourse?.title || ""
+                  course_id: value
                 }));
               }}
             >
