@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 
 export interface StudentLessonSession {
   id: string;
@@ -179,6 +180,101 @@ export const useStudentGroupLessonSessions = (
   studentId: string | undefined,
   groupId: string | undefined
 ) => {
+  const queryClient = useQueryClient();
+
+  // Realtime подписка на изменения в lesson_sessions
+  useEffect(() => {
+    if (!groupId) return;
+
+    const channel = supabase
+      .channel(`lesson_sessions_${groupId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'lesson_sessions',
+          filter: `group_id=eq.${groupId}`
+        },
+        () => {
+          // Инвалидируем кеш при любом изменении занятий группы
+          queryClient.invalidateQueries({ 
+            queryKey: ['student-group-lesson-sessions', studentId, groupId] 
+          });
+          queryClient.invalidateQueries({ 
+            queryKey: ['student-group-payment-stats', studentId, groupId] 
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [groupId, studentId, queryClient]);
+
+  // Realtime подписка на изменения в student_lesson_sessions
+  useEffect(() => {
+    if (!studentId) return;
+
+    const channel = supabase
+      .channel(`student_lesson_sessions_${studentId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'student_lesson_sessions',
+          filter: `student_id=eq.${studentId}`
+        },
+        () => {
+          // Инвалидируем кеш при изменении персональных данных студента
+          queryClient.invalidateQueries({ 
+            queryKey: ['student-group-lesson-sessions', studentId, groupId] 
+          });
+          queryClient.invalidateQueries({ 
+            queryKey: ['student-group-payment-stats', studentId, groupId] 
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [studentId, groupId, queryClient]);
+
+  // Realtime подписка на изменения платежей
+  useEffect(() => {
+    if (!studentId || !groupId) return;
+
+    const channel = supabase
+      .channel(`payments_${studentId}_${groupId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'payments',
+          filter: `student_id=eq.${studentId}`
+        },
+        () => {
+          // Инвалидируем кеш при изменении платежей
+          queryClient.invalidateQueries({ 
+            queryKey: ['student-group-lesson-sessions', studentId, groupId] 
+          });
+          queryClient.invalidateQueries({ 
+            queryKey: ['student-group-payment-stats', studentId, groupId] 
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [studentId, groupId, queryClient]);
+
   return useQuery({
     queryKey: ['student-group-lesson-sessions', studentId, groupId],
     queryFn: () => calculateStudentSessions(studentId!, groupId!),
