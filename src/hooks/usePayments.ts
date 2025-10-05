@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useQueryClient } from '@tanstack/react-query';
 
 export interface Payment {
   id: string;
@@ -23,6 +24,7 @@ export const usePayments = (filters?: any) => {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const fetchPayments = async () => {
     setLoading(true);
@@ -262,6 +264,10 @@ export const usePayments = (filters?: any) => {
         description: `Платеж на сумму ${paymentData.amount} руб. добавлен`,
       });
 
+      // Invalidate payment stats cache
+      queryClient.invalidateQueries({ queryKey: ['student-group-payment-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['student-details'] });
+
       console.log('=== CREATE PAYMENT END ===');
       fetchPayments();
       return payment;
@@ -293,6 +299,10 @@ export const usePayments = (filters?: any) => {
         title: "Успешно",
         description: "Платеж обновлен",
       });
+
+      // Invalidate payment stats cache
+      queryClient.invalidateQueries({ queryKey: ['student-group-payment-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['student-details'] });
 
       fetchPayments();
       return data;
@@ -488,6 +498,10 @@ export const usePayments = (filters?: any) => {
         title: "Успешно",
         description: "Платеж удален, средства перераспределены на самые ранние занятия",
       });
+
+      // Invalidate payment stats cache
+      queryClient.invalidateQueries({ queryKey: ['student-group-payment-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['student-details'] });
 
       fetchPayments();
     } catch (error) {

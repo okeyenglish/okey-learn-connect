@@ -12,22 +12,46 @@ interface PaymentStats {
 }
 
 const fetchPaymentStats = async (studentId: string, groupId: string): Promise<PaymentStats> => {
+  // Single query to get all data at once
+  const [groupResponse, paymentsResponse, pricingResponse, allSessionsResponse, studentSessionsResponse] = await Promise.all([
+    // Get group info
+    supabase
+      .from('learning_groups')
+      .select('subject, capacity')
+      .eq('id', groupId)
+      .single(),
+    
+    // Get all payments for this student in this group
+    supabase
+      .from('payments')
+      .select('amount, lessons_count')
+      .eq('student_id', studentId)
+      .eq('group_id', groupId)
+      .order('created_at', { ascending: true }),
+    
+    // Defer pricing fetch - will do conditionally
+    Promise.resolve({ data: null }),
+    
+    // Get all lesson sessions for this group
+    supabase
+      .from('lesson_sessions')
+      .select('id, lesson_date, status')
+      .eq('group_id', groupId)
+      .neq('status', 'cancelled'),
+    
+    // Get student's session records
+    supabase
+      .from('student_lesson_sessions')
+      .select('lesson_session_id, attendance_status, payment_status, payment_amount')
+      .eq('student_id', studentId)
+  ]);
 
-  // Get group info
-  const { data: group } = await supabase
-    .from('learning_groups')
-    .select('subject, capacity')
-    .eq('id', groupId)
-    .single();
+  const group = groupResponse.data;
+  const payments = paymentsResponse.data || [];
+  const allSessions = allSessionsResponse.data || [];
+  const studentSessions = studentSessionsResponse.data || [];
 
-  // Get all payments for this student in this group
-  const { data: payments } = await supabase
-    .from('payments')
-    .select('amount, lessons_count')
-    .eq('student_id', studentId)
-    .eq('group_id', groupId);
-
-  // Get pricing for this course (assume subject is the course name)
+  // Now fetch pricing if we have a subject
   const { data: pricing } = await supabase
     .from('group_course_prices')
     .select('duration_minutes, price_8_lessons, price_24_lessons, price_80_lessons')
@@ -41,58 +65,40 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
     pricePerMinute = avgPrice / pricing.duration_minutes;
   }
 
-  // Get actual lesson duration from pricing, fallback to 60 if not found
-  const lessonDuration = pricing?.duration_minutes || 60;
+  // Get actual lesson duration from pricing, fallback to 80 if not found
+  const lessonDuration = pricing?.duration_minutes || 80;
   
   // Calculate total paid
-  const totalPaidAmount = payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
-  const totalPaidLessons = payments?.reduce((sum, p) => sum + (p.lessons_count || 0), 0) || 0;
+  const totalPaidAmount = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+  const totalPaidLessons = payments.reduce((sum, p) => sum + (p.lessons_count || 0), 0);
   const totalPaidMinutes = totalPaidLessons * lessonDuration;
 
-  // Get all lesson sessions for this group to calculate total course
-  const { data: allSessions } = await supabase
-    .from('lesson_sessions')
-    .select('id, status, payment_id')
-    .eq('group_id', groupId)
-    .neq('status', 'cancelled');
+  // Calculate used sessions - sessions that have passed or are completed
+  const today = new Date().toISOString().split('T')[0];
+  const usedSessionsCount = allSessions.filter(session => {
+    const sessionDate = session.lesson_date;
+    return session.status === 'completed' || (sessionDate < today && session.status !== 'cancelled');
+  }).length;
 
-  // Get sessions that should be counted as "used" for this student
-  // Include: completed sessions OR sessions with past dates (already happened)
-  const { data: completedSessions } = await supabase
-    .from('lesson_sessions')
-    .select(`
-      id,
-      lesson_date,
-      status,
-      student_lesson_sessions!inner(student_id)
-    `)
-    .eq('group_id', groupId)
-    .eq('student_lesson_sessions.student_id', studentId)
-    .or(`status.eq.completed,and(lesson_date.lt.${new Date().toISOString().split('T')[0]},status.neq.cancelled)`);
-  
-  // Filter out cancelled sessions
-  const usedSessions = completedSessions?.filter(s => s.status !== 'cancelled') || [];
-
-  // Calculate used minutes (completed or past-date lessons with actual duration)
-  const usedMinutes = usedSessions.length * lessonDuration;
+  const usedMinutes = usedSessionsCount * lessonDuration;
 
   // Calculate total course minutes based on total planned sessions
-  const totalCourseLessons = allSessions?.length || 80;
+  const totalCourseLessons = allSessions.length || 0;
   const totalCourseMinutes = totalCourseLessons * lessonDuration;
 
   // Calculate remaining and unpaid
-  const remainingMinutes = totalPaidMinutes - usedMinutes;
-  const remainingAmount = remainingMinutes * pricePerMinute;
-  const unpaidMinutes = totalCourseMinutes - totalPaidMinutes;
+  const remainingMinutes = Math.max(0, totalPaidMinutes - usedMinutes);
+  const remainingAmount = Math.max(0, remainingMinutes * pricePerMinute);
+  const unpaidMinutes = Math.max(0, totalCourseMinutes - totalPaidMinutes);
 
   return {
     paidMinutes: totalPaidMinutes,
     paidAmount: totalPaidAmount,
     usedMinutes,
-    remainingMinutes: Math.max(0, remainingMinutes),
-    remainingAmount: Math.max(0, remainingAmount),
+    remainingMinutes,
+    remainingAmount,
     totalCourseMinutes,
-    unpaidMinutes: Math.max(0, unpaidMinutes)
+    unpaidMinutes
   };
 };
 

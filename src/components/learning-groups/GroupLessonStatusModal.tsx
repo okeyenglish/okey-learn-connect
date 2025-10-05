@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface GroupLessonStatusModalProps {
   open: boolean;
@@ -38,6 +39,7 @@ export function GroupLessonStatusModal({
   const [sessionData, setSessionData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (sessionId && open) {
@@ -121,6 +123,10 @@ export function GroupLessonStatusModal({
         title: "Успешно",
         description: `Статус занятия изменён на "${getStatusLabel(newStatus)}" для всех учеников`,
       });
+
+      // Invalidate payment stats cache to refresh all displays
+      queryClient.invalidateQueries({ queryKey: ['student-group-payment-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['student-details'] });
 
       onStatusUpdated?.();
       onOpenChange(false);

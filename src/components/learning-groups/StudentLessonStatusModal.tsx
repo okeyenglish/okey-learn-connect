@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface StudentLessonStatusModalProps {
   isOpen: boolean;
@@ -33,6 +34,7 @@ export const StudentLessonStatusModal = ({
   isTemp = false
 }: StudentLessonStatusModalProps) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sessionData, setSessionData] = useState<any>(null);
@@ -123,6 +125,10 @@ export const StudentLessonStatusModal = ({
         title: "Успешно",
         description: "Данные занятия обновлены",
       });
+
+      // Invalidate payment stats cache to refresh all displays
+      queryClient.invalidateQueries({ queryKey: ['student-group-payment-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['student-details'] });
 
       onUpdate?.();
       onClose();
