@@ -228,7 +228,7 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
                             </div>
                             
                             {/* Информация о платежах */}
-                            <div className="mt-2 pl-3 border-l-2 border-gray-200">
+                            <div className="mt-2 p-3 bg-muted/30 rounded-lg">
                               <StudentPaymentInfo 
                                 studentId={student.id}
                                 groupId={groupId}
