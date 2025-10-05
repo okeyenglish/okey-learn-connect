@@ -82,12 +82,20 @@ export function CreatePaymentModal({
   const { mutateAsync: addBalanceTransaction } = useAddBalanceTransaction();
   const { toast } = useToast();
   const { data: coursePrices } = useCoursePrices();
-  const { data: groupCoursePrices } = useGroupCoursePrices();
+  const { data: groupCoursePrices, isLoading: isLoadingGroupPrices } = useGroupCoursePrices();
+
+  console.log('CreatePaymentModal render:', {
+    groupCoursePrices,
+    isLoadingGroupPrices,
+    selectedLessonCourseName
+  });
 
   // Загружаем занятия студента
   useEffect(() => {
     const fetchStudentLessons = async () => {
       if (!open || !studentId) return;
+      
+      console.log('Fetching student lessons, groupCoursePrices available:', groupCoursePrices);
       
       try {
         // 1) Получаем активные связи из group_students
@@ -181,16 +189,28 @@ export function CreatePaymentModal({
         // Добавляем групповые занятия
         if (finalGroups) {
           finalGroups.forEach((group: any) => {
-            // Используем course_name если есть, иначе name группы
+            // ВАЖНО: используем course_name из связи с таблицей courses, если есть
+            // Если нет - пробуем извлечь из названия группы
             const fullCourseName = group.course_name || group.name;
+            
+            console.log('Processing group:', {
+              groupId: group.id,
+              groupName: group.name,
+              courseNameFromDB: group.course_name,
+              fullCourseName
+            });
             
             // Извлекаем базовое название курса без цифр и уровней
             const baseCourse = extractCourseName(fullCourseName);
             
+            console.log('Extracted base course:', baseCourse);
+            
             // Ищем цену в таблице групповых курсов
-            const priceFromDB = groupCoursePrices?.find(gcp => 
-              gcp.course_name.toLowerCase() === baseCourse.toLowerCase()
-            );
+            const priceFromDB = groupCoursePrices?.find(gcp => {
+              const match = gcp.course_name.toLowerCase() === baseCourse.toLowerCase();
+              console.log(`Comparing "${gcp.course_name}" with "${baseCourse}": ${match}`);
+              return match;
+            });
             
             // Для групповых занятий используем duration_minutes из БД или стандарт 80 минут
             const durationMinutes = priceFromDB?.duration_minutes || 80;
@@ -258,7 +278,7 @@ export function CreatePaymentModal({
     };
     
     fetchStudentLessons();
-  }, [open, studentId]);
+  }, [open, studentId, groupCoursePrices]); // Добавили groupCoursePrices в зависимости
 
   // Отдельный эффект для автовыбора курса
   useEffect(() => {
@@ -266,6 +286,7 @@ export function CreatePaymentModal({
     
     console.log('Payment modal - groupId:', groupId, 'individualLessonId:', individualLessonId);
     console.log('Available lessons:', studentLessons);
+    console.log('groupCoursePrices loaded:', groupCoursePrices);
     
     // Если передан individualLessonId или groupId, автоматически выбираем его
     if (individualLessonId) {
@@ -289,11 +310,12 @@ export function CreatePaymentModal({
         }
         // Сохраняем базовое название курса для групповых занятий
         if (lesson.type === 'group' && lesson.schedule) {
+          console.log('Setting course name:', lesson.schedule);
           setSelectedLessonCourseName(lesson.schedule);
         }
       }
     }
-  }, [open, studentLessons, individualLessonId, groupId]);
+  }, [open, studentLessons, individualLessonId, groupId, groupCoursePrices]);
 
   const getLessonsCount = () => {
     if (customLessonsCount) {
@@ -305,30 +327,47 @@ export function CreatePaymentModal({
   const getPackagePrice = (count: number) => {
     const lesson = getSelectedLessonInfo();
     
+    console.log('getPackagePrice called:', {
+      count,
+      lesson,
+      selectedLessonCourseName,
+      groupCoursePrices: groupCoursePrices?.length,
+      allGroupCourses: groupCoursePrices
+    });
+    
     // Для групповых занятий используем фиксированные цены из БД
     if (lesson?.type === 'group' && selectedLessonCourseName && groupCoursePrices) {
       const coursePrice = groupCoursePrices.find(
         gcp => gcp.course_name.toLowerCase() === selectedLessonCourseName.toLowerCase()
       );
       
+      console.log('Found coursePrice:', coursePrice, 'for course:', selectedLessonCourseName);
+      
       if (coursePrice) {
         switch (count) {
           case 8:
+            console.log('Returning price for 8 lessons:', coursePrice.price_8_lessons);
             return Number(coursePrice.price_8_lessons);
           case 24:
+            console.log('Returning price for 24 lessons:', coursePrice.price_24_lessons);
             return Number(coursePrice.price_24_lessons);
           case 80:
+            console.log('Returning price for 80 lessons:', coursePrice.price_80_lessons);
             return Number(coursePrice.price_80_lessons);
           default:
             // Для других пакетов рассчитываем пропорционально на основе цены за 8 занятий
             const pricePerLesson = Number(coursePrice.price_8_lessons) / 8;
-            return count * pricePerLesson;
+            const totalPrice = count * pricePerLesson;
+            console.log('Returning calculated price:', totalPrice, 'for', count, 'lessons');
+            return totalPrice;
         }
       }
     }
     
     // Для индивидуальных занятий умножаем цену за урок на количество
-    return count * calculatedPricePerLesson;
+    const individualPrice = count * calculatedPricePerLesson;
+    console.log('Returning individual price:', individualPrice);
+    return individualPrice;
   };
 
   const calculateAmount = () => {
@@ -601,6 +640,9 @@ export function CreatePaymentModal({
 
               <div>
                 <Label>Выберите пакет занятий</Label>
+                {isLoadingGroupPrices && (
+                  <div className="text-sm text-muted-foreground mb-2">Загрузка цен...</div>
+                )}
                 <div className="grid grid-cols-5 gap-1.5">
                   {LESSON_PACKAGES.map(count => (
                     <button
