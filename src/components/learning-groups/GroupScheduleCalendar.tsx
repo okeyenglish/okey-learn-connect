@@ -48,37 +48,39 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
         firstSession: groupSessions[0]?.lesson_date,
       });
       
-      const { data, error } = await supabase
-        .from('student_lesson_sessions')
-        .select('*')
-        .in('lesson_session_id', sessionIds)
-        .in('student_id', studentIds);
+      // Объединяем запросы для оптимизации
+      const [studentSessionsResponse, paymentsResponse] = await Promise.all([
+        supabase
+          .from('student_lesson_sessions')
+          .select('*')
+          .in('lesson_session_id', sessionIds)
+          .in('student_id', studentIds),
+        
+        supabase
+          .from('payments')
+          .select('student_id, lessons_count, created_at')
+          .in('student_id', studentIds)
+          .eq('group_id', groupId)
+          .order('created_at', { ascending: true })
+      ]);
 
-      if (error) {
-        console.error('Error fetching student sessions:', error);
+      if (studentSessionsResponse.error) {
+        console.error('Error fetching student sessions:', studentSessionsResponse.error);
         return;
       }
 
       // Создаем Map для быстрого поиска персональных данных
       const studentSessionsMap = new Map();
-      data?.forEach(session => {
+      studentSessionsResponse.data?.forEach(session => {
         const key = `${session.student_id}_${session.lesson_session_id}`;
         studentSessionsMap.set(key, session);
       });
 
-      // Получаем платежи для всех студентов группы
-      const { data: payments } = await supabase
-        .from('payments')
-        .select('student_id, lessons_count, created_at')
-        .in('student_id', studentIds)
-        .eq('group_id', groupId)
-        .order('created_at', { ascending: true });
-
       // Создаем Map с оплаченных минут (академические часы × 40) для каждого студента
       const paidMinutesMap = new Map<string, number>();
-      payments?.forEach(payment => {
+      paymentsResponse.data?.forEach(payment => {
         const current = paidMinutesMap.get(payment.student_id) || 0;
-        const paidAcademicHours = payment.lessons_count || 0; // всегда в а.ч.
+        const paidAcademicHours = payment.lessons_count || 0;
         paidMinutesMap.set(payment.student_id, current + paidAcademicHours * 40);
       });
 

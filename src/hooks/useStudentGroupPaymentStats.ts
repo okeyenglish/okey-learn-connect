@@ -34,12 +34,11 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
     // Defer pricing fetch - will do conditionally
     Promise.resolve({ data: null }),
     
-    // Get all lesson sessions for this group
+    // Get all lesson sessions for this group (including cancelled)
     supabase
       .from('lesson_sessions')
       .select('id, lesson_date, status, start_time, end_time')
-      .eq('group_id', groupId)
-      .neq('status', 'cancelled'),
+      .eq('group_id', groupId),
     
     // Get student's session records
     supabase
@@ -71,12 +70,13 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
     (studentSessions as any[]).filter(s => s.is_cancelled_for_student).map(s => s.lesson_session_id)
   );
 
-  // Consider only sessions after enrollment and not cancelled for student
+  // Consider only sessions after enrollment and not cancelled (global or for student)
   const effectiveSessions = (allSessions as any[]).filter((session: any) => {
     const d = new Date(session.lesson_date);
     d.setHours(0, 0, 0, 0);
     if (enrollmentDate && d < enrollmentDate) return false;
-    if (cancelledForStudent.has(session.id)) return false;
+    // Exclude if cancelled globally OR cancelled for this specific student
+    if (session.status === 'cancelled' || cancelledForStudent.has(session.id)) return false;
     return true;
   });
   // Now fetch pricing if we have a subject
