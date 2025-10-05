@@ -9,8 +9,9 @@ import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
 import { PhoneNumberManager } from "./PhoneNumberManager";
 import { EditContactModal } from "./EditContactModal";
 import { useFamilyData, FamilyMember, Student } from "@/hooks/useFamilyData";
-import { GroupDetailModal } from "@/components/teacher/GroupDetailModal";
+import { GroupDetailModal } from "@/components/learning-groups/GroupDetailModal";
 import { IndividualLessonModal } from "@/components/teacher/IndividualLessonModal";
+import { useLearningGroups } from "@/hooks/useLearningGroups";
 import type { PhoneNumber as PhoneNumberType } from "@/types/phone";
 import { supabase } from "@/integrations/supabase/client";
 import { usePinnedModalsDB } from "@/hooks/usePinnedModalsDB";
@@ -65,6 +66,9 @@ export const FamilyCard = ({
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedCourseType, setSelectedCourseType] = useState<'group' | 'individual' | null>(null);
   const { familyData, loading, error, refetch } = useFamilyData(familyGroupId);
+  const { groups: allGroups } = useLearningGroups();
+  
+  const selectedGroup = allGroups?.find(g => g.id === selectedCourseId) || null;
   
   if (loading) {
     return (
@@ -572,10 +576,10 @@ export const FamilyCard = ({
         />
       )}
 
-      {selectedCourseType === 'group' && selectedCourseId && (
+      {selectedCourseType === 'group' && selectedGroup && (
         <GroupDetailModal
-          groupId={selectedCourseId}
-          open={!!selectedCourseId}
+          group={selectedGroup}
+          open={true}
           onOpenChange={(open) => {
             if (!open) {
               setSelectedCourseId(null);
