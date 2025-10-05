@@ -486,6 +486,15 @@ export function IndividualLessonSchedule({
                           }
                         })()}
                       </div>
+                      {session?.status && (
+                        <div className="text-muted-foreground">
+                          {session.status === 'cancelled' ? 'Отменено' : 
+                           session.status === 'free' ? 'Бесплатное занятие' : 
+                           session.status === 'rescheduled' ? 'Перенесено' : 
+                           'Занятие'}
+                        </div>
+                      )}
+                      {!session?.status && <div className="text-muted-foreground">Занятие</div>}
                       {session && (
                         <div className="whitespace-pre-line pt-1 border-t">
                           {getPaymentTooltip(session, lessonNumber)}
