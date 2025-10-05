@@ -9,6 +9,8 @@ interface PaymentStats {
   remainingAmount: number;
   totalCourseMinutes: number;
   unpaidMinutes: number;
+  debtMinutes: number;
+  debtAmount: number;
 }
 
 const fetchPaymentStats = async (studentId: string, groupId: string): Promise<PaymentStats> => {
@@ -130,6 +132,12 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
     
   const unpaidMinutes = Math.max(0, totalCourseMinutes - totalPaidMinutes);
 
+  // Calculate debt: if used more than paid, student owes money
+  const debtMinutes = Math.max(0, usedMinutes - totalPaidMinutes);
+  const debtAmount = totalPaidMinutes > 0 
+    ? debtMinutes * (totalPaidAmount / totalPaidMinutes)
+    : (pricePerMinute > 0 ? debtMinutes * pricePerMinute : 0);
+
   return {
     paidMinutes: totalPaidMinutes,
     paidAmount: totalPaidAmount,
@@ -137,7 +145,9 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
     remainingMinutes,
     remainingAmount,
     totalCourseMinutes,
-    unpaidMinutes
+    unpaidMinutes,
+    debtMinutes,
+    debtAmount
   };
 };
 

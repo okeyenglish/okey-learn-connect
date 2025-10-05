@@ -61,8 +61,20 @@ export const StudentPaymentInfo = ({ studentId, groupId }: StudentPaymentInfoPro
         </span>
       </div>
       
-      {/* Осталось оплатить */}
-      {stats.unpaidMinutes > 0 && (
+      {/* Задолженность (если есть) */}
+      {stats.debtMinutes > 0 && (
+        <div className="flex items-center gap-2">
+          <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded text-xs font-medium">
+            Задолженность:
+          </span>
+          <span className="text-red-900 font-semibold">
+            {formatMinutesToAcademicHours(stats.debtMinutes)} а.ч. / {formatMoney(stats.debtAmount)}
+          </span>
+        </div>
+      )}
+      
+      {/* Осталось оплатить (если нет долга) */}
+      {stats.unpaidMinutes > 0 && stats.debtMinutes === 0 && (
         <div className="flex items-center gap-2">
           <span className="px-2 py-0.5 bg-orange-100 text-orange-800 rounded text-xs font-medium">
             Осталось оплатить:
