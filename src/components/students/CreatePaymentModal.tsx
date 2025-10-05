@@ -112,10 +112,24 @@ export function CreatePaymentModal({
           // 2) Получаем сами группы по id, только активные
           const { data: lgData } = await supabase
             .from('learning_groups')
-            .select('id, name, subject, level, branch, responsible_teacher')
+            .select(`
+              id, 
+              name, 
+              subject, 
+              level, 
+              branch, 
+              responsible_teacher,
+              course_name,
+              courses:course_id(title)
+            `)
             .in('id', groupIds)
             .eq('status', 'active');
-          finalGroups = lgData || [];
+          
+          // Преобразуем данные, добавляя course_name из связанной таблицы courses
+          finalGroups = (lgData || []).map((group: any) => ({
+            ...group,
+            course_name: group.course_name || group.courses?.title || group.name
+          }));
         } else {
           // Fallback: пробуем inner join-ом (на случай если RLS/связи отличаются)
           const { data: groupsData } = await supabase
