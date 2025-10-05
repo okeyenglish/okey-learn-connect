@@ -51,29 +51,18 @@ export function GroupLessonScheduleStrip({
       return 'bg-black text-white border-black';
     }
 
-    // Определяем оплату/бесплатность
-    const amount = session.payment_amount;
-    const isFree = amount === 0 || amount === '0' || amount === null;
-    const isPaid = amount !== null && Number(amount) > 0;
-
-    // Бесплатное занятие — оранжевый (всегда)
-    if (isFree) {
+    // Бесплатное занятие (если есть явная отметка) — оранжевый
+    if (session.is_free || session.payment_type === 'free') {
       return 'bg-orange-500 text-white border-orange-500';
     }
 
-    // Оплаченные: будущие — зелёный, прошедшие/проведённые — серый
-    if (isPaid) {
-      if (session.status === 'completed' || isPast) {
-        return 'bg-gray-500 text-white border-gray-500';
-      }
-      return 'bg-green-500 text-white border-green-500';
+    // Проведённое — серый
+    if (session.status === 'completed' || isPast) {
+      return 'bg-gray-500 text-white border-gray-500';
     }
 
-    // Не оплачено: прошедшие — красный (долг), будущие — белый
-    if (isPast) {
-      return 'bg-red-500 text-white border-red-500';
-    }
-    return 'bg-white text-gray-900 border-gray-300';
+    // Будущее запланированное — зелёный
+    return 'bg-green-500 text-white border-green-500';
   };
 
   const getStatusLabel = (status: string) => {
