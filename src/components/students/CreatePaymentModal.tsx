@@ -95,11 +95,12 @@ export function CreatePaymentModal({
 
         if (gsActive && gsActive.length > 0) {
           const groupIds = gsActive.map((g: any) => g.group_id).filter(Boolean);
-          // 2) Получаем сами группы по id
+          // 2) Получаем сами группы по id, только активные
           const { data: lgData } = await supabase
             .from('learning_groups')
             .select('id, name, subject, level, branch, academic_hours_per_day, responsible_teacher, teacher_name')
-            .in('id', groupIds);
+            .in('id', groupIds)
+            .eq('status', 'active');
           finalGroups = lgData || [];
         } else {
           // Fallback: пробуем inner join-ом (на случай если RLS/связи отличаются)
@@ -117,7 +118,8 @@ export function CreatePaymentModal({
               group_students!inner(student_id, status)
             `)
             .eq('group_students.student_id', studentId)
-            .eq('group_students.status', 'active');
+            .eq('group_students.status', 'active')
+            .eq('status', 'active');
           finalGroups = groupsData || [];
         }
 
