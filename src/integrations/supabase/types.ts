@@ -2747,23 +2747,44 @@ export type Database = {
       }
       student_lesson_sessions: {
         Row: {
+          attendance_status: string | null
+          cancellation_reason: string | null
           created_at: string
           id: string
+          is_cancelled_for_student: boolean | null
           lesson_session_id: string
+          notes: string | null
+          payment_amount: number | null
+          payment_id: string | null
+          payment_status: string | null
           student_id: string
           updated_at: string
         }
         Insert: {
+          attendance_status?: string | null
+          cancellation_reason?: string | null
           created_at?: string
           id?: string
+          is_cancelled_for_student?: boolean | null
           lesson_session_id: string
+          notes?: string | null
+          payment_amount?: number | null
+          payment_id?: string | null
+          payment_status?: string | null
           student_id: string
           updated_at?: string
         }
         Update: {
+          attendance_status?: string | null
+          cancellation_reason?: string | null
           created_at?: string
           id?: string
+          is_cancelled_for_student?: boolean | null
           lesson_session_id?: string
+          notes?: string | null
+          payment_amount?: number | null
+          payment_id?: string | null
+          payment_status?: string | null
           student_id?: string
           updated_at?: string
         }
@@ -2773,6 +2794,13 @@ export type Database = {
             columns: ["lesson_session_id"]
             isOneToOne: false
             referencedRelation: "lesson_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_lesson_sessions_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
             referencedColumns: ["id"]
           },
         ]
