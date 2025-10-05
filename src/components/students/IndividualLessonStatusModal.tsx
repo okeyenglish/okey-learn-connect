@@ -661,7 +661,8 @@ export function IndividualLessonStatusModal({
       // Теперь переносим освобожденные минуты на будущие уроки
       if (totalMinutesFreed > 0 && (selectedAction === 'free' || selectedAction === 'cancelled')) {
         const lastCancelledDate = dateArray[dateArray.length - 1];
-        
+
+        // 1) Загружаем уже существующие будущие сессии после последней отмены
         const { data: futureSessions } = await supabase
           .from('individual_lesson_sessions')
           .select('id, lesson_date, duration, paid_minutes, status')
@@ -669,37 +670,81 @@ export function IndividualLessonStatusModal({
           .gt('lesson_date', lastCancelledDate)
           .order('lesson_date', { ascending: true });
 
+        // 2) Загружаем параметры урока (расписание, предел периода и дефолтную длительность)
+        const { data: lessonInfo } = await supabase
+          .from('individual_lessons')
+          .select('schedule_days, period_end, duration')
+          .eq('id', lessonId)
+          .single();
+
         let remainingMinutes = totalMinutesFreed;
 
-        if (futureSessions) {
-          for (const futureSession of futureSessions) {
-            if (remainingMinutes <= 0) break;
-            
-            // Пропускаем отмененные, бесплатные или перенесенные
-            if (futureSession.status === 'cancelled' || 
-                futureSession.status === 'free' || 
-                futureSession.status === 'rescheduled') {
-              continue;
+        // Карта существующих сессий по дате для быстрого доступа
+        const sessionsByDate = new Map<string, { id: string; duration: number | null; paid_minutes: number | null; status: string }>();
+        (futureSessions || []).forEach((s: any) => sessionsByDate.set(s.lesson_date, s));
+
+        // Подготовим вычисление по расписанию день за днем
+        const dayMapping: Record<string, number> = {
+          'Пн': 1, 'Monday': 1, 'monday': 1,
+          'Вт': 2, 'Tuesday': 2, 'tuesday': 2,
+          'Ср': 3, 'Wednesday': 3, 'wednesday': 3,
+          'Чт': 4, 'Thursday': 4, 'thursday': 4,
+          'Пт': 5, 'Friday': 5, 'friday': 5,
+          'Сб': 6, 'Saturday': 6, 'saturday': 6,
+          'Вс': 0, 'Sunday': 0, 'sunday': 0,
+        };
+        const scheduledDaysNums: number[] = (lessonInfo?.schedule_days || [])
+          .map((d: string) => dayMapping[d])
+          .filter((n: number | undefined) => n !== undefined) as number[];
+
+        const endLimit = lessonInfo?.period_end ? new Date(lessonInfo.period_end) : new Date(lastCancelledDate + 'T00:00:00');
+        const startObj = new Date(new Date(lastCancelledDate + 'T00:00:00').getTime() + 24 * 60 * 60 * 1000);
+
+        // Проходим по датам строго по расписанию и распределяем минуты
+        const allDates = eachDayOfInterval({ start: startObj, end: endLimit });
+        for (const d of allDates) {
+          if (remainingMinutes <= 0) break;
+          if (scheduledDaysNums.length > 0 && !scheduledDaysNums.includes(d.getDay())) continue;
+
+          const dateStr = format(d, 'yyyy-MM-dd');
+          let session = sessionsByDate.get(dateStr);
+
+          // Если сессии нет, создаем обычную запланированную
+          if (!session) {
+            const { data: created } = await supabase
+              .from('individual_lesson_sessions')
+              .insert({
+                individual_lesson_id: lessonId,
+                lesson_date: dateStr,
+                status: 'scheduled',
+                duration: lessonInfo?.duration || 60,
+                created_by: user.id,
+              })
+              .select('id, duration, paid_minutes, status')
+              .single();
+            if (created) {
+              session = created as any;
+              sessionsByDate.set(dateStr, session as any);
             }
+          }
 
-            const sessionDuration = futureSession.duration || 60;
-            const currentPaid = futureSession.paid_minutes || 0;
-            const unpaidMinutes = sessionDuration - currentPaid;
+          if (!session) continue;
+          if (session.status === 'cancelled' || session.status === 'free' || session.status === 'rescheduled') continue;
 
-            if (unpaidMinutes > 0) {
-              const minutesToAdd = Math.min(remainingMinutes, unpaidMinutes);
-              const newPaidMinutes = currentPaid + minutesToAdd;
+          const sessionDuration = session.duration || lessonInfo?.duration || 60;
+          const currentPaid = session.paid_minutes || 0;
+          const unpaidMinutes = sessionDuration - currentPaid;
 
-              await supabase
-                .from('individual_lesson_sessions')
-                .update({ 
-                  paid_minutes: newPaidMinutes,
-                  updated_at: new Date().toISOString() 
-                })
-                .eq('id', futureSession.id);
+          if (unpaidMinutes > 0) {
+            const minutesToAdd = Math.min(remainingMinutes, unpaidMinutes);
+            const newPaidMinutes = currentPaid + minutesToAdd;
 
-              remainingMinutes -= minutesToAdd;
-            }
+            await supabase
+              .from('individual_lesson_sessions')
+              .update({ paid_minutes: newPaidMinutes, updated_at: new Date().toISOString() })
+              .eq('id', session.id);
+
+            remainingMinutes -= minutesToAdd;
           }
         }
       }
