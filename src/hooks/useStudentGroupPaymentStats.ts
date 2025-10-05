@@ -95,31 +95,39 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
   const lessonDuration = pricing?.duration_minutes || 80;
   
   // Calculate total paid
+  // IMPORTANT: lessons_count in payments table stores ACADEMIC HOURS (40 min each), not number of lessons
   const totalPaidAmount = payments.reduce((sum, p) => sum + Number(p.amount), 0);
-  const totalPaidLessons = payments.reduce((sum, p) => sum + (p.lessons_count || 0), 0);
-  const totalPaidMinutes = totalPaidLessons * lessonDuration;
+  const totalPaidAcademicHours = payments.reduce((sum, p) => sum + (p.lessons_count || 0), 0);
+  const totalPaidMinutes = totalPaidAcademicHours * 40; // Convert academic hours to minutes
 
-  // Calculate used sessions - only after enrollment and not cancelled for student
+  // Calculate used sessions - only after enrollment, not cancelled for student, and actually conducted
   const todayObj = new Date();
   todayObj.setHours(0, 0, 0, 0);
+  
+  // Count only sessions that are completed OR past date and not cancelled
   const usedSessionsCount = (effectiveSessions as any[]).filter((session: any) => {
-    const d = new Date(session.lesson_date);
-    d.setHours(0, 0, 0, 0);
-    return session.status === 'completed' || (d < todayObj && session.status !== 'cancelled');
+    const sessionDate = new Date(session.lesson_date);
+    sessionDate.setHours(0, 0, 0, 0);
+    
+    // Session is used if it's completed OR (past date AND not cancelled)
+    return session.status === 'completed' || (sessionDate < todayObj && session.status !== 'cancelled');
   }).length;
 
   const usedMinutes = usedSessionsCount * lessonDuration;
 
-  // Calculate total course minutes based on sessions after enrollment
+  // Calculate total course minutes based on all effective sessions (after enrollment)
   const totalCourseLessons = (effectiveSessions as any[]).length || 0;
   const totalCourseMinutes = totalCourseLessons * lessonDuration;
 
-  // Calculate remaining: hours and money left from paid amount
+  // Calculate remaining academic hours and money
+  // Remaining = paid - used
   const remainingMinutes = Math.max(0, totalPaidMinutes - usedMinutes);
-  // Remaining amount = (paid amount / paid hours) * remaining hours
+  
+  // Remaining amount = (total paid / paid minutes) * remaining minutes
   const remainingAmount = totalPaidMinutes > 0 
     ? Math.max(0, (totalPaidAmount / totalPaidMinutes) * remainingMinutes)
     : 0;
+    
   const unpaidMinutes = Math.max(0, totalCourseMinutes - totalPaidMinutes);
 
   return {
