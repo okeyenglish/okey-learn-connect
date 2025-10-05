@@ -149,10 +149,14 @@ export function GroupLessonStatusModal({
         description: `Статус занятия изменён на "${getStatusLabel(newStatus)}" для всех учеников`,
       });
 
-      // Invalidate all related caches to refresh displays
+      // Invalidate and refetch related caches for immediate UI update
+      queryClient.invalidateQueries({ queryKey: ['student-group-lesson-sessions'] });
       queryClient.invalidateQueries({ queryKey: ['student-group-payment-stats'] });
       queryClient.invalidateQueries({ queryKey: ['student-details'] });
       queryClient.invalidateQueries({ queryKey: ['lesson-sessions'] });
+      // Force refetch to avoid waiting for focus/reconnect
+      queryClient.refetchQueries({ queryKey: ['student-group-lesson-sessions'] });
+      queryClient.refetchQueries({ queryKey: ['student-group-payment-stats'] });
 
       onStatusUpdated?.();
       onOpenChange(false);
