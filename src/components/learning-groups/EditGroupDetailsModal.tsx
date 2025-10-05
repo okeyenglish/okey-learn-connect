@@ -111,7 +111,7 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
   ];
 
   const groupTypes = [
-    { value: "group", label: "Группа" },
+    { value: "general", label: "Группа" },
     { value: "mini", label: "Мини-группа" }
   ];
 
@@ -154,11 +154,11 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
       
       onSaveDetails(formData);
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating group:', error);
       toast({
         title: "Ошибка",
-        description: "Не удалось обновить детали группы",
+        description: error?.message || "Не удалось обновить детали группы",
         variant: "destructive"
       });
     } finally {
