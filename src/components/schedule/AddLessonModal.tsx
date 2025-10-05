@@ -83,20 +83,25 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
       return;
     }
 
+    if (!currentGroup.responsible_teacher) {
+      return; // Не проверяем конфликты если нет преподавателя
+    }
+
     const endTime = calculateEndTime(formData.start_time, parseInt(formData.duration));
 
     try {
       const result = await checkConflicts.mutateAsync({
-        teacher_name: currentGroup.responsible_teacher || "",
+        teacher_name: currentGroup.responsible_teacher,
         branch: currentGroup.branch,
         classroom: formData.classroom,
         lesson_date: formData.start_date,
         start_time: formData.start_time,
         end_time: endTime
       });
-      setConflicts(result);
+      setConflicts(result || []);
     } catch (error) {
       console.error('Error checking conflicts:', error);
+      setConflicts([]);
     }
   };
 
@@ -134,10 +139,19 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!currentGroup || !formData.start_date || !formData.start_time || !formData.duration || !formData.classroom) {
+    if (!currentGroup || !defaultGroupId || !formData.start_date || !formData.start_time || !formData.duration || !formData.classroom) {
       toast({
         title: "Ошибка",
         description: "Заполните все обязательные поля",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!currentGroup.responsible_teacher) {
+      toast({
+        title: "Ошибка",
+        description: "У группы не указан преподаватель",
         variant: "destructive"
       });
       return;
@@ -158,30 +172,40 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
         ? generateDateRange(formData.start_date, formData.end_date)
         : [formData.start_date];
 
+      let createdCount = 0;
+
       // Создаем занятия для каждой даты
       for (const lessonDate of datesToCreate) {
-        await createSession.mutateAsync({
+        const sessionData: any = {
           group_id: defaultGroupId,
-          teacher_name: currentGroup.responsible_teacher || "",
+          teacher_name: currentGroup.responsible_teacher,
           branch: currentGroup.branch,
           classroom: formData.classroom,
           lesson_date: lessonDate,
           start_time: formData.start_time,
           end_time: endTime,
           day_of_week: getDayOfWeek(lessonDate),
-          status: 'scheduled',
-          notes: formData.notes || undefined
-        });
+          status: 'scheduled'
+        };
+
+        // Добавляем заметки только если они есть
+        if (formData.notes && formData.notes.trim()) {
+          sessionData.notes = formData.notes.trim();
+        }
+
+        await createSession.mutateAsync(sessionData);
+        createdCount++;
       }
 
       toast({
         title: "Успешно",
-        description: `Создано занятий: ${datesToCreate.length}`
+        description: `Создано занятий: ${createdCount}`
       });
       
       onOpenChange(false);
       resetForm();
     } catch (error: any) {
+      console.error('Error creating lessons:', error);
       toast({
         title: "Ошибка",
         description: error.message || "Не удалось создать занятия",
