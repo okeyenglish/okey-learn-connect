@@ -157,11 +157,11 @@ export function IndividualLessonStatusModal({
     const scheduledDays = (lesson.schedule_days || []).map((day: string) => dayMapping[day]).filter((d: number | undefined) => d !== undefined) as number[];
 
     // Вычисляем интервал
-    const startBoundary = lesson.period_start ? new Date(lesson.period_start) : selectedDate;
-    const startDate = new Date(Math.max(startBoundary.getTime(), selectedDate.getTime()));
+    // 1) Для существующих сессий всегда начинаем от выбранной даты (чтобы не терять занятия до period_start)
+    const existingStartDate = selectedDate;
     const endDate = new Date(lesson.period_end);
 
-    const startStr = format(startDate, 'yyyy-MM-dd');
+    const existingStartStr = format(existingStartDate, 'yyyy-MM-dd');
     const endStr = format(endDate, 'yyyy-MM-dd');
 
     // 1) Берем ВСЕ уже созданные сессии (включая доп/перенесенные)
@@ -169,15 +169,19 @@ export function IndividualLessonStatusModal({
       .from('individual_lesson_sessions')
       .select('lesson_date')
       .eq('individual_lesson_id', lessonId)
-      .gte('lesson_date', startStr)
+      .gte('lesson_date', existingStartStr)
       .lte('lesson_date', endStr)
       .order('lesson_date', { ascending: true });
 
     const existingDateStrs = new Set<string>((existingSessions || []).map(s => s.lesson_date));
 
-    // 2) Генерируем даты по расписанию и добавляем, если их нет среди сессий
+    // 2) Генерируем даты по расписанию только начиная с max(selectedDate, period_start)
+    const genStartDate = lesson.period_start
+      ? new Date(Math.max(new Date(lesson.period_start).getTime(), selectedDate.getTime()))
+      : selectedDate;
+
     const generatedDates = lesson.schedule_days ?
-      eachDayOfInterval({ start: startDate, end: endDate })
+      eachDayOfInterval({ start: genStartDate, end: endDate })
         .filter(date => scheduledDays.includes(date.getDay()))
         .map(d => format(d, 'yyyy-MM-dd'))
       : [] as string[];
