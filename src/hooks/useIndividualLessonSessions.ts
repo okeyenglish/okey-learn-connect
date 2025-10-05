@@ -70,6 +70,13 @@ const calculateLessonSessions = async (
     0
   );
 
+  // Сначала вычитаем минуты, которые уже явно привязаны к платежам
+  for (const session of sessions) {
+    if (session.payment_id && session.paid_minutes) {
+      remainingPaidMinutes -= session.paid_minutes;
+    }
+  }
+
   // Обрабатываем каждую сессию
   const result: IndividualLessonSession[] = [];
   
@@ -77,7 +84,7 @@ const calculateLessonSessions = async (
     const duration = session.duration || defaultDuration;
     let paid_minutes = 0;
 
-    // Если есть явная привязка к платежу - используем её
+    // Если есть явная привязка к платежу - используем сохраненное значение
     if (session.payment_id && paymentsMap.has(session.payment_id)) {
       paid_minutes = session.paid_minutes || duration;
     } else if (!session.payment_id) {
