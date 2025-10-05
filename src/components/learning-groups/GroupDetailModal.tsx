@@ -208,6 +208,17 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
     return type === 'mini' ? 'Мини-группа' : 'Группа';
   };
 
+  const getStatusText = (status: string) => {
+    const statuses = {
+      'reserve': 'Резерв',
+      'forming': 'Формируется',
+      'active': 'В работе',
+      'suspended': 'Приостановлена',
+      'finished': 'Завершена'
+    };
+    return statuses[status as keyof typeof statuses] || status;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden p-0">
@@ -569,12 +580,20 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                       <CardContent className="space-y-3">
                         <div className="space-y-2 text-sm">
                           <div className="flex justify-between">
+                            <span>Название:</span>
+                            <span className="font-medium">{group.name}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Статус:</span>
+                            <span className="font-medium">{getStatusText(group.status || 'active')}</span>
+                          </div>
+                          <div className="flex justify-between">
                             <span>Филиал:</span>
                             <span className="font-medium">{group.branch}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Ответственный:</span>
-                            <span className="font-medium">{group.responsible_teacher}</span>
+                            <span className="font-medium">{group.responsible_teacher || 'Не назначен'}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Дисциплина:</span>
@@ -589,43 +608,46 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                             <span className="font-medium">{group.level}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>Тип:</span>
+                            <span>Тип группы:</span>
                             <span className="font-medium">{getGroupTypeText(group.group_type)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Учебник:</span>
-                            <span className="font-medium">{group.level}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Способ оплаты:</span>
-                            <span className="font-medium">По занятиям</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Категория продукта:</span>
-                            <span className="font-medium">* Менеджер</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Средний возраст:</span>
-                            <span className="font-medium">27,5</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Вместимость:</span>
                             <span className="font-medium">{group.capacity}</span>
                           </div>
+                          {group.course_name && (
+                            <div className="flex justify-between">
+                              <span>Курс/Программа:</span>
+                              <span className="font-medium">{group.course_name}</span>
+                            </div>
+                          )}
+                          {group.total_lessons > 0 && (
+                            <div className="flex justify-between">
+                              <span>Всего занятий:</span>
+                              <span className="font-medium">{group.total_lessons}</span>
+                            </div>
+                          )}
+                          {group.course_start_date && (
+                            <div className="flex justify-between">
+                              <span>Дата старта курса:</span>
+                              <span className="font-medium">{format(new Date(group.course_start_date), 'dd.MM.yyyy', { locale: ru })}</span>
+                            </div>
+                          )}
+                          {group.zoom_link && (
+                            <div className="flex justify-between items-center">
+                              <span>ZOOM ссылка:</span>
+                              <a 
+                                href={group.zoom_link} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="font-medium text-blue-600 hover:underline flex items-center gap-1"
+                              >
+                                Открыть <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </div>
+                          )}
                           <div className="flex justify-between">
                             <span>Численность:</span>
-                            <span className="font-medium">{group.current_students}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Резервов:</span>
-                            <span className="font-medium">0</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Договоров:</span>
-                            <span className="font-medium text-blue-600">0</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Оплативших:</span>
                             <span className="font-medium">{group.current_students}</span>
                           </div>
                         </div>
