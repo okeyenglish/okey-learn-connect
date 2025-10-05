@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
+import { useTeachers } from "@/hooks/useTeachers";
 
 interface EditGroupDetailsModalProps {
   open: boolean;
@@ -67,6 +68,9 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
       return data;
     }
   });
+
+  // Загружаем список преподавателей
+  const { teachers } = useTeachers({ branch: formData.branch });
 
   useEffect(() => {
     if (group) {
@@ -197,12 +201,21 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
 
             <div className="grid gap-2">
               <Label htmlFor="responsible_teacher">Ответственный преподаватель</Label>
-              <Input
-                id="responsible_teacher"
-                value={formData.responsible_teacher}
-                onChange={(e) => setFormData(prev => ({ ...prev, responsible_teacher: e.target.value }))}
-                placeholder="Введите имя преподавателя"
-              />
+              <Select 
+                value={formData.responsible_teacher} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, responsible_teacher: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите преподавателя" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teachers.map(teacher => (
+                    <SelectItem key={teacher.id} value={`${teacher.last_name} ${teacher.first_name}`}>
+                      {teacher.last_name} {teacher.first_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
