@@ -61,17 +61,49 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
         studentSessionsMap.set(key, session);
       });
 
+      // Получаем платежи для всех студентов группы
+      const { data: payments } = await supabase
+        .from('payments')
+        .select('student_id, lessons_count, created_at')
+        .in('student_id', groupStudents.map(gs => gs.student_id))
+        .eq('group_id', groupId)
+        .order('created_at', { ascending: true });
+
+      // Создаем Map с количеством оплаченных занятий для каждого студента
+      const paidLessonsMap = new Map<string, number>();
+      payments?.forEach(payment => {
+        const current = paidLessonsMap.get(payment.student_id) || 0;
+        paidLessonsMap.set(payment.student_id, current + (payment.lessons_count || 0));
+      });
+
       // Группируем по студентам, создавая записи для всех занятий группы
       const grouped: Record<string, any[]> = {};
       
+      // Сортируем занятия по дате для правильного порядка
+      const sortedSessions = [...groupSessions].sort((a, b) => 
+        new Date(a.lesson_date).getTime() - new Date(b.lesson_date).getTime()
+      );
+
       groupStudents.forEach(groupStudent => {
         const studentId = groupStudent.student_id;
         grouped[studentId] = [];
         
+        const totalPaidLessons = paidLessonsMap.get(studentId) || 0;
+        
         // Для каждого занятия группы создаем запись для студента
-        groupSessions.forEach(lessonSession => {
+        sortedSessions.forEach((lessonSession, index) => {
           const key = `${studentId}_${lessonSession.id}`;
           const personalData = studentSessionsMap.get(key);
+          
+          // Определяем статус оплаты на основе порядкового номера занятия
+          let payment_status = 'not_paid';
+          if (personalData?.payment_status && personalData.payment_status !== 'not_paid') {
+            // Если уже есть явный статус - используем его
+            payment_status = personalData.payment_status;
+          } else if (index < totalPaidLessons) {
+            // Если занятие попадает в диапазон оплаченных
+            payment_status = 'paid';
+          }
           
           // Если есть персональные данные - используем их, иначе создаем дефолтную запись
           grouped[studentId].push({
@@ -80,7 +112,7 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
             student_id: studentId,
             lesson_date: lessonSession.lesson_date,
             attendance_status: personalData?.attendance_status || 'not_marked',
-            payment_status: personalData?.payment_status || 'not_paid',
+            payment_status,
             payment_amount: personalData?.payment_amount || 0,
             is_cancelled_for_student: personalData?.is_cancelled_for_student || false,
             cancellation_reason: personalData?.cancellation_reason || null,
@@ -95,7 +127,7 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
     };
 
     fetchStudentSessions();
-  }, [groupSessions, groupStudents]);
+  }, [groupSessions, groupStudents, groupId]);
 
   const toggleStudent = (studentId: string) => {
     setExpandedStudents(prev => ({
