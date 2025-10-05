@@ -46,7 +46,7 @@ export function GroupLessonScheduleStrip({
     sessionDate.setHours(0, 0, 0, 0);
 
     // Бесплатное занятие - оранжевый
-    if (session.payment_amount === 0 || session.payment_amount === '0') {
+    if (session.payment_amount === 0 || session.payment_amount === '0' || session.payment_amount === null) {
       return 'bg-orange-500 text-white border-orange-500';
     }
 
