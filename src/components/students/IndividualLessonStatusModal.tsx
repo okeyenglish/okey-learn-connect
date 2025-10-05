@@ -605,14 +605,14 @@ toast({
       let totalMinutesFreed = 0;
       const dateArray = Array.from(selectedDates).sort();
 
-      // Сначала собираем все минуты, которые нужно освободить
-      const sessionsToFree: Array<{ date: string; minutes: number }> = [];
+      // Сначала собираем все минуты и платежи, которые нужно освободить
+      const sessionsToFree: Array<{ date: string; minutes: number; paymentId: string | null }> = [];
       
       if (selectedAction === 'free' || selectedAction === 'cancelled') {
         for (const dateStr of dateArray) {
           const { data: existingSession } = await supabase
             .from('individual_lesson_sessions')
-            .select('paid_minutes')
+            .select('paid_minutes, payment_id')
             .eq('individual_lesson_id', lessonId)
             .eq('lesson_date', dateStr)
             .maybeSingle();
@@ -620,7 +620,8 @@ toast({
           if (existingSession && existingSession.paid_minutes > 0) {
             sessionsToFree.push({
               date: dateStr,
-              minutes: existingSession.paid_minutes
+              minutes: existingSession.paid_minutes,
+              paymentId: existingSession.payment_id
             });
             totalMinutesFreed += existingSession.paid_minutes;
           }
@@ -679,14 +680,19 @@ toast({
         }
       }
 
-      // Теперь переносим освобожденные минуты на будущие уроки
+      // Теперь переносим освобожденные минуты и платежи на будущие уроки
       if (totalMinutesFreed > 0 && (selectedAction === 'free' || selectedAction === 'cancelled')) {
         const lastCancelledDate = dateArray[dateArray.length - 1];
+
+        // Собираем все payment_id из освобожденных занятий
+        const freedPaymentIds = [...new Set(sessionsToFree
+          .map(s => s.paymentId)
+          .filter(p => p !== null))] as string[];
 
         // 1) Загружаем уже существующие будущие сессии после последней отмены
         const { data: futureSessions } = await supabase
           .from('individual_lesson_sessions')
-          .select('id, lesson_date, duration, paid_minutes, status')
+          .select('id, lesson_date, duration, paid_minutes, status, payment_id')
           .eq('individual_lesson_id', lessonId)
           .gt('lesson_date', lastCancelledDate)
           .order('lesson_date', { ascending: true });
@@ -699,9 +705,10 @@ toast({
           .single();
 
         let remainingMinutes = totalMinutesFreed;
+        let currentPaymentIndex = 0;
 
         // Карта существующих сессий по дате для быстрого доступа
-        const sessionsByDate = new Map<string, { id: string; duration: number | null; paid_minutes: number | null; status: string }>();
+        const sessionsByDate = new Map<string, { id: string; duration: number | null; paid_minutes: number | null; status: string; payment_id: string | null }>();
         (futureSessions || []).forEach((s: any) => sessionsByDate.set(s.lesson_date, s));
 
         // Подготовим вычисление по расписанию день за днем
@@ -771,9 +778,24 @@ toast({
             const minutesToAdd = Math.min(remainingMinutes, unpaidMinutes);
             const newPaidMinutes = currentPaid + minutesToAdd;
 
+            // Если есть payment_id из освобожденных, привязываем его
+            const updateData: any = { 
+              paid_minutes: newPaidMinutes, 
+              updated_at: new Date().toISOString() 
+            };
+            
+            // Привязываем payment_id только если у сессии еще нет платежа
+            if (!session.payment_id && freedPaymentIds.length > 0 && currentPaymentIndex < freedPaymentIds.length) {
+              updateData.payment_id = freedPaymentIds[currentPaymentIndex];
+              // Переходим к следующему payment_id, когда полностью заполним занятие
+              if (minutesToAdd >= unpaidMinutes) {
+                currentPaymentIndex++;
+              }
+            }
+
             await supabase
               .from('individual_lesson_sessions')
-              .update({ paid_minutes: newPaidMinutes, updated_at: new Date().toISOString() })
+              .update(updateData)
               .eq('id', session.id);
 
             remainingMinutes -= minutesToAdd;
