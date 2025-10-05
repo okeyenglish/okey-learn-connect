@@ -34,15 +34,25 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
   // Загружаем персональные данные студентов по занятиям
   React.useEffect(() => {
     const fetchStudentSessions = async () => {
-      if (groupSessions.length === 0 || groupStudents.length === 0) return;
+      if (groupSessions.length === 0 || groupStudents.length === 0) {
+        console.info('[GroupScheduleCalendar] Skip fetch: groupSessions', groupSessions.length, 'groupStudents', groupStudents.length);
+        return;
+      }
 
       const sessionIds = groupSessions.map(s => s.id);
+      const studentIds = groupStudents.map(gs => gs.student_id);
+      console.info('[GroupScheduleCalendar] Fetching student sessions for', {
+        groupId,
+        groupSessions: groupSessions.length,
+        studentCount: groupStudents.length,
+        firstSession: groupSessions[0]?.lesson_date,
+      });
       
       const { data, error } = await supabase
         .from('student_lesson_sessions')
         .select('*')
         .in('lesson_session_id', sessionIds)
-        .in('student_id', groupStudents.map(gs => gs.student_id));
+        .in('student_id', studentIds);
 
       if (error) {
         console.error('Error fetching student sessions:', error);
@@ -60,7 +70,7 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
       const { data: payments } = await supabase
         .from('payments')
         .select('student_id, lessons_count, created_at')
-        .in('student_id', groupStudents.map(gs => gs.student_id))
+        .in('student_id', studentIds)
         .eq('group_id', groupId)
         .order('created_at', { ascending: true });
 
@@ -154,6 +164,7 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
         });
       });
 
+      console.info('[GroupScheduleCalendar] Built grouped sessions counts:', Object.fromEntries(Object.entries(grouped).map(([k,v]) => [k, v.length])));
       setStudentSessions(grouped);
     };
 
