@@ -138,7 +138,7 @@ export function IndividualLessonStatusModal({
 
     const { data: lesson } = await supabase
       .from('individual_lessons')
-      .select('schedule_days, period_end')
+      .select('schedule_days, period_start, period_end')
       .eq('id', lessonId)
       .single();
 
@@ -155,8 +155,12 @@ export function IndividualLessonStatusModal({
     };
 
     const scheduledDays = lesson.schedule_days.map(day => dayMapping[day]).filter(d => d !== undefined);
+    
+    // Используем период начала занятий или текущую дату, если период не указан
+    const startDate = lesson.period_start ? new Date(lesson.period_start) : new Date();
     const endDate = new Date(lesson.period_end);
-    const dates = eachDayOfInterval({ start: selectedDate, end: endDate })
+    
+    const dates = eachDayOfInterval({ start: startDate, end: endDate })
       .filter(date => scheduledDays.includes(date.getDay()));
 
     setFutureDates(dates);
