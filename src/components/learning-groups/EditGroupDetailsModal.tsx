@@ -5,6 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LearningGroup } from "@/hooks/useLearningGroups";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface EditGroupDetailsModalProps {
   open: boolean;
@@ -14,20 +17,38 @@ interface EditGroupDetailsModalProps {
 }
 
 export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails }: EditGroupDetailsModalProps) => {
-  const [formData, setFormData] = useState({
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [loading, setLoading] = useState(false);
+  
+  const [formData, setFormData] = useState<{
+    name: string;
+    branch: string;
+    responsible_teacher: string;
+    subject: string;
+    category: 'preschool' | 'school' | 'adult' | 'all';
+    level: string;
+    group_type: 'general' | 'mini';
+    capacity: number;
+    status: 'reserve' | 'forming' | 'active' | 'suspended' | 'finished';
+    zoom_link: string;
+  }>({
+    name: group?.name || "",
     branch: group?.branch || "",
     responsible_teacher: group?.responsible_teacher || "",
     subject: group?.subject || "",
-    category: group?.category || "",
+    category: group?.category || "all",
     level: group?.level || "",
-    group_type: group?.group_type || "",
+    group_type: group?.group_type || "general",
     capacity: group?.capacity || 0,
+    status: group?.status || "active",
     zoom_link: group?.zoom_link || ""
   });
 
   React.useEffect(() => {
     if (group) {
       setFormData({
+        name: group.name,
         branch: group.branch,
         responsible_teacher: group.responsible_teacher || "",
         subject: group.subject,
@@ -35,6 +56,7 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
         level: group.level,
         group_type: group.group_type,
         capacity: group.capacity,
+        status: group.status || "active",
         zoom_link: group.zoom_link || ""
       });
     }
@@ -62,9 +84,51 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
     { value: "mini", label: "Мини-группа" }
   ];
 
-  const handleSubmit = () => {
-    onSaveDetails(formData);
-    onOpenChange(false);
+  const handleSubmit = async () => {
+    if (!group?.id) return;
+    
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('learning_groups')
+        .update({
+          name: formData.name,
+          branch: formData.branch,
+          responsible_teacher: formData.responsible_teacher,
+          subject: formData.subject,
+          category: formData.category,
+          level: formData.level,
+          group_type: formData.group_type,
+          capacity: formData.capacity,
+          status: formData.status,
+          zoom_link: formData.zoom_link,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', group.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Успешно",
+        description: "Детали группы обновлены"
+      });
+
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['learning-groups'] });
+      queryClient.invalidateQueries({ queryKey: ['group-details', group.id] });
+      
+      onSaveDetails(formData);
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error updating group:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось обновить детали группы",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -75,6 +139,16 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
         </DialogHeader>
         
         <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="name">Название группы</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Введите название группы"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="branch">Филиал</Label>
@@ -98,6 +172,38 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
                 onChange={(e) => setFormData(prev => ({ ...prev, responsible_teacher: e.target.value }))}
                 placeholder="Введите имя преподавателя"
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="status">Статус группы</Label>
+              <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as typeof formData.status }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="reserve">Резерв</SelectItem>
+                  <SelectItem value="forming">Формируется</SelectItem>
+                  <SelectItem value="active">В работе</SelectItem>
+                  <SelectItem value="suspended">Приостановлена</SelectItem>
+                  <SelectItem value="finished">Завершена</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="group_type">Тип группы</Label>
+              <Select value={formData.group_type} onValueChange={(value) => setFormData(prev => ({ ...prev, group_type: value as typeof formData.group_type }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {groupTypes.map(type => (
+                    <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -130,7 +236,7 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="category">Категория</Label>
-              <Select value={formData.category} onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}>
+              <Select value={formData.category} onValueChange={(value) => setFormData(prev => ({ ...prev, category: value as typeof formData.category }))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -144,7 +250,7 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
 
             <div className="grid gap-2">
               <Label htmlFor="group_type">Тип группы</Label>
-              <Select value={formData.group_type} onValueChange={(value) => setFormData(prev => ({ ...prev, group_type: value }))}>
+              <Select value={formData.group_type} onValueChange={(value) => setFormData(prev => ({ ...prev, group_type: value as typeof formData.group_type }))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -181,11 +287,11 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
         </div>
         
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Отмена
           </Button>
-          <Button onClick={handleSubmit}>
-            Сохранить
+          <Button onClick={handleSubmit} disabled={loading}>
+            {loading ? 'Сохранение...' : 'Сохранить'}
           </Button>
         </div>
       </DialogContent>

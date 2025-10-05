@@ -231,7 +231,7 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Ссылка на запись в группу
                 </Button>
-                <Button size="sm" variant="outline" className="text-blue-600 border-white/20">
+                <Button size="sm" variant="outline" className="text-blue-600 border-white/20" onClick={() => setEditDetailsOpen(true)}>
                   <Edit className="h-4 w-4" />
                 </Button>
               </div>
