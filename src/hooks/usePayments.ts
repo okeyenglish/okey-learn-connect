@@ -143,7 +143,8 @@ export const usePayments = (filters?: any) => {
           const sessionDuration = s.duration || lessonDuration;
           const paidMinutes = s.paid_minutes || 0;
           return paidMinutes > 0 && paidMinutes < sessionDuration && 
-                 (!s.status || ['scheduled', 'completed', 'attended'].includes(s.status));
+                 (!s.status || ['scheduled', 'completed', 'attended'].includes(s.status)) &&
+                 !s.payment_id; // только без привязанного платежа
         });
 
         console.log('Partially paid sessions found:', partiallyPaidSessions.length);
@@ -182,7 +183,8 @@ export const usePayments = (filters?: any) => {
           const unpaidSessions = (allSessions || []).filter(s => {
             const paidMinutes = s.paid_minutes || 0;
             return paidMinutes === 0 && 
-                   (!s.status || ['scheduled', 'completed', 'attended'].includes(s.status));
+                   (!s.status || ['scheduled', 'completed', 'attended'].includes(s.status)) &&
+                   !s.payment_id; // только без привязанного платежа
           });
 
           console.log('Unpaid sessions found:', unpaidSessions.length);
@@ -354,7 +356,7 @@ export const usePayments = (filters?: any) => {
         // Загружаем все сессии урока
         const { data: allSessions, error: sessErr } = await supabase
           .from('individual_lesson_sessions')
-          .select('id, lesson_date, status, payment_id')
+          .select('id, lesson_date, status, payment_id, duration, paid_minutes')
           .eq('individual_lesson_id', individualLessonId)
           .order('lesson_date', { ascending: true });
         if (sessErr) console.error('Failed to load sessions for rebalance:', sessErr);
@@ -362,9 +364,11 @@ export const usePayments = (filters?: any) => {
         // Загружаем расписание
         const { data: lessonRow } = await supabase
           .from('individual_lessons')
-          .select('schedule_days, period_start, period_end')
+          .select('schedule_days, period_start, period_end, duration')
           .eq('id', individualLessonId)
           .maybeSingle();
+
+        const defaultDuration = (lessonRow as any)?.duration || 60;
 
         const DAY_MAP: Record<string, number> = {
           monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 0,
@@ -389,10 +393,10 @@ export const usePayments = (filters?: any) => {
           }
         })();
 
-        const sessionByDate = new Map<string, { id?: string; status?: string }>();
+        const sessionByDate = new Map<string, { id?: string; status?: string; duration?: number }>();
         const existingPayableDates: string[] = [];
         (allSessions || []).forEach((s) => {
-          sessionByDate.set(s.lesson_date, { id: s.id, status: s.status });
+          sessionByDate.set(s.lesson_date, { id: s.id, status: s.status, duration: s.duration });
           if (!s.status || ['scheduled','completed','absent','attended'].includes(s.status)) {
             existingPayableDates.push(s.lesson_date);
           }
@@ -414,48 +418,46 @@ export const usePayments = (filters?: any) => {
           const allIds = (allSessions || []).map(s => s.id);
           const { error: clearErr } = await supabase
             .from('individual_lesson_sessions')
-            .update({ payment_id: null, updated_at: new Date().toISOString() })
+            .update({ payment_id: null, paid_minutes: 0, updated_at: new Date().toISOString() })
             .in('id', allIds);
           if (clearErr) console.error('Error clearing payments prior to rebalance:', clearErr);
         }
 
         let currentDateIndex = 0;
-        const updatesByPaymentId: Record<string, string[]> = {};
 
+        // Распределяем по датам: одна оплата = N полных занятий
         for (const pmt of (remainingPayments || [])) {
           const cnt = pmt.lessons_count || 0;
-          const sessionIds: string[] = [];
           for (let i = 0; i < cnt && currentDateIndex < payableDatesOrdered.length; i++) {
             const date = payableDatesOrdered[currentDateIndex];
             const sess = sessionByDate.get(date);
+
             if (sess?.id) {
-              sessionIds.push(sess.id);
+              const sessionDuration = (allSessions || []).find(s => s.id === sess.id)?.duration || sess.duration || defaultDuration;
+              await supabase
+                .from('individual_lesson_sessions')
+                .update({ payment_id: pmt.id, paid_minutes: sessionDuration, updated_at: new Date().toISOString() })
+                .eq('id', sess.id);
             } else {
+              const sessionDuration = defaultDuration;
               const { data: newSess } = await supabase
                 .from('individual_lesson_sessions')
                 .insert({
                   individual_lesson_id: individualLessonId,
                   lesson_date: date,
                   status: 'scheduled',
+                  duration: sessionDuration,
+                  paid_minutes: sessionDuration,
                   payment_id: pmt.id,
                   created_by: user?.id,
                   updated_at: new Date().toISOString(),
                 })
                 .select('id')
                 .single();
-              if (newSess) sessionByDate.set(date, { id: newSess.id, status: 'scheduled' });
+              if (newSess) sessionByDate.set(date, { id: newSess.id, status: 'scheduled', duration: sessionDuration });
             }
-            currentDateIndex++;
-          }
-          if (sessionIds.length > 0) updatesByPaymentId[pmt.id] = sessionIds;
-        }
 
-        for (const [pId, sIds] of Object.entries(updatesByPaymentId)) {
-          if (sIds.length > 0) {
-            await supabase
-              .from('individual_lesson_sessions')
-              .update({ payment_id: pId, updated_at: new Date().toISOString() })
-              .in('id', sIds);
+            currentDateIndex++;
           }
         }
 

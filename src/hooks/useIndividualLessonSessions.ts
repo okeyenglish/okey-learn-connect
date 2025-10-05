@@ -63,22 +63,6 @@ const calculateLessonSessions = async (
     paymentsMap.set(payment.id, payment);
   });
 
-  // Считаем общее количество оплаченных минут
-  // ВАЖНО: Оплата всегда в академических часах (1 а.ч. = 40 минут)
-  let remainingPaidMinutes = payments.reduce(
-    (sum, p) => sum + (p.lessons_count || 0) * 40,
-    0
-  );
-
-  // Сначала вычитаем минуты, привязанные к существующим платежам
-  for (const session of sessions) {
-    if (session.payment_id) {
-      const duration = session.duration || defaultDuration;
-      const basePaid = Math.max(0, Math.min(duration, session.paid_minutes || 0));
-      remainingPaidMinutes -= basePaid;
-    }
-  }
-  if (remainingPaidMinutes < 0) remainingPaidMinutes = 0;
 
   // Обрабатываем каждую сессию
   const result: IndividualLessonSession[] = [];
@@ -91,15 +75,6 @@ for (const session of sessions) {
       : 0;
     let paid_minutes = basePaid;
 
-    // Автораспределение: покрываем ПЕРВЫЕ неоплаченные занятия по порядку
-    if (session.status !== 'cancelled' && session.status !== 'free' && session.status !== 'rescheduled') {
-      const need = Math.max(0, duration - paid_minutes);
-      if (need > 0 && remainingPaidMinutes > 0) {
-        const allocate = Math.min(remainingPaidMinutes, need);
-        paid_minutes += allocate;
-        remainingPaidMinutes -= allocate;
-      }
-    }
 
     // Информация о платеже (для UI), не влияет на расчет
     const payment = session.payment_id ? paymentsMap.get(session.payment_id) : null;
