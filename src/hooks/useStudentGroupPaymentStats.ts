@@ -101,8 +101,9 @@ export const useStudentGroupPaymentStats = (studentId: string | undefined, group
     queryKey: ['student-group-payment-stats', studentId, groupId],
     queryFn: () => fetchPaymentStats(studentId!, groupId!),
     enabled: !!studentId && !!groupId,
-    staleTime: 0, // Always fetch fresh data
-    refetchOnMount: true,
-    refetchOnWindowFocus: true
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    refetchOnMount: false,
+    refetchOnWindowFocus: false
   });
 };
