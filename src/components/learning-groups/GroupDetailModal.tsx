@@ -272,6 +272,14 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
 
             <div className="p-6">
               <TabsContent value="students" className="space-y-6 mt-0">
+                {/* Расписание */}
+                <div>
+                  <h3 className="text-lg font-semibold text-blue-600 mb-4">Расписание группы</h3>
+                  <GroupScheduleCalendar groupId={group.id} />
+                </div>
+
+                <Separator className="my-6" />
+
                 {/* Студенты */}
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold text-blue-600">
@@ -408,13 +416,6 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                     </DialogContent>
                   </Dialog>
                 )}
-
-                {/* Расписание */}
-                <Separator className="my-6" />
-                <div>
-                  <h3 className="text-lg font-semibold text-blue-600 mb-4">Расписание группы</h3>
-                  <GroupScheduleCalendar groupId={group.id} />
-                </div>
               </TabsContent>
 
               <TabsContent value="homework" className="space-y-6 mt-0">
