@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { LearningGroup } from "@/hooks/useLearningGroups";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 interface EditGroupDetailsModalProps {
   open: boolean;
@@ -32,6 +33,10 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
     capacity: number;
     status: 'reserve' | 'forming' | 'active' | 'suspended' | 'finished';
     zoom_link: string;
+    course_id: string;
+    course_name: string;
+    total_lessons: number;
+    course_start_date: string;
   }>({
     name: group?.name || "",
     branch: group?.branch || "",
@@ -42,10 +47,28 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
     group_type: group?.group_type || "general",
     capacity: group?.capacity || 0,
     status: group?.status || "active",
-    zoom_link: group?.zoom_link || ""
+    zoom_link: group?.zoom_link || "",
+    course_id: group?.course_id || "",
+    course_name: group?.course_name || "",
+    total_lessons: group?.total_lessons || 0,
+    course_start_date: group?.course_start_date || ""
   });
 
-  React.useEffect(() => {
+  // Загружаем список курсов
+  const { data: courses } = useQuery({
+    queryKey: ['courses'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('courses')
+        .select('id, title')
+        .order('sort_order', { ascending: true });
+      
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  useEffect(() => {
     if (group) {
       setFormData({
         name: group.name,
@@ -57,7 +80,11 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
         group_type: group.group_type,
         capacity: group.capacity,
         status: group.status || "active",
-        zoom_link: group.zoom_link || ""
+        zoom_link: group.zoom_link || "",
+        course_id: group.course_id || "",
+        course_name: group.course_name || "",
+        total_lessons: group.total_lessons || 0,
+        course_start_date: group.course_start_date || ""
       });
     }
   }, [group]);
@@ -102,6 +129,10 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
           capacity: formData.capacity,
           status: formData.status,
           zoom_link: formData.zoom_link,
+          course_id: formData.course_id || null,
+          course_name: formData.course_name,
+          total_lessons: formData.total_lessons,
+          course_start_date: formData.course_start_date || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', group.id);
@@ -249,30 +280,63 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="group_type">Тип группы</Label>
-              <Select value={formData.group_type} onValueChange={(value) => setFormData(prev => ({ ...prev, group_type: value as typeof formData.group_type }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {groupTypes.map(type => (
-                    <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="capacity">Вместимость</Label>
+              <Input
+                id="capacity"
+                type="number"
+                min="1"
+                max="20"
+                value={formData.capacity}
+                onChange={(e) => setFormData(prev => ({ ...prev, capacity: parseInt(e.target.value) || 0 }))}
+              />
             </div>
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="capacity">Вместимость</Label>
-            <Input
-              id="capacity"
-              type="number"
-              min="1"
-              max="20"
-              value={formData.capacity}
-              onChange={(e) => setFormData(prev => ({ ...prev, capacity: parseInt(e.target.value) || 0 }))}
-            />
+            <Label htmlFor="course">Курс/Программа</Label>
+            <Select 
+              value={formData.course_id} 
+              onValueChange={(value) => {
+                const selectedCourse = courses?.find(c => c.id === value);
+                setFormData(prev => ({ 
+                  ...prev, 
+                  course_id: value,
+                  course_name: selectedCourse?.title || ""
+                }));
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Выберите курс" />
+              </SelectTrigger>
+              <SelectContent>
+                {courses?.map(course => (
+                  <SelectItem key={course.id} value={course.id}>{course.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="total_lessons">Всего занятий</Label>
+              <Input
+                id="total_lessons"
+                type="number"
+                min="0"
+                value={formData.total_lessons}
+                onChange={(e) => setFormData(prev => ({ ...prev, total_lessons: parseInt(e.target.value) || 0 }))}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="course_start_date">Дата старта курса</Label>
+              <Input
+                id="course_start_date"
+                type="date"
+                value={formData.course_start_date}
+                onChange={(e) => setFormData(prev => ({ ...prev, course_start_date: e.target.value }))}
+              />
+            </div>
           </div>
 
           <div className="grid gap-2">

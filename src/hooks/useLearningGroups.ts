@@ -27,6 +27,11 @@ export interface LearningGroup {
   zoom_link?: string;
   description?: string;
   responsible_teacher?: string;
+  course_id?: string;
+  course_name?: string;
+  total_lessons?: number;
+  course_start_date?: string;
+  lessons_generated?: boolean;
   is_active: boolean;
   created_at: string;
   updated_at: string;
