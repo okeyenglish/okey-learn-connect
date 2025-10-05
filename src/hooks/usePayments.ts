@@ -15,6 +15,7 @@ export interface Payment {
   notes?: string;
   session_ids?: string[];
   individual_lesson_id?: string;
+  group_id?: string;
   lessons_count?: number;
 }
 
@@ -66,6 +67,7 @@ export const usePayments = (filters?: any) => {
           status: 'completed',
           created_by: user?.id,
           individual_lesson_id: paymentData.individual_lesson_id,
+          group_id: paymentData.group_id,
           lessons_count: paymentData.lessons_count || 0
         })
         .select()

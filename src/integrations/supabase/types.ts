@@ -2015,6 +2015,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          group_id: string | null
           id: string
           individual_lesson_id: string | null
           invoice_id: string | null
@@ -2032,6 +2033,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          group_id?: string | null
           id?: string
           individual_lesson_id?: string | null
           invoice_id?: string | null
@@ -2049,6 +2051,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          group_id?: string | null
           id?: string
           individual_lesson_id?: string | null
           invoice_id?: string | null
@@ -2062,6 +2065,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "payments_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "learning_groups"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payments_individual_lesson_id_fkey"
             columns: ["individual_lesson_id"]
