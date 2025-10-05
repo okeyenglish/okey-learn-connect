@@ -84,46 +84,43 @@ export function CreatePaymentModal({
       if (!open || !studentId) return;
       
       try {
-        // Загружаем групповые занятия через join от learning_groups
-        const { data: groupsData, error: groupsError } = await supabase
-          .from('learning_groups')
-          .select(`
-            id,
-            name,
-            subject,
-            level,
-            teacher_name,
-            branch,
-            academic_hours_per_day,
-            group_students!inner(student_id, status)
-          `)
-          .eq('group_students.student_id', studentId)
-          .eq('group_students.status', 'active');
+        // 1) Получаем активные связи из group_students
+        const { data: gsActive, error: gsErr } = await supabase
+          .from('group_students')
+          .select('group_id')
+          .eq('student_id', studentId)
+          .eq('status', 'active');
 
-        // Fallback: если по какой-то причине join от learning_groups ничего не вернул,
-        // пробуем получить через group_students с вложенной связью
-        let finalGroups: any[] | null = groupsData || null;
-        if (!finalGroups || finalGroups.length === 0) {
-          const { data: gsFallback } = await supabase
-            .from('group_students')
+        let finalGroups: any[] = [];
+
+        if (gsActive && gsActive.length > 0) {
+          const groupIds = gsActive.map((g: any) => g.group_id).filter(Boolean);
+          // 2) Получаем сами группы по id
+          const { data: lgData } = await supabase
+            .from('learning_groups')
+            .select('id, name, subject, level, branch, academic_hours_per_day, responsible_teacher, teacher_name')
+            .in('id', groupIds);
+          finalGroups = lgData || [];
+        } else {
+          // Fallback: пробуем inner join-ом (на случай если RLS/связи отличаются)
+          const { data: groupsData } = await supabase
+            .from('learning_groups')
             .select(`
-              status,
-              learning_groups (
-                id,
-                name,
-                subject,
-                level,
-                teacher_name,
-                branch,
-                academic_hours_per_day
-              )
+              id,
+              name,
+              subject,
+              level,
+              branch,
+              academic_hours_per_day,
+              responsible_teacher,
+              teacher_name,
+              group_students!inner(student_id, status)
             `)
-            .eq('student_id', studentId)
-            .eq('status', 'active');
-          finalGroups = (gsFallback || [])
-            .map((r: any) => r.learning_groups)
-            .filter(Boolean);
+            .eq('group_students.student_id', studentId)
+            .eq('group_students.status', 'active');
+          finalGroups = groupsData || [];
         }
+
         
         // Загружаем индивидуальные занятия
         const { data: individualData, error: individualError } = await supabase
@@ -186,7 +183,7 @@ export function CreatePaymentModal({
               name: group.name,
               subject: group.subject || '',
               level: group.level || '',
-              teacher: group.teacher_name || '',
+              teacher: group.teacher_name || group.responsible_teacher || '',
               branch: group.branch || '',
               academicHours: academicHoursPerDay,
               pricePerLesson: pricePerLesson,
