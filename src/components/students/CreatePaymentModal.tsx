@@ -98,7 +98,7 @@ export function CreatePaymentModal({
           // 2) Получаем сами группы по id, только активные
           const { data: lgData } = await supabase
             .from('learning_groups')
-            .select('id, name, subject, level, branch, responsible_teacher, teacher_name')
+            .select('id, name, subject, level, branch, responsible_teacher')
             .in('id', groupIds)
             .eq('status', 'active');
           finalGroups = lgData || [];
@@ -113,7 +113,6 @@ export function CreatePaymentModal({
               level,
               branch,
               responsible_teacher,
-              teacher_name,
               group_students!inner(student_id, status)
             `)
             .eq('group_students.student_id', studentId)
@@ -122,6 +121,17 @@ export function CreatePaymentModal({
           finalGroups = groupsData || [];
         }
 
+        // Если групп по связям нет, но модал открыт из конкретной группы — подтянем её напрямую
+        if ((!finalGroups || finalGroups.length === 0) && groupId) {
+          const { data: directGroup } = await supabase
+            .from('learning_groups')
+            .select('id, name, subject, level, branch, responsible_teacher, status')
+            .eq('id', groupId)
+            .maybeSingle();
+          if (directGroup && directGroup.status === 'active') {
+            finalGroups = [directGroup];
+          }
+        }
         
         // Загружаем индивидуальные занятия
         const { data: individualData, error: individualError } = await supabase
