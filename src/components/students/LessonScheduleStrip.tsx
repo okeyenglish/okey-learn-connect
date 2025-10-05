@@ -258,7 +258,7 @@ export function LessonScheduleStrip({ sessions, className, groupId, onStatusUpda
   }
 
   return (
-    <div className={cn("flex items-center gap-2", className)}>
+    <div className={cn("flex items-center gap-2 w-full", className)}>
       <Button
         variant="ghost"
         size="icon"
@@ -269,7 +269,7 @@ export function LessonScheduleStrip({ sessions, className, groupId, onStatusUpda
         <ChevronLeft className="h-4 w-4" />
       </Button>
 
-      <div className="flex-1 max-w-full overflow-x-auto overflow-y-visible">
+      <div className="flex-1 min-w-0 max-w-full overflow-x-auto overflow-y-visible">
         <div className="inline-flex gap-1">
           <TooltipProvider>
             {visibleSessions.map((session, index) => {
