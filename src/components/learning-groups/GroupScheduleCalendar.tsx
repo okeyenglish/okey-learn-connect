@@ -146,9 +146,17 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
                 : 'Занятие перенесено';
             }
           }
+
+          const groupIsFree = (lessonSession as any)?.status === 'free' || (lessonSession as any)?.is_free || (lessonSession as any)?.payment_type === 'free';
           
-          // Проверяем статус оплаты
-          if (personalData?.payment_status && personalData.payment_status !== 'not_paid') {
+          // Проверяем статус оплаты; при бесплатном занятии или отмене не списываем
+          if (groupIsFree) {
+            payment_status = 'free';
+          } else if (is_cancelled_for_student) {
+            payment_status = (personalData?.payment_status && personalData.payment_status !== 'not_paid')
+              ? personalData.payment_status
+              : 'not_paid';
+          } else if (personalData?.payment_status && personalData.payment_status !== 'not_paid') {
             // Если уже есть явный статус - используем его
             payment_status = personalData.payment_status;
           } else {

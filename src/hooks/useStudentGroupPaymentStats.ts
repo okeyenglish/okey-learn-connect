@@ -70,13 +70,20 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
     (studentSessions as any[]).filter(s => s.is_cancelled_for_student).map(s => s.lesson_session_id)
   );
 
-  // Consider only sessions after enrollment and not cancelled (global or for student)
+  // Build a set of sessions marked free/bonus for this student
+  const freeForStudent = new Set(
+    (studentSessions as any[])
+      .filter(s => s.payment_status === 'free' || s.payment_status === 'bonus')
+      .map(s => s.lesson_session_id)
+  );
+
+  // Consider only sessions after enrollment and not cancelled (global or for student) and not free
   const effectiveSessions = (allSessions as any[]).filter((session: any) => {
     const d = new Date(session.lesson_date);
     d.setHours(0, 0, 0, 0);
     if (enrollmentDate && d < enrollmentDate) return false;
-    // Exclude if cancelled globally OR cancelled for this specific student
     if (session.status === 'cancelled' || cancelledForStudent.has(session.id)) return false;
+    if ((session as any).status === 'free' || freeForStudent.has(session.id)) return false;
     return true;
   });
   // Now fetch pricing if we have a subject
