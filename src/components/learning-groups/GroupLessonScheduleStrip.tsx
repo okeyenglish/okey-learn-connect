@@ -51,8 +51,8 @@ export function GroupLessonScheduleStrip({
       return 'bg-black text-white border-black';
     }
 
-    // Бесплатное занятие (если есть явная отметка) — оранжевый
-    if (session.is_free || session.payment_type === 'free') {
+    // Бесплатное занятие — оранжевый
+    if (session.status === 'free' || session.is_free || session.payment_type === 'free') {
       return 'bg-orange-500 text-white border-orange-500';
     }
 
