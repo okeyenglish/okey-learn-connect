@@ -198,8 +198,8 @@ export const useFamilyData = (familyGroupId?: string) => {
           // Add individual lessons
           if (individualLessons) {
             for (const il of individualLessons) {
-              // Check if individual lesson is active and has active status
-              const isActive = il.is_active && il.status === 'active';
+              // Check if individual lesson is active (not finished/archived)
+              const isActive = il.is_active && il.status !== 'finished';
               
               courses.push({
                 id: il.id,
