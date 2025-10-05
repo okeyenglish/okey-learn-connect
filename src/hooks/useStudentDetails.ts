@@ -270,22 +270,22 @@ export const useStudentDetails = (studentId: string) => {
             const enrollDate = gs.enrollment_date ? new Date(gs.enrollment_date) : null;
             if (enrollDate) enrollDate.setHours(0, 0, 0, 0);
 
-            // Количество оплаченных занятий берём напрямую из платежей
-            const totalPaidLessons = paidLessonsMap.get(groupId) || 0;
+            // Сумма оплаченных академических часов по группе
+            const totalPaidAcademicHours = paidAcademicHoursMap.get(groupId) || 0;
+            let remainingPaidMinutes = totalPaidAcademicHours * 40;
 
             console.log('Group enrollment check:', {
               groupId: groupId,
               studentId: studentId,
               enrollmentDate: gs.enrollment_date,
               enrollDate: enrollDate?.toISOString(),
-              totalPaidLessons
+              totalPaidAcademicHours
             });
 
-            // Сортируем занятия и распределяем оплаченные занятия после даты зачисления
+            // Сортируем занятия и распределяем оплаченные минуты после зачисления
             const sortedSessions = (sessionsData || []).sort((a: any, b: any) =>
               new Date(a.lesson_date).getTime() - new Date(b.lesson_date).getTime()
             );
-            let paidAssigned = 0;
 
             sessions = sortedSessions.map((s: any) => {
               const sessionDate = new Date(s.lesson_date);
@@ -294,11 +294,11 @@ export const useStudentDetails = (studentId: string) => {
               const duration = s.duration || calculateDuration(s.start_time, s.end_time);
               const computedStatus = beforeEnrollment ? 'cancelled' : (s.status || 'scheduled');
 
-              // Помечаем как оплаченное первые N занятий после зачисления
+              // Распределяем оплаченные минуты последовательно после даты зачисления
               let paid_minutes = 0;
-              if (!beforeEnrollment && paidAssigned < totalPaidLessons) {
-                paid_minutes = duration;
-                paidAssigned++;
+              if (!beforeEnrollment && remainingPaidMinutes > 0) {
+                paid_minutes = Math.min(duration, remainingPaidMinutes);
+                remainingPaidMinutes -= paid_minutes;
               }
 
               return {
