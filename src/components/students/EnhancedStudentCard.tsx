@@ -67,6 +67,7 @@ import { EditIndividualLessonModal } from './EditIndividualLessonModal';
 import { ScheduleSummary } from './ScheduleSummary';
 import { IndividualLessonSchedule } from './IndividualLessonSchedule';
 import { StudentBalanceModal } from './StudentBalanceModal';
+import { StudentPaymentInfo } from '@/components/learning-groups/StudentPaymentInfo';
 import { useStudentBalance } from '@/hooks/useStudentBalance';
 import { calculateLessonPrice } from '@/utils/lessonPricing';
 import { getCoursePriceInfo } from '@/utils/coursePricing';
@@ -1021,6 +1022,14 @@ export function EnhancedStudentCard({
                               <div className="text-sm mb-3">
                                 <span className="text-muted-foreground">Зачислен: </span>
                                 <span className="font-medium">{formatDate(group.enrollmentDate)}</span>
+                              </div>
+
+                              {/* Платежная информация */}
+                              <div className="mb-3 p-3 bg-muted/30 rounded-lg">
+                                <StudentPaymentInfo 
+                                  studentId={student.id} 
+                                  groupId={group.id} 
+                                />
                               </div>
 
                               {/* Расписание занятий */}
