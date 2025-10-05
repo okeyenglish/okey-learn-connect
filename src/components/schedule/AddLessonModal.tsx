@@ -25,9 +25,10 @@ interface ScheduleConflict {
 interface AddLessonModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  defaultGroupId?: string;
 }
 
-export const AddLessonModal = ({ open, onOpenChange }: AddLessonModalProps) => {
+export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLessonModalProps) => {
   const [formData, setFormData] = useState({
     group_id: "",
     teacher_name: "",
@@ -48,6 +49,13 @@ export const AddLessonModal = ({ open, onOpenChange }: AddLessonModalProps) => {
   const { groups } = useLearningGroups({});
   const { teachers } = useTeachers({});
   const branches = getBranchesForSelect();
+
+  // Устанавливаем дефолтную группу при открытии модального окна
+  React.useEffect(() => {
+    if (open && defaultGroupId) {
+      setFormData(prev => ({ ...prev, group_id: defaultGroupId }));
+    }
+  }, [open, defaultGroupId]);
 
   const getDayOfWeek = (dateString: string) => {
     const date = new Date(dateString);

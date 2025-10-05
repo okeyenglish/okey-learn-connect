@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Circle, CheckCircle, XCircle, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Circle, CheckCircle, XCircle, RotateCcw, ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { useLessonSessions } from "@/hooks/useLessonSessions";
 import { useGroupStudents } from "@/hooks/useGroupStudents";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, startOfWeek, endOfWeek } from "date-fns";
@@ -10,6 +10,7 @@ import { GroupLessonScheduleStrip } from "./GroupLessonScheduleStrip";
 import { StudentLessonScheduleStrip } from "./StudentLessonScheduleStrip";
 import { StudentPaymentInfo } from "./StudentPaymentInfo";
 import { LessonColorLegend } from "./LessonColorLegend";
+import { AddLessonModal } from "../schedule/AddLessonModal";
 import { supabase } from "@/integrations/supabase/client";
 
 interface GroupScheduleCalendarProps {
@@ -20,6 +21,7 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [studentSessions, setStudentSessions] = useState<Record<string, any[]>>({});
   const [expandedStudents, setExpandedStudents] = useState<Record<string, boolean>>({});
+  const [addLessonOpen, setAddLessonOpen] = useState(false);
   
   // Расширяем диапазон для отображения полных недель
   const monthStart = startOfMonth(currentMonth);
@@ -170,7 +172,17 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
       {/* Общее расписание группы */}
       <Card>
         <CardContent className="p-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Общее расписание группы</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-700">Общее расписание группы</h3>
+            <Button 
+              size="sm" 
+              className="bg-blue-500 hover:bg-blue-600"
+              onClick={() => setAddLessonOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Добавить занятие
+            </Button>
+          </div>
           {groupSessions.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               Нет занятий в выбранном периоде
@@ -264,6 +276,18 @@ export const GroupScheduleCalendar = ({ groupId }: GroupScheduleCalendarProps) =
         </CardContent>
       </Card>
 
+      {/* Модальное окно добавления занятия */}
+      <AddLessonModal 
+        open={addLessonOpen} 
+        onOpenChange={(open) => {
+          setAddLessonOpen(open);
+          if (!open) {
+            // Обновляем данные после закрытия модального окна
+            refetch();
+          }
+        }}
+        defaultGroupId={groupId}
+      />
     </div>
   );
 };
