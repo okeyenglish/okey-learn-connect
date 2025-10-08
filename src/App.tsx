@@ -9,6 +9,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ChatBot from "@/components/ChatBot";
 import ScrollToTop from "@/components/ScrollToTop";
+import { SupabaseHealthBanner } from "@/components/SupabaseHealthBanner";
 import { lazy, Suspense } from "react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
@@ -346,6 +347,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
+          <SupabaseHealthBanner />
           <BrowserRouter>
             <ScrollToTop />
             <AppContent />

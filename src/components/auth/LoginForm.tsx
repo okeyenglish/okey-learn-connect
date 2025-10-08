@@ -26,7 +26,13 @@ export const LoginForm = () => {
     const { error } = await signIn(email, password);
     
     if (error) {
-      setError(error.message);
+      // Check for server errors (500, 502, 503)
+      if (error.message?.includes('500') || error.message?.includes('unexpected_failure') || 
+          error.message?.includes('Database error') || error.message?.toLowerCase().includes('server')) {
+        setError('Проблема на сервере аутентификации. Пожалуйста, попробуйте позже или обратитесь к администратору.');
+      } else {
+        setError(error.message);
+      }
     }
     
     setIsLoading(false);
