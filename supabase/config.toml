@@ -1,4 +1,4 @@
-project_id = "kbojujfwtvmsgudumown"
+project_id = "self-hosted"
 
 [functions.ask]
 verify_jwt = true

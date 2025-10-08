@@ -44,7 +44,7 @@ export const WhatsAppSettings: React.FC = () => {
     
     // Генерируем webhook URL если его нет
     if (!data?.webhookUrl) {
-      const webhookUrl = 'https://kbojujfwtvmsgudumown.supabase.co/functions/v1/whatsapp-webhook';
+      const webhookUrl = 'http://84.54.31.110/functions/v1/whatsapp-webhook';
       setSettings(prev => ({ ...prev, webhookUrl }));
     }
   };
