@@ -2,7 +2,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "http://84.54.31.110";
+const SUPABASE_URL = "https://supabase.okey-english.ru";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzU5Nzk1MjAwLCJleHAiOjE5MTc1NjE2MDB9.tV9TS2LhlqdbfCRP9UD3kiN3WdrFUvQdGJzZagWGBeM";
 
 // Import the supabase client like this:
