@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
  * Utility to check Supabase server health
  */
 
-const SUPABASE_URL = "https://supabase.okey-english.ru";
+const SUPABASE_URL = "https://kbojujfwtvmsgudumown.supabase.co";
 
 export interface HealthCheckResult {
   isHealthy: boolean;
@@ -29,7 +29,7 @@ export async function checkSupabaseHealth(): Promise<HealthCheckResult> {
       method: 'HEAD',
       signal: AbortSignal.timeout(5000), // 5 second timeout
     });
-    result.restAvailable = restResponse.ok || restResponse.status === 401; // 401 is ok, means auth is working
+    result.restAvailable = restResponse.ok || restResponse.status === 401 || restResponse.status === 404; // 401/404 are OK for REST root
 
     // Check Auth API
     const authResponse = await fetch(`${SUPABASE_URL}/auth/v1/settings`, {
