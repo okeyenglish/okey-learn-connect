@@ -41,7 +41,7 @@ export default function PricingModal({
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('https://supabase.okey-english.ru/functions/v1/webhook-proxy', {
+      const response = await fetch('https://kbojujfwtvmsgudumown.supabase.co/functions/v1/webhook-proxy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

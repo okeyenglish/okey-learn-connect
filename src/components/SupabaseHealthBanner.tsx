@@ -31,7 +31,7 @@ export function SupabaseHealthBanner() {
             'Проверьте CORS: Nginx должен отдавать "add_header Access-Control-Allow-Origin ... always;"',
             'Проверьте Kong: config.always должен быть true в CORS plugin',
             'Убедитесь что Origin домена Lovable добавлен в ADDITIONAL_REDIRECT_URLS',
-            'Проверьте сертификат SSL для https://supabase.okey-english.ru',
+            'Проверьте сертификат SSL для https://kbojujfwtvmsgudumown.supabase.co',
             'Запустите диагностику на /diag для детального анализа'
           ]
         });
