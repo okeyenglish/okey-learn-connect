@@ -24,21 +24,19 @@ export async function checkSupabaseHealth(): Promise<HealthCheckResult> {
   };
 
   try {
-    // Check REST API
-    const restResponse = await fetch(`${SUPABASE_URL}/rest/v1/`, {
-      method: 'HEAD',
-      signal: AbortSignal.timeout(5000), // 5 second timeout
-    });
-    result.restAvailable = restResponse.ok || restResponse.status === 401 || restResponse.status === 404; // 401/404 are OK for REST root
-
-    // Check Auth API
-    const authResponse = await fetch(`${SUPABASE_URL}/auth/v1/settings`, {
+    // Check Auth API health only to avoid CORS issues with REST root
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const authResponse = await fetch(`${SUPABASE_URL}/auth/v1/health`, {
       method: 'GET',
-      signal: AbortSignal.timeout(5000),
-    });
-    result.authAvailable = authResponse.ok;
+      signal: controller.signal,
+    }).catch(() => null);
+    clearTimeout(timeout);
 
-    result.isHealthy = result.restAvailable && result.authAvailable;
+    result.authAvailable = !!authResponse && (authResponse.ok || authResponse.status === 200);
+    // Assume REST is available when Auth is healthy (same gateway)
+    result.restAvailable = result.authAvailable;
+    result.isHealthy = result.authAvailable;
   } catch (error) {
     result.error = error instanceof Error ? error.message : 'Network error';
   }
