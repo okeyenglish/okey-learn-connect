@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
  * Utility to check Supabase server health
  */
 
-const SUPABASE_URL = "https://kbojujfwtvmsgudumown.supabase.co";
+const SUPABASE_URL = "https://supabase.okey-english.ru";
 
 export interface HealthCheckResult {
   isHealthy: boolean;
