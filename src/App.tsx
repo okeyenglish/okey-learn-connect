@@ -55,6 +55,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const StudentCourseDetails = lazy(() => import('./pages/CourseDetails'));
 const TestUserCreator = lazy(() => import('./pages/TestUserCreator'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
+const SupabaseDiagnostics = lazy(() => import('./pages/SupabaseDiagnostics'));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Loading component for better UX
@@ -321,6 +322,11 @@ const AppContent = () => {
           <Route path="/auth/callback" element={
             <Suspense fallback={<LoadingComponent />}>
               <AuthCallback />
+            </Suspense>
+          } />
+          <Route path="/diag" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <SupabaseDiagnostics />
             </Suspense>
           } />
           <Route path="/test-user" element={

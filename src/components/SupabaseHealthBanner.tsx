@@ -20,6 +20,21 @@ export function SupabaseHealthBanner() {
       // Show banner if server is not healthy
       if (!result.isHealthy && !isDismissed) {
         setIsVisible(true);
+        
+        // Log detailed debugging info to console
+        console.error('Supabase Health Check Failed:', {
+          isHealthy: result.isHealthy,
+          restAvailable: result.restAvailable,
+          authAvailable: result.authAvailable,
+          error: result.error,
+          suggestions: [
+            'Проверьте CORS: Nginx должен отдавать "add_header Access-Control-Allow-Origin ... always;"',
+            'Проверьте Kong: config.always должен быть true в CORS plugin',
+            'Убедитесь что Origin домена Lovable добавлен в ADDITIONAL_REDIRECT_URLS',
+            'Проверьте сертификат SSL для https://supabase.okey-english.ru',
+            'Запустите диагностику на /diag для детального анализа'
+          ]
+        });
       } else {
         setIsVisible(false);
       }

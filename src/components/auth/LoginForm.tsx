@@ -1,20 +1,23 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Building2 } from 'lucide-react';
+import { Loader2, Building2, AlertCircle } from 'lucide-react';
 
 export const LoginForm = () => {
   const { signIn, signUp, loading } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isCorsError, setIsCorsError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('signin');
 
@@ -22,12 +25,18 @@ export const LoginForm = () => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    setIsCorsError(false);
 
     const { error } = await signIn(email, password);
     
     if (error) {
+      // Check for CORS/Network errors
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        setError('Браузер заблокировал запрос к серверу (CORS). Сервер должен отдавать Access-Control-Allow-Origin на всех ответах, не только на preflight.');
+        setIsCorsError(true);
+      }
       // Check for server errors (500, 502, 503)
-      if (error.message?.includes('500') || error.message?.includes('unexpected_failure') || 
+      else if (error.message?.includes('500') || error.message?.includes('unexpected_failure') || 
           error.message?.includes('Database error') || error.message?.toLowerCase().includes('server')) {
         setError('Проблема на сервере аутентификации. Пожалуйста, попробуйте позже или обратитесь к администратору.');
       } else {
@@ -42,11 +51,18 @@ export const LoginForm = () => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    setIsCorsError(false);
 
     const { error } = await signUp(email, password, firstName, lastName);
     
     if (error) {
-      setError(error.message);
+      // Check for CORS/Network errors
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        setError('Браузер заблокировал запрос к серверу (CORS). Сервер должен отдавать Access-Control-Allow-Origin на всех ответах, не только на preflight.');
+        setIsCorsError(true);
+      } else {
+        setError(error.message);
+      }
     } else {
       setError('Регистрация успешна! Проверьте email для подтверждения.');
     }
@@ -121,7 +137,22 @@ export const LoginForm = () => {
                 </div>
                 {error && (
                   <Alert variant={error.includes('успешна') ? 'default' : 'destructive'}>
-                    <AlertDescription>{error}</AlertDescription>
+                    <AlertDescription>
+                      <div className="space-y-2">
+                        <p>{error}</p>
+                        {isCorsError && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate('/diag')}
+                            className="w-full"
+                          >
+                            <AlertCircle className="mr-2 h-4 w-4" />
+                            Запустить диагностику
+                          </Button>
+                        )}
+                      </div>
+                    </AlertDescription>
                   </Alert>
                 )}
                 <Button type="submit" className="w-full" disabled={isLoading}>
@@ -186,7 +217,22 @@ export const LoginForm = () => {
                 </div>
                 {error && (
                   <Alert variant={error.includes('успешна') ? 'default' : 'destructive'}>
-                    <AlertDescription>{error}</AlertDescription>
+                    <AlertDescription>
+                      <div className="space-y-2">
+                        <p>{error}</p>
+                        {isCorsError && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate('/diag')}
+                            className="w-full"
+                          >
+                            <AlertCircle className="mr-2 h-4 w-4" />
+                            Запустить диагностику
+                          </Button>
+                        )}
+                      </div>
+                    </AlertDescription>
                   </Alert>
                 )}
                 <Button type="submit" className="w-full" disabled={isLoading}>
