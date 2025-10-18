@@ -5,7 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle2, XCircle, AlertCircle, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
-const SUPABASE_URL = "https://supabase.okey-english.ru";
+const SUPABASE_URL = "https://api.academyos.ru";
 
 interface TestResult {
   name: string;
