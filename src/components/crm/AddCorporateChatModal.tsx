@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,21 +11,31 @@ interface AddCorporateChatModalProps {
   onChatAdded?: () => void;
 }
 
-const branches = [
-  'Окская',
-  'Котельники',
-  'Стахановская',
-  'Новокосино',
-  'Мытищи',
-  'Солнцево',
-  'Онлайн'
-];
-
 export const AddCorporateChatModal = ({ onChatAdded }: AddCorporateChatModalProps) => {
   const [open, setOpen] = useState(false);
   const [chatName, setChatName] = useState("");
-  const [selectedBranch, setSelectedBranch] = useState("");
+  const [userBranch, setUserBranch] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Загружаем филиал текущего пользователя
+  useEffect(() => {
+    const loadUserBranch = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('branch')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      setUserBranch(profile?.branch || null);
+    };
+    
+    if (open) {
+      loadUserBranch();
+    }
+  }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,8 +45,8 @@ export const AddCorporateChatModal = ({ onChatAdded }: AddCorporateChatModalProp
       return;
     }
 
-    if (!selectedBranch) {
-      toast.error("Выберите филиал");
+    if (!userBranch) {
+      toast.error("Не удалось определить ваш филиал");
       return;
     }
 
@@ -51,11 +60,11 @@ export const AddCorporateChatModal = ({ onChatAdded }: AddCorporateChatModalProp
         .from('clients')
         .select('id')
         .eq('name', clientName)
-        .eq('branch', selectedBranch)
+        .eq('branch', userBranch)
         .maybeSingle();
 
       if (existingClient) {
-        toast.error("Чат с таким названием уже существует в этом филиале");
+        toast.error("Чат с таким названием уже существует");
         setIsSubmitting(false);
         return;
       }
@@ -65,14 +74,13 @@ export const AddCorporateChatModal = ({ onChatAdded }: AddCorporateChatModalProp
         .insert({
           name: clientName,
           phone: '-',
-          branch: selectedBranch
+          branch: userBranch
         });
 
       if (error) throw error;
 
       toast.success("Кастомный чат создан");
       setChatName("");
-      setSelectedBranch("");
       setOpen(false);
       onChatAdded?.();
     } catch (error) {
@@ -106,26 +114,15 @@ export const AddCorporateChatModal = ({ onChatAdded }: AddCorporateChatModalProp
               placeholder="Например: Маркетинг, Администрация"
               className="bg-bg-soft text-text-primary border-border/50"
               disabled={isSubmitting}
+              autoFocus
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="branch" className="text-text-primary">
-              Филиал
-            </Label>
-            <Select value={selectedBranch} onValueChange={setSelectedBranch} disabled={isSubmitting}>
-              <SelectTrigger className="bg-bg-soft text-text-primary border-border/50">
-                <SelectValue placeholder="Выберите филиал" />
-              </SelectTrigger>
-              <SelectContent>
-                {branches.map((branch) => (
-                  <SelectItem key={branch} value={branch}>
-                    {branch}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {userBranch && (
+            <div className="text-sm text-text-secondary">
+              Филиал: <span className="font-medium text-text-primary">{userBranch}</span>
+            </div>
+          )}
 
           <div className="flex justify-end gap-2">
             <Button
@@ -136,7 +133,7 @@ export const AddCorporateChatModal = ({ onChatAdded }: AddCorporateChatModalProp
             >
               Отмена
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="btn-primary">
+            <Button type="submit" disabled={isSubmitting || !userBranch} className="btn-primary">
               {isSubmitting ? "Создание..." : "Создать"}
             </Button>
           </div>

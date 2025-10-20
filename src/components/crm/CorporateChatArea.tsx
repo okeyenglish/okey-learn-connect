@@ -36,13 +36,77 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchInput, setShowSearchInput] = useState(false);
   const [activeBranch, setActiveBranch] = useState<string | null>(selectedBranchId);
+  const [selectedCustomChatId, setSelectedCustomChatId] = useState<string | null>(null);
   const [allowedBranches, setAllowedBranches] = useState<string[]>([]);
   const isMobile = useIsMobile();
   
-  // Получаем реальные данные корпоративных чатов
+  // Получаем реальные данные корпоративных и кастомных чатов
   const { corporateChats, isLoading: systemChatsLoading } = useSystemChatMessages();
+  const [customChats, setCustomChats] = useState<any[]>([]);
+  const [isLoadingCustomChats, setIsLoadingCustomChats] = useState(true);
 
-  // Группируем корпоративные чаты по филиалам
+  // Загружаем кастомные чаты
+  useEffect(() => {
+    const loadCustomChats = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('branch')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!profile?.branch) return;
+
+      const { data: clients, error } = await supabase
+        .from('clients')
+        .select(`
+          id,
+          name,
+          branch,
+          chat_messages!client_id (
+            id,
+            message_text,
+            created_at,
+            is_read
+          )
+        `)
+        .eq('branch', profile.branch)
+        .ilike('name', 'Кастомный чат -%');
+
+      if (error) {
+        console.error('Error loading custom chats:', error);
+        setIsLoadingCustomChats(false);
+        return;
+      }
+
+      const enrichedChats = (clients || []).map((client: any) => {
+        const messages = client.chat_messages || [];
+        const unreadCount = messages.filter((m: any) => !m.is_read).length;
+        const sortedMessages = messages.sort((a: any, b: any) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        const lastMsg = sortedMessages[0];
+
+        return {
+          id: client.id,
+          name: client.name.replace('Кастомный чат - ', ''),
+          branch: client.branch,
+          unreadCount,
+          lastMessage: lastMsg?.message_text || 'Нет сообщений',
+          lastMessageTime: lastMsg?.created_at || null
+        };
+      });
+
+      setCustomChats(enrichedChats);
+      setIsLoadingCustomChats(false);
+    };
+
+    loadCustomChats();
+  }, []);
+
+  // Группируем корпоративные чаты по филиалам и добавляем кастомные чаты
   const branchChats = (corporateChats || []).reduce((acc: any, chat: any) => {
     if (!acc[chat.branch]) {
       acc[chat.branch] = [];
@@ -50,6 +114,14 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
     acc[chat.branch].push(chat);
     return acc;
   }, {});
+
+  // Добавляем кастомные чаты к соответствующим филиалам
+  customChats.forEach(chat => {
+    if (!branchChats[chat.branch]) {
+      branchChats[chat.branch] = [];
+    }
+    branchChats[chat.branch].push(chat);
+  });
 
   // Создаем список филиалов с данными о последних сообщениях
   const branchesWithData = branches.map(branch => {
@@ -80,7 +152,7 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
     }
   }, [selectedBranchId, activeBranch]);
 
-  // Resolve real client UUID for selected branch
+  // Resolve real client UUID for selected branch or custom chat
   const [resolvedClientId, setResolvedClientId] = useState<string | null>(null);
   useEffect(() => {
     const ensureClient = async (name: string, branch: string) => {
@@ -103,15 +175,29 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
       }
       return inserted?.id || null;
     };
+    
     const resolve = async () => {
-      if (!activeBranch) { setResolvedClientId(null); return; }
+      // Если выбран кастомный чат, используем его ID
+      if (selectedCustomChatId) {
+        setResolvedClientId(selectedCustomChatId);
+        return;
+      }
+      
+      // Иначе работаем с корпоративным чатом по филиалу
+      if (!activeBranch) { 
+        setResolvedClientId(null); 
+        return; 
+      }
       const branchName = branches.find(b => b.id === activeBranch)?.name;
-      if (!branchName) { setResolvedClientId(null); return; }
+      if (!branchName) { 
+        setResolvedClientId(null); 
+        return; 
+      }
       const id = await ensureClient(`Корпоративный чат - ${branchName}`, branchName);
       setResolvedClientId(id);
     };
     resolve();
-  }, [activeBranch]);
+  }, [activeBranch, selectedCustomChatId]);
 
   const clientId = resolvedClientId || '';
   const { messages } = useChatMessages(clientId);
@@ -168,10 +254,17 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
 
   const handleBranchSelect = (branchId: string) => {
     setActiveBranch(branchId);
+    setSelectedCustomChatId(null);
+  };
+
+  const handleCustomChatSelect = (chatId: string) => {
+    setSelectedCustomChatId(chatId);
+    setActiveBranch(null);
   };
 
   const handleBackToList = () => {
     setActiveBranch(null);
+    setSelectedCustomChatId(null);
   };
 
   // Filter messages based on search query
@@ -183,10 +276,18 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
     return branches.find(b => b.id === activeBranch) || branches[0];
   };
 
-  // На мобильных показываем либо список филиалов, либо чат
+  const getActiveChatName = () => {
+    if (selectedCustomChatId) {
+      const customChat = customChats.find(c => c.id === selectedCustomChatId);
+      return customChat?.name || 'Кастомный чат';
+    }
+    return getActiveBranch().name;
+  };
+
+  // На мобильных показываем либо список филиалов/чатов, либо чат
   if (isMobile) {
-    // Показываем список филиалов
-    if (!activeBranch) {
+    // Показываем список филиалов и кастомных чатов
+    if (!activeBranch && !selectedCustomChatId) {
       return (
         <div className="flex flex-col h-full bg-background">
           <div className="flex items-center justify-between p-4 border-b">
@@ -235,6 +336,46 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
                   </button>
                 );
               })}
+              
+              {customChats.length > 0 && (
+                <div className="pt-2 mt-2 border-t">
+                  <p className="text-xs text-muted-foreground px-2 mb-2">Кастомные чаты</p>
+                  {customChats.map((chat) => (
+                    <button
+                      key={chat.id}
+                      onClick={() => handleCustomChatSelect(chat.id)}
+                      className="w-full text-left p-4 rounded-lg transition-colors bg-card border hover:bg-muted/50 shadow-sm mb-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <MessageCircle className="h-6 w-6 text-green-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-sm truncate">{chat.name}</p>
+                              {chat.unreadCount > 0 && (
+                                <Badge variant="destructive" className="text-xs h-5 rounded-sm">
+                                  {chat.unreadCount}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
+                              {chat.lastMessage}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {chat.lastMessageTime ? new Date(chat.lastMessageTime).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : ''}
+                          </span>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -345,7 +486,7 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
                 return (
                   <button
                     key={branch.id}
-                    onClick={() => setActiveBranch(branch.id)}
+                    onClick={() => handleBranchSelect(branch.id)}
                     className={`w-full text-left p-3 rounded-lg transition-colors ${
                       activeBranch === branch.id 
                         ? 'bg-slate-100 border border-slate-200' 
@@ -380,20 +521,67 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
                   </button>
                 );
               })}
+              
+              {customChats.length > 0 && (
+                <div className="pt-2 mt-2 border-t">
+                  <p className="text-xs text-muted-foreground px-2 mb-2">Кастомные чаты</p>
+                  {customChats.map((chat) => (
+                    <button
+                      key={chat.id}
+                      onClick={() => handleCustomChatSelect(chat.id)}
+                      className={`w-full text-left p-3 rounded-lg transition-colors ${
+                        selectedCustomChatId === chat.id 
+                          ? 'bg-slate-100 border border-slate-200' 
+                          : 'hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <MessageCircle className="h-5 w-5 text-green-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-sm truncate">{chat.name}</p>
+                              {chat.unreadCount > 0 && (
+                                <Badge variant="destructive" className="text-xs h-4 rounded-sm">
+                                  {chat.unreadCount}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {chat.lastMessage}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-xs text-muted-foreground">
+                            {chat.lastMessageTime ? new Date(chat.lastMessageTime).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : ''}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
 
       <div className="flex-1 flex flex-col">
-        {activeBranch ? (
+        {(activeBranch || selectedCustomChatId) ? (
           <>
             <div className="flex items-center justify-between p-4 border-b">
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-blue-600" />
-                  <h2 className="font-semibold text-base">{getActiveBranch().name}</h2>
-                </div>
+            <div className="flex items-center gap-2">
+              {selectedCustomChatId ? (
+                <MessageCircle className="h-5 w-5 text-green-600" />
+              ) : (
+                <Building2 className="h-5 w-5 text-blue-600" />
+              )}
+              <h2 className="font-semibold text-base">{getActiveChatName()}</h2>
+            </div>
               </div>
               
               <div className="flex items-center gap-2">
