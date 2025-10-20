@@ -224,6 +224,69 @@ export type Database = {
           },
         ]
       }
+      broadcast_campaigns: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          delivered_count: number | null
+          delivery_method: string[]
+          failed_count: number | null
+          filters: Json | null
+          id: string
+          message: string
+          name: string
+          scheduled_at: string | null
+          sent_count: number | null
+          started_at: string | null
+          status: string
+          target_audience: string
+          title: string
+          total_recipients: number | null
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          delivered_count?: number | null
+          delivery_method?: string[]
+          failed_count?: number | null
+          filters?: Json | null
+          id?: string
+          message: string
+          name: string
+          scheduled_at?: string | null
+          sent_count?: number | null
+          started_at?: string | null
+          status?: string
+          target_audience: string
+          title: string
+          total_recipients?: number | null
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          delivered_count?: number | null
+          delivery_method?: string[]
+          failed_count?: number | null
+          filters?: Json | null
+          id?: string
+          message?: string
+          name?: string
+          scheduled_at?: string | null
+          sent_count?: number | null
+          started_at?: string | null
+          status?: string
+          target_audience?: string
+          title?: string
+          total_recipients?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       call_comments: {
         Row: {
           call_log_id: string | null
@@ -2481,6 +2544,60 @@ export type Database = {
           settings?: Json | null
           updated_at?: string
           webhook_url?: string | null
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          created_by: string
+          delivery_method: string[] | null
+          id: string
+          message: string
+          metadata: Json | null
+          notification_type: string
+          read_at: string | null
+          recipient_id: string
+          recipient_type: string
+          scheduled_at: string | null
+          sent_at: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          delivery_method?: string[] | null
+          id?: string
+          message: string
+          metadata?: Json | null
+          notification_type: string
+          read_at?: string | null
+          recipient_id: string
+          recipient_type?: string
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          delivery_method?: string[] | null
+          id?: string
+          message?: string
+          metadata?: Json | null
+          notification_type?: string
+          read_at?: string | null
+          recipient_id?: string
+          recipient_type?: string
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -4770,6 +4887,15 @@ export type Database = {
           p_total_lessons?: number
         }
         Returns: undefined
+      }
+      get_campaign_recipients: {
+        Args: { p_filters: Json; p_target_audience: string }
+        Returns: {
+          user_email: string
+          user_id: string
+          user_name: string
+          user_phone: string
+        }[]
       }
       get_chat_pin_counts: {
         Args: { _chat_ids: string[] }

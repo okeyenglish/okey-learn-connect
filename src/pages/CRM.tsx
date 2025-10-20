@@ -120,6 +120,7 @@ import FinancesSection from "@/components/finances/FinancesSection";
 import ScheduleSection from "@/components/crm/sections/ScheduleSection";
 import { DocumentsSection } from "@/components/documents/DocumentsSection";
 import { AnalyticsSection } from "@/components/analytics/AnalyticsSection";
+import { CommunicationsSection } from "@/components/communications/CommunicationsSection";
 import { OrganizationSettings } from "@/components/settings/OrganizationSettings";
 import { BranchesSettings } from "@/components/settings/BranchesSettings";
 import { BrandingSettings } from "@/components/settings/BrandingSettings";
@@ -1112,6 +1113,7 @@ const CRMContent = () => {
     { icon: FolderOpen, label: "Документы" },
     { icon: DollarSign, label: "Финансы" },
     { icon: BarChart3, label: "Отчёты" },
+    { icon: MessageCircle, label: "Уведомления" },
     { icon: Settings, label: "Настройки" },
     ...(canAccessAdmin ? [{ icon: Shield, label: "Админ-панель" }] : []),
   ];
@@ -1316,6 +1318,11 @@ const CRMContent = () => {
                         {item.label === "Отчёты" && (
                           <div className="h-full">
                             <AnalyticsSection />
+                          </div>
+                        )}
+                        {item.label === "Уведомления" && (
+                          <div className="h-full">
+                            <CommunicationsSection />
                           </div>
                         )}
                         {item.label === "Документы" && (
