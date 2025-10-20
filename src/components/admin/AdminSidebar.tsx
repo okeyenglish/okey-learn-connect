@@ -8,7 +8,8 @@ import {
   BarChart3,
   Menu,
   MessageSquare,
-  BookOpen
+  BookOpen,
+  Database
 } from "lucide-react";
 import {
   Sidebar,
@@ -32,6 +33,7 @@ const adminItems = [
   { title: "Courses & Pricing", id: "pricing", icon: Settings },
   { title: "WhatsApp", id: "whatsapp", icon: MessageSquare },
   { title: "Textbooks", id: "textbooks", icon: BookOpen },
+  { title: "Справочники", id: "references", icon: Database },
   { title: "Sync", id: "sync", icon: RefreshCw },
   { title: "Users", id: "users", icon: Users },
   { title: "Settings", id: "settings", icon: Settings },

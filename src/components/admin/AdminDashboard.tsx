@@ -7,6 +7,7 @@ import { TextbookManager } from "./TextbookManager";
 import { RoleManager } from "./RoleManager";
 import { UserPermissionsManager } from "./UserPermissionsManager";
 import { AdminCoursePricing } from "./AdminCoursePricing";
+import ReferencesSection from "@/components/references/ReferencesSection";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -33,6 +34,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <WhatsAppSettings />;
       case "textbooks":
         return <TextbookManager />;
+      case "references":
+        return <ReferencesSection />;
       case "sync":
         return (
           <Card>
