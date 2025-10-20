@@ -17,7 +17,7 @@ const ReportsSection = lazy(() => import('@/components/crm/sections/ReportsSecti
 const InternalChatsSection = lazy(() => import('@/components/internal-chats/InternalChatsSection'));
 const ReferencesSection = lazy(() => import('@/components/references/ReferencesSection'));
 const LeadsSection = lazy(() => import('@/components/leads/LeadsSection'));
-const FinancesSection = lazy(() => import('@/components/finances/FinancesSection'));
+const FinancesSection = lazy(() => import('@/components/finances/NewFinancesSection').then(module => ({ default: module.NewFinancesSection })));
 const StudentsSection = lazy(() => import('@/components/students/StudentsSection'));
 const SubscriptionsSection = lazy(() => import('@/components/subscriptions/SubscriptionsSection'));
 const EmployeesSection = lazy(() => import('@/components/employees/EmployeesSection'));
