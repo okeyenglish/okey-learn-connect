@@ -13,6 +13,7 @@ import { useTypingStatus } from '@/hooks/useTypingStatus';
 import { toast } from "sonner";
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
 import { supabase } from '@/integrations/supabase/client';
+import { AddCorporateChatModal } from './AddCorporateChatModal';
 
 interface CorporateChatAreaProps {
   onMessageChange?: (hasUnsaved: boolean) => void;
@@ -193,6 +194,7 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
               <Building2 className="h-5 w-5 text-slate-600" />
               <h2 className="font-semibold text-base">Корпоративный чат</h2>
             </div>
+            <AddCorporateChatModal onChatAdded={() => window.location.reload()} />
           </div>
           
           <div className="flex-1 overflow-y-auto">
@@ -328,9 +330,12 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
       {!embedded && (
         <div className="w-80 border-r bg-muted/30 flex flex-col">
           <div className="p-4 border-b">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-slate-600" />
-              <h2 className="font-semibold text-base">Корпоративный чат</h2>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-slate-600" />
+                <h2 className="font-semibold text-base">Корпоративный чат</h2>
+              </div>
+              <AddCorporateChatModal onChatAdded={() => window.location.reload()} />
             </div>
           </div>
           
