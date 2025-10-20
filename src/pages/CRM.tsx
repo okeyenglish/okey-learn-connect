@@ -96,13 +96,19 @@ import {
   Plus,
   Upload,
   ListChecks,
-  FolderOpen
+  FolderOpen,
+  Shield,
+  Palette,
+  CreditCard,
+  MapPin
 } from "lucide-react";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
 import VoiceAssistant from '@/components/VoiceAssistant';
 import { TeacherMessagesPanel } from "@/components/crm/TeacherMessagesPanel";
 import { UserPermissionsManager } from "@/components/admin/UserPermissionsManager";
+import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { LeadsModalContent } from "@/components/leads/LeadsModalContent";
 import { StudentsModal } from "@/components/crm/StudentsModal";
 import { StudentsLeadsModal } from "@/components/students/StudentsLeadsModal";
@@ -111,10 +117,15 @@ import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
 import FinancesSection from "@/components/finances/FinancesSection";
 import ScheduleSection from "@/components/crm/sections/ScheduleSection";
 import { DocumentsSection } from "@/components/documents/DocumentsSection";
+import { OrganizationSettings } from "@/components/settings/OrganizationSettings";
+import { BranchesSettings } from "@/components/settings/BranchesSettings";
+import { BrandingSettings } from "@/components/settings/BrandingSettings";
+import { SubscriptionSettings } from "@/components/settings/SubscriptionSettings";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 
 const CRMContent = () => {
-  const { user, profile, role, signOut } = useAuth();
+  const { user, profile, role, roles, signOut } = useAuth();
   const navigate = useNavigate();
   const { clients, isLoading: clientsLoading } = useClients();
   const { threads, isLoading: threadsLoading } = useChatThreads();
@@ -245,6 +256,9 @@ const CRMContent = () => {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [showScriptsModal, setShowScriptsModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  
+  // Admin panel state
+  const [adminActiveSection, setAdminActiveSection] = useState("dashboard");
   
   // Мобильные состояния для адаптивности
   const isMobile = useIsMobile();
@@ -1076,7 +1090,12 @@ const CRMContent = () => {
     handleChatClick(clientId, 'client'); // Открываем чат с клиентом
   };
 
-const menuItems = [
+  // Check if user is admin or methodist
+  const isAdmin = role === 'admin' || roles?.includes?.('admin');
+  const isMethodist = role === 'methodist' || roles?.includes?.('methodist');
+  const canAccessAdmin = isAdmin || isMethodist;
+
+  const menuItems = [
     { icon: CheckSquare, label: "Мои задачи" },
     { icon: FileText, label: "Заявки" },
     { icon: User, label: "Лиды" },
@@ -1090,6 +1109,7 @@ const menuItems = [
     { icon: DollarSign, label: "Финансы" },
     { icon: BarChart3, label: "Отчёты" },
     { icon: Settings, label: "Настройки" },
+    ...(canAccessAdmin ? [{ icon: Shield, label: "Админ-панель" }] : []),
   ];
 
 
@@ -2083,9 +2103,61 @@ const menuItems = [
                         )}
                         
                         {item.label === "Настройки" && (
-                          <div className="space-y-4">
-                            <UserPermissionsManager />
-                          </div>
+                          <Tabs defaultValue="organization" className="space-y-6">
+                            <TabsList className="grid w-full grid-cols-5">
+                              <TabsTrigger value="organization" className="gap-2">
+                                <Building2 className="h-4 w-4" />
+                                <span className="hidden sm:inline">Организация</span>
+                              </TabsTrigger>
+                              <TabsTrigger value="branches" className="gap-2">
+                                <MapPin className="h-4 w-4" />
+                                <span className="hidden sm:inline">Филиалы</span>
+                              </TabsTrigger>
+                              <TabsTrigger value="branding" className="gap-2">
+                                <Palette className="h-4 w-4" />
+                                <span className="hidden sm:inline">Брендинг</span>
+                              </TabsTrigger>
+                              <TabsTrigger value="subscription" className="gap-2">
+                                <CreditCard className="h-4 w-4" />
+                                <span className="hidden sm:inline">Подписка</span>
+                              </TabsTrigger>
+                              <TabsTrigger value="users" className="gap-2">
+                                <Users className="h-4 w-4" />
+                                <span className="hidden sm:inline">Пользователи</span>
+                              </TabsTrigger>
+                            </TabsList>
+
+                            <TabsContent value="organization" className="space-y-4">
+                              <OrganizationSettings />
+                            </TabsContent>
+
+                            <TabsContent value="branches" className="space-y-4">
+                              <BranchesSettings />
+                            </TabsContent>
+
+                            <TabsContent value="branding" className="space-y-4">
+                              <BrandingSettings />
+                            </TabsContent>
+
+                            <TabsContent value="subscription" className="space-y-4">
+                              <SubscriptionSettings />
+                            </TabsContent>
+
+                            <TabsContent value="users" className="space-y-4">
+                              <UserPermissionsManager />
+                            </TabsContent>
+                          </Tabs>
+                        )}
+                        
+                        {item.label === "Админ-панель" && canAccessAdmin && (
+                          <SidebarProvider>
+                            <div className="flex h-full w-full">
+                              <AdminSidebar onSectionChange={setAdminActiveSection} />
+                              <div className="flex-1 overflow-auto p-6">
+                                <AdminDashboard activeSection={adminActiveSection} />
+                              </div>
+                            </div>
+                          </SidebarProvider>
                         )}
                         
                         {item.label === "Ученики" && (
