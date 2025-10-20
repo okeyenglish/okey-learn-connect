@@ -3372,6 +3372,69 @@ export type Database = {
         }
         Relationships: []
       }
+      teacher_group_payments: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          lessons_count: number
+          notes: string | null
+          paid: boolean | null
+          paid_at: string | null
+          period_end: string
+          period_start: string
+          rate_per_lesson: number
+          teacher_id: string | null
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          lessons_count?: number
+          notes?: string | null
+          paid?: boolean | null
+          paid_at?: string | null
+          period_end: string
+          period_start: string
+          rate_per_lesson: number
+          teacher_id?: string | null
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          lessons_count?: number
+          notes?: string | null
+          paid?: boolean | null
+          paid_at?: string | null
+          period_end?: string
+          period_start?: string
+          rate_per_lesson?: number
+          teacher_id?: string | null
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_group_payments_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "learning_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_group_payments_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teacher_messages: {
         Row: {
           branch: string
@@ -3715,6 +3778,19 @@ export type Database = {
         Args: { "": string } | { "": unknown }
         Returns: unknown
       }
+      calculate_teacher_payment: {
+        Args: {
+          p_group_id: string
+          p_period_end: string
+          p_period_start: string
+          p_rate_per_lesson: number
+          p_teacher_id: string
+        }
+        Returns: {
+          lessons_count: number
+          total_amount: number
+        }[]
+      }
       charge_lesson_from_subscription: {
         Args: {
           _lesson_session_id: string
@@ -3815,6 +3891,16 @@ export type Database = {
         Returns: {
           chat_id: string
           pin_count: number
+        }[]
+      }
+      get_group_debt_stats: {
+        Args: { p_group_id: string }
+        Returns: {
+          average_balance: number
+          students_with_debt: number
+          total_debt: number
+          total_paid: number
+          total_students: number
         }[]
       }
       get_message_read_status: {

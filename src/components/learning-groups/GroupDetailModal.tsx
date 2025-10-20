@@ -17,6 +17,10 @@ import { EditGroupDetailsModal } from "./EditGroupDetailsModal";
 import { GroupScheduleCalendar } from "./GroupScheduleCalendar";
 import { StudentPaymentInfo } from "./StudentPaymentInfo";
 import { GroupHistoryTab } from "./GroupHistoryTab";
+import { GroupFinancesTab } from "./GroupFinancesTab";
+import { ExportGroupButton } from "./ExportGroupButton";
+import { AutoGroupSettingsModal } from "./AutoGroupSettingsModal";
+import { CopyGroupModal } from "./CopyGroupModal";
 import { useToast } from "@/hooks/use-toast";
 import { useGroupStudents } from "@/hooks/useGroupStudents";
 import { useAvailableStudents } from "@/hooks/useAvailableStudents";
@@ -41,6 +45,8 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
   const [addHomeworkOpen, setAddHomeworkOpen] = useState(false);
   const [editDetailsOpen, setEditDetailsOpen] = useState(false);
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
+  const [autoGroupSettingsOpen, setAutoGroupSettingsOpen] = useState(false);
+  const [copyGroupOpen, setCopyGroupOpen] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -249,9 +255,33 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                 <Badge className={cn("text-sm", getStatusColor(group.status))}>
                   {group.status === 'active' ? 'в работе' : group.status}
                 </Badge>
-                <Button size="sm" className="bg-teal-500 hover:bg-teal-600">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Ссылка на запись в группу
+                {group.is_auto_group && (
+                  <Badge variant="secondary" className="text-sm">
+                    Авто-группа
+                  </Badge>
+                )}
+                {group.enrollment_url && (
+                  <Button 
+                    size="sm" 
+                    className="bg-teal-500 hover:bg-teal-600"
+                    onClick={() => window.open(group.enrollment_url, '_blank')}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Ссылка на запись в группу
+                  </Button>
+                )}
+                <ExportGroupButton 
+                  mode="single" 
+                  group={group} 
+                  students={groupStudents}
+                />
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="text-blue-600 border-white/20"
+                  onClick={() => setCopyGroupOpen(true)}
+                >
+                  <Plus className="h-4 w-4" />
                 </Button>
                 <Button size="sm" variant="outline" className="text-blue-600 border-white/20" onClick={() => setEditDetailsOpen(true)}>
                   <Edit className="h-4 w-4" />
@@ -264,9 +294,10 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
         <div className="flex-1 overflow-hidden flex flex-col">
           <Tabs defaultValue="students" className="flex-1 overflow-hidden flex flex-col">
             <div className="border-b px-6 flex-shrink-0">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="students">Студенты и расписание</TabsTrigger>
                 <TabsTrigger value="homework">Домашние задания / планы занятий</TabsTrigger>
+                <TabsTrigger value="finances">Финансы</TabsTrigger>
                 <TabsTrigger value="details">Детали группы</TabsTrigger>
                 <TabsTrigger value="history">История изменений</TabsTrigger>
               </TabsList>
@@ -569,6 +600,10 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                 </Card>
               </TabsContent>
 
+              <TabsContent value="finances" className="mt-0">
+                <GroupFinancesTab groupId={group.id} />
+              </TabsContent>
+
               <TabsContent value="history" className="mt-0">
                 <GroupHistoryTab groupId={group.id} />
               </TabsContent>
@@ -594,6 +629,25 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
           onOpenChange={setEditDetailsOpen}
           group={group}
           onSaveDetails={handleSaveDetails}
+        />
+
+        <AutoGroupSettingsModal
+          group={group}
+          open={autoGroupSettingsOpen}
+          onOpenChange={setAutoGroupSettingsOpen}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['learning-groups'] });
+          }}
+        />
+
+        <CopyGroupModal
+          sourceGroup={group}
+          open={copyGroupOpen}
+          onOpenChange={setCopyGroupOpen}
+          onSuccess={(newGroupId) => {
+            console.log('Group copied, new ID:', newGroupId);
+            queryClient.invalidateQueries({ queryKey: ['learning-groups'] });
+          }}
         />
       </DialogContent>
     </Dialog>

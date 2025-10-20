@@ -11,6 +11,8 @@ import { GroupsModal } from "./GroupsModal";
 import { ScheduleModal } from "@/components/schedule/ScheduleModal";
 import { SubscriptionsSection } from "@/components/subscriptions/SubscriptionsSection";
 import { GroupsTable } from "./GroupsTable";
+import { ExportGroupButton } from "./ExportGroupButton";
+import { RecruitmentSection } from "./RecruitmentSection";
 
 export const LearningGroupsSection = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -70,6 +72,7 @@ export const LearningGroupsSection = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <ExportGroupButton mode="list" groups={groups} />
           <Button onClick={() => setScheduleModalOpen(true)} variant="outline">
             <Calendar className="h-4 w-4 mr-2" />
             Расписание
@@ -145,10 +148,14 @@ export const LearningGroupsSection = () => {
       </div>
 
       <Tabs defaultValue="groups" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="groups" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             Группы
+          </TabsTrigger>
+          <TabsTrigger value="recruitment" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Набор
           </TabsTrigger>
           <TabsTrigger value="schedule" className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
@@ -241,6 +248,10 @@ export const LearningGroupsSection = () => {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="recruitment">
+          <RecruitmentSection />
         </TabsContent>
 
         <TabsContent value="schedule">
