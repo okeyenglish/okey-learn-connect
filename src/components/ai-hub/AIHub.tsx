@@ -350,9 +350,6 @@ export const AIHub = ({
               </p>
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={onToggle}>
-            <X className="h-4 w-4" />
-          </Button>
         </div>
 
         <Tabs 
@@ -376,7 +373,7 @@ export const AIHub = ({
           </TabsList>
 
           {/* Вкладка AI Помощник */}
-          <TabsContent value="assistant" className="flex-1 m-0 flex flex-col">
+          <TabsContent value="assistant" className="flex-1 m-0 flex flex-col min-h-0">
             <VoiceAssistant 
               isOpen={true}
               onToggle={onToggle}
@@ -388,7 +385,7 @@ export const AIHub = ({
           </TabsContent>
 
           {/* Вкладка Консультанты */}
-          <TabsContent value="consultants" className="flex-1 flex flex-col m-0">
+          <TabsContent value="consultants" className="flex-1 flex flex-col m-0 min-h-0">
             {!activeConsultant ? (
               <div className="p-4 space-y-3">
                 <h3 className="font-semibold text-sm text-muted-foreground mb-4">
@@ -543,7 +540,7 @@ export const AIHub = ({
           </TabsContent>
 
           {/* Вкладка Сообщество */}
-          <TabsContent value="community" className="flex-1 flex flex-col m-0">
+          <TabsContent value="community" className="flex-1 flex flex-col m-0 min-h-0">
             {/* Заголовок */}
             <div className="p-4 border-b flex items-center gap-3">
               <Avatar className="h-10 w-10">
