@@ -103,7 +103,7 @@ export const AddTeacherModal = ({ onTeacherAdded }: AddTeacherModalProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" aria-label="Добавить преподавателя">
+        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Добавить преподавателя">
           <Plus className="h-4 w-4" />
         </Button>
       </DialogTrigger>
