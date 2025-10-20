@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -298,10 +298,36 @@ const CRMContent = () => {
     }
   }, [pinnedLoading, pinnedModals, isManualModalOpen]);
 
+  // Получаем активных студентов по занятиям (для расчета лидов)
+  const { data: activeGroupStudents = [] } = useQuery({
+    queryKey: ['active-group-students'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('group_students')
+        .select('student_id')
+        .eq('status', 'active');
+      if (error) throw error;
+      return (data || []).map((gs: any) => gs.student_id as string);
+    }
+  });
+  const { data: activeIndividualLessons = [] } = useQuery({
+    queryKey: ['active-individual-lessons'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('individual_lessons')
+        .select('student_id')
+        .eq('is_active', true)
+        .eq('status', 'active');
+      if (error) throw error;
+      return (data || []).map((il: any) => il.student_id as string);
+    }
+  });
+  const activeStudentIds = useMemo(() => new Set<string>([...activeGroupStudents, ...activeIndividualLessons]), [activeGroupStudents, activeIndividualLessons]);
+
   // Menu counters
   const tasksCount = allTasks?.length ?? 0;
   const unreadTotal = (threads || []).reduce((sum, t) => sum + (t.unread_count || 0), 0);
-  const leadsCount = students?.filter(s => s.status !== 'active').length ?? 0;
+  const leadsCount = (students || []).filter(s => !activeStudentIds.has(s.id)).length;
   const studentsCount = students?.length ?? 0;
   
   console.log('Menu counters:', { 
@@ -309,7 +335,9 @@ const CRMContent = () => {
     unreadTotal, 
     leadsCount, 
     studentsCount, 
-    studentsData: students?.map(s => ({ id: s.id, status: s.status }))
+    studentsData: students?.map(s => ({ id: s.id, status: s.status })),
+    activeGroupStudentsCount: activeGroupStudents.length,
+    activeIndividualLessonsCount: activeIndividualLessons.length
   });
   const getMenuCount = (label: string) => {
     if (label === "Мои задачи") return tasksCount;
