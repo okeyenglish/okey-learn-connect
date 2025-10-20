@@ -23,7 +23,7 @@ interface AdvancedScheduleFiltersProps {
     rotated: boolean;
   };
   onGridSettingsChange: (settings: any) => void;
-  scheduleType: 'teachers' | 'classrooms' | 'monthly';
+  scheduleType: 'teachers' | 'classrooms' | 'monthly' | 'student';
 }
 
 export const AdvancedScheduleFilters = ({

@@ -3,11 +3,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Building2, Search, Download, Calendar } from "lucide-react";
+import { Users, Building2, Search, Download, Calendar, UserCheck } from "lucide-react";
 import { AdvancedScheduleFilters } from "./AdvancedScheduleFilters";
 import { TeacherScheduleGrid } from "./TeacherScheduleGrid";
 import { ClassroomScheduleGrid } from "./ClassroomScheduleGrid";
 import { MonthlyScheduleView } from "./MonthlyScheduleView";
+import { StudentScheduleView } from "./StudentScheduleView";
 import { ScheduleStatusLegend } from "./ScheduleStatusLegend";
 import { SessionFilters } from "@/hooks/useLessonSessions";
 
@@ -19,7 +20,7 @@ interface AdvancedScheduleModalProps {
 
 export const AdvancedScheduleModal = ({ open, onOpenChange, children }: AdvancedScheduleModalProps) => {
   const [internalOpen, setInternalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'teachers' | 'classrooms' | 'monthly'>('teachers');
+  const [activeTab, setActiveTab] = useState<'teachers' | 'classrooms' | 'monthly' | 'student'>('teachers');
   const [filters, setFilters] = useState<SessionFilters>({});
   const [viewFormat, setViewFormat] = useState<string>('day-time-teacher');
   const [gridSettings, setGridSettings] = useState({
@@ -101,15 +102,19 @@ export const AdvancedScheduleModal = ({ open, onOpenChange, children }: Advanced
                 <CardHeader className="pb-4 border-b">
                   <CardTitle className="flex items-center justify-between">
                     <span>Расписание занятий</span>
-                    <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'teachers' | 'classrooms' | 'monthly')}>
+                    <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
                       <TabsList>
                         <TabsTrigger value="teachers" className="flex items-center gap-2">
                           <Users className="h-4 w-4" />
-                          По преподавателям
+                          Преподаватели
                         </TabsTrigger>
                         <TabsTrigger value="classrooms" className="flex items-center gap-2">
                           <Building2 className="h-4 w-4" />
-                          По аудиториям
+                          Аудитории
+                        </TabsTrigger>
+                        <TabsTrigger value="student" className="flex items-center gap-2">
+                          <UserCheck className="h-4 w-4" />
+                          Ученик
                         </TabsTrigger>
                         <TabsTrigger value="monthly" className="flex items-center gap-2">
                           <Calendar className="h-4 w-4" />
@@ -133,6 +138,9 @@ export const AdvancedScheduleModal = ({ open, onOpenChange, children }: Advanced
                       viewFormat={viewFormat}
                       gridSettings={gridSettings}
                     />
+                  </TabsContent>
+                  <TabsContent value="student" className="h-full m-0 p-4">
+                    <StudentScheduleView />
                   </TabsContent>
                   <TabsContent value="monthly" className="h-full m-0 p-4">
                     <MonthlyScheduleView filters={filters} />
