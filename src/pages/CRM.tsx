@@ -94,7 +94,8 @@ import {
   UserPlus,
   Filter,
   Plus,
-  Upload
+  Upload,
+  ListChecks
 } from "lucide-react";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
@@ -206,6 +207,10 @@ const CRMContent = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<string>("all");
   const [selectedClientType, setSelectedClientType] = useState<string>("all");
+  
+  // Bulk actions states
+  const [bulkSelectMode, setBulkSelectMode] = useState(false);
+  const [selectedChatIds, setSelectedChatIds] = useState<Set<string>>(new Set());
   
   // Состояния для модальных окон, открываемых голосовым ассистентом
   const [showAddClientModal, setShowAddClientModal] = useState(false);
@@ -2055,16 +2060,18 @@ const menuItems = [
                       size="sm"
                     />
                   </div>
-                  <DropdownMenu open={showFilters} onOpenChange={setShowFilters}>
-                    <DropdownMenuTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className={cn("h-8 w-8 px-0 rounded-lg border border-muted text-muted-foreground hover:bg-muted hover:text-foreground", (selectedBranch !== "all" || selectedClientType !== "all") && "bg-muted text-foreground")}
-                      >
-                        <Filter className="h-4 w-4 text-muted-foreground" />
-                      </Button>
-                    </DropdownMenuTrigger>
+                  {!bulkSelectMode && (
+                    <>
+                      <DropdownMenu open={showFilters} onOpenChange={setShowFilters}>
+                        <DropdownMenuTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className={cn("h-8 w-8 px-0 rounded-lg border border-muted text-muted-foreground hover:bg-muted hover:text-foreground", (selectedBranch !== "all" || selectedClientType !== "all") && "bg-muted text-foreground")}
+                          >
+                            <Filter className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
                       <DropdownMenuLabel>Фильтры</DropdownMenuLabel>
                       <DropdownMenuSeparator />
@@ -2133,6 +2140,84 @@ const menuItems = [
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-3 rounded-lg border border-muted text-muted-foreground hover:bg-muted hover:text-foreground"
+                    onClick={() => {
+                      setBulkSelectMode(true);
+                      setSelectedChatIds(new Set());
+                    }}
+                  >
+                    <ListChecks className="h-4 w-4 mr-1" />
+                    Выбрать
+                  </Button>
+                </>
+                )}
+                {bulkSelectMode && (
+                  <div className="flex items-center gap-1 flex-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2"
+                      onClick={() => {
+                        setBulkSelectMode(false);
+                        setSelectedChatIds(new Set());
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm text-muted-foreground ml-1">
+                      {selectedChatIds.size} выбрано
+                    </span>
+                    {selectedChatIds.size > 0 && (
+                      <div className="flex gap-1 ml-auto">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2"
+                          onClick={() => {
+                            selectedChatIds.forEach(chatId => {
+                              markChatAsReadGlobally(chatId);
+                              markAsRead(chatId);
+                            });
+                            setBulkSelectMode(false);
+                            setSelectedChatIds(new Set());
+                          }}
+                          title="Прочитать все"
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2"
+                          onClick={() => {
+                            selectedChatIds.forEach(chatId => togglePin(chatId));
+                            setBulkSelectMode(false);
+                            setSelectedChatIds(new Set());
+                          }}
+                          title="Закрепить"
+                        >
+                          <Pin className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2"
+                          onClick={() => {
+                            selectedChatIds.forEach(chatId => toggleArchive(chatId));
+                            setBulkSelectMode(false);
+                            setSelectedChatIds(new Set());
+                          }}
+                          title="Архивировать"
+                        >
+                          <Archive className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
                 </div>
               </div>
               <ScrollArea className="flex-1 min-h-0">
@@ -2197,10 +2282,35 @@ const menuItems = [
                                        ? 'bg-orange-50 hover:bg-orange-100 dark:bg-orange-950 dark:hover:bg-orange-900' 
                                        : 'bg-orange-25 hover:bg-orange-50 dark:bg-orange-975 dark:hover:bg-orange-950'
                                    }`}
-                                   onClick={() => handleChatClick(chat.id, chat.type)}
+                                   onClick={() => {
+                                     if (bulkSelectMode) {
+                                       const newSelected = new Set(selectedChatIds);
+                                       if (newSelected.has(chat.id)) {
+                                         newSelected.delete(chat.id);
+                                       } else {
+                                         newSelected.add(chat.id);
+                                       }
+                                       setSelectedChatIds(newSelected);
+                                     } else {
+                                       handleChatClick(chat.id, chat.type);
+                                     }
+                                   }}
                                  >
                                    <div className="flex items-center justify-between">
                                      <div className="flex items-center gap-3">
+                                       {bulkSelectMode && (
+                                         <div 
+                                           className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                                             selectedChatIds.has(chat.id)
+                                               ? 'bg-primary border-primary'
+                                               : 'border-muted-foreground'
+                                           }`}
+                                         >
+                                           {selectedChatIds.has(chat.id) && (
+                                             <Check className="h-3 w-3 text-primary-foreground" />
+                                           )}
+                                         </div>
+                                       )}
                                        {/* Avatar or icon */}
                                        {chat.type === 'corporate' ? (
                                          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
@@ -2369,10 +2479,35 @@ const menuItems = [
                                   className={`w-full p-2 text-left rounded-lg transition-colors relative ${
                                     chat.id === activeChatId ? 'bg-muted hover:bg-muted/80' : 'hover:bg-muted/50'
                                   }`}
-                                  onClick={() => handleChatClick(chat.id, chat.type)}
+                                  onClick={() => {
+                                    if (bulkSelectMode) {
+                                      const newSelected = new Set(selectedChatIds);
+                                      if (newSelected.has(chat.id)) {
+                                        newSelected.delete(chat.id);
+                                      } else {
+                                        newSelected.add(chat.id);
+                                      }
+                                      setSelectedChatIds(newSelected);
+                                    } else {
+                                      handleChatClick(chat.id, chat.type);
+                                    }
+                                  }}
                                 >
                                  <div className="flex items-center justify-between">
                                    <div className="flex items-center gap-3">
+                                     {bulkSelectMode && (
+                                       <div 
+                                         className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                                           selectedChatIds.has(chat.id)
+                                             ? 'bg-primary border-primary'
+                                             : 'border-muted-foreground'
+                                         }`}
+                                       >
+                                         {selectedChatIds.has(chat.id) && (
+                                           <Check className="h-3 w-3 text-primary-foreground" />
+                                         )}
+                                       </div>
+                                     )}
                                      {/* Avatar or icon */}
                                      {chat.type === 'corporate' ? (
                                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
