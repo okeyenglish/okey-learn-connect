@@ -490,7 +490,7 @@ export const AIHub = ({
           </TabsContent>
 
           {/* Вкладка Консультанты */}
-          <TabsContent value="consultants" className="flex-1 flex flex-col m-0 min-h-0 h-full overflow-hidden">
+          <TabsContent value="consultants" className="flex-1 flex flex-col m-0 min-h-0 h-full overflow-hidden relative">
             {!activeConsultant ? (
               <div className="p-4 space-y-2 overflow-auto">
                 <h3 className="font-medium text-sm text-muted-foreground mb-3">
@@ -549,7 +549,7 @@ export const AIHub = ({
 
                 {/* Сообщения */}
                 <ScrollArea ref={scrollAreaRef} className="flex-1 overflow-auto">
-                  <div className="space-y-3 p-4">
+                  <div className="space-y-3 p-4 pb-32">
                     {getCurrentMessages().map((msg) => (
                       <div 
                         key={msg.id}
@@ -600,7 +600,7 @@ export const AIHub = ({
                 </ScrollArea>
 
                 {/* Поле ввода */}
-                <div className="p-3 border-t shrink-0 bg-background">
+                <div className="p-3 border-t bg-background absolute inset-x-0 bottom-0">
                   <div className="flex gap-2 items-center">
                     <Input
                       value={message}
@@ -645,7 +645,7 @@ export const AIHub = ({
           </TabsContent>
 
           {/* Вкладка Сообщество */}
-          <TabsContent value="community" className="flex-1 flex flex-col m-0 min-h-0 overflow-hidden">
+          <TabsContent value="community" className="flex-1 flex flex-col m-0 min-h-0 h-full overflow-hidden relative">
             {/* Заголовок */}
             <div className="px-4 py-3 border-b flex items-center gap-3 shrink-0">
               <Avatar className="h-9 w-9 shrink-0">
@@ -663,7 +663,7 @@ export const AIHub = ({
 
             {/* Сообщения */}
             <ScrollArea ref={scrollAreaRef} className="flex-1 overflow-auto">
-              <div className="space-y-3 p-4">
+              <div className="space-y-3 p-4 pb-32">
                 {getCurrentMessages().map((msg) => (
                   <div key={msg.id} className="flex gap-2">
                     <Avatar className="h-8 w-8 shrink-0">
@@ -691,7 +691,7 @@ export const AIHub = ({
             </ScrollArea>
 
             {/* Поле ввода */}
-            <div className="p-3 border-t shrink-0 bg-background">
+            <div className="p-3 border-t bg-background absolute inset-x-0 bottom-0">
               <div className="flex gap-2 items-center">
                 <Input
                   value={message}
