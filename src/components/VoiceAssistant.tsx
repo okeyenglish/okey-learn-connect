@@ -609,7 +609,7 @@ export default function VoiceAssistant({
   // Встроенный режим - только содержимое без Card
   if (embedded) {
     return (
-      <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex flex-col flex-1 min-h-0 h-full">
         {/* Chat Messages */}
         <ScrollArea ref={scrollAreaRef} className="flex-1 overflow-auto">
           <div className="space-y-3 p-4">
