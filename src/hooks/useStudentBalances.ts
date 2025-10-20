@@ -235,3 +235,26 @@ export const useMarkNotificationSent = () => {
     },
   });
 };
+
+// Интерфейс для результата проверки баланса
+export interface BalanceCheckResult {
+  has_sufficient_balance: boolean;
+  current_balance_hours: number;
+  current_balance_rub: number;
+  message: string;
+}
+
+// Проверить баланс студента
+export const useCheckStudentBalance = () => {
+  return useMutation({
+    mutationFn: async ({ studentId, requiredHours = 4 }: { studentId: string; requiredHours?: number }) => {
+      const { data, error } = await supabase.rpc('check_student_balance', {
+        p_student_id: studentId,
+        p_required_hours: requiredHours,
+      });
+
+      if (error) throw error;
+      return data?.[0] as BalanceCheckResult;
+    },
+  });
+};

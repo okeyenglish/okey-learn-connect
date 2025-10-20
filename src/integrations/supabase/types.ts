@@ -4610,6 +4610,15 @@ export type Database = {
           student_id: string
         }[]
       }
+      check_student_balance: {
+        Args: { p_required_hours?: number; p_student_id: string }
+        Returns: {
+          current_balance_hours: number
+          current_balance_rub: number
+          has_sufficient_balance: boolean
+          message: string
+        }[]
+      }
       check_student_conflict: {
         Args: {
           p_end_time: string

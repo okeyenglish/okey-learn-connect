@@ -22,12 +22,14 @@ import { ExportGroupButton } from "./ExportGroupButton";
 import { AutoGroupSettingsModal } from "./AutoGroupSettingsModal";
 import { CopyGroupModal } from "./CopyGroupModal";
 import { OnlineLessonModal } from "@/components/OnlineLessonModal";
+import { BalanceWarningDialog } from "@/components/finances/BalanceWarningDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useGroupStudents } from "@/hooks/useGroupStudents";
 import { useAvailableStudents } from "@/hooks/useAvailableStudents";
 import { useStudents } from "@/hooks/useStudents";
 import { useStudentGroupPaymentStats } from "@/hooks/useStudentGroupPaymentStats";
 import { useGroupStatistics } from "@/hooks/useGroupStatistics";
+import { useCheckStudentBalance, BalanceCheckResult } from "@/hooks/useStudentBalances";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface GroupDetailModalProps {
@@ -49,9 +51,14 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
   const [autoGroupSettingsOpen, setAutoGroupSettingsOpen] = useState(false);
   const [copyGroupOpen, setCopyGroupOpen] = useState(false);
   const [onlineLessonOpen, setOnlineLessonOpen] = useState(false);
+  const [balanceWarningOpen, setBalanceWarningOpen] = useState(false);
+  const [pendingStudentId, setPendingStudentId] = useState<string | null>(null);
+  const [balanceCheckResult, setBalanceCheckResult] = useState<BalanceCheckResult | null>(null);
+  const [pendingStudentName, setPendingStudentName] = useState<string>('');
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const checkBalance = useCheckStudentBalance();
   
   // Получаем студентов группы
   const { 
@@ -88,13 +95,41 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
   
   const handleAddStudentToGroup = async (studentId: string) => {
     try {
-      const success = await addStudentToGroup(studentId);
+      // Находим информацию о студенте
+      const student = availableStudents.find(s => s.id === studentId);
+      const studentName = student ? `${student.first_name} ${student.last_name}` : 'Студент';
+      
+      // Проверяем баланс студента
+      const result = await checkBalance.mutateAsync({ studentId, requiredHours: 4 });
+      
+      setBalanceCheckResult(result);
+      setPendingStudentId(studentId);
+      setPendingStudentName(studentName);
+      setBalanceWarningOpen(true);
+    } catch (error) {
+      console.error('Error checking balance:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось проверить баланс студента",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const confirmAddStudentToGroup = async () => {
+    if (!pendingStudentId) return;
+    
+    try {
+      const success = await addStudentToGroup(pendingStudentId);
       if (success) {
         toast({
           title: "Успешно",
           description: "Студент добавлен в группу"
         });
         setShowAddStudentModal(false);
+        setBalanceWarningOpen(false);
+        setPendingStudentId(null);
+        setBalanceCheckResult(null);
       }
     } catch (error) {
       toast({
@@ -667,6 +702,22 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
           teacherName={group.responsible_teacher}
           groupId={group.id}
           groupName={group.name}
+        />
+
+        <BalanceWarningDialog
+          open={balanceWarningOpen}
+          onOpenChange={setBalanceWarningOpen}
+          balanceCheck={balanceCheckResult}
+          studentName={pendingStudentName}
+          onConfirm={confirmAddStudentToGroup}
+          onAddBalance={() => {
+            setBalanceWarningOpen(false);
+            // Здесь можно открыть модал пополнения баланса
+            toast({
+              title: "Информация",
+              description: "Откройте раздел Финансы -> Балансы для пополнения",
+            });
+          }}
         />
       </DialogContent>
     </Dialog>
