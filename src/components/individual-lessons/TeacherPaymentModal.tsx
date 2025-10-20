@@ -71,13 +71,13 @@ export function TeacherPaymentModal({ open, onOpenChange, lesson }: TeacherPayme
       // Используем существующую таблицу payments вместо teacher_group_payments
       const { error } = await supabase
         .from('payments')
-        .insert({
+        .insert([{
           individual_lesson_id: lesson.id,
           amount: parseFloat(paymentAmount),
           method: 'cash',
           payment_date: new Date().toISOString().split('T')[0],
           notes: `Оплата преподавателю ${lesson.teacher_name}: ${paymentNotes}`,
-        });
+        }]);
 
       if (error) throw error;
 

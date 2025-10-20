@@ -164,11 +164,11 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
         .maybeSingle();
       if (found?.id) return found.id as string;
 
-      const { data: inserted, error } = await supabase
-        .from('clients')
-        .insert({ name, phone: '-', branch })
-        .select('id')
-        .maybeSingle();
+          const { data: inserted, error } = await supabase
+            .from('clients')
+            .insert([{ name, phone: '-', branch }])
+            .select('id')
+            .maybeSingle();
       if (error) {
         console.error('ensureClient insert error', error);
         return null;

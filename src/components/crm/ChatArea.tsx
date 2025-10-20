@@ -515,13 +515,13 @@ export const ChatArea = ({
       // Also add comment as a chat message
       const { error: messageError } = await supabase
         .from('chat_messages')
-        .insert({
+        .insert([{
           client_id: clientId,
           message_text: commentText,
           message_type: 'comment',
           is_outgoing: true,
           messenger_type: 'system'
-        });
+        }]);
 
       if (messageError) {
         console.error('Error saving comment message:', messageError);

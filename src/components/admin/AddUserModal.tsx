@@ -149,14 +149,14 @@ export function AddUserModal({ open, onOpenChange, onUserAdded, children }: AddU
       // Профиль обычно создается триггером handle_new_user. На всякий случай делаем upsert
       const { error: profileError } = await supabase
         .from('profiles')
-        .upsert({
+        .upsert([{
           id: authData.user.id,
           first_name: userData.first_name,
           last_name: userData.last_name,
           email: userData.email,
           phone: userData.phone,
           branch: userData.branch
-        }, { onConflict: 'id' });
+        }], { onConflict: 'id' });
 
       if (profileError) {
         console.warn('Profile upsert warning:', profileError);

@@ -129,10 +129,10 @@ export const useCreateLessonSession = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (session: Omit<LessonSession, 'id' | 'created_at' | 'updated_at'>) => {
+    mutationFn: async (sessionData: Omit<LessonSession, 'id' | 'created_at' | 'updated_at'>) => {
       const { data, error } = await supabase
         .from('lesson_sessions')
-        .insert(session)
+        .insert([sessionData])
         .select()
         .single();
 

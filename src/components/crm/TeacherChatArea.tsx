@@ -230,7 +230,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     
       const { data: inserted, error } = await supabase
         .from('clients')
-        .insert({ name: chatName, phone: '-', branch })
+        .insert([{ name: chatName, phone: '-', branch }])
         .select('id')
         .maybeSingle();
     if (error) {

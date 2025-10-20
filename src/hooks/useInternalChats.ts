@@ -200,7 +200,7 @@ export const useSendInternalMessage = () => {
       // Отправляем сообщение в обычный чат
       const { data, error } = await supabase
         .from('chat_messages')
-        .insert({
+        .insert([{
           client_id: messageData.chat_id,
           message_text: messageData.message_text,
           message_type: messageData.message_type || 'text',
@@ -209,7 +209,7 @@ export const useSendInternalMessage = () => {
           file_type: messageData.file_type,
           is_outgoing: true,
           messenger_type: 'system'
-        })
+        }])
         .select()
         .single();
 
@@ -239,13 +239,13 @@ export const useAddChatParticipant = () => {
       // Временная заглушка - создаем системное сообщение
       const { error } = await supabase
         .from('chat_messages')
-        .insert({
+        .insert([{
           client_id: data.chat_id,
           message_text: `Пользователь добавлен в чат`,
           message_type: 'system',
           system_type: 'user_added',
           messenger_type: 'system'
-        });
+        }]);
 
       if (error) throw error;
     },
@@ -275,13 +275,13 @@ export const useRemoveChatParticipant = () => {
       // Временная заглушка - создаем системное сообщение
       const { error } = await supabase
         .from('chat_messages')
-        .insert({
+        .insert([{
           client_id: data.chat_id,
           message_text: `Пользователь удален из чата`,
           message_type: 'system',
           system_type: 'user_removed',
           messenger_type: 'system'
-        });
+        }]);
 
       if (error) throw error;
     },

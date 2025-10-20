@@ -85,7 +85,7 @@ export const usePayments = (filters?: any) => {
       
       const { data: payment, error } = await supabase
         .from('payments')
-        .insert({
+        .insert([{
           student_id: paymentData.student_id,
           amount: paymentData.amount,
           method: paymentData.method,
@@ -97,7 +97,7 @@ export const usePayments = (filters?: any) => {
           individual_lesson_id: paymentData.individual_lesson_id,
           group_id: paymentData.group_id,
           lessons_count: paymentData.lessons_count || 0
-        })
+        }])
         .select()
         .single();
 
