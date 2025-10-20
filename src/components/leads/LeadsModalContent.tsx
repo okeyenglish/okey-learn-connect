@@ -89,14 +89,14 @@ export function LeadsModalContent({ onLeadClick }: LeadsModalContentProps) {
       {/* Заголовок и кнопка добавления */}
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="font-semibold text-lg">Управление лидами</h3>
+          <h3 className="font-semibold text-lg">Чаты и контакты</h3>
           <p className="text-sm text-muted-foreground">
-            Все контакты, обратившиеся через телефон, чат или добавленные вручную
+            Все контакты, обратившиеся через телефон, WhatsApp, Telegram или добавленные вручную
           </p>
         </div>
         <Button onClick={() => setShowAddModal(true)} size="sm">
           <Plus className="h-4 w-4 mr-2" />
-          Добавить лид
+          Добавить контакт
         </Button>
       </div>
 

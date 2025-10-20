@@ -102,6 +102,7 @@ import { TeacherMessagesPanel } from "@/components/crm/TeacherMessagesPanel";
 import { UserPermissionsManager } from "@/components/admin/UserPermissionsManager";
 import { LeadsModalContent } from "@/components/leads/LeadsModalContent";
 import { StudentsModal } from "@/components/crm/StudentsModal";
+import { StudentsLeadsModal } from "@/components/students/StudentsLeadsModal";
 import { ImportStudentsModal } from "@/components/students/ImportStudentsModal";
 import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
 import FinancesSection from "@/components/finances/FinancesSection";
@@ -283,12 +284,14 @@ const CRMContent = () => {
   // Menu counters
   const tasksCount = allTasks?.length ?? 0;
   const unreadTotal = (threads || []).reduce((sum, t) => sum + (t.unread_count || 0), 0);
-  const leadsCount = clients?.length ?? 0;
+  const leadsCount = 0; // Будет рассчитано в StudentsLeadsModal
+  const chatsCount = clients?.length ?? 0;
   const studentsCount = students?.length ?? 0;
   const getMenuCount = (label: string) => {
     if (label === "Мои задачи") return tasksCount;
     if (label === "Заявки") return unreadTotal;
     if (label === "Лиды") return leadsCount;
+    if (label === "Чаты") return chatsCount;
     if (label === "Ученики") return studentsCount;
     return 0;
   };
@@ -929,7 +932,7 @@ const CRMContent = () => {
     setIsManualModalOpen(true);
     
     // Для модальных окон из меню - просто устанавливаем состояние, БЕЗ дублирования
-    if (type === 'Мои задачи' || type === 'Заявки' || type === 'Лиды' || 
+    if (type === 'Мои задачи' || type === 'Заявки' || type === 'Лиды' || type === 'Чаты' ||
         type === 'Компания' || type === 'Обучение' || type === 'Занятия онлайн' || 
         type === 'Расписание' || type === 'Финансы') {
       if (activeTab !== "menu") {
@@ -982,9 +985,9 @@ const CRMContent = () => {
     setIsManualModalOpen(false);
   };
 
-  // Обработчик клика по лиду - открывает чат
-  const handleLeadClick = (clientId: string) => {
-    handleMenuModalClose(); // Закрываем модальное окно лидов
+  // Обработчик клика по чату из раздела "Чаты" - открывает чат
+  const handleChatItemClick = (clientId: string) => {
+    handleMenuModalClose(); // Закрываем модальное окно чатов
     setActiveTab('chats'); // Переключаемся на вкладку чатов
     handleChatClick(clientId, 'client'); // Открываем чат с клиентом
   };
@@ -993,6 +996,7 @@ const menuItems = [
     { icon: CheckSquare, label: "Мои задачи" },
     { icon: FileText, label: "Заявки" },
     { icon: User, label: "Лиды" },
+    { icon: MessageCircle, label: "Чаты" },
     { icon: Users, label: "Ученики" },
     { icon: Building, label: "Компания" },
     { icon: GraduationCap, label: "Обучение" },
@@ -1187,7 +1191,10 @@ const menuItems = [
                       </PinnableModalHeader>
                       <div className="py-4">
                         {item.label === "Лиды" && (
-                          <LeadsModalContent onLeadClick={handleLeadClick} />
+                          <StudentsLeadsModal />
+                        )}
+                        {item.label === "Чаты" && (
+                          <LeadsModalContent onLeadClick={handleChatItemClick} />
                         )}
                         {item.label === "Расписание" && (
                           <div className="h-full">
