@@ -663,14 +663,13 @@ const CRMContent = () => {
       return (b.timestamp || 0) - (a.timestamp || 0);
     });
 
-  // Use client status hook for lead detection
-  const clientIds = filteredChats
-    .filter(chat => chat.type === 'client')
-    .map(chat => chat.id);
-  
-  if (isMobile) {
-    console.log('Mobile debug - Client IDs for status check:', clientIds);
-  }
+  // Use client status hook for lead detection - memoize to prevent unnecessary re-renders
+  const clientIds = useMemo(() => 
+    filteredChats
+      .filter(chat => chat.type === 'client')
+      .map(chat => chat.id),
+    [filteredChats]
+  );
   
   const { getClientStatus, isLoading: statusLoading } = useClientStatus(clientIds);
 

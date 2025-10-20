@@ -14,6 +14,9 @@ interface ClientStatusCache {
 export const useClientStatus = (clientIds: string[]) => {
   const [statusMap, setStatusMap] = useState<ClientStatusCache>({});
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Стабилизируем массив ID для предотвращения лишних запросов
+  const clientIdsKey = clientIds.sort().join(',');
 
   useEffect(() => {
     if (clientIds.length === 0) {
@@ -24,7 +27,6 @@ export const useClientStatus = (clientIds: string[]) => {
 
     const fetchClientStatuses = async () => {
       try {
-        console.log('Fetching client statuses for:', clientIds);
         // Получаем всех студентов для указанных клиентов через family_members
         const { data: familyMembers, error: familyError } = await supabase
           .from('family_members')
@@ -40,8 +42,6 @@ export const useClientStatus = (clientIds: string[]) => {
           return;
         }
 
-        console.log('Family members data:', familyMembers);
-
         // Получаем студентов для всех семейных групп
         const familyGroupIds = familyMembers?.map(fm => fm.family_group_id) || [];
         
@@ -56,8 +56,6 @@ export const useClientStatus = (clientIds: string[]) => {
           return;
         }
 
-        console.log('Students data:', students);
-
         // Создаем карту статусов клиентов
         const newStatusMap: ClientStatusCache = {};
         
@@ -67,11 +65,8 @@ export const useClientStatus = (clientIds: string[]) => {
             ?.filter(fm => fm.client_id === clientId)
             .map(fm => fm.family_group_id) || [];
 
-          console.log(`Client ${clientId} family groups:`, clientFamilyGroups);
-
           // Если у клиента нет семейной группы - это лид
           if (clientFamilyGroups.length === 0) {
-            console.log(`Client ${clientId} is a lead - no family groups`);
             newStatusMap[clientId] = {
               isLead: true,
               hasActiveStudents: false,
@@ -87,8 +82,6 @@ export const useClientStatus = (clientIds: string[]) => {
 
           const activeStudents = clientStudents.filter(s => s.status === 'active');
           
-          console.log(`Client ${clientId} students:`, clientStudents, 'active:', activeStudents);
-          
           newStatusMap[clientId] = {
             isLead: activeStudents.length === 0, // Лид если нет активных студентов
             hasActiveStudents: activeStudents.length > 0,
@@ -96,7 +89,6 @@ export const useClientStatus = (clientIds: string[]) => {
           };
         }
 
-        console.log('Final status map:', newStatusMap);
         setStatusMap(newStatusMap);
       } catch (error) {
         console.error('Error in fetchClientStatuses:', error);
@@ -106,7 +98,7 @@ export const useClientStatus = (clientIds: string[]) => {
     };
 
     fetchClientStatuses();
-  }, [clientIds]);
+  }, [clientIdsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     getClientStatus: (clientId: string): ClientStatusResult => {
