@@ -27,6 +27,7 @@ serve(async (req) => {
 
     console.log("BBB_URL:", BBB_URL);
     console.log("BBB_SECRET exists:", !!BBB_SECRET);
+    console.log("BBB_SECRET value:", BBB_SECRET ? BBB_SECRET.substring(0, 10) + "..." : "null");
 
     if (!BBB_URL || !BBB_SECRET) {
       throw new Error("BBB credentials not configured");
