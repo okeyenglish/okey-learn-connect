@@ -70,6 +70,7 @@ import { ScheduleSummary } from './ScheduleSummary';
 import { IndividualLessonSchedule } from './IndividualLessonSchedule';
 import { IndividualLessonPaymentInfo } from './IndividualLessonPaymentInfo';
 import { StudentBalanceModal } from './StudentBalanceModal';
+import { TuitionChargeModal } from '@/components/finances/TuitionChargeModal';
 import { StudentPaymentInfo } from '@/components/learning-groups/StudentPaymentInfo';
 import { LessonColorLegend } from '@/components/learning-groups/LessonColorLegend';
 import { useStudentBalance } from '@/hooks/useStudentBalance';
@@ -116,6 +117,7 @@ export function EnhancedStudentCard({
   const [activeTab, setActiveTab] = useState('overview');
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [balanceModalOpen, setBalanceModalOpen] = useState(false);
+  const [tuitionChargeModalOpen, setTuitionChargeModalOpen] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState('');
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
@@ -1740,6 +1742,14 @@ export function EnhancedStudentCard({
                             <Wallet className="h-4 w-4 mr-2" />
                             Управление
                           </Button>
+                          <Button 
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setTuitionChargeModalOpen(true)}
+                          >
+                            <BookOpen className="h-4 w-4 mr-2" />
+                            Списать на обучение
+                          </Button>
                         </div>
                       </div>
 
@@ -2066,6 +2076,14 @@ export function EnhancedStudentCard({
         studentName={studentDetails?.name || student.name}
         open={balanceModalOpen}
         onOpenChange={setBalanceModalOpen}
+      />
+
+      {/* Модал списания на обучение */}
+      <TuitionChargeModal
+        studentId={student.id}
+        studentName={studentDetails?.name || student.name}
+        open={tuitionChargeModalOpen}
+        onOpenChange={setTuitionChargeModalOpen}
       />
 
       {/* Диалог подтверждения удаления платежа */}

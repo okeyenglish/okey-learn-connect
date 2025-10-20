@@ -6,8 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus, Minus, History } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Loader2, Plus, Minus, History, ArrowDownCircle, ArrowUpCircle, BookOpen } from "lucide-react";
 import { useAddBalanceTransaction, useBalanceTransactions, useStudentBalance } from "@/hooks/useStudentBalance";
+import { useTuitionCharges } from "@/hooks/useTuitionCharges";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 
@@ -30,6 +33,7 @@ export const StudentBalanceModal = ({
 
   const { data: balance } = useStudentBalance(studentId);
   const { data: transactions = [] } = useBalanceTransactions(studentId);
+  const { data: tuitionCharges = [] } = useTuitionCharges(studentId);
   const addTransaction = useAddBalanceTransaction();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -76,14 +80,18 @@ export const StudentBalanceModal = ({
         </div>
 
         <Tabs defaultValue="add" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="add">
               <Plus className="w-4 h-4 mr-2" />
-              Пополнить баланс
+              Пополнить
+            </TabsTrigger>
+            <TabsTrigger value="charges">
+              <BookOpen className="w-4 h-4 mr-2" />
+              Списания
             </TabsTrigger>
             <TabsTrigger value="history">
               <History className="w-4 h-4 mr-2" />
-              История операций
+              История
             </TabsTrigger>
           </TabsList>
 
@@ -147,6 +155,53 @@ export const StudentBalanceModal = ({
                 </Button>
               </div>
             </form>
+          </TabsContent>
+
+          <TabsContent value="charges" className="space-y-2">
+            <ScrollArea className="h-[400px] pr-4">
+              {tuitionCharges.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Списания на обучение не найдены
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {tuitionCharges.map((charge) => (
+                    <Card key={charge.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start space-x-3">
+                            <ArrowDownCircle className="h-4 w-4 text-blue-500 mt-1" />
+                            <div>
+                              <p className="font-medium">
+                                Списание на {charge.learning_unit_type === 'group' ? 'группу' : 'индивидуальные занятия'}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {charge.academic_hours} ак.ч. • {charge.description || 'Оплата обучения'}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {format(new Date(charge.charge_date), "d MMMM yyyy", { locale: ru })}
+                              </p>
+                              <span className={`text-xs px-2 py-1 rounded-full mt-2 inline-block ${
+                                charge.status === 'active' 
+                                  ? 'bg-green-100 text-green-700' 
+                                  : charge.status === 'cancelled'
+                                  ? 'bg-gray-100 text-gray-700'
+                                  : 'bg-orange-100 text-orange-700'
+                              }`}>
+                                {charge.status === 'active' ? 'Активно' : charge.status === 'cancelled' ? 'Отменено' : 'Возврат'}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="font-semibold text-blue-600">
+                            {charge.amount.toFixed(2)} ₽
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
           </TabsContent>
 
           <TabsContent value="history" className="space-y-2">
