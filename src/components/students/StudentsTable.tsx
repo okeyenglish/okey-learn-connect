@@ -3,6 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { 
   Eye, 
@@ -19,6 +20,7 @@ import {
 } from 'lucide-react';
 import { EnhancedStudentCard } from './EnhancedStudentCard';
 import { useStudents, Student } from '@/hooks/useStudents';
+import { BulkOperationsBar } from './BulkOperationsBar';
 
 
 interface StudentsTableProps {
@@ -34,6 +36,7 @@ interface StudentsTableProps {
 export function StudentsTable({ filters, statusFilter }: StudentsTableProps) {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [showStudentCard, setShowStudentCard] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   
   const { students: allStudents, isLoading } = useStudents();
 
@@ -114,12 +117,37 @@ export function StudentsTable({ filters, statusFilter }: StudentsTableProps) {
     setShowStudentCard(true);
   };
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(filteredStudents.map(s => s.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectOne = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds([...selectedIds, id]);
+    } else {
+      setSelectedIds(selectedIds.filter(sid => sid !== id));
+    }
+  };
+
+  const allSelected = filteredStudents.length > 0 && selectedIds.length === filteredStudents.length;
+  const someSelected = selectedIds.length > 0 && selectedIds.length < filteredStudents.length;
+
   return (
     <>
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[50px]">
+                <Checkbox
+                  checked={allSelected || (someSelected ? 'indeterminate' : false)}
+                  onCheckedChange={handleSelectAll}
+                />
+              </TableHead>
               <TableHead>Ученик</TableHead>
               <TableHead>Контакты</TableHead>
               <TableHead>Уровень</TableHead>
@@ -148,6 +176,12 @@ export function StudentsTable({ filters, statusFilter }: StudentsTableProps) {
             ) : (
               filteredStudents.map((student) => (
                 <TableRow key={student.id} className="hover:bg-muted/50">
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedIds.includes(student.id)}
+                      onCheckedChange={(checked) => handleSelectOne(student.id, checked as boolean)}
+                    />
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
@@ -272,6 +306,13 @@ export function StudentsTable({ filters, statusFilter }: StudentsTableProps) {
           </span>
         </div>
       )}
+
+      {/* Панель массовых операций */}
+      <BulkOperationsBar
+        selectedCount={selectedIds.length}
+        selectedIds={selectedIds}
+        onClearSelection={() => setSelectedIds([])}
+      />
     </>
   );
 }
