@@ -336,16 +336,16 @@ export const AIHub = ({
     <Sheet open={isOpen} onOpenChange={onToggle}>
       <SheetContent 
         side="right" 
-        className="w-full sm:w-[500px] p-0 flex flex-col"
+        className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden"
       >
-        <div className="flex items-center justify-between p-4 border-b">
-          <div className="flex items-center gap-2">
-            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <Bot className="h-6 w-6 text-primary" />
+        <div className="flex items-center justify-between p-4 border-b shrink-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <Bot className="h-4 w-4 text-primary" />
             </div>
-            <div>
-              <h2 className="font-semibold">AI Центр</h2>
-              <p className="text-xs text-muted-foreground">
+            <div className="min-w-0 flex-1">
+              <h2 className="font-semibold text-sm truncate">AI Центр</h2>
+              <p className="text-xs text-muted-foreground truncate">
                 Помощник, консультанты и сообщество
               </p>
             </div>
@@ -355,25 +355,25 @@ export const AIHub = ({
         <Tabs 
           value={activeTab} 
           onValueChange={(v) => setActiveTab(v as any)}
-          className="flex-1 flex flex-col"
+          className="flex-1 flex flex-col overflow-hidden"
         >
-          <TabsList className="w-full grid grid-cols-3 mx-4 my-2">
-            <TabsTrigger value="assistant">
-              <Bot className="h-4 w-4 mr-2" />
+          <TabsList className="w-full grid grid-cols-3 mx-4 my-3 shrink-0">
+            <TabsTrigger value="assistant" className="text-xs">
+              <Bot className="h-3 w-3 mr-1" />
               Помощник
             </TabsTrigger>
-            <TabsTrigger value="consultants">
-              <Scale className="h-4 w-4 mr-2" />
+            <TabsTrigger value="consultants" className="text-xs">
+              <Scale className="h-3 w-3 mr-1" />
               Консультанты
             </TabsTrigger>
-            <TabsTrigger value="community">
-              <Users className="h-4 w-4 mr-2" />
+            <TabsTrigger value="community" className="text-xs">
+              <Users className="h-3 w-3 mr-1" />
               Сообщество
             </TabsTrigger>
           </TabsList>
 
           {/* Вкладка AI Помощник */}
-          <TabsContent value="assistant" className="flex-1 m-0 flex flex-col min-h-0">
+          <TabsContent value="assistant" className="flex-1 m-0 flex flex-col min-h-0 overflow-hidden">
             <VoiceAssistant 
               isOpen={true}
               onToggle={onToggle}
@@ -385,7 +385,7 @@ export const AIHub = ({
           </TabsContent>
 
           {/* Вкладка Консультанты */}
-          <TabsContent value="consultants" className="flex-1 flex flex-col m-0 min-h-0">
+          <TabsContent value="consultants" className="flex-1 flex flex-col m-0 min-h-0 overflow-hidden">
             {!activeConsultant ? (
               <div className="p-4 space-y-3">
                 <h3 className="font-semibold text-sm text-muted-foreground mb-4">
@@ -443,12 +443,12 @@ export const AIHub = ({
                 </div>
 
                 {/* Сообщения */}
-                <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
-                  <div className="space-y-4">
+                <ScrollArea ref={scrollAreaRef} className="flex-1 overflow-auto">
+                  <div className="space-y-3 p-4">
                     {getCurrentMessages().map((msg) => (
                       <div 
                         key={msg.id}
-                        className={`flex gap-3 ${msg.type === 'user' ? 'justify-end' : ''}`}
+                        className={`flex gap-2 ${msg.type === 'user' ? 'justify-end' : ''}`}
                       >
                         {msg.type === 'assistant' && (
                           <Avatar className="h-8 w-8 shrink-0">
@@ -460,15 +460,15 @@ export const AIHub = ({
                             </AvatarFallback>
                           </Avatar>
                         )}
-                        <div className={`flex-1 ${msg.type === 'user' ? 'flex justify-end' : ''}`}>
-                          <div className={`rounded-lg p-3 max-w-[85%] ${
+                        <div className={`max-w-[85%] ${msg.type === 'user' ? 'flex justify-end' : ''}`}>
+                          <div className={`rounded-lg px-3 py-2 ${
                             msg.type === 'user' 
                               ? 'bg-primary text-primary-foreground ml-auto' 
                               : 'bg-muted'
                           }`}>
                             <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1">
+                          <p className="text-xs text-muted-foreground mt-1 px-1">
                             {msg.timestamp.toLocaleTimeString('ru-RU', { 
                               hour: '2-digit', 
                               minute: '2-digit' 
@@ -478,13 +478,13 @@ export const AIHub = ({
                       </div>
                     ))}
                     {isProcessing && (
-                      <div className="flex gap-3">
-                        <Avatar className="h-8 w-8">
+                      <div className="flex gap-2">
+                        <Avatar className="h-8 w-8 shrink-0">
                           <AvatarFallback className="bg-primary/10">
                             <Loader2 className="h-4 w-4 text-primary animate-spin" />
                           </AvatarFallback>
                         </Avatar>
-                        <div className="bg-muted rounded-lg p-3">
+                        <div className="bg-muted rounded-lg px-3 py-2">
                           <p className="text-sm text-muted-foreground">
                             Консультант печатает...
                           </p>
@@ -540,7 +540,7 @@ export const AIHub = ({
           </TabsContent>
 
           {/* Вкладка Сообщество */}
-          <TabsContent value="community" className="flex-1 flex flex-col m-0 min-h-0">
+          <TabsContent value="community" className="flex-1 flex flex-col m-0 min-h-0 overflow-hidden">
             {/* Заголовок */}
             <div className="p-4 border-b flex items-center gap-3">
               <Avatar className="h-10 w-10">
@@ -557,23 +557,23 @@ export const AIHub = ({
             </div>
 
             {/* Сообщения */}
-            <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
-              <div className="space-y-4">
+            <ScrollArea ref={scrollAreaRef} className="flex-1 overflow-auto">
+              <div className="space-y-3 p-4">
                 {getCurrentMessages().map((msg) => (
-                  <div key={msg.id} className="flex gap-3">
+                  <div key={msg.id} className="flex gap-2">
                     <Avatar className="h-8 w-8 shrink-0">
-                      <AvatarFallback>
+                      <AvatarFallback className="text-xs">
                         {msg.sender?.substring(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1">
-                      <div className="bg-muted rounded-lg p-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="bg-muted rounded-lg px-3 py-2">
                         {msg.sender && msg.type === 'user' && (
-                          <p className="text-sm font-medium mb-1">{msg.sender}</p>
+                          <p className="text-sm font-medium mb-1 text-primary">{msg.sender}</p>
                         )}
-                        <p className="text-sm">{msg.content}</p>
+                        <p className="text-sm break-words">{msg.content}</p>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="text-xs text-muted-foreground mt-1 px-1">
                         {msg.timestamp.toLocaleTimeString('ru-RU', { 
                           hour: '2-digit', 
                           minute: '2-digit' 
