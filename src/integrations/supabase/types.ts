@@ -4273,6 +4273,51 @@ export type Database = {
         }
         Relationships: []
       }
+      teacher_substitutions: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          individual_lesson_session_id: string | null
+          lesson_session_id: string | null
+          notes: string | null
+          original_teacher_id: string
+          reason: string | null
+          status: string
+          substitute_teacher_id: string
+          substitution_date: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          individual_lesson_session_id?: string | null
+          lesson_session_id?: string | null
+          notes?: string | null
+          original_teacher_id: string
+          reason?: string | null
+          status?: string
+          substitute_teacher_id: string
+          substitution_date: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          individual_lesson_session_id?: string | null
+          lesson_session_id?: string | null
+          notes?: string | null
+          original_teacher_id?: string
+          reason?: string | null
+          status?: string
+          substitute_teacher_id?: string
+          substitution_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       teachers: {
         Row: {
           branch: string
@@ -4686,6 +4731,21 @@ export type Database = {
           p_participant_user_ids?: string[]
         }
         Returns: string
+      }
+      find_available_teachers: {
+        Args: {
+          p_branch: string
+          p_date: string
+          p_subject: string
+          p_time: string
+        }
+        Returns: {
+          conflict_count: number
+          first_name: string
+          has_conflict: boolean
+          last_name: string
+          teacher_id: string
+        }[]
       }
       freeze_subscription: {
         Args: {
