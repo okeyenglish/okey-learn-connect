@@ -722,6 +722,89 @@ export type Database = {
         }
         Relationships: []
       }
+      document_access_logs: {
+        Row: {
+          accessed_at: string | null
+          action: string
+          document_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          accessed_at?: string | null
+          action: string
+          document_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          accessed_at?: string | null
+          action?: string
+          document_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_access_logs_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          description: string | null
+          document_type: string
+          file_path: string | null
+          file_size: number | null
+          folder_path: string | null
+          id: string
+          is_shared: boolean | null
+          mime_type: string | null
+          name: string
+          owner_id: string
+          shared_with: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          description?: string | null
+          document_type: string
+          file_path?: string | null
+          file_size?: number | null
+          folder_path?: string | null
+          id?: string
+          is_shared?: boolean | null
+          mime_type?: string | null
+          name: string
+          owner_id: string
+          shared_with?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          description?: string | null
+          document_type?: string
+          file_path?: string | null
+          file_size?: number | null
+          folder_path?: string | null
+          id?: string
+          is_shared?: boolean | null
+          mime_type?: string | null
+          name?: string
+          owner_id?: string
+          shared_with?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       employee_settings: {
         Row: {
           created_at: string | null

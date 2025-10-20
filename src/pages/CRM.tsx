@@ -95,7 +95,8 @@ import {
   Filter,
   Plus,
   Upload,
-  ListChecks
+  ListChecks,
+  FolderOpen
 } from "lucide-react";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
@@ -109,6 +110,7 @@ import { ImportStudentsModal } from "@/components/students/ImportStudentsModal";
 import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
 import FinancesSection from "@/components/finances/FinancesSection";
 import ScheduleSection from "@/components/crm/sections/ScheduleSection";
+import { DocumentsSection } from "@/components/documents/DocumentsSection";
 import { cn } from "@/lib/utils";
 
 const CRMContent = () => {
@@ -1084,6 +1086,7 @@ const menuItems = [
     { icon: Monitor, label: "Занятия онлайн" },
     // Убираем "Расписание" из меню, так как оно есть в нижней навигации на мобильной версии
     ...(!isMobile ? [{ icon: Calendar, label: "Расписание" }] : []),
+    { icon: FolderOpen, label: "Документы" },
     { icon: DollarSign, label: "Финансы" },
     { icon: BarChart3, label: "Отчёты" },
     { icon: Settings, label: "Настройки" },
@@ -1282,6 +1285,11 @@ const menuItems = [
                         {item.label === "Финансы" && (
                           <div className="h-full">
                             <FinancesSection />
+                          </div>
+                        )}
+                        {item.label === "Документы" && (
+                          <div className="h-full">
+                            <DocumentsSection />
                           </div>
                         )}
                         {item.label === "Мои задачи" && (
