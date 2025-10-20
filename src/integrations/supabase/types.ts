@@ -3064,6 +3064,145 @@ export type Database = {
           },
         ]
       }
+      student_parents: {
+        Row: {
+          created_at: string
+          email: string | null
+          first_name: string
+          id: string
+          is_primary_contact: boolean
+          last_name: string
+          middle_name: string | null
+          notification_preferences: Json | null
+          phone: string | null
+          relationship: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          first_name: string
+          id?: string
+          is_primary_contact?: boolean
+          last_name: string
+          middle_name?: string | null
+          notification_preferences?: Json | null
+          phone?: string | null
+          relationship: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          first_name?: string
+          id?: string
+          is_primary_contact?: boolean
+          last_name?: string
+          middle_name?: string | null
+          notification_preferences?: Json | null
+          phone?: string | null
+          relationship?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_parents_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_payers: {
+        Row: {
+          created_at: string
+          email: string | null
+          first_name: string
+          id: string
+          is_invoice_recipient: boolean
+          last_name: string
+          middle_name: string | null
+          payment_method: string | null
+          phone: string | null
+          relationship: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          first_name: string
+          id?: string
+          is_invoice_recipient?: boolean
+          last_name: string
+          middle_name?: string | null
+          payment_method?: string | null
+          phone?: string | null
+          relationship: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          first_name?: string
+          id?: string
+          is_invoice_recipient?: boolean
+          last_name?: string
+          middle_name?: string | null
+          payment_method?: string | null
+          phone?: string | null
+          relationship?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_payers_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_segments: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          filters: Json
+          id: string
+          is_global: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          filters?: Json
+          id?: string
+          is_global?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          filters?: Json
+          id?: string
+          is_global?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       students: {
         Row: {
           age: number

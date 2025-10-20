@@ -27,8 +27,8 @@ import {
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
+import { useStudentPayer, useUpsertStudentPayer } from '@/hooks/useStudentPayer';
 
 const payerSchema = z.object({
   first_name: z.string().min(1, 'Введите имя'),
@@ -58,11 +58,12 @@ export function ManagePayerDialog({
   existingPayer,
   onSuccess,
 }: ManagePayerDialogProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { data: currentPayer } = useStudentPayer(studentId);
+  const upsertPayer = useUpsertStudentPayer();
 
   const form = useForm<PayerFormData>({
     resolver: zodResolver(payerSchema),
-    defaultValues: existingPayer || {
+    defaultValues: existingPayer || currentPayer || {
       first_name: '',
       last_name: '',
       middle_name: '',
@@ -75,36 +76,13 @@ export function ManagePayerDialog({
   });
 
   const onSubmit = async (data: PayerFormData) => {
-    setIsSubmitting(true);
-    try {
-      if (existingPayer) {
-        // Update existing payer
-        const { error } = await supabase
-          .from('student_payers' as any)
-          .update(data as any)
-          .eq('id', existingPayer.id);
-
-        if (error) throw error;
-        toast.success('Информация о плательщике обновлена');
-      } else {
-        // Create new payer
-        const { error } = await supabase
-          .from('student_payers' as any)
-          .insert([{ ...data, student_id: studentId } as any]);
-
-        if (error) throw error;
-        toast.success('Плательщик добавлен');
-      }
-
-      onSuccess?.();
-      onOpenChange(false);
-      form.reset();
-    } catch (error) {
-      console.error('Error saving payer:', error);
-      toast.error('Ошибка при сохранении плательщика');
-    } finally {
-      setIsSubmitting(false);
-    }
+    await upsertPayer.mutateAsync({
+      student_id: studentId,
+      ...data,
+    } as any);
+    onSuccess?.();
+    onOpenChange(false);
+    form.reset();
   };
 
   return (
@@ -265,12 +243,12 @@ export function ManagePayerDialog({
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                disabled={isSubmitting}
+                disabled={upsertPayer.isPending}
               >
                 Отмена
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button type="submit" disabled={upsertPayer.isPending}>
+                {upsertPayer.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {existingPayer ? 'Сохранить' : 'Добавить'}
               </Button>
             </div>

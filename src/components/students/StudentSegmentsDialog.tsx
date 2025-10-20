@@ -28,9 +28,9 @@ import {
 import { Bookmark, Trash2, Eye, Edit, Loader2 } from 'lucide-react';
 import {
   useStudentSegments,
-  useCreateSegment,
-  useUpdateSegment,
-  useDeleteSegment,
+  useCreateStudentSegment,
+  useUpdateStudentSegment,
+  useDeleteStudentSegment,
   StudentSegment,
 } from '@/hooks/useStudentSegments';
 
@@ -66,9 +66,9 @@ export function StudentSegmentsDialog({
   const [segmentToDelete, setSegmentToDelete] = useState<StudentSegment | null>(null);
 
   const { data: segments, isLoading } = useStudentSegments();
-  const createSegment = useCreateSegment();
-  const updateSegment = useUpdateSegment();
-  const deleteSegment = useDeleteSegment();
+  const createSegment = useCreateStudentSegment();
+  const updateSegment = useUpdateStudentSegment();
+  const deleteSegment = useDeleteStudentSegment();
 
   const {
     register,
@@ -107,10 +107,9 @@ export function StudentSegmentsDialog({
     if (mode === 'create') {
       await createSegment.mutateAsync({
         name: data.name,
-        description: data.description || null,
+        description: data.description,
         filters: currentFilters,
-        is_shared: false,
-        shared_with: null,
+        is_global: false,
       });
       setMode('list');
       reset();
@@ -118,7 +117,7 @@ export function StudentSegmentsDialog({
       await updateSegment.mutateAsync({
         id: editingSegment.id,
         name: data.name,
-        description: data.description || null,
+        description: data.description,
       });
       setMode('list');
       setEditingSegment(null);
@@ -198,7 +197,7 @@ export function StudentSegmentsDialog({
                               <h4 className="font-medium text-base truncate">
                                 {segment.name}
                               </h4>
-                              {segment.is_shared && (
+                              {segment.is_global && (
                                 <Badge variant="secondary" className="text-xs">
                                   Общий
                                 </Badge>
