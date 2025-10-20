@@ -16,26 +16,35 @@ import {
   Search,
   Filter,
   CalendarClock,
-  Pause
+  Pause,
+  Bookmark
 } from 'lucide-react';
 import { AddStudentModal } from './AddStudentModal';
 import { ImportStudentsModal } from './ImportStudentsModal';
 import { ExportStudentsDialog } from './ExportStudentsDialog';
 import { DuplicatesDialog } from './DuplicatesDialog';
+import { AdvancedFilters } from './AdvancedFilters';
+import { SegmentStatistics } from './SegmentStatistics';
+import { StudentSegmentsDialog } from './StudentSegmentsDialog';
 import { StudentsTable } from './StudentsTable';
 import { StudentCard } from './StudentCard';
 import { useStudents } from '@/hooks/useStudents';
+import { useStudentsWithFilters, StudentFilters } from '@/hooks/useStudentsWithFilters';
 
 export default function StudentsSection() {
   const [activeTab, setActiveTab] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedBranch, setSelectedBranch] = useState('all');
-  const [selectedStatus, setSelectedStatus] = useState('all');
-  const [selectedLevel, setSelectedLevel] = useState('all');
+  const [segmentsDialogOpen, setSegmentsDialogOpen] = useState(false);
+  
+  const [filters, setFilters] = useState<StudentFilters>({
+    searchTerm: '',
+    branch: 'all',
+    status: 'all',
+    level: 'all',
+  });
 
-  const { students, isLoading: loading } = useStudents();
+  const { data: students = [], isLoading: loading } = useStudentsWithFilters(filters);
 
   // Вычисляем статистику из реальных данных
   const studentsStats = {
@@ -68,6 +77,10 @@ export default function StudentsSection() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setSegmentsDialogOpen(true)}>
+            <Bookmark className="h-4 w-4 mr-2" />
+            Сегменты
+          </Button>
           <DuplicatesDialog />
           <Button variant="outline" onClick={() => setShowImportModal(true)}>
             <Upload className="h-4 w-4 mr-2" />
@@ -180,8 +193,8 @@ export default function StudentsSection() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Имя, телефон, email..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={filters.searchTerm}
+                  onChange={(e) => setFilters({ ...filters, searchTerm: e.target.value })}
                   className="pl-9"
                 />
               </div>
@@ -189,7 +202,10 @@ export default function StudentsSection() {
             
             <div className="space-y-2">
               <label className="text-sm font-medium">Филиал</label>
-              <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+              <Select 
+                value={filters.branch} 
+                onValueChange={(value) => setFilters({ ...filters, branch: value })}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -205,7 +221,10 @@ export default function StudentsSection() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Статус</label>
-              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <Select 
+                value={filters.status} 
+                onValueChange={(value) => setFilters({ ...filters, status: value })}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -221,7 +240,10 @@ export default function StudentsSection() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Уровень</label>
-              <Select value={selectedLevel} onValueChange={setSelectedLevel}>
+              <Select 
+                value={filters.level} 
+                onValueChange={(value) => setFilters({ ...filters, level: value })}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -238,10 +260,7 @@ export default function StudentsSection() {
             </div>
 
             <div className="flex items-end">
-              <Button variant="outline" className="w-full">
-                <Filter className="h-4 w-4 mr-2" />
-                Применить фильтры
-              </Button>
+              <AdvancedFilters filters={filters} onFiltersChange={setFilters} />
             </div>
           </div>
         </CardContent>
@@ -281,70 +300,47 @@ export default function StudentsSection() {
 
         <TabsContent value="all" className="space-y-4">
           <StudentsTable 
-            filters={{
-              searchTerm,
-              branch: selectedBranch,
-              status: selectedStatus,
-              level: selectedLevel
-            }}
+            filters={filters}
             statusFilter="all"
           />
         </TabsContent>
 
         <TabsContent value="active" className="space-y-4">
           <StudentsTable 
-            filters={{
-              searchTerm,
-              branch: selectedBranch,
-              status: selectedStatus,
-              level: selectedLevel
-            }}
+            filters={filters}
             statusFilter="active"
           />
         </TabsContent>
 
         <TabsContent value="paused" className="space-y-4">
           <StudentsTable 
-            filters={{
-              searchTerm,
-              branch: selectedBranch,
-              status: selectedStatus,
-              level: selectedLevel
-            }}
+            filters={filters}
             statusFilter="paused"
           />
         </TabsContent>
 
         <TabsContent value="inactive" className="space-y-4">
           <StudentsTable 
-            filters={{
-              searchTerm,
-              branch: selectedBranch,
-              status: selectedStatus,
-              level: selectedLevel
-            }}
+            filters={filters}
             statusFilter="inactive"
           />
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Аналитика по ученикам</CardTitle>
-              <CardDescription>
-                Статистика, отчеты и тренды по студентам
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Аналитика будет доступна в следующих версиях
-              </p>
-            </CardContent>
-          </Card>
+          <SegmentStatistics />
         </TabsContent>
       </Tabs>
 
       <ImportStudentsModal open={showImportModal} onOpenChange={setShowImportModal} />
+      <StudentSegmentsDialog
+        open={segmentsDialogOpen}
+        onOpenChange={setSegmentsDialogOpen}
+        currentFilters={filters}
+        onApplySegment={(segmentFilters) => {
+          setFilters(segmentFilters);
+          setSegmentsDialogOpen(false);
+        }}
+      />
     </div>
   );
 }

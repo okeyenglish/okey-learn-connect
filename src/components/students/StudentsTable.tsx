@@ -19,17 +19,13 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { EnhancedStudentCard } from './EnhancedStudentCard';
-import { useStudents, Student } from '@/hooks/useStudents';
+import { Student } from '@/hooks/useStudents';
+import { useStudentsWithFilters, StudentFilters } from '@/hooks/useStudentsWithFilters';
 import { BulkOperationsBar } from './BulkOperationsBar';
 
 
 interface StudentsTableProps {
-  filters: {
-    searchTerm: string;
-    branch: string;
-    status: string;
-    level: string;
-  };
+  filters: StudentFilters;
   statusFilter: string;
 }
 
@@ -38,27 +34,14 @@ export function StudentsTable({ filters, statusFilter }: StudentsTableProps) {
   const [showStudentCard, setShowStudentCard] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   
-  const { students: allStudents, isLoading } = useStudents();
+  const { data: allStudents = [], isLoading } = useStudentsWithFilters(filters);
 
-  // Фильтрация студентов
+  // Фильтрация студентов по статусу из табов
   const filteredStudents = allStudents.filter(student => {
-    // Фильтр по статусу из табов
     if (statusFilter !== 'all' && student.status !== statusFilter) {
       return false;
     }
-
-    // Поиск по имени, телефону
-    const searchLower = filters.searchTerm.toLowerCase();
-    const matchesSearch = !filters.searchTerm || 
-      student.name.toLowerCase().includes(searchLower) ||
-      (student.first_name?.toLowerCase().includes(searchLower)) ||
-      (student.last_name?.toLowerCase().includes(searchLower)) ||
-      (student.phone?.includes(searchLower));
-
-    // Фильтр по статусу из фильтров
-    const matchesStatus = filters.status === 'all' || student.status === filters.status;
-
-    return matchesSearch && matchesStatus;
+    return true;
   });
 
   const getStatusBadge = (status: string) => {
