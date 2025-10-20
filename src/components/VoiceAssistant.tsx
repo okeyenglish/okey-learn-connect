@@ -678,7 +678,7 @@ export default function VoiceAssistant({
         </ScrollArea>
 
       {/* Input Area */}
-      <div className="p-3 border-t shrink-0 bg-background">
+      <div className="p-3 border-t shrink-0 bg-background mt-auto">
         <div className="flex gap-2 items-center">
           <div className="flex-1 flex gap-2">
             <Input
