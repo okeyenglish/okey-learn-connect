@@ -98,6 +98,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ManageParentsDialog } from './ManageParentsDialog';
 import { ManagePayerDialog } from './ManagePayerDialog';
+import { EditStudentDialog } from './EditStudentDialog';
 
 interface EnhancedStudentCardProps {
   student: {
@@ -167,6 +168,7 @@ export function EnhancedStudentCard({
   const [manageParentsOpen, setManageParentsOpen] = useState(false);
   const [managePayerOpen, setManagePayerOpen] = useState(false);
   const [selectedPayer, setSelectedPayer] = useState<any>(null);
+  const [editStudentDialogOpen, setEditStudentDialogOpen] = useState(false);
   
   const { data: studentDetails, isLoading, refetch } = useStudentDetails(student.id);
   const { data: balance } = useStudentBalance(student.id);
@@ -912,6 +914,15 @@ export function EnhancedStudentCard({
                     <CardTitle className="text-sm font-medium text-text-primary">Быстрые действия</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full justify-start h-9 border-border/50"
+                      onClick={() => setEditStudentDialogOpen(true)}
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Редактировать профиль
+                    </Button>
                     {!studentDetails.phone && (
                       <Button 
                         variant="outline" 
@@ -2425,6 +2436,16 @@ export function EnhancedStudentCard({
         onSuccess={() => {
           refetch();
           setSelectedPayer(null);
+        }}
+      />
+
+      {/* Диалог редактирования студента */}
+      <EditStudentDialog
+        open={editStudentDialogOpen}
+        onOpenChange={setEditStudentDialogOpen}
+        student={student as any}
+        onSuccess={() => {
+          refetch();
         }}
       />
     </Dialog>

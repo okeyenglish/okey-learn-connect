@@ -171,9 +171,11 @@ export const useStudentDetails = (studentId: string) => {
       if (studentError) throw studentError;
       if (!student) return null;
 
+      const studentData = student as any;
+
       // Fetch family members (parents/guardians)
       let parents: StudentParent[] = [];
-      if (student.family_group_id) {
+      if (studentData.family_group_id) {
         const { data: familyMembers, error: familyError } = await supabase
           .from('family_members')
           .select(`
@@ -185,7 +187,7 @@ export const useStudentDetails = (studentId: string) => {
               email
             )
           `)
-          .eq('family_group_id', student.family_group_id);
+          .eq('family_group_id', studentData.family_group_id);
 
         if (!familyError && familyMembers) {
           // Fetch phone numbers for each parent
@@ -464,6 +466,13 @@ export const useStudentDetails = (studentId: string) => {
         lessonsCount: (p as any).lessons_count,
       }));
 
+      // Fetch payer information
+      const { data: payerData } = await supabase
+        .from('student_payers')
+        .select('*')
+        .eq('student_id', studentId)
+        .maybeSingle();
+
       // Attendance - использем mock данные, так как таблица может не существовать
       const attendance: StudentAttendance[] = [];
 
@@ -471,28 +480,41 @@ export const useStudentDetails = (studentId: string) => {
       const subscriptions: StudentSubscription[] = [];
 
       return {
-        id: student.id,
-        studentNumber: student.student_number,
-        name: student.name,
-        firstName: student.first_name || student.name.split(' ')[1] || '',
-        lastName: student.last_name || student.name.split(' ')[0] || '',
-        middleName: student.middle_name || student.name.split(' ')[2] || '',
-        age: student.age,
-        dateOfBirth: student.date_of_birth,
-        phone: student.phone,
-        status: student.status,
-        notes: student.notes,
-        branch: undefined,
+        id: studentData.id,
+        studentNumber: studentData.student_number,
+        name: studentData.name,
+        firstName: studentData.first_name || studentData.name.split(' ')[1] || '',
+        lastName: studentData.last_name || studentData.name.split(' ')[0] || '',
+        middleName: studentData.middle_name || studentData.name.split(' ')[2] || '',
+        age: studentData.age,
+        dateOfBirth: studentData.date_of_birth,
+        gender: studentData.gender as 'male' | 'female' | undefined,
+        avatar_url: studentData.avatar_url,
+        phone: studentData.phone,
+        email: (studentData as any).email,
+        lkEnabled: (studentData as any).lk_enabled,
+        lkEmail: studentData.lk_email,
+        status: studentData.status,
+        notes: studentData.notes,
+        branch: (studentData as any).branch,
         category: undefined,
         level: undefined,
-        createdAt: student.created_at,
-        familyGroupId: student.family_group_id,
+        createdAt: studentData.created_at,
+        familyGroupId: studentData.family_group_id,
         parents,
         groups,
         individualLessons: individualLessons || [],
         payments,
         attendance,
         subscriptions,
+        payer: payerData ? {
+          id: (payerData as any).id,
+          name: `${(payerData as any).last_name} ${(payerData as any).first_name}`,
+          relationship: (payerData as any).relationship,
+          phone: (payerData as any).phone,
+          email: (payerData as any).email,
+          paymentMethod: (payerData as any).payment_method,
+        } : undefined,
       };
     },
     enabled: !!studentId,

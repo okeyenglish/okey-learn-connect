@@ -20,7 +20,7 @@ export const useAvailableStudents = (groupId?: string) => {
       if (studentsError) throw studentsError;
 
       // Пока нет таблицы group_students, показываем всех студентов
-      setAvailableStudents(allStudents || []);
+      setAvailableStudents((allStudents || []) as Student[]);
     } catch (error) {
       console.error('Error fetching available students:', error);
       setAvailableStudents([]);

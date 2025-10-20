@@ -9,9 +9,15 @@ export interface Student {
   middle_name?: string;
   age?: number;
   date_of_birth?: string;
+  gender?: 'male' | 'female';
   phone?: string;
+  email?: string;
+  branch?: string;
+  avatar_url?: string;
+  lk_email?: string;
+  lk_enabled?: boolean;
   family_group_id?: string | null;
-  status: 'active' | 'inactive' | 'trial' | 'graduated';
+  status: 'active' | 'inactive' | 'trial' | 'graduated' | 'not_started' | 'on_pause' | 'archived' | 'expelled';
   notes?: string;
   created_at: string;
   updated_at: string;
@@ -173,7 +179,7 @@ export const useUpdateStudent = () => {
     mutationFn: async ({ id, ...updates }: Partial<Student> & { id: string }) => {
       const { data, error } = await supabase
         .from('students')
-        .update(updates)
+        .update(updates as any)
         .eq('id', id)
         .select()
         .single();

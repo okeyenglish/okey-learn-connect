@@ -3206,12 +3206,15 @@ export type Database = {
       students: {
         Row: {
           age: number
+          avatar_url: string | null
           created_at: string
           date_of_birth: string | null
           family_group_id: string
           first_name: string | null
+          gender: string | null
           id: string
           last_name: string | null
+          lk_email: string | null
           middle_name: string | null
           name: string
           notes: string | null
@@ -3222,12 +3225,15 @@ export type Database = {
         }
         Insert: {
           age: number
+          avatar_url?: string | null
           created_at?: string
           date_of_birth?: string | null
           family_group_id: string
           first_name?: string | null
+          gender?: string | null
           id?: string
           last_name?: string | null
+          lk_email?: string | null
           middle_name?: string | null
           name: string
           notes?: string | null
@@ -3238,12 +3244,15 @@ export type Database = {
         }
         Update: {
           age?: number
+          avatar_url?: string | null
           created_at?: string
           date_of_birth?: string | null
           family_group_id?: string
           first_name?: string | null
+          gender?: string | null
           id?: string
           last_name?: string | null
+          lk_email?: string | null
           middle_name?: string | null
           name?: string
           notes?: string | null
