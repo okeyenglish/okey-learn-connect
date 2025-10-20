@@ -301,7 +301,7 @@ const CRMContent = () => {
   // Menu counters
   const tasksCount = allTasks?.length ?? 0;
   const unreadTotal = (threads || []).reduce((sum, t) => sum + (t.unread_count || 0), 0);
-  const leadsCount = students?.filter(s => s.status === 'inactive' || s.status === 'trial').length ?? 0;
+  const leadsCount = students?.filter(s => s.status !== 'active').length ?? 0;
   const studentsCount = students?.length ?? 0;
   
   console.log('Menu counters:', { 
