@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { StudentsModal } from './StudentsModal';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import crmLogo from '@/assets/crm-logo.png';
 import { 
   MessageSquare,
   GraduationCap,
@@ -188,7 +189,7 @@ export const UnifiedCRMHeader = () => {
             onClick={() => navigate('/')}
             className="flex items-center space-x-2"
           >
-            <Building className="h-6 w-6" />
+            <img src={crmLogo} alt="CRM Logo" className="h-8 w-8" />
             <span className="hidden font-bold sm:inline-block">
               O'KEY ENGLISH
             </span>
