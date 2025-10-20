@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Users, GripVertical, MoreVertical, Copy as CopyIcon, Clock as ClockIcon, XCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Users, GripVertical, MoreVertical, Copy as CopyIcon, Clock as ClockIcon, XCircle, History } from "lucide-react";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, addDays } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useScheduleData, ScheduleFilters, getSessionStatusColor, getDayNames } from "@/hooks/useScheduleData";
@@ -12,11 +12,13 @@ import { useScheduleDragDrop } from "@/hooks/useScheduleDragDrop";
 import { CopyLessonModal } from "./CopyLessonModal";
 import { RescheduleLessonModal } from "./RescheduleLessonModal";
 import { CancelLessonModal } from "./CancelLessonModal";
+import { ScheduleHistoryModal } from "./ScheduleHistoryModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
 interface TeacherScheduleGridProps {
@@ -39,6 +41,7 @@ export const TeacherScheduleGrid = ({ filters, viewFormat, gridSettings }: Teach
   const [copyModalOpen, setCopyModalOpen] = useState(false);
   const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
 
   // Get sessions using real data
   const { data: sessions = [], isLoading } = useScheduleData(filters);
@@ -246,6 +249,14 @@ export const TeacherScheduleGrid = ({ filters, viewFormat, gridSettings }: Teach
                 <XCircle className="h-4 w-4 mr-2" />
                 Отменить
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => {
+                setSelectedSession(session);
+                setHistoryModalOpen(true);
+              }}>
+                <History className="h-4 w-4 mr-2" />
+                История изменений
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -411,6 +422,12 @@ export const TeacherScheduleGrid = ({ filters, viewFormat, gridSettings }: Teach
         session={selectedSession}
         open={cancelModalOpen}
         onOpenChange={setCancelModalOpen}
+      />
+
+      <ScheduleHistoryModal
+        session={selectedSession}
+        open={historyModalOpen}
+        onOpenChange={setHistoryModalOpen}
       />
     </div>
   );

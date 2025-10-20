@@ -10,7 +10,9 @@ import { ClassroomScheduleGrid } from "./ClassroomScheduleGrid";
 import { MonthlyScheduleView } from "./MonthlyScheduleView";
 import { StudentScheduleView } from "./StudentScheduleView";
 import { ScheduleStatusLegend } from "./ScheduleStatusLegend";
-import { SessionFilters } from "@/hooks/useLessonSessions";
+import { SessionFilters, useLessonSessions } from "@/hooks/useLessonSessions";
+import { exportScheduleToExcel } from "@/utils/scheduleExport";
+import { useToast } from "@/hooks/use-toast";
 
 interface AdvancedScheduleModalProps {
   open?: boolean;
@@ -29,14 +31,34 @@ export const AdvancedScheduleModal = ({ open, onOpenChange, children }: Advanced
     mergedColumns: false,
     rotated: false
   });
+  
+  const sessions = useLessonSessions(filters);
+  const { toast } = useToast();
 
   const isControlled = open !== undefined && onOpenChange !== undefined;
   const modalOpen = isControlled ? open : internalOpen;
   const handleOpenChange = isControlled ? onOpenChange : setInternalOpen;
 
   const handleExportXLS = () => {
-    // TODO: Implement Excel export functionality
-    console.log('Exporting to Excel...');
+    if (!sessions?.data) {
+      toast({
+        title: "Нет данных для экспорта",
+        description: "Загрузите расписание перед экспортом",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    exportScheduleToExcel(
+      sessions.data as any[],
+      activeTab as 'teachers' | 'classrooms' | 'all',
+      `schedule_${activeTab}`
+    );
+
+    toast({
+      title: "Экспорт завершен",
+      description: "Файл Excel успешно сохранен",
+    });
   };
 
   const handleSearchLessons = () => {
