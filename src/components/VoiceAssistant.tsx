@@ -602,10 +602,143 @@ export default function VoiceAssistant({
     });
   };
 
-  if (!isOpen) {
-    return null; // Убираем плавающую кнопку
+  if (!isOpen && !embedded) {
+    return null;
   }
 
+  // Встроенный режим - только содержимое без Card
+  if (embedded) {
+    return (
+      <>
+        {/* Chat Messages */}
+        <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
+        <div className="space-y-4">
+          {messages.length === 0 && (
+            <div className="text-center text-muted-foreground py-8">
+              <Bot className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p className="text-sm">Привет! Я ваш AI-ассистент.</p>
+              <p className="text-xs mt-1">Напишите сообщение или нажмите на микрофон</p>
+            </div>
+          )}
+          
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className={`flex gap-3 ${
+                message.type === 'user' ? 'flex-row-reverse' : 'flex-row'
+              }`}
+            >
+              <Avatar className="h-8 w-8 shrink-0">
+                <AvatarFallback className={`text-xs ${
+                  message.type === 'user' 
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'bg-muted text-muted-foreground'
+                }`}>
+                  {message.type === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                </AvatarFallback>
+              </Avatar>
+              
+              <div className={`flex-1 space-y-1 ${
+                message.type === 'user' ? 'text-right' : 'text-left'
+              }`}>
+                <div className={`inline-block px-3 py-2 rounded-lg max-w-[85%] text-sm ${
+                  message.type === 'user'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-foreground'
+                }`}>
+                  <div className="flex items-center gap-1 mb-1">
+                    {message.isVoice && (
+                      <Mic className="h-3 w-3 opacity-70" />
+                    )}
+                    <span className="text-xs opacity-70">
+                      {formatTime(message.timestamp)}
+                    </span>
+                  </div>
+                  {message.content}
+                </div>
+              </div>
+            </div>
+          ))}
+          
+          {isProcessing && (
+            <div className="flex gap-3">
+              <Avatar className="h-8 w-8 shrink-0">
+                <AvatarFallback className="bg-muted text-muted-foreground">
+                  <Bot className="h-4 w-4" />
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <div className="inline-block px-3 py-2 rounded-lg bg-muted text-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+
+      {/* Input Area */}
+      <div className="p-4 border-t shrink-0">
+        <div className="flex gap-2">
+          <div className="flex-1 flex gap-2">
+            <Input
+              ref={inputRef}
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Напишите сообщение..."
+              disabled={isProcessing}
+              className="flex-1"
+            />
+            <Button
+              onClick={handleSendMessage}
+              disabled={!inputText.trim() || isProcessing}
+              size="sm"
+              className="px-3"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          <Separator orientation="vertical" className="h-9" />
+          
+          <div className="flex gap-1">
+            {isSpeaking && (
+              <Button
+                onClick={stopSpeaking}
+                size="sm"
+                variant="secondary"
+                className="px-3"
+              >
+                <VolumeX className="h-4 w-4" />
+              </Button>
+            )}
+            
+            <Button
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={isProcessing && !isRecording}
+              size="sm"
+              variant={isRecording ? "destructive" : "outline"}
+              className="px-3"
+            >
+              {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
+        
+        {isRecording && (
+          <div className="mt-2 text-center">
+            <div className="text-xs text-muted-foreground animate-pulse">
+              🎤 Запись... Говорите сейчас
+            </div>
+          </div>
+        )}
+      </div>
+      </>
+    );
+  }
+
+  // Полный режим - Card с заголовком
   return (
     <Card className={`fixed shadow-xl bg-background border z-50 ${
       isMobile 
