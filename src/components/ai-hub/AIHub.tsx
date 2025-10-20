@@ -645,7 +645,7 @@ export const AIHub = ({
           </TabsContent>
 
           {/* Вкладка Сообщество */}
-          <TabsContent value="community" className="flex-1 flex flex-col m-0 min-h-0 h-full overflow-hidden relative">
+          <TabsContent value="community" className="flex-1 m-0 overflow-hidden relative">
             {/* Заголовок */}
             <div className="px-4 py-3 border-b flex items-center gap-3 shrink-0">
               <Avatar className="h-9 w-9 shrink-0">
