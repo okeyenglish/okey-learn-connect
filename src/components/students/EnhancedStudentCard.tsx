@@ -80,6 +80,11 @@ import { calculateLessonPrice } from '@/utils/lessonPricing';
 import { getCoursePriceInfo } from '@/utils/coursePricing';
 import { useUpdateIndividualLesson } from '@/hooks/useIndividualLessons';
 import { OnlineLessonModal } from '@/components/OnlineLessonModal';
+import { StudentTagsManager } from './StudentTagsManager';
+import { StudentHistoryTimeline } from './StudentHistoryTimeline';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -153,6 +158,9 @@ export function EnhancedStudentCard({
     studentName?: string;
     groupName?: string;
   } | null>(null);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [archiveReason, setArchiveReason] = useState('');
+  const [lkSettingsOpen, setLkSettingsOpen] = useState(false);
   
   const { data: studentDetails, isLoading, refetch } = useStudentDetails(student.id);
   const { data: balance } = useStudentBalance(student.id);
@@ -508,12 +516,83 @@ export function EnhancedStudentCard({
     }
   };
 
+  const handleStatusChange = async (newStatus: string) => {
+    if (newStatus === 'archived') {
+      setArchiveDialogOpen(true);
+      return;
+    }
+    
+    try {
+      const { error } = await (supabase as any)
+        .from('students')
+        .update({ status: newStatus })
+        .eq('id', student.id);
+
+      if (error) throw error;
+      
+      refetch();
+      toast.success('Статус обновлен');
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast.error('Ошибка при обновлении статуса');
+    }
+  };
+
+  const handleArchiveStudent = async () => {
+    if (!archiveReason.trim()) {
+      toast.error('Укажите причину архивации');
+      return;
+    }
+
+    try {
+      const { error } = await (supabase as any)
+        .from('students')
+        .update({ 
+          status: 'archived' as const,
+          archived_at: new Date().toISOString(),
+          archived_reason: archiveReason
+        })
+        .eq('id', student.id);
+
+      if (error) throw error;
+      
+      setArchiveDialogOpen(false);
+      setArchiveReason('');
+      refetch();
+      toast.success('Ученик архивирован');
+    } catch (error) {
+      console.error('Error archiving student:', error);
+      toast.error('Ошибка при архивации');
+    }
+  };
+
+  const handleToggleLK = async (enabled: boolean) => {
+    try {
+      const { error } = await (supabase as any)
+        .from('students')
+        .update({ lk_enabled: enabled })
+        .eq('id', student.id);
+
+      if (error) throw error;
+      
+      refetch();
+      toast.success(enabled ? 'ЛК активирован' : 'ЛК деактивирован');
+    } catch (error) {
+      console.error('Error toggling LK:', error);
+      toast.error('Ошибка при изменении ЛК');
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { color: string; label: string }> = {
       active: { color: 'bg-success-100 text-success-800 border-success-200', label: 'Активный' },
       inactive: { color: 'bg-surface text-text-secondary border-border', label: 'Неактивный' },
       trial: { color: 'bg-info-100 text-info-800 border-info-200', label: 'Пробный' },
       graduated: { color: 'bg-brand-100 text-brand-800 border-brand-200', label: 'Выпускник' },
+      not_started: { color: 'bg-warning-100 text-warning-800 border-warning-200', label: 'Не начал' },
+      archived: { color: 'bg-muted text-muted-foreground border-border', label: 'Архив' },
+      expelled: { color: 'bg-destructive-100 text-destructive-800 border-destructive-200', label: 'Отчислен' },
+      on_pause: { color: 'bg-info-100 text-info-800 border-info-200', label: 'На паузе' },
     };
     const variant = variants[status] || variants.active;
     return <Badge className={`${variant.color} border`}>{variant.label}</Badge>;
@@ -871,6 +950,40 @@ export function EnhancedStudentCard({
                   </CardContent>
                 </Card>
 
+                {/* Status Management */}
+                <Card className="card-base">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-text-primary">Статус ученика</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-text-secondary">Текущий статус:</span>
+                      {getStatusBadge(studentDetails.status)}
+                    </div>
+                    <div>
+                      <Label className="text-xs text-text-secondary">Изменить статус</Label>
+                      <Select
+                        value={studentDetails.status}
+                        onValueChange={handleStatusChange}
+                      >
+                        <SelectTrigger className="w-full mt-1 h-9 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">Активный</SelectItem>
+                          <SelectItem value="trial">Пробный</SelectItem>
+                          <SelectItem value="not_started">Не начал</SelectItem>
+                          <SelectItem value="on_pause">На паузе</SelectItem>
+                          <SelectItem value="graduated">Выпускник</SelectItem>
+                          <SelectItem value="expelled">Отчислен</SelectItem>
+                          <SelectItem value="archived">Архив</SelectItem>
+                          <SelectItem value="inactive">Неактивный</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {/* Parents/Guardians */}
                 <Card className="card-base">
                   <CardHeader className="pb-3">
@@ -979,6 +1092,18 @@ export function EnhancedStudentCard({
                   </TabsTrigger>
                   <TabsTrigger value="history" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none border-b-2 border-transparent">
                     История
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="tags" 
+                    className="data-[state=active]:border-b-2 data-[state=active]:border-brand data-[state=active]:bg-transparent data-[state=active]:text-brand rounded-none border-b-2 border-transparent text-text-secondary"
+                  >
+                    Теги
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="settings" 
+                    className="data-[state=active]:border-b-2 data-[state=active]:border-brand data-[state=active]:bg-transparent data-[state=active]:text-brand rounded-none border-b-2 border-transparent text-text-secondary"
+                  >
+                    Настройки ЛК
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -1893,114 +2018,80 @@ export function EnhancedStudentCard({
                 <TabsContent value="history" className="mt-0">
                   <Card>
                     <CardHeader>
-                      <CardTitle>История взаимодействий</CardTitle>
+                      <CardTitle>История операций</CardTitle>
                       <CardDescription>
                         Хронология всех действий и событий связанных со студентом
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      {/* Дата создания студента */}
-                      <div className="mb-6 p-4 bg-muted/50 border border-border rounded-lg">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">Студент добавлен в систему:</span>
-                          <span className="text-muted-foreground">{formatDate(studentDetails.createdAt)}</span>
+                      <StudentHistoryTimeline studentId={student.id} />
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="tags" className="mt-0">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Управление тегами</CardTitle>
+                      <CardDescription>
+                        Добавляйте теги для удобной фильтрации и сегментации учеников
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <StudentTagsManager studentId={student.id} />
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="settings" className="mt-0">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Настройки личного кабинета</CardTitle>
+                      <CardDescription>
+                        Управление доступом ученика к личному кабинету
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label className="text-base">Доступ к ЛК</Label>
+                          <div className="text-sm text-muted-foreground">
+                            Включите доступ для входа ученика в личный кабинет
+                          </div>
                         </div>
+                        <Switch
+                          checked={(studentDetails as any).lkEnabled || false}
+                          onCheckedChange={handleToggleLK}
+                        />
                       </div>
 
-                      {historyLoading ? (
-                        <div className="flex items-center justify-center py-8">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                        </div>
-                      ) : !history || history.length === 0 ? (
-                        <div className="text-center py-12">
-                          <Clock className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-                          <p className="text-lg text-muted-foreground mb-2">История пуста</p>
-                          <p className="text-sm text-muted-foreground">
-                            События будут отображаться здесь по мере их возникновения
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="space-y-6">
-                          {history.map((event, index) => (
-                            <div key={event.id} className="flex gap-4">
-                              <div className="flex flex-col items-center">
-                                <div className={`w-3 h-3 rounded-full ${
-                                  event.event_category === 'financial' ? 'bg-success-600' :
-                                  event.event_category === 'personal_info' ? 'bg-info-600' :
-                                  event.event_category === 'contact_info' ? 'bg-brand' :
-                                  event.event_category === 'status' ? 'bg-warning-600' :
-                                  event.event_category === 'lessons' ? 'bg-info-500' :
-                                  event.event_category === 'groups' ? 'bg-brand-light' :
-                                  'bg-surface'
-                                }`}></div>
-                                {index < history.length - 1 && (
-                                  <div className="w-0.5 h-full min-h-[40px] bg-border"></div>
-                                )}
-                              </div>
-                              <div className="flex-1 pb-6">
-                                <div className="flex items-start justify-between gap-4 mb-2">
-                                  <div className="flex-1">
-                                    <p className="font-medium text-text-primary">{event.title}</p>
-                                    {event.description && (
-                                      <p className="text-sm text-text-secondary mt-1">
-                                        {event.description}
-                                      </p>
-                                    )}
-                                     {event.old_value && (
-                                      <div className="mt-2 p-3 bg-error-50 border border-error-200 rounded text-xs">
-                                        <p className="text-error-700 font-medium mb-2">Было:</p>
-                                        <div className="space-y-1">
-                                          {Object.entries(event.old_value).map(([key, value]) => (
-                                            <div key={key} className="flex gap-2">
-                                              <span className="text-error-600 font-medium">{key}:</span>
-                                              <span className="text-error-700">{String(value)}</span>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-                                    {event.new_value && (
-                                      <div className="mt-2 p-3 bg-success-50 border border-success-200 rounded text-xs">
-                                        <p className="text-success-700 font-medium mb-2">Стало:</p>
-                                        <div className="space-y-1">
-                                          {Object.entries(event.new_value).map(([key, value]) => (
-                                            <div key={key} className="flex gap-2">
-                                              <span className="text-success-600 font-medium">{key}:</span>
-                                              <span className="text-success-700">{String(value)}</span>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                  <Badge variant="outline" className="shrink-0">
-                                    {event.event_category === 'financial' ? 'Финансы' :
-                                     event.event_category === 'personal_info' ? 'Личные данные' :
-                                     event.event_category === 'contact_info' ? 'Контакты' :
-                                     event.event_category === 'status' ? 'Статус' :
-                                     event.event_category === 'lessons' ? 'Занятия' :
-                                     event.event_category === 'groups' ? 'Группы' :
-                                     event.event_category === 'notes' ? 'Заметки' :
-                                     event.event_category === 'student' ? 'Студент' :
-                                     event.event_category}
-                                  </Badge>
-                                </div>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <Clock className="h-3 w-3" />
-                                  <span>{format(new Date(event.created_at), 'dd.MM.yyyy HH:mm', { locale: ru })}</span>
-                                  {event.user_name && (
-                                    <>
-                                      <span>•</span>
-                                      <User className="h-3 w-3" />
-                                      <span>{event.user_name}</span>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
+                      {(studentDetails as any).lkEnabled && (
+                        <>
+                          <Separator />
+                          <div className="space-y-4">
+                            <div>
+                              <Label>Email для входа</Label>
+                              <Input
+                                type="email"
+                                value={(studentDetails as any).lkEmail || ''}
+                                placeholder="student@example.com"
+                                disabled
+                              />
                             </div>
-                          ))}
-                        </div>
+                            <div>
+                              <Label>Последний вход</Label>
+                              <Input
+                                value={(studentDetails as any).lkLastLogin 
+                                  ? formatDate((studentDetails as any).lkLastLogin) 
+                                  : 'Не входил'}
+                                disabled
+                              />
+                            </div>
+                            <Button variant="outline" size="sm">
+                              Сбросить пароль
+                            </Button>
+                          </div>
+                        </>
                       )}
                     </CardContent>
                   </Card>
@@ -2157,6 +2248,39 @@ export function EnhancedStudentCard({
         open={!!selectedGroupForModal}
         onOpenChange={(open) => !open && setSelectedGroupForModal(null)}
       />
+
+      {/* Диалог архивации ученика */}
+      <AlertDialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Архивировать ученика?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ученик будет перемещен в архив. Укажите причину архивации.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Label>Причина архивации</Label>
+            <Textarea
+              value={archiveReason}
+              onChange={(e) => setArchiveReason(e.target.value)}
+              placeholder="Например: завершил обучение, переехал, и т.д."
+              className="mt-2"
+              rows={3}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setArchiveReason('')}>
+              Отмена
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleArchiveStudent}
+              className="bg-warning text-warning-foreground hover:bg-warning/90"
+            >
+              Архивировать
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Модальное окно онлайн урока */}
       {onlineLessonData && (
