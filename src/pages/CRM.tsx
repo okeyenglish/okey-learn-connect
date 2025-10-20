@@ -303,6 +303,14 @@ const CRMContent = () => {
   const unreadTotal = (threads || []).reduce((sum, t) => sum + (t.unread_count || 0), 0);
   const leadsCount = students?.filter(s => s.status === 'inactive' || s.status === 'trial').length ?? 0;
   const studentsCount = students?.length ?? 0;
+  
+  console.log('Menu counters:', { 
+    tasksCount, 
+    unreadTotal, 
+    leadsCount, 
+    studentsCount, 
+    studentsData: students?.map(s => ({ id: s.id, status: s.status }))
+  });
   const getMenuCount = (label: string) => {
     if (label === "Мои задачи") return tasksCount;
     if (label === "Заявки") return unreadTotal;
