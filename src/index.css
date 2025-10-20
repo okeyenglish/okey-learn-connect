@@ -322,4 +322,21 @@ img[alt*="avatar"],
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;
   }
+
+  /* === Gradients === */
+  .text-gradient {
+    @apply bg-gradient-to-r from-brand via-purple-600 to-blue-600 bg-clip-text text-transparent;
+  }
+
+  .bg-gradient-primary {
+    @apply bg-gradient-to-r from-brand via-purple-600 to-blue-600;
+  }
+
+  .bg-gradient-subtle {
+    @apply bg-gradient-to-br from-bg-soft via-surface to-surface-alt;
+  }
+
+  .bg-gradient-hero {
+    @apply bg-gradient-to-r from-brand via-purple-600 to-blue-600;
+  }
 }
