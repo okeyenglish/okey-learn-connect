@@ -2143,30 +2143,6 @@ const menuItems = [
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-8 px-3 rounded-lg border border-muted text-muted-foreground hover:bg-muted hover:text-foreground"
-                    onClick={() => {
-                      // Получаем все непрочитанные чаты
-                      const unreadChats = filteredChats.filter(chat => {
-                        const chatState = getChatState(chat.id);
-                        const isUnreadGlobally = !isChatReadGlobally(chat.id);
-                        const showEye = !!chatState?.isUnread;
-                        return showEye || isUnreadGlobally || chat.unread > 0;
-                      });
-                      
-                      // Отмечаем все как прочитанные
-                      unreadChats.forEach(chat => {
-                        markChatAsReadGlobally(chat.id);
-                        markAsRead(chat.id);
-                      });
-                    }}
-                    title="Отметить все непрочитанные чаты как прочитанные"
-                  >
-                    <Check className="h-4 w-4 mr-1" />
-                    Прочитать все
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
                     className="h-8 w-8 p-0 rounded-lg border border-muted text-muted-foreground hover:bg-muted hover:text-foreground"
                     onClick={() => {
                       setBulkSelectMode(true);
@@ -2194,6 +2170,19 @@ const menuItems = [
                     <span className="text-sm text-muted-foreground ml-1">
                       {selectedChatIds.size} выбрано
                     </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 ml-2"
+                      onClick={() => {
+                        const allChatIds = new Set(filteredChats.map(chat => chat.id));
+                        setSelectedChatIds(allChatIds);
+                      }}
+                      title="Выбрать все"
+                    >
+                      <ListChecks className="h-4 w-4 mr-1" />
+                      Выбрать все
+                    </Button>
                     {selectedChatIds.size > 0 && (
                       <div className="flex gap-1 ml-auto">
                         <Button
