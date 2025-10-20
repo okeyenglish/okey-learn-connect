@@ -8,13 +8,12 @@ const corsHeaders = {
 
 // Функция для создания checksum для BBB API
 async function createChecksum(callName: string, queryString: string, secret: string): Promise<string> {
-  const crypto = await import("https://deno.land/std@0.168.0/crypto/mod.ts");
   const encoder = new TextEncoder();
   const data = encoder.encode(callName + queryString + secret);
-  const hashBuffer = await crypto.subtle.digest("SHA-1", data);
+  const hashBuffer = await globalThis.crypto.subtle.digest("SHA-1", data);
   return Array.from(new Uint8Array(hashBuffer))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 serve(async (req) => {
@@ -91,7 +90,8 @@ serve(async (req) => {
 
         const queryString = params.toString();
         const checksum = await createChecksum("create", queryString, BBB_SECRET);
-        const createUrl = `${BBB_URL}api/create?${queryString}&checksum=${checksum}`;
+        const baseUrl = BBB_URL.endsWith("/") ? BBB_URL : `${BBB_URL}/`;
+        const createUrl = `${baseUrl}api/create?${queryString}&checksum=${checksum}`;
 
         const createResponse = await fetch(createUrl);
         const createData = await createResponse.text();
