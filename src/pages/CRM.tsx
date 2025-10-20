@@ -33,6 +33,7 @@ import { AddClientModal } from "@/components/crm/AddClientModal";
 import { ClientsList } from "@/components/crm/ClientsList";
 import { NewChatModal } from "@/components/crm/NewChatModal";
 import { PinnedModalTabs } from "@/components/crm/PinnedModalTabs";
+import { WhatsAppStatusNotification } from "@/components/crm/WhatsAppStatusNotification";
 import { AddTaskModal } from "@/components/crm/AddTaskModal";
 import { EditTaskModal } from "@/components/crm/EditTaskModal";
 import { TaskCalendar } from "@/components/crm/TaskCalendar";
@@ -3313,6 +3314,9 @@ const CRMContent = () => {
           </p>
         </DialogContent>
       </Dialog>
+      
+      {/* WhatsApp Status Notification */}
+      <WhatsAppStatusNotification />
       </div>
     </TooltipProvider>
   );
