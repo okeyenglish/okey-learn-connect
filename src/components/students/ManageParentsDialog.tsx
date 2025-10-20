@@ -86,14 +86,14 @@ interface ManageParentsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   studentId: string;
-  studentName: string;
+  onSuccess?: () => void;
 }
 
 export function ManageParentsDialog({
   open,
   onOpenChange,
   studentId,
-  studentName,
+  onSuccess,
 }: ManageParentsDialogProps) {
   const [parents, setParents] = useState<Parent[]>([]);
   const [mode, setMode] = useState<'list' | 'add' | 'edit'>('list');
@@ -259,7 +259,7 @@ export function ManageParentsDialog({
         <DialogContent className="max-w-3xl max-h-[85vh]">
           <DialogHeader>
             <DialogTitle>
-              {mode === 'list' && `Родители и опекуны - ${studentName}`}
+              {mode === 'list' && 'Родители и опекуны'}
               {mode === 'add' && 'Добавить родителя / опекуна'}
               {mode === 'edit' && 'Редактировать контакт'}
             </DialogTitle>

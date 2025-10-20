@@ -95,6 +95,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { ManageParentsDialog } from './ManageParentsDialog';
+import { ManagePayerDialog } from './ManagePayerDialog';
 
 interface EnhancedStudentCardProps {
   student: {
@@ -161,6 +163,9 @@ export function EnhancedStudentCard({
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [archiveReason, setArchiveReason] = useState('');
   const [lkSettingsOpen, setLkSettingsOpen] = useState(false);
+  const [manageParentsOpen, setManageParentsOpen] = useState(false);
+  const [managePayerOpen, setManagePayerOpen] = useState(false);
+  const [selectedPayer, setSelectedPayer] = useState<any>(null);
   
   const { data: studentDetails, isLoading, refetch } = useStudentDetails(student.id);
   const { data: balance } = useStudentBalance(student.id);
@@ -1048,6 +1053,96 @@ export function EnhancedStudentCard({
                           </Button>
                         </div>
                       ))
+                    )}
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full h-8 text-xs mt-2"
+                      onClick={() => setManageParentsOpen(true)}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      {studentDetails.parents.length === 0 ? 'Добавить контакт' : 'Управление контактами'}
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Payer Information */}
+                <Card className="card-base">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-sm font-medium text-text-primary flex items-center gap-2">
+                        <Wallet className="h-4 w-4" />
+                        Плательщик
+                      </CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {!studentDetails.payer ? (
+                      <p className="text-sm text-text-secondary">Плательщик не указан</p>
+                    ) : (
+                      <div className="space-y-2 p-3 bg-surface rounded-lg border border-border/50">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium text-sm text-text-primary">{studentDetails.payer.name}</p>
+                        </div>
+                        <p className="text-xs text-text-secondary">
+                          {studentDetails.payer.relationship === 'parent' && 'Родитель'}
+                          {studentDetails.payer.relationship === 'guardian' && 'Опекун'}
+                          {studentDetails.payer.relationship === 'self' && 'Сам ученик'}
+                          {studentDetails.payer.relationship === 'other' && 'Другое'}
+                        </p>
+                        <Separator className="bg-border/50" />
+                        <div className="space-y-1">
+                          {studentDetails.payer.phone && (
+                            <div className="flex items-center gap-1 text-xs text-text-primary">
+                              <Phone className="h-3 w-3 text-text-secondary" />
+                              <span>{studentDetails.payer.phone}</span>
+                            </div>
+                          )}
+                          {studentDetails.payer.email && (
+                            <div className="flex items-center gap-1 text-xs text-text-primary">
+                              <Mail className="h-3 w-3 text-text-secondary" />
+                              <span>{studentDetails.payer.email}</span>
+                            </div>
+                          )}
+                          {studentDetails.payer.paymentMethod && (
+                            <div className="flex items-center gap-1 text-xs text-text-primary">
+                              <CreditCard className="h-3 w-3 text-text-secondary" />
+                              <span>
+                                {studentDetails.payer.paymentMethod === 'cash' && 'Наличные'}
+                                {studentDetails.payer.paymentMethod === 'card' && 'Карта'}
+                                {studentDetails.payer.paymentMethod === 'transfer' && 'Перевод'}
+                                {studentDetails.payer.paymentMethod === 'online' && 'Онлайн'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="w-full h-7 text-xs"
+                          onClick={() => {
+                            setSelectedPayer(studentDetails.payer);
+                            setManagePayerOpen(true);
+                          }}
+                        >
+                          <Edit className="h-3 w-3 mr-1" />
+                          Редактировать
+                        </Button>
+                      </div>
+                    )}
+                    {!studentDetails.payer && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full h-8 text-xs"
+                        onClick={() => {
+                          setSelectedPayer(null);
+                          setManagePayerOpen(true);
+                        }}
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Указать плательщика
+                      </Button>
                     )}
                   </CardContent>
                 </Card>
@@ -2298,6 +2393,29 @@ export function EnhancedStudentCard({
           groupName={onlineLessonData.groupName}
         />
       )}
+
+      {/* Диалог управления родителями */}
+      <ManageParentsDialog
+        open={manageParentsOpen}
+        onOpenChange={setManageParentsOpen}
+        studentId={student.id}
+        onSuccess={() => {
+          refetch();
+          toast.success('Контакты обновлены');
+        }}
+      />
+
+      {/* Диалог управления плательщиком */}
+      <ManagePayerDialog
+        open={managePayerOpen}
+        onOpenChange={setManagePayerOpen}
+        studentId={student.id}
+        existingPayer={selectedPayer}
+        onSuccess={() => {
+          refetch();
+          setSelectedPayer(null);
+        }}
+      />
     </Dialog>
   );
 }

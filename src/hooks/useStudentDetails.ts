@@ -132,6 +132,14 @@ export interface StudentFullDetails {
   payments: StudentPayment[];
   attendance: StudentAttendance[];
   subscriptions: StudentSubscription[];
+  payer?: {
+    id: string;
+    name: string;
+    relationship: 'parent' | 'guardian' | 'self' | 'other';
+    phone?: string;
+    email?: string;
+    paymentMethod?: 'cash' | 'card' | 'transfer' | 'online';
+  };
 }
 
 export const useStudentDetails = (studentId: string) => {
