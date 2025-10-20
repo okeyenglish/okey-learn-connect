@@ -1,48 +1,46 @@
-import { useState, useEffect } from 'react';
-import { useToast } from './use-toast';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
-interface Currency {
+export interface Currency {
   id: string;
   code: string;
   name: string;
   symbol: string;
   is_default: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
-interface Invoice {
+export interface Invoice {
   id: string;
-  invoice_number: string;
-  student_id?: string;
+  student_id: string;
+  subscription_id?: string;
   amount: number;
-  status: 'draft' | 'sent' | 'paid' | 'cancelled' | 'overdue';
-  due_date?: string;
-  paid_date?: string;
-  description?: string;
+  currency_id: string;
+  due_date: string;
+  status: 'pending' | 'paid' | 'overdue' | 'cancelled';
   notes?: string;
   created_at: string;
   updated_at: string;
 }
 
-interface Payment {
+export interface Payment {
   id: string;
   invoice_id?: string;
-  student_id?: string;
+  student_id: string;
   amount: number;
-  method: 'cash' | 'card' | 'online' | 'transfer';
-  status: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded';
+  currency_id: string;
+  payment_method: 'cash' | 'card' | 'bank_transfer' | 'online' | 'bonus';
   payment_date: string;
-  description?: string;
   notes?: string;
-  transaction_id?: string;
-  created_by?: string;
   created_at: string;
   updated_at: string;
 }
 
-interface BonusAccount {
+export interface BonusAccount {
   id: string;
-  student_id?: string;
+  student_id: string;
   balance: number;
   total_earned: number;
   total_spent: number;
@@ -50,168 +48,124 @@ interface BonusAccount {
   updated_at: string;
 }
 
-export function useFinances() {
-  const [currencies, setCurrencies] = useState<Currency[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [bonusAccounts, setBonusAccounts] = useState<BonusAccount[]>([]);
-  const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
-
-  useEffect(() => {
-    fetchCurrencies();
-    fetchInvoices();
-    fetchPayments();
-    fetchBonusAccounts();
-
-    // Realtime: обновляем список платежей при изменениях
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'payments' },
-        () => fetchPayments()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  const fetchCurrencies = async () => {
-    setLoading(true);
-    try {
+// Hooks
+export const useCurrencies = () => {
+  return useQuery({
+    queryKey: ['currencies'],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('currencies')
         .select('*')
         .order('code');
       
       if (error) throw error;
-      setCurrencies(data || []);
-    } catch (error) {
-      console.error('Ошибка при загрузке валют:', error);
-      toast({
-        title: "Ошибка",
-        description: "Не удалось загрузить валюты",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+      return data as Currency[];
     }
-  };
+  });
+};
 
-  const fetchInvoices = async () => {
-    setLoading(true);
-    try {
+export const useInvoices = () => {
+  return useQuery({
+    queryKey: ['invoices'],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('invoices')
-        .select('*')
+        .select(`
+          *,
+          student:profiles!student_id(first_name, last_name),
+          currency:currencies(code, symbol)
+        `)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      setInvoices(data || []);
-    } catch (error) {
-      console.error('Ошибка при загрузке счетов:', error);
-      toast({
-        title: "Ошибка", 
-        description: "Не удалось загрузить счета",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+      return data;
     }
-  };
+  });
+};
 
-  const fetchPayments = async () => {
-    setLoading(true);
-    try {
+export const usePayments = () => {
+  return useQuery({
+    queryKey: ['payments'],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('payments')
-        .select('*')
+        .select(`
+          *,
+          student:profiles!student_id(first_name, last_name),
+          currency:currencies(code, symbol)
+        `)
         .order('payment_date', { ascending: false });
       
       if (error) throw error;
-      setPayments(data || []);
-    } catch (error) {
-      console.error('Ошибка при загрузке платежей:', error);
-      toast({
-        title: "Ошибка",
-        description: "Не удалось загрузить платежи",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+      return data;
     }
-  };
+  });
+};
 
-  const fetchBonusAccounts = async () => {
-    setLoading(true);
-    try {
+export const useBonusAccounts = () => {
+  return useQuery({
+    queryKey: ['bonus_accounts'],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('bonus_accounts')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select(`
+          *,
+          student:profiles!student_id(first_name, last_name, email)
+        `)
+        .order('balance', { ascending: false });
       
       if (error) throw error;
-      setBonusAccounts(data || []);
-    } catch (error) {
-      console.error('Ошибка при загрузке бонусных счетов:', error);
-      toast({
-        title: "Ошибка",
-        description: "Не удалось загрузить бонусные счета",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+      return data;
     }
-  };
+  });
+};
 
-  const createInvoice = async (invoiceData: Partial<Invoice>) => {
-    try {
-      // Будет реализовано когда БД будет готова
-      toast({
-        title: "Успешно",
-        description: "Счет создан",
-      });
-    } catch (error) {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось создать счет",
-        variant: "destructive",
-      });
-      throw error;
+export const useCreateInvoice = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (invoiceData: Partial<Invoice>) => {
+      const { data, error } = await supabase
+        .from('invoices')
+        .insert([invoiceData as any])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      toast.success('Счёт успешно создан');
+    },
+    onError: (error) => {
+      toast.error('Ошибка при создании счёта: ' + error.message);
     }
-  };
+  });
+};
 
-  const createPayment = async (paymentData: Partial<Payment>) => {
-    try {
-      // Будет реализовано когда БД будет готова
-      toast({
-        title: "Успешно",
-        description: "Платеж создан",
-      });
-    } catch (error) {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось создать платеж",
-        variant: "destructive",
-      });
-      throw error;
+export const useCreatePayment = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (paymentData: Partial<Payment>) => {
+      const { data, error } = await supabase
+        .from('payments')
+        .insert([paymentData as any])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['bonus_accounts'] });
+      toast.success('Платёж успешно создан');
+    },
+    onError: (error) => {
+      toast.error('Ошибка при создании платежа: ' + error.message);
     }
-  };
-
-  return {
-    currencies,
-    invoices,
-    payments,
-    bonusAccounts,
-    loading,
-    fetchCurrencies,
-    fetchInvoices,
-    fetchPayments,
-    fetchBonusAccounts,
-    createInvoice,
-    createPayment,
-  };
-}
+  });
+};

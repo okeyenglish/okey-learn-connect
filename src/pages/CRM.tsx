@@ -116,7 +116,7 @@ import { StudentsModal } from "@/components/crm/StudentsModal";
 import { StudentsLeadsModal } from "@/components/students/StudentsLeadsModal";
 import { ImportStudentsModal } from "@/components/students/ImportStudentsModal";
 import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
-import FinancesSection from "@/components/finances/FinancesSection";
+import { NewFinancesSection } from "@/components/finances/NewFinancesSection";
 import ScheduleSection from "@/components/crm/sections/ScheduleSection";
 import { DocumentsSection } from "@/components/documents/DocumentsSection";
 import { AnalyticsSection } from "@/components/analytics/AnalyticsSection";
@@ -1312,7 +1312,7 @@ const CRMContent = () => {
                         )}
                         {item.label === "Финансы" && (
                           <div className="h-full">
-                            <FinancesSection />
+                            <NewFinancesSection />
                           </div>
                         )}
                         {item.label === "Отчёты" && (
