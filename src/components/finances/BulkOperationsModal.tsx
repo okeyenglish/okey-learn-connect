@@ -27,12 +27,12 @@ export const BulkOperationsModal: React.FC<BulkOperationsModalProps> = ({
   onOpenChange,
 }) => {
   const [chargeAmount, setChargeAmount] = useState('');
-  const [chargeBranch, setChargeBranch] = useState('');
-  const [chargeLevel, setChargeLevel] = useState('');
+  const [chargeBranch, setChargeBranch] = useState('all');
+  const [chargeLevel, setChargeLevel] = useState('all');
   const [chargeDescription, setChargeDescription] = useState('Оплата за обучение');
   
   const [invoiceDueDays, setInvoiceDueDays] = useState('30');
-  const [invoiceBranch, setInvoiceBranch] = useState('');
+  const [invoiceBranch, setInvoiceBranch] = useState('all');
 
   const bulkCharge = useBulkChargeTuition();
   const bulkInvoices = useBulkGenerateInvoices();
@@ -41,8 +41,8 @@ export const BulkOperationsModal: React.FC<BulkOperationsModalProps> = ({
     if (!chargeAmount) return;
 
     const filters: any = {};
-    if (chargeBranch) filters.branch = chargeBranch;
-    if (chargeLevel) filters.level = chargeLevel;
+    if (chargeBranch && chargeBranch !== 'all') filters.branch = chargeBranch;
+    if (chargeLevel && chargeLevel !== 'all') filters.level = chargeLevel;
 
     await bulkCharge.mutateAsync({
       filters,
@@ -57,7 +57,7 @@ export const BulkOperationsModal: React.FC<BulkOperationsModalProps> = ({
 
   const handleBulkInvoices = async () => {
     const filters: any = { unpaid_only: true };
-    if (invoiceBranch) filters.branch = invoiceBranch;
+    if (invoiceBranch && invoiceBranch !== 'all') filters.branch = invoiceBranch;
 
     await bulkInvoices.mutateAsync({
       filters,
@@ -127,7 +127,7 @@ export const BulkOperationsModal: React.FC<BulkOperationsModalProps> = ({
                         <SelectValue placeholder="Все филиалы" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Все филиалы</SelectItem>
+                        <SelectItem value="all">Все филиалы</SelectItem>
                         <SelectItem value="Центральный">Центральный</SelectItem>
                         <SelectItem value="Северный">Северный</SelectItem>
                         <SelectItem value="Южный">Южный</SelectItem>
@@ -142,7 +142,7 @@ export const BulkOperationsModal: React.FC<BulkOperationsModalProps> = ({
                         <SelectValue placeholder="Все уровни" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Все уровни</SelectItem>
+                        <SelectItem value="all">Все уровни</SelectItem>
                         <SelectItem value="A1">A1</SelectItem>
                         <SelectItem value="A2">A2</SelectItem>
                         <SelectItem value="B1">B1</SelectItem>
@@ -194,7 +194,7 @@ export const BulkOperationsModal: React.FC<BulkOperationsModalProps> = ({
                       <SelectValue placeholder="Все филиалы" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Все филиалы</SelectItem>
+                      <SelectItem value="all">Все филиалы</SelectItem>
                       <SelectItem value="Центральный">Центральный</SelectItem>
                       <SelectItem value="Северный">Северный</SelectItem>
                       <SelectItem value="Южный">Южный</SelectItem>

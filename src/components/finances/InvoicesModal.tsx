@@ -24,8 +24,8 @@ export const InvoicesModal: React.FC<InvoicesModalProps> = ({
   open,
   onOpenChange,
 }) => {
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const { data: invoices, isLoading } = useInvoices({ status: statusFilter || undefined });
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const { data: invoices, isLoading } = useInvoices({ status: statusFilter === 'all' ? undefined : statusFilter });
   const updateInvoice = useUpdateInvoice();
 
   const handleStatusChange = async (invoiceId: string, newStatus: string) => {
@@ -84,7 +84,7 @@ export const InvoicesModal: React.FC<InvoicesModalProps> = ({
                   <SelectValue placeholder="Все статусы" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Все статусы</SelectItem>
+                  <SelectItem value="all">Все статусы</SelectItem>
                   <SelectItem value="draft">Черновик</SelectItem>
                   <SelectItem value="sent">Отправлен</SelectItem>
                   <SelectItem value="paid">Оплачен</SelectItem>
