@@ -609,10 +609,10 @@ export default function VoiceAssistant({
   // Встроенный режим - только содержимое без Card
   if (embedded) {
     return (
-      <div className="flex flex-col flex-1 min-h-0 h-full">
+      <div className="relative flex flex-col flex-1 min-h-0 h-full">
         {/* Chat Messages */}
         <ScrollArea ref={scrollAreaRef} className="flex-1 overflow-auto">
-          <div className="space-y-3 p-4">
+          <div className="space-y-3 p-4 pb-24">
             {messages.length === 0 && (
               <div className="text-center text-muted-foreground py-8">
                 <Bot className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -678,7 +678,7 @@ export default function VoiceAssistant({
         </ScrollArea>
 
       {/* Input Area */}
-      <div className="p-3 border-t shrink-0 bg-background mt-auto sticky bottom-0">
+      <div className="p-3 border-t bg-background absolute inset-x-0 bottom-0">
         <div className="flex gap-2 items-center">
           <div className="flex-1 flex gap-2">
             <Input
