@@ -478,7 +478,7 @@ export const AIHub = ({
           </TabsList>
 
           {/* Вкладка AI Помощник */}
-          <TabsContent value="assistant" className="flex-1 m-0 flex flex-col min-h-0 h-full overflow-hidden">
+          <TabsContent value="assistant" className="flex-1 m-0 overflow-hidden">
             <VoiceAssistant 
               isOpen={true}
               onToggle={onToggle}
