@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CalendarIcon, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
-import { useUpdateLessonSession } from "@/hooks/useLessonSessions";
+import { useUpdateLessonSession, useLessonSessions } from "@/hooks/useLessonSessions";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -24,8 +25,12 @@ export const RescheduleLessonModal = ({ session, open, onOpenChange }: Reschedul
   const [newStartTime, setNewStartTime] = useState("");
   const [newEndTime, setNewEndTime] = useState("");
   const [reason, setReason] = useState("");
+  const [rescheduleType, setRescheduleType] = useState<'single' | 'all'>('single');
   
   const updateSession = useUpdateLessonSession();
+  const { data: allSessions } = useLessonSessions({
+    date_from: format(new Date(), 'yyyy-MM-dd')
+  });
   const { toast } = useToast();
 
   const handleReschedule = async () => {
@@ -40,15 +45,46 @@ export const RescheduleLessonModal = ({ session, open, onOpenChange }: Reschedul
       if (newEndTime) updates.end_time = newEndTime;
       if (reason) updates.notes = `${session.notes || ''}\nПеренесено: ${reason}`.trim();
 
-      await updateSession.mutateAsync({
-        id: session.id,
-        data: updates,
-      });
+      if (rescheduleType === 'single') {
+        await updateSession.mutateAsync({
+          id: session.id,
+          data: updates,
+        });
 
-      toast({
-        title: "Занятие перенесено",
-        description: `Новая дата: ${format(newDate, 'd MMMM yyyy', { locale: ru })}`,
-      });
+        toast({
+          title: "Занятие перенесено",
+          description: `Новая дата: ${format(newDate, 'd MMMM yyyy', { locale: ru })}`,
+        });
+      } else {
+        // Перенос всех будущих занятий группы
+        const futureSessions = allSessions?.filter(s => 
+          s.group_id === session.group_id &&
+          new Date(s.lesson_date) >= new Date(session.lesson_date) &&
+          s.status === 'scheduled'
+        ) || [];
+
+        const daysDiff = Math.floor((newDate.getTime() - new Date(session.lesson_date).getTime()) / (1000 * 60 * 60 * 24));
+
+        await Promise.all(
+          futureSessions.map(s => {
+            const newSessionDate = new Date(s.lesson_date);
+            newSessionDate.setDate(newSessionDate.getDate() + daysDiff);
+            
+            return updateSession.mutateAsync({
+              id: s.id,
+              data: {
+                ...updates,
+                lesson_date: format(newSessionDate, 'yyyy-MM-dd'),
+              },
+            });
+          })
+        );
+
+        toast({
+          title: "Серия занятий перенесена",
+          description: `Перенесено занятий: ${futureSessions.length}`,
+        });
+      }
 
       onOpenChange(false);
     } catch (error) {
@@ -130,6 +166,24 @@ export const RescheduleLessonModal = ({ session, open, onOpenChange }: Reschedul
                 placeholder={session?.end_time}
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Тип переноса</Label>
+            <RadioGroup value={rescheduleType} onValueChange={(value) => setRescheduleType(value as 'single' | 'all')}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="single" id="single" />
+                <Label htmlFor="single" className="font-normal cursor-pointer">
+                  Только это занятие
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="all" id="all" />
+                <Label htmlFor="all" className="font-normal cursor-pointer">
+                  Все будущие занятия этой группы
+                </Label>
+              </div>
+            </RadioGroup>
           </div>
 
           <div className="space-y-2">
