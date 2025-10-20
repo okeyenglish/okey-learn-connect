@@ -33,6 +33,7 @@ import {
   MapPin,
   Building,
   TrendingUp,
+  TrendingDown,
   DollarSign,
   CheckCircle,
   XCircle,
@@ -71,6 +72,7 @@ import { IndividualLessonSchedule } from './IndividualLessonSchedule';
 import { IndividualLessonPaymentInfo } from './IndividualLessonPaymentInfo';
 import { StudentBalanceModal } from './StudentBalanceModal';
 import { TuitionChargeModal } from '@/components/finances/TuitionChargeModal';
+import { StudentDiscountsModal } from '@/components/finances/StudentDiscountsModal';
 import { StudentPaymentInfo } from '@/components/learning-groups/StudentPaymentInfo';
 import { LessonColorLegend } from '@/components/learning-groups/LessonColorLegend';
 import { useStudentBalance } from '@/hooks/useStudentBalance';
@@ -118,6 +120,7 @@ export function EnhancedStudentCard({
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [balanceModalOpen, setBalanceModalOpen] = useState(false);
   const [tuitionChargeModalOpen, setTuitionChargeModalOpen] = useState(false);
+  const [discountsModalOpen, setDiscountsModalOpen] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState('');
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
@@ -1734,22 +1737,32 @@ export function EnhancedStudentCard({
                               {balance?.balance ? balance.balance.toFixed(2) : '0.00'} ₽
                             </p>
                           </div>
-                          <Button 
-                            size="sm"
-                            className="btn-secondary"
-                            onClick={() => setBalanceModalOpen(true)}
-                          >
-                            <Wallet className="h-4 w-4 mr-2" />
-                            Управление
-                          </Button>
-                          <Button 
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setTuitionChargeModalOpen(true)}
-                          >
-                            <BookOpen className="h-4 w-4 mr-2" />
-                            Списать на обучение
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm"
+                              className="btn-secondary"
+                              onClick={() => setBalanceModalOpen(true)}
+                            >
+                              <Wallet className="h-4 w-4 mr-2" />
+                              Управление
+                            </Button>
+                            <Button 
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setTuitionChargeModalOpen(true)}
+                            >
+                              <BookOpen className="h-4 w-4 mr-2" />
+                              Списать на обучение
+                            </Button>
+                            <Button 
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setDiscountsModalOpen(true)}
+                            >
+                              <TrendingDown className="h-4 w-4 mr-2" />
+                              Скидки
+                            </Button>
+                          </div>
                         </div>
                       </div>
 
@@ -2084,6 +2097,14 @@ export function EnhancedStudentCard({
         studentName={studentDetails?.name || student.name}
         open={tuitionChargeModalOpen}
         onOpenChange={setTuitionChargeModalOpen}
+      />
+
+      {/* Модал скидок студента */}
+      <StudentDiscountsModal
+        studentId={student.id}
+        studentName={studentDetails?.name || student.name}
+        open={discountsModalOpen}
+        onOpenChange={setDiscountsModalOpen}
       />
 
       {/* Диалог подтверждения удаления платежа */}
