@@ -118,7 +118,12 @@ export interface StudentFullDetails {
   middleName: string;
   age?: number;
   dateOfBirth?: string;
+  gender?: 'male' | 'female';
+  avatar_url?: string;
   phone?: string;
+  email?: string;
+  lkEnabled?: boolean;
+  lkEmail?: string;
   status: string;
   notes?: string;
   branch?: string;
