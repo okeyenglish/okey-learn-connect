@@ -12,6 +12,7 @@ export type AppRole =
   | 'manager'
   | 'accountant'
   | 'receptionist'
+  | 'support'
   | 'teacher'
   | 'student';
 
@@ -38,6 +39,7 @@ const adminSectionsByRole: Record<AppRole, AdminSectionId[]> = {
   manager: ['dashboard'],
   accountant: ['dashboard'],
   receptionist: ['dashboard'],
+  support: ['dashboard'],
   teacher: ['dashboard'],
   student: []
 };
@@ -69,6 +71,7 @@ const crmRoutesByRole: Record<AppRole, CrmRouteId[]> = {
   manager: ['crm'],
   accountant: ['crm'],
   receptionist: ['crm'],
+  support: ['crm'],
   teacher: ['crm','teacher-portal'],
   student: ['student-portal']
 };

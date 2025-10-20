@@ -11,7 +11,7 @@ import { UserPlus, Mail, Phone, MapPin, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
-type AppRole = 'admin' | 'branch_manager' | 'methodist' | 'head_teacher' | 'sales_manager' | 'marketing_manager' | 'manager' | 'accountant' | 'receptionist' | 'teacher' | 'student';
+type AppRole = 'admin' | 'branch_manager' | 'methodist' | 'head_teacher' | 'sales_manager' | 'marketing_manager' | 'manager' | 'accountant' | 'receptionist' | 'support' | 'teacher' | 'student';
 
 interface AddUserModalProps {
   open?: boolean;
