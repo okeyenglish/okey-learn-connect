@@ -17,12 +17,32 @@ export const WhatsAppStatusNotification = () => {
       try {
         const settings = await getMessengerSettings();
         
-        // Проверяем, есть ли настройки и включен ли WhatsApp
-        const connected = settings && settings.isEnabled && 
-                         settings.instanceId && 
-                         settings.apiToken;
+        // Проверяем, есть ли настройки
+        if (!settings || !settings.isEnabled || !settings.instanceId || !settings.apiToken) {
+          setIsConnected(false);
+          setIsLoading(false);
+          return;
+        }
         
-        setIsConnected(!!connected);
+        // Проверяем реальное подключение через GreenAPI
+        try {
+          const response = await fetch(
+            `${settings.apiUrl}/waInstance${settings.instanceId}/getStateInstance/${settings.apiToken}`,
+            { method: 'GET' }
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            // GreenAPI возвращает stateInstance: 'authorized' когда всё подключено
+            const isAuthorized = data.stateInstance === 'authorized';
+            setIsConnected(isAuthorized);
+          } else {
+            setIsConnected(false);
+          }
+        } catch (apiError) {
+          console.error('Error checking GreenAPI status:', apiError);
+          setIsConnected(false);
+        }
       } catch (error) {
         console.error('Error checking WhatsApp connection:', error);
         setIsConnected(false);
@@ -33,8 +53,8 @@ export const WhatsAppStatusNotification = () => {
 
     checkConnection();
     
-    // Проверяем каждые 5 минут
-    const interval = setInterval(checkConnection, 5 * 60 * 1000);
+    // Проверяем каждые 2 минуты
+    const interval = setInterval(checkConnection, 2 * 60 * 1000);
     
     return () => clearInterval(interval);
   }, [getMessengerSettings]);
