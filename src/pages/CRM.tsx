@@ -589,7 +589,8 @@ const CRMContent = () => {
   const clientChatsWithoutThreads = (clients || [])
     .filter(c => !c.name?.includes('Корпоративный чат') && 
                  !c.name?.includes('Чат педагогов') && 
-                 !c.name?.includes('Преподаватель:'))
+                 !c.name?.includes('Преподаватель:') &&
+                 !c.name?.includes('Кастомный чат'))
     .filter(c => !threadClientIds.has(c.id))
     .map(c => ({
       id: c.id,
@@ -605,13 +606,14 @@ const CRMContent = () => {
 
   const allChats = [
     ...systemChats,
-    // Только реальные клиентские чаты (исключаем системные)
+    // Только реальные клиентские чаты (исключаем системные и кастомные)
     ...threads
       .filter(thread => {
         const clientData = clients.find(c => c.id === thread.client_id);
         return clientData && !clientData.name.includes('Корпоративный чат') && 
                !clientData.name.includes('Чат педагогов') && 
-               !clientData.name.includes('Преподаватель:');
+               !clientData.name.includes('Преподаватель:') &&
+               !clientData.name.includes('Кастомный чат');
       })
       .map(thread => {
         const clientData = clients.find(c => c.id === thread.client_id);
