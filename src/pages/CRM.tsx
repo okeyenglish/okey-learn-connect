@@ -1273,7 +1273,7 @@ const menuItems = [
                       >
                         <item.icon className="h-5 w-5 ml-2" />
                       </PinnableModalHeader>
-                      <div className="py-4">
+                      <div>
                         {item.label === "Лиды" && (
                           <StudentsLeadsModal />
                         )}
