@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { User, Settings, Key, LogOut, ChevronDown } from "lucide-react";
+import { User, Settings, Key, LogOut, ChevronDown, Shield } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +12,9 @@ import {
 import { ProfileModal } from "./ProfileModal";
 import { ChangePasswordModal } from "./ChangePasswordModal";
 import { SettingsModal } from "@/components/settings/SettingsModal";
+import { AdminModal } from "@/components/admin/AdminModal";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ManagerMenuProps {
   managerName: string;
@@ -27,11 +29,18 @@ export const ManagerMenu = ({
   avatarUrl, 
   onSignOut 
 }: ManagerMenuProps) => {
+  const { role, roles } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
   const isMobile = useIsMobile();
+  
+  // Check if user is admin or methodist
+  const isAdmin = role === 'admin' || roles?.includes?.('admin');
+  const isMethodist = role === 'methodist' || roles?.includes?.('methodist');
+  const canAccessAdmin = isAdmin || isMethodist;
 
   const handleProfileClick = () => {
     setShowProfileModal(true);
@@ -45,6 +54,11 @@ export const ManagerMenu = ({
 
   const handleSettingsClick = () => {
     setShowSettingsModal(true);
+    setIsOpen(false);
+  };
+
+  const handleAdminClick = () => {
+    setShowAdminModal(true);
     setIsOpen(false);
   };
 
@@ -126,6 +140,16 @@ export const ManagerMenu = ({
           <span>Настройки</span>
         </DropdownMenuItem>
         
+        {canAccessAdmin && (
+          <DropdownMenuItem 
+            onClick={handleAdminClick}
+            className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted"
+          >
+            <Shield className="h-4 w-4" />
+            <span>Админ-панель</span>
+          </DropdownMenuItem>
+        )}
+        
         <DropdownMenuSeparator />
         
         <DropdownMenuItem 
@@ -155,6 +179,14 @@ export const ManagerMenu = ({
         open={showSettingsModal} 
         onOpenChange={setShowSettingsModal} 
       />
+
+      {/* Admin Modal */}
+      {canAccessAdmin && (
+        <AdminModal 
+          open={showAdminModal} 
+          onOpenChange={setShowAdminModal} 
+        />
+      )}
     </>
   );
 };
