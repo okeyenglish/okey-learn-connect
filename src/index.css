@@ -24,108 +24,188 @@ img[alt*="avatar"],
 
 @layer base {
   :root {
-    /* Brand Colors - O'KEY ENGLISH */
+    /* === Surfaces & Backgrounds === */
+    --bg: 0 0% 100%;
+    --bg-soft: 220 20% 98%;
+    --surface: 0 0% 100%;
+    --surface-alt: 220 20% 97%;
+    
+    /* Backward compatibility */
     --background: 0 0% 100%;
-    --foreground: 210 24% 16%;
-
     --card: 0 0% 100%;
-    --card-foreground: 210 24% 16%;
-
     --popover: 0 0% 100%;
-    --popover-foreground: 210 24% 16%;
-
-    /* Primary - Brand Red from logo */
+    
+    /* === Text Colors === */
+    --text-primary: 220 15% 20%;
+    --text-secondary: 220 10% 45%;
+    --text-muted: 220 8% 60%;
+    
+    --foreground: 220 15% 20%;
+    --card-foreground: 220 15% 20%;
+    --popover-foreground: 220 15% 20%;
+    
+    /* === Brand Colors === */
+    --brand: 0 84% 60%;
+    --brand-600: 0 84% 52%;
+    --brand-500: 0 84% 60%;
+    --brand-100: 0 84% 96%;
+    
+    /* Primary stays same for compatibility */
     --primary: 0 84% 60%;
     --primary-foreground: 0 0% 100%;
     --primary-hover: 0 84% 52%;
-
-    /* Secondary - Brand Blue from logo */
-    --secondary: 220 70% 45%;
-    --secondary-foreground: 0 0% 100%;
-
-    /* Accent - Brand Purple/Blue border from logo */
-    --accent: 250 60% 65%;
-    --accent-foreground: 0 0% 100%;
-
-    --muted: 210 40% 96%;
-    --muted-foreground: 210 22% 32%;
-
+    
+    /* === Status Colors === */
+    --success: 142 76% 36%;
+    --success-600: 142 76% 36%;
+    --success-100: 142 76% 95%;
+    
+    --warning: 38 92% 50%;
+    --warning-600: 38 92% 50%;
+    --warning-100: 38 92% 95%;
+    
+    --danger: 0 84% 60%;
+    --danger-600: 0 84% 60%;
+    --danger-100: 0 84% 96%;
+    
+    --info: 217 91% 60%;
+    --info-600: 217 91% 60%;
+    --info-100: 217 91% 96%;
+    
+    --neutral: 220 10% 50%;
+    --neutral-500: 220 10% 50%;
+    --neutral-100: 220 10% 95%;
+    
+    /* === Secondary & Accent === */
+    --secondary: 220 20% 96%;
+    --secondary-foreground: 220 15% 20%;
+    
+    --accent: 220 15% 94%;
+    --accent-foreground: 220 15% 20%;
+    
+    --muted: 220 15% 96%;
+    --muted-foreground: 220 10% 45%;
+    
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 4 82% 56%;
-
+    
+    /* === Borders & Inputs === */
+    --border: 220 13% 91%;
+    --border-alpha: 220 13% 50% / 0.12;
+    --input: 220 13% 91%;
+    --ring: 0 84% 60%;
+    
+    /* === Elevation Shadows === */
+    --elev-1: 0 1px 4px hsl(220 15% 20% / 0.1);
+    --elev-2: 0 4px 16px hsl(220 15% 20% / 0.12);
+    --elev-3: 0 8px 32px hsl(220 15% 20% / 0.16);
+    
+    /* === Radii === */
+    --radius-sm: 4px;
     --radius: 8px;
-
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(0 84% 60%), hsl(220 70% 45%));
-    --gradient-hero: linear-gradient(135deg, hsl(0 84% 60%) 0%, hsl(0 84% 52%) 50%, hsl(250 60% 65%) 100%);
-    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(250 60% 98%) 100%);
-
-    /* Shadows */
-    --shadow-primary: 0 4px 20px hsl(0 84% 60% / 0.25);
-    --shadow-card: 0 4px 12px hsl(220 70% 50% / 0.08);
-    --shadow-elevated: 0 8px 30px hsl(220 70% 50% / 0.12);
-
-    /* Animations */
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-
+    --radius-md: 12px;
+    --radius-lg: 20px;
+    
+    /* === Animations === */
+    --transition-fast: all 120ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-base: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-smooth: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* === Sidebar === */
     --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
+    --sidebar-foreground: 220 15% 20%;
+    --sidebar-primary: 0 84% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 15% 94%;
+    --sidebar-accent-foreground: 220 15% 20%;
     --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-ring: 0 84% 60%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 85%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    /* === Surfaces & Backgrounds === */
+    --bg: 220 20% 10%;
+    --bg-soft: 220 20% 12%;
+    --surface: 220 20% 14%;
+    --surface-alt: 220 20% 16%;
+    
+    --background: 220 20% 10%;
+    --card: 220 20% 14%;
+    --popover: 220 20% 14%;
+    
+    /* === Text Colors === */
+    --text-primary: 220 15% 95%;
+    --text-secondary: 220 10% 70%;
+    --text-muted: 220 8% 55%;
+    
+    --foreground: 220 15% 95%;
+    --card-foreground: 220 15% 95%;
+    --popover-foreground: 220 15% 95%;
+    
+    /* === Brand Colors === */
+    --brand: 0 84% 60%;
+    --brand-600: 0 84% 52%;
+    --brand-500: 0 84% 60%;
+    --brand-100: 0 84% 20%;
+    
+    --primary: 0 84% 60%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 0 84% 52%;
+    
+    /* === Status Colors === */
+    --success: 142 76% 45%;
+    --success-600: 142 76% 45%;
+    --success-100: 142 76% 20%;
+    
+    --warning: 38 92% 55%;
+    --warning-600: 38 92% 55%;
+    --warning-100: 38 92% 20%;
+    
+    --danger: 0 84% 60%;
+    --danger-600: 0 84% 60%;
+    --danger-100: 0 84% 20%;
+    
+    --info: 217 91% 65%;
+    --info-600: 217 91% 65%;
+    --info-100: 217 91% 20%;
+    
+    --neutral: 220 10% 50%;
+    --neutral-500: 220 10% 50%;
+    --neutral-100: 220 10% 20%;
+    
+    /* === Secondary & Accent === */
+    --secondary: 220 20% 18%;
+    --secondary-foreground: 220 15% 90%;
+    
+    --accent: 220 20% 20%;
+    --accent-foreground: 220 15% 90%;
+    
+    --muted: 220 20% 16%;
+    --muted-foreground: 220 10% 65%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* === Borders & Inputs === */
+    --border: 220 13% 25%;
+    --border-alpha: 220 13% 70% / 0.12;
+    --input: 220 13% 25%;
+    --ring: 0 84% 60%;
+    
+    /* === Elevation Shadows === */
+    --elev-1: 0 1px 4px hsl(220 15% 5% / 0.3);
+    --elev-2: 0 4px 16px hsl(220 15% 5% / 0.4);
+    --elev-3: 0 8px 32px hsl(220 15% 5% / 0.5);
+    
+    /* === Sidebar === */
+    --sidebar-background: 220 20% 12%;
+    --sidebar-foreground: 220 15% 90%;
+    --sidebar-primary: 0 84% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 220 20% 18%;
+    --sidebar-accent-foreground: 220 15% 90%;
+    --sidebar-border: 220 13% 25%;
+    --sidebar-ring: 0 84% 60%;
   }
 }
 
@@ -144,27 +224,84 @@ img[alt*="avatar"],
 }
 
 @layer components {
-  .btn-hero {
-    @apply bg-gradient-primary text-white font-semibold px-8 py-4 rounded-lg shadow-primary hover:shadow-elevated transform hover:scale-105 transition-all duration-300;
+  /* === Buttons === */
+  .btn-primary {
+    @apply bg-brand text-white font-medium px-4 py-2 rounded-lg;
+    @apply hover:bg-brand-600 active:scale-[0.98];
+    @apply transition-all duration-150;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2;
+    @apply disabled:opacity-50 disabled:pointer-events-none;
   }
 
   .btn-secondary {
-    @apply bg-secondary text-secondary-foreground font-semibold px-6 py-3 rounded-lg hover:bg-secondary/90 transition-smooth;
+    @apply border border-border bg-transparent text-text-primary font-medium px-4 py-2 rounded-lg;
+    @apply hover:bg-surface-alt active:scale-[0.98];
+    @apply transition-all duration-150;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2;
+    @apply disabled:opacity-50 disabled:pointer-events-none;
   }
 
+  .btn-tertiary {
+    @apply bg-transparent text-text-primary font-medium px-4 py-2 rounded-lg;
+    @apply hover:bg-surface-alt active:scale-[0.98];
+    @apply transition-all duration-150;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2;
+    @apply disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  /* === Cards === */
   .card-elevated {
-    @apply bg-card rounded-xl shadow-card hover:shadow-elevated transition-all duration-300;
+    @apply bg-surface rounded-xl p-6;
+    box-shadow: var(--elev-2);
+    @apply hover:shadow-[var(--elev-3)] transition-all duration-200;
   }
 
-  .btn-outline {
-    @apply border-2 border-primary text-primary font-semibold px-6 py-3 rounded-lg hover:bg-primary hover:text-primary-foreground transition-all duration-300;
+  .card-base {
+    @apply bg-surface rounded-lg p-4 border border-border/50;
+    @apply hover:border-border transition-all duration-150;
   }
 
-  .text-gradient {
-    @apply bg-gradient-primary bg-clip-text text-transparent;
+  /* === Status Badges === */
+  .badge-success {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-lg;
+    @apply bg-[hsl(var(--success-100))] text-[hsl(var(--success-600))];
+    @apply text-xs font-medium;
   }
 
-  /* Line clamp utilities for truncating text */
+  .badge-warning {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-lg;
+    @apply bg-[hsl(var(--warning-100))] text-[hsl(var(--warning-600))];
+    @apply text-xs font-medium;
+  }
+
+  .badge-danger {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-lg;
+    @apply bg-[hsl(var(--danger-100))] text-[hsl(var(--danger-600))];
+    @apply text-xs font-medium;
+  }
+
+  .badge-info {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-lg;
+    @apply bg-[hsl(var(--info-100))] text-[hsl(var(--info-600))];
+    @apply text-xs font-medium;
+  }
+
+  .badge-neutral {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-lg;
+    @apply bg-[hsl(var(--neutral-100))] text-[hsl(var(--neutral-500))];
+    @apply text-xs font-medium;
+  }
+
+  /* === Interactive Elements === */
+  .hover-scale {
+    @apply transition-transform duration-150 hover:scale-[1.02] active:scale-[0.98];
+  }
+
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2;
+  }
+
+  /* === Text Utilities === */
   .line-clamp-1 {
     overflow: hidden;
     display: -webkit-box;
@@ -177,5 +314,12 @@ img[alt*="avatar"],
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+  }
+
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
   }
 }
