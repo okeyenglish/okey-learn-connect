@@ -584,6 +584,25 @@ const CRMContent = () => {
       avatar_url: null,
     },
   ];
+  const threadClientIds = new Set((threads || []).map(t => t.client_id));
+
+  const clientChatsWithoutThreads = (clients || [])
+    .filter(c => !c.name?.includes('Корпоративный чат') && 
+                 !c.name?.includes('Чат педагогов') && 
+                 !c.name?.includes('Преподаватель:'))
+    .filter(c => !threadClientIds.has(c.id))
+    .map(c => ({
+      id: c.id,
+      name: c.name,
+      phone: c.phone,
+      lastMessage: 'Нет сообщений',
+      time: '',
+      unread: 0,
+      type: 'client' as const,
+      timestamp: 0,
+      avatar_url: c.avatar_url || null
+    }));
+
   const allChats = [
     ...systemChats,
     // Только реальные клиентские чаты (исключаем системные)
@@ -621,7 +640,9 @@ const CRMContent = () => {
           timestamp: new Date(thread.last_message_time).getTime(),
           avatar_url: clientData?.avatar_url || null
         };
-      })
+      }),
+    // Добавляем клиентов без сообщений, чтобы они тоже отображались как чаты
+    ...clientChatsWithoutThreads
   ];
 
   const filteredChats = allChats
