@@ -10,7 +10,7 @@ export default function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-secondary text-secondary-foreground">
+    <footer className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Company Info */}
@@ -27,17 +27,17 @@ export default function Footer() {
                 O'KEY ENGLISH
               </span>
             </div>
-            <p className="text-sm text-secondary-foreground/80">
+            <p className="text-sm text-white/70">
               Сильный английский для детей, подростков и взрослых с гарантией прогресса
             </p>
             <div className="flex items-center space-x-8">
               <div className="text-center">
                 <div className="text-2xl font-bold text-white">10 лет</div>
-                <div className="text-xs text-secondary-foreground/80">на рынке</div>
+                <div className="text-xs text-white/60">на рынке</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-white">10000+</div>
-                <div className="text-xs text-secondary-foreground/80">выпускников</div>
+                <div className="text-xs text-white/60">выпускников</div>
               </div>
             </div>
           </div>
@@ -92,7 +92,7 @@ export default function Footer() {
                   className="block text-sm hover:text-accent transition-colors"
                 >
                   <div className="font-medium">{branch.name}</div>
-                  <div className="text-xs text-secondary-foreground/60">
+                  <div className="text-xs text-white/50">
                     {branch.address}
                   </div>
                 </Link>
@@ -150,9 +150,9 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-secondary-foreground/20 mt-8 pt-8">
+        <div className="border-t border-white/20 mt-8 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-            <div className="text-sm text-secondary-foreground/60">
+            <div className="text-sm text-white/50">
               © {currentYear} O'KEY ENGLISH. Все права защищены.
             </div>
             <div className="flex space-x-6 text-sm">
