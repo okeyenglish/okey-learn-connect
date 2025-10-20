@@ -134,14 +134,14 @@ export const useApplySegmentFilters = (filters: Record<string, any>) => {
   return useQuery({
     queryKey: ['students-by-segment', filters],
     queryFn: async () => {
-      let query = supabase.from('students').select('*');
+      let query: any = supabase.from('students').select('*');
 
       // Apply filters
       if (filters.status) {
         query = query.eq('status', filters.status);
       }
       if (filters.branch) {
-        query = query.eq('branch', filters.branch) as any;
+        query = query.eq('branch', filters.branch);
       }
       if (filters.age_min) {
         query = query.gte('age', filters.age_min);

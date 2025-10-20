@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { StudentCard } from './StudentCard';
+import { EnhancedStudentCard } from './EnhancedStudentCard';
 import type { Student } from '@/hooks/useStudents';
 
 interface StudentsLeadsModalProps {
@@ -211,7 +211,7 @@ export function StudentsLeadsModal({ onLeadClick }: StudentsLeadsModalProps) {
 
       {/* Карточка студента */}
       {selectedStudent && (
-        <StudentCard
+        <EnhancedStudentCard
           student={selectedStudent}
           open={showStudentCard}
           onOpenChange={setShowStudentCard}

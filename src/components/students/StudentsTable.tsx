@@ -17,7 +17,7 @@ import {
   Calendar,
   MessageSquare
 } from 'lucide-react';
-import { StudentCard } from './StudentCard';
+import { EnhancedStudentCard } from './EnhancedStudentCard';
 import { useStudents, Student } from '@/hooks/useStudents';
 
 
@@ -254,7 +254,7 @@ export function StudentsTable({ filters, statusFilter }: StudentsTableProps) {
 
       {/* Карточка студента */}
       {selectedStudent && (
-        <StudentCard
+        <EnhancedStudentCard
           student={selectedStudent}
           open={showStudentCard}
           onOpenChange={setShowStudentCard}

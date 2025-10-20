@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Search, 
   Filter, 
@@ -15,10 +16,17 @@ import {
   Edit, 
   Trash2, 
   Phone,
-  Users
+  Users,
+  Tag,
+  Bookmark,
+  Clock
 } from "lucide-react";
 import { useStudents } from "@/hooks/useStudents";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
+import { StudentCard } from "@/components/students/StudentCard";
+import { StudentTagsManager } from "@/components/students/StudentTagsManager";
+import { BulkActionsPanel } from "@/components/students/BulkActionsPanel";
+import { StudentHistoryTimeline } from "@/components/students/StudentHistoryTimeline";
 
 export const StudentsSection = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -76,7 +84,7 @@ export const StudentsSection = () => {
       <div className="flex items-center justify-between p-4 border-b">
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5" />
-          <h2 className="text-xl font-bold">Ученики и клиенты</h2>
+          <h2 className="text-xl font-bold">Ученики</h2>
           <Badge variant="secondary">{filteredStudents.length}</Badge>
         </div>
         <div className="flex items-center gap-2">
@@ -87,11 +95,16 @@ export const StudentsSection = () => {
           <AddStudentModal open={showAddModal} onOpenChange={setShowAddModal}>
             <Button size="sm">
               <Plus className="h-4 w-4 mr-2" />
-              Добавить
+              Добавить ученика
             </Button>
           </AddStudentModal>
         </div>
       </div>
+
+      <BulkActionsPanel 
+        selectedStudents={selectedStudents} 
+        onClearSelection={() => setSelectedStudents([])} 
+      />
 
       <div className="flex-1 overflow-hidden">
         <div className="h-full flex">
@@ -190,6 +203,7 @@ export const StudentsSection = () => {
                     <TableHead>Возраст</TableHead>
                     <TableHead>Филиал</TableHead>
                     <TableHead>Статус</TableHead>
+                    <TableHead>Теги</TableHead>
                     <TableHead>Телефон</TableHead>
                     <TableHead>Дата создания</TableHead>
                     <TableHead className="w-32">Действия</TableHead>
@@ -204,13 +218,13 @@ export const StudentsSection = () => {
                     </TableRow>
                   ) : filteredStudents.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">
+                      <TableCell colSpan={9} className="text-center py-8">
                         Ученики не найдены
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredStudents.map((student) => (
-                      <TableRow key={student.id}>
+                      <TableRow key={student.id} className="group">
                         <TableCell>
                           <Checkbox 
                             checked={selectedStudents.includes(student.id)}
@@ -220,30 +234,41 @@ export const StudentsSection = () => {
                         <TableCell className="font-medium">{student.name}</TableCell>
                         <TableCell>{student.age || '—'}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            Не указан
-                          </Badge>
+                          {(student as any).branch ? (
+                            <Badge variant="outline" className="text-xs">
+                              {(student as any).branch}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge 
-                            variant={student.status === 'active' ? 'default' : 'secondary'} 
+                            variant={(student.status as string) === 'active' ? 'default' : 'secondary'} 
                             className="text-xs"
                           >
-                            {student.status === 'active' ? 'Активный' : 
-                             student.status === 'trial' ? 'Пробный' : 'Неактивный'}
+                            {(student.status as string) === 'active' ? 'Активный' : 
+                             (student.status as string) === 'trial' ? 'Пробный' :
+                             (student.status as string) === 'not_started' ? 'Не начал' :
+                             (student.status as string) === 'archived' ? 'Архив' :
+                             (student.status as string) === 'on_pause' ? 'На паузе' : 
+                             'Неактивный'}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-1">
+                          <StudentTagsManager studentId={student.id} />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1 text-sm">
                             <Phone className="h-3 w-3" />
                             {student.phone}
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-sm">
                           {student.created_at ? new Date(student.created_at).toLocaleDateString('ru-RU') : '—'}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                               <Edit className="h-4 w-4" />
                             </Button>
