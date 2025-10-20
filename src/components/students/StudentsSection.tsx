@@ -21,6 +21,7 @@ import {
 import { AddStudentModal } from './AddStudentModal';
 import { ImportStudentsModal } from './ImportStudentsModal';
 import { ExportStudentsDialog } from './ExportStudentsDialog';
+import { DuplicatesDialog } from './DuplicatesDialog';
 import { StudentsTable } from './StudentsTable';
 import { StudentCard } from './StudentCard';
 import { useStudents } from '@/hooks/useStudents';
@@ -67,6 +68,7 @@ export default function StudentsSection() {
           </p>
         </div>
         <div className="flex gap-2">
+          <DuplicatesDialog />
           <Button variant="outline" onClick={() => setShowImportModal(true)}>
             <Upload className="h-4 w-4 mr-2" />
             Импорт
