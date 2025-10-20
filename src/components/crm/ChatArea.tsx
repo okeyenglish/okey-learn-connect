@@ -1109,58 +1109,58 @@ export const ChatArea = ({
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <Button 
-                size="sm" 
-                variant="outline" 
-                className="crm-btn h-10 w-10 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
                 title="Добавить задачу"
                 onClick={() => (onOpenTaskModal ? onOpenTaskModal() : setShowAddTaskModal(true))}
               >
-                <Plus className="h-5 w-5 stroke-1" />
+                <Plus className="h-4 w-4" />
               </Button>
               <Button 
-                size="sm" 
-                variant="outline" 
-                className="crm-btn h-10 w-10 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
                 title="Выставить счёт"
                 onClick={() => (onOpenInvoiceModal ? onOpenInvoiceModal() : setShowInvoiceModal(true))}
               >
-                <FileText className="h-5 w-5 stroke-1" />
+                <FileText className="h-4 w-4" />
               </Button>
               <Button 
-                size="sm" 
-                variant="outline"
-                className="crm-btn h-10 w-10 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
                 title="Поиск в чате"
                 onClick={handleSearchToggle}
               >
-                <Search className="h-5 w-5 stroke-1" />
+                <Search className="h-4 w-4" />
               </Button>
               <Button 
-                size="sm" 
-                variant="outline"
-                className={`crm-btn h-10 w-10 p-0 border-muted-foreground/40 hover:bg-muted/30 hover:text-foreground ${showOnlyCalls ? 'bg-primary/10 text-primary border-primary/40' : 'text-muted-foreground'}`}
+                variant="ghost"
+                size="icon"
+                className={`h-8 w-8 ${showOnlyCalls ? 'bg-primary/10 text-primary' : ''}`}
                 title="Показать только звонки"
                 onClick={() => setShowOnlyCalls(!showOnlyCalls)}
               >
-                <Filter className="h-5 w-5 stroke-1" />
+                <Filter className="h-4 w-4" />
               </Button>
               <Button 
-                size="sm" 
-                variant="outline"
-                className="crm-btn h-10 w-10 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
                 title="Позвонить"
                 onClick={handlePhoneCall}
               >
-                <Phone className="h-5 w-5 stroke-1" />
+                <Phone className="h-4 w-4" />
               </Button>
               <Button 
-                size="sm" 
-                variant="outline"
-                className="crm-btn h-10 w-10 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
                 title="Переслать сообщения"
                 onClick={handleToggleSelectionMode}
               >
-                <Forward className="h-5 w-5 stroke-1" />
+                <Forward className="h-4 w-4" />
               </Button>
               
               {showSearchInput && (
