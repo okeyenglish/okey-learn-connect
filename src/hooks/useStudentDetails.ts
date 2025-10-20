@@ -69,6 +69,12 @@ export interface StudentIndividualLesson {
   nextLesson?: string;
   format?: string;
   sessions: LessonSession[];
+  isFlexibleSchedule?: boolean;
+  auditLocation?: string;
+  paymentMethod?: string;
+  teacherRate?: number;
+  breakMinutes?: number;
+  responsibleManager?: string;
 }
 
 export interface StudentPayment {
@@ -421,6 +427,12 @@ export const useStudentDetails = (studentId: string) => {
             nextLesson: undefined,
             format: 'Индивидуальное',
             sessions,
+            isFlexibleSchedule: il.is_flexible_schedule,
+            auditLocation: il.audit_location,
+            paymentMethod: il.payment_method,
+            teacherRate: il.teacher_rate,
+            breakMinutes: il.break_minutes,
+            responsibleManager: il.responsible_manager,
           };
         })
       );
