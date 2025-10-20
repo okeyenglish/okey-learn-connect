@@ -1134,6 +1134,8 @@ export type Database = {
       }
       individual_lesson_sessions: {
         Row: {
+          bbb_meeting_id: string | null
+          bbb_meeting_url: string | null
           created_at: string | null
           created_by: string | null
           duration: number | null
@@ -1148,6 +1150,8 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          bbb_meeting_id?: string | null
+          bbb_meeting_url?: string | null
           created_at?: string | null
           created_by?: string | null
           duration?: number | null
@@ -1162,6 +1166,8 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          bbb_meeting_id?: string | null
+          bbb_meeting_url?: string | null
           created_at?: string | null
           created_by?: string | null
           duration?: number | null
@@ -1928,6 +1934,8 @@ export type Database = {
       }
       lesson_sessions: {
         Row: {
+          bbb_meeting_id: string | null
+          bbb_meeting_url: string | null
           branch: string
           classroom: string
           course_lesson_id: string | null
@@ -1950,6 +1958,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bbb_meeting_id?: string | null
+          bbb_meeting_url?: string | null
           branch: string
           classroom: string
           course_lesson_id?: string | null
@@ -1972,6 +1982,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bbb_meeting_id?: string | null
+          bbb_meeting_url?: string | null
           branch?: string
           classroom?: string
           course_lesson_id?: string | null

@@ -54,7 +54,7 @@ serve(async (req) => {
     // Создаем уникальный ID для встречи
     const meetingId = meetingID || `${lessonType}_${groupId || studentId}_${Date.now()}`;
 
-    if (action === "create") {
+  if (action === "create") {
       // Создаем встречу
       const meetingName = lessonType === "group" 
         ? `Групповое занятие ${groupId}` 
@@ -81,10 +81,34 @@ serve(async (req) => {
 
       console.log("Meeting created:", { meetingId, createData });
 
+      // Сохраняем meeting URL в базу данных
+      const joinUrl = `${BBB_URL}`;
+      
+      if (lessonType === "group" && groupId) {
+        await supabase
+          .from('lesson_sessions')
+          .update({ 
+            bbb_meeting_id: meetingId,
+            bbb_meeting_url: joinUrl 
+          })
+          .eq('group_id', groupId)
+          .gte('lesson_date', new Date().toISOString().split('T')[0]);
+      } else if (studentId) {
+        await supabase
+          .from('individual_lesson_sessions')
+          .update({ 
+            bbb_meeting_id: meetingId,
+            bbb_meeting_url: joinUrl 
+          })
+          .eq('individual_lesson_id', studentId)
+          .gte('lesson_date', new Date().toISOString().split('T')[0]);
+      }
+
       return new Response(
         JSON.stringify({ 
           success: true, 
           meetingId,
+          joinUrl,
           message: "Meeting created successfully" 
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }

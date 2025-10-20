@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useToast } from '@/components/ui/use-toast';
 import { CourseMaterialsLibrary } from '@/components/student/CourseMaterialsLibrary';
+import { StudentLessonCard } from '@/components/student/StudentLessonCard';
 
 export default function StudentPortal() {
   const navigate = useNavigate();
@@ -85,6 +86,7 @@ export default function StudentPortal() {
       const { data: studentSessions, error: studentSessionsError } = await supabase
         .from('student_lesson_sessions')
         .select(`
+          lesson_session_id,
           lesson_sessions (
             id,
             lesson_date,
@@ -94,17 +96,84 @@ export default function StudentPortal() {
             teacher_name,
             status,
             branch,
-            notes
+            notes,
+            bbb_meeting_id,
+            bbb_meeting_url,
+            group_id,
+            learning_groups (
+              id,
+              name
+            )
           )
         `)
         .eq('student_id', student.id);
       
       if (studentSessionsError) throw studentSessionsError;
       
-      return studentSessions?.map(s => s.lesson_sessions).filter(Boolean) || [];
+      return studentSessions?.map(s => ({
+        ...s.lesson_sessions,
+        group: s.lesson_sessions?.learning_groups
+      })).filter(Boolean) || [];
     },
     enabled: !!student?.id,
   });
+
+  // Получаем индивидуальные занятия студента
+  const { data: individualSessions, isLoading: individualSessionsLoading } = useQuery({
+    queryKey: ['individual-sessions', student?.id],
+    queryFn: async () => {
+      if (!student?.id) return [];
+      
+      // Сначала получаем индивидуальные уроки студента
+      const { data: lessons, error: lessonsError } = await supabase
+        .from('individual_lessons')
+        .select('id, student_name, teacher_name, branch, subject, level, schedule_time, duration')
+        .eq('student_id', student.id)
+        .eq('is_active', true);
+      
+      if (lessonsError) throw lessonsError;
+      if (!lessons || lessons.length === 0) return [];
+      
+      const lessonIds = lessons.map(l => l.id);
+      
+      // Теперь получаем сессии для этих уроков
+      const { data: sessions, error: sessionsError } = await supabase
+        .from('individual_lesson_sessions')
+        .select('*')
+        .in('individual_lesson_id', lessonIds)
+        .gte('lesson_date', new Date().toISOString().split('T')[0])
+        .order('lesson_date', { ascending: true });
+      
+      if (sessionsError) throw sessionsError;
+      
+      // Объединяем данные
+      return sessions?.map(session => {
+        const lesson = lessons.find(l => l.id === session.individual_lesson_id);
+        const scheduleTime = lesson?.schedule_time?.split('-') || ['09:00', '10:00'];
+        const duration = session.duration || lesson?.duration || 60;
+        const startTime = scheduleTime[0]?.trim() || '09:00';
+        const endTime = scheduleTime[1]?.trim() || calculateEndTime(startTime, duration);
+        
+        return {
+          ...session,
+          start_time: startTime,
+          end_time: endTime,
+          teacher_name: lesson?.teacher_name,
+          branch: lesson?.branch,
+          individual_lesson: lesson,
+        };
+      }) || [];
+    },
+    enabled: !!student?.id,
+  });
+
+  const calculateEndTime = (startTime: string, duration: number): string => {
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const totalMinutes = hours * 60 + minutes + duration;
+    const endHours = Math.floor(totalMinutes / 60);
+    const endMinutes = totalMinutes % 60;
+    return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
+  };
 
   const handleSignOut = async () => {
     try {
@@ -126,7 +195,7 @@ export default function StudentPortal() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-background">
-        {studentLoading || coursesLoading || lessonsLoading || sessionsLoading ? (
+        {studentLoading || coursesLoading || lessonsLoading || sessionsLoading || individualSessionsLoading ? (
           <div className="container mx-auto max-w-4xl p-4">
             <div className="text-center py-8">Загружаем данные...</div>
           </div>
@@ -265,79 +334,63 @@ export default function StudentPortal() {
                   </CardContent>
                 </Card>
 
-                {/* Расписание занятий */}
+                {/* Групповые занятия */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Calendar className="h-5 w-5" />
-                      Ближайшие занятия
+                      Групповые занятия
                     </CardTitle>
+                    <CardDescription>Ближайшие групповые занятия</CardDescription>
                   </CardHeader>
                   <CardContent>
                     {lessonSessions && lessonSessions.length > 0 ? (
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                         {lessonSessions
                           .filter(session => new Date(session.lesson_date) >= new Date())
                           .sort((a, b) => new Date(a.lesson_date).getTime() - new Date(b.lesson_date).getTime())
                           .slice(0, 5)
                           .map((session) => (
-                            <div key={session.id} className="border rounded-lg p-4">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-3">
-                                  <div>
-                                    <h4 className="font-medium">
-                                      {format(new Date(session.lesson_date), 'dd MMMM yyyy', { locale: ru })}
-                                    </h4>
-                                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                      <div className="flex items-center gap-1">
-                                        <Clock className="h-4 w-4" />
-                                        {session.start_time} - {session.end_time}
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <MapPin className="h-4 w-4" />
-                                        {session.classroom}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant={
-                                    session.status === 'completed' ? 'default' :
-                                    session.status === 'cancelled' ? 'destructive' :
-                                    'secondary'
-                                  }>
-                                    {session.status === 'completed' ? 'Проведено' :
-                                     session.status === 'cancelled' ? 'Отменено' :
-                                     'Запланировано'}
-                                  </Badge>
-                                  {session.status === 'scheduled' && (
-                                    <Button
-                                      size="sm"
-                                      onClick={() => handleStartOnlineLesson(session.id, session.teacher_name)}
-                                      className="flex items-center gap-1"
-                                    >
-                                      <Video className="h-4 w-4" />
-                                      Войти в урок
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="text-sm">
-                                <p><span className="text-muted-foreground">Преподаватель:</span> {session.teacher_name}</p>
-                                <p><span className="text-muted-foreground">Филиал:</span> {session.branch}</p>
-                                {session.notes && (
-                                  <p><span className="text-muted-foreground">Примечания:</span> {session.notes}</p>
-                                )}
-                              </div>
-                            </div>
+                            <StudentLessonCard
+                              key={session.id}
+                              lesson={session}
+                              type="group"
+                            />
                           ))
                         }
                       </div>
                     ) : (
-                      <p className="text-muted-foreground">Нет запланированных занятий</p>
+                      <p className="text-muted-foreground">Нет запланированных групповых занятий</p>
                     )}
                   </CardContent>
                 </Card>
+
+                {/* Индивидуальные занятия */}
+                {individualSessions && individualSessions.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <User className="h-5 w-5" />
+                        Индивидуальные занятия
+                      </CardTitle>
+                      <CardDescription>Ближайшие индивидуальные занятия</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {individualSessions
+                          .slice(0, 5)
+                          .map((session) => (
+                            <StudentLessonCard
+                              key={session.id}
+                              lesson={session}
+                              type="individual"
+                            />
+                          ))
+                        }
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Индивидуальные уроки */}
                 {individualLessons && individualLessons.length > 0 && (
