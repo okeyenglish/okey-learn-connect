@@ -27,6 +27,7 @@ import { StudentCard } from "@/components/students/StudentCard";
 import { StudentTagsManager } from "@/components/students/StudentTagsManager";
 import { BulkActionsPanel } from "@/components/students/BulkActionsPanel";
 import { StudentHistoryTimeline } from "@/components/students/StudentHistoryTimeline";
+import { StudentSegmentsDialog } from "@/components/students/StudentSegmentsDialog";
 
 export const StudentsSection = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -34,6 +35,7 @@ export const StudentsSection = () => {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showSegmentsDialog, setShowSegmentsDialog] = useState(false);
 
   const { students, isLoading } = useStudents();
 
@@ -72,6 +74,18 @@ export const StudentsSection = () => {
     setSearchTerm("");
     setSelectedBranch("all");
     setSelectedStatus("all");
+  };
+
+  const handleApplySegment = (filters: Record<string, any>) => {
+    if (filters.branch) setSelectedBranch(filters.branch);
+    if (filters.status) setSelectedStatus(filters.status);
+  };
+
+  const getCurrentFilters = () => {
+    const filters: Record<string, any> = {};
+    if (selectedBranch !== 'all') filters.branch = selectedBranch;
+    if (selectedStatus !== 'all') filters.status = selectedStatus;
+    return filters;
   };
 
   const handleMassAction = (action: string) => {
@@ -165,6 +179,18 @@ export const StudentsSection = () => {
                   </Button>
                   <Button variant="outline" size="sm" onClick={resetFilters}>
                     Сбросить
+                  </Button>
+                </div>
+
+                <div className="pt-4 border-t">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={() => setShowSegmentsDialog(true)}
+                  >
+                    <Bookmark className="h-4 w-4 mr-2" />
+                    Сегменты
                   </Button>
                 </div>
 
@@ -285,6 +311,13 @@ export const StudentsSection = () => {
           </div>
         </div>
       </div>
+
+      <StudentSegmentsDialog
+        open={showSegmentsDialog}
+        onOpenChange={setShowSegmentsDialog}
+        currentFilters={getCurrentFilters()}
+        onApplySegment={handleApplySegment}
+      />
     </div>
   );
 };
