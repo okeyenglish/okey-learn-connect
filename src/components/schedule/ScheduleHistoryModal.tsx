@@ -53,15 +53,15 @@ export const ScheduleHistoryModal = ({ session, open, onOpenChange }: ScheduleHi
   const getEventColor = (eventType: string) => {
     switch (eventType) {
       case 'created':
-        return 'bg-blue-100 text-blue-700 border-blue-200';
+        return 'bg-info-100 text-info-600 border-info-600/20';
       case 'rescheduled':
-        return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+        return 'bg-warning-100 text-warning-600 border-warning-600/20';
       case 'cancelled':
-        return 'bg-red-100 text-red-700 border-red-200';
+        return 'bg-danger-100 text-danger-600 border-danger-600/20';
       case 'completed':
-        return 'bg-green-100 text-green-700 border-green-200';
+        return 'bg-success-100 text-success-600 border-success-600/20';
       default:
-        return 'bg-gray-100 text-gray-700 border-gray-200';
+        return 'bg-neutral-100 text-neutral-500 border-neutral-500/20';
     }
   };
 
@@ -78,18 +78,18 @@ export const ScheduleHistoryModal = ({ session, open, onOpenChange }: ScheduleHi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] bg-surface">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <History className="h-5 w-5" />
+          <DialogTitle className="flex items-center gap-2 text-text-primary">
+            <History className="h-5 w-5 text-brand" />
             История изменений занятия
           </DialogTitle>
         </DialogHeader>
 
         {session && (
-          <div className="bg-muted p-3 rounded-lg space-y-1 mb-4">
-            <div className="font-medium">{session.learning_groups?.name || 'Группа'}</div>
-            <div className="text-sm text-muted-foreground">
+          <div className="bg-bg-soft p-3 rounded-lg border border-border/50 space-y-1 mb-4">
+            <div className="font-medium text-text-primary">{session.learning_groups?.name || 'Группа'}</div>
+            <div className="text-sm text-text-secondary">
               {format(new Date(session.lesson_date), 'd MMMM yyyy', { locale: ru })} в {session.start_time}
             </div>
           </div>
@@ -98,17 +98,17 @@ export const ScheduleHistoryModal = ({ session, open, onOpenChange }: ScheduleHi
         <ScrollArea className="h-[400px] pr-4">
           <div className="space-y-4">
             {mockHistory.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <History className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>История изменений пуста</p>
+              <div className="text-center py-8">
+                <History className="h-12 w-12 mx-auto mb-2 text-text-muted opacity-50" />
+                <p className="text-text-secondary">История изменений пуста</p>
               </div>
             ) : (
               mockHistory.map((event, index) => (
                 <div
                   key={event.id}
-                  className="relative border-l-2 border-border pl-4 pb-4 last:pb-0"
+                  className="relative border-l-2 border-border/50 pl-4 pb-4 last:pb-0"
                 >
-                  <div className="absolute -left-2 top-0 h-4 w-4 rounded-full bg-background border-2 border-border flex items-center justify-center">
+                  <div className="absolute -left-2 top-0 h-4 w-4 rounded-full bg-surface border-2 border-border/50 flex items-center justify-center">
                     {getEventIcon(event.event_type)}
                   </div>
 
@@ -120,33 +120,33 @@ export const ScheduleHistoryModal = ({ session, open, onOpenChange }: ScheduleHi
                       >
                         {getEventLabel(event.event_type)}
                       </Badge>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-xs text-text-secondary">
                         {format(new Date(event.changed_at), 'd MMM yyyy, HH:mm', { locale: ru })}
                       </div>
                     </div>
 
                     {event.description && (
-                      <p className="text-sm">{event.description}</p>
+                      <p className="text-sm text-text-primary">{event.description}</p>
                     )}
 
                     {event.changed_by_name && (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1 text-xs text-text-secondary">
                         <User className="h-3 w-3" />
                         {event.changed_by_name}
                       </div>
                     )}
 
                     {event.old_value && event.new_value && (
-                      <div className="text-xs space-y-1 bg-muted/50 p-2 rounded">
+                      <div className="text-xs space-y-1 bg-bg-soft p-2 rounded border border-border/50">
                         <div className="flex gap-2">
-                          <span className="text-muted-foreground">Было:</span>
-                          <span className="font-mono">
+                          <span className="text-text-secondary">Было:</span>
+                          <span className="font-mono text-text-primary">
                             {JSON.stringify(event.old_value, null, 2)}
                           </span>
                         </div>
                         <div className="flex gap-2">
-                          <span className="text-muted-foreground">Стало:</span>
-                          <span className="font-mono">
+                          <span className="text-text-secondary">Стало:</span>
+                          <span className="font-mono text-text-primary">
                             {JSON.stringify(event.new_value, null, 2)}
                           </span>
                         </div>

@@ -6,46 +6,46 @@ import { Info } from "lucide-react";
 export const ScheduleStatusLegend = () => {
   const statusItems = [
     { 
-      color: "bg-blue-100 text-blue-800 border-blue-200", 
+      color: "bg-info-100 text-info-600 border-info-600/20", 
       label: "Текущие занятия",
       description: "Идут в этот период"
     },
     { 
-      color: "bg-yellow-100 text-yellow-800 border-yellow-200", 
+      color: "bg-warning-100 text-warning-600 border-warning-600/20", 
       label: "Заканчиваются",
       description: "В течение недели"
     },
     { 
-      color: "bg-green-100 text-green-800 border-green-200", 
+      color: "bg-success-100 text-success-600 border-success-600/20", 
       label: "Начинаются",
       description: "В ближайшее время"
     },
     { 
-      color: "bg-amber-100 text-amber-800 border-amber-200", 
+      color: "bg-warning-100 text-warning-600 border-warning-600/20", 
       label: "Нет преподавателя",
       description: "Требуется назначение"
     },
     { 
-      color: "bg-purple-100 text-purple-800 border-purple-200", 
+      color: "bg-info-100 text-info-600 border-info-600/20", 
       label: "Другое место",
       description: "Преподаватель в другом филиале"
     },
     { 
-      color: "bg-gray-900 text-white border-gray-900", 
+      color: "bg-neutral-100 text-neutral-500 border-neutral-500/20", 
       label: "Отменено",
       description: "Пропуск/отмена занятия"
     }
   ];
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-sm">
-          <Info className="h-4 w-4" />
+    <Card className="card-base bg-surface">
+      <CardHeader className="pb-3 border-b border-border/50">
+        <CardTitle className="flex items-center gap-2 text-sm text-text-primary">
+          <Info className="h-4 w-4 text-brand" />
           Статусы занятий
         </CardTitle>
       </CardHeader>
-      <CardContent className="pt-0">
+      <CardContent className="pt-3">
         <div className="space-y-3">
           {statusItems.map((item, index) => (
             <div key={index} className="flex items-start gap-3">
@@ -56,10 +56,10 @@ export const ScheduleStatusLegend = () => {
                 ●
               </Badge>
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium text-foreground">
+                <div className="text-xs font-medium text-text-primary">
                   {item.label}
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-text-secondary">
                   {item.description}
                 </div>
               </div>

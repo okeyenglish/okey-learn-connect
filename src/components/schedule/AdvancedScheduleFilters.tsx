@@ -64,10 +64,10 @@ export const AdvancedScheduleFilters = ({
       ];
 
   return (
-    <Card>
-      <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Filter className="h-5 w-5" />
+    <Card className="card-base bg-surface">
+      <CardHeader className="pb-4 border-b border-border/50">
+        <CardTitle className="flex items-center gap-2 text-lg text-text-primary">
+          <Filter className="h-5 w-5 text-brand" />
           Фильтры
         </CardTitle>
       </CardHeader>
@@ -235,15 +235,15 @@ export const AdvancedScheduleFilters = ({
         {/* Action Buttons */}
         <div className="space-y-2">
           <Button 
-            className="w-full" 
+            className="w-full btn-primary" 
             onClick={() => console.log('Searching with filters:', filters)}
           >
             <Search className="h-4 w-4 mr-2" />
             Искать
           </Button>
           <Button 
-            variant="outline" 
-            className="w-full" 
+            variant="secondary" 
+            className="w-full btn-secondary" 
             onClick={onReset}
           >
             <RotateCcw className="h-4 w-4 mr-2" />

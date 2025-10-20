@@ -51,10 +51,10 @@ export const SearchLessonsModal = ({ open, onOpenChange, onSelectSession }: Sear
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
+      <DialogContent className="sm:max-w-[700px] max-h-[80vh] bg-surface">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
+          <DialogTitle className="flex items-center gap-2 text-text-primary">
+            <Search className="h-5 w-5 text-brand" />
             Поиск занятий
           </DialogTitle>
         </DialogHeader>
@@ -62,14 +62,14 @@ export const SearchLessonsModal = ({ open, onOpenChange, onSelectSession }: Sear
         <div className="space-y-4">
           {/* Поисковая строка */}
           <div className="space-y-2">
-            <Label>Быстрый поиск</Label>
+            <Label className="text-sm font-medium text-text-secondary">Быстрый поиск</Label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
               <Input
                 placeholder="Поиск по названию группы, преподавателю, аудитории..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="pl-10 bg-surface border-border/50"
               />
             </div>
           </div>
@@ -77,46 +77,49 @@ export const SearchLessonsModal = ({ open, onOpenChange, onSelectSession }: Sear
           {/* Фильтры */}
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label>Дата (от)</Label>
+              <Label className="text-sm font-medium text-text-secondary">Дата (от)</Label>
               <Input
                 type="date"
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
+                className="bg-surface border-border/50"
               />
             </div>
             <div className="space-y-2">
-              <Label>Преподаватель</Label>
+              <Label className="text-sm font-medium text-text-secondary">Преподаватель</Label>
               <Input
                 placeholder="Имя преподавателя"
                 value={teacherFilter}
                 onChange={(e) => setTeacherFilter(e.target.value)}
+                className="bg-surface border-border/50"
               />
             </div>
             <div className="space-y-2">
-              <Label>Филиал</Label>
+              <Label className="text-sm font-medium text-text-secondary">Филиал</Label>
               <Input
                 placeholder="Название филиала"
                 value={branchFilter}
                 onChange={(e) => setBranchFilter(e.target.value)}
+                className="bg-surface border-border/50"
               />
             </div>
           </div>
 
           {/* Результаты поиска */}
-          <ScrollArea className="h-[400px] border rounded-lg">
+          <ScrollArea className="h-[400px] border border-border/50 rounded-lg">
             {isLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
-                  <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-                  <p className="text-muted-foreground">Поиск занятий...</p>
+                  <div className="animate-spin w-8 h-8 border-4 border-brand border-t-transparent rounded-full mx-auto mb-4"></div>
+                  <p className="text-text-secondary">Поиск занятий...</p>
                 </div>
               </div>
             ) : filteredSessions.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
+              <div className="flex items-center justify-center h-full">
                 <div className="text-center p-8">
-                  <Search className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>Занятия не найдены</p>
-                  <p className="text-sm">Попробуйте изменить параметры поиска</p>
+                  <Search className="h-12 w-12 mx-auto mb-2 text-text-muted opacity-50" />
+                  <p className="text-text-secondary">Занятия не найдены</p>
+                  <p className="text-sm text-text-muted">Попробуйте изменить параметры поиска</p>
                 </div>
               </div>
             ) : (
@@ -124,13 +127,13 @@ export const SearchLessonsModal = ({ open, onOpenChange, onSelectSession }: Sear
                 {filteredSessions.map((session: any) => (
                   <div
                     key={session.id}
-                    className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                    className="p-3 border border-border/50 rounded-lg hover:bg-surface-alt cursor-pointer transition-colors"
                     onClick={() => handleSessionClick(session)}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">
+                          <span className="font-medium text-text-primary">
                             {session.learning_groups?.name || 'Индивидуальное'}
                           </span>
                           <Badge
@@ -141,7 +144,7 @@ export const SearchLessonsModal = ({ open, onOpenChange, onSelectSession }: Sear
                           </Badge>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
+                        <div className="grid grid-cols-2 gap-2 text-sm text-text-secondary">
                           <div className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
                             {format(new Date(session.lesson_date), 'd MMMM yyyy', { locale: ru })}
@@ -161,7 +164,7 @@ export const SearchLessonsModal = ({ open, onOpenChange, onSelectSession }: Sear
                         </div>
 
                         {session.notes && (
-                          <p className="text-xs text-muted-foreground line-clamp-1">
+                          <p className="text-xs text-text-muted line-clamp-1">
                             {session.notes}
                           </p>
                         )}
@@ -173,10 +176,10 @@ export const SearchLessonsModal = ({ open, onOpenChange, onSelectSession }: Sear
             )}
           </ScrollArea>
 
-          <div className="flex justify-between items-center text-sm text-muted-foreground">
+          <div className="flex justify-between items-center text-sm text-text-secondary">
             <span>Найдено занятий: {filteredSessions.length}</span>
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => {
                 setSearchQuery("");
@@ -184,6 +187,7 @@ export const SearchLessonsModal = ({ open, onOpenChange, onSelectSession }: Sear
                 setTeacherFilter("");
                 setBranchFilter("");
               }}
+              className="btn-secondary"
             >
               Сбросить фильтры
             </Button>

@@ -99,43 +99,43 @@ export const RescheduleLessonModal = ({ session, open, onOpenChange }: Reschedul
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] bg-surface">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
+          <DialogTitle className="flex items-center gap-2 text-text-primary">
+            <Clock className="h-5 w-5 text-brand" />
             Перенести занятие
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           {session && (
-            <div className="bg-muted p-3 rounded-lg space-y-1">
-              <div className="font-medium">{session.learning_groups?.name || 'Группа'}</div>
-              <div className="text-sm text-muted-foreground">
+            <div className="bg-bg-soft p-3 rounded-lg border border-border/50 space-y-1">
+              <div className="font-medium text-text-primary">{session.learning_groups?.name || 'Группа'}</div>
+              <div className="text-sm text-text-secondary">
                 Текущая дата: {format(new Date(session.lesson_date), 'd MMMM yyyy', { locale: ru })}
               </div>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-text-secondary">
                 {session.start_time} - {session.end_time}
               </div>
             </div>
           )}
 
           <div className="space-y-2">
-            <Label>Новая дата</Label>
+            <Label className="text-sm font-medium text-text-secondary">Новая дата</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !newDate && "text-muted-foreground"
+                    "w-full justify-start text-left font-normal btn-secondary",
+                    !newDate && "text-text-muted"
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {newDate ? format(newDate, "d MMMM yyyy", { locale: ru }) : "Выберите дату"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent className="w-auto p-0 bg-surface border-border/50" align="start">
                 <Calendar
                   mode="single"
                   selected={newDate}
@@ -149,27 +149,29 @@ export const RescheduleLessonModal = ({ session, open, onOpenChange }: Reschedul
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Новое время начала (опционально)</Label>
+              <Label className="text-sm font-medium text-text-secondary">Новое время начала (опционально)</Label>
               <Input
                 type="time"
                 value={newStartTime}
                 onChange={(e) => setNewStartTime(e.target.value)}
                 placeholder={session?.start_time}
+                className="bg-surface border-border/50"
               />
             </div>
             <div className="space-y-2">
-              <Label>Новое время окончания (опционально)</Label>
+              <Label className="text-sm font-medium text-text-secondary">Новое время окончания (опционально)</Label>
               <Input
                 type="time"
                 value={newEndTime}
                 onChange={(e) => setNewEndTime(e.target.value)}
                 placeholder={session?.end_time}
+                className="bg-surface border-border/50"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Тип переноса</Label>
+            <Label className="text-sm font-medium text-text-secondary">Тип переноса</Label>
             <RadioGroup value={rescheduleType} onValueChange={(value) => setRescheduleType(value as 'single' | 'all')}>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="single" id="single" />
@@ -187,23 +189,25 @@ export const RescheduleLessonModal = ({ session, open, onOpenChange }: Reschedul
           </div>
 
           <div className="space-y-2">
-            <Label>Причина переноса</Label>
+            <Label className="text-sm font-medium text-text-secondary">Причина переноса</Label>
             <Textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Укажите причину переноса занятия..."
               rows={3}
+              className="bg-surface border-border/50"
             />
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="secondary" onClick={() => onOpenChange(false)} className="btn-secondary">
             Отмена
           </Button>
           <Button 
             onClick={handleReschedule}
             disabled={!newDate || updateSession.isPending}
+            className="btn-primary"
           >
             {updateSession.isPending ? "Переносится..." : "Перенести"}
           </Button>

@@ -55,43 +55,43 @@ export const CopyLessonModal = ({ session, open, onOpenChange }: CopyLessonModal
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] bg-surface">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Copy className="h-5 w-5" />
+          <DialogTitle className="flex items-center gap-2 text-text-primary">
+            <Copy className="h-5 w-5 text-brand" />
             Копировать занятие
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           {session && (
-            <div className="bg-muted p-3 rounded-lg space-y-1">
-              <div className="font-medium">{session.learning_groups?.name || 'Группа'}</div>
-              <div className="text-sm text-muted-foreground">
+            <div className="bg-bg-soft p-3 rounded-lg border border-border/50 space-y-1">
+              <div className="font-medium text-text-primary">{session.learning_groups?.name || 'Группа'}</div>
+              <div className="text-sm text-text-secondary">
                 {session.teacher_name} • {session.classroom}
               </div>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-text-secondary">
                 {session.start_time} - {session.end_time}
               </div>
             </div>
           )}
 
           <div className="space-y-2">
-            <Label>Выберите новую дату</Label>
+            <Label className="text-sm font-medium text-text-secondary">Выберите новую дату</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !selectedDate && "text-muted-foreground"
+                    "w-full justify-start text-left font-normal btn-secondary",
+                    !selectedDate && "text-text-muted"
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {selectedDate ? format(selectedDate, "d MMMM yyyy", { locale: ru }) : "Выберите дату"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent className="w-auto p-0 bg-surface border-border/50" align="start">
                 <Calendar
                   mode="single"
                   selected={selectedDate}
@@ -105,12 +105,13 @@ export const CopyLessonModal = ({ session, open, onOpenChange }: CopyLessonModal
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="secondary" onClick={() => onOpenChange(false)} className="btn-secondary">
             Отмена
           </Button>
           <Button 
             onClick={handleCopy}
             disabled={!selectedDate || createSession.isPending}
+            className="btn-primary"
           >
             {createSession.isPending ? "Копирование..." : "Скопировать"}
           </Button>
