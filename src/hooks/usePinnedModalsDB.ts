@@ -54,7 +54,31 @@ export const usePinnedModalsDB = () => {
   // Загружаем данные при монтировании компонента или изменении пользователя
   useEffect(() => {
     loadPinnedModals();
-  }, [loadPinnedModals]);
+
+    // Подписка на realtime изменения
+    if (!user) return;
+
+    const channel = supabase
+      .channel('pinned_modals_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pinned_modals',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          console.log('Pinned modals changed, reloading...');
+          loadPinnedModals();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadPinnedModals, user]);
 
   // Закрепление модального окна
   const pinModal = useCallback(async (modal: Omit<PinnedModal, 'isOpen'>) => {
@@ -63,8 +87,12 @@ export const usePinnedModalsDB = () => {
     try {
       // Проверяем, не закреплено ли уже такое окно
       const existing = pinnedModals.find(m => m.id === modal.id && m.type === modal.type);
-      if (existing) return;
+      if (existing) {
+        console.log('Modal already pinned, skipping');
+        return;
+      }
 
+      console.log('Pinning modal:', modal);
       const { error } = await supabase
         .from('pinned_modals')
         .insert({
@@ -80,18 +108,20 @@ export const usePinnedModalsDB = () => {
         return;
       }
 
-      // Обновляем локальное состояние
-      setPinnedModals(prev => [...prev, { ...modal, isOpen: false }]);
+      console.log('Modal pinned successfully');
+      // Перезагружаем данные вместо обновления локального состояния
+      await loadPinnedModals();
     } catch (error) {
       console.error('Error pinning modal:', error);
     }
-  }, [user, pinnedModals]);
+  }, [user, pinnedModals, loadPinnedModals]);
 
   // Открепление модального окна
   const unpinModal = useCallback(async (id: string, type: string) => {
     if (!user) return;
 
     try {
+      console.log('Unpinning modal:', { id, type });
       const { error } = await supabase
         .from('pinned_modals')
         .delete()
@@ -104,12 +134,13 @@ export const usePinnedModalsDB = () => {
         return;
       }
 
-      // Обновляем локальное состояние
-      setPinnedModals(prev => prev.filter(m => !(m.id === id && m.type === type)));
+      console.log('Modal unpinned successfully');
+      // Перезагружаем данные вместо обновления локального состояния
+      await loadPinnedModals();
     } catch (error) {
       console.error('Error unpinning modal:', error);
     }
-  }, [user]);
+  }, [user, loadPinnedModals]);
 
   // Открытие закрепленного модального окна
   const openPinnedModal = useCallback(async (id: string, type: string) => {
