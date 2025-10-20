@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { AddStudentModal } from './AddStudentModal';
 import { ImportStudentsModal } from './ImportStudentsModal';
+import { ExportStudentsDialog } from './ExportStudentsDialog';
 import { StudentsTable } from './StudentsTable';
 import { StudentCard } from './StudentCard';
 import { useStudents } from '@/hooks/useStudents';
@@ -70,10 +71,7 @@ export default function StudentsSection() {
             <Upload className="h-4 w-4 mr-2" />
             Импорт
           </Button>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Экспорт
-          </Button>
+          <ExportStudentsDialog />
           <AddStudentModal 
             open={showAddModal} 
             onOpenChange={setShowAddModal}

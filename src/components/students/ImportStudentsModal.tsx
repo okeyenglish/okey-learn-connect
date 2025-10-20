@@ -1,97 +1,50 @@
 import { useState, useCallback } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, Loader2, Info } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ImportStudentsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-interface ColumnMapping {
-  source_column: string;
-  target_entity: 'client' | 'student' | 'family';
-  target_field: string;
-  transformation?: string;
-  confidence?: number;
+interface ImportStats {
+  total: number;
+  success: number;
+  errors: string[];
 }
 
 export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalProps) {
-  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
   const [data, setData] = useState<any[]>([]);
-  const [mapping, setMapping] = useState<ColumnMapping[]>([]);
-  const [preview, setPreview] = useState<any[]>([]);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [importStats, setImportStats] = useState<any>(null);
+  const [importStats, setImportStats] = useState<ImportStats | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [editableData, setEditableData] = useState<any[]>([]);
 
   const processFile = useCallback(async (file: File) => {
-    setAnalyzing(true);
     try {
-      let jsonData: any[] = [];
-
-      if (file.type === 'application/pdf') {
-        // Для PDF используем edge function для обработки
-        const formData = new FormData();
-        formData.append('file', file);
-        
-        const { data: pdfData, error: pdfError } = await supabase.functions.invoke('import-students', {
-          body: { file: await file.arrayBuffer(), fileType: 'pdf', preview: true }
-        });
-        
-        if (pdfError) throw pdfError;
-        jsonData = pdfData.extractedData || [];
-      } else {
-        // Excel/CSV обработка
-        const arrayBuffer = await file.arrayBuffer();
-        const workbook = XLSX.read(arrayBuffer);
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        jsonData = XLSX.utils.sheet_to_json(worksheet);
-      }
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
       if (jsonData.length === 0) {
         throw new Error('Файл пустой');
       }
 
       setData(jsonData);
-      setEditableData(jsonData);
-
-      // Анализируем структуру через AI
-      const { data: analysisData, error } = await supabase.functions.invoke('import-students', {
-        body: { data: jsonData, preview: true }
-      });
-
-      if (error) throw error;
-
-      setMapping(analysisData.mapping);
-      setPreview(analysisData.preview);
-      setSuggestions(analysisData.suggestions || []);
-
-      toast({
-        title: "Файл загружен",
-        description: `Найдено ${jsonData.length} строк. Проверьте маппинг колонок.`,
-      });
+      toast.success(`Загружено ${jsonData.length} строк`);
 
     } catch (error) {
       console.error('File upload error:', error);
-      toast({
-        title: "Ошибка загрузки",
-        description: error instanceof Error ? error.message : 'Не удалось загрузить файл',
-        variant: "destructive",
-      });
-    } finally {
-      setAnalyzing(false);
+      toast.error(error instanceof Error ? error.message : 'Не удалось загрузить файл');
     }
-  }, [toast]);
+  }, []);
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -108,21 +61,16 @@ export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalP
       const validTypes = [
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'application/vnd.ms-excel',
-        'text/csv',
-        'application/pdf'
+        'text/csv'
       ];
       
-      if (validTypes.includes(file.type)) {
+      if (validTypes.includes(file.type) || file.name.endsWith('.csv')) {
         processFile(file);
       } else {
-        toast({
-          title: "Неверный формат",
-          description: "Поддерживаются только Excel, CSV и PDF файлы",
-          variant: "destructive",
-        });
+        toast.error('Поддерживаются только Excel и CSV файлы');
       }
     }
-  }, [processFile, toast]);
+  }, [processFile]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -134,53 +82,59 @@ export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalP
     setIsDragging(false);
   }, []);
 
-  const updateMapping = (index: number, field: string, value: any) => {
-    const newMapping = [...mapping];
-    newMapping[index] = { ...newMapping[index], [field]: value };
-    setMapping(newMapping);
-  };
-
-  const updateEditableData = (rowIndex: number, field: string, value: any) => {
-    const newData = [...editableData];
-    newData[rowIndex] = { ...newData[rowIndex], [field]: value };
-    setEditableData(newData);
-  };
-
   const handleImport = async () => {
-    if (editableData.length === 0 || mapping.length === 0) {
-      toast({
-        title: "Нет данных",
-        description: "Загрузите файл и настройте маппинг",
-        variant: "destructive",
-      });
+    if (data.length === 0) {
+      toast.error('Загрузите файл для импорта');
       return;
     }
 
     setLoading(true);
+    const stats: ImportStats = {
+      total: data.length,
+      success: 0,
+      errors: []
+    };
+
     try {
-      // Используем отредактированные данные
-      const dataWithMapping = editableData.map(row => ({ ...row, __mapping: mapping }));
+      for (const row of data) {
+        try {
+          // Подготовка данных студента
+          const studentData: any = {
+            first_name: row['Имя'] || row['first_name'] || '',
+            last_name: row['Фамилия'] || row['last_name'] || '',
+            middle_name: row['Отчество'] || row['middle_name'] || '',
+            date_of_birth: row['Дата рождения'] || row['date_of_birth'] || null,
+            age: row['Возраст'] || row['age'] || null,
+            phone: row['Телефон'] || row['phone'] || null,
+            status: row['Статус'] || row['status'] || 'active',
+            notes: row['Примечания'] || row['notes'] || null,
+          };
 
-      const { data: result, error } = await supabase.functions.invoke('import-students', {
-        body: { data: dataWithMapping, preview: false }
-      });
+          // Генерация имени студента
+          studentData.name = `${studentData.last_name} ${studentData.first_name}`.trim() || 'Без имени';
 
-      if (error) throw error;
+          // Создание студента
+          const { error } = await supabase
+            .from('students')
+            .insert(studentData as any);
 
-      setImportStats(result);
+          if (error) throw error;
 
-      toast({
-        title: "Импорт завершен",
-        description: `Создано: ${result.students_created} учеников, ${result.clients_created} контактов, ${result.families_created} семей`,
-      });
+          stats.success++;
+        } catch (rowError) {
+          console.error('Row import error:', rowError);
+          stats.errors.push(
+            `Строка ${stats.errors.length + 1}: ${rowError instanceof Error ? rowError.message : 'Неизвестная ошибка'}`
+          );
+        }
+      }
+
+      setImportStats(stats);
+      toast.success(`Импортировано ${stats.success} из ${stats.total} студентов`);
 
     } catch (error) {
       console.error('Import error:', error);
-      toast({
-        title: "Ошибка импорта",
-        description: error instanceof Error ? error.message : 'Не удалось импортировать данные',
-        variant: "destructive",
-      });
+      toast.error('Ошибка при импорте данных');
     } finally {
       setLoading(false);
     }
@@ -188,72 +142,62 @@ export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalP
 
   const reset = () => {
     setData([]);
-    setEditableData([]);
-    setMapping([]);
-    setPreview([]);
-    setSuggestions([]);
     setImportStats(null);
-  };
-
-  const entityColors = {
-    client: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
-    student: 'bg-green-500/10 text-green-700 dark:text-green-400',
-    family: 'bg-purple-500/10 text-purple-700 dark:text-purple-400',
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5" />
-            Импорт учеников
+            Импорт студентов
           </DialogTitle>
         </DialogHeader>
 
         {importStats ? (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-lg font-semibold text-green-600 dark:text-green-400">
+            <div className="flex items-center gap-2 text-lg font-semibold text-green-600">
               <CheckCircle className="h-6 w-6" />
               Импорт завершен
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="p-4 border rounded-lg">
                 <div className="text-2xl font-bold">{importStats.total}</div>
                 <div className="text-sm text-muted-foreground">Всего строк</div>
               </div>
               <div className="p-4 border rounded-lg">
-                <div className="text-2xl font-bold text-green-600">{importStats.students_created}</div>
-                <div className="text-sm text-muted-foreground">Учеников создано</div>
+                <div className="text-2xl font-bold text-green-600">{importStats.success}</div>
+                <div className="text-sm text-muted-foreground">Успешно</div>
               </div>
               <div className="p-4 border rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">{importStats.clients_created}</div>
-                <div className="text-sm text-muted-foreground">Контактов создано</div>
-              </div>
-              <div className="p-4 border rounded-lg">
-                <div className="text-2xl font-bold text-purple-600">{importStats.families_created}</div>
-                <div className="text-sm text-muted-foreground">Семей создано</div>
+                <div className="text-2xl font-bold text-red-600">{importStats.errors.length}</div>
+                <div className="text-sm text-muted-foreground">Ошибок</div>
               </div>
             </div>
 
             {importStats.errors.length > 0 && (
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                <div className="flex items-center gap-2 text-red-600">
                   <AlertCircle className="h-5 w-5" />
                   <span className="font-semibold">Ошибки ({importStats.errors.length})</span>
                 </div>
-                <div className="max-h-48 overflow-y-auto space-y-1 text-sm">
-                  {importStats.errors.map((error: string, i: number) => (
-                    <div key={i} className="text-red-600 dark:text-red-400">{error}</div>
-                  ))}
-                </div>
+                <ScrollArea className="h-48 border rounded-lg p-4">
+                  <div className="space-y-1 text-sm">
+                    {importStats.errors.map((error: string, i: number) => (
+                      <div key={i} className="text-red-600">{error}</div>
+                    ))}
+                  </div>
+                </ScrollArea>
               </div>
             )}
 
-            <Button onClick={() => { reset(); onOpenChange(false); }} className="w-full">
-              Закрыть
-            </Button>
+            <DialogFooter>
+              <Button onClick={() => { reset(); onOpenChange(false); }} className="w-full">
+                Закрыть
+              </Button>
+            </DialogFooter>
           </div>
         ) : data.length === 0 ? (
           <div className="space-y-4">
@@ -268,192 +212,91 @@ export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalP
               <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <p className="text-lg font-medium mb-2">Перетащите файл или выберите</p>
               <p className="text-sm text-muted-foreground mb-4">
-                AI автоматически определит структуру и предложит маппинг колонок
+                Поддерживаются файлы Excel (.xlsx, .xls) и CSV
               </p>
               <label>
                 <input
                   type="file"
-                  accept=".xlsx,.xls,.csv,.pdf"
+                  accept=".xlsx,.xls,.csv"
                   onChange={handleFileUpload}
                   className="hidden"
-                  disabled={analyzing}
                 />
-                <Button disabled={analyzing} asChild>
+                <Button asChild>
                   <span>
-                    {analyzing ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Анализ...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-4 w-4 mr-2" />
-                        Выбрать файл
-                      </>
-                    )}
+                    <Upload className="h-4 w-4 mr-2" />
+                    Выбрать файл
                   </span>
                 </Button>
               </label>
             </div>
 
-            <div className="text-sm text-muted-foreground space-y-2">
-              <p className="font-semibold">Поддерживаемые форматы:</p>
-              <ul className="list-disc list-inside space-y-1 ml-2">
-                <li>Excel (.xlsx, .xls)</li>
-                <li>CSV (.csv)</li>
-                <li>PDF (.pdf)</li>
-              </ul>
-              <p className="font-semibold mt-4">Система автоматически:</p>
-              <ul className="list-disc list-inside space-y-1 ml-2">
-                <li>Определит какие колонки относятся к родителям, а какие к детям</li>
-                <li>Найдет существующие контакты по телефону</li>
-                <li>Создаст семейные группы</li>
-                <li>Нормализует телефоны и даты</li>
-              </ul>
+            <div className="rounded-lg bg-muted p-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <Info className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                <div className="space-y-2 text-sm">
+                  <p className="font-semibold">Формат файла Excel/CSV:</p>
+                  <div className="space-y-1 text-muted-foreground">
+                    <p><strong>Фамилия</strong> - Фамилия студента</p>
+                    <p><strong>Имя</strong> - Имя студента</p>
+                    <p><strong>Отчество</strong> - Отчество студента (необязательно)</p>
+                    <p><strong>Дата рождения</strong> - В формате YYYY-MM-DD (необязательно)</p>
+                    <p><strong>Возраст</strong> - Возраст в годах (необязательно)</p>
+                    <p><strong>Телефон</strong> - Номер телефона (необязательно)</p>
+                    <p><strong>Статус</strong> - active/inactive/trial/graduated (необязательно, по умолчанию active)</p>
+                    <p><strong>Примечания</strong> - Дополнительная информация (необязательно)</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         ) : (
           <div className="space-y-4">
-            {suggestions.length > 0 && (
-              <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg space-y-2">
-                <p className="font-semibold text-sm">Рекомендации AI:</p>
-                {suggestions.map((s, i) => (
-                  <p key={i} className="text-sm">{s}</p>
-                ))}
-              </div>
-            )}
-
             <div className="space-y-2">
-              <h3 className="font-semibold">Маппинг колонок</h3>
-              <div className="border rounded-lg overflow-hidden">
+              <h3 className="font-semibold">Предпросмотр данных ({data.length} строк)</h3>
+              <ScrollArea className="h-[400px] border rounded-lg">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Колонка в файле</TableHead>
-                      <TableHead>Сущность</TableHead>
-                      <TableHead>Поле</TableHead>
-                      <TableHead>Уверенность</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {mapping.map((m, i) => (
-                      <TableRow key={i}>
-                        <TableCell className="font-medium">{m.source_column}</TableCell>
-                        <TableCell>
-                          <Select
-                            value={m.target_entity}
-                            onValueChange={(v) => updateMapping(i, 'target_entity', v)}
-                          >
-                            <SelectTrigger className="w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="client">Родитель</SelectItem>
-                              <SelectItem value="student">Ученик</SelectItem>
-                              <SelectItem value="family">Семья</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={m.target_field}
-                            onValueChange={(v) => updateMapping(i, 'target_field', v)}
-                          >
-                            <SelectTrigger className="w-40">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {m.target_entity === 'client' && (
-                                <>
-                                  <SelectItem value="name">Имя</SelectItem>
-                                  <SelectItem value="first_name">Имя (отдельно)</SelectItem>
-                                  <SelectItem value="last_name">Фамилия</SelectItem>
-                                  <SelectItem value="phone">Телефон</SelectItem>
-                                  <SelectItem value="email">Email</SelectItem>
-                                  <SelectItem value="branch">Филиал</SelectItem>
-                                  <SelectItem value="notes">Заметки</SelectItem>
-                                </>
-                              )}
-                              {m.target_entity === 'student' && (
-                                <>
-                                  <SelectItem value="name">Имя</SelectItem>
-                                  <SelectItem value="first_name">Имя (отдельно)</SelectItem>
-                                  <SelectItem value="last_name">Фамилия</SelectItem>
-                                  <SelectItem value="middle_name">Отчество</SelectItem>
-                                  <SelectItem value="age">Возраст</SelectItem>
-                                  <SelectItem value="date_of_birth">Дата рождения</SelectItem>
-                                  <SelectItem value="phone">Телефон</SelectItem>
-                                  <SelectItem value="level">Уровень</SelectItem>
-                                  <SelectItem value="notes">Заметки</SelectItem>
-                                </>
-                              )}
-                              {m.target_entity === 'family' && (
-                                <SelectItem value="name">Название семьи</SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          {m.confidence && (
-                            <Badge className={entityColors[m.target_entity]}>
-                              {Math.round(m.confidence * 100)}%
-                            </Badge>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="font-semibold">Редактирование данных</h3>
-              <p className="text-sm text-muted-foreground">Отредактируйте данные перед импортом</p>
-              <div className="border rounded-lg overflow-x-auto max-h-96">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      {Object.keys(editableData[0] || {}).map((key) => (
-                        <TableHead key={key}>{key}</TableHead>
+                      {Object.keys(data[0] || {}).map((key) => (
+                        <TableHead key={key} className="font-semibold">{key}</TableHead>
                       ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {editableData.map((row, rowIndex) => (
+                    {data.slice(0, 10).map((row, rowIndex) => (
                       <TableRow key={rowIndex}>
                         {Object.keys(row).map((key) => (
-                          <TableCell key={key} className="text-sm p-1">
-                            <input
-                              type="text"
-                              value={row[key] || ''}
-                              onChange={(e) => updateEditableData(rowIndex, key, e.target.value)}
-                              className="w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                            />
+                          <TableCell key={key} className="text-sm">
+                            {row[key] || '—'}
                           </TableCell>
                         ))}
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-              </div>
+              </ScrollArea>
+              {data.length > 10 && (
+                <p className="text-sm text-muted-foreground text-center">
+                  Показано 10 из {data.length} строк
+                </p>
+              )}
             </div>
 
-            <div className="flex gap-2">
-              <Button onClick={reset} variant="outline" className="flex-1">
+            <DialogFooter className="gap-2">
+              <Button onClick={reset} variant="outline">
                 Отмена
               </Button>
-              <Button onClick={handleImport} disabled={loading} className="flex-1">
+              <Button onClick={handleImport} disabled={loading}>
                 {loading ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Импорт...
                   </>
                 ) : (
-                  `Импортировать ${editableData.length} записей`
+                  `Импортировать ${data.length} студентов`
                 )}
               </Button>
-            </div>
+            </DialogFooter>
           </div>
         )}
       </DialogContent>
