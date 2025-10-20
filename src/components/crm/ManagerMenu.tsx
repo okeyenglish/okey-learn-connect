@@ -2,7 +2,6 @@ import { useState } from "react";
 import { User, Settings, Key, LogOut, ChevronDown } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ProfileModal } from "./ProfileModal";
 import { ChangePasswordModal } from "./ChangePasswordModal";
+import { SettingsModal } from "@/components/settings/SettingsModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ManagerMenuProps {
@@ -27,10 +27,10 @@ export const ManagerMenu = ({
   avatarUrl, 
   onSignOut 
 }: ManagerMenuProps) => {
-  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const isMobile = useIsMobile();
 
   const handleProfileClick = () => {
@@ -44,7 +44,7 @@ export const ManagerMenu = ({
   };
 
   const handleSettingsClick = () => {
-    navigate('/settings');
+    setShowSettingsModal(true);
     setIsOpen(false);
   };
 
@@ -148,6 +148,12 @@ export const ManagerMenu = ({
       <ChangePasswordModal 
         open={showPasswordModal} 
         onOpenChange={setShowPasswordModal} 
+      />
+
+      {/* Settings Modal */}
+      <SettingsModal 
+        open={showSettingsModal} 
+        onOpenChange={setShowSettingsModal} 
       />
     </>
   );
