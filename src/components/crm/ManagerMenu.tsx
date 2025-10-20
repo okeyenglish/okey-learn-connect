@@ -2,6 +2,7 @@ import { useState } from "react";
 import { User, Settings, Key, LogOut, ChevronDown } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +27,7 @@ export const ManagerMenu = ({
   avatarUrl, 
   onSignOut 
 }: ManagerMenuProps) => {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -38,6 +40,11 @@ export const ManagerMenu = ({
 
   const handleChangePasswordClick = () => {
     setShowPasswordModal(true);
+    setIsOpen(false);
+  };
+
+  const handleSettingsClick = () => {
+    navigate('/settings');
     setIsOpen(false);
   };
 
@@ -109,6 +116,14 @@ export const ManagerMenu = ({
         >
           <Key className="h-4 w-4" />
           <span>Сменить пароль</span>
+        </DropdownMenuItem>
+        
+        <DropdownMenuItem 
+          onClick={handleSettingsClick}
+          className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted"
+        >
+          <Settings className="h-4 w-4" />
+          <span>Настройки</span>
         </DropdownMenuItem>
         
         <DropdownMenuSeparator />

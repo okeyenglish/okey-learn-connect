@@ -55,6 +55,7 @@ const StudentCourseDetails = lazy(() => import('./pages/CourseDetails'));
 const TestUserCreator = lazy(() => import('./pages/TestUserCreator'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 const SupabaseDiagnostics = lazy(() => import('./pages/SupabaseDiagnostics'));
+const Settings = lazy(() => import('./pages/Settings'));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Loading component for better UX
@@ -332,6 +333,13 @@ const AppContent = () => {
             <Suspense fallback={<LoadingComponent />}>
               <TestUserCreator />
             </Suspense>
+          } />
+          <Route path="/settings" element={
+            <ProtectedRoute>
+              <Suspense fallback={<LoadingComponent />}>
+                <Settings />
+              </Suspense>
+            </ProtectedRoute>
           } />
           <Route path="/5000" element={
             <Suspense fallback={<LoadingComponent />}>
