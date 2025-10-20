@@ -245,6 +245,29 @@ export const useFamilyData = (familyGroupId?: string) => {
 
   useEffect(() => {
     fetchFamilyData();
+    
+    // Set up real-time subscription to clients table for live updates
+    if (!familyGroupId) return;
+    
+    const channel = supabase
+      .channel(`family-data-${familyGroupId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'clients'
+        },
+        () => {
+          console.log('Client data updated, refetching family data...');
+          fetchFamilyData();
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [familyGroupId]);
 
   const refetch = () => {
