@@ -285,13 +285,11 @@ const CRMContent = () => {
   const tasksCount = allTasks?.length ?? 0;
   const unreadTotal = (threads || []).reduce((sum, t) => sum + (t.unread_count || 0), 0);
   const leadsCount = 0; // Будет рассчитано в StudentsLeadsModal
-  const chatsCount = clients?.length ?? 0;
   const studentsCount = students?.length ?? 0;
   const getMenuCount = (label: string) => {
     if (label === "Мои задачи") return tasksCount;
     if (label === "Заявки") return unreadTotal;
     if (label === "Лиды") return leadsCount;
-    if (label === "Чаты") return chatsCount;
     if (label === "Ученики") return studentsCount;
     return 0;
   };
@@ -932,7 +930,7 @@ const CRMContent = () => {
     setIsManualModalOpen(true);
     
     // Для модальных окон из меню - просто устанавливаем состояние, БЕЗ дублирования
-    if (type === 'Мои задачи' || type === 'Заявки' || type === 'Лиды' || type === 'Чаты' ||
+    if (type === 'Мои задачи' || type === 'Заявки' || type === 'Лиды' ||
         type === 'Компания' || type === 'Обучение' || type === 'Занятия онлайн' || 
         type === 'Расписание' || type === 'Финансы') {
       if (activeTab !== "menu") {
@@ -996,7 +994,6 @@ const menuItems = [
     { icon: CheckSquare, label: "Мои задачи" },
     { icon: FileText, label: "Заявки" },
     { icon: User, label: "Лиды" },
-    { icon: MessageCircle, label: "Чаты" },
     { icon: Users, label: "Ученики" },
     { icon: Building, label: "Компания" },
     { icon: GraduationCap, label: "Обучение" },
@@ -1192,9 +1189,6 @@ const menuItems = [
                       <div className="py-4">
                         {item.label === "Лиды" && (
                           <StudentsLeadsModal />
-                        )}
-                        {item.label === "Чаты" && (
-                          <LeadsModalContent onLeadClick={handleChatItemClick} />
                         )}
                         {item.label === "Расписание" && (
                           <div className="h-full">
