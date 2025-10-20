@@ -35,6 +35,13 @@ export interface LearningGroup {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  // Новые поля из Этапа 1
+  is_auto_group?: boolean;
+  auto_filter_conditions?: Record<string, any>;
+  responsible_manager_id?: string;
+  custom_name_locked?: boolean;
+  enrollment_url?: string;
+  color_code?: string;
 }
 
 export interface GroupFilters {

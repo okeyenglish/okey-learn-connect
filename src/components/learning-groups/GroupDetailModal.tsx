@@ -16,6 +16,7 @@ import { AddHomeworkModal } from "./AddHomeworkModal";
 import { EditGroupDetailsModal } from "./EditGroupDetailsModal";
 import { GroupScheduleCalendar } from "./GroupScheduleCalendar";
 import { StudentPaymentInfo } from "./StudentPaymentInfo";
+import { GroupHistoryTab } from "./GroupHistoryTab";
 import { useToast } from "@/hooks/use-toast";
 import { useGroupStudents } from "@/hooks/useGroupStudents";
 import { useAvailableStudents } from "@/hooks/useAvailableStudents";
@@ -263,10 +264,11 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
         <div className="flex-1 overflow-hidden flex flex-col">
           <Tabs defaultValue="students" className="flex-1 overflow-hidden flex flex-col">
             <div className="border-b px-6 flex-shrink-0">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="students">Студенты и расписание</TabsTrigger>
                 <TabsTrigger value="homework">Домашние задания / планы занятий</TabsTrigger>
                 <TabsTrigger value="details">Детали группы</TabsTrigger>
+                <TabsTrigger value="history">История изменений</TabsTrigger>
               </TabsList>
             </div>
 
@@ -565,6 +567,10 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                     </CardContent>
                   )}
                 </Card>
+              </TabsContent>
+
+              <TabsContent value="history" className="mt-0">
+                <GroupHistoryTab groupId={group.id} />
               </TabsContent>
             </div>
           </Tabs>

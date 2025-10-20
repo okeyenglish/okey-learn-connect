@@ -9,9 +9,14 @@ export interface GroupStudent {
   group_id: string;
   student_id: string;
   enrollment_date: string;
-  status: 'active' | 'inactive' | 'completed' | 'dropped' | 'paused';
+  status: 'active' | 'inactive' | 'completed' | 'dropped' | 'paused' | 'reserve' | 'makeup';
   notes?: string;
   student?: Student;
+  // Новые поля из Этапа 1
+  enrollment_type?: 'manual' | 'auto' | 'transfer' | 'lead_conversion';
+  enrollment_notes?: string;
+  exit_date?: string;
+  exit_reason?: string;
 }
 
 export const useGroupStudents = (groupId?: string) => {
@@ -47,7 +52,7 @@ export const useGroupStudents = (groupId?: string) => {
 
       if (error) throw error;
 
-      setGroupStudents(data || []);
+      setGroupStudents((data || []) as GroupStudent[]);
     } catch (error) {
       console.error('Error fetching group students:', error);
       setGroupStudents([]);
