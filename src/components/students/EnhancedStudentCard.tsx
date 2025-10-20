@@ -82,6 +82,7 @@ import { useUpdateIndividualLesson } from '@/hooks/useIndividualLessons';
 import { OnlineLessonModal } from '@/components/OnlineLessonModal';
 import { StudentTagsManager } from './StudentTagsManager';
 import { StudentHistoryTimeline } from './StudentHistoryTimeline';
+import { StudentOperationLogs } from './StudentOperationLogs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -1189,6 +1190,12 @@ export function EnhancedStudentCard({
                     История
                   </TabsTrigger>
                   <TabsTrigger 
+                    value="logs" 
+                    className="data-[state=active]:border-b-2 data-[state=active]:border-brand data-[state=active]:bg-transparent data-[state=active]:text-brand rounded-none border-b-2 border-transparent text-text-secondary"
+                  >
+                    Журнал
+                  </TabsTrigger>
+                  <TabsTrigger 
                     value="tags" 
                     className="data-[state=active]:border-b-2 data-[state=active]:border-brand data-[state=active]:bg-transparent data-[state=active]:text-brand rounded-none border-b-2 border-transparent text-text-secondary"
                   >
@@ -2122,6 +2129,10 @@ export function EnhancedStudentCard({
                       <StudentHistoryTimeline studentId={student.id} />
                     </CardContent>
                   </Card>
+                </TabsContent>
+
+                <TabsContent value="logs" className="mt-0">
+                  <StudentOperationLogs studentId={student.id} />
                 </TabsContent>
 
                 <TabsContent value="tags" className="mt-0">
