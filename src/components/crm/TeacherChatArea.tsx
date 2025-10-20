@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ChatMessage } from './ChatMessage';
 import { QuickResponsesModal } from './QuickResponsesModal';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -94,6 +95,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   onSelectTeacher
 }) => {
   const [dbTeachers, setDbTeachers] = useState<DbTeacher[]>([]);
+  const [isLoadingTeachers, setIsLoadingTeachers] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('диалог');
   const [message, setMessage] = useState('');
@@ -124,54 +126,73 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     loadBranch();
   }, []);
 
-  // Load teachers from DB by branch
+  // Load teachers from DB by branch - optimized with single query
   useEffect(() => {
     const fetchTeachers = async (branch: string) => {
-      const { data: clients, error } = await supabase
-        .from('clients')
-        .select('id, name, phone, branch')
-        .eq('branch', branch)
-        .ilike('name', 'Преподаватель:%');
-      if (error) {
-        console.error('Error fetching teachers', error);
-        return;
+      setIsLoadingTeachers(true);
+      try {
+        // Single optimized query using RPC or aggregation
+        const { data: clients, error } = await supabase
+          .from('clients')
+          .select(`
+            id, 
+            name, 
+            phone, 
+            branch,
+            chat_messages!client_id (
+              created_at,
+              is_read
+            )
+          `)
+          .eq('branch', branch)
+          .ilike('name', 'Преподаватель:%');
+        
+        if (error) {
+          console.error('Error fetching teachers', error);
+          setIsLoadingTeachers(false);
+          return;
+        }
+
+        const enriched = (clients || []).map((c: any) => {
+          const full = (c.name || '').replace('Преподаватель:', '').trim();
+          const [lastName, firstName, ...rest] = full.split(' ');
+          const fullName = `${lastName || ''} ${firstName || ''}${rest.length ? ' ' + rest.join(' ') : ''}`.trim();
+          
+          // Process messages from nested data
+          const messages = c.chat_messages || [];
+          const unreadCount = messages.filter((m: any) => !m.is_read).length;
+          const sortedMessages = messages.sort((a: any, b: any) => 
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+          const lastMsg = sortedMessages[0];
+          
+          return {
+            id: c.id,
+            fullName: fullName || full || c.name,
+            firstName: firstName || '',
+            lastName: lastName || '',
+            phone: c.phone,
+            branch: c.branch,
+            unreadMessages: unreadCount,
+            lastSeen: lastMsg?.created_at 
+              ? new Date(lastMsg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) 
+              : 'нет данных',
+            isOnline: false,
+            lastMessageTime: lastMsg?.created_at || '1970-01-01',
+          } as DbTeacher & { lastMessageTime: string };
+        });
+
+        // Sort by last message time desc
+        enriched.sort((a, b) => 
+          new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime()
+        );
+        
+        setDbTeachers(enriched);
+      } finally {
+        setIsLoadingTeachers(false);
       }
-      const enriched = await Promise.all((clients || []).map(async (c) => {
-        const full = (c.name || '').replace('Преподаватель:', '').trim();
-        const [lastName, firstName, ...rest] = full.split(' ');
-        const fullName = `${lastName || ''} ${firstName || ''}${rest.length ? ' ' + rest.join(' ') : ''}`.trim();
-        const { data: lastMsg } = await supabase
-          .from('chat_messages')
-          .select('created_at, is_read')
-          .eq('client_id', c.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        const { count: unread } = await supabase
-          .from('chat_messages')
-          .select('*', { count: 'exact', head: true })
-          .eq('client_id', c.id)
-          .eq('is_read', false);
-        return {
-          id: c.id,
-          fullName: fullName || full || c.name,
-          firstName: firstName || '',
-          lastName: lastName || '',
-          phone: c.phone,
-          branch: c.branch,
-          unreadMessages: unread || 0,
-          lastSeen: lastMsg?.created_at ? new Date(lastMsg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : 'нет данных',
-          isOnline: false,
-        } as DbTeacher;
-      }));
-      // sort by last message time desc
-      enriched.sort((a, b) => {
-        const aTs = Date.parse(a.lastSeen.replace(/(\d{2}):(\d{2})/, (m)=>a.lastSeen));
-        const bTs = Date.parse(b.lastSeen.replace(/(\d{2}):(\d{2})/, (m)=>b.lastSeen));
-        return (bTs || 0) - (aTs || 0);
-      });
-      setDbTeachers(enriched);
     };
+    
     if (userBranch) fetchTeachers(userBranch);
   }, [userBranch]);
 
@@ -433,11 +454,29 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
           <ScrollArea className="flex-1">
             <div className="p-2">
-              {/* Group Chat for All Teachers */}
-              <div
-                onClick={() => onSelectTeacher('teachers-group')}
-                className="p-3 rounded-lg cursor-pointer transition-colors mb-2 hover:bg-muted/50 border bg-card"
-              >
+              {isLoadingTeachers ? (
+                // Loading skeletons
+                <>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="p-3 rounded-lg mb-2 border bg-card">
+                      <div className="flex items-start space-x-3">
+                        <Skeleton className="w-10 h-10 rounded-full" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-3 w-24" />
+                        </div>
+                        <Skeleton className="h-5 w-5 rounded" />
+                      </div>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <>
+                  {/* Group Chat for All Teachers */}
+                  <div
+                    onClick={() => onSelectTeacher('teachers-group')}
+                    className="p-3 rounded-lg cursor-pointer transition-colors mb-2 hover:bg-muted/50 border bg-card"
+                  >
                 <div className="flex items-start space-x-3">
                   <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-sm font-medium text-primary">
                     ЧП
@@ -514,6 +553,8 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                   </div>
                 </div>
               ))}
+                </>
+              )}
             </div>
           </ScrollArea>
         </div>
@@ -632,15 +673,33 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
         <ScrollArea className="flex-1">
           <div className="p-2">
-            {/* Group Chat for All Teachers */}
-            <div
-              onClick={() => onSelectTeacher('teachers-group')}
-              className={`p-2 rounded-lg cursor-pointer transition-colors mb-2 ${
-                selectedTeacherId === 'teachers-group'
-                  ? 'bg-muted border border-border'
-                  : 'hover:bg-muted/50'
-              }`}
-            >
+            {isLoadingTeachers ? (
+              // Loading skeletons
+              <>
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="p-2 rounded-lg mb-2 border bg-card">
+                    <div className="flex items-start space-x-2">
+                      <Skeleton className="w-8 h-8 rounded-full" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-3 w-24" />
+                        <Skeleton className="h-3 w-16" />
+                      </div>
+                      <Skeleton className="h-4 w-4 rounded" />
+                    </div>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <>
+                {/* Group Chat for All Teachers */}
+                <div
+                  onClick={() => onSelectTeacher('teachers-group')}
+                  className={`p-2 rounded-lg cursor-pointer transition-colors mb-2 ${
+                    selectedTeacherId === 'teachers-group'
+                      ? 'bg-muted border border-border'
+                      : 'hover:bg-muted/50'
+                  }`}
+                >
               <div className="flex items-start space-x-2">
                 <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-xs font-medium text-primary">
                   ЧП
@@ -721,6 +780,8 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                 </div>
               </div>
             ))}
+              </>
+            )}
           </div>
         </ScrollArea>
       </div>
