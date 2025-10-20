@@ -31,23 +31,39 @@ export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalP
   const [preview, setPreview] = useState<any[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [importStats, setImportStats] = useState<any>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [editableData, setEditableData] = useState<any[]>([]);
 
-  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processFile = useCallback(async (file: File) => {
     setAnalyzing(true);
     try {
-      const arrayBuffer = await file.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer);
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      let jsonData: any[] = [];
+
+      if (file.type === 'application/pdf') {
+        // Для PDF используем edge function для обработки
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const { data: pdfData, error: pdfError } = await supabase.functions.invoke('import-students', {
+          body: { file: await file.arrayBuffer(), fileType: 'pdf', preview: true }
+        });
+        
+        if (pdfError) throw pdfError;
+        jsonData = pdfData.extractedData || [];
+      } else {
+        // Excel/CSV обработка
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer);
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        jsonData = XLSX.utils.sheet_to_json(worksheet);
+      }
 
       if (jsonData.length === 0) {
         throw new Error('Файл пустой');
       }
 
       setData(jsonData);
+      setEditableData(jsonData);
 
       // Анализируем структуру через AI
       const { data: analysisData, error } = await supabase.functions.invoke('import-students', {
@@ -77,14 +93,61 @@ export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalP
     }
   }, [toast]);
 
+  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processFile(file);
+  }, [processFile]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      const validTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel',
+        'text/csv',
+        'application/pdf'
+      ];
+      
+      if (validTypes.includes(file.type)) {
+        processFile(file);
+      } else {
+        toast({
+          title: "Неверный формат",
+          description: "Поддерживаются только Excel, CSV и PDF файлы",
+          variant: "destructive",
+        });
+      }
+    }
+  }, [processFile, toast]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
   const updateMapping = (index: number, field: string, value: any) => {
     const newMapping = [...mapping];
     newMapping[index] = { ...newMapping[index], [field]: value };
     setMapping(newMapping);
   };
 
+  const updateEditableData = (rowIndex: number, field: string, value: any) => {
+    const newData = [...editableData];
+    newData[rowIndex] = { ...newData[rowIndex], [field]: value };
+    setEditableData(newData);
+  };
+
   const handleImport = async () => {
-    if (data.length === 0 || mapping.length === 0) {
+    if (editableData.length === 0 || mapping.length === 0) {
       toast({
         title: "Нет данных",
         description: "Загрузите файл и настройте маппинг",
@@ -95,8 +158,8 @@ export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalP
 
     setLoading(true);
     try {
-      // Добавляем маппинг к каждой строке
-      const dataWithMapping = data.map(row => ({ ...row, __mapping: mapping }));
+      // Используем отредактированные данные
+      const dataWithMapping = editableData.map(row => ({ ...row, __mapping: mapping }));
 
       const { data: result, error } = await supabase.functions.invoke('import-students', {
         body: { data: dataWithMapping, preview: false }
@@ -125,6 +188,7 @@ export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalP
 
   const reset = () => {
     setData([]);
+    setEditableData([]);
     setMapping([]);
     setPreview([]);
     setSuggestions([]);
@@ -193,16 +257,23 @@ export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalP
           </div>
         ) : data.length === 0 ? (
           <div className="space-y-4">
-            <div className="border-2 border-dashed rounded-lg p-12 text-center">
+            <div 
+              className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
+                isDragging ? 'border-primary bg-primary/5' : 'border-border'
+              }`}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+            >
               <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-lg font-medium mb-2">Загрузите файл Excel или CSV</p>
+              <p className="text-lg font-medium mb-2">Перетащите файл или выберите</p>
               <p className="text-sm text-muted-foreground mb-4">
                 AI автоматически определит структуру и предложит маппинг колонок
               </p>
               <label>
                 <input
                   type="file"
-                  accept=".xlsx,.xls,.csv"
+                  accept=".xlsx,.xls,.csv,.pdf"
                   onChange={handleFileUpload}
                   className="hidden"
                   disabled={analyzing}
@@ -230,6 +301,7 @@ export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalP
               <ul className="list-disc list-inside space-y-1 ml-2">
                 <li>Excel (.xlsx, .xls)</li>
                 <li>CSV (.csv)</li>
+                <li>PDF (.pdf)</li>
               </ul>
               <p className="font-semibold mt-4">Система автоматически:</p>
               <ul className="list-disc list-inside space-y-1 ml-2">
@@ -336,22 +408,28 @@ export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalP
             </div>
 
             <div className="space-y-2">
-              <h3 className="font-semibold">Предпросмотр данных</h3>
-              <div className="border rounded-lg overflow-x-auto max-h-64">
+              <h3 className="font-semibold">Редактирование данных</h3>
+              <p className="text-sm text-muted-foreground">Отредактируйте данные перед импортом</p>
+              <div className="border rounded-lg overflow-x-auto max-h-96">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {Object.keys(preview[0] || {}).map((key) => (
+                      {Object.keys(editableData[0] || {}).map((key) => (
                         <TableHead key={key}>{key}</TableHead>
                       ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {preview.map((row, i) => (
-                      <TableRow key={i}>
-                        {Object.values(row).map((val: any, j) => (
-                          <TableCell key={j} className="text-sm">
-                            {String(val)}
+                    {editableData.map((row, rowIndex) => (
+                      <TableRow key={rowIndex}>
+                        {Object.keys(row).map((key) => (
+                          <TableCell key={key} className="text-sm p-1">
+                            <input
+                              type="text"
+                              value={row[key] || ''}
+                              onChange={(e) => updateEditableData(rowIndex, key, e.target.value)}
+                              className="w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
                           </TableCell>
                         ))}
                       </TableRow>
@@ -372,7 +450,7 @@ export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalP
                     Импорт...
                   </>
                 ) : (
-                  `Импортировать ${data.length} записей`
+                  `Импортировать ${editableData.length} записей`
                 )}
               </Button>
             </div>
