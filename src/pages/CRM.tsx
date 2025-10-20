@@ -92,7 +92,8 @@ import {
   Edit,
   UserPlus,
   Filter,
-  Plus
+  Plus,
+  Upload
 } from "lucide-react";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
@@ -101,6 +102,7 @@ import { TeacherMessagesPanel } from "@/components/crm/TeacherMessagesPanel";
 import { UserPermissionsManager } from "@/components/admin/UserPermissionsManager";
 import { LeadsModalContent } from "@/components/leads/LeadsModalContent";
 import { StudentsModal } from "@/components/crm/StudentsModal";
+import { ImportStudentsModal } from "@/components/students/ImportStudentsModal";
 import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
 import FinancesSection from "@/components/finances/FinancesSection";
 import ScheduleSection from "@/components/crm/sections/ScheduleSection";
@@ -987,11 +989,12 @@ const CRMContent = () => {
     handleChatClick(clientId, 'client'); // Открываем чат с клиентом
   };
 
-  const menuItems = [
+const menuItems = [
     { icon: CheckSquare, label: "Мои задачи" },
     { icon: FileText, label: "Заявки" },
     { icon: User, label: "Лиды" },
     { icon: Users, label: "Ученики" },
+    { icon: Upload, label: "Импорт учеников" },
     { icon: Building, label: "Компания" },
     { icon: GraduationCap, label: "Обучение" },
     { icon: Monitor, label: "Занятия онлайн" },
@@ -1996,6 +1999,11 @@ const CRMContent = () => {
                         {item.label === "Ученики" && (
                           <div className="h-full overflow-hidden">
                             <StudentsModal open={true} onOpenChange={() => {}} />
+                          </div>
+                        )}
+                        {item.label === "Импорт учеников" && (
+                          <div className="h-full overflow-hidden">
+                            <ImportStudentsModal open={true} onOpenChange={() => {}} />
                           </div>
                         )}
                         
