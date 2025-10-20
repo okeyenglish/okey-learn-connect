@@ -1140,11 +1140,14 @@ export type Database = {
           id: string
           individual_lesson_id: string
           is_additional: boolean | null
+          is_free_for_student: boolean
+          is_free_for_teacher: boolean
           lesson_date: string
           notes: string | null
           paid_minutes: number | null
           payment_id: string | null
           status: string
+          teacher_hours_coefficient: number
           updated_at: string | null
         }
         Insert: {
@@ -1154,11 +1157,14 @@ export type Database = {
           id?: string
           individual_lesson_id: string
           is_additional?: boolean | null
+          is_free_for_student?: boolean
+          is_free_for_teacher?: boolean
           lesson_date: string
           notes?: string | null
           paid_minutes?: number | null
           payment_id?: string | null
           status?: string
+          teacher_hours_coefficient?: number
           updated_at?: string | null
         }
         Update: {
@@ -1168,11 +1174,14 @@ export type Database = {
           id?: string
           individual_lesson_id?: string
           is_additional?: boolean | null
+          is_free_for_student?: boolean
+          is_free_for_teacher?: boolean
           lesson_date?: string
           notes?: string | null
           paid_minutes?: number | null
           payment_id?: string | null
           status?: string
+          teacher_hours_coefficient?: number
           updated_at?: string | null
         }
         Relationships: [
@@ -1936,6 +1945,8 @@ export type Database = {
           end_time: string
           group_id: string | null
           id: string
+          is_free_for_student: boolean
+          is_free_for_teacher: boolean
           lesson_date: string
           lesson_number: number | null
           lessons_count: number | null
@@ -1946,6 +1957,7 @@ export type Database = {
           payment_id: string | null
           start_time: string
           status: Database["public"]["Enums"]["lesson_status"]
+          teacher_hours_coefficient: number
           teacher_name: string
           updated_at: string
         }
@@ -1958,6 +1970,8 @@ export type Database = {
           end_time: string
           group_id?: string | null
           id?: string
+          is_free_for_student?: boolean
+          is_free_for_teacher?: boolean
           lesson_date: string
           lesson_number?: number | null
           lessons_count?: number | null
@@ -1968,6 +1982,7 @@ export type Database = {
           payment_id?: string | null
           start_time: string
           status?: Database["public"]["Enums"]["lesson_status"]
+          teacher_hours_coefficient?: number
           teacher_name: string
           updated_at?: string
         }
@@ -1980,6 +1995,8 @@ export type Database = {
           end_time?: string
           group_id?: string | null
           id?: string
+          is_free_for_student?: boolean
+          is_free_for_teacher?: boolean
           lesson_date?: string
           lesson_number?: number | null
           lessons_count?: number | null
@@ -1990,6 +2007,7 @@ export type Database = {
           payment_id?: string | null
           start_time?: string
           status?: Database["public"]["Enums"]["lesson_status"]
+          teacher_hours_coefficient?: number
           teacher_name?: string
           updated_at?: string
         }
@@ -3419,6 +3437,72 @@ export type Database = {
           },
         ]
       }
+      teacher_earnings: {
+        Row: {
+          academic_hours: number
+          amount: number
+          created_at: string
+          currency: string
+          earning_date: string
+          id: string
+          individual_lesson_session_id: string | null
+          lesson_session_id: string | null
+          notes: string | null
+          payment_id: string | null
+          rate_per_hour: number
+          status: string
+          teacher_id: string
+          updated_at: string
+        }
+        Insert: {
+          academic_hours: number
+          amount: number
+          created_at?: string
+          currency?: string
+          earning_date: string
+          id?: string
+          individual_lesson_session_id?: string | null
+          lesson_session_id?: string | null
+          notes?: string | null
+          payment_id?: string | null
+          rate_per_hour: number
+          status?: string
+          teacher_id: string
+          updated_at?: string
+        }
+        Update: {
+          academic_hours?: number
+          amount?: number
+          created_at?: string
+          currency?: string
+          earning_date?: string
+          id?: string
+          individual_lesson_session_id?: string | null
+          lesson_session_id?: string | null
+          notes?: string | null
+          payment_id?: string | null
+          rate_per_hour?: number
+          status?: string
+          teacher_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_earnings_individual_lesson_session_id_fkey"
+            columns: ["individual_lesson_session_id"]
+            isOneToOne: false
+            referencedRelation: "individual_lesson_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_earnings_lesson_session_id_fkey"
+            columns: ["lesson_session_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teacher_group_payments: {
         Row: {
           created_at: string
@@ -3536,6 +3620,120 @@ export type Database = {
           teacher_id?: string
           teacher_name?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      teacher_payments: {
+        Row: {
+          adjustments: number
+          calculated_amount: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          final_amount: number
+          id: string
+          notes: string | null
+          payment_date: string | null
+          payment_method: string | null
+          payment_type: string
+          period_end: string
+          period_start: string
+          rate_per_hour: number | null
+          status: string
+          teacher_id: string
+          total_hours: number
+          updated_at: string
+        }
+        Insert: {
+          adjustments?: number
+          calculated_amount?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          final_amount: number
+          id?: string
+          notes?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          payment_type: string
+          period_end: string
+          period_start: string
+          rate_per_hour?: number | null
+          status?: string
+          teacher_id: string
+          total_hours?: number
+          updated_at?: string
+        }
+        Update: {
+          adjustments?: number
+          calculated_amount?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          final_amount?: number
+          id?: string
+          notes?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          payment_type?: string
+          period_end?: string
+          period_start?: string
+          rate_per_hour?: number | null
+          status?: string
+          teacher_id?: string
+          total_hours?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      teacher_rates: {
+        Row: {
+          branch: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          rate_per_academic_hour: number
+          rate_type: string
+          subject: string | null
+          teacher_id: string | null
+          updated_at: string
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          branch?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          rate_per_academic_hour: number
+          rate_type: string
+          subject?: string | null
+          teacher_id?: string | null
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          branch?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          rate_per_academic_hour?: number
+          rate_type?: string
+          subject?: string | null
+          teacher_id?: string | null
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string | null
         }
         Relationships: []
       }
@@ -3810,6 +4008,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accrue_teacher_earning_for_lesson: {
+        Args: {
+          _individual_lesson_session_id?: string
+          _lesson_session_id?: string
+        }
+        Returns: string
+      }
       add_balance_transaction: {
         Args: {
           _amount: number
@@ -3836,6 +4041,19 @@ export type Database = {
         Returns: {
           lessons_count: number
           total_amount: number
+        }[]
+      }
+      calculate_teacher_salary: {
+        Args: {
+          _period_end: string
+          _period_start: string
+          _teacher_id: string
+        }
+        Returns: {
+          accrued_count: number
+          paid_count: number
+          total_amount: number
+          total_hours: number
         }[]
       }
       charge_lesson_from_subscription: {
@@ -4041,6 +4259,15 @@ export type Database = {
       get_subscription_stats: {
         Args: { _subscription_id: string }
         Returns: Json
+      }
+      get_teacher_rate: {
+        Args: {
+          _branch?: string
+          _date?: string
+          _subject?: string
+          _teacher_id: string
+        }
+        Returns: number
       }
       get_user_branches: {
         Args: { _user_id: string }
