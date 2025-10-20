@@ -94,9 +94,12 @@ export const ChatArea = ({
   const [showQuickResponsesModal, setShowQuickResponsesModal] = useState(false);
   const [commentMode, setCommentMode] = useState(false);
   const [gptGenerating, setGptGenerating] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState(clientName);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const editNameInputRef = useRef<HTMLInputElement>(null);
 
   const MAX_MESSAGE_LENGTH = 4000;
 
@@ -121,11 +124,80 @@ export const ChatArea = ({
     console.log('ChatArea - pendingGPTError:', pendingGPTError);
   }, [clientId, pendingGPTResponses, pendingGPTLoading, pendingGPTError]);
 
+  // Update editedName when clientName changes
+  useEffect(() => {
+    setEditedName(cleanClientName(clientName));
+    setIsEditingName(false);
+  }, [clientName]);
+
   // Функция для прокрутки к концу чата
   const scrollToBottom = (smooth = true) => {
     messagesEndRef.current?.scrollIntoView({ 
       behavior: smooth ? "smooth" : "instant" 
     });
+  };
+
+  // Функция для очистки имени от префикса "Клиент"
+  const cleanClientName = (name: string) => {
+    if (name.startsWith('Клиент ')) {
+      return name.replace('Клиент ', '');
+    }
+    return name;
+  };
+
+  // Функция для начала редактирования имени
+  const handleStartEditName = () => {
+    setEditedName(cleanClientName(clientName));
+    setIsEditingName(true);
+    setTimeout(() => {
+      editNameInputRef.current?.focus();
+      editNameInputRef.current?.select();
+    }, 0);
+  };
+
+  // Функция для сохранения отредактированного имени
+  const handleSaveName = async () => {
+    if (!editedName.trim()) {
+      toast({
+        title: "Ошибка",
+        description: "Имя не может быть пустым",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .update({ name: editedName.trim() })
+        .eq('id', clientId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Успешно",
+        description: "Имя клиента обновлено",
+      });
+
+      // Обновляем список клиентов
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+      
+      setIsEditingName(false);
+    } catch (error) {
+      console.error('Error updating client name:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось обновить имя клиента",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Функция для отмены редактирования
+  const handleCancelEditName = () => {
+    setEditedName(cleanClientName(clientName));
+    setIsEditingName(false);
   };
 
   // Load messages from database
@@ -994,7 +1066,47 @@ export const ChatArea = ({
                 </Button>
               )}
               <div className="flex-1 min-w-0">
-                <h2 className="font-semibold text-sm text-foreground truncate">{clientName}</h2>
+                {isEditingName ? (
+                  <div className="flex items-center gap-1">
+                    <Input
+                      ref={editNameInputRef}
+                      value={editedName}
+                      onChange={(e) => setEditedName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleSaveName();
+                        } else if (e.key === 'Escape') {
+                          handleCancelEditName();
+                        }
+                      }}
+                      className="h-7 text-sm font-semibold"
+                    />
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-7 w-7 p-0 flex-shrink-0"
+                      onClick={handleSaveName}
+                    >
+                      <Clock className="h-3 w-3 text-green-600" />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-7 w-7 p-0 flex-shrink-0"
+                      onClick={handleCancelEditName}
+                    >
+                      <X className="h-3 w-3 text-red-600" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div 
+                    className="flex items-center gap-2 group cursor-pointer" 
+                    onClick={handleStartEditName}
+                  >
+                    <h2 className="font-semibold text-sm text-foreground truncate">{cleanClientName(clientName)}</h2>
+                    <Edit2 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground truncate">{clientPhone}</p>
                 {getTypingMessage() && (
                   <p className="text-xs text-orange-600 italic animate-pulse">
@@ -1103,7 +1215,47 @@ export const ChatArea = ({
           <div className="flex items-start justify-between gap-4 p-3">
             <div className="flex items-center gap-3">
               <div>
-                <h2 className="font-semibold text-base">{clientName}</h2>
+                {isEditingName ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      ref={editNameInputRef}
+                      value={editedName}
+                      onChange={(e) => setEditedName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleSaveName();
+                        } else if (e.key === 'Escape') {
+                          handleCancelEditName();
+                        }
+                      }}
+                      className="h-8 text-base font-semibold"
+                    />
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-8 w-8 p-0"
+                      onClick={handleSaveName}
+                    >
+                      <Clock className="h-4 w-4 text-green-600" />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-8 w-8 p-0"
+                      onClick={handleCancelEditName}
+                    >
+                      <X className="h-4 w-4 text-red-600" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div 
+                    className="flex items-center gap-2 group cursor-pointer" 
+                    onClick={handleStartEditName}
+                  >
+                    <h2 className="font-semibold text-base">{cleanClientName(clientName)}</h2>
+                    <Edit2 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                )}
                 <p className="text-sm text-muted-foreground">{clientPhone}</p>
               </div>
             </div>
