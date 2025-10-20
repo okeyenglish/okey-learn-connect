@@ -102,7 +102,8 @@ import {
   Shield,
   Palette,
   CreditCard,
-  MapPin
+  MapPin,
+  Bot
 } from "lucide-react";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
@@ -117,6 +118,7 @@ import { StudentsLeadsModal } from "@/components/students/StudentsLeadsModal";
 import { ImportStudentsModal } from "@/components/students/ImportStudentsModal";
 import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
 import { NewFinancesSection } from "@/components/finances/NewFinancesSection";
+import { CommunityChatsSection } from "@/components/community/CommunityChatsSection";
 import ScheduleSection from "@/components/crm/sections/ScheduleSection";
 import { DocumentsSection } from "@/components/documents/DocumentsSection";
 import { AnalyticsSection } from "@/components/analytics/AnalyticsSection";
@@ -1114,6 +1116,7 @@ const CRMContent = () => {
     { icon: DollarSign, label: "Финансы" },
     { icon: BarChart3, label: "Отчёты" },
     { icon: MessageCircle, label: "Уведомления" },
+    { icon: Users, label: "Сообщество" },
     { icon: Settings, label: "Настройки" },
     ...(canAccessAdmin ? [{ icon: Shield, label: "Админ-панель" }] : []),
   ];
@@ -1323,6 +1326,11 @@ const CRMContent = () => {
                         {item.label === "Уведомления" && (
                           <div className="h-full">
                             <CommunicationsSection />
+                          </div>
+                        )}
+                        {item.label === "Сообщество" && (
+                          <div className="h-full">
+                            <CommunityChatsSection />
                           </div>
                         )}
                         {item.label === "Документы" && (
@@ -3395,6 +3403,17 @@ const CRMContent = () => {
         // УБИРАЕМ дублирующие модальные окна из меню - они уже есть в основном меню
         return null;
       })}
+      
+      {/* Плавающая кнопка AI-помощника для десктопа */}
+      {!isMobile && !voiceAssistantOpen && (
+        <Button
+          onClick={() => setVoiceAssistantOpen(true)}
+          className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50 bg-primary hover:bg-primary/90"
+          size="icon"
+        >
+          <Bot className="h-6 w-6" />
+        </Button>
+      )}
       
       {/* Голосовой ассистент */}
       <VoiceAssistant 
