@@ -338,13 +338,13 @@ export const AIHub = ({
         side="right" 
         className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden"
       >
-        <div className="flex items-center justify-between p-4 border-b shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <Bot className="h-4 w-4 text-primary" />
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <Bot className="h-5 w-5 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="font-semibold text-sm truncate">AI Центр</h2>
+              <h2 className="font-semibold truncate">AI Центр</h2>
               <p className="text-xs text-muted-foreground truncate">
                 Помощник, консультанты и сообщество
               </p>
@@ -357,18 +357,27 @@ export const AIHub = ({
           onValueChange={(v) => setActiveTab(v as any)}
           className="flex-1 flex flex-col overflow-hidden"
         >
-          <TabsList className="w-full grid grid-cols-3 mx-4 my-3 shrink-0">
-            <TabsTrigger value="assistant" className="text-xs">
-              <Bot className="h-3 w-3 mr-1" />
-              Помощник
+          <TabsList className="w-full h-12 bg-transparent border-b rounded-none p-0 grid grid-cols-3 shrink-0">
+            <TabsTrigger 
+              value="assistant" 
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none h-full"
+            >
+              <Bot className="h-4 w-4 mr-1.5" />
+              <span className="text-sm">Помощник</span>
             </TabsTrigger>
-            <TabsTrigger value="consultants" className="text-xs">
-              <Scale className="h-3 w-3 mr-1" />
-              Консультанты
+            <TabsTrigger 
+              value="consultants"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none h-full"
+            >
+              <Scale className="h-4 w-4 mr-1.5" />
+              <span className="text-sm">Консультанты</span>
             </TabsTrigger>
-            <TabsTrigger value="community" className="text-xs">
-              <Users className="h-3 w-3 mr-1" />
-              Сообщество
+            <TabsTrigger 
+              value="community"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none h-full"
+            >
+              <Users className="h-4 w-4 mr-1.5" />
+              <span className="text-sm">Сообщество</span>
             </TabsTrigger>
           </TabsList>
 
@@ -387,25 +396,25 @@ export const AIHub = ({
           {/* Вкладка Консультанты */}
           <TabsContent value="consultants" className="flex-1 flex flex-col m-0 min-h-0 overflow-hidden">
             {!activeConsultant ? (
-              <div className="p-4 space-y-3">
-                <h3 className="font-semibold text-sm text-muted-foreground mb-4">
+              <div className="p-4 space-y-2 overflow-auto">
+                <h3 className="font-medium text-sm text-muted-foreground mb-3">
                   Выберите консультанта:
                 </h3>
                 {consultants.map((consultant) => (
                   <button
                     key={consultant.id}
                     onClick={() => setActiveConsultant(consultant.id)}
-                    className="w-full flex items-start gap-3 p-4 rounded-lg border hover:bg-muted/50 transition-colors text-left"
+                    className="w-full flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors text-left"
                   >
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <consultant.icon className="h-5 w-5 text-primary" />
+                    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <consultant.icon className="h-6 w-6 text-primary" />
                     </div>
-                    <div className="flex-1">
-                      <p className="font-medium">{consultant.name}</p>
-                      <p className="text-sm text-muted-foreground">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold truncate">{consultant.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
                         {consultant.description}
                       </p>
-                      <Badge variant="outline" className="mt-2">
+                      <Badge variant="outline" className="mt-1.5 text-xs">
                         AI-консультант • Всегда онлайн
                       </Badge>
                     </div>
@@ -415,16 +424,16 @@ export const AIHub = ({
             ) : (
               <>
                 {/* Заголовок консультанта */}
-                <div className="p-4 border-b flex items-center gap-3">
+                <div className="px-4 py-3 border-b flex items-center gap-3 shrink-0">
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => setActiveConsultant(null)}
-                    className="shrink-0"
+                    className="h-8 w-8 shrink-0"
                   >
                     <X className="h-4 w-4" />
                   </Button>
-                  <Avatar className="h-10 w-10 shrink-0">
+                  <Avatar className="h-9 w-9 shrink-0">
                     <AvatarFallback className="bg-primary/10">
                       {(() => {
                         const Icon = consultants.find(c => c.id === activeConsultant)?.icon || Bot;
@@ -433,7 +442,7 @@ export const AIHub = ({
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold truncate">
+                    <p className="font-semibold text-sm truncate">
                       {consultants.find(c => c.id === activeConsultant)?.name}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">
@@ -495,21 +504,21 @@ export const AIHub = ({
                 </ScrollArea>
 
                 {/* Поле ввода */}
-                <div className="p-4 border-t shrink-0">
-                  <div className="flex gap-2">
+                <div className="p-3 border-t shrink-0 bg-background">
+                  <div className="flex gap-2 items-center">
                     <Input
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                       placeholder={getCurrentPlaceholder()}
                       disabled={isProcessing || isRecording}
-                      className="flex-1"
+                      className="flex-1 h-9"
                     />
                     <Button 
                       onClick={handleSendMessage}
                       disabled={!message.trim() || isProcessing || isRecording}
                       size="icon"
-                      className="shrink-0"
+                      className="shrink-0 h-9 w-9"
                     >
                       {isProcessing ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -522,7 +531,7 @@ export const AIHub = ({
                       disabled={isProcessing}
                       size="icon"
                       variant={isRecording ? "destructive" : "outline"}
-                      className="shrink-0"
+                      className="shrink-0 h-9 w-9"
                     >
                       {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                     </Button>
@@ -542,14 +551,14 @@ export const AIHub = ({
           {/* Вкладка Сообщество */}
           <TabsContent value="community" className="flex-1 flex flex-col m-0 min-h-0 overflow-hidden">
             {/* Заголовок */}
-            <div className="p-4 border-b flex items-center gap-3">
-              <Avatar className="h-10 w-10">
+            <div className="px-4 py-3 border-b flex items-center gap-3 shrink-0">
+              <Avatar className="h-9 w-9 shrink-0">
                 <AvatarFallback className="bg-primary/10">
                   <Building2 className="h-5 w-5 text-primary" />
                 </AvatarFallback>
               </Avatar>
-              <div>
-                <p className="font-semibold">Сообщество школ</p>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm">Сообщество школ</p>
                 <p className="text-xs text-muted-foreground">
                   42 участника онлайн
                 </p>
@@ -586,21 +595,21 @@ export const AIHub = ({
             </ScrollArea>
 
             {/* Поле ввода */}
-            <div className="p-4 border-t shrink-0">
-              <div className="flex gap-2">
+            <div className="p-3 border-t shrink-0 bg-background">
+              <div className="flex gap-2 items-center">
                 <Input
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                   placeholder="Написать в сообщество..."
                   disabled={isProcessing || isRecording}
-                  className="flex-1"
+                  className="flex-1 h-9"
                 />
                 <Button 
                   onClick={handleSendMessage}
                   disabled={!message.trim() || isProcessing || isRecording}
                   size="icon"
-                  className="shrink-0"
+                  className="shrink-0 h-9 w-9"
                 >
                   {isProcessing ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -613,7 +622,7 @@ export const AIHub = ({
                   disabled={isProcessing}
                   size="icon"
                   variant={isRecording ? "destructive" : "outline"}
-                  className="shrink-0"
+                  className="shrink-0 h-9 w-9"
                 >
                   {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                 </Button>
@@ -625,7 +634,7 @@ export const AIHub = ({
                   </div>
                 </div>
               )}
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="text-xs text-muted-foreground mt-2 text-center">
                 Ваше сообщение увидят все участники сообщества
               </p>
             </div>
