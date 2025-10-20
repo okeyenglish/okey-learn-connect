@@ -122,13 +122,14 @@ serve(async (req) => {
       const status = mapStatus(webhookData.status || (webhookData as any).call_status || '');
       let direction = (webhookData.direction as 'incoming' | 'outgoing') || (webhookData as any).call_direction || (webhookData as any)['Direction'];
       
-      // Fix: The database only accepts 'inbound' or 'outbound', not 'incoming'/'outgoing'
-      if (direction === 'incoming') {
-        direction = 'inbound' as any;
-      } else if (direction === 'outgoing') {
-        direction = 'outbound' as any;
+      // Map OnlinePBX directions to database format
+      // OnlinePBX sends: 'inbound'/'outbound', Database expects: 'incoming'/'outgoing'
+      if (direction === 'inbound' || direction === 'incoming') {
+        direction = 'incoming' as any;
+      } else if (direction === 'outbound' || direction === 'outgoing') {
+        direction = 'outgoing' as any;
       } else if (!direction) {
-        direction = 'inbound' as any; // Default to inbound if not specified
+        direction = 'incoming' as any; // Default to incoming if not specified
       }
       const rawFrom = webhookData.from || (webhookData as any).src || (webhookData as any).caller_number || (webhookData as any).caller || (webhookData as any).callerid;
       const rawTo = webhookData.to || (webhookData as any).dst || (webhookData as any).called_number || (webhookData as any).callee || (webhookData as any).calledid;
