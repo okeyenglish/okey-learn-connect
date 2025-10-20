@@ -1134,8 +1134,6 @@ export type Database = {
       }
       individual_lesson_sessions: {
         Row: {
-          bbb_meeting_id: string | null
-          bbb_meeting_url: string | null
           created_at: string | null
           created_by: string | null
           duration: number | null
@@ -1150,8 +1148,6 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          bbb_meeting_id?: string | null
-          bbb_meeting_url?: string | null
           created_at?: string | null
           created_by?: string | null
           duration?: number | null
@@ -1166,8 +1162,6 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          bbb_meeting_id?: string | null
-          bbb_meeting_url?: string | null
           created_at?: string | null
           created_by?: string | null
           duration?: number | null
@@ -1934,8 +1928,6 @@ export type Database = {
       }
       lesson_sessions: {
         Row: {
-          bbb_meeting_id: string | null
-          bbb_meeting_url: string | null
           branch: string
           classroom: string
           course_lesson_id: string | null
@@ -1958,8 +1950,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          bbb_meeting_id?: string | null
-          bbb_meeting_url?: string | null
           branch: string
           classroom: string
           course_lesson_id?: string | null
@@ -1982,8 +1972,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          bbb_meeting_id?: string | null
-          bbb_meeting_url?: string | null
           branch?: string
           classroom?: string
           course_lesson_id?: string | null
@@ -3383,6 +3371,53 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      teacher_bbb_rooms: {
+        Row: {
+          attendee_password: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          meeting_id: string
+          meeting_url: string
+          moderator_password: string
+          teacher_id: string | null
+          teacher_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          attendee_password?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          meeting_id: string
+          meeting_url: string
+          moderator_password?: string
+          teacher_id?: string | null
+          teacher_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          attendee_password?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          meeting_id?: string
+          meeting_url?: string
+          moderator_password?: string
+          teacher_id?: string | null
+          teacher_name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_bbb_rooms_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       teacher_group_payments: {
         Row: {

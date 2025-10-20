@@ -8,6 +8,7 @@ import { LearningFormatsTab } from './LearningFormatsTab';
 import { AgeCategoriesTab } from './AgeCategoriesTab';
 import { AbsenceReasonsTab } from './AbsenceReasonsTab';
 import { ClassroomsTab } from './ClassroomsTab';
+import { BBBRoomsManager } from '../admin/BBBRoomsManager';
 
 const ReferencesSection = () => {
   return (
@@ -24,13 +25,14 @@ const ReferencesSection = () => {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="subjects" className="w-full">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="subjects">Предметы</TabsTrigger>
               <TabsTrigger value="levels">Уровни</TabsTrigger>
               <TabsTrigger value="formats">Форматы</TabsTrigger>
               <TabsTrigger value="ages">Возраст</TabsTrigger>
               <TabsTrigger value="absences">Пропуски</TabsTrigger>
               <TabsTrigger value="classrooms">Аудитории</TabsTrigger>
+              <TabsTrigger value="bbb">BBB</TabsTrigger>
             </TabsList>
 
             <TabsContent value="subjects" className="mt-6">
@@ -55,6 +57,10 @@ const ReferencesSection = () => {
 
             <TabsContent value="classrooms" className="mt-6">
               <ClassroomsTab />
+            </TabsContent>
+
+            <TabsContent value="bbb" className="mt-6">
+              <BBBRoomsManager />
             </TabsContent>
           </Tabs>
         </CardContent>

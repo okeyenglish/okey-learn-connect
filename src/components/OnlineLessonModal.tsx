@@ -9,6 +9,7 @@ interface OnlineLessonModalProps {
   isOpen: boolean;
   onClose: () => void;
   lessonType: "group" | "individual";
+  teacherName?: string;
   groupId?: string;
   studentId?: string;
   studentName?: string;
@@ -19,6 +20,7 @@ export const OnlineLessonModal: React.FC<OnlineLessonModalProps> = ({
   isOpen,
   onClose,
   lessonType,
+  teacherName,
   groupId,
   studentId,
   studentName,
@@ -49,6 +51,7 @@ export const OnlineLessonModal: React.FC<OnlineLessonModalProps> = ({
         body: {
           action: "create",
           lessonType,
+          teacherName,
           groupId,
           studentId,
         },
@@ -75,6 +78,7 @@ export const OnlineLessonModal: React.FC<OnlineLessonModalProps> = ({
           action: "join",
           meetingID: newMeetingId,
           fullName,
+          teacherName,
           lessonType,
           groupId,
           studentId,

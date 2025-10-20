@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 // Функция для создания checksum для BBB API
-function createChecksum(callName: string, queryString: string, secret: string): string {
+async function createChecksum(callName: string, queryString: string, secret: string): Promise<string> {
   const crypto = await import("https://deno.land/std@0.168.0/crypto/mod.ts");
   const encoder = new TextEncoder();
   const data = encoder.encode(callName + queryString + secret);
@@ -30,9 +30,9 @@ serve(async (req) => {
       throw new Error("BBB credentials not configured");
     }
 
-    const { action, meetingID, fullName, studentId, groupId, teacherId, lessonType } = await req.json();
+    const { action, meetingID, fullName, studentId, groupId, teacherId, lessonType, teacherName } = await req.json();
 
-    console.log("BBB Meeting Request:", { action, meetingID, fullName, lessonType });
+    console.log("BBB Meeting Request:", { action, meetingID, fullName, lessonType, teacherName });
 
     // Проверяем аутентификацию
     const authHeader = req.headers.get("authorization");
@@ -51,21 +51,57 @@ serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    // Создаем уникальный ID для встречи
-    const meetingId = meetingID || `${lessonType}_${groupId || studentId}_${Date.now()}`;
+    // Получаем или создаем комнату для преподавателя
+    let teacherRoom;
+    
+    if (teacherName) {
+      const { data: room, error: roomError } = await supabase
+        .from('teacher_bbb_rooms')
+        .select('*')
+        .eq('teacher_name', teacherName)
+        .single();
+      
+      if (!room && !roomError) {
+        // Создаем новую комнату если её нет
+        const { data: newRoom, error: createError } = await supabase
+          .from('teacher_bbb_rooms')
+          .insert({
+            teacher_name: teacherName,
+            meeting_id: 'teacher_' + teacherName.replace(/\s+/g, '_').toLowerCase(),
+            meeting_url: BBB_URL,
+            moderator_password: 'teacher',
+            attendee_password: 'student'
+          })
+          .select()
+          .single();
+        
+        if (createError) {
+          console.error("Error creating room:", createError);
+        } else {
+          teacherRoom = newRoom;
+        }
+      } else {
+        teacherRoom = room;
+      }
+    }
+    
+    // Используем meeting ID из комнаты преподавателя или генерируем новый
+    const meetingId = teacherRoom?.meeting_id || meetingID || `${lessonType}_${groupId || studentId}_${Date.now()}`;
 
-  if (action === "create") {
+    if (action === "create") {
       // Создаем встречу
-      const meetingName = lessonType === "group" 
-        ? `Групповое занятие ${groupId}` 
-        : `Индивидуальное занятие ${studentId}`;
+      const meetingName = teacherName 
+        ? `Урок ${teacherName}` 
+        : lessonType === "group" 
+          ? `Групповое занятие ${groupId}` 
+          : `Индивидуальное занятие ${studentId}`;
 
       const params = new URLSearchParams({
         name: meetingName,
         meetingID: meetingId,
-        attendeePW: "student",
-        moderatorPW: "teacher",
-        welcome: "Добро пожаловать на урок!",
+        attendeePW: teacherRoom?.attendee_password || "student",
+        moderatorPW: teacherRoom?.moderator_password || "teacher",
+        welcome: teacherName ? `Добро пожаловать на урок к ${teacherName}!` : "Добро пожаловать на урок!",
         record: "true",
         autoStartRecording: "false",
         allowStartStopRecording: "true",
@@ -81,34 +117,11 @@ serve(async (req) => {
 
       console.log("Meeting created:", { meetingId, createData });
 
-      // Сохраняем meeting URL в базу данных
-      const joinUrl = `${BBB_URL}`;
-      
-      if (lessonType === "group" && groupId) {
-        await supabase
-          .from('lesson_sessions')
-          .update({ 
-            bbb_meeting_id: meetingId,
-            bbb_meeting_url: joinUrl 
-          })
-          .eq('group_id', groupId)
-          .gte('lesson_date', new Date().toISOString().split('T')[0]);
-      } else if (studentId) {
-        await supabase
-          .from('individual_lesson_sessions')
-          .update({ 
-            bbb_meeting_id: meetingId,
-            bbb_meeting_url: joinUrl 
-          })
-          .eq('individual_lesson_id', studentId)
-          .gte('lesson_date', new Date().toISOString().split('T')[0]);
-      }
-
       return new Response(
         JSON.stringify({ 
           success: true, 
           meetingId,
-          joinUrl,
+          joinUrl: BBB_URL,
           message: "Meeting created successfully" 
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }

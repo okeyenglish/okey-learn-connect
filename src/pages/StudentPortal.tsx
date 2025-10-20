@@ -97,8 +97,6 @@ export default function StudentPortal() {
             status,
             branch,
             notes,
-            bbb_meeting_id,
-            bbb_meeting_url,
             group_id,
             learning_groups (
               id,

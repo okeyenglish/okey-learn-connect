@@ -142,6 +142,7 @@ export function EnhancedStudentCard({
   const [onlineLessonOpen, setOnlineLessonOpen] = useState(false);
   const [onlineLessonData, setOnlineLessonData] = useState<{
     lessonType: 'group' | 'individual';
+    teacherName?: string;
     groupId?: string;
     studentId?: string;
     studentName?: string;
@@ -1426,6 +1427,7 @@ export function EnhancedStudentCard({
                                             onClick={() => {
                                               setOnlineLessonData({
                                                 lessonType: 'individual',
+                                                teacherName: lesson.teacherName,
                                                 studentId: student.id,
                                                 studentName: studentDetails?.name || student.name,
                                               });
@@ -2102,6 +2104,7 @@ export function EnhancedStudentCard({
             setOnlineLessonData(null);
           }}
           lessonType={onlineLessonData.lessonType}
+          teacherName={onlineLessonData.teacherName}
           groupId={onlineLessonData.groupId}
           studentId={onlineLessonData.studentId}
           studentName={onlineLessonData.studentName}

@@ -6,6 +6,9 @@ verify_jwt = true
 [functions.bbb-meeting]
 verify_jwt = true
 
+[functions.create-teacher-rooms]
+verify_jwt = true
+
 [functions.ask]
 verify_jwt = false
 

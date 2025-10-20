@@ -664,6 +664,7 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
           isOpen={onlineLessonOpen}
           onClose={() => setOnlineLessonOpen(false)}
           lessonType="group"
+          teacherName={group.responsible_teacher}
           groupId={group.id}
           groupName={group.name}
         />

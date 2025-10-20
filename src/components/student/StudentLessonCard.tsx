@@ -16,8 +16,6 @@ interface StudentLessonCardProps {
     classroom?: string;
     branch?: string;
     status: string;
-    bbb_meeting_id?: string;
-    bbb_meeting_url?: string;
     group?: {
       name: string;
       id: string;
@@ -100,6 +98,7 @@ export const StudentLessonCard: React.FC<StudentLessonCardProps> = ({ lesson, ty
           isOpen={onlineLessonOpen}
           onClose={() => setOnlineLessonOpen(false)}
           lessonType={type}
+          teacherName={lesson.teacher_name}
           groupId={type === "group" ? lesson.group?.id : undefined}
           studentId={type === "individual" ? lesson.individual_lesson?.id : undefined}
           groupName={type === "group" ? lesson.group?.name : undefined}
