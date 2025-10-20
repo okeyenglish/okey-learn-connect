@@ -2,12 +2,13 @@ import React, { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Users, Building2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Users, Building2, GripVertical } from "lucide-react";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useScheduleData, ScheduleFilters, getSessionStatusColor, getDayNames, useClassrooms } from "@/hooks/useScheduleData";
 import { GroupDetailModal } from "@/components/learning-groups/GroupDetailModal";
 import { useLearningGroups } from "@/hooks/useLearningGroups";
+import { useScheduleDragDrop } from "@/hooks/useScheduleDragDrop";
 
 interface ClassroomScheduleGridProps {
   filters: ScheduleFilters;
@@ -24,6 +25,10 @@ export const ClassroomScheduleGrid = ({ filters, viewFormat, gridSettings }: Cla
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedGroup, setSelectedGroup] = useState<any>(null);
   const [groupModalOpen, setGroupModalOpen] = useState(false);
+  const [dragOverCell, setDragOverCell] = useState<string | null>(null);
+
+  // Drag & Drop functionality
+  const { draggedSession, isDragging, handleDragStart, handleDragEnd, handleDrop } = useScheduleDragDrop();
 
   // Generate time slots based on grid settings
   const timeSlots = useMemo(() => {
@@ -161,29 +166,46 @@ export const ClassroomScheduleGrid = ({ filters, viewFormat, gridSettings }: Cla
     }
   };
 
-  const getLessonCardContent = (session: any) => {
+  const getLessonCardContent = (session: any, classroom: string, date?: Date) => {
     const status = !session.teacher_name || session.teacher_name === 'Не назначен' 
       ? 'no_teacher' 
       : session.status;
     
     return (
       <div 
-        className={`p-2 rounded text-xs h-full cursor-pointer transition-all hover:shadow-md border ${getSessionStatusColor(status)}`}
-        title={`${session.name}\nПреподаватель: ${session.teacher_name}\n${session.time}\nУчеников: ${session.student_count}/${session.capacity || 'N/A'}`}
+        draggable
+        onDragStart={(e) => {
+          e.stopPropagation();
+          handleDragStart(session.id, session, {
+            classroom: classroom,
+            date: date ? format(date, 'yyyy-MM-dd') : undefined,
+            time: session.start_time || session.time?.split('-')[0],
+          });
+        }}
+        onDragEnd={handleDragEnd}
+        className={`p-2 rounded text-xs h-full cursor-move transition-all hover:shadow-md border ${getSessionStatusColor(status)} ${
+          isDragging && draggedSession?.id === session.id ? 'opacity-50' : ''
+        }`}
+        title={`${session.name}\nПреподаватель: ${session.teacher_name}\n${session.time}\nУчеников: ${session.student_count}/${session.capacity || 'N/A'}\n\n✋ Перетащите для переноса`}
         onClick={() => handleSessionClick(session)}
       >
-        <div className="font-medium truncate">
-          {session.teacher_name}
-        </div>
-        <div className="text-xs opacity-90 truncate">
-          {session.name}
-        </div>
-        <div className="text-xs opacity-75">
-          {session.time}
-        </div>
-        <div className="text-xs opacity-75 truncate flex items-center gap-1">
-          <Users className="h-3 w-3" />
-          {session.student_count}/{session.capacity || 'N/A'}
+        <div className="flex items-start gap-1">
+          <GripVertical className="h-3 w-3 flex-shrink-0 mt-0.5 opacity-50" />
+          <div className="flex-1 min-w-0">
+            <div className="font-medium truncate">
+              {session.teacher_name}
+            </div>
+            <div className="text-xs opacity-90 truncate">
+              {session.name}
+            </div>
+            <div className="text-xs opacity-75">
+              {session.time}
+            </div>
+            <div className="text-xs opacity-75 truncate flex items-center gap-1">
+              <Users className="h-3 w-3" />
+              {session.student_count}/{session.capacity || 'N/A'}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -266,6 +288,7 @@ export const ClassroomScheduleGrid = ({ filters, viewFormat, gridSettings }: Cla
 
                 {/* Time slots or day columns */}
                 {(gridSettings.rotated ? timeSlots : weekDays).map((item, index) => {
+                  const currentDate = gridSettings.rotated ? undefined : item as Date;
                   const daySessions = gridSettings.rotated 
                     ? // For time-based view, filter sessions by time slot
                       Object.values(gridData[classroomInfo.name] || {})
@@ -277,17 +300,41 @@ export const ClassroomScheduleGrid = ({ filters, viewFormat, gridSettings }: Cla
                     : // For day-based view, get sessions for this day
                       gridData[classroomInfo.name]?.[format(item as Date, 'yyyy-MM-dd')] || [];
 
+                  const cellKey = `${classroomInfo.name}-${index}`;
+                  const isDropTarget = dragOverCell === cellKey;
+
                   return (
-                    <div key={index} className="p-1 border-r relative min-h-[80px]">
+                    <div 
+                      key={index} 
+                      className={`p-1 border-r relative min-h-[80px] transition-colors ${
+                        isDropTarget ? 'bg-primary/10 border-primary' : ''
+                      }`}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setDragOverCell(cellKey);
+                      }}
+                      onDragLeave={() => {
+                        setDragOverCell(null);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setDragOverCell(null);
+                        handleDrop({
+                          classroom: classroomInfo.classroom.name,
+                          date: currentDate,
+                          time: gridSettings.rotated ? (item as any).start : undefined,
+                        });
+                      }}
+                    >
                       <div className="space-y-1">
                         {daySessions.map((session, sessionIndex) => (
                           <div key={sessionIndex}>
-                            {getLessonCardContent(session)}
+                            {getLessonCardContent(session, classroomInfo.name, currentDate)}
                           </div>
                         ))}
                         {daySessions.length === 0 && !gridSettings.rotated && (
                           <div className="text-xs text-muted-foreground text-center py-2">
-                            Свободно
+                            {isDropTarget ? 'Отпустите здесь' : 'Свободно'}
                           </div>
                         )}
                       </div>
