@@ -24,6 +24,9 @@ serve(async (req) => {
   try {
     const BBB_URL = Deno.env.get("BBB_URL");
     const BBB_SECRET = Deno.env.get("BBB_SECRET");
+    
+    // Force cache refresh by adding timestamp
+    console.log("Function restarted at:", new Date().toISOString());
 
     console.log("BBB_URL:", BBB_URL);
     console.log("BBB_SECRET exists:", !!BBB_SECRET);
