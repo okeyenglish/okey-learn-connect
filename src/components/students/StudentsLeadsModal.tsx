@@ -182,7 +182,7 @@ export function StudentsLeadsModal({ onLeadClick }: StudentsLeadsModalProps) {
                     <div className="text-sm">{student.phone || '—'}</div>
                   </TableCell>
                   <TableCell>
-                    {getStatusBadge(student.status)}
+                    <Badge variant="outline">Лид</Badge>
                   </TableCell>
                   <TableCell>
                     <span className="text-sm">{student.age || '—'} лет</span>
