@@ -2293,7 +2293,7 @@ const menuItems = [
                             <ChevronRight className="h-3 w-3 text-muted-foreground" />
                           )}
                           <h3 className="text-xs font-normal text-muted-foreground uppercase tracking-wide">
-                            Закрепленные (в работе)
+                            Закрепленные ({filteredChats.filter(chat => getChatState(chat.id).isPinned).length})
                           </h3>
                         </div>
                         {(() => {
