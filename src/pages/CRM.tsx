@@ -586,6 +586,14 @@ const CRMContent = () => {
   ];
   const threadClientIds = new Set((threads || []).map(t => t.client_id));
 
+  // Функция для очистки имени от префикса "Клиент"
+  const cleanClientName = (name: string) => {
+    if (name.startsWith('Клиент ')) {
+      return name.replace('Клиент ', '');
+    }
+    return name;
+  };
+
   const clientChatsWithoutThreads = (clients || [])
     .filter(c => !c.name?.includes('Корпоративный чат') && 
                  !c.name?.includes('Чат педагогов') && 
@@ -594,7 +602,7 @@ const CRMContent = () => {
     .filter(c => !threadClientIds.has(c.id))
     .map(c => ({
       id: c.id,
-      name: c.name,
+      name: cleanClientName(c.name),
       phone: c.phone,
       lastMessage: 'Нет сообщений',
       time: '',
@@ -633,7 +641,7 @@ const CRMContent = () => {
           
         return {
           id: thread.client_id,
-          name: thread.client_name,
+          name: cleanClientName(thread.client_name),
           phone: thread.client_phone,
           lastMessage: lastMsgDisplay,
           time: formatTime(thread.last_message_time),
