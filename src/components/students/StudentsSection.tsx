@@ -19,6 +19,7 @@ import {
   Pause
 } from 'lucide-react';
 import { AddStudentModal } from './AddStudentModal';
+import { ImportStudentsModal } from './ImportStudentsModal';
 import { StudentsTable } from './StudentsTable';
 import { StudentCard } from './StudentCard';
 import { useStudents } from '@/hooks/useStudents';
@@ -26,6 +27,7 @@ import { useStudents } from '@/hooks/useStudents';
 export default function StudentsSection() {
   const [activeTab, setActiveTab] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBranch, setSelectedBranch] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
@@ -64,7 +66,7 @@ export default function StudentsSection() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => setShowImportModal(true)}>
             <Upload className="h-4 w-4 mr-2" />
             Импорт
           </Button>
@@ -341,6 +343,8 @@ export default function StudentsSection() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ImportStudentsModal open={showImportModal} onOpenChange={setShowImportModal} />
     </div>
   );
 }

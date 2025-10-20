@@ -1,1 +1,67 @@
 project_id = "kbojujfwtvmsgudumown"
+
+[functions.admin-reset-password]
+verify_jwt = true
+
+[functions.ask]
+verify_jwt = false
+
+[functions.delete-whatsapp-message]
+verify_jwt = true
+
+[functions.download-whatsapp-file]
+verify_jwt = true
+
+[functions.edit-whatsapp-message]
+verify_jwt = true
+
+[functions.generate-call-summary]
+verify_jwt = true
+
+[functions.generate-delayed-gpt-response]
+verify_jwt = true
+
+[functions.generate-gpt-response]
+verify_jwt = true
+
+[functions.generate-mini-group-name]
+verify_jwt = true
+
+[functions.get-employees]
+verify_jwt = true
+
+[functions.import-students]
+verify_jwt = true
+
+[functions.index-content]
+verify_jwt = false
+
+[functions.onlinepbx-call]
+verify_jwt = true
+
+[functions.onlinepbx-webhook]
+verify_jwt = false
+
+[functions.request-callback]
+verify_jwt = false
+
+[functions.sync-auto-groups]
+verify_jwt = true
+
+[functions.sync-single-auto-group]
+verify_jwt = true
+
+[functions.transcribe-audio]
+verify_jwt = true
+
+[functions.voice-assistant]
+verify_jwt = false
+
+[functions.webhook-proxy]
+verify_jwt = false
+
+[functions.whatsapp-send]
+verify_jwt = true
+
+[functions.whatsapp-webhook]
+verify_jwt = false
