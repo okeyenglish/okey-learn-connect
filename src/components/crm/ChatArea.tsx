@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone, Filter } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -68,7 +68,6 @@ export const ChatArea = ({
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchInput, setShowSearchInput] = useState(false);
-  const [showOnlyCalls, setShowOnlyCalls] = useState(false);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
@@ -1041,11 +1040,10 @@ export const ChatArea = ({
     }
   ];
 
-  // Filter messages based on search query and call filter
+  // Filter messages based on search query
   const filteredMessages = messages.filter(msg => {
     const matchesSearch = msg.message.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCallFilter = showOnlyCalls ? msg.systemType === 'call' : true;
-    return matchesSearch && matchesCallFilter;
+    return matchesSearch;
   });
 
   return (
@@ -1171,16 +1169,7 @@ export const ChatArea = ({
               >
                 <Search className="h-5 w-5 stroke-1" />
               </Button>
-              <Button 
-                size="sm" 
-                variant="outline"
-                className={`crm-btn h-10 w-10 p-0 border-muted-foreground/40 hover:bg-muted/30 hover:text-foreground ${showOnlyCalls ? 'bg-primary/10 text-primary border-primary/40' : 'text-muted-foreground'}`}
-                title="Показать только звонки"
-                onClick={() => setShowOnlyCalls(!showOnlyCalls)}
-              >
-                <Filter className="h-5 w-5 stroke-1" />
-              </Button>
-              <Button 
+              <Button
                 size="sm" 
                 variant="outline"
                 className="crm-btn h-10 w-10 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
@@ -1313,16 +1302,7 @@ export const ChatArea = ({
               >
                 <Search className="h-4 w-4" />
               </Button>
-              <Button 
-                variant="ghost"
-                size="icon"
-                className={`h-8 w-8 ${showOnlyCalls ? 'bg-primary/10 text-primary' : ''}`}
-                title="Показать только звонки"
-                onClick={() => setShowOnlyCalls(!showOnlyCalls)}
-              >
-                <Filter className="h-4 w-4" />
-              </Button>
-              <Button 
+              <Button
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
