@@ -22,10 +22,12 @@ import {
   ChevronDown,
   Users,
   Calendar,
-  Building
+  Building,
+  Upload
 } from "lucide-react";
 import { useStudents } from "@/hooks/useStudents";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
+import { ImportStudentsModal } from "@/components/students/ImportStudentsModal";
 import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
 import { usePinnedModalsDB } from "@/hooks/usePinnedModalsDB";
 
@@ -44,6 +46,7 @@ export const StudentsModal = ({ open, onOpenChange, children }: StudentsModalPro
   const [selectedLevel, setSelectedLevel] = useState("all");
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
   const [showStudentCard, setShowStudentCard] = useState(false);
@@ -80,35 +83,42 @@ export const StudentsModal = ({ open, onOpenChange, children }: StudentsModalPro
 
   // If open is true and onOpenChange is provided, render content without dialog
   if (open === true && onOpenChange) {
-    return <StudentsContent 
-      searchTerm={searchTerm}
-      setSearchTerm={setSearchTerm}
-      selectedBranch={selectedBranch}
-      setSelectedBranch={setSelectedBranch}
-      selectedStatus={selectedStatus}
-      setSelectedStatus={setSelectedStatus}
-      selectedCategory={selectedCategory}
-      setSelectedCategory={setSelectedCategory}
-      selectedLevel={selectedLevel}
-      setSelectedLevel={setSelectedLevel}
-      selectedStudents={selectedStudents}
-      setSelectedStudents={setSelectedStudents}
-      showAddModal={showAddModal}
-      setShowAddModal={setShowAddModal}
-      showAdvancedFilters={showAdvancedFilters}
-      setShowAdvancedFilters={setShowAdvancedFilters}
-      expandedSections={expandedSections}
-      setExpandedSections={setExpandedSections}
-      visibleColumns={visibleColumns}
-      setVisibleColumns={setVisibleColumns}
-      students={students}
-      isLoading={isLoading}
-      selectedStudent={selectedStudent}
-      setSelectedStudent={setSelectedStudent}
-      showStudentCard={showStudentCard}
-      setShowStudentCard={setShowStudentCard}
-      pinnedModals={pinnedModals}
-    />;
+    return (
+      <>
+        <StudentsContent 
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          selectedBranch={selectedBranch}
+          setSelectedBranch={setSelectedBranch}
+          selectedStatus={selectedStatus}
+          setSelectedStatus={setSelectedStatus}
+          selectedCategory={selectedCategory}
+          setSelectedCategory={setSelectedCategory}
+          selectedLevel={selectedLevel}
+          setSelectedLevel={setSelectedLevel}
+          selectedStudents={selectedStudents}
+          setSelectedStudents={setSelectedStudents}
+          showAddModal={showAddModal}
+          setShowAddModal={setShowAddModal}
+          showImportModal={showImportModal}
+          setShowImportModal={setShowImportModal}
+          showAdvancedFilters={showAdvancedFilters}
+          setShowAdvancedFilters={setShowAdvancedFilters}
+          expandedSections={expandedSections}
+          setExpandedSections={setExpandedSections}
+          visibleColumns={visibleColumns}
+          setVisibleColumns={setVisibleColumns}
+          students={students}
+          isLoading={isLoading}
+          selectedStudent={selectedStudent}
+          setSelectedStudent={setSelectedStudent}
+          showStudentCard={showStudentCard}
+          setShowStudentCard={setShowStudentCard}
+          pinnedModals={pinnedModals}
+        />
+        <ImportStudentsModal open={showImportModal} onOpenChange={setShowImportModal} />
+      </>
+    );
   }
 
   return (
@@ -125,6 +135,10 @@ export const StudentsModal = ({ open, onOpenChange, children }: StudentsModalPro
               Ученики и клиенты
             </DialogTitle>
             <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Импорт
+              </Button>
               <Button variant="outline" size="sm" onClick={() => console.log('export')}>
                 <Download className="h-4 w-4 mr-2" />
                 Экспорт в XLS
@@ -154,6 +168,8 @@ export const StudentsModal = ({ open, onOpenChange, children }: StudentsModalPro
           setSelectedStudents={setSelectedStudents}
           showAddModal={showAddModal}
           setShowAddModal={setShowAddModal}
+          showImportModal={showImportModal}
+          setShowImportModal={setShowImportModal}
           showAdvancedFilters={showAdvancedFilters}
           setShowAdvancedFilters={setShowAdvancedFilters}
           expandedSections={expandedSections}
@@ -168,6 +184,7 @@ export const StudentsModal = ({ open, onOpenChange, children }: StudentsModalPro
           setShowStudentCard={setShowStudentCard}
           pinnedModals={pinnedModals}
         />
+        <ImportStudentsModal open={showImportModal} onOpenChange={setShowImportModal} />
       </DialogContent>
     </Dialog>
   );
@@ -189,6 +206,8 @@ interface StudentsContentProps {
   setSelectedStudents: (students: string[]) => void;
   showAddModal: boolean;
   setShowAddModal: (show: boolean) => void;
+  showImportModal: boolean;
+  setShowImportModal: (show: boolean) => void;
   showAdvancedFilters: boolean;
   setShowAdvancedFilters: (show: boolean) => void;
   expandedSections: any;
@@ -212,7 +231,8 @@ const StudentsContent = ({
   searchTerm, setSearchTerm, selectedBranch, setSelectedBranch, 
   selectedStatus, setSelectedStatus, selectedCategory, setSelectedCategory,
   selectedLevel, setSelectedLevel, selectedStudents, setSelectedStudents,
-  showAddModal, setShowAddModal, showAdvancedFilters, setShowAdvancedFilters,
+  showAddModal, setShowAddModal, showImportModal, setShowImportModal, 
+  showAdvancedFilters, setShowAdvancedFilters,
   expandedSections, setExpandedSections,
   visibleColumns, setVisibleColumns, students, isLoading,
   selectedStudent, setSelectedStudent, showStudentCard, setShowStudentCard,

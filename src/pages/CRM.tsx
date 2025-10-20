@@ -994,7 +994,6 @@ const menuItems = [
     { icon: FileText, label: "Заявки" },
     { icon: User, label: "Лиды" },
     { icon: Users, label: "Ученики" },
-    { icon: Upload, label: "Импорт учеников" },
     { icon: Building, label: "Компания" },
     { icon: GraduationCap, label: "Обучение" },
     { icon: Monitor, label: "Занятия онлайн" },
@@ -1999,11 +1998,6 @@ const menuItems = [
                         {item.label === "Ученики" && (
                           <div className="h-full overflow-hidden">
                             <StudentsModal open={true} onOpenChange={() => {}} />
-                          </div>
-                        )}
-                        {item.label === "Импорт учеников" && (
-                          <div className="h-full overflow-hidden">
-                            <ImportStudentsModal open={true} onOpenChange={() => {}} />
                           </div>
                         )}
                         
