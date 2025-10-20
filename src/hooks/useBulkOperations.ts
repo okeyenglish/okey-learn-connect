@@ -1,33 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-
-export interface BulkOperation {
-  id: string;
-  operation_type: 'tuition_charge' | 'invoice_generation' | 'payment_reminder' | 'teacher_salary';
-  target_filters: any;
-  affected_count: number;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  results?: any;
-  error_log?: any[];
-  created_at: string;
-  updated_at: string;
-}
-
-export const useBulkOperations = () => {
-  return useQuery({
-    queryKey: ['bulk-operations'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('bulk_operations')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data as BulkOperation[];
-    },
-  });
-};
 
 export const useBulkChargeTuition = () => {
   const { toast } = useToast();
@@ -40,7 +13,7 @@ export const useBulkChargeTuition = () => {
       charge_date?: string;
       description?: string;
     }) => {
-      const { data, error } = await supabase.rpc('bulk_charge_tuition', {
+      const { data, error } = await supabase.rpc('bulk_charge_tuition' as any, {
         p_filters: params.filters,
         p_amount: params.amount,
         p_charge_date: params.charge_date || new Date().toISOString().split('T')[0],
@@ -78,7 +51,7 @@ export const useBulkGenerateInvoices = () => {
       filters: any;
       due_days?: number;
     }) => {
-      const { data, error } = await supabase.rpc('bulk_generate_invoices', {
+      const { data, error } = await supabase.rpc('bulk_generate_invoices' as any, {
         p_filters: params.filters,
         p_due_days: params.due_days || 30,
       });

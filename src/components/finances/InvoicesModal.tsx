@@ -13,7 +13,7 @@ import { useInvoices, useUpdateInvoice } from '@/hooks/useInvoices';
 import { Loader2, FileText, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { exportScheduleToExcel } from '@/utils/scheduleExport';
+import * as XLSX from 'xlsx';
 
 interface InvoicesModalProps {
   open?: boolean;
@@ -41,16 +41,14 @@ export const InvoicesModal: React.FC<InvoicesModalProps> = ({
     const exportData = invoices.map((inv) => ({
       'Номер счета': inv.invoice_number,
       'Студент': inv.students ? `${inv.students.first_name} ${inv.students.last_name}` : '-',
-      'Дата': format(new Date(inv.invoice_date), 'd MMMM yyyy', { locale: ru }),
-      'Срок оплаты': format(new Date(inv.due_date), 'd MMMM yyyy', { locale: ru }),
+      'Дата': format(new Date(inv.created_at), 'd MMMM yyyy', { locale: ru }),
+      'Срок оплаты': inv.due_date ? format(new Date(inv.due_date), 'd MMMM yyyy', { locale: ru }) : '-',
       'Сумма': inv.amount,
-      'Валюта': inv.currency,
       'Статус': getStatusLabel(inv.status),
+      'Описание': inv.description || '-',
       'Примечания': inv.notes || '-',
     }));
 
-    // Используем существующую функцию экспорта
-    const XLSX = require('xlsx');
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(exportData);
     XLSX.utils.book_append_sheet(wb, ws, 'Счета');
@@ -59,7 +57,8 @@ export const InvoicesModal: React.FC<InvoicesModalProps> = ({
 
   const getStatusLabel = (status: string): string => {
     const labels: Record<string, string> = {
-      pending: 'Ожидает оплаты',
+      draft: 'Черновик',
+      sent: 'Отправлен',
       paid: 'Оплачен',
       overdue: 'Просрочен',
       cancelled: 'Отменен',
@@ -86,7 +85,8 @@ export const InvoicesModal: React.FC<InvoicesModalProps> = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">Все статусы</SelectItem>
-                  <SelectItem value="pending">Ожидает оплаты</SelectItem>
+                  <SelectItem value="draft">Черновик</SelectItem>
+                  <SelectItem value="sent">Отправлен</SelectItem>
                   <SelectItem value="paid">Оплачен</SelectItem>
                   <SelectItem value="overdue">Просрочен</SelectItem>
                   <SelectItem value="cancelled">Отменен</SelectItem>
@@ -126,21 +126,21 @@ export const InvoicesModal: React.FC<InvoicesModalProps> = ({
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-muted-foreground">Дата</p>
+                        <p className="text-sm text-muted-foreground">Дата создания</p>
                         <p className="font-medium">
-                          {format(new Date(invoice.invoice_date), 'd MMMM yyyy', { locale: ru })}
+                          {format(new Date(invoice.created_at), 'd MMMM yyyy', { locale: ru })}
                         </p>
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Срок оплаты</p>
                         <p className="font-medium">
-                          {format(new Date(invoice.due_date), 'd MMMM yyyy', { locale: ru })}
+                          {invoice.due_date ? format(new Date(invoice.due_date), 'd MMMM yyyy', { locale: ru }) : '-'}
                         </p>
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Сумма</p>
                         <p className="font-medium text-lg">
-                          {invoice.amount} {invoice.currency}
+                          {invoice.amount} ₽
                         </p>
                       </div>
                       <div>
@@ -153,7 +153,8 @@ export const InvoicesModal: React.FC<InvoicesModalProps> = ({
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="pending">Ожидает оплаты</SelectItem>
+                            <SelectItem value="draft">Черновик</SelectItem>
+                            <SelectItem value="sent">Отправлен</SelectItem>
                             <SelectItem value="paid">Оплачен</SelectItem>
                             <SelectItem value="overdue">Просрочен</SelectItem>
                             <SelectItem value="cancelled">Отменен</SelectItem>

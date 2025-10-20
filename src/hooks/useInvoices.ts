@@ -1,21 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Database } from '@/integrations/supabase/types';
 
-export interface Invoice {
-  id: string;
-  invoice_number: string;
-  student_id?: string;
-  client_id?: string;
-  invoice_date: string;
-  due_date: string;
-  amount: number;
-  currency: string;
-  status: 'pending' | 'paid' | 'overdue' | 'cancelled';
-  items: any[];
-  notes?: string;
-  created_at: string;
-  updated_at: string;
+type DbInvoice = Database['public']['Tables']['invoices']['Row'];
+type DbInvoiceInsert = Database['public']['Tables']['invoices']['Insert'];
+type DbInvoiceUpdate = Database['public']['Tables']['invoices']['Update'];
+
+export interface Invoice extends Omit<DbInvoice, 'students'> {
   students?: {
     first_name: string;
     last_name: string;
@@ -29,13 +21,13 @@ export const useInvoices = (filters?: { student_id?: string; status?: string }) 
       let query = supabase
         .from('invoices')
         .select('*, students(first_name, last_name)')
-        .order('invoice_date', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (filters?.student_id) {
         query = query.eq('student_id', filters.student_id);
       }
       if (filters?.status) {
-        query = query.eq('status', filters.status);
+        query = query.eq('status', filters.status as any);
       }
 
       const { data, error } = await query;
@@ -50,7 +42,7 @@ export const useCreateInvoice = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (invoiceData: Partial<Invoice>) => {
+    mutationFn: async (invoiceData: DbInvoiceInsert) => {
       const { data, error } = await supabase
         .from('invoices')
         .insert(invoiceData)
@@ -82,7 +74,7 @@ export const useUpdateInvoice = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Invoice> }) => {
+    mutationFn: async ({ id, updates }: { id: string; updates: DbInvoiceUpdate }) => {
       const { data, error } = await supabase
         .from('invoices')
         .update(updates)
