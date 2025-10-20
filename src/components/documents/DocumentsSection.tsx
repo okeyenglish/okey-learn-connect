@@ -49,6 +49,7 @@ export const DocumentsSection = () => {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const { data: documents, isLoading } = useDocuments(currentFolder);
   const createDocument = useCreateDocument();
@@ -101,6 +102,30 @@ export const DocumentsSection = () => {
     });
 
     setUploadDialogOpen(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+
+    await uploadDocument.mutateAsync({
+      file,
+      name: file.name,
+      folderPath: currentFolder,
+    });
   };
 
   const handleUpdateDocument = async () => {
@@ -161,11 +186,11 @@ export const DocumentsSection = () => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Документы</h2>
-          <p className="text-sm text-muted-foreground">Управление файлами и документами</p>
+          <h2 className="text-xl font-bold">Документы</h2>
+          <p className="text-xs text-muted-foreground">Управление файлами и документами</p>
         </div>
         <div className="flex gap-2">
           <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
@@ -249,12 +274,22 @@ export const DocumentsSection = () => {
           <TabsTrigger value="shared">Расшаренные со мной</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="my-documents" className="space-y-4">
-          {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Загрузка...</div>
-          ) : documents && documents.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {documents.map((doc) => (
+        <TabsContent value="my-documents" className="space-y-3 mt-3">
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`min-h-[400px] rounded-lg border-2 border-dashed transition-colors ${
+              isDragging 
+                ? 'border-primary bg-primary/5' 
+                : 'border-muted-foreground/20'
+            }`}
+          >
+            {isLoading ? (
+              <div className="text-center py-8 text-muted-foreground">Загрузка...</div>
+            ) : documents && documents.length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 p-4">
+                {documents.map((doc) => (
                 <Card key={doc.id} className="hover:shadow-md transition-shadow">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
@@ -337,21 +372,24 @@ export const DocumentsSection = () => {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Нет документов</p>
-              <p className="text-sm">Создайте новый документ или загрузите файл</p>
-            </div>
-          )}
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Нет документов</p>
+                <p className="text-sm">Перетащите файл сюда или создайте новый документ</p>
+              </div>
+            )}
+          </div>
         </TabsContent>
 
-        <TabsContent value="shared" className="space-y-4">
-          <div className="text-center py-12 text-muted-foreground">
-            <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Документы, расшаренные с вами, появятся здесь</p>
+        <TabsContent value="shared" className="space-y-3 mt-3">
+          <div className="min-h-[400px] rounded-lg border-2 border-dashed border-muted-foreground/20">
+            <div className="text-center py-12 text-muted-foreground">
+              <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Документы, расшаренные с вами, появятся здесь</p>
+            </div>
           </div>
         </TabsContent>
       </Tabs>
