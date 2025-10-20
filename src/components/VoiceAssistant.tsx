@@ -15,6 +15,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 interface VoiceAssistantProps {
   isOpen: boolean;
   onToggle: () => void;
+  embedded?: boolean; // Новый prop для встраивания в другие компоненты
   context?: {
     currentPage: string;
     activeClientId: string | null;
@@ -61,6 +62,7 @@ interface ActionResult {
 export default function VoiceAssistant({ 
   isOpen, 
   onToggle, 
+  embedded = false,
   context,
   onOpenModal,
   onOpenChat 

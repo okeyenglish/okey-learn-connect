@@ -118,7 +118,7 @@ import { StudentsLeadsModal } from "@/components/students/StudentsLeadsModal";
 import { ImportStudentsModal } from "@/components/students/ImportStudentsModal";
 import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
 import { NewFinancesSection } from "@/components/finances/NewFinancesSection";
-import { CommunityChatsSection } from "@/components/community/CommunityChatsSection";
+import { AIHub } from "@/components/ai-hub/AIHub";
 import ScheduleSection from "@/components/crm/sections/ScheduleSection";
 import { DocumentsSection } from "@/components/documents/DocumentsSection";
 import { AnalyticsSection } from "@/components/analytics/AnalyticsSection";
@@ -1116,7 +1116,6 @@ const CRMContent = () => {
     { icon: DollarSign, label: "Финансы" },
     { icon: BarChart3, label: "Отчёты" },
     { icon: MessageCircle, label: "Уведомления" },
-    { icon: Users, label: "Сообщество" },
     { icon: Settings, label: "Настройки" },
     ...(canAccessAdmin ? [{ icon: Shield, label: "Админ-панель" }] : []),
   ];
@@ -1326,11 +1325,6 @@ const CRMContent = () => {
                         {item.label === "Уведомления" && (
                           <div className="h-full">
                             <CommunicationsSection />
-                          </div>
-                        )}
-                        {item.label === "Сообщество" && (
-                          <div className="h-full">
-                            <CommunityChatsSection />
                           </div>
                         )}
                         {item.label === "Документы" && (
@@ -3404,7 +3398,7 @@ const CRMContent = () => {
         return null;
       })}
       
-      {/* Плавающая кнопка AI-помощника для десктопа */}
+      {/* Плавающая кнопка AI Центра для десктопа */}
       {!isMobile && !voiceAssistantOpen && (
         <Button
           onClick={() => setVoiceAssistantOpen(true)}
@@ -3415,8 +3409,8 @@ const CRMContent = () => {
         </Button>
       )}
       
-      {/* Голосовой ассистент */}
-      <VoiceAssistant 
+      {/* AI Центр */}
+      <AIHub 
         isOpen={voiceAssistantOpen}
         onToggle={() => setVoiceAssistantOpen(!voiceAssistantOpen)}
         context={{
@@ -3427,25 +3421,25 @@ const CRMContent = () => {
           userBranch: profile?.branch,
           activeChatType
         }}
-          onOpenModal={{
-            addClient: () => setShowAddClientModal(true),
-            addTask: () => setShowAddTaskModal(true),
-            addTeacher: () => setShowAddTeacherModal(true),
-            addStudent: () => setShowAddStudentModal(true),
-            addInvoice: () => setShowInvoiceModal(true),
-            clientProfile: (clientId: string) => {
-              handleChatClick(clientId, 'client');
-              setRightSidebarOpen(true);
-            },
-            editTask: (taskId: string) => {
-              setEditTaskId(taskId);
-              setShowEditTaskModal(true);
-            }
-          }}
-          onOpenChat={(clientId: string) => {
+        onOpenModal={{
+          addClient: () => setShowAddClientModal(true),
+          addTask: () => setShowAddTaskModal(true),
+          addTeacher: () => setShowAddTeacherModal(true),
+          addStudent: () => setShowAddStudentModal(true),
+          addInvoice: () => setShowInvoiceModal(true),
+          clientProfile: (clientId: string) => {
             handleChatClick(clientId, 'client');
-          }}
-        />
+            setRightSidebarOpen(true);
+          },
+          editTask: (taskId: string) => {
+            setEditTaskId(taskId);
+            setShowEditTaskModal(true);
+          }
+        }}
+        onOpenChat={(clientId: string) => {
+          handleChatClick(clientId, 'client');
+        }}
+      />
 
       {/* Мобильная нижняя навигация */}
       {isMobile && !(activeChatType === 'client' && !!activeChatId) && (
