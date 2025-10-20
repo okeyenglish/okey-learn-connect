@@ -24,7 +24,11 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
     level: '',
     teacher_name: '',
     duration: 60,
+    break_minutes: 0,
     price_per_lesson: '',
+    teacher_rate: '',
+    payment_method: 'per_lesson' as const,
+    is_flexible_schedule: false,
     schedule_days: [] as string[],
     schedule_time: '',
     start_hour: '09',
@@ -33,7 +37,8 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
     notes: '',
     branch: 'Окская',
     period_start: '',
-    period_end: ''
+    period_end: '',
+    responsible_manager: ''
   });
   const [loading, setLoading] = useState(false);
   
@@ -91,7 +96,12 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
         level: formData.level,
         teacher_name: formData.teacher_name,
         duration: formData.duration,
+        break_minutes: formData.break_minutes,
         price_per_lesson: formData.price_per_lesson ? parseFloat(formData.price_per_lesson) : null,
+        teacher_rate: formData.teacher_rate ? parseFloat(formData.teacher_rate) : null,
+        payment_method: formData.payment_method,
+        is_flexible_schedule: formData.is_flexible_schedule,
+        requires_teacher: !formData.teacher_name,
         schedule_days: formData.schedule_days,
         schedule_time: formData.schedule_time,
         lesson_location: formData.lesson_location,
@@ -102,7 +112,8 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
         category: 'all' as const,
         is_active: true,
         period_start: formData.period_start,
-        period_end: formData.period_end
+        period_end: formData.period_end,
+        responsible_manager: formData.responsible_manager
       };
 
       await createIndividualLesson(lessonData);
@@ -113,7 +124,11 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
         level: '',
         teacher_name: '',
         duration: 60,
+        break_minutes: 0,
         price_per_lesson: '',
+        teacher_rate: '',
+        payment_method: 'per_lesson',
+        is_flexible_schedule: false,
         schedule_days: [],
         schedule_time: '',
         start_hour: '09',
@@ -122,7 +137,8 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
         notes: '',
         branch: 'Окская',
         period_start: '',
-        period_end: ''
+        period_end: '',
+        responsible_manager: ''
       });
       
       onOpenChange(false);
@@ -369,6 +385,66 @@ export function AddIndividualLessonModal({ open, onOpenChange, studentId, studen
                 onChange={(e) => setFormData(prev => ({...prev, period_end: e.target.value}))}
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="break_minutes">Перерыв (минуты)</Label>
+              <Input
+                id="break_minutes"
+                type="number"
+                value={formData.break_minutes}
+                onChange={(e) => setFormData(prev => ({...prev, break_minutes: parseInt(e.target.value)}))}
+                placeholder="0"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="teacher_rate">Ставка преподавателя (₽/час)</Label>
+              <Input
+                id="teacher_rate"
+                type="number"
+                value={formData.teacher_rate}
+                onChange={(e) => setFormData(prev => ({...prev, teacher_rate: e.target.value}))}
+                placeholder="500"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="payment_method">Способ оплаты</Label>
+              <Select value={formData.payment_method} onValueChange={(value: any) => setFormData(prev => ({...prev, payment_method: value}))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="per_lesson">По занятиям</SelectItem>
+                  <SelectItem value="subscription">Абонемент</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="responsible_manager">Ответственный менеджер</Label>
+            <Input
+              id="responsible_manager"
+              value={formData.responsible_manager}
+              onChange={(e) => setFormData(prev => ({...prev, responsible_manager: e.target.value}))}
+              placeholder="Имя менеджера"
+            />
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="flexible_schedule"
+              checked={formData.is_flexible_schedule}
+              onChange={(e) => setFormData(prev => ({...prev, is_flexible_schedule: e.target.checked}))}
+              className="rounded border-gray-300"
+            />
+            <Label htmlFor="flexible_schedule" className="text-sm font-normal">
+              Плавающее расписание (добавлять занятия вручную)
+            </Label>
           </div>
 
           <div>

@@ -31,16 +31,23 @@ export const AddIndividualLessonModal = ({ onLessonAdded }: AddIndividualLessonM
     debt_hours: "",
     teacher_name: "",
     duration: 60,
+    break_minutes: 0,
+    academic_hours_per_day: 1,
     schedule_days: [] as string[],
     schedule_time: "",
     lesson_location: "office",
     is_skype_only: false,
+    is_flexible_schedule: false,
+    requires_teacher: false,
     period_start: "",
     period_end: "",
     price_per_lesson: "",
+    teacher_rate: "",
+    payment_method: "per_lesson" as const,
     audit_location: "",
     description: "",
-    notes: ""
+    notes: "",
+    responsible_manager: ""
   });
   
   const { toast } = useToast();
@@ -65,6 +72,8 @@ export const AddIndividualLessonModal = ({ onLessonAdded }: AddIndividualLessonM
         lesson_type: formData.lesson_type,
         status: formData.status,
         duration: formData.duration,
+        break_minutes: formData.break_minutes,
+        academic_hours_per_day: formData.academic_hours_per_day,
         academic_hours: formData.academic_hours ? parseFloat(formData.academic_hours) : undefined,
         debt_hours: formData.debt_hours ? parseFloat(formData.debt_hours) : undefined,
         teacher_name: formData.teacher_name || undefined,
@@ -72,12 +81,17 @@ export const AddIndividualLessonModal = ({ onLessonAdded }: AddIndividualLessonM
         schedule_time: formData.schedule_time || undefined,
         lesson_location: formData.lesson_location || undefined,
         is_skype_only: formData.is_skype_only,
+        is_flexible_schedule: formData.is_flexible_schedule,
+        requires_teacher: !formData.teacher_name,
         period_start: formData.period_start || undefined,
         period_end: formData.period_end || undefined,
         price_per_lesson: formData.price_per_lesson ? parseFloat(formData.price_per_lesson) : undefined,
+        teacher_rate: formData.teacher_rate ? parseFloat(formData.teacher_rate) : undefined,
+        payment_method: formData.payment_method,
         audit_location: formData.audit_location || undefined,
         description: formData.description || undefined,
         notes: formData.notes || undefined,
+        responsible_manager: formData.responsible_manager || undefined,
         is_active: true
       };
 
@@ -101,16 +115,23 @@ export const AddIndividualLessonModal = ({ onLessonAdded }: AddIndividualLessonM
         debt_hours: "",
         teacher_name: "",
         duration: 60,
+        break_minutes: 0,
+        academic_hours_per_day: 1,
         schedule_days: [],
         schedule_time: "",
         lesson_location: "office",
         is_skype_only: false,
+        is_flexible_schedule: false,
+        requires_teacher: false,
         period_start: "",
         period_end: "",
         price_per_lesson: "",
+        teacher_rate: "",
+        payment_method: "per_lesson",
         audit_location: "",
         description: "",
-        notes: ""
+        notes: "",
+        responsible_manager: ""
       });
       
       setOpen(false);
@@ -250,7 +271,7 @@ export const AddIndividualLessonModal = ({ onLessonAdded }: AddIndividualLessonM
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-4 gap-4">
                   <div className="space-y-2">
                     <Label>Категория</Label>
                     <Select
@@ -288,15 +309,36 @@ export const AddIndividualLessonModal = ({ onLessonAdded }: AddIndividualLessonM
                       placeholder="0"
                     />
                   </div>
+
+                  <div className="space-y-2">
+                    <Label>Ак.ч. в день</Label>
+                    <Input
+                      type="number"
+                      step="0.5"
+                      value={formData.academic_hours_per_day}
+                      onChange={(e) => setFormData(prev => ({ ...prev, academic_hours_per_day: parseFloat(e.target.value) }))}
+                      placeholder="1"
+                    />
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>Преподаватель</Label>
                     <Input
                       value={formData.teacher_name}
                       onChange={(e) => setFormData(prev => ({ ...prev, teacher_name: e.target.value }))}
                       placeholder="Имя преподавателя"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Ставка преподавателя (₽/час)</Label>
+                    <Input
+                      type="number"
+                      value={formData.teacher_rate}
+                      onChange={(e) => setFormData(prev => ({ ...prev, teacher_rate: e.target.value }))}
+                      placeholder="500"
                     />
                   </div>
 
@@ -320,6 +362,43 @@ export const AddIndividualLessonModal = ({ onLessonAdded }: AddIndividualLessonM
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Перерыв (минуты)</Label>
+                    <Input
+                      type="number"
+                      value={formData.break_minutes}
+                      onChange={(e) => setFormData(prev => ({ ...prev, break_minutes: parseInt(e.target.value) }))}
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Способ оплаты</Label>
+                    <Select
+                      value={formData.payment_method}
+                      onValueChange={(value: any) => setFormData(prev => ({ ...prev, payment_method: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="per_lesson">По занятиям</SelectItem>
+                        <SelectItem value="subscription">Абонемент</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Ответственный менеджер</Label>
+                    <Input
+                      value={formData.responsible_manager}
+                      onChange={(e) => setFormData(prev => ({ ...prev, responsible_manager: e.target.value }))}
+                      placeholder="Имя менеджера"
+                    />
                   </div>
                 </div>
 
@@ -414,7 +493,7 @@ export const AddIndividualLessonModal = ({ onLessonAdded }: AddIndividualLessonM
                   <div /> {/* Empty div for grid layout */}
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex items-center space-x-2">
                     <Checkbox
                       id="skype"
@@ -423,6 +502,16 @@ export const AddIndividualLessonModal = ({ onLessonAdded }: AddIndividualLessonM
                     />
                     <Label htmlFor="skype" className="text-sm font-normal cursor-pointer">
                       Только по Skype
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="flexible"
+                      checked={formData.is_flexible_schedule}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_flexible_schedule: checked as boolean }))}
+                    />
+                    <Label htmlFor="flexible" className="text-sm font-normal cursor-pointer">
+                      Плавающее расписание (добавлять занятия вручную)
                     </Label>
                   </div>
                 </div>

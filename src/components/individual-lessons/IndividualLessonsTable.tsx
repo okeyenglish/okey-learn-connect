@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Eye, Edit, Trash2, Calendar, MapPin, BookOpen, User, Clock } from "lucide-react";
 import { IndividualLesson, formatScheduleForIndividual, getLessonLocationLabel, useDeleteIndividualLesson } from "@/hooks/useIndividualLessons";
 import { useToast } from "@/hooks/use-toast";
+import { IndividualLessonDetailModal } from "./IndividualLessonDetailModal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +27,7 @@ interface IndividualLessonsTableProps {
 export const IndividualLessonsTable = ({ lessons, isLoading }: IndividualLessonsTableProps) => {
   const { toast } = useToast();
   const deleteLesson = useDeleteIndividualLesson();
+  const [selectedLesson, setSelectedLesson] = useState<IndividualLesson | null>(null);
 
   const handleDelete = async (id: string, studentName: string) => {
     try {
@@ -71,6 +73,7 @@ export const IndividualLessonsTable = ({ lessons, isLoading }: IndividualLessons
   }
 
   return (
+    <>
     <Card>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
@@ -198,6 +201,7 @@ export const IndividualLessonsTable = ({ lessons, isLoading }: IndividualLessons
                         size="sm" 
                         variant="ghost"
                         className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50"
+                        onClick={() => setSelectedLesson(lesson)}
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -205,6 +209,7 @@ export const IndividualLessonsTable = ({ lessons, isLoading }: IndividualLessons
                         size="sm" 
                         variant="ghost"
                         className="h-8 w-8 p-0 text-yellow-600 hover:bg-yellow-50"
+                        onClick={() => setSelectedLesson(lesson)}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -245,5 +250,14 @@ export const IndividualLessonsTable = ({ lessons, isLoading }: IndividualLessons
         </div>
       </CardContent>
     </Card>
+    
+    {selectedLesson && (
+      <IndividualLessonDetailModal
+        lesson={selectedLesson}
+        open={!!selectedLesson}
+        onOpenChange={(open) => !open && setSelectedLesson(null)}
+      />
+    )}
+    </>
   );
 };
