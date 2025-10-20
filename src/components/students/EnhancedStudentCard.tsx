@@ -505,10 +505,10 @@ export function EnhancedStudentCard({
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { color: string; label: string }> = {
-      active: { color: 'bg-green-100 text-green-800 border-green-200', label: 'Активный' },
-      inactive: { color: 'bg-gray-100 text-gray-800 border-gray-200', label: 'Неактивный' },
-      trial: { color: 'bg-blue-100 text-blue-800 border-blue-200', label: 'Пробный' },
-      graduated: { color: 'bg-purple-100 text-purple-800 border-purple-200', label: 'Выпускник' },
+      active: { color: 'bg-success-100 text-success-800 border-success-200', label: 'Активный' },
+      inactive: { color: 'bg-surface text-text-secondary border-border', label: 'Неактивный' },
+      trial: { color: 'bg-info-100 text-info-800 border-info-200', label: 'Пробный' },
+      graduated: { color: 'bg-brand-100 text-brand-800 border-brand-200', label: 'Выпускник' },
     };
     const variant = variants[status] || variants.active;
     return <Badge className={`${variant.color} border`}>{variant.label}</Badge>;
@@ -562,21 +562,21 @@ export function EnhancedStudentCard({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <PinnableDialogContent 
-        className="w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-w-full overflow-hidden p-0 bg-background flex flex-col"
+        className="w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-w-full overflow-hidden p-0 bg-surface flex flex-col"
         preventOutsideClose={isPinned}
       >
         {/* Header */}
-        <div className="bg-muted/30 border-b px-6 py-4">
+        <div className="bg-bg-soft border-b border-border/50 px-6 py-4">
           <div className="flex items-start justify-between gap-6">
             <div className="flex items-start gap-4">
               <div className="relative">
                 <Avatar className="h-16 w-16 border-2 border-border">
-                  <AvatarFallback className="bg-muted text-foreground text-xl font-semibold">
+                  <AvatarFallback className="bg-bg-soft text-text-primary text-xl font-semibold">
                     {getInitials(studentDetails.name)}
                   </AvatarFallback>
                 </Avatar>
                 {studentDetails.status === 'active' && (
-                  <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-1 border-2 border-background">
+                  <div className="absolute -bottom-1 -right-1 bg-success-600 rounded-full p-1 border-2 border-surface">
                     <Check className="h-3 w-3 text-white" />
                   </div>
                 )}
@@ -589,37 +589,37 @@ export function EnhancedStudentCard({
                         value={lastNameValue}
                         onChange={(e) => setLastNameValue(e.target.value)}
                         placeholder="Фамилия"
-                        className="h-8 w-32"
+                        className="h-8 w-32 bg-surface border-border/50"
                       />
                       <Input
                         value={firstNameValue}
                         onChange={(e) => setFirstNameValue(e.target.value)}
                         placeholder="Имя"
-                        className="h-8 w-32"
+                        className="h-8 w-32 bg-surface border-border/50"
                       />
                       <Input
                         value={middleNameValue}
                         onChange={(e) => setMiddleNameValue(e.target.value)}
                         placeholder="Отчество"
-                        className="h-8 w-32"
+                        className="h-8 w-32 bg-surface border-border/50"
                       />
-                      <Button size="sm" variant="ghost" onClick={handleSaveName} title="Сохранить">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleSaveName} title="Сохранить">
                         <Check className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setIsEditingName(false)} title="Отменить">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsEditingName(false)} title="Отменить">
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
                   ) : (
                     <h2 
-                      className="text-2xl font-bold text-foreground cursor-pointer hover:text-primary transition-colors"
+                      className="text-2xl font-bold text-text-primary cursor-pointer hover:text-brand transition-colors"
                       onClick={() => setIsEditingName(true)}
                       title="Нажмите, чтобы редактировать ФИО"
                     >
                       {studentDetails.lastName} {studentDetails.firstName} {studentDetails.middleName}
                       {studentDetails.studentNumber && (
                         <span 
-                          className="ml-3 text-sm font-mono text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+                          className="ml-3 text-sm font-mono text-text-secondary cursor-pointer hover:text-brand transition-colors"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleCopyStudentLink();
@@ -632,7 +632,7 @@ export function EnhancedStudentCard({
                     </h2>
                   )}
                 </div>
-                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <div className="flex items-center gap-3 text-sm text-text-secondary">
                   {isEditingAge ? (
                     <div className="flex items-center gap-2">
                       <Input
@@ -805,20 +805,20 @@ export function EnhancedStudentCard({
         {/* Main Content */}
         <div className="flex-1 min-h-0 flex">
           {/* Sidebar */}
-          <div className="w-80 border-r bg-muted/20 p-4 overflow-y-auto">
+          <div className="w-80 border-r border-border/50 bg-bg-soft p-4 overflow-y-auto">
             <ScrollArea className="h-full">
               <div className="space-y-4">
                 {/* Quick Actions */}
-                <Card>
+                <Card className="card-base">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium">Быстрые действия</CardTitle>
+                    <CardTitle className="text-sm font-medium text-text-primary">Быстрые действия</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
                     {!studentDetails.phone && (
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        className="w-full justify-start"
+                        className="w-full justify-start h-9 border-border/50"
                         onClick={() => setIsEditingPhone(true)}
                       >
                         <Phone className="h-4 w-4 mr-2" />
@@ -828,7 +828,7 @@ export function EnhancedStudentCard({
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="w-full justify-start"
+                      className="w-full justify-start h-9 border-border/50"
                       onClick={() => setShowAddToGroup(true)}
                     >
                       <Users className="h-4 w-4 mr-2" />
@@ -837,7 +837,7 @@ export function EnhancedStudentCard({
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="w-full justify-start"
+                      className="w-full justify-start h-9 border-border/50"
                       onClick={() => setShowAddIndividualLesson(true)}
                     >
                       <User className="h-4 w-4 mr-2" />
@@ -846,7 +846,7 @@ export function EnhancedStudentCard({
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="w-full justify-start"
+                      className="w-full justify-start h-9 border-border/50"
                       onClick={() => {
                         setSelectedLesson(null);
                         setPaymentModalOpen(true);
@@ -859,58 +859,58 @@ export function EnhancedStudentCard({
                 </Card>
 
                 {/* Parents/Guardians */}
-                <Card>
+                <Card className="card-base">
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <CardTitle className="text-sm font-medium text-text-primary flex items-center gap-2">
                         <Users className="h-4 w-4" />
                         Родители и опекуны
                       </CardTitle>
-                      <Badge variant="secondary">{studentDetails.parents.length}</Badge>
+                      <Badge variant="secondary" className="badge-secondary">{studentDetails.parents.length}</Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {studentDetails.parents.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">Контакты не добавлены</p>
+                      <p className="text-sm text-text-secondary">Контакты не добавлены</p>
                     ) : (
                       studentDetails.parents.map((parent) => (
-                        <div key={parent.id} className="space-y-2 p-3 bg-background rounded-lg border">
+                        <div key={parent.id} className="space-y-2 p-3 bg-surface rounded-lg border border-border/50">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
-                                <p className="font-medium text-sm">{parent.name}</p>
+                                <p className="font-medium text-sm text-text-primary">{parent.name}</p>
                                 {parent.isPrimary && (
                                   <Badge variant="outline" className="text-xs">Основной</Badge>
                                 )}
                               </div>
-                              <p className="text-xs text-muted-foreground">
+                              <p className="text-xs text-text-secondary">
                                 {getRelationshipLabel(parent.relationship)}
                               </p>
                             </div>
                           </div>
                           
-                          <Separator />
+                          <Separator className="bg-border/50" />
                           
                           <div className="space-y-1">
                             {parent.phoneNumbers.map((phone) => (
                               <div key={phone.id} className="flex items-center justify-between text-xs">
-                                <div className="flex items-center gap-1">
-                                  <Phone className="h-3 w-3 text-muted-foreground" />
+                                <div className="flex items-center gap-1 text-text-primary">
+                                  <Phone className="h-3 w-3 text-text-secondary" />
                                   <span>{phone.phone}</span>
                                 </div>
                                 <div className="flex items-center gap-1">
                                   {phone.isWhatsappEnabled && (
-                                    <MessageCircleIcon className="h-3 w-3 text-green-600" />
+                                    <MessageCircleIcon className="h-3 w-3 text-success-600" />
                                   )}
                                   {phone.isTelegramEnabled && (
-                                    <Smartphone className="h-3 w-3 text-blue-600" />
+                                    <Smartphone className="h-3 w-3 text-info-600" />
                                   )}
                                 </div>
                               </div>
                             ))}
                             {parent.email && (
-                              <div className="flex items-center gap-1 text-xs">
-                                <Mail className="h-3 w-3 text-muted-foreground" />
+                              <div className="flex items-center gap-1 text-xs text-text-primary">
+                                <Mail className="h-3 w-3 text-text-secondary" />
                                 <span>{parent.email}</span>
                               </div>
                             )}
@@ -930,23 +930,38 @@ export function EnhancedStudentCard({
           </div>
 
           {/* Main Content Area */}
-          <div className="flex-1 min-h-0 flex flex-col">
+          <div className="flex-1 min-h-0 flex flex-col bg-surface">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-              <div className="border-b px-6 pt-4">
+              <div className="border-b border-border/50 px-6 pt-4 bg-surface">
                 <TabsList className="h-auto p-0 bg-transparent border-b-0">
-                  <TabsTrigger value="overview" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none border-b-2 border-transparent">
+                  <TabsTrigger 
+                    value="overview" 
+                    className="data-[state=active]:border-b-2 data-[state=active]:border-brand data-[state=active]:bg-transparent data-[state=active]:text-brand rounded-none border-b-2 border-transparent text-text-secondary"
+                  >
                     Обзор
                   </TabsTrigger>
-                  <TabsTrigger value="groups" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none border-b-2 border-transparent">
+                  <TabsTrigger 
+                    value="groups" 
+                    className="data-[state=active]:border-b-2 data-[state=active]:border-brand data-[state=active]:bg-transparent data-[state=active]:text-brand rounded-none border-b-2 border-transparent text-text-secondary"
+                  >
                     Группы
                   </TabsTrigger>
-                  <TabsTrigger value="individual" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none border-b-2 border-transparent">
+                  <TabsTrigger 
+                    value="individual" 
+                    className="data-[state=active]:border-b-2 data-[state=active]:border-brand data-[state=active]:bg-transparent data-[state=active]:text-brand rounded-none border-b-2 border-transparent text-text-secondary"
+                  >
                     Индивидуальные
                   </TabsTrigger>
-                  <TabsTrigger value="payments" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none border-b-2 border-transparent">
+                  <TabsTrigger 
+                    value="payments" 
+                    className="data-[state=active]:border-b-2 data-[state=active]:border-brand data-[state=active]:bg-transparent data-[state=active]:text-brand rounded-none border-b-2 border-transparent text-text-secondary"
+                  >
                     Финансы
                   </TabsTrigger>
-                  <TabsTrigger value="attendance" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none border-b-2 border-transparent">
+                  <TabsTrigger 
+                    value="attendance" 
+                    className="data-[state=active]:border-b-2 data-[state=active]:border-brand data-[state=active]:bg-transparent data-[state=active]:text-brand rounded-none border-b-2 border-transparent text-text-secondary"
+                  >
                     Посещаемость
                   </TabsTrigger>
                   <TabsTrigger value="history" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none border-b-2 border-transparent">
@@ -1112,8 +1127,8 @@ export function EnhancedStudentCard({
                           {studentDetails.payments.slice(0, 5).map((payment) => (
                             <div key={payment.id} className="flex items-center justify-between p-3 border rounded-lg">
                               <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                                  <DollarSign className="h-5 w-5 text-green-600" />
+                                <div className="w-10 h-10 rounded-full bg-success-100 flex items-center justify-center">
+                                  <DollarSign className="h-5 w-5 text-success-600" />
                                 </div>
                                 <div>
                                   <p className="font-medium">{payment.description}</p>
@@ -1159,8 +1174,8 @@ export function EnhancedStudentCard({
                       {studentDetails.groups.filter(g => g.status === 'active').length > 0 && (
                         <Card>
                           <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                              <CheckCircle className="h-5 w-5 text-green-600" />
+                            <CardTitle className="flex items-center gap-2 text-text-primary">
+                              <CheckCircle className="h-5 w-5 text-success-600" />
                               Активные группы
                             </CardTitle>
                             <CardDescription>
@@ -1395,25 +1410,25 @@ export function EnhancedStudentCard({
                           {/* Active Lessons */}
                           {studentDetails.individualLessons.filter(l => l.status === 'active').length > 0 && (
                             <div>
-                              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                                <CheckCircle className="h-5 w-5 text-green-600" />
+                              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-text-primary">
+                                <CheckCircle className="h-5 w-5 text-success-600" />
                                 Активные курсы
-                                <Badge variant="secondary">{studentDetails.individualLessons.filter(l => l.status === 'active').length}</Badge>
+                                <Badge variant="secondary" className="badge-secondary">{studentDetails.individualLessons.filter(l => l.status === 'active').length}</Badge>
                               </h3>
                               <div className="space-y-4">
                                 {studentDetails.individualLessons.filter(l => l.status === 'active').map((lesson) => (
-                                  <Card key={lesson.id} className="border-l-4 border-l-green-500 hover:shadow-md transition-shadow">
+                                  <Card key={lesson.id} className="card-base border-l-4 border-l-success-600 hover:shadow-elev-1 transition-shadow">
                                     <CardContent className="p-6">
                                       <div className="flex items-start justify-between mb-4">
                                         <div>
-                                          <h4 className="font-semibold text-lg mb-1">
+                                          <h4 className="font-semibold text-lg mb-1 text-text-primary">
                                             {lesson.subject} • {lesson.level}
                                           </h4>
-                                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                          <div className="flex items-center gap-2 text-sm text-text-secondary">
                                             <User className="h-4 w-4" />
                                             <span>{lesson.teacherName || 'Преподаватель не назначен'}</span>
                                             {!lesson.teacherName && (
-                                              <Badge variant="destructive" className="text-xs">
+                                              <Badge variant="destructive" className="badge-error text-xs">
                                                 <AlertTriangle className="h-3 w-3 mr-1" />
                                                 Требуется преподаватель
                                               </Badge>
@@ -1521,12 +1536,12 @@ export function EnhancedStudentCard({
                                       )}
 
                                       {lesson.isFlexibleSchedule && (
-                                        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                                        <div className="mb-4 p-3 bg-info-100 border border-info-200 rounded-lg">
                                           <div className="flex items-center gap-2">
-                                            <AlertTriangle className="h-4 w-4 text-blue-600" />
-                                            <span className="text-sm font-medium">Плавающее расписание</span>
+                                            <AlertTriangle className="h-4 w-4 text-info-600" />
+                                            <span className="text-sm font-medium text-text-primary">Плавающее расписание</span>
                                           </div>
-                                          <p className="text-xs text-muted-foreground mt-1">
+                                          <p className="text-xs text-text-secondary mt-1">
                                             Занятия добавляются вручную по мере договоренности
                                           </p>
                                         </div>
@@ -1690,27 +1705,28 @@ export function EnhancedStudentCard({
                             Полная информация о платежах, балансе и финансовых операциях
                           </CardDescription>
                         </div>
-                        <Button 
-                          className="bg-green-600 hover:bg-green-700"
-                          onClick={() => setPaymentModalOpen(true)}
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Внести оплату
-                        </Button>
+                          <Button 
+                            className="btn-primary"
+                            onClick={() => setPaymentModalOpen(true)}
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Внести оплату
+                          </Button>
                       </div>
                     </CardHeader>
                     <CardContent>
                       {/* Balance Section */}
-                      <div className="p-4 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-lg mb-6">
+                      <div className="p-4 bg-gradient-primary/10 border border-brand/20 rounded-lg mb-6">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm text-muted-foreground mb-1">Личный баланс</p>
-                            <p className="text-3xl font-bold">
+                            <p className="text-sm text-text-secondary mb-1">Личный баланс</p>
+                            <p className="text-3xl font-bold text-text-primary">
                               {balance?.balance ? balance.balance.toFixed(2) : '0.00'} ₽
                             </p>
                           </div>
                           <Button 
                             size="sm"
+                            className="btn-secondary"
                             onClick={() => setBalanceModalOpen(true)}
                           >
                             <Wallet className="h-4 w-4 mr-2" />
@@ -1721,46 +1737,46 @@ export function EnhancedStudentCard({
 
                       {/* Финансовая сводка */}
                       <div className="grid grid-cols-3 gap-4 mb-6">
-                        <div className="p-4 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
-                          <p className="text-sm text-muted-foreground mb-1">Всего оплачено</p>
-                          <p className="text-2xl font-bold text-green-600">
+                        <div className="p-4 bg-success-100 border border-success-200 rounded-lg">
+                          <p className="text-sm text-text-secondary mb-1">Всего оплачено</p>
+                          <p className="text-2xl font-bold text-success-600">
                             {(studentDetails.payments
                               .filter(p => p.status === 'completed')
                               .reduce((sum, p) => sum + p.amount, 0) + (balance?.balance || 0))
                               .toLocaleString('ru-RU')} ₽
                           </p>
                         </div>
-                        <div className="p-4 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                          <p className="text-sm text-muted-foreground mb-1">Реализовано</p>
-                          <p className="text-2xl font-bold text-yellow-600">
+                        <div className="p-4 bg-warning-100 border border-warning-200 rounded-lg">
+                          <p className="text-sm text-text-secondary mb-1">Реализовано</p>
+                          <p className="text-2xl font-bold text-warning-600">
                             {studentDetails.payments
                               .filter(p => p.status === 'completed' && (p.individualLessonId || p.description?.toLowerCase().includes('пособи') || p.description?.toLowerCase().includes('учебник')))
                               .reduce((sum, p) => sum + p.amount, 0)
                               .toLocaleString('ru-RU')} ₽
                           </p>
                         </div>
-                        <div className="p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                          <p className="text-sm text-muted-foreground mb-1">Всего платежей</p>
-                          <p className="text-2xl font-bold text-blue-600">
+                        <div className="p-4 bg-info-100 border border-info-200 rounded-lg">
+                          <p className="text-sm text-text-secondary mb-1">Всего платежей</p>
+                          <p className="text-2xl font-bold text-info-600">
                             {studentDetails.payments.length}
                           </p>
                         </div>
                       </div>
 
-                      <Separator className="my-6" />
+                      <Separator className="my-6 bg-border/50" />
 
                       <div>
-                        <h3 className="text-lg font-semibold mb-4">История платежей</h3>
+                        <h3 className="text-lg font-semibold mb-4 text-text-primary">История платежей</h3>
                         
                         {studentDetails.payments.length === 0 ? (
                           <div className="text-center py-12">
-                            <CreditCard className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-                            <p className="text-lg text-muted-foreground mb-2">Платежи отсутствуют</p>
-                            <p className="text-sm text-muted-foreground mb-4">
+                            <CreditCard className="h-16 w-16 mx-auto mb-4 text-text-secondary/50" />
+                            <p className="text-lg text-text-secondary mb-2">Платежи отсутствуют</p>
+                            <p className="text-sm text-text-secondary mb-4">
                               Создайте первый платеж для студента
                             </p>
                             <Button 
-                              className="bg-green-600 hover:bg-green-700"
+                              className="btn-primary"
                               onClick={() => setPaymentModalOpen(true)}
                             >
                               <Plus className="h-4 w-4 mr-2" />
@@ -1770,23 +1786,23 @@ export function EnhancedStudentCard({
                         ) : (
                           <div className="space-y-3">
                             {studentDetails.payments.map((payment) => (
-                              <div key={payment.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                              <div key={payment.id} className="flex items-center justify-between p-4 border border-border/50 rounded-lg hover:bg-bg-soft/50 transition-colors">
                                 <div className="flex items-center gap-4">
                                   <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                                    payment.status === 'completed' ? 'bg-green-100 dark:bg-green-950' : 
-                                    payment.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-950' : 'bg-red-100 dark:bg-red-950'
+                                    payment.status === 'completed' ? 'bg-success-100' : 
+                                    payment.status === 'pending' ? 'bg-warning-100' : 'bg-error-100'
                                   }`}>
                                     {payment.status === 'completed' ? (
-                                      <CheckCircle className="h-6 w-6 text-green-600" />
+                                      <CheckCircle className="h-6 w-6 text-success-600" />
                                     ) : payment.status === 'pending' ? (
-                                      <AlertCircle className="h-6 w-6 text-yellow-600" />
+                                      <AlertCircle className="h-6 w-6 text-warning-600" />
                                     ) : (
-                                      <XCircle className="h-6 w-6 text-red-600" />
+                                      <XCircle className="h-6 w-6 text-error-600" />
                                     )}
                                   </div>
                                   <div>
-                                    <p className="font-medium">{payment.description}</p>
-                                    <p className="text-sm text-muted-foreground">
+                                    <p className="font-medium text-text-primary">{payment.description}</p>
+                                    <p className="text-sm text-text-secondary">
                                       {formatDate(payment.date)}
                                       {payment.paymentMethod && ` • ${payment.paymentMethod}`}
                                     </p>
@@ -1879,13 +1895,13 @@ export function EnhancedStudentCard({
                             <div key={event.id} className="flex gap-4">
                               <div className="flex flex-col items-center">
                                 <div className={`w-3 h-3 rounded-full ${
-                                  event.event_category === 'financial' ? 'bg-green-500' :
-                                  event.event_category === 'personal_info' ? 'bg-blue-500' :
-                                  event.event_category === 'contact_info' ? 'bg-purple-500' :
-                                  event.event_category === 'status' ? 'bg-orange-500' :
-                                  event.event_category === 'lessons' ? 'bg-cyan-500' :
-                                  event.event_category === 'groups' ? 'bg-pink-500' :
-                                  'bg-gray-500'
+                                  event.event_category === 'financial' ? 'bg-success-600' :
+                                  event.event_category === 'personal_info' ? 'bg-info-600' :
+                                  event.event_category === 'contact_info' ? 'bg-brand' :
+                                  event.event_category === 'status' ? 'bg-warning-600' :
+                                  event.event_category === 'lessons' ? 'bg-info-500' :
+                                  event.event_category === 'groups' ? 'bg-brand-light' :
+                                  'bg-surface'
                                 }`}></div>
                                 {index < history.length - 1 && (
                                   <div className="w-0.5 h-full min-h-[40px] bg-border"></div>
@@ -1894,33 +1910,33 @@ export function EnhancedStudentCard({
                               <div className="flex-1 pb-6">
                                 <div className="flex items-start justify-between gap-4 mb-2">
                                   <div className="flex-1">
-                                    <p className="font-medium text-foreground">{event.title}</p>
+                                    <p className="font-medium text-text-primary">{event.title}</p>
                                     {event.description && (
-                                      <p className="text-sm text-muted-foreground mt-1">
+                                      <p className="text-sm text-text-secondary mt-1">
                                         {event.description}
                                       </p>
                                     )}
                                      {event.old_value && (
-                                      <div className="mt-2 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded text-xs">
-                                        <p className="text-red-700 dark:text-red-400 font-medium mb-2">Было:</p>
+                                      <div className="mt-2 p-3 bg-error-50 border border-error-200 rounded text-xs">
+                                        <p className="text-error-700 font-medium mb-2">Было:</p>
                                         <div className="space-y-1">
                                           {Object.entries(event.old_value).map(([key, value]) => (
                                             <div key={key} className="flex gap-2">
-                                              <span className="text-red-600 dark:text-red-500 font-medium">{key}:</span>
-                                              <span className="text-red-700 dark:text-red-400">{String(value)}</span>
+                                              <span className="text-error-600 font-medium">{key}:</span>
+                                              <span className="text-error-700">{String(value)}</span>
                                             </div>
                                           ))}
                                         </div>
                                       </div>
                                     )}
                                     {event.new_value && (
-                                      <div className="mt-2 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded text-xs">
-                                        <p className="text-green-700 dark:text-green-400 font-medium mb-2">Стало:</p>
+                                      <div className="mt-2 p-3 bg-success-50 border border-success-200 rounded text-xs">
+                                        <p className="text-success-700 font-medium mb-2">Стало:</p>
                                         <div className="space-y-1">
                                           {Object.entries(event.new_value).map(([key, value]) => (
                                             <div key={key} className="flex gap-2">
-                                              <span className="text-green-600 dark:text-green-500 font-medium">{key}:</span>
-                                              <span className="text-green-700 dark:text-green-400">{String(value)}</span>
+                                              <span className="text-success-600 font-medium">{key}:</span>
+                                              <span className="text-success-700">{String(value)}</span>
                                             </div>
                                           ))}
                                         </div>
