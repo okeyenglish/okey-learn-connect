@@ -135,10 +135,6 @@ export const StudentsModal = ({ open, onOpenChange, children }: StudentsModalPro
               Ученики и клиенты
             </DialogTitle>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
-                <Upload className="h-4 w-4 mr-2" />
-                Импорт
-              </Button>
               <Button variant="outline" size="sm" onClick={() => console.log('export')}>
                 <Download className="h-4 w-4 mr-2" />
                 Экспорт в XLS
@@ -439,6 +435,10 @@ const StudentsContent = ({
                 <Badge variant="secondary">{filteredStudents.length}</Badge>
               </div>
               <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Импорт
+                </Button>
                 <Button variant="outline" size="sm">
                   <Filter className="h-4 w-4 mr-2" />
                   Колонки
