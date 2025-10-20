@@ -726,6 +726,36 @@ export type Database = {
           },
         ]
       }
+      cron_job_logs: {
+        Row: {
+          error_message: string | null
+          executed_at: string | null
+          execution_time_ms: number | null
+          id: string
+          job_name: string
+          response_data: Json | null
+          status: string
+        }
+        Insert: {
+          error_message?: string | null
+          executed_at?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          job_name: string
+          response_data?: Json | null
+          status: string
+        }
+        Update: {
+          error_message?: string | null
+          executed_at?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          job_name?: string
+          response_data?: Json | null
+          status?: string
+        }
+        Relationships: []
+      }
       currencies: {
         Row: {
           code: string
@@ -4638,6 +4668,10 @@ export type Database = {
           p_teacher_name: string
         }
         Returns: boolean
+      }
+      cleanup_old_cron_logs: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       cleanup_old_typing_status: {
         Args: Record<PropertyKey, never>

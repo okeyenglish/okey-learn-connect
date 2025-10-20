@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Plus, DollarSign, Receipt, CreditCard, Gift, Users, TrendingDown, Wallet, AlertCircle } from 'lucide-react';
+import { Plus, DollarSign, Receipt, CreditCard, Gift, Users, TrendingDown, Wallet, AlertCircle, Bell } from 'lucide-react';
 import { useFinances } from '@/hooks/useFinances';
 import { CreateInvoiceModal } from './CreateInvoiceModal';
 import { CreatePaymentModal } from './CreatePaymentModal';
@@ -19,6 +19,7 @@ import { DiscountsManagementModal } from './DiscountsManagementModal';
 import { TeacherSalarySection } from './TeacherSalarySection';
 import { LowBalanceStudentsWidget } from './LowBalanceStudentsWidget';
 import { AddBalanceModal } from './AddBalanceModal';
+import { AutomationSettingsPanel } from './AutomationSettingsPanel';
 import { useLowBalanceStudents } from '@/hooks/useStudentBalances';
 
 export default function FinancesSection() {
@@ -228,6 +229,10 @@ export default function FinancesSection() {
           <TabsTrigger value="bulk-ops">
             <Users className="h-4 w-4 mr-1" />
             Массовые
+          </TabsTrigger>
+          <TabsTrigger value="automation">
+            <Bell className="h-4 w-4 mr-1" />
+            Автоматизация
           </TabsTrigger>
         </TabsList>
 
@@ -476,6 +481,10 @@ export default function FinancesSection() {
         
         <TabsContent value="analytics">
           <FinancialAnalytics />
+        </TabsContent>
+
+        <TabsContent value="automation">
+          <AutomationSettingsPanel />
         </TabsContent>
       </Tabs>
 
