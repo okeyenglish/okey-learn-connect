@@ -2167,14 +2167,14 @@ const menuItems = [
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-8 px-3 rounded-lg border border-muted text-muted-foreground hover:bg-muted hover:text-foreground"
+                    className="h-8 w-8 p-0 rounded-lg border border-muted text-muted-foreground hover:bg-muted hover:text-foreground"
                     onClick={() => {
                       setBulkSelectMode(true);
                       setSelectedChatIds(new Set());
                     }}
+                    title="Выбрать чаты"
                   >
-                    <ListChecks className="h-4 w-4 mr-1" />
-                    Выбрать
+                    <ListChecks className="h-4 w-4" />
                   </Button>
                 </>
                 )}
