@@ -53,6 +53,7 @@ import useSharedChatStates from "@/hooks/useSharedChatStates";
 import { useGlobalChatReadStatus } from "@/hooks/useGlobalChatReadStatus";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAllTasks, useCompleteTask, useCancelTask, useUpdateTask } from "@/hooks/useTasks";
+import { useRealtimeClients } from "@/hooks/useRealtimeClients";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { 
   Search, 
@@ -244,6 +245,9 @@ const CRMContent = () => {
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
   const { typingByClient } = useTypingPresence();
+  
+  // Enable real-time updates for clients data
+  useRealtimeClients();
   
   // Enable real-time updates for the active chat
   useRealtimeMessages(activeChatId);

@@ -95,7 +95,17 @@ export const ChatArea = ({
   const [commentMode, setCommentMode] = useState(false);
   const [gptGenerating, setGptGenerating] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
-  const [editedName, setEditedName] = useState(clientName);
+  
+  // Функция для очистки имени от префикса "Клиент" (определяем до использования)
+  const cleanClientName = (name: string) => {
+    if (name.startsWith('Клиент ')) {
+      return name.replace('Клиент ', '');
+    }
+    return name;
+  };
+  
+  const [editedName, setEditedName] = useState(cleanClientName(clientName));
+  const [displayName, setDisplayName] = useState(cleanClientName(clientName));
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -124,12 +134,6 @@ export const ChatArea = ({
     console.log('ChatArea - pendingGPTError:', pendingGPTError);
   }, [clientId, pendingGPTResponses, pendingGPTLoading, pendingGPTError]);
 
-  // Update editedName when clientName changes
-  useEffect(() => {
-    setEditedName(cleanClientName(clientName));
-    setIsEditingName(false);
-  }, [clientName]);
-
   // Функция для прокрутки к концу чата
   const scrollToBottom = (smooth = true) => {
     messagesEndRef.current?.scrollIntoView({ 
@@ -137,13 +141,13 @@ export const ChatArea = ({
     });
   };
 
-  // Функция для очистки имени от префикса "Клиент"
-  const cleanClientName = (name: string) => {
-    if (name.startsWith('Клиент ')) {
-      return name.replace('Клиент ', '');
-    }
-    return name;
-  };
+  // Update editedName and displayName when clientName changes
+  useEffect(() => {
+    const cleaned = cleanClientName(clientName);
+    setEditedName(cleaned);
+    setDisplayName(cleaned);
+    setIsEditingName(false);
+  }, [clientName]);
 
   // Функция для начала редактирования имени
   const handleStartEditName = () => {
@@ -166,10 +170,30 @@ export const ChatArea = ({
       return;
     }
 
+    const trimmedName = editedName.trim();
+
     try {
+      // Оптимистичное обновление UI
+      setDisplayName(trimmedName);
+      setIsEditingName(false);
+
+      // Обновляем кэш React Query немедленно
+      queryClient.setQueryData(['clients'], (oldData: any) => {
+        if (!oldData) return oldData;
+        return oldData.map((client: any) => 
+          client.id === clientId ? { ...client, name: trimmedName } : client
+        );
+      });
+
+      queryClient.setQueryData(['client', clientId], (oldData: any) => {
+        if (!oldData) return oldData;
+        return { ...oldData, name: trimmedName };
+      });
+
+      // Обновляем базу данных
       const { error } = await supabase
         .from('clients')
-        .update({ name: editedName.trim() })
+        .update({ name: trimmedName })
         .eq('id', clientId);
 
       if (error) throw error;
@@ -179,13 +203,15 @@ export const ChatArea = ({
         description: "Имя клиента обновлено",
       });
 
-      // Обновляем список клиентов
+      // Инвалидируем queries для синхронизации с другими компонентами
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-      
-      setIsEditingName(false);
     } catch (error) {
       console.error('Error updating client name:', error);
+      
+      // Откатываем оптимистичное обновление при ошибке
+      setDisplayName(cleanClientName(clientName));
+      
       toast({
         title: "Ошибка",
         description: "Не удалось обновить имя клиента",
@@ -1103,7 +1129,7 @@ export const ChatArea = ({
                     className="flex items-center gap-2 group cursor-pointer" 
                     onClick={handleStartEditName}
                   >
-                    <h2 className="font-semibold text-sm text-foreground truncate">{cleanClientName(clientName)}</h2>
+                    <h2 className="font-semibold text-sm text-foreground truncate">{displayName}</h2>
                     <Edit2 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                   </div>
                 )}
@@ -1252,7 +1278,7 @@ export const ChatArea = ({
                     className="flex items-center gap-2 group cursor-pointer" 
                     onClick={handleStartEditName}
                   >
-                    <h2 className="font-semibold text-base">{cleanClientName(clientName)}</h2>
+                    <h2 className="font-semibold text-base">{displayName}</h2>
                     <Edit2 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 )}
