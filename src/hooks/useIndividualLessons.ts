@@ -30,6 +30,16 @@ export interface IndividualLesson {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  // Новые поля
+  break_minutes?: number;
+  academic_hours_per_day?: number;
+  responsible_manager?: string;
+  payment_method?: 'per_lesson' | 'subscription' | 'prepaid';
+  is_flexible_schedule?: boolean;
+  requires_teacher?: boolean;
+  teacher_rate?: number;
+  color?: string;
+  lesson_number?: string;
 }
 
 export interface IndividualLessonFilters {
