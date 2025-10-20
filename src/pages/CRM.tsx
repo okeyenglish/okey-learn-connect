@@ -942,6 +942,9 @@ const CRMContent = () => {
       setPinnedInvoiceClientId(id);
       setShowInvoiceModal(true);
       openPinnedModal(id, type);
+    } else if (type === 'student') {
+      // Открываем закрепленное модальное окно студента
+      openPinnedModal(id, type);
     } else {
       // Для других модальных окон - закрываем обычное меню-диалог и открываем только закрепленную версию
       setOpenModal(null);

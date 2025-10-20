@@ -760,7 +760,6 @@ export function EnhancedStudentCard({
                 onClick={() => {
                   if (isPinned) {
                     unpinModal(student.id, 'student');
-                    onUnpin();
                   } else {
                     pinModal({
                       id: student.id,
@@ -768,7 +767,6 @@ export function EnhancedStudentCard({
                       title: studentDetails.name,
                       props: { student }
                     });
-                    onPin();
                   }
                 }}
                 title={isPinned ? "Открепить" : "Закрепить"}
