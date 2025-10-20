@@ -105,14 +105,14 @@ export function EnhancedStudentCard({
   student, 
   open, 
   onOpenChange,
-  isPinned: propIsPinned = false,
-  onPin = () => {},
-  onUnpin = () => {},
+  isPinned: propIsPinned,
+  onPin,
+  onUnpin,
   onUpdate = () => {}
 }: EnhancedStudentCardProps) {
   const queryClient = useQueryClient();
   const { isPinned: checkIsPinned, pinModal, unpinModal } = usePinnedModalsDB();
-  const isPinned = checkIsPinned(student.id, 'student');
+  const isPinned = propIsPinned !== undefined ? propIsPinned : checkIsPinned(student.id, 'student');
   const [activeTab, setActiveTab] = useState('overview');
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [balanceModalOpen, setBalanceModalOpen] = useState(false);
@@ -771,14 +771,22 @@ export function EnhancedStudentCard({
                 className="h-8 w-8"
                 onClick={() => {
                   if (isPinned) {
-                    unpinModal(student.id, 'student');
+                    if (onUnpin) {
+                      onUnpin();
+                    } else {
+                      unpinModal(student.id, 'student');
+                    }
                   } else {
-                    pinModal({
-                      id: student.id,
-                      type: 'student',
-                      title: studentDetails.name,
-                      props: { student }
-                    });
+                    if (onPin) {
+                      onPin();
+                    } else {
+                      pinModal({
+                        id: student.id,
+                        type: 'student',
+                        title: studentDetails.name,
+                        props: { student }
+                      });
+                    }
                   }
                 }}
                 title={isPinned ? "Открепить" : "Закрепить"}

@@ -95,12 +95,14 @@ export const usePinnedModalsDB = () => {
       console.log('Pinning modal:', modal);
       const { error } = await supabase
         .from('pinned_modals')
-        .insert({
+        .upsert({
           user_id: user.id,
           modal_id: modal.id,
           modal_type: modal.type,
           title: modal.title,
           props: modal.props
+        }, {
+          onConflict: 'user_id,modal_id,modal_type'
         });
 
       if (error) {
