@@ -22,7 +22,7 @@ import {
   Clock
 } from "lucide-react";
 import { useStudents } from "@/hooks/useStudents";
-import { AddStudentModal } from "@/components/students/AddStudentModal";
+import { CreateStudentDialog } from "@/components/students/CreateStudentDialog";
 import { StudentCard } from "@/components/students/StudentCard";
 import { StudentTagsManager } from "@/components/students/StudentTagsManager";
 import { BulkActionsPanel } from "@/components/students/BulkActionsPanel";
@@ -92,12 +92,11 @@ export const StudentsSection = () => {
             <Download className="h-4 w-4 mr-2" />
             Экспорт
           </Button>
-          <AddStudentModal open={showAddModal} onOpenChange={setShowAddModal}>
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Добавить ученика
-            </Button>
-          </AddStudentModal>
+          <Button size="sm" onClick={() => setShowAddModal(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Добавить ученика
+          </Button>
+          <CreateStudentDialog open={showAddModal} onOpenChange={setShowAddModal} />
         </div>
       </div>
 
