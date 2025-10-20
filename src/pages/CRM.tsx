@@ -1997,7 +1997,7 @@ const menuItems = [
                         
                         {item.label === "Ученики" && (
                           <div className="h-full overflow-hidden">
-                            <StudentsModal open={true} onOpenChange={() => {}} />
+                            <StudentsModal open={true} onOpenChange={() => {}} pinnedModals={{ pinnedModals, loading: pinnedLoading, pinModal, unpinModal, openPinnedModal, closePinnedModal, isPinned }} />
                           </div>
                         )}
                         

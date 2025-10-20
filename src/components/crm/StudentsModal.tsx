@@ -35,9 +35,10 @@ interface StudentsModalProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   children?: React.ReactNode;
+  pinnedModals?: ReturnType<typeof usePinnedModalsDB>;
 }
 
-export const StudentsModal = ({ open, onOpenChange, children }: StudentsModalProps) => {
+export const StudentsModal = ({ open, onOpenChange, children, pinnedModals: pinnedModalsProp }: StudentsModalProps) => {
   const [internalOpen, setInternalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedBranch, setSelectedBranch] = useState("all");
@@ -50,8 +51,8 @@ export const StudentsModal = ({ open, onOpenChange, children }: StudentsModalPro
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
   const [showStudentCard, setShowStudentCard] = useState(false);
-  const pinnedModals = usePinnedModalsDB();
-  
+  const pinnedModalsHook = usePinnedModalsDB();
+  const pinnedModals = pinnedModalsProp ?? pinnedModalsHook;
   // Expandable sections state
   const [expandedSections, setExpandedSections] = useState({
     additional: false,
