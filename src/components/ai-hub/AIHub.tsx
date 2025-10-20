@@ -490,7 +490,7 @@ export const AIHub = ({
           </TabsContent>
 
           {/* Вкладка Консультанты */}
-          <TabsContent value="consultants" className="flex-1 flex flex-col m-0 min-h-0 h-full overflow-hidden relative">
+          <TabsContent value="consultants" className="flex-1 m-0 overflow-hidden relative">
             {!activeConsultant ? (
               <div className="p-4 space-y-2 overflow-auto">
                 <h3 className="font-medium text-sm text-muted-foreground mb-3">
