@@ -42,18 +42,23 @@ export const useClientStatus = (clientIds: string[]) => {
           return;
         }
 
-        // Получаем студентов для всех семейных групп
+        // Получаем студентов для всех семейных групп (если они есть)
         const familyGroupIds = familyMembers?.map(fm => fm.family_group_id) || [];
         
-        const { data: students, error: studentsError } = await supabase
-          .from('students')
-          .select('family_group_id, status')
-          .in('family_group_id', familyGroupIds);
+        let students: { family_group_id: string; status: string }[] = [];
+        if (familyGroupIds.length > 0) {
+          const { data: studentsData, error: studentsError } = await supabase
+            .from('students')
+            .select('family_group_id, status')
+            .in('family_group_id', familyGroupIds);
 
-        if (studentsError) {
-          console.error('Error fetching students:', studentsError);
-          setIsLoading(false);
-          return;
+          if (studentsError) {
+            console.error('Error fetching students:', studentsError);
+            setIsLoading(false);
+            return;
+          }
+
+          students = studentsData || [];
         }
 
         // Создаем карту статусов клиентов
