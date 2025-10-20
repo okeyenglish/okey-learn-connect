@@ -16,7 +16,7 @@ import { FinancialAnalytics } from './FinancialAnalytics';
 import { BulkOperationsModal } from './BulkOperationsModal';
 import { InvoicesModal } from './InvoicesModal';
 import { DiscountsManagementModal } from './DiscountsManagementModal';
-import { TeacherSalarySection } from './TeacherSalarySection';
+import { TeacherSalaryManagement } from './TeacherSalaryManagement';
 import { LowBalanceStudentsWidget } from './LowBalanceStudentsWidget';
 import { AddBalanceModal } from './AddBalanceModal';
 import { AutomationSettingsPanel } from './AutomationSettingsPanel';
@@ -432,7 +432,7 @@ export default function FinancesSection() {
         </TabsContent>
 
         <TabsContent value="teacher-salary">
-          <TeacherSalarySection />
+          <TeacherSalaryManagement />
         </TabsContent>
 
         <TabsContent value="bulk-ops">
