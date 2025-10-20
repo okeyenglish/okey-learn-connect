@@ -32,6 +32,20 @@ serve(async (req) => {
       throw new Error("BBB credentials not configured");
     }
 
+    // Validate BBB_URL format
+    const rawUrl = BBB_URL.trim();
+    const normalizedUrl = rawUrl.endsWith("/") ? rawUrl : `${rawUrl}/`;
+    let validatedBaseUrl: string;
+    try {
+      const urlObj = new URL(normalizedUrl);
+      if (!/^https?:$/.test(urlObj.protocol)) {
+        throw new Error("BBB_URL must start with http(s)://");
+      }
+      validatedBaseUrl = urlObj.toString();
+    } catch (e) {
+      throw new Error("Invalid BBB_URL secret. Expected full URL like https://your-bbb-server/bigbluebutton/");
+    }
+
     // Проверяем аутентификацию
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
@@ -90,8 +104,7 @@ serve(async (req) => {
 
         const queryString = params.toString();
         const checksum = await createChecksum("create", queryString, BBB_SECRET);
-        const baseUrl = BBB_URL.endsWith("/") ? BBB_URL : `${BBB_URL}/`;
-        const createUrl = `${baseUrl}api/create?${queryString}&checksum=${checksum}`;
+        const createUrl = `${validatedBaseUrl}api/create?${queryString}&checksum=${checksum}`;
 
         const createResponse = await fetch(createUrl);
         const createData = await createResponse.text();
