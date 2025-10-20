@@ -119,6 +119,7 @@ import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
 import FinancesSection from "@/components/finances/FinancesSection";
 import ScheduleSection from "@/components/crm/sections/ScheduleSection";
 import { DocumentsSection } from "@/components/documents/DocumentsSection";
+import { AnalyticsSection } from "@/components/analytics/AnalyticsSection";
 import { OrganizationSettings } from "@/components/settings/OrganizationSettings";
 import { BranchesSettings } from "@/components/settings/BranchesSettings";
 import { BrandingSettings } from "@/components/settings/BrandingSettings";
@@ -1310,6 +1311,11 @@ const CRMContent = () => {
                         {item.label === "Финансы" && (
                           <div className="h-full">
                             <FinancesSection />
+                          </div>
+                        )}
+                        {item.label === "Отчёты" && (
+                          <div className="h-full">
+                            <AnalyticsSection />
                           </div>
                         )}
                         {item.label === "Документы" && (
