@@ -240,8 +240,8 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-w-full overflow-hidden p-0 bg-background flex flex-col">
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 flex-shrink-0">
+      <DialogContent className="w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-w-full overflow-hidden p-0 bg-surface flex flex-col">
+        <div className="bg-gradient-to-r from-brand to-brand-600 text-white p-6 flex-shrink-0">
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-3 text-xl font-semibold">
@@ -258,13 +258,13 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                   {group.status === 'active' ? 'в работе' : group.status}
                 </Badge>
                 {group.is_auto_group && (
-                  <Badge variant="secondary" className="text-sm">
+                  <Badge variant="secondary" className="text-sm bg-white/20">
                     Авто-группа
                   </Badge>
                 )}
                 <Button
                   size="sm"
-                  className="bg-green-500 hover:bg-green-600 text-white gap-2"
+                  className="bg-success-600 hover:bg-success text-white gap-2"
                   onClick={() => setOnlineLessonOpen(true)}
                 >
                   <Video className="h-4 w-4" />
@@ -273,7 +273,7 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                 {group.enrollment_url && (
                   <Button 
                     size="sm" 
-                    className="bg-teal-500 hover:bg-teal-600"
+                    className="bg-info-600 hover:bg-info"
                     onClick={() => window.open(group.enrollment_url, '_blank')}
                   >
                     <ExternalLink className="h-4 w-4 mr-2" />
@@ -287,13 +287,13 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                 />
                 <Button 
                   size="sm" 
-                  variant="outline" 
-                  className="text-blue-600 border-white/20"
+                  variant="secondary"
+                  className="border-white/20 btn-secondary"
                   onClick={() => setCopyGroupOpen(true)}
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
-                <Button size="sm" variant="outline" className="text-blue-600 border-white/20" onClick={() => setEditDetailsOpen(true)}>
+                <Button size="sm" variant="secondary" className="border-white/20 btn-secondary" onClick={() => setEditDetailsOpen(true)}>
                   <Edit className="h-4 w-4" />
                 </Button>
               </div>

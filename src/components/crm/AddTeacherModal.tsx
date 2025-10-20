@@ -107,52 +107,55 @@ export const AddTeacherModal = ({ onTeacherAdded }: AddTeacherModalProps) => {
           <Plus className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md bg-surface">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <UserPlus className="h-5 w-5" />
+          <DialogTitle className="flex items-center gap-2 text-text-primary">
+            <UserPlus className="h-5 w-5 text-brand" />
             Добавить преподавателя
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="firstName">Имя *</Label>
+            <Label htmlFor="firstName" className="text-sm font-medium text-text-secondary">Имя *</Label>
             <Input
               id="firstName"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               placeholder="Введите имя"
               required
+              className="bg-surface border-border/50"
             />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="lastName">Фамилия *</Label>
+            <Label htmlFor="lastName" className="text-sm font-medium text-text-secondary">Фамилия *</Label>
             <Input
               id="lastName"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
               placeholder="Введите фамилию"
               required
+              className="bg-surface border-border/50"
             />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="phone">Телефон *</Label>
+            <Label htmlFor="phone" className="text-sm font-medium text-text-secondary">Телефон *</Label>
             <Input
               id="phone"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+7 (999) 123-45-67"
               required
+              className="bg-surface border-border/50"
             />
           </div>
           
           <div className="space-y-2">
-            <Label>Филиал</Label>
-            <div className="p-3 bg-muted rounded-lg">
-              <p className="text-sm font-medium">{userBranch || 'Не указан'}</p>
-              <p className="text-xs text-muted-foreground">
+            <Label className="text-sm font-medium text-text-secondary">Филиал</Label>
+            <div className="p-3 bg-bg-soft rounded-lg border border-border/50">
+              <p className="text-sm font-medium text-text-primary">{userBranch || 'Не указан'}</p>
+              <p className="text-xs text-text-muted">
                 Преподаватель будет добавлен в ваш филиал
               </p>
             </div>
@@ -161,16 +164,17 @@ export const AddTeacherModal = ({ onTeacherAdded }: AddTeacherModalProps) => {
           <div className="flex justify-end gap-2 pt-4">
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               onClick={() => setIsOpen(false)}
               disabled={isLoading}
+              className="btn-secondary"
             >
               Отмена
             </Button>
             <Button
               type="submit"
               disabled={isLoading}
-              className="gap-2"
+              className="gap-2 btn-primary"
             >
               {isLoading && <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
               Добавить

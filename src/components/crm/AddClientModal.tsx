@@ -73,27 +73,28 @@ export const AddClientModal = ({ children, onClientCreated, open: externalOpen, 
           )}
         </DialogTrigger>
       )}
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md bg-surface">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <UserPlus className="h-5 w-5" />
+          <DialogTitle className="flex items-center gap-2 text-text-primary">
+            <UserPlus className="h-5 w-5 text-brand" />
             <span>Добавить нового клиента</span>
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Имя *</Label>
+            <Label htmlFor="name" className="text-sm font-medium text-text-secondary">Имя *</Label>
             <Input
               id="name"
               value={formData.name}
               onChange={(e) => handleInputChange('name', e.target.value)}
               placeholder="Введите имя клиента"
               required
+              className="bg-surface border-border/50"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="phone">Телефон *</Label>
+            <Label htmlFor="phone" className="text-sm font-medium text-text-secondary">Телефон *</Label>
             <Input
               id="phone"
               type="tel"
@@ -101,43 +102,48 @@ export const AddClientModal = ({ children, onClientCreated, open: externalOpen, 
               onChange={(e) => handleInputChange('phone', e.target.value)}
               placeholder="+7 (xxx) xxx-xx-xx"
               required
+              className="bg-surface border-border/50"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email" className="text-sm font-medium text-text-secondary">Email</Label>
             <Input
               id="email"
               type="email"
               value={formData.email}
               onChange={(e) => handleInputChange('email', e.target.value)}
               placeholder="client@example.com"
+              className="bg-surface border-border/50"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes">Примечания</Label>
+            <Label htmlFor="notes" className="text-sm font-medium text-text-secondary">Примечания</Label>
             <Textarea
               id="notes"
               value={formData.notes}
               onChange={(e) => handleInputChange('notes', e.target.value)}
               placeholder="Дополнительная информация о клиенте"
               rows={3}
+              className="bg-surface border-border/50"
             />
           </div>
 
           <div className="flex justify-end space-x-2">
             <Button 
               type="button" 
-              variant="outline" 
+              variant="secondary"
               onClick={() => setOpen(false)}
               disabled={createClientMutation.isPending}
+              className="btn-secondary"
             >
               Отмена
             </Button>
             <Button 
               type="submit" 
               disabled={createClientMutation.isPending}
+              className="btn-primary"
             >
               {createClientMutation.isPending ? (
                 <>
