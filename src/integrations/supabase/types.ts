@@ -917,10 +917,122 @@ export type Database = {
         }
         Relationships: []
       }
+      group_history: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          event_data: Json | null
+          event_type: string
+          group_id: string
+          id: string
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          event_data?: Json | null
+          event_type: string
+          group_id: string
+          id?: string
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          event_data?: Json | null
+          event_type?: string
+          group_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_history_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "learning_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_permissions: {
+        Row: {
+          can_access_all_branches: boolean | null
+          can_add_students: boolean | null
+          can_change_status: boolean | null
+          can_create_groups: boolean | null
+          can_delete_groups: boolean | null
+          can_edit_groups: boolean | null
+          can_remove_students: boolean | null
+          can_set_custom_name: boolean | null
+          can_view_finances: boolean | null
+          created_at: string | null
+          group_id: string | null
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          can_access_all_branches?: boolean | null
+          can_add_students?: boolean | null
+          can_change_status?: boolean | null
+          can_create_groups?: boolean | null
+          can_delete_groups?: boolean | null
+          can_edit_groups?: boolean | null
+          can_remove_students?: boolean | null
+          can_set_custom_name?: boolean | null
+          can_view_finances?: boolean | null
+          created_at?: string | null
+          group_id?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          can_access_all_branches?: boolean | null
+          can_add_students?: boolean | null
+          can_change_status?: boolean | null
+          can_create_groups?: boolean | null
+          can_delete_groups?: boolean | null
+          can_edit_groups?: boolean | null
+          can_remove_students?: boolean | null
+          can_set_custom_name?: boolean | null
+          can_view_finances?: boolean | null
+          created_at?: string | null
+          group_id?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_permissions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "learning_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_permissions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_students: {
         Row: {
           created_at: string
           enrollment_date: string
+          enrollment_notes: string | null
+          enrollment_type: string | null
+          exit_date: string | null
+          exit_reason: string | null
           group_id: string
           id: string
           notes: string | null
@@ -931,6 +1043,10 @@ export type Database = {
         Insert: {
           created_at?: string
           enrollment_date?: string
+          enrollment_notes?: string | null
+          enrollment_type?: string | null
+          exit_date?: string | null
+          exit_reason?: string | null
           group_id: string
           id?: string
           notes?: string | null
@@ -941,6 +1057,10 @@ export type Database = {
         Update: {
           created_at?: string
           enrollment_date?: string
+          enrollment_notes?: string | null
+          enrollment_type?: string | null
+          exit_date?: string | null
+          exit_reason?: string | null
           group_id?: string
           id?: string
           notes?: string | null
@@ -1533,6 +1653,8 @@ export type Database = {
           middle_name: string | null
           notes: string | null
           phone: string
+          pre_enrolled_group_id: string | null
+          pre_enrollment_date: string | null
           preferred_days: string[] | null
           preferred_time: string | null
           status_id: string | null
@@ -1559,6 +1681,8 @@ export type Database = {
           middle_name?: string | null
           notes?: string | null
           phone: string
+          pre_enrolled_group_id?: string | null
+          pre_enrollment_date?: string | null
           preferred_days?: string[] | null
           preferred_time?: string | null
           status_id?: string | null
@@ -1585,6 +1709,8 @@ export type Database = {
           middle_name?: string | null
           notes?: string | null
           phone?: string
+          pre_enrolled_group_id?: string | null
+          pre_enrollment_date?: string | null
           preferred_days?: string[] | null
           preferred_time?: string | null
           status_id?: string | null
@@ -1602,6 +1728,13 @@ export type Database = {
             columns: ["lead_source_id"]
             isOneToOne: false
             referencedRelation: "lead_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_pre_enrolled_group_id_fkey"
+            columns: ["pre_enrolled_group_id"]
+            isOneToOne: false
+            referencedRelation: "learning_groups"
             referencedColumns: ["id"]
           },
           {
@@ -1646,21 +1779,26 @@ export type Database = {
       learning_groups: {
         Row: {
           academic_hours: number | null
+          auto_filter_conditions: Json | null
           branch: string
           capacity: number
           category: Database["public"]["Enums"]["group_category"]
+          color_code: string | null
           course_id: string | null
           course_start_date: string | null
           created_at: string
           current_students: number
           custom_name: string | null
+          custom_name_locked: boolean | null
           debt_count: number | null
           default_price: number | null
           description: string | null
+          enrollment_url: string | null
           group_number: string | null
           group_type: Database["public"]["Enums"]["group_type"]
           id: string
           is_active: boolean
+          is_auto_group: boolean | null
           lesson_end_month: string | null
           lesson_end_time: string | null
           lesson_start_month: string | null
@@ -1671,6 +1809,7 @@ export type Database = {
           payment_method: Database["public"]["Enums"]["payment_method"]
           period_end: string | null
           period_start: string | null
+          responsible_manager_id: string | null
           responsible_teacher: string | null
           schedule_days: string[] | null
           schedule_room: string | null
@@ -1684,21 +1823,26 @@ export type Database = {
         }
         Insert: {
           academic_hours?: number | null
+          auto_filter_conditions?: Json | null
           branch?: string
           capacity?: number
           category?: Database["public"]["Enums"]["group_category"]
+          color_code?: string | null
           course_id?: string | null
           course_start_date?: string | null
           created_at?: string
           current_students?: number
           custom_name?: string | null
+          custom_name_locked?: boolean | null
           debt_count?: number | null
           default_price?: number | null
           description?: string | null
+          enrollment_url?: string | null
           group_number?: string | null
           group_type?: Database["public"]["Enums"]["group_type"]
           id?: string
           is_active?: boolean
+          is_auto_group?: boolean | null
           lesson_end_month?: string | null
           lesson_end_time?: string | null
           lesson_start_month?: string | null
@@ -1709,6 +1853,7 @@ export type Database = {
           payment_method?: Database["public"]["Enums"]["payment_method"]
           period_end?: string | null
           period_start?: string | null
+          responsible_manager_id?: string | null
           responsible_teacher?: string | null
           schedule_days?: string[] | null
           schedule_room?: string | null
@@ -1722,21 +1867,26 @@ export type Database = {
         }
         Update: {
           academic_hours?: number | null
+          auto_filter_conditions?: Json | null
           branch?: string
           capacity?: number
           category?: Database["public"]["Enums"]["group_category"]
+          color_code?: string | null
           course_id?: string | null
           course_start_date?: string | null
           created_at?: string
           current_students?: number
           custom_name?: string | null
+          custom_name_locked?: boolean | null
           debt_count?: number | null
           default_price?: number | null
           description?: string | null
+          enrollment_url?: string | null
           group_number?: string | null
           group_type?: Database["public"]["Enums"]["group_type"]
           id?: string
           is_active?: boolean
+          is_auto_group?: boolean | null
           lesson_end_month?: string | null
           lesson_end_time?: string | null
           lesson_start_month?: string | null
@@ -1747,6 +1897,7 @@ export type Database = {
           payment_method?: Database["public"]["Enums"]["payment_method"]
           period_end?: string | null
           period_start?: string | null
+          responsible_manager_id?: string | null
           responsible_teacher?: string | null
           schedule_days?: string[] | null
           schedule_room?: string | null
@@ -1764,6 +1915,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_groups_responsible_manager_id_fkey"
+            columns: ["responsible_manager_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3576,6 +3734,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      check_group_permission: {
+        Args: { p_group_id: string; p_permission: string; p_user_id: string }
+        Returns: boolean
+      }
       check_multiple_students_conflicts: {
         Args: {
           p_end_time: string
@@ -3878,6 +4040,10 @@ export type Database = {
       sparsevec_typmod_in: {
         Args: { "": unknown[] }
         Returns: number
+      }
+      sync_auto_group_students: {
+        Args: { p_group_id: string }
+        Returns: undefined
       }
       unfreeze_subscription: {
         Args: { _subscription_id: string }
