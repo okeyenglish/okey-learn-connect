@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Plus, DollarSign, Receipt, CreditCard, Gift, Users, TrendingDown, Wallet } from 'lucide-react';
+import { Plus, DollarSign, Receipt, CreditCard, Gift, Users, TrendingDown, Wallet, AlertCircle } from 'lucide-react';
 import { useFinances } from '@/hooks/useFinances';
 import { CreateInvoiceModal } from './CreateInvoiceModal';
 import { CreatePaymentModal } from './CreatePaymentModal';
@@ -17,9 +17,13 @@ import { BulkOperationsModal } from './BulkOperationsModal';
 import { InvoicesModal } from './InvoicesModal';
 import { DiscountsManagementModal } from './DiscountsManagementModal';
 import { TeacherSalarySection } from './TeacherSalarySection';
+import { LowBalanceStudentsWidget } from './LowBalanceStudentsWidget';
+import { AddBalanceModal } from './AddBalanceModal';
+import { useLowBalanceStudents } from '@/hooks/useStudentBalances';
 
 export default function FinancesSection() {
   const { currencies, invoices, payments, bonusAccounts, loading } = useFinances();
+  const { data: lowBalanceStudents } = useLowBalanceStudents();
   const [activeTab, setActiveTab] = useState('overview');
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -27,6 +31,9 @@ export default function FinancesSection() {
   const [showBulkOpsModal, setShowBulkOpsModal] = useState(false);
   const [showNewInvoicesModal, setShowNewInvoicesModal] = useState(false);
   const [showDiscountsModal, setShowDiscountsModal] = useState(false);
+  const [showAddBalanceModal, setShowAddBalanceModal] = useState(false);
+  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [selectedStudentName, setSelectedStudentName] = useState('');
 
   const stats = {
     totalInvoices: invoices.length,
@@ -37,6 +44,13 @@ export default function FinancesSection() {
     totalPayments: payments.length,
     pendingPayments: payments.filter(p => p.status === 'pending').length,
     totalBonusBalance: bonusAccounts.reduce((sum, acc) => sum + acc.balance, 0),
+    studentsWithLowBalance: lowBalanceStudents?.length || 0,
+  };
+
+  const handleAddBalance = (studentId: string, studentName: string) => {
+    setSelectedStudentId(studentId);
+    setSelectedStudentName(studentName);
+    setShowAddBalanceModal(true);
   };
 
   return (
@@ -87,7 +101,7 @@ export default function FinancesSection() {
       </div>
 
       {/* Статистика */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Общий доход</CardTitle>
@@ -143,12 +157,36 @@ export default function FinancesSection() {
             </p>
           </CardContent>
         </Card>
+
+        <Card className={stats.studentsWithLowBalance > 0 ? 'border-destructive' : ''}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Низкий баланс</CardTitle>
+            <AlertCircle className={`h-4 w-4 ${stats.studentsWithLowBalance > 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${stats.studentsWithLowBalance > 0 ? 'text-destructive' : ''}`}>
+              {stats.studentsWithLowBalance}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Требуется пополнение
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Основной контент */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-9">
+        <TabsList className="grid w-full grid-cols-5 lg:grid-cols-10">
           <TabsTrigger value="overview">Обзор</TabsTrigger>
+          <TabsTrigger value="balances">
+            <AlertCircle className="h-4 w-4 mr-1" />
+            Балансы
+            {stats.studentsWithLowBalance > 0 && (
+              <Badge variant="destructive" className="ml-2">
+                {stats.studentsWithLowBalance}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="invoices">
             Счета
             {stats.totalInvoices > 0 && (
@@ -194,6 +232,18 @@ export default function FinancesSection() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
+          <LowBalanceStudentsWidget 
+            onStudentClick={(studentId) => {
+              // Открыть карточку студента
+            }}
+            onAddBalance={(studentId) => {
+              const student = lowBalanceStudents?.find(s => s.student_id === studentId);
+              if (student) {
+                handleAddBalance(studentId, student.student_name);
+              }
+            }}
+          />
+          
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardHeader>
@@ -312,6 +362,22 @@ export default function FinancesSection() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="balances">
+          <div className="space-y-4">
+            <LowBalanceStudentsWidget 
+              onStudentClick={(studentId) => {
+                // Navigate to student card
+              }}
+              onAddBalance={(studentId) => {
+                const student = lowBalanceStudents?.find(s => s.student_id === studentId);
+                if (student) {
+                  handleAddBalance(studentId, student.student_name);
+                }
+              }}
+            />
+          </div>
+        </TabsContent>
+
         <TabsContent value="bonuses">
           <Card>
             <CardHeader>
@@ -412,6 +478,14 @@ export default function FinancesSection() {
           <FinancialAnalytics />
         </TabsContent>
       </Tabs>
+
+      {/* Modals */}
+      <AddBalanceModal 
+        open={showAddBalanceModal}
+        onOpenChange={setShowAddBalanceModal}
+        studentId={selectedStudentId}
+        studentName={selectedStudentName}
+      />
     </div>
   );
 }
