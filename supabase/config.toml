@@ -3,6 +3,9 @@ project_id = "kbojujfwtvmsgudumown"
 [functions.admin-reset-password]
 verify_jwt = true
 
+[functions.bbb-meeting]
+verify_jwt = true
+
 [functions.ask]
 verify_jwt = false
 

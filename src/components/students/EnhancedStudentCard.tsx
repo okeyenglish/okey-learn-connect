@@ -49,7 +49,8 @@ import {
   PinOff,
   Archive,
   ArchiveRestore,
-  AlertTriangle
+  AlertTriangle,
+  Video
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useStudentDetails, StudentFullDetails } from '@/hooks/useStudentDetails';
@@ -75,6 +76,7 @@ import { useStudentBalance } from '@/hooks/useStudentBalance';
 import { calculateLessonPrice } from '@/utils/lessonPricing';
 import { getCoursePriceInfo } from '@/utils/coursePricing';
 import { useUpdateIndividualLesson } from '@/hooks/useIndividualLessons';
+import { OnlineLessonModal } from '@/components/OnlineLessonModal';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -137,6 +139,14 @@ export function EnhancedStudentCard({
   const [showAddToGroup, setShowAddToGroup] = useState(false);
   const [showAddIndividualLesson, setShowAddIndividualLesson] = useState(false);
   const [selectedGroupForModal, setSelectedGroupForModal] = useState<LearningGroup | null>(null);
+  const [onlineLessonOpen, setOnlineLessonOpen] = useState(false);
+  const [onlineLessonData, setOnlineLessonData] = useState<{
+    lessonType: 'group' | 'individual';
+    groupId?: string;
+    studentId?: string;
+    studentName?: string;
+    groupName?: string;
+  } | null>(null);
   
   const { data: studentDetails, isLoading, refetch } = useStudentDetails(student.id);
   const { data: balance } = useStudentBalance(student.id);
@@ -1411,6 +1421,23 @@ export function EnhancedStudentCard({
                                         </div>
                                         <div className="flex items-center gap-2">
                                           <Button
+                                            size="sm"
+                                            variant="default"
+                                            onClick={() => {
+                                              setOnlineLessonData({
+                                                lessonType: 'individual',
+                                                studentId: student.id,
+                                                studentName: studentDetails?.name || student.name,
+                                              });
+                                              setOnlineLessonOpen(true);
+                                            }}
+                                            className="gap-2"
+                                            title="Начать онлайн урок"
+                                          >
+                                            <Video className="h-4 w-4" />
+                                            Начать урок
+                                          </Button>
+                                          <Button
                                             size="icon"
                                             variant="ghost"
                                             onClick={() => {
@@ -2065,6 +2092,22 @@ export function EnhancedStudentCard({
         open={!!selectedGroupForModal}
         onOpenChange={(open) => !open && setSelectedGroupForModal(null)}
       />
+
+      {/* Модальное окно онлайн урока */}
+      {onlineLessonData && (
+        <OnlineLessonModal
+          isOpen={onlineLessonOpen}
+          onClose={() => {
+            setOnlineLessonOpen(false);
+            setOnlineLessonData(null);
+          }}
+          lessonType={onlineLessonData.lessonType}
+          groupId={onlineLessonData.groupId}
+          studentId={onlineLessonData.studentId}
+          studentName={onlineLessonData.studentName}
+          groupName={onlineLessonData.groupName}
+        />
+      )}
     </Dialog>
   );
 }

@@ -21,6 +21,7 @@ import { GroupFinancesTab } from "./GroupFinancesTab";
 import { ExportGroupButton } from "./ExportGroupButton";
 import { AutoGroupSettingsModal } from "./AutoGroupSettingsModal";
 import { CopyGroupModal } from "./CopyGroupModal";
+import { OnlineLessonModal } from "@/components/OnlineLessonModal";
 import { useToast } from "@/hooks/use-toast";
 import { useGroupStudents } from "@/hooks/useGroupStudents";
 import { useAvailableStudents } from "@/hooks/useAvailableStudents";
@@ -47,6 +48,7 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [autoGroupSettingsOpen, setAutoGroupSettingsOpen] = useState(false);
   const [copyGroupOpen, setCopyGroupOpen] = useState(false);
+  const [onlineLessonOpen, setOnlineLessonOpen] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -260,6 +262,14 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
                     Авто-группа
                   </Badge>
                 )}
+                <Button
+                  size="sm"
+                  className="bg-green-500 hover:bg-green-600 text-white gap-2"
+                  onClick={() => setOnlineLessonOpen(true)}
+                >
+                  <Video className="h-4 w-4" />
+                  Начать урок
+                </Button>
                 {group.enrollment_url && (
                   <Button 
                     size="sm" 
@@ -648,6 +658,14 @@ export const GroupDetailModal = ({ group, open, onOpenChange }: GroupDetailModal
             console.log('Group copied, new ID:', newGroupId);
             queryClient.invalidateQueries({ queryKey: ['learning-groups'] });
           }}
+        />
+
+        <OnlineLessonModal
+          isOpen={onlineLessonOpen}
+          onClose={() => setOnlineLessonOpen(false)}
+          lessonType="group"
+          groupId={group.id}
+          groupName={group.name}
         />
       </DialogContent>
     </Dialog>
