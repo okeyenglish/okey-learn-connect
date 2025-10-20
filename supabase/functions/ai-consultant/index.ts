@@ -12,15 +12,58 @@ serve(async (req) => {
   }
 
   try {
-    const { message, consultantType, systemPrompt } = await req.json();
+    const { message, audio, consultantType, systemPrompt } = await req.json();
     
-    if (!message || !consultantType) {
-      throw new Error('Message and consultantType are required');
+    if (!consultantType) {
+      throw new Error('consultantType is required');
     }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
+    }
+
+    let userMessage = message;
+
+    // Если есть аудио, сначала транскрибируем его с помощью OpenAI Whisper
+    if (audio) {
+      try {
+        const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+        if (!OPENAI_API_KEY) {
+          throw new Error('OPENAI_API_KEY is not configured');
+        }
+
+        const binaryAudio = Uint8Array.from(atob(audio), c => c.charCodeAt(0));
+        const formData = new FormData();
+        const blob = new Blob([binaryAudio], { type: 'audio/webm' });
+        formData.append('file', blob, 'audio.webm');
+        formData.append('model', 'whisper-1');
+
+        const transcriptionResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          },
+          body: formData,
+        });
+
+        if (!transcriptionResponse.ok) {
+          const errorText = await transcriptionResponse.text();
+          console.error('Transcription error:', transcriptionResponse.status, errorText);
+          throw new Error(`Transcription error: ${transcriptionResponse.status}`);
+        }
+
+        const transcription = await transcriptionResponse.json();
+        userMessage = transcription.text;
+        console.log('Transcribed text:', userMessage);
+      } catch (transcriptionError) {
+        console.error('Transcription error:', transcriptionError);
+        throw new Error('Ошибка распознавания речи');
+      }
+    }
+
+    if (!userMessage) {
+      throw new Error('No message or audio provided');
     }
 
     // Вызов Lovable AI Gateway
@@ -39,7 +82,7 @@ serve(async (req) => {
           },
           {
             role: 'user',
-            content: message
+            content: userMessage
           }
         ],
         temperature: 0.7,
@@ -59,7 +102,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true,
-        response: aiResponse 
+        response: aiResponse,
+        transcription: audio ? userMessage : undefined
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

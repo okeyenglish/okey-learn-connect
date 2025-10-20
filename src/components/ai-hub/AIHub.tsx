@@ -67,7 +67,10 @@ export const AIHub = ({
     community: []
   });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -141,6 +144,112 @@ export const AIHub = ({
     }
   }, [messages, activeConsultant, activeTab]);
 
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+        ? 'audio/webm;codecs=opus' 
+        : 'audio/webm';
+      
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        await processAudio(audioBlob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+      
+      mediaRecorder.start(500);
+      setIsRecording(true);
+      
+      setTimeout(() => {
+        if (mediaRecorderRef.current?.state === 'recording') {
+          stopRecording();
+        }
+      }, 15000);
+      
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      toast.error('Ошибка доступа к микрофону');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      setIsProcessing(true);
+    }
+  };
+
+  const processAudio = async (audioBlob: Blob) => {
+    try {
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      const chunkSize = 0x8000;
+      let binaryString = '';
+      for (let i = 0; i < uint8Array.length; i += chunkSize) {
+        const chunk = uint8Array.subarray(i, i + chunkSize);
+        binaryString += String.fromCharCode.apply(null, Array.from(chunk));
+      }
+      const base64Audio = btoa(binaryString);
+
+      const chatKey = activeTab === 'consultants' && activeConsultant 
+        ? activeConsultant 
+        : 'community';
+
+      if (activeTab === 'consultants' && activeConsultant) {
+        const systemPrompt = activeConsultant === 'lawyer'
+          ? 'Ты опытный юрист, специализирующийся на образовательном праве. Отвечай кратко и по делу, ссылаясь на законы РФ когда это уместно.'
+          : 'Ты опытный бухгалтер, специализирующийся на бухгалтерском учёте в образовательных учреждениях. Помогай с налогами, отчётностью и финансовым учётом.';
+
+        const { data, error } = await supabase.functions.invoke('ai-consultant', {
+          body: {
+            audio: base64Audio,
+            consultantType: activeConsultant,
+            systemPrompt
+          }
+        });
+
+        if (error) throw error;
+
+        const userMessage: ChatMessage = {
+          id: Date.now().toString(),
+          type: 'user',
+          content: data.transcription || 'Голосовое сообщение',
+          timestamp: new Date()
+        };
+
+        const aiMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          type: 'assistant',
+          content: data.response || 'Извините, не удалось получить ответ.',
+          timestamp: new Date()
+        };
+
+        setMessages(prev => ({
+          ...prev,
+          [chatKey]: [...(prev[chatKey] || []), userMessage, aiMessage]
+        }));
+      } else {
+        toast.success('Голосовое сообщение отправлено в сообщество');
+      }
+    } catch (error) {
+      console.error('Error processing audio:', error);
+      toast.error('Ошибка обработки аудио');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!message.trim()) return;
 
@@ -148,7 +257,6 @@ export const AIHub = ({
       ? activeConsultant 
       : 'community';
 
-    // Добавляем сообщение пользователя
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       type: 'user',
@@ -166,7 +274,6 @@ export const AIHub = ({
     setIsProcessing(true);
 
     try {
-      // Для консультантов отправляем запрос к AI
       if (activeTab === 'consultants' && activeConsultant) {
         const systemPrompt = activeConsultant === 'lawyer'
           ? 'Ты опытный юрист, специализирующийся на образовательном праве. Отвечай кратко и по делу, ссылаясь на законы РФ когда это уместно.'
@@ -194,7 +301,6 @@ export const AIHub = ({
           [chatKey]: [...(prev[chatKey] || []), aiMessage]
         }));
       } else {
-        // Для сообщества - просто показываем сообщение
         toast.success('Сообщение отправлено в сообщество');
       }
     } catch (error) {
@@ -317,10 +423,11 @@ export const AIHub = ({
                     variant="ghost"
                     size="icon"
                     onClick={() => setActiveConsultant(null)}
+                    className="shrink-0"
                   >
                     <X className="h-4 w-4" />
                   </Button>
-                  <Avatar className="h-10 w-10">
+                  <Avatar className="h-10 w-10 shrink-0">
                     <AvatarFallback className="bg-primary/10">
                       {(() => {
                         const Icon = consultants.find(c => c.id === activeConsultant)?.icon || Bot;
@@ -328,11 +435,11 @@ export const AIHub = ({
                       })()}
                     </AvatarFallback>
                   </Avatar>
-                  <div>
-                    <p className="font-semibold">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold truncate">
                       {consultants.find(c => c.id === activeConsultant)?.name}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground truncate">
                       AI консультант • Всегда онлайн
                     </p>
                   </div>
@@ -391,19 +498,21 @@ export const AIHub = ({
                 </ScrollArea>
 
                 {/* Поле ввода */}
-                <div className="p-4 border-t">
+                <div className="p-4 border-t shrink-0">
                   <div className="flex gap-2">
                     <Input
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                       placeholder={getCurrentPlaceholder()}
-                      disabled={isProcessing}
+                      disabled={isProcessing || isRecording}
+                      className="flex-1"
                     />
                     <Button 
                       onClick={handleSendMessage}
-                      disabled={!message.trim() || isProcessing}
+                      disabled={!message.trim() || isProcessing || isRecording}
                       size="icon"
+                      className="shrink-0"
                     >
                       {isProcessing ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -411,7 +520,23 @@ export const AIHub = ({
                         <Send className="h-4 w-4" />
                       )}
                     </Button>
+                    <Button
+                      onClick={isRecording ? stopRecording : startRecording}
+                      disabled={isProcessing}
+                      size="icon"
+                      variant={isRecording ? "destructive" : "outline"}
+                      className="shrink-0"
+                    >
+                      {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                    </Button>
                   </div>
+                  {isRecording && (
+                    <div className="mt-2 text-center">
+                      <div className="text-xs text-muted-foreground animate-pulse">
+                        🎤 Запись... Говорите сейчас
+                      </div>
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -464,23 +589,45 @@ export const AIHub = ({
             </ScrollArea>
 
             {/* Поле ввода */}
-            <div className="p-4 border-t">
+            <div className="p-4 border-t shrink-0">
               <div className="flex gap-2">
                 <Input
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                   placeholder="Написать в сообщество..."
-                  disabled={isProcessing}
+                  disabled={isProcessing || isRecording}
+                  className="flex-1"
                 />
                 <Button 
                   onClick={handleSendMessage}
-                  disabled={!message.trim() || isProcessing}
+                  disabled={!message.trim() || isProcessing || isRecording}
                   size="icon"
+                  className="shrink-0"
                 >
-                  <Send className="h-4 w-4" />
+                  {isProcessing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button
+                  onClick={isRecording ? stopRecording : startRecording}
+                  disabled={isProcessing}
+                  size="icon"
+                  variant={isRecording ? "destructive" : "outline"}
+                  className="shrink-0"
+                >
+                  {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                 </Button>
               </div>
+              {isRecording && (
+                <div className="mt-2 text-center">
+                  <div className="text-xs text-muted-foreground animate-pulse">
+                    🎤 Запись... Говорите сейчас
+                  </div>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground mt-2">
                 Ваше сообщение увидят все участники сообщества
               </p>
