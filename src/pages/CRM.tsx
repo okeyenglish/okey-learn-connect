@@ -263,8 +263,16 @@ const CRMContent = () => {
       .channel('chat-threads-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, () => {
         queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+        queryClient.invalidateQueries({ queryKey: ['clients'] });
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'call_logs' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+        queryClient.invalidateQueries({ queryKey: ['clients'] });
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'call_logs' }, () => {
         queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
       })
       .subscribe();

@@ -56,7 +56,8 @@ export const useChatThreads = () => {
   const { data: threads, isLoading, error } = useQuery({
     queryKey: ['chat-threads'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Fetch chat messages
+      const { data: messagesData, error: messagesError } = await supabase
         .from('chat_messages')
         .select(`
           client_id,
@@ -71,12 +72,32 @@ export const useChatThreads = () => {
         `)
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (messagesError) throw messagesError;
 
-      // Group messages by client
+      // Fetch call logs
+      const { data: callsData, error: callsError } = await supabase
+        .from('call_logs')
+        .select(`
+          client_id,
+          status,
+          direction,
+          started_at,
+          duration_seconds,
+          clients (
+            id,
+            name,
+            phone
+          )
+        `)
+        .order('started_at', { ascending: false });
+      
+      if (callsError) throw callsError;
+
+      // Group interactions by client
       const threadsMap = new Map<string, ChatThread>();
       
-      data?.forEach((message: any) => {
+      // Process chat messages
+      messagesData?.forEach((message: any) => {
         const clientId = message.client_id;
         const client = message.clients;
         
@@ -102,6 +123,37 @@ export const useChatThreads = () => {
         
         if (!message.is_read) {
           thread.unread_count++;
+        }
+      });
+
+      // Process call logs
+      callsData?.forEach((call: any) => {
+        const clientId = call.client_id;
+        const client = call.clients;
+        
+        if (!client) return;
+        
+        const callMessage = `${call.direction === 'incoming' ? '📞 Входящий' : '📱 Исходящий'} звонок (${call.status})`;
+        
+        if (!threadsMap.has(clientId)) {
+          threadsMap.set(clientId, {
+            client_id: clientId,
+            client_name: client.name,
+            client_phone: client.phone,
+            last_message: callMessage,
+            last_message_time: call.started_at,
+            unread_count: call.status === 'missed' ? 1 : 0,
+            messages: [],
+          });
+        } else {
+          const thread = threadsMap.get(clientId)!;
+          if (new Date(call.started_at) > new Date(thread.last_message_time)) {
+            thread.last_message = callMessage;
+            thread.last_message_time = call.started_at;
+          }
+          if (call.status === 'missed') {
+            thread.unread_count++;
+          }
         }
       });
 
