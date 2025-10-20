@@ -2145,6 +2145,30 @@ const menuItems = [
                     size="sm"
                     className="h-8 px-3 rounded-lg border border-muted text-muted-foreground hover:bg-muted hover:text-foreground"
                     onClick={() => {
+                      // Получаем все непрочитанные чаты
+                      const unreadChats = filteredChats.filter(chat => {
+                        const chatState = getChatState(chat.id);
+                        const isUnreadGlobally = !isChatReadGlobally(chat.id);
+                        const showEye = !!chatState?.isUnread;
+                        return showEye || isUnreadGlobally || chat.unread > 0;
+                      });
+                      
+                      // Отмечаем все как прочитанные
+                      unreadChats.forEach(chat => {
+                        markChatAsReadGlobally(chat.id);
+                        markAsRead(chat.id);
+                      });
+                    }}
+                    title="Отметить все непрочитанные чаты как прочитанные"
+                  >
+                    <Check className="h-4 w-4 mr-1" />
+                    Прочитать все
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-3 rounded-lg border border-muted text-muted-foreground hover:bg-muted hover:text-foreground"
+                    onClick={() => {
                       setBulkSelectMode(true);
                       setSelectedChatIds(new Set());
                     }}
