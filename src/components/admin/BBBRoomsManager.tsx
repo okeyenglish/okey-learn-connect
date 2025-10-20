@@ -8,7 +8,6 @@ import { useQuery } from "@tanstack/react-query";
 
 export const BBBRoomsManager = () => {
   const [isCreating, setIsCreating] = useState(false);
-  const [autoCreated, setAutoCreated] = useState(false);
   const { toast } = useToast();
 
   // Получаем список комнат преподавателей
@@ -24,14 +23,6 @@ export const BBBRoomsManager = () => {
       return data;
     },
   });
-
-  // Автоматически создаем комнаты при первой загрузке
-  React.useEffect(() => {
-    if (!isLoading && rooms && rooms.length > 0 && !autoCreated) {
-      setAutoCreated(true);
-      handleCreateRooms();
-    }
-  }, [isLoading, rooms, autoCreated]);
 
   const handleCreateRooms = async () => {
     setIsCreating(true);

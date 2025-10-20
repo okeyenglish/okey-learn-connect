@@ -26,6 +26,9 @@ serve(async (req) => {
     const BBB_URL = Deno.env.get("BBB_URL");
     const BBB_SECRET = Deno.env.get("BBB_SECRET");
 
+    console.log("BBB_URL:", BBB_URL);
+    console.log("BBB_SECRET exists:", !!BBB_SECRET);
+
     if (!BBB_URL || !BBB_SECRET) {
       throw new Error("BBB credentials not configured");
     }
