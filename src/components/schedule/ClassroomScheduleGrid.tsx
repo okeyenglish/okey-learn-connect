@@ -287,11 +287,11 @@ export const ClassroomScheduleGrid = ({ filters, viewFormat, gridSettings }: Cla
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="card-base">
         <CardContent className="p-8">
           <div className="text-center">
-            <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Загрузка расписания аудиторий...</p>
+            <div className="animate-spin w-8 h-8 border-4 border-brand border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p className="text-text-secondary text-sm">Загрузка расписания аудиторий...</p>
           </div>
         </CardContent>
       </Card>
@@ -302,36 +302,36 @@ export const ClassroomScheduleGrid = ({ filters, viewFormat, gridSettings }: Cla
     <div className="space-y-4">
       {/* Navigation */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <Building2 className="h-5 w-5" />
+        <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+          <Building2 className="h-5 w-5 text-brand" />
           {format(currentWeek, "d MMMM yyyy", { locale: ru })} — {format(endOfWeek(currentWeek, { weekStartsOn: 1 }), "d MMMM yyyy", { locale: ru })}
         </h3>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={goToPreviousWeek}>
+          <Button variant="secondary" size="sm" onClick={goToPreviousWeek} className="btn-secondary">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={goToCurrentWeek}>
+          <Button variant="default" size="sm" onClick={goToCurrentWeek} className="btn-primary">
             Текущая неделя
           </Button>
-          <Button variant="outline" size="sm" onClick={goToNextWeek}>
+          <Button variant="secondary" size="sm" onClick={goToNextWeek} className="btn-secondary">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
       {/* Schedule Grid */}
-      <div className="overflow-x-auto border rounded-lg">
+      <div className="overflow-x-auto border border-border/50 rounded-lg shadow-elev-1">
         <div className="inline-block min-w-full">
           {/* Header */}
           <div className={`grid ${gridSettings.rotated 
             ? `grid-cols-[200px_repeat(${timeSlots.length},120px)]` 
             : `grid-cols-[200px_repeat(${weekDays.length},150px)]`
-          } border-b bg-muted/50`}>
-            <div className="p-4 border-r font-semibold">
+          } border-b border-border/50 bg-bg-soft`}>
+            <div className="p-4 border-r border-border/50 font-semibold text-text-primary">
               Аудитория
             </div>
             {(gridSettings.rotated ? timeSlots : weekDays).map((item, index) => (
-              <div key={index} className="p-3 border-r text-center text-sm font-medium">
+              <div key={index} className="p-3 border-r border-border/50 text-center text-sm font-medium text-text-secondary">
                 {gridSettings.rotated 
                   ? (item as any).label 
                   : format(item as Date, "EEE d MMM", { locale: ru })
@@ -342,20 +342,20 @@ export const ClassroomScheduleGrid = ({ filters, viewFormat, gridSettings }: Cla
 
           {/* Classroom rows */}
           {classroomsWithSessions.length === 0 ? (
-            <div className="p-12 text-center text-muted-foreground">
-              <Building2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Нет занятий в аудиториях на выбранный период</p>
+            <div className="p-12 text-center">
+              <Building2 className="w-12 h-12 mx-auto mb-4 text-text-muted opacity-50" />
+              <p className="text-text-secondary">Нет занятий в аудиториях на выбранный период</p>
             </div>
           ) : (
             classroomsWithSessions.map((classroomInfo) => (
               <div key={classroomInfo.name} className={`grid ${gridSettings.rotated 
                 ? `grid-cols-[200px_repeat(${timeSlots.length},120px)]` 
                 : `grid-cols-[200px_repeat(${weekDays.length},150px)]`
-              } border-b hover:bg-muted/20`}>
+              } border-b border-border/50 hover:bg-surface-alt transition-colors`}>
                 {/* Classroom name */}
-                <div className="p-4 border-r">
-                  <div className="font-medium text-sm">{classroomInfo.classroom.name}</div>
-                  <div className="text-xs text-muted-foreground">
+                <div className="p-4 border-r border-border/50">
+                  <div className="font-medium text-sm text-text-primary">{classroomInfo.classroom.name}</div>
+                  <div className="text-xs text-text-secondary">
                     Вместимость: {classroomInfo.classroom.capacity || 'N/A'}
                   </div>
                 </div>
@@ -380,8 +380,8 @@ export const ClassroomScheduleGrid = ({ filters, viewFormat, gridSettings }: Cla
                   return (
                     <div 
                       key={index} 
-                      className={`p-1 border-r relative min-h-[80px] transition-colors ${
-                        isDropTarget ? 'bg-primary/10 border-primary' : ''
+                      className={`p-1 border-r border-border/50 relative min-h-[80px] transition-colors ${
+                        isDropTarget ? 'bg-brand-100 border-brand' : ''
                       }`}
                       onDragOver={(e) => {
                         e.preventDefault();
@@ -407,7 +407,7 @@ export const ClassroomScheduleGrid = ({ filters, viewFormat, gridSettings }: Cla
                           </div>
                         ))}
                         {daySessions.length === 0 && !gridSettings.rotated && (
-                          <div className="text-xs text-muted-foreground text-center py-2">
+                          <div className="text-xs text-text-muted text-center py-2">
                             {isDropTarget ? 'Отпустите здесь' : 'Свободно'}
                           </div>
                         )}

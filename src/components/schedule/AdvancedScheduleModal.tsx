@@ -96,28 +96,28 @@ export const AdvancedScheduleModal = ({ open, onOpenChange, children }: Advanced
           {children}
         </DialogTrigger>
       )}
-      <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-hidden">
-        <DialogHeader className="px-6 py-4 border-b">
+      <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-hidden bg-surface">
+        <DialogHeader className="px-6 py-4 border-b border-border/50">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-2xl font-bold text-foreground">
+            <DialogTitle className="text-2xl font-semibold text-text-primary">
               Расписание занятий
             </DialogTitle>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handlePrint}>
+              <Button variant="secondary" size="sm" onClick={handlePrint}>
                 <Printer className="h-4 w-4 mr-2" />
                 Печать
               </Button>
-              <Button variant="outline" size="sm" onClick={handleExportXLS}>
+              <Button variant="secondary" size="sm" onClick={handleExportXLS}>
                 <Download className="h-4 w-4 mr-2" />
                 Экспорт в XLS
               </Button>
-              <Button variant="outline" size="sm" onClick={handleSearchLessons}>
+              <Button variant="secondary" size="sm" onClick={handleSearchLessons}>
                 <Search className="h-4 w-4 mr-2" />
                 Поиск занятий
               </Button>
             </div>
           </div>
-          <p className="text-muted-foreground">
+          <p className="text-sm text-text-secondary mt-1">
             Планирование и управление расписанием языкового центра O'KEY ENGLISH
           </p>
         </DialogHeader>
@@ -125,7 +125,7 @@ export const AdvancedScheduleModal = ({ open, onOpenChange, children }: Advanced
         <div className="flex-1 overflow-hidden">
           <div className="h-full flex">
             {/* Filters Sidebar */}
-            <div className="w-80 border-r bg-muted/30 p-4 overflow-y-auto">
+            <div className="w-80 border-r border-border/50 bg-bg-soft p-4 overflow-y-auto">
               <div className="space-y-4">
                 <ScheduleStatusLegend />
                 <AdvancedScheduleFilters
@@ -143,9 +143,9 @@ export const AdvancedScheduleModal = ({ open, onOpenChange, children }: Advanced
 
             {/* Schedule Grid */}
             <div className="flex-1 overflow-hidden">
-              <Card className="h-full rounded-none border-0">
-                <CardHeader className="pb-4 border-b">
-                  <CardTitle className="flex items-center justify-between">
+              <Card className="h-full rounded-none border-0 bg-surface shadow-none">
+                <CardHeader className="pb-4 border-b border-border/50">
+                  <CardTitle className="flex items-center justify-between text-text-primary">
                     <span>Расписание занятий</span>
                     <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
                       <TabsList>
