@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Plus, Clock, Users, BookOpen, Sparkles, User } from "lucide-react";
+import { Calendar, Plus, Clock, Users, BookOpen, Sparkles, User, UserCheck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdvancedScheduleModal } from "@/components/schedule/AdvancedScheduleModal";
 import { CourseScheduleGenerator } from "@/components/schedule/CourseScheduleGenerator";
 import { StudentScheduleCalendar } from "@/components/schedule/StudentScheduleCalendar";
+import { TeacherScheduleCalendar } from "@/components/schedule/TeacherScheduleCalendar";
 import { useLessonSessions } from "@/hooks/useLessonSessions";
 
 export default function ScheduleSection() {
@@ -97,7 +98,7 @@ export default function ScheduleSection() {
         </div>
 
         <Tabs defaultValue="schedule" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="schedule" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               Общее расписание
@@ -105,6 +106,10 @@ export default function ScheduleSection() {
             <TabsTrigger value="student" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               Календарь студента
+            </TabsTrigger>
+            <TabsTrigger value="teacher" className="flex items-center gap-2">
+              <UserCheck className="h-4 w-4" />
+              Расписание преподавателя
             </TabsTrigger>
             <TabsTrigger value="generator" className="flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
@@ -120,6 +125,10 @@ export default function ScheduleSection() {
 
           <TabsContent value="student" className="space-y-4">
             <StudentScheduleCalendar />
+          </TabsContent>
+
+          <TabsContent value="teacher" className="space-y-4">
+            <TeacherScheduleCalendar />
           </TabsContent>
 
           <TabsContent value="generator" className="space-y-4">
