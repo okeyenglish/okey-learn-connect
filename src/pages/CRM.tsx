@@ -55,6 +55,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useAllTasks, useCompleteTask, useCancelTask, useUpdateTask } from "@/hooks/useTasks";
 import { useRealtimeClients } from "@/hooks/useRealtimeClients";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useOrganization } from "@/hooks/useOrganization";
 import crmLogo from "@/assets/crm-logo.png";
 import { 
   Search, 
@@ -176,6 +177,7 @@ const CRMContent = () => {
   const completeTask = useCompleteTask();
   const cancelTask = useCancelTask();
   const updateTask = useUpdateTask();
+  const { organization } = useOrganization();
   
   // Drag and drop state
   const [draggedTask, setDraggedTask] = useState<string | null>(null);
@@ -1200,7 +1202,9 @@ const CRMContent = () => {
             <div className="flex items-center gap-3 flex-1">
               <img src={crmLogo} alt="CRM Logo" className="h-8 w-8 flex-shrink-0" />
               <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold truncate">O'KEY ENGLISH CRM</h1>
+                <h1 className="text-lg sm:text-xl font-bold truncate">
+                  {organization?.name || "O'KEY ENGLISH"} CRM
+                </h1>
               </div>
               
               {pinnedModals && pinnedModals.length > 0 && (
