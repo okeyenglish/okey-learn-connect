@@ -1,13 +1,14 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Plus, Clock, Users, BookOpen, Sparkles, User, UserCheck, RefreshCcw } from "lucide-react";
+import { Calendar, Plus, Clock, Users, BookOpen, Sparkles, User, UserCheck, RefreshCcw, Building2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdvancedScheduleModal } from "@/components/schedule/AdvancedScheduleModal";
 import { CourseScheduleGenerator } from "@/components/schedule/CourseScheduleGenerator";
 import { StudentScheduleCalendar } from "@/components/schedule/StudentScheduleCalendar";
 import { TeacherScheduleCalendar } from "@/components/schedule/TeacherScheduleCalendar";
 import { TeacherSubstitutionsManager } from "@/components/schedule/TeacherSubstitutionsManager";
+import { SchoolCalendarView } from "@/components/schedule/SchoolCalendarView";
 import { useLessonSessions } from "@/hooks/useLessonSessions";
 
 export default function ScheduleSection() {
@@ -99,7 +100,7 @@ export default function ScheduleSection() {
         </div>
 
         <Tabs defaultValue="schedule" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="schedule" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               Общее расписание
@@ -115,6 +116,10 @@ export default function ScheduleSection() {
             <TabsTrigger value="substitutions" className="flex items-center gap-2">
               <RefreshCcw className="h-4 w-4" />
               Замены
+            </TabsTrigger>
+            <TabsTrigger value="school" className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              Календарь школы
             </TabsTrigger>
             <TabsTrigger value="generator" className="flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
@@ -138,6 +143,10 @@ export default function ScheduleSection() {
 
           <TabsContent value="substitutions" className="space-y-4">
             <TeacherSubstitutionsManager />
+          </TabsContent>
+
+          <TabsContent value="school" className="space-y-4">
+            <SchoolCalendarView />
           </TabsContent>
 
           <TabsContent value="generator" className="space-y-4">
