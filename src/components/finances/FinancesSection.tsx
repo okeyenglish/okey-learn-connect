@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Plus, DollarSign, Receipt, CreditCard, Gift } from 'lucide-react';
+import { Plus, DollarSign, Receipt, CreditCard, Gift, Users, TrendingDown, Wallet } from 'lucide-react';
 import { useFinances } from '@/hooks/useFinances';
 import { CreateInvoiceModal } from './CreateInvoiceModal';
 import { CreatePaymentModal } from './CreatePaymentModal';
@@ -13,6 +13,10 @@ import { PaymentsTable } from './PaymentsTable';
 import { BonusAccountsTable } from './BonusAccountsTable';
 import { PriceListsTable } from './PriceListsTable';
 import { FinancialAnalytics } from './FinancialAnalytics';
+import { BulkOperationsModal } from './BulkOperationsModal';
+import { InvoicesModal } from './InvoicesModal';
+import { DiscountsManagementModal } from './DiscountsManagementModal';
+import { TeacherSalarySection } from './TeacherSalarySection';
 
 export default function FinancesSection() {
   const { currencies, invoices, payments, bonusAccounts, loading } = useFinances();
@@ -20,6 +24,9 @@ export default function FinancesSection() {
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showInvoiceGeneratorModal, setShowInvoiceGeneratorModal] = useState(false);
+  const [showBulkOpsModal, setShowBulkOpsModal] = useState(false);
+  const [showNewInvoicesModal, setShowNewInvoicesModal] = useState(false);
+  const [showDiscountsModal, setShowDiscountsModal] = useState(false);
 
   const stats = {
     totalInvoices: invoices.length,
@@ -41,34 +48,39 @@ export default function FinancesSection() {
             Управление счетами, платежами и бонусными программами
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <BulkOperationsModal 
+            open={showBulkOpsModal}
+            onOpenChange={setShowBulkOpsModal}
+          />
+          
+          <InvoicesModal 
+            open={showNewInvoicesModal}
+            onOpenChange={setShowNewInvoicesModal}
+          />
+          
+          <DiscountsManagementModal 
+            open={showDiscountsModal}
+            onOpenChange={setShowDiscountsModal}
+          />
+
           <CreateInvoiceModal 
             open={showInvoiceModal} 
             onOpenChange={setShowInvoiceModal}
           >
-            <Button>
+            <Button variant="outline" size="sm">
               <Plus className="h-4 w-4 mr-2" />
               Создать счет
             </Button>
           </CreateInvoiceModal>
-
-          <InvoiceGeneratorModal
-            open={showInvoiceGeneratorModal}
-            onOpenChange={setShowInvoiceGeneratorModal}
-          >
-            <Button variant="outline">
-              <Receipt className="h-4 w-4 mr-2" />
-              Массовые счета
-            </Button>
-          </InvoiceGeneratorModal>
           
           <CreatePaymentModal 
             open={showPaymentModal} 
             onOpenChange={setShowPaymentModal}
           >
-            <Button variant="outline">
+            <Button variant="outline" size="sm">
               <CreditCard className="h-4 w-4 mr-2" />
-              Добавить платеж
+              Платеж
             </Button>
           </CreatePaymentModal>
         </div>
@@ -135,7 +147,7 @@ export default function FinancesSection() {
 
       {/* Основной контент */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-9">
           <TabsTrigger value="overview">Обзор</TabsTrigger>
           <TabsTrigger value="invoices">
             Счета
@@ -153,6 +165,14 @@ export default function FinancesSection() {
               </Badge>
             )}
           </TabsTrigger>
+          <TabsTrigger value="discounts">
+            <TrendingDown className="h-4 w-4 mr-1" />
+            Скидки
+          </TabsTrigger>
+          <TabsTrigger value="teacher-salary">
+            <Wallet className="h-4 w-4 mr-1" />
+            Зарплаты
+          </TabsTrigger>
           <TabsTrigger value="bonuses">
             Бонусы
             {bonusAccounts.length > 0 && (
@@ -166,6 +186,10 @@ export default function FinancesSection() {
           </TabsTrigger>
           <TabsTrigger value="analytics">
             Аналитика
+          </TabsTrigger>
+          <TabsTrigger value="bulk-ops">
+            <Users className="h-4 w-4 mr-1" />
+            Массовые
           </TabsTrigger>
         </TabsList>
 
@@ -312,6 +336,74 @@ export default function FinancesSection() {
             </CardHeader>
             <CardContent>
               <PriceListsTable />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="discounts">
+          <Card>
+            <CardHeader>
+              <CardTitle>Скидки и наценки</CardTitle>
+              <CardDescription>
+                Управление системой скидок и наценок для студентов
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground mb-4">
+                Создавайте и управляйте скидками/наценками через кнопку "Скидки и наценки" выше
+              </p>
+              <Button onClick={() => setShowDiscountsModal(true)}>
+                <TrendingDown className="h-4 w-4 mr-2" />
+                Открыть управление скидками
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="teacher-salary">
+          <TeacherSalarySection />
+        </TabsContent>
+
+        <TabsContent value="bulk-ops">
+          <Card>
+            <CardHeader>
+              <CardTitle>Массовые операции</CardTitle>
+              <CardDescription>
+                Выполнение операций сразу для нескольких студентов
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Массовое начисление</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Начислить оплату за обучение всем студентам по фильтрам (филиал, уровень)
+                    </p>
+                    <Button onClick={() => setShowBulkOpsModal(true)} className="w-full">
+                      <Users className="h-4 w-4 mr-2" />
+                      Открыть массовые операции
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Генерация счетов</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Автоматически создать счета для студентов с неоплаченными начислениями
+                    </p>
+                    <Button onClick={() => setShowBulkOpsModal(true)} className="w-full" variant="outline">
+                      <Receipt className="h-4 w-4 mr-2" />
+                      Сгенерировать счета
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
