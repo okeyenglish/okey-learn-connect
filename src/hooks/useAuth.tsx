@@ -14,6 +14,7 @@ interface Profile {
   department: string | null;
   branch: string | null;
   avatar_url: string | null;
+  organization_id: string;
 }
 
 interface AuthContextType {

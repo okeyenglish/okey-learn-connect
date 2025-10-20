@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getCurrentOrganizationId } from '@/lib/organizationHelpers';
 
 interface AddStudentModalProps {
   open?: boolean;
@@ -131,10 +132,12 @@ export function AddStudentModal({ open, onOpenChange, children }: AddStudentModa
     }
 
     try {
+      const orgId = await getCurrentOrganizationId();
+      
       // Создаем семейную группу
       const { data: family, error: familyErr } = await supabase
         .from('family_groups')
-        .insert([{ name: `${formData.lastName} ${formData.firstName}` }])
+        .insert([{ name: `${formData.lastName} ${formData.firstName}`, organization_id: orgId }])
         .select('id')
         .single();
       if (familyErr) throw familyErr;

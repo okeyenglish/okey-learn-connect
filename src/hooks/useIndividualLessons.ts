@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getCurrentOrganizationId } from '@/lib/organizationHelpers';
 
 export interface IndividualLesson {
   id: string;
@@ -121,10 +122,12 @@ export const useIndividualLessons = (filters?: IndividualLessonFilters) => {
     },
   });
 
-  const createIndividualLesson = async (lessonData: Omit<IndividualLesson, 'id' | 'created_at' | 'updated_at'>) => {
+  const createIndividualLesson = async (lessonData: Omit<IndividualLesson, 'id' | 'created_at' | 'updated_at' | 'organization_id'>) => {
+    const orgId = await getCurrentOrganizationId();
+    
     const { data, error } = await supabase
       .from('individual_lessons')
-      .insert([lessonData])
+      .insert([{ ...lessonData, organization_id: orgId }])
       .select()
       .single();
     
@@ -144,10 +147,12 @@ export const useCreateIndividualLesson = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (lessonData: Omit<IndividualLesson, 'id' | 'created_at' | 'updated_at'>) => {
+    mutationFn: async (lessonData: Omit<IndividualLesson, 'id' | 'created_at' | 'updated_at' | 'organization_id'>) => {
+      const orgId = await getCurrentOrganizationId();
+      
       const { data, error } = await supabase
         .from('individual_lessons')
-        .insert([lessonData])
+        .insert([{ ...lessonData, organization_id: orgId }])
         .select()
         .single();
       

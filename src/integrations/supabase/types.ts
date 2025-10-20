@@ -273,7 +273,7 @@ export type Database = {
           id: string
           initiated_by: string | null
           notes: string | null
-          organization_id: string | null
+          organization_id: string
           phone_number: string
           started_at: string
           status: string
@@ -290,7 +290,7 @@ export type Database = {
           id?: string
           initiated_by?: string | null
           notes?: string | null
-          organization_id?: string | null
+          organization_id: string
           phone_number: string
           started_at?: string
           status?: string
@@ -307,7 +307,7 @@ export type Database = {
           id?: string
           initiated_by?: string | null
           notes?: string | null
-          organization_id?: string | null
+          organization_id?: string
           phone_number?: string
           started_at?: string
           status?: string
@@ -340,7 +340,7 @@ export type Database = {
           message_text: string
           message_type: string
           messenger_type: Database["public"]["Enums"]["messenger_type"] | null
-          organization_id: string | null
+          organization_id: string
           phone_number_id: string | null
           system_type: string | null
           webhook_id: string | null
@@ -360,7 +360,7 @@ export type Database = {
           message_text: string
           message_type: string
           messenger_type?: Database["public"]["Enums"]["messenger_type"] | null
-          organization_id?: string | null
+          organization_id: string
           phone_number_id?: string | null
           system_type?: string | null
           webhook_id?: string | null
@@ -380,7 +380,7 @@ export type Database = {
           message_text?: string
           message_type?: string
           messenger_type?: Database["public"]["Enums"]["messenger_type"] | null
-          organization_id?: string | null
+          organization_id?: string
           phone_number_id?: string | null
           system_type?: string | null
           webhook_id?: string | null
@@ -548,7 +548,7 @@ export type Database = {
           last_message_at: string | null
           name: string
           notes: string | null
-          organization_id: string | null
+          organization_id: string
           phone: string
           telegram_chat_id: string | null
           updated_at: string
@@ -565,7 +565,7 @@ export type Database = {
           last_message_at?: string | null
           name: string
           notes?: string | null
-          organization_id?: string | null
+          organization_id: string
           phone: string
           telegram_chat_id?: string | null
           updated_at?: string
@@ -582,7 +582,7 @@ export type Database = {
           last_message_at?: string | null
           name?: string
           notes?: string | null
-          organization_id?: string | null
+          organization_id?: string
           phone?: string
           telegram_chat_id?: string | null
           updated_at?: string
@@ -914,7 +914,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
-          organization_id: string | null
+          organization_id: string
           updated_at: string
         }
         Insert: {
@@ -922,7 +922,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
-          organization_id?: string | null
+          organization_id: string
           updated_at?: string
         }
         Update: {
@@ -930,7 +930,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
-          organization_id?: string | null
+          organization_id?: string
           updated_at?: string
         }
         Relationships: [
@@ -1392,7 +1392,7 @@ export type Database = {
           lesson_type: string
           level: string
           notes: string | null
-          organization_id: string | null
+          organization_id: string
           period_end: string | null
           period_start: string | null
           price_per_lesson: number | null
@@ -1427,7 +1427,7 @@ export type Database = {
           lesson_type?: string
           level: string
           notes?: string | null
-          organization_id?: string | null
+          organization_id: string
           period_end?: string | null
           period_start?: string | null
           price_per_lesson?: number | null
@@ -1462,7 +1462,7 @@ export type Database = {
           lesson_type?: string
           level?: string
           notes?: string | null
-          organization_id?: string | null
+          organization_id?: string
           period_end?: string | null
           period_start?: string | null
           price_per_lesson?: number | null
@@ -1994,7 +1994,7 @@ export type Database = {
           lessons_generated: boolean | null
           level: string
           name: string
-          organization_id: string | null
+          organization_id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           period_end: string | null
           period_start: string | null
@@ -2039,7 +2039,7 @@ export type Database = {
           lessons_generated?: boolean | null
           level: string
           name: string
-          organization_id?: string | null
+          organization_id: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
           period_end?: string | null
           period_start?: string | null
@@ -2084,7 +2084,7 @@ export type Database = {
           lessons_generated?: boolean | null
           level?: string
           name?: string
-          organization_id?: string | null
+          organization_id?: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
           period_end?: string | null
           period_start?: string | null
@@ -2140,7 +2140,7 @@ export type Database = {
           lesson_number: number | null
           lessons_count: number | null
           notes: string | null
-          organization_id: string | null
+          organization_id: string
           paid_minutes: number | null
           payment_amount: number | null
           payment_date: string | null
@@ -2166,7 +2166,7 @@ export type Database = {
           lesson_number?: number | null
           lessons_count?: number | null
           notes?: string | null
-          organization_id?: string | null
+          organization_id: string
           paid_minutes?: number | null
           payment_amount?: number | null
           payment_date?: string | null
@@ -2192,7 +2192,7 @@ export type Database = {
           lesson_number?: number | null
           lessons_count?: number | null
           notes?: string | null
-          organization_id?: string | null
+          organization_id?: string
           paid_minutes?: number | null
           payment_amount?: number | null
           payment_date?: string | null
@@ -2574,7 +2574,7 @@ export type Database = {
           lessons_count: number | null
           method: Database["public"]["Enums"]["finance_payment_method"]
           notes: string | null
-          organization_id: string | null
+          organization_id: string
           payment_date: string
           status: Database["public"]["Enums"]["finance_payment_status"]
           student_id: string | null
@@ -2593,7 +2593,7 @@ export type Database = {
           lessons_count?: number | null
           method: Database["public"]["Enums"]["finance_payment_method"]
           notes?: string | null
-          organization_id?: string | null
+          organization_id: string
           payment_date?: string
           status?: Database["public"]["Enums"]["finance_payment_status"]
           student_id?: string | null
@@ -2612,7 +2612,7 @@ export type Database = {
           lessons_count?: number | null
           method?: Database["public"]["Enums"]["finance_payment_method"]
           notes?: string | null
-          organization_id?: string | null
+          organization_id?: string
           payment_date?: string
           status?: Database["public"]["Enums"]["finance_payment_status"]
           student_id?: string | null
@@ -2929,7 +2929,7 @@ export type Database = {
           first_name: string | null
           id: string
           last_name: string | null
-          organization_id: string | null
+          organization_id: string
           phone: string | null
           sip_domain: string | null
           sip_password: string | null
@@ -2946,7 +2946,7 @@ export type Database = {
           first_name?: string | null
           id: string
           last_name?: string | null
-          organization_id?: string | null
+          organization_id: string
           phone?: string | null
           sip_domain?: string | null
           sip_password?: string | null
@@ -2963,7 +2963,7 @@ export type Database = {
           first_name?: string | null
           id?: string
           last_name?: string | null
-          organization_id?: string | null
+          organization_id?: string
           phone?: string | null
           sip_domain?: string | null
           sip_password?: string | null
@@ -3483,7 +3483,7 @@ export type Database = {
           middle_name: string | null
           name: string
           notes: string | null
-          organization_id: string | null
+          organization_id: string
           phone: string | null
           status: Database["public"]["Enums"]["student_status"]
           student_number: string | null
@@ -3503,7 +3503,7 @@ export type Database = {
           middle_name?: string | null
           name: string
           notes?: string | null
-          organization_id?: string | null
+          organization_id: string
           phone?: string | null
           status?: Database["public"]["Enums"]["student_status"]
           student_number?: string | null
@@ -3523,7 +3523,7 @@ export type Database = {
           middle_name?: string | null
           name?: string
           notes?: string | null
-          organization_id?: string | null
+          organization_id?: string
           phone?: string | null
           status?: Database["public"]["Enums"]["student_status"]
           student_number?: string | null

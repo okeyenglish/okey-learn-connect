@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getCurrentOrganizationId } from '@/lib/organizationHelpers';
 
 // Валидационная схема с использованием zod
 const studentSchema = z.object({
@@ -198,10 +199,12 @@ export function CreateStudentDialog({ open, onOpenChange }: CreateStudentDialogP
     setIsSubmitting(true);
 
     try {
+      const orgId = await getCurrentOrganizationId();
+      
       // Создаем семейную группу
       const { data: family, error: familyErr } = await supabase
         .from('family_groups')
-        .insert([{ name: `${data.lastName} ${data.firstName}` }])
+        .insert([{ name: `${data.lastName} ${data.firstName}`, organization_id: orgId }])
         .select('id')
         .single();
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getCurrentOrganizationId } from '@/lib/organizationHelpers';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export interface Client {
@@ -113,10 +114,12 @@ export const useCreateClient = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (clientData: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => {
+    mutationFn: async (clientData: Omit<Client, 'id' | 'created_at' | 'updated_at' | 'organization_id'>) => {
+      const orgId = await getCurrentOrganizationId();
+      
       const { data, error } = await supabase
         .from('clients')
-        .insert([clientData])
+        .insert([{ ...clientData, organization_id: orgId }])
         .select()
         .single();
       

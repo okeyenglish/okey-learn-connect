@@ -184,6 +184,8 @@ export const useSendMessage = () => {
       messageType?: 'client' | 'manager' | 'system';
       phoneNumberId?: string;
     }) => {
+      const orgId = await getCurrentOrganizationId();
+      
       const { data, error } = await supabase
         .from('chat_messages')
         .insert([{
@@ -192,6 +194,7 @@ export const useSendMessage = () => {
           message_text: messageText,
           message_type: messageType,
           is_read: messageType === 'manager', // Manager messages are marked as read
+          organization_id: orgId,
         }])
         .select()
         .single();
