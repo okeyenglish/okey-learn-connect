@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Building2, Search, Download, Calendar, UserCheck } from "lucide-react";
+import { Users, Building2, Search, Download, Calendar, UserCheck, Printer } from "lucide-react";
 import { AdvancedScheduleFilters } from "./AdvancedScheduleFilters";
 import { TeacherScheduleGrid } from "./TeacherScheduleGrid";
 import { ClassroomScheduleGrid } from "./ClassroomScheduleGrid";
@@ -12,7 +12,9 @@ import { StudentScheduleView } from "./StudentScheduleView";
 import { ScheduleStatusLegend } from "./ScheduleStatusLegend";
 import { SessionFilters, useLessonSessions } from "@/hooks/useLessonSessions";
 import { exportScheduleToExcel } from "@/utils/scheduleExport";
+import { printSchedule } from "@/utils/schedulePrint";
 import { useToast } from "@/hooks/use-toast";
+import { SearchLessonsModal } from "./SearchLessonsModal";
 
 interface AdvancedScheduleModalProps {
   open?: boolean;
@@ -31,6 +33,7 @@ export const AdvancedScheduleModal = ({ open, onOpenChange, children }: Advanced
     mergedColumns: false,
     rotated: false
   });
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
   
   const sessions = useLessonSessions(filters);
   const { toast } = useToast();
@@ -62,8 +65,24 @@ export const AdvancedScheduleModal = ({ open, onOpenChange, children }: Advanced
   };
 
   const handleSearchLessons = () => {
-    // TODO: Open lessons search modal
-    console.log('Opening lessons search...');
+    setSearchModalOpen(true);
+  };
+
+  const handlePrint = () => {
+    if (!sessions?.data) {
+      toast({
+        title: "Нет данных для печати",
+        description: "Загрузите расписание перед печатью",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    printSchedule(
+      sessions.data as any[],
+      activeTab as 'teachers' | 'classrooms' | 'all',
+      `Расписание - ${activeTab === 'teachers' ? 'Преподаватели' : activeTab === 'classrooms' ? 'Аудитории' : 'Все'}`
+    );
   };
 
   const resetFilters = () => {
@@ -84,6 +103,10 @@ export const AdvancedScheduleModal = ({ open, onOpenChange, children }: Advanced
               Расписание занятий
             </DialogTitle>
             <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handlePrint}>
+                <Printer className="h-4 w-4 mr-2" />
+                Печать
+              </Button>
               <Button variant="outline" size="sm" onClick={handleExportXLS}>
                 <Download className="h-4 w-4 mr-2" />
                 Экспорт в XLS
@@ -173,6 +196,11 @@ export const AdvancedScheduleModal = ({ open, onOpenChange, children }: Advanced
           </div>
         </div>
       </DialogContent>
+
+      <SearchLessonsModal
+        open={searchModalOpen}
+        onOpenChange={setSearchModalOpen}
+      />
     </Dialog>
   );
 };

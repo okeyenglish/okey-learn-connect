@@ -2,13 +2,25 @@ import React, { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Users, Building2, GripVertical } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Users, Building2, GripVertical, MoreVertical, Copy as CopyIcon, Clock as ClockIcon, XCircle, History, Clock } from "lucide-react";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useScheduleData, ScheduleFilters, getSessionStatusColor, getDayNames, useClassrooms } from "@/hooks/useScheduleData";
 import { GroupDetailModal } from "@/components/learning-groups/GroupDetailModal";
 import { useLearningGroups } from "@/hooks/useLearningGroups";
 import { useScheduleDragDrop } from "@/hooks/useScheduleDragDrop";
+import { CopyLessonModal } from "./CopyLessonModal";
+import { RescheduleLessonModal } from "./RescheduleLessonModal";
+import { CancelLessonModal } from "./CancelLessonModal";
+import { ScheduleHistoryModal } from "./ScheduleHistoryModal";
+import { CreateMakeupLessonModal } from "./CreateMakeupLessonModal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 interface ClassroomScheduleGridProps {
   filters: ScheduleFilters;
@@ -26,6 +38,12 @@ export const ClassroomScheduleGrid = ({ filters, viewFormat, gridSettings }: Cla
   const [selectedGroup, setSelectedGroup] = useState<any>(null);
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [dragOverCell, setDragOverCell] = useState<string | null>(null);
+  const [selectedSession, setSelectedSession] = useState<any>(null);
+  const [copyModalOpen, setCopyModalOpen] = useState(false);
+  const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false);
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [makeupModalOpen, setMakeupModalOpen] = useState(false);
 
   // Drag & Drop functionality
   const { draggedSession, isDragging, handleDragStart, handleDragEnd, handleDrop } = useScheduleDragDrop();
@@ -183,7 +201,7 @@ export const ClassroomScheduleGrid = ({ filters, viewFormat, gridSettings }: Cla
           });
         }}
         onDragEnd={handleDragEnd}
-        className={`p-2 rounded text-xs h-full cursor-move transition-all hover:shadow-md border ${getSessionStatusColor(status)} ${
+        className={`relative group p-2 rounded text-xs h-full cursor-move transition-all hover:shadow-md border ${getSessionStatusColor(status)} ${
           isDragging && draggedSession?.id === session.id ? 'opacity-50' : ''
         }`}
         title={`${session.name}\nПреподаватель: ${session.teacher_name}\n${session.time}\nУчеников: ${session.student_count}/${session.capacity || 'N/A'}\n\n✋ Перетащите для переноса`}
@@ -206,6 +224,62 @@ export const ClassroomScheduleGrid = ({ filters, viewFormat, gridSettings }: Cla
               {session.student_count}/{session.capacity || 'N/A'}
             </div>
           </div>
+        </div>
+        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                className="h-6 w-6 p-0 bg-background/80 backdrop-blur-sm"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreVertical className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => {
+                setSelectedSession(session);
+                setCopyModalOpen(true);
+              }}>
+                <CopyIcon className="h-4 w-4 mr-2" />
+                Копировать
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                setSelectedSession(session);
+                setMakeupModalOpen(true);
+              }}>
+                <Clock className="h-4 w-4 mr-2" />
+                Создать замещающее
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => {
+                setSelectedSession(session);
+                setRescheduleModalOpen(true);
+              }}>
+                <ClockIcon className="h-4 w-4 mr-2" />
+                Перенести
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                className="text-destructive focus:text-destructive"
+                onClick={() => {
+                  setSelectedSession(session);
+                  setCancelModalOpen(true);
+                }}
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                Отменить
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => {
+                setSelectedSession(session);
+                setHistoryModalOpen(true);
+              }}>
+                <History className="h-4 w-4 mr-2" />
+                История изменений
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     );
@@ -351,6 +425,36 @@ export const ClassroomScheduleGrid = ({ filters, viewFormat, gridSettings }: Cla
         group={selectedGroup}
         open={groupModalOpen}
         onOpenChange={setGroupModalOpen}
+      />
+
+      <CopyLessonModal
+        session={selectedSession}
+        open={copyModalOpen}
+        onOpenChange={setCopyModalOpen}
+      />
+
+      <RescheduleLessonModal
+        session={selectedSession}
+        open={rescheduleModalOpen}
+        onOpenChange={setRescheduleModalOpen}
+      />
+
+      <CancelLessonModal
+        session={selectedSession}
+        open={cancelModalOpen}
+        onOpenChange={setCancelModalOpen}
+      />
+
+      <ScheduleHistoryModal
+        session={selectedSession}
+        open={historyModalOpen}
+        onOpenChange={setHistoryModalOpen}
+      />
+
+      <CreateMakeupLessonModal
+        session={selectedSession}
+        open={makeupModalOpen}
+        onOpenChange={setMakeupModalOpen}
       />
     </div>
   );

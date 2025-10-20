@@ -13,6 +13,7 @@ import { CopyLessonModal } from "./CopyLessonModal";
 import { RescheduleLessonModal } from "./RescheduleLessonModal";
 import { CancelLessonModal } from "./CancelLessonModal";
 import { ScheduleHistoryModal } from "./ScheduleHistoryModal";
+import { CreateMakeupLessonModal } from "./CreateMakeupLessonModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +43,7 @@ export const TeacherScheduleGrid = ({ filters, viewFormat, gridSettings }: Teach
   const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [makeupModalOpen, setMakeupModalOpen] = useState(false);
 
   // Get sessions using real data
   const { data: sessions = [], isLoading } = useScheduleData(filters);
@@ -232,6 +234,14 @@ export const TeacherScheduleGrid = ({ filters, viewFormat, gridSettings }: Teach
                 <CopyIcon className="h-4 w-4 mr-2" />
                 Копировать
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                setSelectedSession(session);
+                setMakeupModalOpen(true);
+              }}>
+                <Clock className="h-4 w-4 mr-2" />
+                Создать замещающее
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => {
                 setSelectedSession(session);
                 setRescheduleModalOpen(true);
@@ -428,6 +438,12 @@ export const TeacherScheduleGrid = ({ filters, viewFormat, gridSettings }: Teach
         session={selectedSession}
         open={historyModalOpen}
         onOpenChange={setHistoryModalOpen}
+      />
+
+      <CreateMakeupLessonModal
+        session={selectedSession}
+        open={makeupModalOpen}
+        onOpenChange={setMakeupModalOpen}
       />
     </div>
   );
