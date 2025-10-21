@@ -550,7 +550,7 @@ Deno.serve(async (req) => {
               leadInfo: {
                 first_name: lead.firstName || lead.FirstName || '',
                 last_name: lead.lastName || lead.LastName || '',
-                phone: leadPhone,
+                phone: allPhones[0], // Use first available phone (lead's or first agent's)
                 email: lead.email || lead.EMail || null,
                 age: lead.age || lead.Age || null,
                 subject: lead.subject || lead.Subject || null,
