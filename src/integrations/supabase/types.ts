@@ -613,7 +613,7 @@ export type Database = {
           name: string
           notes: string | null
           organization_id: string
-          phone: string
+          phone: string | null
           telegram_chat_id: string | null
           updated_at: string
           whatsapp_chat_id: string | null
@@ -631,7 +631,7 @@ export type Database = {
           name: string
           notes?: string | null
           organization_id?: string
-          phone: string
+          phone?: string | null
           telegram_chat_id?: string | null
           updated_at?: string
           whatsapp_chat_id?: string | null
@@ -649,7 +649,7 @@ export type Database = {
           name?: string
           notes?: string | null
           organization_id?: string
-          phone?: string
+          phone?: string | null
           telegram_chat_id?: string | null
           updated_at?: string
           whatsapp_chat_id?: string | null
