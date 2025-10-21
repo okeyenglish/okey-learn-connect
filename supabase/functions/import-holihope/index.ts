@@ -2973,25 +2973,20 @@ Deno.serve(async (req) => {
           }
         }
         
-        // Batch update individual_lessons
+        // Batch update individual_lessons using upsert
         if (individualLessonsToUpdate.length > 0) {
           console.log(`Updating ${individualLessonsToUpdate.length} individual lessons in batches...`);
           for (let i = 0; i < individualLessonsToUpdate.length; i += 100) {
             const batch = individualLessonsToUpdate.slice(i, i + 100);
-            for (const update of batch) {
-              const { error } = await supabase
-                .from('individual_lessons')
-                .update({
-                  student_id: update.student_id,
-                  student_name: update.student_name,
-                })
-                .eq('id', update.id);
-              
-              if (error) {
-                console.error(`Error updating individual_lesson ${update.id}:`, error);
-              }
+            const { error } = await supabase
+              .from('individual_lessons')
+              .upsert(batch, { onConflict: 'id', ignoreDuplicates: false });
+            
+            if (error) {
+              console.error(`Error updating individual_lessons batch ${i}-${i + batch.length}:`, error);
+            } else {
+              console.log(`Updated individual_lessons batch ${i}-${i + batch.length}`);
             }
-            console.log(`Updated individual_lessons batch ${i}-${i + batch.length}`);
           }
         }
         
