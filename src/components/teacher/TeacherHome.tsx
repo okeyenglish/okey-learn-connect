@@ -334,40 +334,6 @@ export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
           </div>
         </div>
 
-        {/* Расписание на неделю */}
-        <div className="card-elevated">
-          <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2 mb-4">
-            <Calendar className="h-5 w-5 text-brand" />
-            Расписание на неделю
-          </h3>
-          {upcomingLessons && upcomingLessons.length > 0 ? (
-            <div className="space-y-3">
-              {upcomingLessons.map((lesson: any) => (
-                <div key={lesson.id} className="flex items-center justify-between p-4 border rounded-xl bg-surface hover:shadow-elev-1 transition-all">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-3">
-                      <span className="font-medium text-text-primary">
-                        {format(new Date(lesson.lesson_date), 'EEEE, d MMMM', { locale: ru })}
-                      </span>
-                      <span className="text-sm text-text-secondary">
-                        {lesson.start_time} - {lesson.end_time}
-                      </span>
-                    </div>
-                    <p className="text-sm text-text-secondary">
-                      {lesson.learning_groups?.name || 'Индивидуальное'}
-                    </p>
-                  </div>
-                  <Badge variant="secondary">{lesson.classroom}</Badge>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <Calendar className="h-12 w-12 mx-auto mb-4 text-text-muted opacity-50" />
-              <p className="text-text-secondary">На ближайшую неделю занятий не запланировано</p>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Модальные окна */}
