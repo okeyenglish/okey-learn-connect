@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
       progress.push({ step: 'import_locations', status: 'in_progress' });
 
       try {
-        const url = `${HOLIHOPE_DOMAIN}/GetLocations?authkey=${HOLIHOPE_API_KEY}`;
+        const url = `${HOLIHOPE_DOMAIN}/GetOffices?authkey=${HOLIHOPE_API_KEY}`;
         console.log('Calling Holihope URL:', url);
         const response = await fetch(url, {
           method: 'GET',
@@ -86,27 +86,27 @@ Deno.serve(async (req) => {
         const responseData = await response.json();
         console.log('API Response structure:', JSON.stringify(responseData).slice(0, 500));
         
-        // Нормализуем массив локаций из возможных структур
-        let locations: any[] = [];
+        // Нормализуем массив офисов из возможных структур
+        let offices: any[] = [];
         if (Array.isArray(responseData)) {
-          locations = responseData;
-        } else if (Array.isArray(responseData?.Locations)) {
-          locations = responseData.Locations;
-        } else if (Array.isArray(responseData?.locations)) {
-          locations = responseData.locations;
+          offices = responseData;
+        } else if (Array.isArray(responseData?.Offices)) {
+          offices = responseData.Offices;
+        } else if (Array.isArray(responseData?.offices)) {
+          offices = responseData.offices;
         } else if (responseData && typeof responseData === 'object') {
           const firstArray = Object.values(responseData).find((v) => Array.isArray(v)) as any[] | undefined;
-          if (firstArray) locations = firstArray;
+          if (firstArray) offices = firstArray;
         }
-        console.log('Locations meta:', {
-          isArray: Array.isArray(locations),
-          length: locations?.length ?? null,
+        console.log('Offices meta:', {
+          isArray: Array.isArray(offices),
+          length: offices?.length ?? null,
           keys: responseData && typeof responseData === 'object' ? Object.keys(responseData) : null,
         });
         
-        console.log(`Found ${locations.length} locations`);
+        console.log(`Found ${offices.length} offices`);
 
-        for (const location of locations) {
+        for (const office of offices) {
           const { data: orgData } = await supabase
             .from('organizations')
             .select('id')
@@ -118,18 +118,18 @@ Deno.serve(async (req) => {
             const { data: existing } = await supabase
               .from('profiles')
               .select('branch')
-              .eq('branch', (location.Name || location.name))
+              .eq('branch', (office.Name || office.name))
               .limit(1);
  
             if (!existing || existing.length === 0) {
-              console.log(`Branch ${(location.Name || location.name)} will be available for use`);
+              console.log(`Branch ${(office.Name || office.name)} will be available for use`);
             }
           }
         }
 
         progress[0].status = 'completed';
-        progress[0].count = locations.length;
-        progress[0].message = `Imported ${locations.length} locations`;
+        progress[0].count = offices.length;
+        progress[0].message = `Imported ${offices.length} offices`;
       } catch (error) {
         console.error('Error importing locations:', error);
         progress[0].status = 'error';
