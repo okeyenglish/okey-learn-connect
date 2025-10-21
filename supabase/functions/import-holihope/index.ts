@@ -2605,8 +2605,10 @@ Deno.serve(async (req) => {
           }
           
           const raw = await response.json();
-          const batch = raw?.EdUnits || raw?.EducationalUnits || raw?.Units || [];
-          console.log(`Received ${batch?.length || 0} units in batch`);
+          const batch = Array.isArray(raw) 
+            ? raw 
+            : (raw?.EdUnits || raw?.EducationalUnits || raw?.Units || []);
+          console.log(`Received ${batch?.length || 0} units in batch, raw type: ${Array.isArray(raw) ? 'array' : 'object'}`);
           
           if (!batch || batch.length === 0) break;
           allUnits = allUnits.concat(batch);
