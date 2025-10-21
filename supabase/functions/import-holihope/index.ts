@@ -1039,7 +1039,7 @@ Deno.serve(async (req) => {
           const allPhonesSet = new Set();
           
           students.forEach((student: any) => {
-            const studentPhone = normalizePhone(student.phone || student.Phone);
+            const studentPhone = normalizePhone(student.Mobile || student.Phone || student.mobile || student.phone);
             
             // Extract agent phones
             const agents = student.Agents || student.agents || [];
@@ -1064,13 +1064,18 @@ Deno.serve(async (req) => {
               }
             }
             
-            const branch = student.location || student.Location || 'Окская';
-            const rawDob = student.dateOfBirth || student.DateOfBirth || null;
+            const branch = (student.OfficesAndCompanies?.[0]?.Name) || student.location || student.Location || 'Окская';
+            const rawDob = student.Birthday || student.dateOfBirth || student.DateOfBirth || null;
             const dobISO = parseDateToISO(rawDob);
             const providedAge = Number(student.age || student.Age);
             const computedAge = Number.isFinite(providedAge) && providedAge > 0 ? providedAge : (calcAge(dobISO) ?? 7);
             const safeAge = Math.max(1, Math.min(100, computedAge));
             const fullName = `${student.firstName || student.FirstName || ''} ${student.lastName || student.LastName || ''}`.trim() || 'Без имени';
+            const rawStatus = (student.Status || student.status || '').toString().toLowerCase();
+            let normalizedStatus: 'active' | 'inactive' | 'trial' | 'graduated' = 'inactive';
+            if (/заним|актив|учит|active|study/.test(rawStatus)) normalizedStatus = 'active';
+            else if (/проб|trial/.test(rawStatus)) normalizedStatus = 'trial';
+            else if (/выпуск|graduat/.test(rawStatus)) normalizedStatus = 'graduated';
             
             studentsData.push({
               studentInfo: {
@@ -1081,12 +1086,12 @@ Deno.serve(async (req) => {
                 age: safeAge,
                 date_of_birth: dobISO,
                 phone: studentPhone,
-                lk_email: student.email || student.Email || student.EMail || null,
-                gender: student.gender || student.Gender || null,
-                status: (student.status || student.Status) === 'Active' ? 'active' : 'inactive',
+                lk_email: student.EMail || student.Email || student.email || null,
+                gender: (typeof student.Gender === 'boolean' ? (student.Gender ? 'male' : 'female') : (student.gender || student.Gender || null)),
+                status: normalizedStatus,
                 notes: student.comment || student.Comment || null,
                 extra_fields: extraFields,
-                external_id: student.id?.toString() || student.Id?.toString(),
+                external_id: (student.Id ?? student.id)?.toString(),
                 organization_id: orgId,
               },
               branch,
