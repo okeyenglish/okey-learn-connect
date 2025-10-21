@@ -23,56 +23,63 @@ export default function HolihopeImport() {
   const [steps, setSteps] = useState<ImportStep[]>([
     {
       id: 'clear',
-      name: '1. Очистка данных',
-      description: 'Удаление всех существующих данных из базы',
+      name: '1. Архивация данных',
+      description: 'Пометка существующих данных как неактивных (НЕ удаление)',
       action: 'clear_data',
       status: 'pending',
     },
     {
       id: 'locations',
       name: '2. Филиалы',
-      description: 'Импорт филиалов из Holihope',
+      description: 'Импорт филиалов/офисов из Holihope',
       action: 'import_locations',
       status: 'pending',
     },
     {
       id: 'teachers',
       name: '3. Преподаватели',
-      description: 'Импорт преподавателей',
+      description: 'Импорт преподавателей с предметами и категориями',
       action: 'import_teachers',
       status: 'pending',
     },
     {
       id: 'clients',
-      name: '4. Клиенты',
-      description: 'Импорт клиентов (родителей)',
+      name: '4. Клиенты (родители)',
+      description: 'Импорт клиентов/родителей с контактами',
       action: 'import_clients',
       status: 'pending',
     },
     {
+      id: 'leads',
+      name: '5. Лиды',
+      description: 'Импорт лидов - потенциальных учеников, которые никогда не учились (через GetLeads API)',
+      action: 'import_leads',
+      status: 'pending',
+    },
+    {
       id: 'students',
-      name: '5. Ученики',
-      description: 'Импорт учеников и связь с семьями',
+      name: '6. Ученики',
+      description: 'Импорт активных и архивных учеников (через GetStudents API), связь с родителями',
       action: 'import_students',
       status: 'pending',
     },
     {
       id: 'groups',
-      name: '6. Группы',
-      description: 'Импорт групп и распределение учеников',
+      name: '7. Учебные единицы',
+      description: 'Импорт групп, мини-групп, индивидуальных занятий',
       action: 'import_groups',
       status: 'pending',
     },
     {
       id: 'schedule',
-      name: '7. Расписание',
-      description: 'Импорт занятий и расписания',
+      name: '8. Расписание',
+      description: 'Импорт занятий с темами и статусами',
       action: 'import_schedule',
       status: 'pending',
     },
     {
       id: 'payments',
-      name: '8. Платежи',
+      name: '9. Платежи',
       description: 'Импорт платежей и истории транзакций',
       action: 'import_payments',
       status: 'pending',
@@ -215,11 +222,52 @@ export default function HolihopeImport() {
       <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>Внимание!</AlertTitle>
-        <AlertDescription>
-          Полный импорт удалит все существующие данные и заменит их данными из Holihope.
-          Убедитесь, что у вас есть резервная копия, если это необходимо.
+        <AlertDescription className="space-y-2">
+          <p>
+            <strong>Шаг 1 "Архивация данных"</strong> помечает существующие записи как неактивные, 
+            но <strong>НЕ УДАЛЯЕТ</strong> их из базы данных.
+          </p>
+          <p>
+            Все импортированные данные связываются через <code className="px-1 py-0.5 bg-muted rounded">external_id</code> с Holihope. 
+            Повторный импорт <strong>обновит</strong> существующие записи, а не создаст дубликаты.
+          </p>
         </AlertDescription>
       </Alert>
+
+      <Card className="border-blue-500/50 bg-blue-50/50 dark:bg-blue-950/20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+            <AlertCircle className="h-5 w-5" />
+            Важная информация о лидах и учениках
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div>
+            <h4 className="font-semibold mb-1 text-foreground">Лиды (Шаг 5):</h4>
+            <p className="text-muted-foreground">
+              Импортируются через API <code className="px-1 py-0.5 bg-muted rounded">GetLeads</code>. 
+              Это потенциальные ученики, которые <strong>никогда не начинали обучение</strong>.
+              В базе данных получают статус <code className="px-1 py-0.5 bg-muted rounded">status: 'lead'</code>.
+            </p>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold mb-1 text-foreground">Ученики (Шаг 6):</h4>
+            <p className="text-muted-foreground">
+              Импортируются через API <code className="px-1 py-0.5 bg-muted rounded">GetStudents</code>. 
+              Это реальные ученики со статусами <code className="px-1 py-0.5 bg-muted rounded">'Active'</code> (активные) 
+              или <code className="px-1 py-0.5 bg-muted rounded">'Archived'</code> (архивные/завершившие обучение).
+            </p>
+          </div>
+
+          <div className="bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800 rounded p-3">
+            <p className="font-medium text-yellow-800 dark:text-yellow-200">
+              ⚠️ Порядок импорта критически важен: 
+              сначала <strong>Клиенты</strong>, затем <strong>Лиды</strong>, затем <strong>Ученики</strong>
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4">
         {steps.map((step) => (

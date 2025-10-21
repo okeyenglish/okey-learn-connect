@@ -302,7 +302,140 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Step 5: Import students
+    // Step 5: Import leads (potential students who haven't started training)
+    if (action === 'import_leads') {
+      console.log('Importing leads...');
+      progress.push({ step: 'import_leads', status: 'in_progress' });
+
+      try {
+        let skip = 0;
+        const take = 100;
+        let allLeads = [];
+
+        while (true) {
+          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetLeads?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          
+          const leads = await response.json();
+          
+          if (!leads || leads.length === 0) break;
+          
+          allLeads = allLeads.concat(leads);
+          skip += take;
+          
+          if (leads.length < take) break;
+        }
+
+        console.log(`Found ${allLeads.length} leads`);
+
+        const { data: orgData } = await supabase
+          .from('organizations')
+          .select('id')
+          .eq('name', "O'KEY ENGLISH")
+          .single();
+
+        let importedCount = 0;
+        let updatedCount = 0;
+        let linkedToParents = 0;
+
+        for (const lead of allLeads) {
+          let familyGroupId = null;
+
+          // Try to find parent by clientId
+          if (lead.clientId) {
+            const { data: client } = await supabase
+              .from('clients')
+              .select('id')
+              .eq('external_id', lead.clientId.toString())
+              .single();
+
+            if (client) {
+              // Create or get family group
+              const { data: familyGroup } = await supabase
+                .from('family_groups')
+                .upsert({
+                  name: `Семья ${lead.lastName || 'Лида'}`,
+                  branch: lead.location || lead.branch || 'Окская',
+                  organization_id: orgData?.id,
+                }, { onConflict: 'name,organization_id' })
+                .select()
+                .single();
+
+              if (familyGroup) {
+                familyGroupId = familyGroup.id;
+
+                // Link client to family
+                await supabase.from('family_members').upsert({
+                  family_group_id: familyGroup.id,
+                  client_id: client.id,
+                  is_primary_contact: true,
+                  relationship_type: 'parent',
+                });
+
+                linkedToParents++;
+              }
+            }
+          }
+
+          // Lead data
+          const leadData = {
+            first_name: lead.firstName || '',
+            last_name: lead.lastName || '',
+            phone: lead.phone || null,
+            email: lead.email || null,
+            age: lead.age || null,
+            branch: lead.location || lead.branch || 'Окская',
+            status: 'lead',
+            preferred_subject: lead.subject || null,
+            level: lead.level || null,
+            notes: lead.notes || lead.comment || null,
+            family_group_id: familyGroupId,
+            organization_id: orgData?.id,
+            external_id: lead.id?.toString(),
+          };
+
+          // Check if lead already exists
+          const { data: existingLead } = await supabase
+            .from('students')
+            .select('id')
+            .eq('external_id', lead.id?.toString())
+            .single();
+
+          if (existingLead) {
+            await supabase
+              .from('students')
+              .update(leadData)
+              .eq('id', existingLead.id);
+            updatedCount++;
+          } else {
+            await supabase.from('students').insert(leadData);
+            importedCount++;
+          }
+        }
+
+        progress[0].status = 'completed';
+        progress[0].count = importedCount + updatedCount;
+        progress[0].message = `Created ${importedCount}, updated ${updatedCount} leads (${linkedToParents} linked to parents)`;
+      } catch (error) {
+        console.error('Error importing leads:', error);
+        progress[0].status = 'error';
+        progress[0].error = error.message;
+      }
+
+      return new Response(JSON.stringify({ progress }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Step 6: Import students
     if (action === 'import_students') {
       console.log('Importing students...');
       progress.push({ step: 'import_students', status: 'in_progress' });
@@ -386,8 +519,7 @@ Deno.serve(async (req) => {
             phone: student.phone || null,
             email: student.email || null,
             branch: student.location || 'Окская',
-            status: student.status === 'Active' ? 'active' : 
-                    student.status === 'Archived' ? 'archived' : 'lead',
+            status: student.status === 'Active' ? 'active' : 'archived',
             notes: student.comment || null,
             family_group_id: familyGroupId,
             organization_id: orgData?.id,
