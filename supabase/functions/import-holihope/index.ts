@@ -72,7 +72,9 @@ Deno.serve(async (req) => {
         const formData = new URLSearchParams();
         formData.append('authkey', HOLIHOPE_API_KEY);
         
-        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetLocations`, {
+        const url = `${HOLIHOPE_DOMAIN}/GetLocations`;
+        console.log('Calling Holihope URL:', url);
+        const response = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -81,7 +83,8 @@ Deno.serve(async (req) => {
         });
         
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          const text = await response.text();
+          throw new Error(`HTTP error ${response.status} at ${url} - body: ${text?.slice(0,300)}`);
         }
         
         const locations = await response.json();
