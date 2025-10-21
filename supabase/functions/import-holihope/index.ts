@@ -267,14 +267,18 @@ Deno.serve(async (req) => {
             // Process each agent (parent/contact) as a potential client
             if (student.Agents && Array.isArray(student.Agents)) {
               for (const agent of student.Agents) {
+                // Skip agents without phone number - we can't add them to chats
+                const phone = agent.Mobile || agent.Phone;
+                if (!phone) continue;
+                
                 // Create unique key to avoid duplicates
-                const agentKey = agent.Mobile || agent.EMail || `${agent.FirstName}_${agent.LastName}`;
+                const agentKey = phone;
                 if (processedAgents.has(agentKey)) continue;
                 processedAgents.set(agentKey, true);
                 
                 const clientData = {
                   name: `${agent.LastName || ''} ${agent.FirstName || ''} ${agent.MiddleName || ''}`.trim() || 'Без имени',
-                  phone: agent.Mobile || agent.Phone || null,
+                  phone: phone,
                   email: agent.EMail || null,
                   branch: student.OfficesAndCompanies?.[0]?.Name || 'Окская',
                   notes: [
@@ -298,15 +302,13 @@ Deno.serve(async (req) => {
                 } else {
                   totalClients++;
                   
-                  // Add phone number if available
-                  if (agent.Mobile) {
-                    await supabase.from('client_phone_numbers').upsert({
-                      client_id: insertedClient.id,
-                      phone: agent.Mobile,
-                      is_primary: true,
-                      is_whatsapp_enabled: agent.UseMobileBySystem || false,
-                    });
-                  }
+                  // Add phone number entry
+                  await supabase.from('client_phone_numbers').upsert({
+                    client_id: insertedClient.id,
+                    phone: phone,
+                    is_primary: true,
+                    is_whatsapp_enabled: agent.UseMobileBySystem || false,
+                  }, { onConflict: 'client_id,phone' });
                 }
               }
             }
