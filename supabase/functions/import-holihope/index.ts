@@ -591,11 +591,136 @@ Deno.serve(async (req) => {
           totalSkippedNoPhone += skippedNoPhone;
           console.log(`Prepared ${leadsToInsert.length} leads for insert (skipped ${skippedNoPhone} without phone)`);
 
-          // Batch insert leads into leads table (200 at a time)
-          console.log(`Inserting ${leadsToInsert.length} leads into leads table...`);
+          // Step 1: Get all unique phones and check which clients already exist
+          const uniquePhones = [...new Set(leadsToInsert.map(l => l.phone))];
+          console.log(`Checking ${uniquePhones.length} unique phones...`);
           
-          for (let i = 0; i < leadsToInsert.length; i += 200) {
-            const batch = leadsToInsert.slice(i, i + 200);
+          const phoneToClientMap = new Map(); // phone -> client_id
+          
+          // Query existing clients by phone in batches
+          for (let i = 0; i < uniquePhones.length; i += 100) {
+            const phoneBatch = uniquePhones.slice(i, i + 100);
+            const { data: existingPhones } = await supabase
+              .from('client_phone_numbers')
+              .select('phone, client_id')
+              .in('phone', phoneBatch);
+            
+            if (existingPhones) {
+              existingPhones.forEach(p => phoneToClientMap.set(p.phone, p.client_id));
+            }
+          }
+          
+          console.log(`Found ${phoneToClientMap.size} existing clients for phones`);
+          
+          // Step 2: Create new clients for phones that don't exist
+          const phonesToCreateClients = uniquePhones.filter(p => !phoneToClientMap.has(p));
+          console.log(`Creating ${phonesToCreateClients.length} new clients...`);
+          
+          if (phonesToCreateClients.length > 0) {
+            // Group leads by phone to get lead data for client creation
+            const phoneToLeadMap = new Map();
+            leadsToInsert.forEach(lead => {
+              if (!phoneToLeadMap.has(lead.phone)) {
+                phoneToLeadMap.set(lead.phone, lead);
+              }
+            });
+            
+            const newClientsData = phonesToCreateClients.map(phone => {
+              const lead = phoneToLeadMap.get(phone);
+              return {
+                name: `${lead.first_name} ${lead.last_name}`.trim() || 'Без имени',
+                email: lead.email,
+                branch: lead.branch,
+                organization_id: orgData?.id,
+              };
+            });
+            
+            // Insert new clients in batches
+            for (let i = 0; i < newClientsData.length; i += 50) {
+              const batch = newClientsData.slice(i, i + 50);
+              const { data: newClients, error: clientError } = await supabase
+                .from('clients')
+                .insert(batch)
+                .select('id');
+              
+              if (clientError) {
+                console.error('Error creating clients:', clientError);
+                continue;
+              }
+              
+              if (newClients) {
+                // Create phone number records for new clients
+                const phoneRecords = newClients.map((client, idx) => ({
+                  client_id: client.id,
+                  phone: phonesToCreateClients[i + idx],
+                  phone_type: 'mobile',
+                  is_primary: true,
+                  is_whatsapp_enabled: true,
+                  is_telegram_enabled: false,
+                }));
+                
+                await supabase
+                  .from('client_phone_numbers')
+                  .insert(phoneRecords);
+                
+                // Map phones to new client IDs
+                newClients.forEach((client, idx) => {
+                  phoneToClientMap.set(phonesToCreateClients[i + idx], client.id);
+                });
+              }
+            }
+          }
+          
+          console.log(`Total clients available: ${phoneToClientMap.size}`);
+          
+          // Step 3: Create family groups for each lead
+          const familyGroupsToCreate = new Map(); // familyName -> family group data
+          const leadPhoneToFamilyName = new Map(); // phone -> familyName
+          
+          leadsToInsert.forEach(lead => {
+            const familyName = `Семья ${lead.last_name || lead.first_name || 'Лида'}`;
+            leadPhoneToFamilyName.set(lead.phone, familyName);
+            
+            if (!familyGroupsToCreate.has(familyName)) {
+              familyGroupsToCreate.set(familyName, {
+                name: familyName,
+                branch: lead.branch,
+                organization_id: orgData?.id,
+              });
+            }
+          });
+          
+          console.log(`Creating ${familyGroupsToCreate.size} family groups...`);
+          
+          const familyGroupMap = new Map(); // familyName -> family_group_id
+          if (familyGroupsToCreate.size > 0) {
+            const familyGroupsArray = Array.from(familyGroupsToCreate.values());
+            for (let i = 0; i < familyGroupsArray.length; i += 50) {
+              const batch = familyGroupsArray.slice(i, i + 50);
+              const { data: familyGroups } = await supabase
+                .from('family_groups')
+                .upsert(batch, { onConflict: 'name,organization_id' })
+                .select('id, name');
+              
+              if (familyGroups) {
+                familyGroups.forEach(fg => familyGroupMap.set(fg.name, fg.id));
+              }
+            }
+          }
+          
+          console.log(`Created/found ${familyGroupMap.size} family groups`);
+          
+          // Step 4: Add family_group_id to leads before insert
+          const leadsWithFamilyGroups = leadsToInsert.map(lead => ({
+            ...lead,
+            family_group_id: familyGroupMap.get(leadPhoneToFamilyName.get(lead.phone)) || null,
+          }));
+
+          // Step 5: Batch insert leads into leads table (200 at a time)
+          console.log(`Inserting ${leadsWithFamilyGroups.length} leads into leads table...`);
+          
+          for (let i = 0; i < leadsWithFamilyGroups.length; i += 200) {
+            const batch = leadsWithFamilyGroups.slice(i, i + 200);
             const { data: insertedLeads, error: leadsError } = await supabase
               .from('leads')
               .insert(batch)
@@ -612,11 +737,13 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Batch create family member links
+          // Step 6: Create family member links (client -> family_group)
+          console.log('Creating family member links...');
           const familyMembersToCreate = [];
-          for (const lead of leads) {
-            const clientId = leadToClientMap.get(lead.id?.toString());
-            const familyName = `Семья ${lead.lastName || 'Лида'}`;
+          
+          leadsToInsert.forEach(lead => {
+            const clientId = phoneToClientMap.get(lead.phone);
+            const familyName = leadPhoneToFamilyName.get(lead.phone);
             const familyGroupId = familyGroupMap.get(familyName);
             
             if (clientId && familyGroupId) {
@@ -624,10 +751,10 @@ Deno.serve(async (req) => {
                 family_group_id: familyGroupId,
                 client_id: clientId,
                 is_primary_contact: true,
-                relationship_type: 'parent',
+                relationship_type: 'main',
               });
             }
-          }
+          });
 
           if (familyMembersToCreate.length > 0) {
             console.log(`Creating ${familyMembersToCreate.length} family member links...`);

@@ -1932,6 +1932,7 @@ export type Database = {
           converted_to_student_id: string | null
           created_at: string
           email: string | null
+          family_group_id: string | null
           first_name: string
           id: string
           last_name: string | null
@@ -1960,6 +1961,7 @@ export type Database = {
           converted_to_student_id?: string | null
           created_at?: string
           email?: string | null
+          family_group_id?: string | null
           first_name: string
           id?: string
           last_name?: string | null
@@ -1988,6 +1990,7 @@ export type Database = {
           converted_to_student_id?: string | null
           created_at?: string
           email?: string | null
+          family_group_id?: string | null
           first_name?: string
           id?: string
           last_name?: string | null
@@ -2010,6 +2013,13 @@ export type Database = {
           utm_term?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "leads_family_group_id_fkey"
+            columns: ["family_group_id"]
+            isOneToOne: false
+            referencedRelation: "family_groups"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "leads_lead_source_id_fkey"
             columns: ["lead_source_id"]
