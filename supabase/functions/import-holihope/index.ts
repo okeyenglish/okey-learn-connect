@@ -86,8 +86,23 @@ Deno.serve(async (req) => {
         const responseData = await response.json();
         console.log('API Response structure:', JSON.stringify(responseData).slice(0, 500));
         
-        // API возвращает {Locations: [...]} с заглавной буквы
-        const locations = responseData?.Locations || [];
+        // Нормализуем массив локаций из возможных структур
+        let locations: any[] = [];
+        if (Array.isArray(responseData)) {
+          locations = responseData;
+        } else if (Array.isArray(responseData?.Locations)) {
+          locations = responseData.Locations;
+        } else if (Array.isArray(responseData?.locations)) {
+          locations = responseData.locations;
+        } else if (responseData && typeof responseData === 'object') {
+          const firstArray = Object.values(responseData).find((v) => Array.isArray(v)) as any[] | undefined;
+          if (firstArray) locations = firstArray;
+        }
+        console.log('Locations meta:', {
+          isArray: Array.isArray(locations),
+          length: locations?.length ?? null,
+          keys: responseData && typeof responseData === 'object' ? Object.keys(responseData) : null,
+        });
         
         console.log(`Found ${locations.length} locations`);
 
@@ -103,11 +118,11 @@ Deno.serve(async (req) => {
             const { data: existing } = await supabase
               .from('profiles')
               .select('branch')
-              .eq('branch', location.name)
+              .eq('branch', (location.Name || location.name))
               .limit(1);
-
+ 
             if (!existing || existing.length === 0) {
-              console.log(`Branch ${location.name} will be available for use`);
+              console.log(`Branch ${(location.Name || location.name)} will be available for use`);
             }
           }
         }
