@@ -29,9 +29,6 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const { action } = body;
-    const maxPages = typeof body?.max_pages === 'number' ? Math.max(1, body.max_pages) : 1;
-    const bodyTake = typeof body?.take === 'number' ? body.take : undefined;
-    const bodySkip = typeof body?.skip === 'number' ? body.skip : undefined;
     
     const progress: ImportProgress[] = [];
 
@@ -233,11 +230,11 @@ Deno.serve(async (req) => {
       progress.push({ step: 'import_clients', status: 'in_progress' });
 
       try {
-        let skip = typeof bodySkip === 'number' ? bodySkip : 0;
-        const take = typeof bodyTake === 'number' ? bodyTake : 100;
-        let pagesProcessed = 0;
+        let skip = 0;
+        const take = 100;
         let totalClients = 0;
         const processedAgents = new Map(); // Track by phone/email to avoid duplicates
+        const allClientsToUpsert: any[] = [];
 
         const { data: orgData } = await supabase
           .from('organizations')
@@ -296,37 +293,66 @@ Deno.serve(async (req) => {
                   external_id: `agent_${agentKey}`,
                 };
                 
-                const { data: insertedClient, error } = await supabase
-                  .from('clients')
-                  .upsert(clientData, { onConflict: 'external_id' })
-                  .select()
-                  .single();
+                allClientsToUpsert.push({
+                  clientData,
+                  phone,
+                  phoneType: agent.Mobile ? 'mobile' : 'other',
+                  whatsappEnabled: agent.UseMobileBySystem || false
+                });
                 
-                if (error) {
-                  console.error('Error importing client:', error);
-                } else {
-                  totalClients++;
-                  
-                  // Add phone number entry
-                  await supabase.from('client_phone_numbers').upsert({
-                    client_id: insertedClient.id,
-                    phone: phone,
-                    is_primary: true,
-                    is_whatsapp_enabled: agent.UseMobileBySystem || false,
-                  }, { onConflict: 'client_id,phone' });
-                }
+                totalClients++;
               }
             }
           }
-          pagesProcessed++;
+          
           skip += take;
           if (students.length < take) break;
-          if (pagesProcessed >= maxPages) break;
+        }
+
+        // Now batch upsert all clients
+        console.log(`Upserting ${allClientsToUpsert.length} clients...`);
+        
+        for (let i = 0; i < allClientsToUpsert.length; i += 50) {
+          const batch = allClientsToUpsert.slice(i, i + 50);
+          const clientsData = batch.map(item => item.clientData);
+          
+          const { data: clients, error: clientError } = await supabase
+            .from('clients')
+            .upsert(clientsData, { onConflict: 'external_id,organization_id' })
+            .select('id,external_id');
+
+          if (clientError) {
+            console.error('Error upserting clients batch:', clientError);
+            continue;
+          }
+
+          // Prepare phone numbers batch
+          const phonesData = [];
+          for (let j = 0; j < batch.length; j++) {
+            const item = batch[j];
+            const client = clients?.find(c => c.external_id === item.clientData.external_id);
+            if (client && item.phone) {
+              phonesData.push({
+                client_id: client.id,
+                phone: item.phone,
+                phone_type: item.phoneType,
+                is_primary: true,
+                is_whatsapp_enabled: item.whatsappEnabled,
+                is_telegram_enabled: false
+              });
+            }
+          }
+
+          if (phonesData.length > 0) {
+            await supabase
+              .from('client_phone_numbers')
+              .upsert(phonesData, { onConflict: 'client_id,phone' });
+          }
         }
 
         progress[0].status = 'completed';
         progress[0].count = totalClients;
-        progress[0].message = `Imported ${totalClients} clients from student agents. next_skip=${skip}`;
+        progress[0].message = `Imported ${totalClients} clients from student agents`;
       } catch (error) {
         console.error('Error importing clients:', error);
         progress[0].status = 'error';
