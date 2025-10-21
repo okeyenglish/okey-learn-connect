@@ -650,12 +650,73 @@ Deno.serve(async (req) => {
             external_id: student.id?.toString(),
           };
 
-          const { error } = await supabase
+          const { data: insertedStudent, error } = await supabase
             .from('students')
-            .upsert(studentData, { onConflict: 'external_id' });
+            .upsert(studentData, { onConflict: 'external_id' })
+            .select()
+            .single();
 
           if (error) {
             console.error(`Error importing student ${student.lastName}:`, error);
+          } else {
+            // Step 5: If student has their own phone, create a client for them too
+            if (student.phone && student.phone.trim() && familyGroupId) {
+              const studentPhone = student.phone.trim();
+              const studentAgents = student.Agents || [];
+              const agentPhones = studentAgents.map((a: any) => a.phone?.trim()).filter(Boolean);
+              
+              // Only create client if student's phone is different from agent phones
+              if (!agentPhones.includes(studentPhone)) {
+                // Check if client already exists with this phone
+                const { data: existingStudentClient } = await supabase
+                  .from('clients')
+                  .select('id')
+                  .eq('phone', studentPhone)
+                  .single();
+
+                let studentClientId = existingStudentClient?.id;
+
+                if (!studentClientId) {
+                  // Create new client for student
+                  const { data: newStudentClient } = await supabase
+                    .from('clients')
+                    .insert({
+                      name: `${student.lastName || ''} ${student.firstName || ''}`.trim() || 'Студент',
+                      phone: studentPhone,
+                      email: student.email || null,
+                      branch: student.location || 'Окская',
+                      organization_id: orgData?.id,
+                      external_id: `student_client_${student.id}`,
+                    })
+                    .select()
+                    .single();
+
+                  studentClientId = newStudentClient?.id;
+
+                  // Add phone number
+                  if (studentClientId) {
+                    await supabase.from('client_phone_numbers').upsert({
+                      client_id: studentClientId,
+                      phone: studentPhone,
+                      is_primary: true,
+                      is_whatsapp_enabled: true,
+                    });
+                  }
+                }
+
+                // Link student-client to family group
+                if (studentClientId && familyGroupId) {
+                  await supabase.from('family_members').upsert({
+                    family_group_id: familyGroupId,
+                    client_id: studentClientId,
+                    is_primary_contact: false,
+                    relationship_type: 'self',
+                  }, { onConflict: 'family_group_id,client_id' });
+
+                  console.log(`✅ Created client for student and linked to family: ${studentPhone}`);
+                }
+              }
+            }
           }
         }
 
