@@ -69,17 +69,14 @@ Deno.serve(async (req) => {
       progress.push({ step: 'import_locations', status: 'in_progress' });
 
       try {
-        const formData = new URLSearchParams();
-        formData.append('authkey', HOLIHOPE_API_KEY);
-        
         const url = `${HOLIHOPE_DOMAIN}/GetLocations`;
         console.log('Calling Holihope URL:', url);
         const response = await fetch(url, {
-          method: 'POST',
+          method: 'GET',
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Type': 'application/json',
           },
-          body: formData.toString(),
+          body: JSON.stringify({ authkey: HOLIHOPE_API_KEY }),
         });
         
         if (!response.ok) {
@@ -137,17 +134,16 @@ Deno.serve(async (req) => {
         let allTeachers = [];
 
         while (true) {
-          const formData = new URLSearchParams();
-          formData.append('authkey', HOLIHOPE_API_KEY);
-          formData.append('take', take.toString());
-          formData.append('skip', skip.toString());
-          
           const response = await fetch(`${HOLIHOPE_DOMAIN}/GetTeachers`, {
-            method: 'POST',
+            method: 'GET',
             headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
+              'Content-Type': 'application/json',
             },
-            body: formData.toString(),
+            body: JSON.stringify({ 
+              authkey: HOLIHOPE_API_KEY,
+              take: take,
+              skip: skip
+            }),
           });
           
           if (!response.ok) {
@@ -220,17 +216,16 @@ Deno.serve(async (req) => {
         let allClients = [];
 
         while (true) {
-          const formData = new URLSearchParams();
-          formData.append('authkey', HOLIHOPE_API_KEY);
-          formData.append('take', take.toString());
-          formData.append('skip', skip.toString());
-          
           const response = await fetch(`${HOLIHOPE_DOMAIN}/GetClients`, {
-            method: 'POST',
+            method: 'GET',
             headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
+              'Content-Type': 'application/json',
             },
-            body: formData.toString(),
+            body: JSON.stringify({ 
+              authkey: HOLIHOPE_API_KEY,
+              take: take,
+              skip: skip
+            }),
           });
           
           if (!response.ok) {
@@ -310,17 +305,16 @@ Deno.serve(async (req) => {
         let allStudents = [];
 
         while (true) {
-          const formData = new URLSearchParams();
-          formData.append('authkey', HOLIHOPE_API_KEY);
-          formData.append('take', take.toString());
-          formData.append('skip', skip.toString());
-          
           const response = await fetch(`${HOLIHOPE_DOMAIN}/GetStudents`, {
-            method: 'POST',
+            method: 'GET',
             headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
+              'Content-Type': 'application/json',
             },
-            body: formData.toString(),
+            body: JSON.stringify({ 
+              authkey: HOLIHOPE_API_KEY,
+              take: take,
+              skip: skip
+            }),
           });
           
           if (!response.ok) {
@@ -431,17 +425,16 @@ Deno.serve(async (req) => {
         let allGroups = [];
 
         while (true) {
-          const formData = new URLSearchParams();
-          formData.append('authkey', HOLIHOPE_API_KEY);
-          formData.append('take', take.toString());
-          formData.append('skip', skip.toString());
-          
           const response = await fetch(`${HOLIHOPE_DOMAIN}/GetEdUnits`, {
-            method: 'POST',
+            method: 'GET',
             headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
+              'Content-Type': 'application/json',
             },
-            body: formData.toString(),
+            body: JSON.stringify({ 
+              authkey: HOLIHOPE_API_KEY,
+              take: take,
+              skip: skip
+            }),
           });
           
           if (!response.ok) {
@@ -548,16 +541,15 @@ Deno.serve(async (req) => {
       progress.push({ step: 'import_schedule', status: 'in_progress' });
 
       try {
-        const formData = new URLSearchParams();
-        formData.append('authkey', HOLIHOPE_API_KEY);
-        formData.append('queryDays', 'true');
-        
         const response = await fetch(`${HOLIHOPE_DOMAIN}/GetSchedule`, {
-          method: 'POST',
+          method: 'GET',
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Type': 'application/json',
           },
-          body: formData.toString(),
+          body: JSON.stringify({ 
+            authkey: HOLIHOPE_API_KEY,
+            queryDays: true
+          }),
         });
         
         if (!response.ok) {
@@ -626,17 +618,16 @@ Deno.serve(async (req) => {
         let allPayments = [];
 
         while (true) {
-          const formData = new URLSearchParams();
-          formData.append('authkey', HOLIHOPE_API_KEY);
-          formData.append('take', take.toString());
-          formData.append('skip', skip.toString());
-          
           const response = await fetch(`${HOLIHOPE_DOMAIN}/GetPayments`, {
-            method: 'POST',
+            method: 'GET',
             headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
+              'Content-Type': 'application/json',
             },
-            body: formData.toString(),
+            body: JSON.stringify({ 
+              authkey: HOLIHOPE_API_KEY,
+              take: take,
+              skip: skip
+            }),
           });
           
           if (!response.ok) {
