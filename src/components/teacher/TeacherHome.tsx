@@ -23,8 +23,7 @@ import { HomeworkModal } from '@/components/teacher/modals/HomeworkModal';
 import { QuickStartLessonModal } from '@/components/teacher/modals/QuickStartLessonModal';
 import { SubstitutionRequestModal } from '@/components/teacher/modals/SubstitutionRequestModal';
 import { KpiCard } from '@/components/teacher/ui/KpiCard';
-import { LessonCard } from '@/components/teacher/ui/LessonCard';
-import { EmptyState } from '@/components/teacher/ui/EmptyState';
+import { TodayLessonsSection } from '@/components/teacher/TodayLessonsSection';
 
 interface TeacherHomeProps {
   teacher: Teacher;
@@ -249,7 +248,7 @@ export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
           />
         </div>
 
-        {/* Уведомления/задачи */}
+        {/* Занятия и быстрые действия */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Панель быстрых действий */}
           <div className="lg:col-span-1">
@@ -263,84 +262,18 @@ export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
             />
           </div>
 
-          {/* Сегодняшние занятия */}
+          {/* Сегодняшние занятия с прогрессом */}
           <div className="lg:col-span-2">
-            <div className="card-elevated h-full">
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold text-text-primary flex items-center gap-2 mb-1">
-                  <Calendar className="h-5 w-5 text-brand" />
-                  Сегодняшние занятия
-                </h2>
-                <p className="text-sm text-text-secondary">
-                  {format(new Date(), 'EEEE, d MMMM yyyy', { locale: ru })}
-                </p>
-              </div>
-              {todayLessons && todayLessons.length > 0 ? (
-                <div className="space-y-4">
-                  {todayLessons.map((lesson: any) => (
-                    <div key={lesson.id} className="space-y-3">
-                      <LessonCard
-                        start={lesson.start_time}
-                        end={lesson.end_time}
-                        title={lesson.learning_groups?.name || 'Индивидуальное занятие'}
-                        room={lesson.classroom}
-                        online={!!lesson.online_link}
-                        link={lesson.online_link}
-                        status={lesson.status}
-                        onAttendance={() => handleQuickAttendance(lesson)}
-                        onHomework={() => handleQuickHomework(lesson)}
-                        onOpenLink={() => handleQuickOnline(lesson)}
-                        onStartLesson={() => handleQuickStart(lesson)}
-                      />
-                      
-                      {/* Планирование урока */}
-                      {lesson.status !== 'completed' && lesson.status !== 'cancelled' && (
-                        <LessonPlanCard
-                          lessonNumber={getLessonNumberForGroup(
-                            lesson.learning_groups?.name || 'Индивидуальное занятие',
-                            lesson.learning_groups?.level,
-                            lesson.lesson_date
-                          )}
-                          groupName={lesson.learning_groups?.name || 'Индивидуальное занятие'}
-                          level={lesson.learning_groups?.level}
-                          subject={lesson.learning_groups?.subject}
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <EmptyState
-                  icon={Calendar}
-                  title="На сегодня занятий не запланировано"
-                  subtitle="Расписание на завтра и следующие дни можно посмотреть в разделе «Расписание»"
-                />
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Уведомления */}
-        <div className="card-elevated border-l-4 border-l-warning">
-          <div className="flex items-start gap-3">
-            <Bell className="h-5 w-5 text-warning mt-0.5" />
-            <div className="flex-1">
-              <h3 className="font-semibold text-text-primary mb-1">Уведомления и задачи</h3>
-              <div className="space-y-2 text-sm text-text-secondary">
-                {todayLessons && todayLessons.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-success" />
-                    <span>У вас {todayTotal} {todayTotal === 1 ? 'занятие' : 'занятия'} сегодня</span>
-                  </div>
-                )}
-                {weekTotal > 0 && (
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-info" />
-                    <span>Запланировано {weekTotal} {weekTotal === 1 ? 'урок' : 'уроков'} на неделю</span>
-                  </div>
-                )}
-              </div>
-            </div>
+            <TodayLessonsSection
+              todayLessons={todayLessons || []}
+              todayTotal={todayTotal}
+              todayCompleted={todayCompleted}
+              weekTotal={weekTotal}
+              onStartLesson={handleQuickStart}
+              onAttendance={handleQuickAttendance}
+              onHomework={handleQuickHomework}
+              onOpenOnline={handleQuickOnline}
+            />
           </div>
         </div>
 
