@@ -1105,7 +1105,7 @@ Deno.serve(async (req) => {
                   phoneToSourceMap.set(agentPhone, {
                     name: agentName,
                     email: agent?.EMail || agent?.email || null,
-                    branch: sd.studentInfo.branch,
+                    branch: sd.branch,
                   });
                 }
               });
@@ -1243,7 +1243,7 @@ Deno.serve(async (req) => {
                 const batch = missing.slice(i, i + 50).map(n => ({
                   name: n,
                   branch: (familyGroupsToCreate.find(f => f.name === n)?.branch) || 'Окская',
-                  organization_id: orgData?.id,
+                  organization_id: orgId,
                 }));
                 const { data: inserted, error: insertErr } = await supabase
                   .from('family_groups')
