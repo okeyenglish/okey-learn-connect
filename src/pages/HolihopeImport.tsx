@@ -46,7 +46,7 @@ export default function HolihopeImport() {
     { id: 'lesson_plans', name: '23. Планы занятий', description: 'ДЗ и материалы (текст + ссылки)', action: 'import_lesson_plans', status: 'pending' },
   ]);
 
-  const executeStep = async (step: ImportStep, batchParams?: { skip?: number; batch_mode?: boolean; max_batches?: number }) => {
+  const executeStep = async (step: ImportStep, batchParams?: any) => {
     setSteps((prev) =>
       prev.map((s) =>
         s.id === step.id ? { ...s, status: 'in_progress' } : s
@@ -56,7 +56,7 @@ export default function HolihopeImport() {
     try {
       const body: any = { action: step.action };
       
-      // For leads/students, use batch mode if requested
+      // Add batch parameters if provided
       if (batchParams) {
         Object.assign(body, batchParams);
       }
@@ -68,6 +68,8 @@ export default function HolihopeImport() {
       if (error) throw error;
 
       const progress = data?.progress?.[0];
+      const nextBatch = data?.nextBatch;
+      const stats = data?.stats;
       
       setSteps((prev) =>
         prev.map((s) =>
@@ -75,7 +77,7 @@ export default function HolihopeImport() {
             ? {
                 ...s,
                 status: progress?.status || 'completed',
-                count: progress?.count,
+                count: progress?.count || stats?.totalImported,
                 message: progress?.message,
                 error: progress?.error,
               }
@@ -87,7 +89,7 @@ export default function HolihopeImport() {
         throw new Error(progress.error || 'Ошибка импорта');
       }
 
-      return { success: true, progress };
+      return { success: true, progress, nextBatch, stats };
     } catch (error: any) {
       console.error(`Error in step ${step.id}:`, error);
       
@@ -114,7 +116,7 @@ export default function HolihopeImport() {
 
     try {
       for (const step of steps) {
-        // For leads/students, use batch mode
+        // For leads/students, use batch mode with skip
         if (step.action === 'import_leads' || step.action === 'import_students') {
           let skip = 0;
           let totalImported = 0;
@@ -150,7 +152,59 @@ export default function HolihopeImport() {
               )
             );
           }
-        } else {
+        }
+        // For ed_units, use batch mode with office/status/time indices
+        else if (step.action === 'import_ed_units') {
+          let totalImported = 0;
+          let totalFetched = 0;
+          let batchParams = { 
+            batch_size: 100, // Process 100 requests per batch
+            office_index: 0,
+            status_index: 0,
+            time_index: 0
+          };
+          
+          while (true) {
+            const result = await executeStep(step, batchParams);
+            
+            if (!result.success) break;
+            
+            const progress = result.progress;
+            const stats = result.stats;
+            const nextBatch = result.nextBatch;
+            
+            totalImported += stats?.totalImported || 0;
+            totalFetched += stats?.totalFetched || 0;
+            
+            const hasMore = progress?.hasMore || false;
+            
+            setSteps((prev) =>
+              prev.map((s) =>
+                s.id === step.id
+                  ? {
+                      ...s,
+                      count: totalImported,
+                      message: `Импортировано ${totalImported} учебных единиц (получено ${totalFetched})${hasMore ? ' (продолжается...)' : ''}`,
+                      status: hasMore ? 'in_progress' : 'completed',
+                    }
+                  : s
+              )
+            );
+            
+            if (!hasMore) break;
+            
+            // Update batch parameters for next iteration
+            if (nextBatch) {
+              batchParams = nextBatch;
+            } else {
+              break;
+            }
+            
+            // Small delay between batches
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+        } 
+        else {
           const result = await executeStep(step);
           if (!result.success) break;
         }
@@ -177,7 +231,7 @@ export default function HolihopeImport() {
   const runSingleStep = async (step: ImportStep) => {
     setIsImporting(true);
     
-    // For leads/students, use batch mode with progress updates
+    // For leads/students, use batch mode with skip
     if (step.action === 'import_leads' || step.action === 'import_students') {
       let skip = 0;
       let totalImported = 0;
@@ -219,7 +273,65 @@ export default function HolihopeImport() {
           );
         }
       }
-    } else {
+    }
+    // For ed_units, use batch mode with office/status/time indices
+    else if (step.action === 'import_ed_units') {
+      let totalImported = 0;
+      let totalFetched = 0;
+      let batchParams = { 
+        batch_size: 100,
+        office_index: 0,
+        status_index: 0,
+        time_index: 0
+      };
+      
+      while (true) {
+        const result = await executeStep(step, batchParams);
+        
+        if (!result.success) break;
+        
+        const progress = result.progress;
+        const stats = result.stats;
+        const nextBatch = result.nextBatch;
+        
+        totalImported += stats?.totalImported || 0;
+        totalFetched += stats?.totalFetched || 0;
+        
+        const hasMore = progress?.hasMore || false;
+        
+        setSteps((prev) =>
+          prev.map((s) =>
+            s.id === step.id
+              ? {
+                  ...s,
+                  count: totalImported,
+                  message: `Импортировано ${totalImported} учебных единиц (получено ${totalFetched})${hasMore ? ' (продолжается...)' : ''}`,
+                  status: hasMore ? 'in_progress' : 'completed',
+                }
+              : s
+          )
+        );
+        
+        if (!hasMore) {
+          toast({
+            title: 'Успешно',
+            description: `${step.name} завершен. Всего импортировано: ${totalImported} (получено ${totalFetched})`,
+          });
+          break;
+        }
+        
+        // Update batch parameters for next iteration
+        if (nextBatch) {
+          batchParams = nextBatch;
+        } else {
+          break;
+        }
+        
+        // Small delay between batches
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    } 
+    else {
       const result = await executeStep(step);
       if (result.success) {
         toast({

@@ -2551,6 +2551,12 @@ Deno.serve(async (req) => {
         const dateFrom = from.toISOString().slice(0, 10);
         const dateTo = to.toISOString().slice(0, 10);
         
+        // Batch parameters
+        const batchSize = body.batch_size || null; // If null, process all
+        const startOfficeIndex = body.office_index || 0;
+        const startStatusIndex = body.status_index || 0;
+        const startTimeIndex = body.time_index || 0;
+        
         // Step 1: Get list of offices
         console.log('Fetching list of offices from GetOffices...');
         const officesUrl = `${HOLIHOPE_DOMAIN}/GetOffices?authkey=${HOLIHOPE_API_KEY}`;
@@ -2580,22 +2586,47 @@ Deno.serve(async (req) => {
           timeRanges.push({ from: fromTime, to: toTime });
         }
         
-        console.log(`Will make ${officeIds.length} x ${statuses.length} x ${timeRanges.length} = ${officeIds.length * statuses.length * timeRanges.length} requests`);
+        const totalCombinations = officeIds.length * statuses.length * timeRanges.length;
+        console.log(`Total combinations: ${totalCombinations}. Starting from: office=${startOfficeIndex}, status=${startStatusIndex}, time=${startTimeIndex}`);
+        if (batchSize) {
+          console.log(`Batch mode enabled: will process ${batchSize} requests per call`);
+        }
         
         let allUnits: any[] = [];
         let fetchedCount = 0;
         let totalRequests = 0;
         let successfulRequests = 0;
+        let hasMore = false;
+        let nextOfficeIndex = startOfficeIndex;
+        let nextStatusIndex = startStatusIndex;
+        let nextTimeIndex = startTimeIndex;
         
         // Step 2: For each office, fetch units by status and time range
-        for (const officeId of officeIds) {
-          for (const status of statuses) {
-            for (const timeRange of timeRanges) {
+        outerLoop: for (let oi = startOfficeIndex; oi < officeIds.length; oi++) {
+          const officeId = officeIds[oi];
+          
+          for (let si = (oi === startOfficeIndex ? startStatusIndex : 0); si < statuses.length; si++) {
+            const status = statuses[si];
+            
+            for (let ti = (oi === startOfficeIndex && si === startStatusIndex ? startTimeIndex : 0); ti < timeRanges.length; ti++) {
+              const timeRange = timeRanges[ti];
+              
+              // Check if we've reached the batch limit
+              if (batchSize && totalRequests >= batchSize) {
+                hasMore = true;
+                nextOfficeIndex = oi;
+                nextStatusIndex = si;
+                nextTimeIndex = ti;
+                console.log(`Batch limit reached. Next batch should start at: office=${oi}, status=${si}, time=${ti}`);
+                break outerLoop;
+              }
+              
               try {
                 const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&officeOrCompanyId=${encodeURIComponent(officeId)}&statuses=${encodeURIComponent(status)}&timeFrom=${encodeURIComponent(timeRange.from)}&timeTo=${encodeURIComponent(timeRange.to)}&queryDays=true&queryFiscalInfo=true&queryTeacherPrices=true&dateFrom=${dateFrom}&dateTo=${dateTo}`;
                 totalRequests++;
                 
-                console.log(`[${totalRequests}/${officeIds.length * statuses.length * timeRanges.length}] Fetching: Office=${officeId}, Status=${status}, Time=${timeRange.from}-${timeRange.to}`);
+                const currentPosition = (oi * statuses.length * timeRanges.length) + (si * timeRanges.length) + ti + 1;
+                console.log(`[${currentPosition}/${totalCombinations}] Fetching: Office=${officeId}, Status=${status}, Time=${timeRange.from}-${timeRange.to}`);
                 
                 const response = await fetch(apiUrl, {
                   method: 'GET',
@@ -2625,11 +2656,24 @@ Deno.serve(async (req) => {
         }
         
         console.log(`Total units fetched: ${allUnits.length}`);
+        console.log(`Processed ${totalRequests} requests (${successfulRequests} successful)`);
+        
+        // Remove duplicates by Id
+        const uniqueUnits = allUnits.reduce((acc, unit) => {
+          const id = unit.Id?.toString();
+          if (id && !acc.has(id)) {
+            acc.set(id, unit);
+          }
+          return acc;
+        }, new Map());
+        
+        const unitsToImport = Array.from(uniqueUnits.values());
+        console.log(`Unique units after deduplication: ${unitsToImport.length}`);
         
         let importedCount = 0;
         let typeStats = {};
         
-        for (const unit of allUnits) {
+        for (const unit of unitsToImport) {
           const unitType = unit.Type || unit.type || 'Group';
           typeStats[unitType] = (typeStats[unitType] || 0) + 1;
           
@@ -2684,9 +2728,46 @@ Deno.serve(async (req) => {
           importedCount++;
         }
         
-        progress[0].status = 'completed';
+        progress[0].status = hasMore ? 'in_progress' : 'completed';
         progress[0].count = importedCount;
-        progress[0].message = `Imported ${importedCount} educational units: ${JSON.stringify(typeStats)}`;
+        progress[0].hasMore = hasMore;
+        
+        if (hasMore) {
+          progress[0].message = `Batch completed: Imported ${importedCount} units from ${successfulRequests} requests. Continue with next batch.`;
+          // Include next batch parameters in response
+          return new Response(JSON.stringify({ 
+            progress,
+            nextBatch: {
+              office_index: nextOfficeIndex,
+              status_index: nextStatusIndex,
+              time_index: nextTimeIndex,
+              batch_size: batchSize
+            },
+            stats: {
+              totalFetched: fetchedCount,
+              totalImported: importedCount,
+              requestsProcessed: totalRequests,
+              successfulRequests: successfulRequests,
+              typeStats: typeStats
+            }
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        } else {
+          progress[0].message = `Import completed: ${importedCount} educational units imported. Types: ${JSON.stringify(typeStats)}`;
+          return new Response(JSON.stringify({ 
+            progress,
+            stats: {
+              totalFetched: fetchedCount,
+              totalImported: importedCount,
+              requestsProcessed: totalRequests,
+              successfulRequests: successfulRequests,
+              typeStats: typeStats
+            }
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
       } catch (error) {
         console.error('Error importing educational units:', error);
         progress[0].status = 'error';
