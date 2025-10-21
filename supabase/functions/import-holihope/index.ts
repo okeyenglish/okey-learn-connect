@@ -370,11 +370,35 @@ Deno.serve(async (req) => {
       progress.push({ step: 'import_leads', status: 'in_progress' });
 
       try {
+        const { data: orgData } = await supabase
+          .from('organizations')
+          .select('id')
+          .eq('name', "O'KEY ENGLISH")
+          .single();
+
+        // Get "Новый" status ID
+        const { data: newStatus } = await supabase
+          .from('lead_statuses')
+          .select('id')
+          .eq('name', 'Новый')
+          .single();
+
+        if (!newStatus) {
+          throw new Error('Could not find "Новый" lead status');
+        }
+
+        const statusId = newStatus.id;
+        console.log(`Using status_id: ${statusId} for new leads`);
+
         let skip = 0;
         const take = 100;
-        let allLeads = [];
+        let totalLeadsImported = 0;
+        let totalFamilyLinksCreated = 0;
 
+        // Process leads in batches to avoid CPU timeout
         while (true) {
+          console.log(`Fetching leads batch: skip=${skip}, take=${take}`);
+          
           const response = await fetch(`${HOLIHOPE_DOMAIN}/GetLeads?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
             method: 'GET',
             headers: {
@@ -393,155 +417,157 @@ Deno.serve(async (req) => {
             ? responseData 
             : (responseData?.Leads || responseData?.leads || Object.values(responseData).find(val => Array.isArray(val)) || []);
           
-          if (!leads || leads.length === 0) break;
-          
-          allLeads = allLeads.concat(leads);
-          skip += take;
-          
-          if (leads.length < take) break;
-        }
-
-        console.log(`Found ${allLeads.length} leads`);
-
-        const { data: orgData } = await supabase
-          .from('organizations')
-          .select('id')
-          .eq('name', "O'KEY ENGLISH")
-          .single();
-
-        // Get all unique client external IDs from leads
-        const clientExternalIds = [...new Set(
-          allLeads
-            .filter(lead => lead.clientId)
-            .map(lead => lead.clientId.toString())
-        )];
-
-        // Fetch all clients in batches
-        const clientMap = new Map(); // external_id -> client
-        for (let i = 0; i < clientExternalIds.length; i += 100) {
-          const batch = clientExternalIds.slice(i, i + 100);
-          const { data: clients } = await supabase
-            .from('clients')
-            .select('id, external_id')
-            .in('external_id', batch);
-          
-          if (clients) {
-            clients.forEach(c => clientMap.set(c.external_id, c));
+          if (!leads || leads.length === 0) {
+            console.log('No more leads to process');
+            break;
           }
-        }
+          
+          console.log(`Processing ${leads.length} leads...`);
 
-        // Prepare family groups to create
-        const familyGroupsToCreate = new Map(); // name -> family group data
-        const leadToClientMap = new Map(); // lead external_id -> client_id
+          // Get all unique client external IDs from this batch
+          const clientExternalIds = [...new Set(
+            leads
+              .filter(lead => lead.clientId)
+              .map(lead => lead.clientId.toString())
+          )];
 
-        for (const lead of allLeads) {
-          if (lead.clientId) {
-            const client = clientMap.get(lead.clientId.toString());
-            if (client) {
-              const familyName = `Семья ${lead.lastName || 'Лида'}`;
-              if (!familyGroupsToCreate.has(familyName)) {
-                familyGroupsToCreate.set(familyName, {
-                  name: familyName,
-                  branch: lead.location || lead.branch || 'Окская',
-                  organization_id: orgData?.id,
-                });
+          // Fetch all clients in batches
+          const clientMap = new Map(); // external_id -> client
+          if (clientExternalIds.length > 0) {
+            for (let i = 0; i < clientExternalIds.length; i += 100) {
+              const batch = clientExternalIds.slice(i, i + 100);
+              const { data: clients } = await supabase
+                .from('clients')
+                .select('id, external_id')
+                .in('external_id', batch);
+              
+              if (clients) {
+                clients.forEach(c => clientMap.set(c.external_id, c));
               }
-              leadToClientMap.set(lead.id?.toString(), client.id);
             }
           }
-        }
 
-        // Batch upsert family groups
-        const familyGroupMap = new Map(); // name -> family_group_id
-        if (familyGroupsToCreate.size > 0) {
-          const familyGroupsArray = Array.from(familyGroupsToCreate.values());
-          for (let i = 0; i < familyGroupsArray.length; i += 50) {
-            const batch = familyGroupsArray.slice(i, i + 50);
-            const { data: familyGroups } = await supabase
-              .from('family_groups')
-              .upsert(batch, { onConflict: 'name,organization_id' })
-              .select('id, name');
-            
-            if (familyGroups) {
-              familyGroups.forEach(fg => familyGroupMap.set(fg.name, fg.id));
+          // Prepare family groups to create
+          const familyGroupsToCreate = new Map(); // name -> family group data
+          const leadToClientMap = new Map(); // lead id -> client_id
+
+          for (const lead of leads) {
+            if (lead.clientId) {
+              const client = clientMap.get(lead.clientId.toString());
+              if (client) {
+                const familyName = `Семья ${lead.lastName || 'Лида'}`;
+                if (!familyGroupsToCreate.has(familyName)) {
+                  familyGroupsToCreate.set(familyName, {
+                    name: familyName,
+                    branch: lead.location || lead.branch || 'Окская',
+                    organization_id: orgData?.id,
+                  });
+                }
+                leadToClientMap.set(lead.id?.toString(), client.id);
+              }
             }
           }
-        }
 
-        // Prepare leads data with family group IDs
-        const leadsToUpsert = allLeads.map(lead => {
-          let familyGroupId = null;
-          
-          if (lead.clientId) {
-            const familyName = `Семья ${lead.lastName || 'Лида'}`;
-            familyGroupId = familyGroupMap.get(familyName) || null;
+          // Batch upsert family groups
+          const familyGroupMap = new Map(); // name -> family_group_id
+          if (familyGroupsToCreate.size > 0) {
+            const familyGroupsArray = Array.from(familyGroupsToCreate.values());
+            for (let i = 0; i < familyGroupsArray.length; i += 50) {
+              const batch = familyGroupsArray.slice(i, i + 50);
+              const { data: familyGroups } = await supabase
+                .from('family_groups')
+                .upsert(batch, { onConflict: 'name,organization_id' })
+                .select('id, name');
+              
+              if (familyGroups) {
+                familyGroups.forEach(fg => familyGroupMap.set(fg.name, fg.id));
+              }
+            }
           }
 
-          return {
+          // Prepare leads data for the leads table
+          const leadsToInsert = leads.map(lead => ({
             first_name: lead.firstName || '',
             last_name: lead.lastName || '',
             phone: lead.phone || null,
+            email: lead.email || null,
             age: lead.age || null,
-            status: 'lead',
+            subject: lead.subject || null,
+            level: lead.level || null,
+            branch: lead.location || lead.branch || 'Окская',
             notes: lead.notes || lead.comment || null,
-            family_group_id: familyGroupId,
-            organization_id: orgData?.id,
-            external_id: lead.id?.toString(),
-            extra_fields: {
-              email: lead.email || null,
-              branch: lead.location || lead.branch || 'Окская',
-              preferred_subject: lead.subject || null,
-              level: lead.level || null,
-            }
-          };
-        });
+            status_id: statusId,
+            lead_source_id: null,
+            assigned_to: null,
+          }));
 
-        // Batch upsert leads
-        console.log(`Upserting ${leadsToUpsert.length} leads...`);
-        let totalUpserted = 0;
-        
-        for (let i = 0; i < leadsToUpsert.length; i += 100) {
-          const batch = leadsToUpsert.slice(i, i + 100);
-          const { error: leadsError } = await supabase
-            .from('students')
-            .upsert(batch, { onConflict: 'external_id,organization_id' });
-
-          if (leadsError) {
-            console.error('Error upserting leads batch:', leadsError);
-          } else {
-            totalUpserted += batch.length;
-          }
-        }
-
-        // Batch create family member links
-        const familyMembersToCreate = [];
-        for (const lead of allLeads) {
-          const clientId = leadToClientMap.get(lead.id?.toString());
-          const familyName = `Семья ${lead.lastName || 'Лида'}`;
-          const familyGroupId = familyGroupMap.get(familyName);
+          // Batch insert leads into leads table (200 at a time)
+          console.log(`Inserting ${leadsToInsert.length} leads into leads table...`);
           
-          if (clientId && familyGroupId) {
-            familyMembersToCreate.push({
-              family_group_id: familyGroupId,
-              client_id: clientId,
-              is_primary_contact: true,
-              relationship_type: 'parent',
-            });
-          }
-        }
+          for (let i = 0; i < leadsToInsert.length; i += 200) {
+            const batch = leadsToInsert.slice(i, i + 200);
+            const { data: insertedLeads, error: leadsError } = await supabase
+              .from('leads')
+              .insert(batch)
+              .select('id, phone, first_name, last_name');
 
-        if (familyMembersToCreate.length > 0) {
-          for (let i = 0; i < familyMembersToCreate.length; i += 100) {
-            const batch = familyMembersToCreate.slice(i, i + 100);
-            await supabase
-              .from('family_members')
-              .upsert(batch, { onConflict: 'family_group_id,client_id' });
+            if (leadsError) {
+              console.error(`Error inserting leads batch (size: ${batch.length}):`, leadsError);
+              continue;
+            }
+            
+            if (insertedLeads) {
+              totalLeadsImported += insertedLeads.length;
+              console.log(`Inserted ${insertedLeads.length} leads successfully`);
+            }
+          }
+
+          // Batch create family member links
+          const familyMembersToCreate = [];
+          for (const lead of leads) {
+            const clientId = leadToClientMap.get(lead.id?.toString());
+            const familyName = `Семья ${lead.lastName || 'Лида'}`;
+            const familyGroupId = familyGroupMap.get(familyName);
+            
+            if (clientId && familyGroupId) {
+              familyMembersToCreate.push({
+                family_group_id: familyGroupId,
+                client_id: clientId,
+                is_primary_contact: true,
+                relationship_type: 'parent',
+              });
+            }
+          }
+
+          if (familyMembersToCreate.length > 0) {
+            console.log(`Creating ${familyMembersToCreate.length} family member links...`);
+            for (let i = 0; i < familyMembersToCreate.length; i += 100) {
+              const batch = familyMembersToCreate.slice(i, i + 100);
+              const { error: familyError } = await supabase
+                .from('family_members')
+                .upsert(batch, { onConflict: 'family_group_id,client_id' });
+              
+              if (familyError) {
+                console.error('Error creating family members:', familyError);
+              } else {
+                totalFamilyLinksCreated += batch.length;
+              }
+            }
+          }
+
+          skip += take;
+          
+          // Break if we got fewer leads than requested (last page)
+          if (leads.length < take) {
+            console.log('Reached last page of leads');
+            break;
           }
         }
 
         progress[0].status = 'completed';
-        progress[0].count = totalUpserted;
-        progress[0].message = `Imported ${totalUpserted} leads (${familyMembersToCreate.length} linked to parents)`;
+        progress[0].count = totalLeadsImported;
+        progress[0].message = `Imported ${totalLeadsImported} leads (${totalFamilyLinksCreated} linked to parents)`;
+        console.log(`Import complete: ${totalLeadsImported} leads, ${totalFamilyLinksCreated} family links`);
       } catch (error) {
         console.error('Error importing leads:', error);
         progress[0].status = 'error';
