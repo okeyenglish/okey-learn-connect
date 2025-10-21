@@ -673,10 +673,12 @@ Deno.serve(async (req) => {
           
           console.log(`Total clients available: ${phoneToClientMap.size}`);
           
-          // Step 3: Create family_groups for each AGENT (not for leads)
-          // Each agent gets their own family_group
+          // Step 3: Create family_groups
+          // 3a. One family_group per agent
+          // 3b. One family_group per lead with phone
           const familyGroupsToCreate = [];
           const agentPhoneToFamilyNameMap = new Map(); // agentPhone -> familyName
+          const leadPhoneToFamilyNameMap = new Map(); // leadPhone -> familyName
           
           leadsData.forEach((ld) => {
             // Create family group for each agent
@@ -684,7 +686,6 @@ Deno.serve(async (req) => {
               const clientId = phoneToClientMap.get(agentPhone);
               if (!clientId) return;
               
-              // Find agent data for name
               const agentIdx = ld.agentPhones.indexOf(agentPhone);
               const agent = ld.agents[agentIdx];
               const agentName = `${agent?.LastName || agent?.lastName || ''} ${agent?.FirstName || agent?.firstName || ''}`.trim() || 'Без имени';
@@ -700,11 +701,30 @@ Deno.serve(async (req) => {
                 });
               }
             });
+            
+            // Create family group for lead if they have a phone
+            if (ld.leadPhone) {
+              const leadClientId = phoneToClientMap.get(ld.leadPhone);
+              if (leadClientId) {
+                const leadName = `${ld.leadInfo.first_name} ${ld.leadInfo.last_name}`.trim() || 'Без имени';
+                const familyName = `Семья ${leadName}`;
+                
+                leadPhoneToFamilyNameMap.set(ld.leadPhone, familyName);
+                
+                if (!familyGroupsToCreate.find(fg => fg.name === familyName)) {
+                  familyGroupsToCreate.push({
+                    name: familyName,
+                    branch: ld.leadInfo.branch,
+                    organization_id: orgData?.id,
+                  });
+                }
+              }
+            }
           });
           
-          console.log(`Creating ${familyGroupsToCreate.length} family groups (one per agent)...`);
+          console.log(`Creating ${familyGroupsToCreate.length} family groups (agents + leads with phones)...`);
           
-          const familyGroupNameToIdMap = new Map(); // familyName -> family_group_id
+          const familyGroupNameToIdMap = new Map();
           if (familyGroupsToCreate.length > 0) {
             for (let i = 0; i < familyGroupsToCreate.length; i += 50) {
               const batch = familyGroupsToCreate.slice(i, i + 50);
@@ -723,13 +743,13 @@ Deno.serve(async (req) => {
           
           console.log(`Created/found ${familyGroupNameToIdMap.size} family groups`);
 
-          // Step 4: Insert leads WITHOUT family_group_id (leads don't belong to groups)
+          // Step 4: Insert leads
           const leadsToInsert = leadsData.map((ld) => ld.leadInfo);
 
           // Step 5: Batch insert leads into leads table (200 at a time)
           console.log(`Inserting ${leadsToInsert.length} leads into leads table...`);
           
-          const leadIdMap = new Map(); // leadInfo -> lead_id
+          const leadIdMap = new Map();
           for (let i = 0; i < leadsToInsert.length; i += 200) {
             const batch = leadsToInsert.slice(i, i + 200);
             const { data: insertedLeads, error: leadsError } = await supabase
@@ -746,7 +766,6 @@ Deno.serve(async (req) => {
               totalLeadsImported += insertedLeads.length;
               console.log(`Inserted ${insertedLeads.length} leads successfully`);
               
-              // Map leads by unique key for later lookup
               insertedLeads.forEach((lead) => {
                 const key = `${lead.first_name}_${lead.last_name}_${lead.phone || ''}_${lead.email || ''}`;
                 leadIdMap.set(key, lead.id);
@@ -755,19 +774,14 @@ Deno.serve(async (req) => {
           }
 
           // Step 6: Create family member links
-          // For each agent's family_group, add:
-          // - The agent (primary)
-          // - The lead as 'student'
-          // - All other agents as 'parent'
           console.log('Creating family member links...');
           const familyMembersToCreate = [];
           
           leadsData.forEach((ld) => {
-            // Get lead_id for this lead
             const leadKey = `${ld.leadInfo.first_name}_${ld.leadInfo.last_name}_${ld.leadInfo.phone || ''}_${ld.leadInfo.email || ''}`;
             const leadId = leadIdMap.get(leadKey);
             
-            // For each agent, create their family group
+            // A. Add members to each AGENT's family_group
             ld.agentPhones.forEach((agentPhone, agentIdx) => {
               const agentClientId = phoneToClientMap.get(agentPhone);
               if (!agentClientId) return;
@@ -799,7 +813,7 @@ Deno.serve(async (req) => {
               
               // Add all OTHER agents as parents
               ld.agentPhones.forEach((otherAgentPhone, otherIdx) => {
-                if (otherIdx === agentIdx) return; // Skip self
+                if (otherIdx === agentIdx) return;
                 const otherClientId = phoneToClientMap.get(otherAgentPhone);
                 if (otherClientId) {
                   familyMembersToCreate.push({
@@ -811,6 +825,37 @@ Deno.serve(async (req) => {
                 }
               });
             });
+            
+            // B. Add members to LEAD's family_group (if lead has phone)
+            if (ld.leadPhone) {
+              const leadClientId = phoneToClientMap.get(ld.leadPhone);
+              if (leadClientId) {
+                const familyName = leadPhoneToFamilyNameMap.get(ld.leadPhone);
+                const familyGroupId = familyGroupNameToIdMap.get(familyName);
+                if (familyGroupId) {
+                  // Add lead as primary
+                  familyMembersToCreate.push({
+                    family_group_id: familyGroupId,
+                    client_id: leadClientId,
+                    is_primary_contact: true,
+                    relationship_type: 'main',
+                  });
+                  
+                  // Add all agents as parents
+                  ld.agentPhones.forEach((agentPhone) => {
+                    const agentClientId = phoneToClientMap.get(agentPhone);
+                    if (agentClientId) {
+                      familyMembersToCreate.push({
+                        family_group_id: familyGroupId,
+                        client_id: agentClientId,
+                        is_primary_contact: false,
+                        relationship_type: 'parent',
+                      });
+                    }
+                  });
+                }
+              }
+            }
           });
 
           if (familyMembersToCreate.length > 0) {
@@ -1053,11 +1098,15 @@ Deno.serve(async (req) => {
           
           console.log(`Total clients available: ${phoneToClientMap.size}`);
           
-          // Step 3: Create family_groups for each AGENT (not for students)
+          // Step 3: Create family_groups
+          // 3a. One family_group per agent
+          // 3b. One family_group per student with phone
           const familyGroupsToCreate = [];
           const agentPhoneToFamilyNameMap = new Map();
+          const studentPhoneToFamilyNameMap = new Map();
           
           studentsData.forEach((sd) => {
+            // Create family group for each agent
             sd.agentPhones.forEach((agentPhone) => {
               const clientId = phoneToClientMap.get(agentPhone);
               if (!clientId) return;
@@ -1077,9 +1126,28 @@ Deno.serve(async (req) => {
                 });
               }
             });
+            
+            // Create family group for student if they have a phone
+            if (sd.studentPhone) {
+              const studentClientId = phoneToClientMap.get(sd.studentPhone);
+              if (studentClientId) {
+                const studentName = `${sd.studentInfo.first_name} ${sd.studentInfo.last_name}`.trim() || 'Без имени';
+                const familyName = `Семья ${studentName}`;
+                
+                studentPhoneToFamilyNameMap.set(sd.studentPhone, familyName);
+                
+                if (!familyGroupsToCreate.find(fg => fg.name === familyName)) {
+                  familyGroupsToCreate.push({
+                    name: familyName,
+                    branch: sd.studentInfo.branch,
+                    organization_id: orgData?.id,
+                  });
+                }
+              }
+            }
           });
           
-          console.log(`Creating ${familyGroupsToCreate.length} family groups (one per agent)...`);
+          console.log(`Creating ${familyGroupsToCreate.length} family groups (agents + students with phones)...`);
           
           const familyGroupNameToIdMap = new Map();
           if (familyGroupsToCreate.length > 0) {
@@ -1100,7 +1168,7 @@ Deno.serve(async (req) => {
           
           console.log(`Created/found ${familyGroupNameToIdMap.size} family groups`);
 
-          // Step 4: Insert students WITHOUT family_group_id
+          // Step 4: Insert students
           const studentsToInsert = studentsData.map((sd) => sd.studentInfo);
 
           console.log(`Inserting ${studentsToInsert.length} students into students table...`);
@@ -1137,7 +1205,7 @@ Deno.serve(async (req) => {
             const studentKey = sd.studentInfo.external_id || `${sd.studentInfo.first_name}_${sd.studentInfo.last_name}_${sd.studentInfo.phone || ''}_${sd.studentInfo.email || ''}`;
             const studentId = studentIdMap.get(studentKey);
             
-            // For each agent, create their family group
+            // A. Add members to each AGENT's family_group
             sd.agentPhones.forEach((agentPhone, agentIdx) => {
               const agentClientId = phoneToClientMap.get(agentPhone);
               if (!agentClientId) return;
@@ -1181,6 +1249,37 @@ Deno.serve(async (req) => {
                 }
               });
             });
+            
+            // B. Add members to STUDENT's family_group (if student has phone)
+            if (sd.studentPhone) {
+              const studentClientId = phoneToClientMap.get(sd.studentPhone);
+              if (studentClientId) {
+                const familyName = studentPhoneToFamilyNameMap.get(sd.studentPhone);
+                const familyGroupId = familyGroupNameToIdMap.get(familyName);
+                if (familyGroupId) {
+                  // Add student as primary
+                  familyMembersToCreate.push({
+                    family_group_id: familyGroupId,
+                    client_id: studentClientId,
+                    is_primary_contact: true,
+                    relationship_type: 'main',
+                  });
+                  
+                  // Add all agents as parents
+                  sd.agentPhones.forEach((agentPhone) => {
+                    const agentClientId = phoneToClientMap.get(agentPhone);
+                    if (agentClientId) {
+                      familyMembersToCreate.push({
+                        family_group_id: familyGroupId,
+                        client_id: agentClientId,
+                        is_primary_contact: false,
+                        relationship_type: 'parent',
+                      });
+                    }
+                  });
+                }
+              }
+            }
           });
 
           if (familyMembersToCreate.length > 0) {
