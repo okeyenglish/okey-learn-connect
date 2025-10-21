@@ -1940,7 +1940,7 @@ export type Database = {
           level: string | null
           middle_name: string | null
           notes: string | null
-          phone: string
+          phone: string | null
           pre_enrolled_group_id: string | null
           pre_enrollment_date: string | null
           preferred_days: string[] | null
@@ -1969,7 +1969,7 @@ export type Database = {
           level?: string | null
           middle_name?: string | null
           notes?: string | null
-          phone: string
+          phone?: string | null
           pre_enrolled_group_id?: string | null
           pre_enrollment_date?: string | null
           preferred_days?: string[] | null
@@ -1998,7 +1998,7 @@ export type Database = {
           level?: string | null
           middle_name?: string | null
           notes?: string | null
-          phone?: string
+          phone?: string | null
           pre_enrolled_group_id?: string | null
           pre_enrollment_date?: string | null
           preferred_days?: string[] | null

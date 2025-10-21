@@ -532,7 +532,7 @@ Deno.serve(async (req) => {
               });
             }
             
-            // If lead has no phone AND no agents with phones, skip
+            // If no phones at all (lead + agents), skip
             if (!leadPhone && agentPhones.length === 0) {
               skippedNoPhone++;
               return;
@@ -550,7 +550,7 @@ Deno.serve(async (req) => {
               leadInfo: {
                 first_name: lead.firstName || lead.FirstName || '',
                 last_name: lead.lastName || lead.LastName || '',
-                phone: allPhones[0], // Use first available phone (lead's or first agent's)
+                phone: leadPhone, // Can be null now
                 email: lead.email || lead.EMail || null,
                 age: lead.age || lead.Age || null,
                 subject: lead.subject || lead.Subject || null,
@@ -673,23 +673,36 @@ Deno.serve(async (req) => {
           
           console.log(`Total clients available: ${phoneToClientMap.size}`);
           
-          // Step 3: Create family_groups for each lead (one family per lead)
-          const leadToFamilyGroupMap = new Map(); // lead index -> family_group_id
+          // Step 3: Create family_groups for each AGENT (not for leads)
+          // Each agent gets their own family_group
           const familyGroupsToCreate = [];
+          const agentPhoneToFamilyNameMap = new Map(); // agentPhone -> familyName
           
-          leadsData.forEach((ld, idx) => {
-            const familyName = `Семья ${ld.leadInfo.last_name || ld.leadInfo.first_name || 'Без имени'}`;
-            
-            if (!familyGroupsToCreate.find(fg => fg.name === familyName)) {
-              familyGroupsToCreate.push({
-                name: familyName,
-                branch: ld.leadInfo.branch,
-                organization_id: orgData?.id,
-              });
-            }
+          leadsData.forEach((ld) => {
+            // Create family group for each agent
+            ld.agentPhones.forEach((agentPhone) => {
+              const clientId = phoneToClientMap.get(agentPhone);
+              if (!clientId) return;
+              
+              // Find agent data for name
+              const agentIdx = ld.agentPhones.indexOf(agentPhone);
+              const agent = ld.agents[agentIdx];
+              const agentName = `${agent?.LastName || agent?.lastName || ''} ${agent?.FirstName || agent?.firstName || ''}`.trim() || 'Без имени';
+              const familyName = `Семья ${agentName}`;
+              
+              agentPhoneToFamilyNameMap.set(agentPhone, familyName);
+              
+              if (!familyGroupsToCreate.find(fg => fg.name === familyName)) {
+                familyGroupsToCreate.push({
+                  name: familyName,
+                  branch: ld.leadInfo.branch,
+                  organization_id: orgData?.id,
+                });
+              }
+            });
           });
           
-          console.log(`Creating ${familyGroupsToCreate.length} family groups...`);
+          console.log(`Creating ${familyGroupsToCreate.length} family groups (one per agent)...`);
           
           const familyGroupNameToIdMap = new Map(); // familyName -> family_group_id
           if (familyGroupsToCreate.length > 0) {
@@ -709,31 +722,20 @@ Deno.serve(async (req) => {
           }
           
           console.log(`Created/found ${familyGroupNameToIdMap.size} family groups`);
-          
-          // Map each lead to its family_group_id
-          leadsData.forEach((ld, idx) => {
-            const familyName = `Семья ${ld.leadInfo.last_name || ld.leadInfo.first_name || 'Без имени'}`;
-            const familyGroupId = familyGroupNameToIdMap.get(familyName);
-            if (familyGroupId) {
-              leadToFamilyGroupMap.set(idx, familyGroupId);
-            }
-          });
-          
-          // Step 4: Prepare leads for insert with family_group_id
-          const leadsToInsert = leadsData.map((ld, idx) => ({
-            ...ld.leadInfo,
-            family_group_id: leadToFamilyGroupMap.get(idx) || null,
-          }));
+
+          // Step 4: Insert leads WITHOUT family_group_id (leads don't belong to groups)
+          const leadsToInsert = leadsData.map((ld) => ld.leadInfo);
 
           // Step 5: Batch insert leads into leads table (200 at a time)
           console.log(`Inserting ${leadsToInsert.length} leads into leads table...`);
           
+          const leadIdMap = new Map(); // leadInfo -> lead_id
           for (let i = 0; i < leadsToInsert.length; i += 200) {
             const batch = leadsToInsert.slice(i, i + 200);
             const { data: insertedLeads, error: leadsError } = await supabase
               .from('leads')
               .insert(batch)
-              .select('id, phone, first_name, last_name');
+              .select('id, phone, email, first_name, last_name');
 
             if (leadsError) {
               console.error(`Error inserting leads batch (size: ${batch.length}):`, leadsError);
@@ -743,28 +745,71 @@ Deno.serve(async (req) => {
             if (insertedLeads) {
               totalLeadsImported += insertedLeads.length;
               console.log(`Inserted ${insertedLeads.length} leads successfully`);
+              
+              // Map leads by unique key for later lookup
+              insertedLeads.forEach((lead) => {
+                const key = `${lead.first_name}_${lead.last_name}_${lead.phone || ''}_${lead.email || ''}`;
+                leadIdMap.set(key, lead.id);
+              });
             }
           }
 
-          // Step 6: Create family member links (all clients for each lead -> family_group)
+          // Step 6: Create family member links
+          // For each agent's family_group, add:
+          // - The agent (primary)
+          // - The lead as 'student'
+          // - All other agents as 'parent'
           console.log('Creating family member links...');
           const familyMembersToCreate = [];
           
-          leadsData.forEach((ld, idx) => {
-            const familyGroupId = leadToFamilyGroupMap.get(idx);
-            if (!familyGroupId) return;
+          leadsData.forEach((ld) => {
+            // Get lead_id for this lead
+            const leadKey = `${ld.leadInfo.first_name}_${ld.leadInfo.last_name}_${ld.leadInfo.phone || ''}_${ld.leadInfo.email || ''}`;
+            const leadId = leadIdMap.get(leadKey);
             
-            // Add all clients (lead + agents) to this family_group
-            ld.allPhones.forEach((phone, phoneIdx) => {
-              const clientId = phoneToClientMap.get(phone);
-              if (clientId) {
-                familyMembersToCreate.push({
-                  family_group_id: familyGroupId,
-                  client_id: clientId,
-                  is_primary_contact: phoneIdx === 0, // First phone (lead's own) is primary
-                  relationship_type: phoneIdx === 0 ? 'main' : 'parent',
-                });
+            // For each agent, create their family group
+            ld.agentPhones.forEach((agentPhone, agentIdx) => {
+              const agentClientId = phoneToClientMap.get(agentPhone);
+              if (!agentClientId) return;
+              
+              const familyName = agentPhoneToFamilyNameMap.get(agentPhone);
+              const familyGroupId = familyGroupNameToIdMap.get(familyName);
+              if (!familyGroupId) return;
+              
+              // Add the agent as primary
+              familyMembersToCreate.push({
+                family_group_id: familyGroupId,
+                client_id: agentClientId,
+                is_primary_contact: true,
+                relationship_type: 'main',
+              });
+              
+              // Add the lead as student (if lead has a phone/client)
+              if (ld.leadPhone) {
+                const leadClientId = phoneToClientMap.get(ld.leadPhone);
+                if (leadClientId) {
+                  familyMembersToCreate.push({
+                    family_group_id: familyGroupId,
+                    client_id: leadClientId,
+                    is_primary_contact: false,
+                    relationship_type: 'student',
+                  });
+                }
               }
+              
+              // Add all OTHER agents as parents
+              ld.agentPhones.forEach((otherAgentPhone, otherIdx) => {
+                if (otherIdx === agentIdx) return; // Skip self
+                const otherClientId = phoneToClientMap.get(otherAgentPhone);
+                if (otherClientId) {
+                  familyMembersToCreate.push({
+                    family_group_id: familyGroupId,
+                    client_id: otherClientId,
+                    is_primary_contact: false,
+                    relationship_type: 'parent',
+                  });
+                }
+              });
             });
           });
 
@@ -814,11 +859,21 @@ Deno.serve(async (req) => {
       progress.push({ step: 'import_students', status: 'in_progress' });
 
       try {
+        const { data: orgData } = await supabase
+          .from('organizations')
+          .select('id')
+          .eq('name', "O'KEY ENGLISH")
+          .single();
+
         let skip = 0;
         const take = 100;
-        let allStudents = [];
+        let totalStudentsImported = 0;
+        let totalFamilyLinksCreated = 0;
 
+        // Process students in batches
         while (true) {
+          console.log(`Fetching students batch: skip=${skip}, take=${take}`);
+          
           const response = await fetch(`${HOLIHOPE_DOMAIN}/GetStudents?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
             method: 'GET',
             headers: {
@@ -831,276 +886,331 @@ Deno.serve(async (req) => {
           }
           
           const responseData = await response.json();
-          
-          // Normalize response - API may return {"Students": [...]} or direct array
           const students = Array.isArray(responseData) 
             ? responseData 
             : (responseData?.Students || responseData?.students || Object.values(responseData).find(val => Array.isArray(val)) || []);
           
-          if (!students || students.length === 0) break;
+          if (!students || students.length === 0) {
+            console.log('No more students to process');
+            break;
+          }
           
-          allStudents = allStudents.concat(students);
-          skip += take;
-          
-          if (students.length < take) break;
-        }
+          console.log(`Processing ${students.length} students...`);
 
-        console.log(`Found ${allStudents.length} students`);
-
-        const { data: orgData } = await supabase
-          .from('organizations')
-          .select('id')
-          .eq('name', "O'KEY ENGLISH")
-          .single();
-
-        // CRITICAL: Process agents first to build family groups correctly
-        // Agents ARE clients (parents/contacts), not separate entities
-        const agentToFamilyMap = new Map(); // phone/email -> family_group_id
-
-        for (const student of allStudents) {
-          let familyGroupId = null;
-          const studentAgents = student.Agents || [];
-
-          // Step 1: Process each agent (create/find client and family group)
-          for (const agent of studentAgents) {
-            const agentPhone = agent.phone || '';
-            const agentEmail = agent.email || '';
-            const agentKey = agentPhone || agentEmail;
-
-            if (!agentKey) continue;
-
-            // Check if we already processed this agent
-            if (agentToFamilyMap.has(agentKey)) {
-              familyGroupId = agentToFamilyMap.get(agentKey);
-              continue;
-            }
-
-            // Find or create client for this agent
-            let clientId = null;
-            
-            // Try to find existing client by phone or email
-            const { data: existingClient } = await supabase
-              .from('clients')
-              .select('id')
-              .or(`phone.eq.${agentPhone},email.eq.${agentEmail}`)
-              .single();
-
-            if (existingClient) {
-              clientId = existingClient.id;
-            } else {
-              // Create new client from agent
-              const { data: newClient } = await supabase
-                .from('clients')
-                .insert({
-                  name: `${agent.lastName || ''} ${agent.firstName || ''}`.trim() || 'Контакт',
-                  phone: agentPhone,
-                  email: agentEmail,
-                  branch: student.location || 'Окская',
-                  notes: agent.relation ? `Отношение: ${agent.relation}` : null,
-                  organization_id: orgData?.id,
-                  external_id: agent.id?.toString(),
-                })
-                .select()
-                .single();
-
-              clientId = newClient?.id;
-
-              // Add phone number
-              if (clientId && agentPhone) {
-                await supabase.from('client_phone_numbers').upsert({
-                  client_id: clientId,
-                  phone: agentPhone,
-                  is_primary: true,
-                  is_whatsapp_enabled: true,
-                });
-              }
-            }
-
-            if (!clientId) continue;
-
-            // Find existing family for this client
-            const { data: existingFamilyMember } = await supabase
-              .from('family_members')
-              .select('family_group_id')
-              .eq('client_id', clientId)
-              .single();
-
-            if (existingFamilyMember) {
-              // Use existing family
-              familyGroupId = existingFamilyMember.family_group_id;
-            } else {
-              // Create new family group
-              const familyName = `Семья ${agent.lastName || student.lastName || 'Клиента'}`;
-              const { data: newFamily } = await supabase
-                .from('family_groups')
-                .insert({
-                  name: familyName,
-                  branch: student.location || 'Окская',
-                  organization_id: orgData?.id,
-                })
-                .select()
-                .single();
-
-              familyGroupId = newFamily?.id;
-
-              // Link client to family
-              if (familyGroupId) {
-                await supabase.from('family_members').insert({
-                  family_group_id: familyGroupId,
-                  client_id: clientId,
-                  is_primary_contact: agent.isPrimary || true,
-                  relationship_type: 'parent',
-                });
-              }
-            }
-
-            // Remember this agent's family
-            if (familyGroupId) {
-              agentToFamilyMap.set(agentKey, familyGroupId);
-            }
-          }
-
-          // Step 2: If student has clientId but no agents, try to link via clientId
-          if (!familyGroupId && student.clientId) {
-            const { data: client } = await supabase
-              .from('clients')
-              .select('id')
-              .eq('external_id', student.clientId.toString())
-              .single();
-
-            if (client) {
-              // Check if client is already in a family
-              const { data: existingFamilyMember } = await supabase
-                .from('family_members')
-                .select('family_group_id')
-                .eq('client_id', client.id)
-                .single();
-
-              if (existingFamilyMember) {
-                familyGroupId = existingFamilyMember.family_group_id;
-              } else {
-                // Create new family
-                const { data: newFamily } = await supabase
-                  .from('family_groups')
-                  .insert({
-                    name: `Семья ${student.lastName || ''}`,
-                    branch: student.location || 'Окская',
-                    organization_id: orgData?.id,
-                  })
-                  .select()
-                  .single();
-
-                familyGroupId = newFamily?.id;
-
-                if (familyGroupId) {
-                  await supabase.from('family_members').insert({
-                    family_group_id: familyGroupId,
-                    client_id: client.id,
-                    is_primary_contact: true,
-                    relationship_type: 'main',
-                  });
-                }
-              }
-            }
-          }
-
-          // Step 3: Build extra_fields JSONB
-          const extraFields = {};
-          if (student.ExtraFields && Array.isArray(student.ExtraFields)) {
-            for (const field of student.ExtraFields) {
-              extraFields[field.name || 'custom_field'] = field.value || null;
-            }
-          }
-
-          // Step 4: Create/update student
-          const studentData = {
-            first_name: student.firstName || '',
-            last_name: student.lastName || '',
-            date_of_birth: student.dateOfBirth || null,
-            phone: student.phone || null,
-            email: student.email || null,
-            branch: student.location || 'Окская',
-            status: student.status === 'Active' ? 'active' : 'archived',
-            notes: student.comment || null,
-            family_group_id: familyGroupId,
-            extra_fields: extraFields,
-            organization_id: orgData?.id,
-            external_id: student.id?.toString(),
+          const normalizePhone = (p: any): string | null => {
+            if (!p) return null;
+            let s = String(p).replace(/\D/g, '');
+            if (!s) return null;
+            if (s.length === 11 && s.startsWith('8')) s = '7' + s.slice(1);
+            if (s.length === 10 && s.startsWith('9')) s = '7' + s;
+            return s.length >= 10 ? s : null;
           };
 
-          const { data: insertedStudent, error } = await supabase
-            .from('students')
-            .upsert(studentData, { onConflict: 'external_id' })
-            .select()
-            .single();
-
-          if (error) {
-            console.error(`Error importing student ${student.lastName}:`, error);
-          } else {
-            // Step 5: If student has their own phone, create a client for them too
-            if (student.phone && student.phone.trim() && familyGroupId) {
-              const studentPhone = student.phone.trim();
-              const studentAgents = student.Agents || [];
-              const agentPhones = studentAgents.map((a: any) => a.phone?.trim()).filter(Boolean);
-              
-              // Only create client if student's phone is different from agent phones
-              if (!agentPhones.includes(studentPhone)) {
-                // Check if client already exists with this phone
-                const { data: existingStudentClient } = await supabase
-                  .from('clients')
-                  .select('id')
-                  .eq('phone', studentPhone)
-                  .single();
-
-                let studentClientId = existingStudentClient?.id;
-
-                if (!studentClientId) {
-                  // Create new client for student
-                  const { data: newStudentClient } = await supabase
-                    .from('clients')
-                    .insert({
-                      name: `${student.lastName || ''} ${student.firstName || ''}`.trim() || 'Студент',
-                      phone: studentPhone,
-                      email: student.email || null,
-                      branch: student.location || 'Окская',
-                      organization_id: orgData?.id,
-                      external_id: `student_client_${student.id}`,
-                    })
-                    .select()
-                    .single();
-
-                  studentClientId = newStudentClient?.id;
-
-                  // Add phone number
-                  if (studentClientId) {
-                    await supabase.from('client_phone_numbers').upsert({
-                      client_id: studentClientId,
-                      phone: studentPhone,
-                      is_primary: true,
-                      is_whatsapp_enabled: true,
-                    });
-                  }
+          // Prepare students data and collect ALL phones (student + agents)
+          const studentsData = [];
+          const allPhonesSet = new Set();
+          
+          students.forEach((student: any) => {
+            const studentPhone = normalizePhone(student.phone || student.Phone);
+            
+            // Extract agent phones
+            const agents = student.Agents || student.agents || [];
+            const agentPhones = [];
+            
+            if (Array.isArray(agents)) {
+              agents.forEach((agent: any) => {
+                const agentPhoneRaw = agent.Mobile || agent.Phone || agent.mobile || agent.phone;
+                const agentPhone = normalizePhone(agentPhoneRaw);
+                if (agentPhone) {
+                  agentPhones.push(agentPhone);
+                  allPhonesSet.add(agentPhone);
                 }
+              });
+            }
+            
+            // Build extra_fields
+            const extraFields = {};
+            if (student.ExtraFields && Array.isArray(student.ExtraFields)) {
+              for (const field of student.ExtraFields) {
+                extraFields[field.name || 'custom_field'] = field.value || null;
+              }
+            }
+            
+            studentsData.push({
+              studentInfo: {
+                first_name: student.firstName || student.FirstName || '',
+                last_name: student.lastName || student.LastName || '',
+                date_of_birth: student.dateOfBirth || student.DateOfBirth || null,
+                phone: studentPhone,
+                email: student.email || student.Email || student.EMail || null,
+                branch: student.location || student.Location || 'Окская',
+                status: (student.status || student.Status) === 'Active' ? 'active' : 'archived',
+                notes: student.comment || student.Comment || null,
+                extra_fields: extraFields,
+                external_id: student.id?.toString() || student.Id?.toString(),
+              },
+              studentPhone,
+              agentPhones,
+              agents,
+            });
 
-                // Link student-client to family group
-                if (studentClientId && familyGroupId) {
-                  await supabase.from('family_members').upsert({
+            if (studentPhone) allPhonesSet.add(studentPhone);
+          });
+
+          console.log(`Total unique phones (students + agents): ${allPhonesSet.size}`);
+
+          // Step 1: Get all unique phones and check which clients already exist
+          const uniquePhones = Array.from(allPhonesSet);
+          const phoneToClientMap = new Map();
+          
+          for (let i = 0; i < uniquePhones.length; i += 100) {
+            const phoneBatch = uniquePhones.slice(i, i + 100);
+            const { data: existingPhones } = await supabase
+              .from('client_phone_numbers')
+              .select('phone, client_id')
+              .in('phone', phoneBatch);
+            
+            if (existingPhones) {
+              existingPhones.forEach(p => phoneToClientMap.set(p.phone, p.client_id));
+            }
+          }
+          
+          console.log(`Found ${phoneToClientMap.size} existing clients for phones`);
+          
+          // Step 2: Create new clients for phones that don't exist
+          const phonesToCreateClients = uniquePhones.filter(p => !phoneToClientMap.has(p));
+          console.log(`Creating ${phonesToCreateClients.length} new clients...`);
+          
+          if (phonesToCreateClients.length > 0) {
+            const phoneToSourceMap = new Map();
+            
+            studentsData.forEach(sd => {
+              // Student phone
+              if (sd.studentPhone && phonesToCreateClients.includes(sd.studentPhone)) {
+                phoneToSourceMap.set(sd.studentPhone, {
+                  name: `${sd.studentInfo.first_name} ${sd.studentInfo.last_name}`.trim() || 'Без имени',
+                  email: sd.studentInfo.email,
+                  branch: sd.studentInfo.branch,
+                });
+              }
+              
+              // Agent phones
+              sd.agentPhones.forEach((agentPhone, idx) => {
+                if (phonesToCreateClients.includes(agentPhone) && !phoneToSourceMap.has(agentPhone)) {
+                  const agent = sd.agents[idx];
+                  const agentName = `${agent?.LastName || agent?.lastName || ''} ${agent?.FirstName || agent?.firstName || ''} ${agent?.MiddleName || agent?.middleName || ''}`.trim() || 'Без имени';
+                  phoneToSourceMap.set(agentPhone, {
+                    name: agentName,
+                    email: agent?.EMail || agent?.email || null,
+                    branch: sd.studentInfo.branch,
+                  });
+                }
+              });
+            });
+            
+            const newClientsData = phonesToCreateClients.map(phone => {
+              const source = phoneToSourceMap.get(phone) || { name: 'Без имени', email: null, branch: 'Окская' };
+              return {
+                name: source.name,
+                email: source.email,
+                branch: source.branch,
+                organization_id: orgData?.id,
+              };
+            });
+            
+            for (let i = 0; i < newClientsData.length; i += 50) {
+              const batch = newClientsData.slice(i, i + 50);
+              const { data: newClients, error: clientError } = await supabase
+                .from('clients')
+                .insert(batch)
+                .select('id');
+              
+              if (clientError) {
+                console.error('Error creating clients:', clientError);
+                continue;
+              }
+              
+              if (newClients) {
+                const phoneRecords = newClients.map((client, idx) => ({
+                  client_id: client.id,
+                  phone: phonesToCreateClients[i + idx],
+                  phone_type: 'mobile',
+                  is_primary: true,
+                  is_whatsapp_enabled: true,
+                  is_telegram_enabled: false,
+                }));
+                
+                await supabase
+                  .from('client_phone_numbers')
+                  .insert(phoneRecords);
+                
+                newClients.forEach((client, idx) => {
+                  phoneToClientMap.set(phonesToCreateClients[i + idx], client.id);
+                });
+              }
+            }
+          }
+          
+          console.log(`Total clients available: ${phoneToClientMap.size}`);
+          
+          // Step 3: Create family_groups for each AGENT (not for students)
+          const familyGroupsToCreate = [];
+          const agentPhoneToFamilyNameMap = new Map();
+          
+          studentsData.forEach((sd) => {
+            sd.agentPhones.forEach((agentPhone) => {
+              const clientId = phoneToClientMap.get(agentPhone);
+              if (!clientId) return;
+              
+              const agentIdx = sd.agentPhones.indexOf(agentPhone);
+              const agent = sd.agents[agentIdx];
+              const agentName = `${agent?.LastName || agent?.lastName || ''} ${agent?.FirstName || agent?.firstName || ''}`.trim() || 'Без имени';
+              const familyName = `Семья ${agentName}`;
+              
+              agentPhoneToFamilyNameMap.set(agentPhone, familyName);
+              
+              if (!familyGroupsToCreate.find(fg => fg.name === familyName)) {
+                familyGroupsToCreate.push({
+                  name: familyName,
+                  branch: sd.studentInfo.branch,
+                  organization_id: orgData?.id,
+                });
+              }
+            });
+          });
+          
+          console.log(`Creating ${familyGroupsToCreate.length} family groups (one per agent)...`);
+          
+          const familyGroupNameToIdMap = new Map();
+          if (familyGroupsToCreate.length > 0) {
+            for (let i = 0; i < familyGroupsToCreate.length; i += 50) {
+              const batch = familyGroupsToCreate.slice(i, i + 50);
+              const { data: newFamilyGroups } = await supabase
+                .from('family_groups')
+                .upsert(batch, { onConflict: 'name,organization_id' })
+                .select('id, name');
+              
+              if (newFamilyGroups) {
+                newFamilyGroups.forEach(fg => {
+                  familyGroupNameToIdMap.set(fg.name, fg.id);
+                });
+              }
+            }
+          }
+          
+          console.log(`Created/found ${familyGroupNameToIdMap.size} family groups`);
+
+          // Step 4: Insert students WITHOUT family_group_id
+          const studentsToInsert = studentsData.map((sd) => sd.studentInfo);
+
+          console.log(`Inserting ${studentsToInsert.length} students into students table...`);
+          
+          const studentIdMap = new Map();
+          for (let i = 0; i < studentsToInsert.length; i += 200) {
+            const batch = studentsToInsert.slice(i, i + 200);
+            const { data: insertedStudents, error: studentsError } = await supabase
+              .from('students')
+              .upsert(batch, { onConflict: 'external_id' })
+              .select('id, phone, email, first_name, last_name, external_id');
+
+            if (studentsError) {
+              console.error(`Error inserting students batch (size: ${batch.length}):`, studentsError);
+              continue;
+            }
+            
+            if (insertedStudents) {
+              totalStudentsImported += insertedStudents.length;
+              console.log(`Inserted ${insertedStudents.length} students successfully`);
+              
+              insertedStudents.forEach((student) => {
+                const key = student.external_id || `${student.first_name}_${student.last_name}_${student.phone || ''}_${student.email || ''}`;
+                studentIdMap.set(key, student.id);
+              });
+            }
+          }
+
+          // Step 5: Create family member links
+          console.log('Creating family member links...');
+          const familyMembersToCreate = [];
+          
+          studentsData.forEach((sd) => {
+            const studentKey = sd.studentInfo.external_id || `${sd.studentInfo.first_name}_${sd.studentInfo.last_name}_${sd.studentInfo.phone || ''}_${sd.studentInfo.email || ''}`;
+            const studentId = studentIdMap.get(studentKey);
+            
+            // For each agent, create their family group
+            sd.agentPhones.forEach((agentPhone, agentIdx) => {
+              const agentClientId = phoneToClientMap.get(agentPhone);
+              if (!agentClientId) return;
+              
+              const familyName = agentPhoneToFamilyNameMap.get(agentPhone);
+              const familyGroupId = familyGroupNameToIdMap.get(familyName);
+              if (!familyGroupId) return;
+              
+              // Add the agent as primary
+              familyMembersToCreate.push({
+                family_group_id: familyGroupId,
+                client_id: agentClientId,
+                is_primary_contact: true,
+                relationship_type: 'main',
+              });
+              
+              // Add the student as student (if student has a phone/client)
+              if (sd.studentPhone) {
+                const studentClientId = phoneToClientMap.get(sd.studentPhone);
+                if (studentClientId) {
+                  familyMembersToCreate.push({
                     family_group_id: familyGroupId,
                     client_id: studentClientId,
                     is_primary_contact: false,
-                    relationship_type: 'self',
-                  }, { onConflict: 'family_group_id,client_id' });
-
-                  console.log(`✅ Created client for student and linked to family: ${studentPhone}`);
+                    relationship_type: 'student',
+                  });
                 }
               }
+              
+              // Add all OTHER agents as parents
+              sd.agentPhones.forEach((otherAgentPhone, otherIdx) => {
+                if (otherIdx === agentIdx) return;
+                const otherClientId = phoneToClientMap.get(otherAgentPhone);
+                if (otherClientId) {
+                  familyMembersToCreate.push({
+                    family_group_id: familyGroupId,
+                    client_id: otherClientId,
+                    is_primary_contact: false,
+                    relationship_type: 'parent',
+                  });
+                }
+              });
+            });
+          });
+
+          if (familyMembersToCreate.length > 0) {
+            console.log(`Upserting ${familyMembersToCreate.length} family member links...`);
+            for (let i = 0; i < familyMembersToCreate.length; i += 100) {
+              const batch = familyMembersToCreate.slice(i, i + 100);
+              const { error: familyError } = await supabase
+                .from('family_members')
+                .upsert(batch, { onConflict: 'family_group_id,client_id' });
+              
+              if (familyError) {
+                console.error('Error creating family members:', familyError);
+              } else {
+                totalFamilyLinksCreated += batch.length;
+              }
             }
+          }
+
+          skip += take;
+          
+          if (students.length < take) {
+            console.log('Reached last page of students');
+            break;
           }
         }
 
         progress[0].status = 'completed';
-        progress[0].count = allStudents.length;
-        progress[0].message = `Imported ${allStudents.length} students`;
+        progress[0].count = totalStudentsImported;
+        progress[0].message = `Imported ${totalStudentsImported} students (${totalFamilyLinksCreated} family links)`;
+        console.log(`Import complete: ${totalStudentsImported} students, ${totalFamilyLinksCreated} family links`);
       } catch (error) {
         console.error('Error importing students:', error);
         progress[0].status = 'error';
