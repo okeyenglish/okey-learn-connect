@@ -1490,7 +1490,12 @@ Deno.serve(async (req) => {
         });
         
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const disciplines = await response.json();
+        const responseData = await response.json();
+        
+        // Normalize response - API returns {"Disciplines": [...]}
+        const disciplines = Array.isArray(responseData) 
+          ? responseData 
+          : (responseData?.Disciplines || responseData?.disciplines || Object.values(responseData).find(val => Array.isArray(val)) || []);
         
         return new Response(JSON.stringify({
           preview: true,
@@ -1522,7 +1527,12 @@ Deno.serve(async (req) => {
         });
         
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const disciplines = await response.json();
+        const responseData = await response.json();
+        
+        // Normalize response - API returns {"Disciplines": [...]}
+        const disciplines = Array.isArray(responseData) 
+          ? responseData 
+          : (responseData?.Disciplines || responseData?.disciplines || Object.values(responseData).find(val => Array.isArray(val)) || []);
         
         const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
         
