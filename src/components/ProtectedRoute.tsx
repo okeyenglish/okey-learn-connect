@@ -8,8 +8,11 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
-  const { user, loading } = useAuth();
+  const { user, loading, isRoleEmulation, originalRoles } = useAuth();
   const location = useLocation();
+  
+  // Если админ в режиме эмуляции - разрешаем доступ везде
+  const isAdminEmulating = isRoleEmulation && originalRoles.includes('admin');
 
   // Показываем загрузку пока проверяем авторизацию
   if (loading) {
@@ -24,12 +27,12 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
   }
 
   // Если пользователь не авторизован, перенаправляем на страницу входа
-  if (!user) {
+  if (!user && !isAdminEmulating) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
   // Если требуется определенная роль, можно добавить проверку здесь
-  // Пока что просто пропускаем авторизованных пользователей
+  // Администраторы в режиме эмуляции имеют доступ везде
 
   return <>{children}</>;
 }

@@ -9,7 +9,7 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
-  const { user, role, loading } = useAuth();
+  const { user, role, loading, isRoleEmulation, originalRoles } = useAuth();
 
   if (loading) {
     return (
@@ -23,7 +23,10 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
     return <LoginForm />;
   }
 
-  if (allowedRoles && role && !allowedRoles.includes(role)) {
+  // Если админ в режиме эмуляции - разрешаем доступ везде
+  const isAdmin = isRoleEmulation && originalRoles.includes('admin');
+  
+  if (allowedRoles && role && !allowedRoles.includes(role) && !isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
