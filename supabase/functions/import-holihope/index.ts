@@ -2551,54 +2551,69 @@ Deno.serve(async (req) => {
         const dateFrom = from.toISOString().slice(0, 10);
         const dateTo = to.toISOString().slice(0, 10);
         
-        // Types from documentation: Group, MiniGroup, OpenLesson, Exam, Tour, Individual, TrialLesson
-        const types = ['Group', 'MiniGroup', 'Individual', 'OpenLesson', 'TrialLesson', 'Exam', 'Tour'];
+        // Get branches from GetOffice
+        console.log('Fetching list of branches from GetOffice...');
+        const officesUrl = `${HOLIHOPE_DOMAIN}/GetOffice?authkey=${HOLIHOPE_API_KEY}`;
+        const officesResp = await fetch(officesUrl, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
         
-        // First get list of branches
-        console.log('Fetching list of branches...');
-        const branchesUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&queryDays=false&queryFiscalInfo=false&queryTeacherPrices=false`;
-        const branchesResp = await fetch(branchesUrl, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
-        
-        if (!branchesResp.ok) {
-          throw new Error(`Failed to fetch branches: ${branchesResp.status}`);
+        if (!officesResp.ok) {
+          throw new Error(`Failed to fetch offices: ${officesResp.status}`);
         }
         
-        const branchesRaw = await branchesResp.json();
-        const branchUnits = Array.isArray(branchesRaw) ? branchesRaw : (branchesRaw?.EdUnits || []);
-        const branches = [...new Set(branchUnits.map((u: any) => u.OfficeOrCompanyName).filter(Boolean))];
-        console.log(`Found ${branches.length} branches: ${branches.join(', ')}`);
+        const officesRaw = await officesResp.json();
+        const offices = Array.isArray(officesRaw) ? officesRaw : (officesRaw?.Offices || officesRaw?.Office || []);
+        const branchIds = offices.map((o: any) => o.Id || o.OfficeId).filter(Boolean);
+        console.log(`Found ${branchIds.length} branch IDs: ${branchIds.join(', ')}`);
+        
+        // Types from documentation
+        const types = ['Group', 'MiniGroup', 'Individual', 'OpenLesson', 'TrialLesson', 'Exam', 'Tour'];
+        
+        // Statuses: Working, Reserve, Forming, Stopped, Finished
+        const statuses = ['Working', 'Reserve', 'Forming', 'Stopped', 'Finished'];
+        
+        // Time ranges from 06:00 to 21:00 with 1 hour step
+        const timeRanges: Array<{ from: string; to: string }> = [];
+        for (let hour = 6; hour < 21; hour++) {
+          const fromTime = `${hour.toString().padStart(2, '0')}:00`;
+          const toTime = `${(hour + 1).toString().padStart(2, '0')}:00`;
+          timeRanges.push({ from: fromTime, to: toTime });
+        }
         
         let allUnits: any[] = [];
         let fetchedCount = 0;
+        let totalRequests = 0;
         
-        // Fetch units for each type + branch combination with full data
-        for (const type of types) {
-          for (const branch of branches) {
-            try {
-              const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&types=${encodeURIComponent(type)}&officeOrCompany=${encodeURIComponent(branch)}&queryDays=true&queryFiscalInfo=true&queryTeacherPrices=true&dateFrom=${dateFrom}&dateTo=${dateTo}`;
-              console.log(`Fetching ${type} units from ${branch}...`);
-              
-              const response = await fetch(apiUrl, {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-              });
-              
-              if (!response.ok) {
-                console.warn(`Skipping ${type}/${branch}: HTTP ${response.status}`);
-                continue;
+        // Fetch units for each status + branchId + timeRange combination
+        for (const status of statuses) {
+          for (const branchId of branchIds) {
+            for (const timeRange of timeRanges) {
+              try {
+                const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&officeOrCompanyId=${encodeURIComponent(branchId)}&statuses=${encodeURIComponent(status)}&timeFrom=${encodeURIComponent(timeRange.from)}&timeTo=${encodeURIComponent(timeRange.to)}&queryDays=true&queryFiscalInfo=true&queryTeacherPrices=true&dateFrom=${dateFrom}&dateTo=${dateTo}`;
+                console.log(`Fetching ${status} units from branch ${branchId} (${timeRange.from}-${timeRange.to})...`);
+                totalRequests++;
+                
+                const response = await fetch(apiUrl, {
+                  method: 'GET',
+                  headers: { 'Content-Type': 'application/json' },
+                });
+                
+                if (!response.ok) {
+                  console.warn(`Skipping ${status}/${branchId}/${timeRange.from}: HTTP ${response.status}`);
+                  continue;
+                }
+                
+                const raw = await response.json();
+                const batch = Array.isArray(raw) ? raw : (raw?.EdUnits || []);
+                
+                if (batch.length > 0) {
+                  allUnits = allUnits.concat(batch);
+                  fetchedCount += batch.length;
+                  console.log(`Fetched ${batch.length} ${status} units (total: ${fetchedCount} from ${totalRequests} requests)`);
+                }
+              } catch (err) {
+                console.error(`Error fetching ${status}/${branchId}/${timeRange.from}:`, err);
+                // Continue with next combination
               }
-              
-              const raw = await response.json();
-              const batch = Array.isArray(raw) ? raw : (raw?.EdUnits || []);
-              
-              if (batch.length > 0) {
-                allUnits = allUnits.concat(batch);
-                fetchedCount += batch.length;
-                console.log(`Fetched ${batch.length} ${type} units from ${branch} (total: ${fetchedCount})`);
-              }
-            } catch (err) {
-              console.error(`Error fetching ${type}/${branch}:`, err);
-              // Continue with next combination
             }
           }
         }
