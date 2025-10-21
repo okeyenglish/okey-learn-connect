@@ -1203,17 +1203,53 @@ Deno.serve(async (req) => {
           
           const familyGroupNameToIdMap = new Map();
           if (familyGroupsToCreate.length > 0) {
+            // 1) Try batch upsert
             for (let i = 0; i < familyGroupsToCreate.length; i += 50) {
               const batch = familyGroupsToCreate.slice(i, i + 50);
-              const { data: newFamilyGroups } = await supabase
+              const { data: upserted, error: upsertErr } = await supabase
                 .from('family_groups')
                 .upsert(batch, { onConflict: 'name,organization_id' })
                 .select('id, name');
-              
-              if (newFamilyGroups) {
-                newFamilyGroups.forEach(fg => {
-                  familyGroupNameToIdMap.set(fg.name, fg.id);
-                });
+              if (upsertErr) {
+                console.error('family_groups upsert error:', upsertErr);
+              }
+              if (upserted) {
+                upserted.forEach(fg => familyGroupNameToIdMap.set(fg.name, fg.id));
+              }
+            }
+
+            // 2) Ensure mapping via select (fallback if upsert returned empty)
+            const names = familyGroupsToCreate.map(fg => fg.name);
+            const { data: fetched, error: fetchErr } = await supabase
+              .from('family_groups')
+              .select('id, name')
+              .in('name', names)
+              .eq('organization_id', orgData?.id);
+            if (fetchErr) {
+              console.error('family_groups select error:', fetchErr);
+            }
+            if (fetched) {
+              fetched.forEach(fg => familyGroupNameToIdMap.set(fg.name, fg.id));
+            }
+
+            // 3) Insert any missing names explicitly
+            const missing = names.filter(n => !familyGroupNameToIdMap.has(n));
+            if (missing.length > 0) {
+              console.log(`Inserting missing ${missing.length} family groups explicitly...`);
+              for (let i = 0; i < missing.length; i += 50) {
+                const batch = missing.slice(i, i + 50).map(n => ({
+                  name: n,
+                  branch: (familyGroupsToCreate.find(f => f.name === n)?.branch) || 'Окская',
+                  organization_id: orgData?.id,
+                }));
+                const { data: inserted, error: insertErr } = await supabase
+                  .from('family_groups')
+                  .insert(batch)
+                  .select('id, name');
+                if (insertErr) {
+                  console.error('family_groups insert error:', insertErr);
+                }
+                inserted?.forEach(fg => familyGroupNameToIdMap.set(fg.name, fg.id));
               }
             }
           }
