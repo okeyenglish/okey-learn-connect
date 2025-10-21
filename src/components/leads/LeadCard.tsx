@@ -7,6 +7,8 @@ import { ru } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { usePinnedModalsDB } from "@/hooks/usePinnedModalsDB";
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface LeadCardProps {
   lead: any;
@@ -18,19 +20,38 @@ export const LeadCard = ({ lead, onUpdate }: LeadCardProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { pinModal, openPinnedModal } = usePinnedModalsDB();
+  const [opening, setOpening] = useState(false);
 
   const handleOpen = async () => {
-    // Гарантируем нахождение в CRM
-    navigate(`/newcrm`);
+    if (opening) return;
+    setOpening(true);
+    try {
+      // Проверяем, существует ли студент
+      const { data, error } = await supabase
+        .from('students')
+        .select('id, name')
+        .eq('id', lead.id)
+        .single();
 
-    // Закрепляем и открываем карточку студента как отдельное окно
-    await pinModal({
-      id: lead.id,
-      type: 'student',
-      title: `Студент: ${fullName}`,
-      props: { student: { id: lead.id, name: fullName } }
-    });
-    await openPinnedModal(lead.id, 'student');
+      if (error || !data) {
+        toast({ title: 'Студент не найден', description: 'Запись отсутствует или нет доступа', variant: 'destructive' });
+        return;
+      }
+
+      // Находимся в CRM и открываем закрепленную карточку студента
+      navigate('/newcrm');
+      await pinModal({
+        id: lead.id,
+        type: 'student',
+        title: `Студент: ${fullName}`,
+        props: { student: { id: lead.id, name: fullName } }
+      });
+      await openPinnedModal(lead.id, 'student');
+    } catch (e) {
+      toast({ title: 'Ошибка', description: 'Не удалось открыть карточку студента' });
+    } finally {
+      setOpening(false);
+    }
   };
 
   const handleScheduleTrial = () => {
@@ -119,8 +140,8 @@ export const LeadCard = ({ lead, onUpdate }: LeadCardProps) => {
         )}
         
         <div className="flex gap-2 pt-2">
-          <Button size="sm" className="flex-1" onClick={handleOpen}>
-            Открыть
+          <Button size="sm" className="flex-1" onClick={handleOpen} disabled={opening}>
+            {opening ? 'Открываю…' : 'Открыть'}
           </Button>
           <Button size="sm" variant="outline" className="flex-1" onClick={handleScheduleTrial}>
             Назначить пробный
