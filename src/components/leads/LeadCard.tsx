@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Phone, Mail, Calendar, User, MapPin, BookOpen } from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 interface LeadCardProps {
   lead: any;
@@ -12,6 +14,21 @@ interface LeadCardProps {
 
 export const LeadCard = ({ lead, onUpdate }: LeadCardProps) => {
   const fullName = `${lead.first_name} ${lead.last_name}`;
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleOpen = () => {
+    // Открываем карточку студента в CRM
+    navigate(`/newcrm?student=${lead.id}`);
+  };
+
+  const handleScheduleTrial = () => {
+    toast({
+      title: "Пробное занятие",
+      description: `Назначение пробного занятия для ${fullName}`,
+    });
+    // TODO: Открыть модалку создания пробного занятия
+  };
   
   return (
     <Card className="hover:shadow-lg transition-shadow">
@@ -91,10 +108,10 @@ export const LeadCard = ({ lead, onUpdate }: LeadCardProps) => {
         )}
         
         <div className="flex gap-2 pt-2">
-          <Button size="sm" className="flex-1">
+          <Button size="sm" className="flex-1" onClick={handleOpen}>
             Открыть
           </Button>
-          <Button size="sm" variant="outline" className="flex-1">
+          <Button size="sm" variant="outline" className="flex-1" onClick={handleScheduleTrial}>
             Назначить пробный
           </Button>
         </div>
