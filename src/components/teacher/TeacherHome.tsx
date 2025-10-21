@@ -290,38 +290,6 @@ export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
           </div>
         </div>
 
-        {/* Информация о преподавателе */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Личная информация
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="border rounded-xl p-4">
-                <p className="text-sm text-text-secondary">ФИО</p>
-                <p className="font-medium text-text-primary">{teacher.last_name} {teacher.first_name}</p>
-              </div>
-              <div className="border rounded-xl p-4">
-                <p className="text-sm text-text-secondary">Филиал</p>
-                <p className="font-medium text-text-primary">{teacher.branch}</p>
-              </div>
-              <div className="border rounded-xl p-4">
-                <p className="text-sm text-text-secondary">Предметы</p>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {teacher.subjects?.map((subject: string) => (
-                    <Badge key={subject} variant="secondary">
-                      {subject}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Сегодняшние занятия */}
         <div className="card-elevated">
           <div className="mb-6">
