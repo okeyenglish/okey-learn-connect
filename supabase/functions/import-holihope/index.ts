@@ -27,7 +27,11 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { action } = await req.json();
+    const body = await req.json();
+    const { action } = body;
+    const maxPages = typeof body?.max_pages === 'number' ? Math.max(1, body.max_pages) : 1;
+    const bodyTake = typeof body?.take === 'number' ? body.take : undefined;
+    const bodySkip = typeof body?.skip === 'number' ? body.skip : undefined;
     
     const progress: ImportProgress[] = [];
 
@@ -229,8 +233,9 @@ Deno.serve(async (req) => {
       progress.push({ step: 'import_clients', status: 'in_progress' });
 
       try {
-        let skip = 0;
-        const take = 100;
+        let skip = typeof bodySkip === 'number' ? bodySkip : 0;
+        const take = typeof bodyTake === 'number' ? bodyTake : 100;
+        let pagesProcessed = 0;
         let totalClients = 0;
         const processedAgents = new Map(); // Track by phone/email to avoid duplicates
 
@@ -278,7 +283,7 @@ Deno.serve(async (req) => {
                 
                 const clientData = {
                   name: `${agent.LastName || ''} ${agent.FirstName || ''} ${agent.MiddleName || ''}`.trim() || 'Без имени',
-                  phone: phone,
+                  phone: null,
                   email: agent.EMail || null,
                   branch: student.OfficesAndCompanies?.[0]?.Name || 'Окская',
                   notes: [
@@ -313,14 +318,15 @@ Deno.serve(async (req) => {
               }
             }
           }
-          
+          pagesProcessed++;
           skip += take;
           if (students.length < take) break;
+          if (pagesProcessed >= maxPages) break;
         }
 
         progress[0].status = 'completed';
         progress[0].count = totalClients;
-        progress[0].message = `Imported ${totalClients} clients from student agents`;
+        progress[0].message = `Imported ${totalClients} clients from student agents. next_skip=${skip}`;
       } catch (error) {
         console.error('Error importing clients:', error);
         progress[0].status = 'error';
