@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Video, BookOpen, User, Clock, MapPin, BarChart3, AlertCircle, CheckCircle, TrendingUp, Bell } from 'lucide-react';
+import { Calendar, Video, BookOpen, User, Clock, MapPin, BarChart3, AlertCircle, CheckCircle, TrendingUp, Bell, Mail, Phone } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Teacher } from '@/hooks/useTeachers';
@@ -255,6 +255,40 @@ export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
           onOpenOnline={handleQuickOnline}
           onRequestSubstitution={() => setSubstitutionModal({ open: true, type: 'substitution' })}
         />
+
+        {/* Контактная информация */}
+        {(teacher.email || teacher.phone) && (
+          <div className="card-elevated">
+            <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2 mb-4">
+              <User className="h-5 w-5 text-brand" />
+              Контактная информация
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {teacher.email && (
+                <div className="flex items-start gap-3 p-4 border rounded-xl bg-surface">
+                  <Mail className="h-5 w-5 text-brand mt-0.5" />
+                  <div>
+                    <p className="text-sm text-text-secondary mb-1">Email</p>
+                    <a href={`mailto:${teacher.email}`} className="font-medium text-text-primary hover:text-brand transition-colors">
+                      {teacher.email}
+                    </a>
+                  </div>
+                </div>
+              )}
+              {teacher.phone && (
+                <div className="flex items-start gap-3 p-4 border rounded-xl bg-surface">
+                  <Phone className="h-5 w-5 text-brand mt-0.5" />
+                  <div>
+                    <p className="text-sm text-text-secondary mb-1">Телефон</p>
+                    <a href={`tel:${teacher.phone}`} className="font-medium text-text-primary hover:text-brand transition-colors">
+                      {teacher.phone}
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Мои группы и Индивидуальные */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
