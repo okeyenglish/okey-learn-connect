@@ -487,29 +487,51 @@ Deno.serve(async (req) => {
           }
 
           // Normalize and prepare leads; skip records without a valid phone
+          const extractRawPhone = (lead: any): string | null => {
+            const candidates: any[] = [
+              lead.phone,
+              lead.Phone,
+              lead.Mobile,
+              lead.mobile,
+              lead.contactPhone,
+              lead.ContactPhone,
+              Array.isArray(lead.phones) ? lead.phones[0] : null,
+              Array.isArray(lead.Phones) ? lead.Phones[0] : null,
+              lead?.Contact?.phone,
+              lead?.Contact?.Phone,
+              lead?.Client?.phone,
+              lead?.Client?.Phone,
+            ];
+            for (const c of candidates) {
+              if (c) return String(c);
+            }
+            return null;
+          };
+
           const normalizePhone = (p: any): string | null => {
             if (!p) return null;
             let s = String(p).replace(/\D/g, '');
             if (!s) return null;
             // Basic RU normalization: 8XXXXXXXXXX -> 7XXXXXXXXXX
             if (s.length === 11 && s.startsWith('8')) s = '7' + s.slice(1);
+            if (s.length === 10 && s.startsWith('9')) s = '7' + s; // local mobile without country
             return s.length >= 10 ? s : null;
           };
 
           let skippedNoPhone = 0;
           const leadsToInsert = leads.reduce((acc: any[], lead: any) => {
-            const phoneNorm = normalizePhone(lead.phone);
+            const phoneNorm = normalizePhone(extractRawPhone(lead));
             if (!phoneNorm) { skippedNoPhone++; return acc; }
             acc.push({
-              first_name: lead.firstName || '',
-              last_name: lead.lastName || '',
+              first_name: lead.firstName || lead.FirstName || '',
+              last_name: lead.lastName || lead.LastName || '',
               phone: phoneNorm,
-              email: lead.email || null,
-              age: lead.age || null,
-              subject: lead.subject || null,
-              level: lead.level || null,
-              branch: lead.location || lead.branch || 'Окская',
-              notes: lead.notes || lead.comment || null,
+              email: lead.email || lead.EMail || null,
+              age: lead.age || lead.Age || null,
+              subject: lead.subject || lead.Subject || null,
+              level: lead.level || lead.Level || null,
+              branch: lead.location || lead.Location || lead.branch || 'Окская',
+              notes: lead.notes || lead.comment || lead.Comment || null,
               status_id: statusId,
               lead_source_id: null,
               assigned_to: null,
