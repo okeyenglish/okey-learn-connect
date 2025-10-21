@@ -84,7 +84,13 @@ Deno.serve(async (req) => {
           throw new Error(`HTTP error ${response.status} at ${url} - body: ${text?.slice(0,300)}`);
         }
         
-        const locations = await response.json();
+        const responseData = await response.json();
+        console.log('API Response structure:', JSON.stringify(responseData).slice(0, 500));
+        
+        // Проверяем различные возможные структуры ответа
+        const locations = Array.isArray(responseData) 
+          ? responseData 
+          : (responseData?.data || responseData?.locations || responseData?.result || []);
         
         console.log(`Found ${locations.length} locations`);
 
