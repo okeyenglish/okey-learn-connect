@@ -19,7 +19,7 @@ export default function TeacherPortal() {
             </TabsContent>
 
             <TabsContent value="journal">
-              <TeacherJournal />
+              {teacher && <TeacherJournal teacher={teacher} />}
             </TabsContent>
 
             <TabsContent value="materials">
