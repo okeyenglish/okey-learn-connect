@@ -324,7 +324,7 @@ const CRMContent = () => {
   }, [pinnedLoading, pinnedModals, isManualModalOpen]);
 
   // Получаем активных студентов по занятиям (для расчета лидов)
-  const { data: activeGroupStudents = [] } = useQuery({
+  const { data: activeGroupStudents = [], isLoading: groupStudentsLoading } = useQuery({
     queryKey: ['active-group-students'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -335,7 +335,7 @@ const CRMContent = () => {
       return (data || []).map((gs: any) => gs.student_id as string);
     }
   });
-  const { data: activeIndividualLessons = [] } = useQuery({
+  const { data: activeIndividualLessons = [], isLoading: individualLessonsLoading } = useQuery({
     queryKey: ['active-individual-lessons'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -349,10 +349,12 @@ const CRMContent = () => {
   });
   const activeStudentIds = useMemo(() => new Set<string>([...activeGroupStudents, ...activeIndividualLessons]), [activeGroupStudents, activeIndividualLessons]);
 
-  // Menu counters
+  // Menu counters - вычисляем только после загрузки всех данных
   const tasksCount = allTasks?.length ?? 0;
   const unreadTotal = (threads || []).reduce((sum, t) => sum + (t.unread_count || 0), 0);
-  const leadsCount = (students || []).filter(s => !activeStudentIds.has(s.id)).length;
+  const leadsCount = studentsLoading || groupStudentsLoading || individualLessonsLoading 
+    ? 0 
+    : (students || []).filter(s => !activeStudentIds.has(s.id)).length;
   const studentsCount = students?.length ?? 0;
   
   console.log('Menu counters:', { 
