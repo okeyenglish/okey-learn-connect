@@ -7,6 +7,7 @@ import { TeacherMaterials } from '@/components/teacher/TeacherMaterials';
 import { TeacherSchedule } from '@/components/teacher/TeacherSchedule';
 import { TeacherSubstitutions } from '@/components/teacher/TeacherSubstitutions';
 import { TeacherProfile } from '@/components/teacher/TeacherProfile';
+import { TeacherChats } from '@/components/teacher/TeacherChats';
 
 export default function TeacherPortal() {
   return (
@@ -32,6 +33,10 @@ export default function TeacherPortal() {
 
             <TabsContent value="substitutions">
               {teacher && <TeacherSubstitutions teacher={teacher} />}
+            </TabsContent>
+
+            <TabsContent value="chats">
+              {teacher && <TeacherChats teacher={teacher} />}
             </TabsContent>
 
             <TabsContent value="profile">
