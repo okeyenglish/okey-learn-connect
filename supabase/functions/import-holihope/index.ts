@@ -223,18 +223,25 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Step 4: Import clients
+    // Step 4: Import clients (from student agents)
     if (action === 'import_clients') {
-      console.log('Importing clients...');
+      console.log('Importing clients from student agents...');
       progress.push({ step: 'import_clients', status: 'in_progress' });
 
       try {
         let skip = 0;
         const take = 100;
-        let allClients = [];
+        let totalClients = 0;
+        const processedAgents = new Map(); // Track by phone/email to avoid duplicates
+
+        const { data: orgData } = await supabase
+          .from('organizations')
+          .select('id')
+          .eq('name', "O'KEY ENGLISH")
+          .single();
 
         while (true) {
-          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetClients?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
+          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetStudents?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
@@ -247,60 +254,71 @@ Deno.serve(async (req) => {
           
           const responseData = await response.json();
           
-          // Normalize response - API may return {"Clients": [...]} or direct array
-          const clients = Array.isArray(responseData) 
+          // Normalize response - API may return {"Students": [...]} or direct array
+          const students = Array.isArray(responseData) 
             ? responseData 
-            : (responseData?.Clients || responseData?.clients || Object.values(responseData).find(val => Array.isArray(val)) || []);
+            : (responseData?.Students || responseData?.students || Object.values(responseData).find(val => Array.isArray(val)) || []);
           
-          if (!clients || clients.length === 0) break;
+          if (!students || students.length === 0) break;
           
-          allClients = allClients.concat(clients);
-          skip += take;
+          console.log(`Processing ${students.length} students for agents...`);
           
-          if (clients.length < take) break;
-        }
-
-        console.log(`Found ${allClients.length} clients`);
-
-        const { data: orgData } = await supabase
-          .from('organizations')
-          .select('id')
-          .eq('name', "O'KEY ENGLISH")
-          .single();
-
-        for (const client of allClients) {
-          const clientData = {
-            name: `${client.lastName || ''} ${client.firstName || ''}`.trim() || 'Без имени',
-            phone: client.phone || client.mobile || '',
-            email: client.email || null,
-            branch: client.location || 'Окская',
-            notes: client.comment || null,
-            organization_id: orgData?.id,
-            external_id: client.id?.toString(),
-          };
-
-          const { data: insertedClient, error } = await supabase
-            .from('clients')
-            .upsert(clientData, { onConflict: 'external_id' })
-            .select()
-            .single();
-
-          if (error) {
-            console.error(`Error importing client ${client.lastName}:`, error);
-          } else if (client.phone || client.mobile) {
-            // Add phone number
-            await supabase.from('client_phone_numbers').upsert({
-              client_id: insertedClient.id,
-              phone: client.phone || client.mobile,
-              is_primary: true,
-              is_whatsapp_enabled: true,
-            });
+          for (const student of students) {
+            // Process each agent (parent/contact) as a potential client
+            if (student.Agents && Array.isArray(student.Agents)) {
+              for (const agent of student.Agents) {
+                // Create unique key to avoid duplicates
+                const agentKey = agent.Mobile || agent.EMail || `${agent.FirstName}_${agent.LastName}`;
+                if (processedAgents.has(agentKey)) continue;
+                processedAgents.set(agentKey, true);
+                
+                const clientData = {
+                  name: `${agent.LastName || ''} ${agent.FirstName || ''} ${agent.MiddleName || ''}`.trim() || 'Без имени',
+                  phone: agent.Mobile || agent.Phone || null,
+                  email: agent.EMail || null,
+                  branch: student.OfficesAndCompanies?.[0]?.Name || 'Окская',
+                  notes: [
+                    agent.WhoIs ? `Отношение: ${agent.WhoIs}` : null,
+                    agent.JobOrStudyPlace ? `Место работы: ${agent.JobOrStudyPlace}` : null,
+                    agent.Position ? `Должность: ${agent.Position}` : null,
+                    agent.IsCustomer ? 'Заказчик' : null
+                  ].filter(Boolean).join('; ') || null,
+                  organization_id: orgData?.id,
+                  external_id: `agent_${agentKey}`,
+                };
+                
+                const { data: insertedClient, error } = await supabase
+                  .from('clients')
+                  .upsert(clientData, { onConflict: 'external_id' })
+                  .select()
+                  .single();
+                
+                if (error) {
+                  console.error('Error importing client:', error);
+                } else {
+                  totalClients++;
+                  
+                  // Add phone number if available
+                  if (agent.Mobile) {
+                    await supabase.from('client_phone_numbers').upsert({
+                      client_id: insertedClient.id,
+                      phone: agent.Mobile,
+                      is_primary: true,
+                      is_whatsapp_enabled: agent.UseMobileBySystem || false,
+                    });
+                  }
+                }
+              }
+            }
           }
+          
+          skip += take;
+          if (students.length < take) break;
         }
 
         progress[0].status = 'completed';
-        progress[0].count = allClients.length;
-        progress[0].message = `Imported ${allClients.length} clients`;
+        progress[0].count = totalClients;
+        progress[0].message = `Imported ${totalClients} clients from student agents`;
       } catch (error) {
         console.error('Error importing clients:', error);
         progress[0].status = 'error';
