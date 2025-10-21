@@ -23,7 +23,7 @@ import { HomeworkModal } from '@/components/teacher/modals/HomeworkModal';
 import { QuickStartLessonModal } from '@/components/teacher/modals/QuickStartLessonModal';
 import { SubstitutionRequestModal } from '@/components/teacher/modals/SubstitutionRequestModal';
 import { KpiCard } from '@/components/teacher/ui/KpiCard';
-import { TodayLessonsSection } from '@/components/teacher/TodayLessonsSection';
+import { TodayDashboard } from '@/components/teacher/TodayDashboard';
 
 interface TeacherHomeProps {
   teacher: Teacher;
@@ -248,34 +248,18 @@ export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
           />
         </div>
 
-        {/* Занятия и быстрые действия */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Панель быстрых действий */}
-          <div className="lg:col-span-1">
-            <QuickActionsPanel
-              todayLessons={todayLessons || []}
-              onStartLesson={handleQuickStart}
-              onMarkAttendance={handleQuickAttendance}
-              onAddHomework={handleQuickHomework}
-              onOpenOnline={handleQuickOnline}
-              onRequestSubstitution={() => setSubstitutionModal({ open: true, type: 'substitution' })}
-            />
-          </div>
-
-          {/* Сегодняшние занятия с прогрессом */}
-          <div className="lg:col-span-2">
-            <TodayLessonsSection
-              todayLessons={todayLessons || []}
-              todayTotal={todayTotal}
-              todayCompleted={todayCompleted}
-              weekTotal={weekTotal}
-              onStartLesson={handleQuickStart}
-              onAttendance={handleQuickAttendance}
-              onHomework={handleQuickHomework}
-              onOpenOnline={handleQuickOnline}
-            />
-          </div>
-        </div>
+        {/* Объединенный блок: быстрые действия + сегодняшние занятия */}
+        <TodayDashboard
+          todayLessons={todayLessons || []}
+          todayTotal={todayTotal}
+          todayCompleted={todayCompleted}
+          weekTotal={weekTotal}
+          onStartLesson={handleQuickStart}
+          onAttendance={handleQuickAttendance}
+          onHomework={handleQuickHomework}
+          onOpenOnline={handleQuickOnline}
+          onRequestSubstitution={() => setSubstitutionModal({ open: true, type: 'substitution' })}
+        />
 
         {/* Мои группы и Индивидуальные */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
