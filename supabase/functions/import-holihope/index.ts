@@ -1223,16 +1223,19 @@ Deno.serve(async (req) => {
 
             // 2) Ensure mapping via select (fallback if upsert returned empty)
             const names = familyGroupsToCreate.map(fg => fg.name);
-            const { data: fetched, error: fetchErr } = await supabase
-              .from('family_groups')
-              .select('id, name')
-              .in('name', names)
-              .eq('organization_id', orgId);
-            if (fetchErr) {
-              console.error('family_groups select error:', fetchErr);
-            }
-            if (fetched) {
-              fetched.forEach(fg => familyGroupNameToIdMap.set(fg.name, fg.id));
+            const chunkSize = 50;
+            for (let i = 0; i < names.length; i += chunkSize) {
+              const chunk = names.slice(i, i + chunkSize);
+              const { data: fetchedChunk, error: fetchErr } = await supabase
+                .from('family_groups')
+                .select('id, name')
+                .in('name', chunk)
+                .eq('organization_id', orgId);
+              if (fetchErr) {
+                console.error('family_groups select error:', fetchErr);
+                continue;
+              }
+              fetchedChunk?.forEach(fg => familyGroupNameToIdMap.set(fg.name, fg.id));
             }
 
             // 3) Insert any missing names explicitly
