@@ -2543,7 +2543,6 @@ Deno.serve(async (req) => {
       progress.push({ step: 'import_ed_units', status: 'in_progress' });
 
       try {
-        // Step 1: Fetch all units without heavy nested data
         const now = new Date();
         const from = new Date(now);
         from.setDate(from.getDate() - 180); // 6 months back
@@ -2552,26 +2551,58 @@ Deno.serve(async (req) => {
         const dateFrom = from.toISOString().slice(0, 10);
         const dateTo = to.toISOString().slice(0, 10);
         
-        // Fetch basic info without heavy nested data
-        const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&queryDays=false&queryFiscalInfo=false&queryTeacherPrices=false&dateFrom=${dateFrom}&dateTo=${dateTo}`;
-        console.log(`Fetching educational units (basic info only)...`);
+        // Types from documentation: Group, MiniGroup, OpenLesson, Exam, Tour, Individual, TrialLesson
+        const types = ['Group', 'MiniGroup', 'Individual', 'OpenLesson', 'TrialLesson', 'Exam', 'Tour'];
         
-        const response = await fetch(apiUrl, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-        });
+        // First get list of branches
+        console.log('Fetching list of branches...');
+        const branchesUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&queryDays=false&queryFiscalInfo=false&queryTeacherPrices=false`;
+        const branchesResp = await fetch(branchesUrl, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
         
-        console.log(`Response status: ${response.status}`);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+        if (!branchesResp.ok) {
+          throw new Error(`Failed to fetch branches: ${branchesResp.status}`);
         }
         
-        const raw = await response.json();
-        const allUnits = Array.isArray(raw) 
-          ? raw 
-          : (raw?.EdUnits || raw?.EducationalUnits || raw?.Units || []);
+        const branchesRaw = await branchesResp.json();
+        const branchUnits = Array.isArray(branchesRaw) ? branchesRaw : (branchesRaw?.EdUnits || []);
+        const branches = [...new Set(branchUnits.map((u: any) => u.OfficeOrCompanyName).filter(Boolean))];
+        console.log(`Found ${branches.length} branches: ${branches.join(', ')}`);
+        
+        let allUnits: any[] = [];
+        let fetchedCount = 0;
+        
+        // Fetch units for each type + branch combination with full data
+        for (const type of types) {
+          for (const branch of branches) {
+            try {
+              const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&types=${encodeURIComponent(type)}&officeOrCompany=${encodeURIComponent(branch)}&queryDays=true&queryFiscalInfo=true&queryTeacherPrices=true&dateFrom=${dateFrom}&dateTo=${dateTo}`;
+              console.log(`Fetching ${type} units from ${branch}...`);
+              
+              const response = await fetch(apiUrl, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+              });
+              
+              if (!response.ok) {
+                console.warn(`Skipping ${type}/${branch}: HTTP ${response.status}`);
+                continue;
+              }
+              
+              const raw = await response.json();
+              const batch = Array.isArray(raw) ? raw : (raw?.EdUnits || []);
+              
+              if (batch.length > 0) {
+                allUnits = allUnits.concat(batch);
+                fetchedCount += batch.length;
+                console.log(`Fetched ${batch.length} ${type} units from ${branch} (total: ${fetchedCount})`);
+              }
+            } catch (err) {
+              console.error(`Error fetching ${type}/${branch}:`, err);
+              // Continue with next combination
+            }
+          }
+        }
+        
         console.log(`Total units fetched: ${allUnits.length}`);
         
         let importedCount = 0;
