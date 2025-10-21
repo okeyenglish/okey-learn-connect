@@ -1006,7 +1006,20 @@ Deno.serve(async (req) => {
         });
         
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const statuses = await response.json();
+        const responseData = await response.json();
+        
+        // Normalize response structure
+        let statuses: any[] = [];
+        if (Array.isArray(responseData)) {
+          statuses = responseData;
+        } else if (Array.isArray(responseData?.Statuses)) {
+          statuses = responseData.Statuses;
+        } else if (Array.isArray(responseData?.statuses)) {
+          statuses = responseData.statuses;
+        } else if (responseData && typeof responseData === 'object') {
+          const firstArray = Object.values(responseData).find((v) => Array.isArray(v)) as any[] | undefined;
+          if (firstArray) statuses = firstArray;
+        }
         
         return new Response(JSON.stringify({
           preview: true,
@@ -1037,7 +1050,20 @@ Deno.serve(async (req) => {
         });
         
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const statuses = await response.json();
+        const responseData = await response.json();
+        
+        // Normalize response structure
+        let statuses: any[] = [];
+        if (Array.isArray(responseData)) {
+          statuses = responseData;
+        } else if (Array.isArray(responseData?.Statuses)) {
+          statuses = responseData.Statuses;
+        } else if (Array.isArray(responseData?.statuses)) {
+          statuses = responseData.statuses;
+        } else if (responseData && typeof responseData === 'object') {
+          const firstArray = Object.values(responseData).find((v) => Array.isArray(v)) as any[] | undefined;
+          if (firstArray) statuses = firstArray;
+        }
         
         const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
         
@@ -1078,7 +1104,20 @@ Deno.serve(async (req) => {
         });
         
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const statuses = await response.json();
+        const responseData = await response.json();
+        
+        // Normalize response structure
+        let statuses: any[] = [];
+        if (Array.isArray(responseData)) {
+          statuses = responseData;
+        } else if (Array.isArray(responseData?.Statuses)) {
+          statuses = responseData.Statuses;
+        } else if (Array.isArray(responseData?.statuses)) {
+          statuses = responseData.statuses;
+        } else if (responseData && typeof responseData === 'object') {
+          const firstArray = Object.values(responseData).find((v) => Array.isArray(v)) as any[] | undefined;
+          if (firstArray) statuses = firstArray;
+        }
         
         return new Response(JSON.stringify({
           preview: true,
@@ -1109,7 +1148,20 @@ Deno.serve(async (req) => {
         });
         
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const statuses = await response.json();
+        const responseData = await response.json();
+        
+        // Normalize response structure
+        let statuses: any[] = [];
+        if (Array.isArray(responseData)) {
+          statuses = responseData;
+        } else if (Array.isArray(responseData?.Statuses)) {
+          statuses = responseData.Statuses;
+        } else if (Array.isArray(responseData?.statuses)) {
+          statuses = responseData.statuses;
+        } else if (responseData && typeof responseData === 'object') {
+          const firstArray = Object.values(responseData).find((v) => Array.isArray(v)) as any[] | undefined;
+          if (firstArray) statuses = firstArray;
+        }
         
         const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
         
@@ -1150,7 +1202,20 @@ Deno.serve(async (req) => {
         });
         
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const types = await response.json();
+        const responseData = await response.json();
+        
+        // Normalize response structure
+        let types: any[] = [];
+        if (Array.isArray(responseData)) {
+          types = responseData;
+        } else if (Array.isArray(responseData?.Types)) {
+          types = responseData.Types;
+        } else if (Array.isArray(responseData?.types)) {
+          types = responseData.types;
+        } else if (responseData && typeof responseData === 'object') {
+          const firstArray = Object.values(responseData).find((v) => Array.isArray(v)) as any[] | undefined;
+          if (firstArray) types = firstArray;
+        }
         
         return new Response(JSON.stringify({
           preview: true,
@@ -1181,7 +1246,20 @@ Deno.serve(async (req) => {
         });
         
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const types = await response.json();
+        const responseData = await response.json();
+        
+        // Normalize response structure
+        let types: any[] = [];
+        if (Array.isArray(responseData)) {
+          types = responseData;
+        } else if (Array.isArray(responseData?.Types)) {
+          types = responseData.Types;
+        } else if (Array.isArray(responseData?.types)) {
+          types = responseData.types;
+        } else if (responseData && typeof responseData === 'object') {
+          const firstArray = Object.values(responseData).find((v) => Array.isArray(v)) as any[] | undefined;
+          if (firstArray) types = firstArray;
+        }
         
         const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
         
