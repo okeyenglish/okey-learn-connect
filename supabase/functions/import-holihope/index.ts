@@ -2677,21 +2677,6 @@ Deno.serve(async (req) => {
           const unitType = unit.Type || unit.type || 'Group';
           typeStats[unitType] = (typeStats[unitType] || 0) + 1;
           
-          // Get primary teacher from first schedule item
-          let teacherId = null;
-          if (unit.ScheduleItems && unit.ScheduleItems.length > 0) {
-            const firstSchedule = unit.ScheduleItems[0];
-            const teacherExternalId = firstSchedule.TeacherIds?.[0];
-            if (teacherExternalId) {
-              const { data: teacher } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('external_id', teacherExternalId.toString())
-                .single();
-              teacherId = teacher?.id;
-            }
-          }
-          
           // Extract schedule info from ScheduleItems
           let scheduleDays = null;
           let scheduleTime = null;
@@ -2706,25 +2691,57 @@ Deno.serve(async (req) => {
             scheduleRoom = firstSchedule.ClassroomName || firstSchedule.ClassroomLink || null;
           }
           
-          await supabase.from('educational_units').upsert({
-            name: unit.Name || 'Без названия',
-            unit_type: unitType,
-            branch: unit.OfficeOrCompanyName || 'Окская',
-            subject: unit.Discipline || null,
-            level: unit.Level || null,
-            teacher_id: teacherId,
-            status: 'active', // Holihope doesn't provide status, default to active
-            start_date: unit.ScheduleItems?.[0]?.BeginDate || null,
-            end_date: unit.ScheduleItems?.[0]?.EndDate || null,
-            max_students: (unit.StudentsCount || 0) + (unit.Vacancies || 0),
-            schedule_days: scheduleDays,
-            schedule_time: scheduleTime,
-            schedule_room: scheduleRoom,
-            price: unit.FiscalInfo?.PriceValue || null,
-            description: unit.Description || null,
-            organization_id: orgId,
-            external_id: unit.Id?.toString(),
-          }, { onConflict: 'external_id' });
+          // Import based on unit type
+          if (unitType === 'Individual') {
+            // Import as individual_lessons (student will be linked in step 13)
+            // Note: student_name will be updated when linking students
+            await supabase.from('individual_lessons').upsert({
+              student_name: unit.Name || 'Без названия',
+              branch: unit.OfficeOrCompanyName || 'Окская',
+              subject: unit.Discipline || 'Английский',
+              level: unit.Level || 'A1',
+              category: 'all',
+              lesson_type: 'individual',
+              status: 'active',
+              teacher_name: unit.ScheduleItems?.[0]?.TeacherName || null,
+              schedule_days: scheduleDays ? [scheduleDays] : null,
+              schedule_time: scheduleTime,
+              lesson_location: scheduleRoom,
+              period_start: unit.ScheduleItems?.[0]?.BeginDate || null,
+              period_end: unit.ScheduleItems?.[0]?.EndDate || null,
+              price_per_lesson: unit.FiscalInfo?.PriceValue || null,
+              description: unit.Description || null,
+              organization_id: orgId,
+              external_id: unit.Id?.toString(),
+            }, { onConflict: 'external_id' });
+          } else {
+            // Import as learning_groups (Group, MiniGroup, etc.)
+            const groupType = unitType === 'MiniGroup' ? 'mini' : 'general';
+            const maxStudents = (unit.StudentsCount || 0) + (unit.Vacancies || 0);
+            
+            await supabase.from('learning_groups').upsert({
+              name: unit.Name || 'Без названия',
+              branch: unit.OfficeOrCompanyName || 'Окская',
+              subject: unit.Discipline || 'Английский',
+              level: unit.Level || 'A1',
+              category: 'all',
+              group_type: groupType,
+              status: 'working',
+              payment_method: 'per_lesson',
+              capacity: maxStudents > 0 ? maxStudents : 12,
+              current_students: unit.StudentsCount || 0,
+              responsible_teacher: unit.ScheduleItems?.[0]?.TeacherName || null,
+              schedule_days: scheduleDays ? [scheduleDays] : null,
+              schedule_time: scheduleTime,
+              schedule_room: scheduleRoom,
+              period_start: unit.ScheduleItems?.[0]?.BeginDate || null,
+              period_end: unit.ScheduleItems?.[0]?.EndDate || null,
+              default_price: unit.FiscalInfo?.PriceValue || null,
+              description: unit.Description || null,
+              organization_id: orgId,
+              external_id: unit.Id?.toString(),
+            }, { onConflict: 'external_id' });
+          }
           importedCount++;
         }
         
@@ -2810,7 +2827,7 @@ Deno.serve(async (req) => {
 
     // Import: Ed Unit Students
     if (action === 'import_ed_unit_students') {
-      console.log('Importing ed unit students...');
+      console.log('Importing ed unit students (linking with groups and individual lessons)...');
       progress.push({ step: 'import_ed_unit_students', status: 'in_progress' });
 
       try {
@@ -2834,30 +2851,83 @@ Deno.serve(async (req) => {
           if (links.length < take) break;
         }
         
-        let importedCount = 0;
+        let groupLinksCount = 0;
+        let individualLinksCount = 0;
+        let skippedCount = 0;
+        
         for (const link of allLinks) {
-          const { data: edUnit } = await supabase.from('educational_units').select('id').eq('external_id', link.edUnitId?.toString()).single();
-          if (!edUnit) continue;
+          const edUnitExternalId = link.edUnitId?.toString();
+          if (!edUnitExternalId) {
+            skippedCount++;
+            continue;
+          }
           
-          const { data: student } = await supabase.from('students').select('id').eq('external_id', link.studentId?.toString()).single();
-          if (!student) continue;
+          // Find student
+          const { data: student } = await supabase
+            .from('students')
+            .select('id, client_id')
+            .eq('external_id', link.studentId?.toString())
+            .maybeSingle();
           
-          await supabase.from('ed_unit_students').upsert({
-            ed_unit_id: edUnit.id,
-            student_id: student.id,
-            enrollment_date: link.enrollmentDate || new Date().toISOString().split('T')[0],
-            exit_date: link.exitDate || null,
-            status: link.status || 'active',
-            notes: link.notes || null,
-            organization_id: orgId,
-            external_id: link.id?.toString(),
-          }, { onConflict: 'external_id' });
-          importedCount++;
+          if (!student) {
+            skippedCount++;
+            continue;
+          }
+          
+          // Try to find in learning_groups first
+          const { data: learningGroup } = await supabase
+            .from('learning_groups')
+            .select('id, name')
+            .eq('external_id', edUnitExternalId)
+            .maybeSingle();
+          
+          if (learningGroup) {
+            // Link student to group via group_students
+            await supabase.from('group_students').upsert({
+              group_id: learningGroup.id,
+              student_id: student.id,
+              enrollment_date: link.enrollmentDate || new Date().toISOString().split('T')[0],
+              exit_date: link.exitDate || null,
+              status: link.status === 'Inactive' ? 'inactive' : 'active',
+              notes: link.notes || null,
+            }, { onConflict: 'group_id,student_id' });
+            groupLinksCount++;
+            continue;
+          }
+          
+          // Try to find in individual_lessons
+          const { data: individualLesson } = await supabase
+            .from('individual_lessons')
+            .select('id, student_name')
+            .eq('external_id', edUnitExternalId)
+            .maybeSingle();
+          
+          if (individualLesson) {
+            // Update individual_lesson with student_id
+            const { data: clientData } = await supabase
+              .from('clients')
+              .select('name')
+              .eq('id', student.client_id)
+              .maybeSingle();
+            
+            await supabase
+              .from('individual_lessons')
+              .update({
+                student_id: student.id,
+                student_name: clientData?.name || individualLesson.student_name,
+              })
+              .eq('id', individualLesson.id);
+            individualLinksCount++;
+            continue;
+          }
+          
+          // Educational unit not found
+          skippedCount++;
         }
         
         progress[0].status = 'completed';
-        progress[0].count = importedCount;
-        progress[0].message = `Imported ${importedCount} ed unit-student links`;
+        progress[0].count = groupLinksCount + individualLinksCount;
+        progress[0].message = `Linked ${groupLinksCount} students to groups, ${individualLinksCount} to individual lessons (skipped ${skippedCount})`;
       } catch (error) {
         console.error('Error importing ed unit students:', error);
         progress[0].status = 'error';
