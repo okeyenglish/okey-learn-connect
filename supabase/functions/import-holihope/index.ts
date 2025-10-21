@@ -16,6 +16,8 @@ interface ImportProgress {
   count?: number;
   message?: string;
   error?: string;
+  hasMore?: boolean;
+  nextSkip?: number;
 }
 
 Deno.serve(async (req) => {
@@ -413,11 +415,15 @@ Deno.serve(async (req) => {
         const statusId = newStatus.id;
         console.log(`Using status_id: ${statusId} for new leads`);
 
-        let skip = 0;
-        const take = 100;
+        let skip = (body?.skip ?? 0);
+        const take = (body?.take ?? 100);
         let totalLeadsImported = 0;
         let totalFamilyLinksCreated = 0;
         let totalSkippedNoPhone = 0;
+        const batchMode = !!body?.batch_mode;
+        const maxBatches = Number.isFinite(body?.max_batches) ? body?.max_batches : 1;
+        let batchesProcessed = 0;
+        let lastBatchSize = 0;
 
         // Process leads in batches to avoid CPU timeout
         while (true) {
@@ -445,6 +451,7 @@ Deno.serve(async (req) => {
             console.log('No more leads to process');
             break;
           }
+          lastBatchSize = leads.length;
           
           if (skip === 0) {
             try {
@@ -900,16 +907,27 @@ Deno.serve(async (req) => {
           skip += take;
           
           // Break if we got fewer leads than requested (last page)
-          if (leads.length < take) {
+          if (lastBatchSize < take) {
             console.log('Reached last page of leads');
             break;
+          }
+          
+          // In batch mode, stop after the configured number of batches
+          if (batchMode) {
+            batchesProcessed++;
+            if (batchesProcessed >= maxBatches) {
+              console.log('Batch mode limit reached');
+              break;
+            }
           }
         }
 
         progress[0].status = 'completed';
         progress[0].count = totalLeadsImported;
         progress[0].message = `Imported ${totalLeadsImported} leads (${totalFamilyLinksCreated} linked to parents, skipped ${totalSkippedNoPhone} without phone)`;
-        console.log(`Import complete: ${totalLeadsImported} leads, ${totalFamilyLinksCreated} family links, skipped ${totalSkippedNoPhone} without phone`);
+        progress[0].hasMore = batchMode ? (lastBatchSize === take) : false;
+        progress[0].nextSkip = skip;
+        console.log(`Import complete: ${totalLeadsImported} leads, ${totalFamilyLinksCreated} family links, skipped ${totalSkippedNoPhone} without phone. hasMore=${progress[0].hasMore}, nextSkip=${progress[0].nextSkip}`);
       } catch (error) {
         console.error('Error importing leads:', error);
         progress[0].status = 'error';
