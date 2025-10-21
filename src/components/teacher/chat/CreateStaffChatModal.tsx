@@ -40,13 +40,14 @@ export const CreateStaffChatModal = ({ open, onOpenChange, teacher }: CreateStaf
         throw new Error('Заполните все поля');
       }
 
+      // Создаем уникальный идентификатор чата для преподавателя
       const { error } = await supabase
         .from('clients')
         .insert([{
-          name: `${role} - ${chatName} (преп. ${teacher.last_name})`,
-          phone: '-',
+          name: `${role}: ${chatName} (преп. ${teacher.last_name} ${teacher.first_name})`,
+          phone: chatName.replace(/\s/g, '').substring(0, 15) || '-',
           branch: teacher.branch,
-          notes: `Чат с преподавателем ${teacher.last_name} ${teacher.first_name}`
+          notes: `Чат преподавателя ${teacher.last_name} ${teacher.first_name} с ${role.toLowerCase()}ом ${chatName}`
         }]);
 
       if (error) throw error;
