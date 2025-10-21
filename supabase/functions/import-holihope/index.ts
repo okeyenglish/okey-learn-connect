@@ -2831,27 +2831,31 @@ Deno.serve(async (req) => {
       progress.push({ step: 'import_ed_unit_students', status: 'in_progress' });
 
       try {
-        let skip = 0;
+        const batchMode = body.batch_mode === true;
+        const skipParam = body.skip || 0;
         const take = 100;
-        let allLinks = [];
 
-        console.log('Fetching all ed unit student links from Holihope...');
-        while (true) {
-          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetEdUnitStudents?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
+        console.log(`Fetching ed unit student links (batch_mode=${batchMode}, skip=${skipParam})...`);
+        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetEdUnitStudents?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skipParam}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const links = await response.json();
+        
+        if (!links || links.length === 0) {
+          progress[0].status = 'completed';
+          progress[0].count = 0;
+          progress[0].message = 'No more links to process';
+          progress[0].hasMore = false;
+          return new Response(JSON.stringify({ progress }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
-          
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-          const links = await response.json();
-          
-          if (!links || links.length === 0) break;
-          allLinks = allLinks.concat(links);
-          console.log(`Fetched ${allLinks.length} links so far...`);
-          
-          skip += take;
-          if (links.length < take) break;
         }
+        
+        console.log(`Fetched ${links.length} links from Holihope`);
+        const allLinks = links;
         
         console.log(`Total links fetched: ${allLinks.length}`);
         
@@ -2993,6 +2997,8 @@ Deno.serve(async (req) => {
         progress[0].status = 'completed';
         progress[0].count = groupLinksCount + individualLinksCount;
         progress[0].message = `Linked ${groupLinksCount} students to groups, ${individualLinksCount} to individual lessons (skipped ${skippedCount}: no edUnitId=${skippedReasons.noEdUnitId}, student not found=${skippedReasons.studentNotFound}, edUnit not found=${skippedReasons.edUnitNotFound})`;
+        progress[0].hasMore = batchMode && links.length === take;
+        progress[0].nextSkip = skipParam + links.length;
       } catch (error) {
         console.error('Error importing ed unit students:', error);
         progress[0].status = 'error';

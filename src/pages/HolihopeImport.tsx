@@ -116,8 +116,8 @@ export default function HolihopeImport() {
 
     try {
       for (const step of steps) {
-        // For leads/students, use batch mode with skip
-        if (step.action === 'import_leads' || step.action === 'import_students') {
+        // For leads/students/ed_unit_students, use batch mode with skip
+        if (step.action === 'import_leads' || step.action === 'import_students' || step.action === 'import_ed_unit_students') {
           let skip = 0;
           let totalImported = 0;
           let hasMore = true;
@@ -231,8 +231,8 @@ export default function HolihopeImport() {
   const runSingleStep = async (step: ImportStep) => {
     setIsImporting(true);
     
-    // For leads/students, use batch mode with skip
-    if (step.action === 'import_leads' || step.action === 'import_students') {
+    // For leads/students/ed_unit_students, use batch mode with skip
+    if (step.action === 'import_leads' || step.action === 'import_students' || step.action === 'import_ed_unit_students') {
       let skip = 0;
       let totalImported = 0;
       let hasMore = true;
