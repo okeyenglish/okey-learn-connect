@@ -526,12 +526,42 @@ Deno.serve(async (req) => {
             external_id: student.id?.toString(),
           };
 
-          const { error } = await supabase
+          const { data: insertedStudent, error } = await supabase
             .from('students')
-            .upsert(studentData, { onConflict: 'external_id' });
+            .upsert(studentData, { onConflict: 'external_id' })
+            .select()
+            .single();
 
           if (error) {
             console.error(`Error importing student ${student.lastName}:`, error);
+          } else if (insertedStudent) {
+            // Import Agents (contact persons)
+            if (student.Agents && Array.isArray(student.Agents)) {
+              for (const agent of student.Agents) {
+                await supabase.from('student_agents').upsert({
+                  student_id: insertedStudent.id,
+                  name: `${agent.lastName || ''} ${agent.firstName || ''}`.trim() || 'Контакт',
+                  relationship: agent.relation || null,
+                  phone: agent.phone || null,
+                  email: agent.email || null,
+                  is_primary: agent.isPrimary || false,
+                  organization_id: orgData?.id,
+                  external_id: agent.id?.toString(),
+                }, { onConflict: 'external_id' });
+              }
+            }
+
+            // Import ExtraFields (custom fields)
+            if (student.ExtraFields && Array.isArray(student.ExtraFields)) {
+              for (const field of student.ExtraFields) {
+                await supabase.from('student_extra_fields').upsert({
+                  student_id: insertedStudent.id,
+                  field_name: field.name || 'custom_field',
+                  field_value: field.value || null,
+                  organization_id: orgData?.id,
+                }, { onConflict: 'student_id,field_name' });
+              }
+            }
           }
         }
 
@@ -811,6 +841,412 @@ Deno.serve(async (req) => {
 
     // ==================== NEW IMPORT BLOCKS ====================
     
+    // Preview: Client Statuses
+    if (action === 'preview_client_statuses') {
+      console.log('Previewing client statuses...');
+      try {
+        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetClientStatuses?authkey=${HOLIHOPE_API_KEY}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const statuses = await response.json();
+        
+        return new Response(JSON.stringify({
+          preview: true,
+          total: statuses.length,
+          sample: statuses.slice(0, 20),
+          mapping: { "id": "external_id", "name": "name" },
+          entityType: "client_statuses"
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500
+        });
+      }
+    }
+
+    // Import: Client Statuses
+    if (action === 'import_client_statuses') {
+      console.log('Importing client statuses...');
+      progress.push({ step: 'import_client_statuses', status: 'in_progress' });
+
+      try {
+        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetClientStatuses?authkey=${HOLIHOPE_API_KEY}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const statuses = await response.json();
+        
+        const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
+        
+        let importedCount = 0;
+        for (const status of statuses) {
+          await supabase.from('client_statuses').upsert({
+            name: status.name || status.Name || 'Без названия',
+            description: status.description || null,
+            is_active: status.isActive !== false,
+            sort_order: status.order || status.Order || 0,
+            organization_id: orgData?.id,
+            external_id: status.id?.toString() || status.Id?.toString(),
+          }, { onConflict: 'external_id' });
+          importedCount++;
+        }
+        
+        progress[0].status = 'completed';
+        progress[0].count = importedCount;
+        progress[0].message = `Imported ${importedCount} client statuses`;
+      } catch (error) {
+        console.error('Error importing client statuses:', error);
+        progress[0].status = 'error';
+        progress[0].error = error.message;
+      }
+
+      return new Response(JSON.stringify({ progress }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Preview: Lead Statuses
+    if (action === 'preview_lead_statuses') {
+      console.log('Previewing lead statuses...');
+      try {
+        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetLeadStatuses?authkey=${HOLIHOPE_API_KEY}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const statuses = await response.json();
+        
+        return new Response(JSON.stringify({
+          preview: true,
+          total: statuses.length,
+          sample: statuses.slice(0, 20),
+          mapping: { "id": "external_id", "name": "name" },
+          entityType: "lead_statuses"
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500
+        });
+      }
+    }
+
+    // Import: Lead Statuses
+    if (action === 'import_lead_statuses') {
+      console.log('Importing lead statuses...');
+      progress.push({ step: 'import_lead_statuses', status: 'in_progress' });
+
+      try {
+        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetLeadStatuses?authkey=${HOLIHOPE_API_KEY}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const statuses = await response.json();
+        
+        const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
+        
+        let importedCount = 0;
+        for (const status of statuses) {
+          await supabase.from('lead_statuses').upsert({
+            name: status.name || status.Name || 'Без названия',
+            description: status.description || null,
+            is_active: status.isActive !== false,
+            sort_order: status.order || status.Order || 0,
+            organization_id: orgData?.id,
+            external_id: status.id?.toString() || status.Id?.toString(),
+          }, { onConflict: 'external_id' });
+          importedCount++;
+        }
+        
+        progress[0].status = 'completed';
+        progress[0].count = importedCount;
+        progress[0].message = `Imported ${importedCount} lead statuses`;
+      } catch (error) {
+        console.error('Error importing lead statuses:', error);
+        progress[0].status = 'error';
+        progress[0].error = error.message;
+      }
+
+      return new Response(JSON.stringify({ progress }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Preview: Learning Types
+    if (action === 'preview_learning_types') {
+      console.log('Previewing learning types...');
+      try {
+        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetLearningTypes?authkey=${HOLIHOPE_API_KEY}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const types = await response.json();
+        
+        return new Response(JSON.stringify({
+          preview: true,
+          total: types.length,
+          sample: types.slice(0, 20),
+          mapping: { "id": "external_id", "name": "name" },
+          entityType: "learning_types"
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500
+        });
+      }
+    }
+
+    // Import: Learning Types
+    if (action === 'import_learning_types') {
+      console.log('Importing learning types...');
+      progress.push({ step: 'import_learning_types', status: 'in_progress' });
+
+      try {
+        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetLearningTypes?authkey=${HOLIHOPE_API_KEY}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const types = await response.json();
+        
+        const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
+        
+        let importedCount = 0;
+        for (const type of types) {
+          await supabase.from('learning_types').upsert({
+            name: type.name || type.Name || 'Без названия',
+            description: type.description || null,
+            is_active: type.isActive !== false,
+            sort_order: type.order || type.Order || 0,
+            organization_id: orgData?.id,
+            external_id: type.id?.toString() || type.Id?.toString(),
+          }, { onConflict: 'external_id' });
+          importedCount++;
+        }
+        
+        progress[0].status = 'completed';
+        progress[0].count = importedCount;
+        progress[0].message = `Imported ${importedCount} learning types`;
+      } catch (error) {
+        console.error('Error importing learning types:', error);
+        progress[0].status = 'error';
+        progress[0].error = error.message;
+      }
+
+      return new Response(JSON.stringify({ progress }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Preview: Entrance Tests
+    if (action === 'preview_entrance_tests') {
+      console.log('Previewing entrance tests...');
+      try {
+        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetEntranceTests?authkey=${HOLIHOPE_API_KEY}&take=20&skip=0`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const tests = await response.json();
+        
+        return new Response(JSON.stringify({
+          preview: true,
+          total: tests.length,
+          sample: tests.slice(0, 20),
+          mapping: { "studentId/leadId": "student_id/lead_id", "assignedLevel": "assigned_level" },
+          entityType: "entrance_tests"
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500
+        });
+      }
+    }
+
+    // Import: Entrance Tests
+    if (action === 'import_entrance_tests') {
+      console.log('Importing entrance tests...');
+      progress.push({ step: 'import_entrance_tests', status: 'in_progress' });
+
+      try {
+        let skip = 0;
+        const take = 100;
+        let allTests = [];
+
+        while (true) {
+          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetEntranceTests?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          const tests = await response.json();
+          
+          if (!tests || tests.length === 0) break;
+          allTests = allTests.concat(tests);
+          
+          skip += take;
+          if (tests.length < take) break;
+        }
+        
+        const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
+        
+        let importedCount = 0;
+        for (const test of allTests) {
+          let studentId = null;
+          if (test.studentId) {
+            const { data: student } = await supabase.from('students').select('id').eq('external_id', test.studentId.toString()).single();
+            studentId = student?.id;
+          }
+          
+          let teacherId = null;
+          if (test.teacherId) {
+            const { data: teacher } = await supabase.from('teachers').select('id').eq('external_id', test.teacherId.toString()).single();
+            teacherId = teacher?.id;
+          }
+          
+          await supabase.from('entrance_tests').upsert({
+            student_id: studentId,
+            lead_id: test.leadId || null,
+            test_date: test.testDate || new Date().toISOString().split('T')[0],
+            assigned_level: test.assignedLevel || test.level || null,
+            teacher_id: teacherId,
+            comments: test.comments || null,
+            organization_id: orgData?.id,
+            external_id: test.id?.toString(),
+          }, { onConflict: 'external_id' });
+          importedCount++;
+        }
+        
+        progress[0].status = 'completed';
+        progress[0].count = importedCount;
+        progress[0].message = `Imported ${importedCount} entrance tests`;
+      } catch (error) {
+        console.error('Error importing entrance tests:', error);
+        progress[0].status = 'error';
+        progress[0].error = error.message;
+      }
+
+      return new Response(JSON.stringify({ progress }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Preview: Online Test Results
+    if (action === 'preview_online_tests') {
+      console.log('Previewing online tests...');
+      try {
+        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetOnlineTestResults?authkey=${HOLIHOPE_API_KEY}&take=20&skip=0`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const tests = await response.json();
+        
+        return new Response(JSON.stringify({
+          preview: true,
+          total: tests.length,
+          sample: tests.slice(0, 20),
+          mapping: { "studentId": "student_id", "testName": "test_name", "score": "score" },
+          entityType: "online_test_results"
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500
+        });
+      }
+    }
+
+    // Import: Online Test Results
+    if (action === 'import_online_tests') {
+      console.log('Importing online test results...');
+      progress.push({ step: 'import_online_tests', status: 'in_progress' });
+
+      try {
+        let skip = 0;
+        const take = 100;
+        let allTests = [];
+
+        while (true) {
+          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetOnlineTestResults?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          const tests = await response.json();
+          
+          if (!tests || tests.length === 0) break;
+          allTests = allTests.concat(tests);
+          
+          skip += take;
+          if (tests.length < take) break;
+        }
+        
+        const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
+        
+        let importedCount = 0;
+        for (const test of allTests) {
+          const { data: student } = await supabase.from('students').select('id').eq('external_id', test.studentId?.toString()).single();
+          if (!student) continue;
+          
+          await supabase.from('online_test_results').upsert({
+            student_id: student.id,
+            test_name: test.testName || 'Онлайн-тест',
+            test_date: test.testDate || new Date().toISOString().split('T')[0],
+            score: test.score || null,
+            max_score: test.maxScore || null,
+            percentage: test.percentage || null,
+            passed: test.passed || false,
+            time_spent_minutes: test.timeSpent || null,
+            comments: test.comments || null,
+            organization_id: orgData?.id,
+            external_id: test.id?.toString(),
+          }, { onConflict: 'external_id' });
+          importedCount++;
+        }
+        
+        progress[0].status = 'completed';
+        progress[0].count = importedCount;
+        progress[0].message = `Imported ${importedCount} online test results`;
+      } catch (error) {
+        console.error('Error importing online test results:', error);
+        progress[0].status = 'error';
+        progress[0].error = error.message;
+      }
+
+      return new Response(JSON.stringify({ progress }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     // Preview: Disciplines
     if (action === 'preview_disciplines') {
       console.log('Previewing disciplines...');

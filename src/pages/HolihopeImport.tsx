@@ -23,23 +23,28 @@ export default function HolihopeImport() {
   const [steps, setSteps] = useState<ImportStep[]>([
     { id: 'clear', name: '1. Архивация данных', description: 'Пометка существующих данных как неактивных', action: 'clear_data', status: 'pending' },
     { id: 'offices', name: '2. Филиалы', description: 'Импорт филиалов/офисов', action: 'import_locations', status: 'pending' },
-    { id: 'disciplines', name: '3. Дисциплины', description: 'Импорт языков/дисциплин', action: 'import_disciplines', status: 'pending' },
-    { id: 'levels', name: '4. Уровни', description: 'Импорт уровней обучения (A1-C2)', action: 'import_levels', status: 'pending' },
-    { id: 'employees', name: '5. Сотрудники', description: 'Импорт сотрудников офиса (кроме преподавателей)', action: 'import_employees', status: 'pending' },
-    { id: 'teachers', name: '6. Преподаватели', description: 'Импорт преподавателей', action: 'import_teachers', status: 'pending' },
-    { id: 'clients', name: '7. Клиенты', description: 'Импорт клиентов/родителей', action: 'import_clients', status: 'pending' },
-    { id: 'leads', name: '8. Лиды', description: 'Импорт лидов через GetLeads', action: 'import_leads', status: 'pending' },
-    { id: 'students', name: '9. Ученики', description: 'Импорт активных и архивных учеников', action: 'import_students', status: 'pending' },
-    { id: 'ed_units', name: '10. Учебные единицы', description: 'Импорт ВСЕХ типов (группы, индивидуальные, пробные и т.д.)', action: 'import_ed_units', status: 'pending' },
-    { id: 'ed_unit_students', name: '11. Связки ученик-группа', description: 'Импорт информации о том, кто в какой группе', action: 'import_ed_unit_students', status: 'pending' },
-    { id: 'schedule', name: '12. Расписание', description: 'Импорт занятий с темами и статусами', action: 'import_schedule', status: 'pending' },
-    { id: 'balances', name: '13. Балансы', description: 'Импорт текущих балансов учеников', action: 'import_balances', status: 'pending' },
-    { id: 'transactions', name: '14. Транзакции', description: 'Импорт поступлений и списаний', action: 'import_transactions', status: 'pending' },
-    { id: 'payments', name: '15. Платежи (legacy)', description: 'Импорт платежей через GetPayments', action: 'import_payments', status: 'pending' },
-    { id: 'academic_reports', name: '16. Отчеты об успеваемости', description: 'Импорт отчетов преподавателей', action: 'import_academic_reports', status: 'pending' },
-    { id: 'personal_tests', name: '17. Персональные тесты', description: 'Импорт результатов индивидуальных тестов', action: 'import_personal_tests', status: 'pending' },
-    { id: 'group_tests', name: '18. Групповые тесты', description: 'Импорт результатов групповых тестов', action: 'import_group_tests', status: 'pending' },
-    { id: 'lesson_plans', name: '19. Планы занятий', description: 'Импорт ДЗ и материалов (только текст и ссылки)', action: 'import_lesson_plans', status: 'pending' },
+    { id: 'client_statuses', name: '3. Статусы клиентов', description: 'Справочник статусов клиентов/учеников', action: 'import_client_statuses', status: 'pending' },
+    { id: 'lead_statuses', name: '4. Статусы лидов', description: 'Справочник статусов лидов', action: 'import_lead_statuses', status: 'pending' },
+    { id: 'disciplines', name: '5. Дисциплины', description: 'Импорт языков/дисциплин', action: 'import_disciplines', status: 'pending' },
+    { id: 'levels', name: '6. Уровни', description: 'Импорт уровней обучения (A1-C2)', action: 'import_levels', status: 'pending' },
+    { id: 'learning_types', name: '7. Типы обучения', description: 'Справочник типов обучения', action: 'import_learning_types', status: 'pending' },
+    { id: 'employees', name: '8. Сотрудники', description: 'Импорт сотрудников офиса', action: 'import_employees', status: 'pending' },
+    { id: 'teachers', name: '9. Преподаватели', description: 'Импорт преподавателей', action: 'import_teachers', status: 'pending' },
+    { id: 'clients', name: '10. Клиенты', description: 'Импорт клиентов/родителей', action: 'import_clients', status: 'pending' },
+    { id: 'leads', name: '11. Лиды', description: 'Импорт лидов через GetLeads', action: 'import_leads', status: 'pending' },
+    { id: 'students', name: '12. Ученики', description: 'Импорт учеников + контакты (Agents) + доп.поля', action: 'import_students', status: 'pending' },
+    { id: 'ed_units', name: '13. Учебные единицы', description: 'Импорт ВСЕХ типов (Group, MiniGroup, Individual и т.д.)', action: 'import_ed_units', status: 'pending' },
+    { id: 'ed_unit_students', name: '14. Связки ученик-группа', description: 'Информация о том, кто в какой группе', action: 'import_ed_unit_students', status: 'pending' },
+    { id: 'schedule', name: '15. Расписание', description: 'Импорт занятий с темами и статусами', action: 'import_schedule', status: 'pending' },
+    { id: 'entrance_tests', name: '16. Вступительные тесты', description: 'Результаты входных тестирований', action: 'import_entrance_tests', status: 'pending' },
+    { id: 'personal_tests', name: '17. Персональные тесты', description: 'Результаты индивидуальных тестов', action: 'import_personal_tests', status: 'pending' },
+    { id: 'group_tests', name: '18. Групповые тесты', description: 'Результаты групповых тестов', action: 'import_group_tests', status: 'pending' },
+    { id: 'online_tests', name: '19. Онлайн-тесты', description: 'Результаты онлайн-тестов', action: 'import_online_tests', status: 'pending' },
+    { id: 'academic_reports', name: '20. Отчеты об успеваемости', description: 'Отчеты преподавателей по месяцам', action: 'import_academic_reports', status: 'pending' },
+    { id: 'balances', name: '21. Балансы', description: 'Текущие балансы учеников', action: 'import_balances', status: 'pending' },
+    { id: 'transactions', name: '22. Транзакции', description: 'Поступления и списания по клиентам', action: 'import_transactions', status: 'pending' },
+    { id: 'payments', name: '23. Платежи (legacy)', description: 'Платежи через GetPayments', action: 'import_payments', status: 'pending' },
+    { id: 'lesson_plans', name: '24. Планы занятий', description: 'ДЗ и материалы (текст + ссылки)', action: 'import_lesson_plans', status: 'pending' },
   ]);
 
   const executeStep = async (step: ImportStep) => {
@@ -220,32 +225,30 @@ export default function HolihopeImport() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
             <AlertCircle className="h-5 w-5" />
-            Важная информация о лидах и учениках
+            Полный перенос CRM HolliHope
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
-          <div>
-            <h4 className="font-semibold mb-1 text-foreground">Лиды (Шаг 5):</h4>
-            <p className="text-muted-foreground">
-              Импортируются через API <code className="px-1 py-0.5 bg-muted rounded">GetLeads</code>. 
-              Это потенциальные ученики, которые <strong>никогда не начинали обучение</strong>.
-              В базе данных получают статус <code className="px-1 py-0.5 bg-muted rounded">status: 'lead'</code>.
-            </p>
-          </div>
-          
-          <div>
-            <h4 className="font-semibold mb-1 text-foreground">Ученики (Шаг 6):</h4>
-            <p className="text-muted-foreground">
-              Импортируются через API <code className="px-1 py-0.5 bg-muted rounded">GetStudents</code>. 
-              Это реальные ученики со статусами <code className="px-1 py-0.5 bg-muted rounded">'Active'</code> (активные) 
-              или <code className="px-1 py-0.5 bg-muted rounded">'Archived'</code> (архивные/завершившие обучение).
-            </p>
-          </div>
-
-          <div className="bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800 rounded p-3">
-            <p className="font-medium text-yellow-800 dark:text-yellow-200">
-              ⚠️ Порядок импорта критически важен: 
-              сначала <strong>Клиенты</strong>, затем <strong>Лиды</strong>, затем <strong>Ученики</strong>
+          <p className="text-muted-foreground">
+            Реализован <strong>полный перенос всех данных</strong> из CRM HolliHope согласно документации:
+          </p>
+          <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+            <li>Справочники: статусы, дисциплины, уровни, типы обучения</li>
+            <li>Сотрудники и преподаватели</li>
+            <li>Клиенты с контактными данными</li>
+            <li>Лиды и ученики (включая Agents - контактные лица, и ExtraFields - доп.поля)</li>
+            <li>Все типы учебных единиц: Group, MiniGroup, Individual, TrialLesson, OpenLesson, Exam, Tour</li>
+            <li>Связи ученик-группа и расписание занятий</li>
+            <li>Все виды тестов: вступительные, персональные, групповые, онлайн</li>
+            <li>Отчеты об успеваемости за все периоды</li>
+            <li>Финансы: балансы, транзакции, платежи</li>
+            <li>Планы занятий с домашними заданиями и материалами</li>
+          </ul>
+          <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded p-3 mt-3">
+            <p className="font-medium text-green-800 dark:text-green-200">
+              ✅ Все данные связаны между собой через внешние ключи.<br/>
+              ✅ Порядок импорта соблюдает зависимости данных.<br/>
+              ✅ Поддерживается полное обновление через повторный импорт (UPSERT по external_id).
             </p>
           </div>
         </CardContent>
