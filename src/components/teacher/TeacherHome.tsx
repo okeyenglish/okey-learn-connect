@@ -231,6 +231,9 @@ export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
             <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2 mb-4">
               <BookOpen className="h-5 w-5 text-brand" />
               Мои группы
+              <Badge variant="secondary" className="ml-auto">
+                {groups?.length || 0}
+              </Badge>
             </h3>
             {groups && groups.length > 0 ? (
               <div className="space-y-3">
@@ -266,6 +269,9 @@ export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
             <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2 mb-4">
               <User className="h-5 w-5 text-brand" />
               Индивидуальные занятия
+              <Badge variant="secondary" className="ml-auto">
+                {individualLessons?.length || 0}
+              </Badge>
             </h3>
             {individualLessons && individualLessons.length > 0 ? (
               <div className="space-y-3">
