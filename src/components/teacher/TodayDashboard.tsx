@@ -315,12 +315,6 @@ export const TodayDashboard = ({
           icon={Calendar}
           title={`На ${period === 'day' ? 'сегодня' : period === 'week' ? 'эту неделю' : 'этот месяц'} занятий не запланировано`}
           subtitle="Расписание можно посмотреть в разделе «Расписание»"
-          action={
-            <Button onClick={onRequestSubstitution} variant="outline">
-              <UserX className="h-4 w-4 mr-2" />
-              Запросить замену
-            </Button>
-          }
         />
       )}
     </div>
