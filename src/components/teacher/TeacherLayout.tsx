@@ -95,9 +95,6 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => navigate('/newcrm')}>
-              CRM
-            </Button>
             <Button variant="outline" onClick={handleSignOut}>
               <LogOut className="h-4 w-4 mr-2" />
               Выйти
