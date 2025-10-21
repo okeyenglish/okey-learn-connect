@@ -40,7 +40,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.import-holihope]
-verify_jwt = true
+verify_jwt = false
 
 [functions.index-content]
 verify_jwt = false
