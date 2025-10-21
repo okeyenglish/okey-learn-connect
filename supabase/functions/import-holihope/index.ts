@@ -2544,8 +2544,8 @@ Deno.serve(async (req) => {
 
       try {
         let skip = 0;
-        let currentTake = 50; // start smaller to avoid Holihope maxJsonLength
-        const minTake = 5;
+        let currentTake = 10; // start very small to avoid Holihope maxJsonLength
+        const minTake = 3;
         let allUnits = [];
         let page = 0;
         const maxPages = 10000;
@@ -2556,7 +2556,7 @@ Deno.serve(async (req) => {
           }
 
           const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&take=${currentTake}&skip=${skip}`;
-          console.log(`Fetching educational units from: ${apiUrl}`);
+          console.log(`Fetching educational units (take=${currentTake}, skip=${skip})...`);
           
           const response = await fetch(apiUrl, {
             method: 'GET',
@@ -2582,10 +2582,8 @@ Deno.serve(async (req) => {
           }
           
           const raw = await response.json();
-          const batch = Array.isArray(raw)
-            ? raw
-            : (raw?.EdUnits || raw?.EducationalUnits || raw?.Units || raw?.items || raw?.results || raw?.data || []);
-          console.log(`Received ${batch?.length || 0} units`);
+          const batch = raw?.EdUnits || raw?.EducationalUnits || raw?.Units || [];
+          console.log(`Received ${batch?.length || 0} units in batch`);
           
           if (!batch || batch.length === 0) break;
           allUnits = allUnits.concat(batch);
@@ -2594,37 +2592,62 @@ Deno.serve(async (req) => {
           if (batch.length < currentTake) break;
         }
         
+        console.log(`Total units fetched: ${allUnits.length}`);
+        
         let importedCount = 0;
         let typeStats = {};
         
         for (const unit of allUnits) {
-          const unitType = unit.type || unit.unitType || 'Group';
+          const unitType = unit.Type || unit.type || 'Group';
           typeStats[unitType] = (typeStats[unitType] || 0) + 1;
           
+          // Get primary teacher from first schedule item
           let teacherId = null;
-          if (unit.teacherId) {
-            const { data: teacher } = await supabase.from('teachers').select('id').eq('external_id', unit.teacherId.toString()).single();
-            teacherId = teacher?.id;
+          if (unit.ScheduleItems && unit.ScheduleItems.length > 0) {
+            const firstSchedule = unit.ScheduleItems[0];
+            const teacherExternalId = firstSchedule.TeacherIds?.[0];
+            if (teacherExternalId) {
+              const { data: teacher } = await supabase
+                .from('teachers')
+                .select('id')
+                .eq('external_id', teacherExternalId.toString())
+                .single();
+              teacherId = teacher?.id;
+            }
+          }
+          
+          // Extract schedule info from ScheduleItems
+          let scheduleDays = null;
+          let scheduleTime = null;
+          let scheduleRoom = null;
+          
+          if (unit.ScheduleItems && unit.ScheduleItems.length > 0) {
+            const firstSchedule = unit.ScheduleItems[0];
+            scheduleDays = firstSchedule.Weekdays?.toString() || null;
+            scheduleTime = firstSchedule.BeginTime && firstSchedule.EndTime 
+              ? `${firstSchedule.BeginTime}-${firstSchedule.EndTime}` 
+              : null;
+            scheduleRoom = firstSchedule.ClassroomName || firstSchedule.ClassroomLink || null;
           }
           
           await supabase.from('educational_units').upsert({
-            name: unit.name || 'Без названия',
+            name: unit.Name || 'Без названия',
             unit_type: unitType,
-            branch: unit.location || unit.branch || 'Окская',
-            subject: unit.subject || unit.discipline || null,
-            level: unit.level || null,
+            branch: unit.OfficeOrCompanyName || 'Окская',
+            subject: unit.Discipline || null,
+            level: unit.Level || null,
             teacher_id: teacherId,
-            status: unit.isActive !== false ? 'active' : 'archived',
-            start_date: unit.startDate || null,
-            end_date: unit.endDate || null,
-            max_students: unit.maxStudents || 12,
-            schedule_days: unit.scheduleDays || null,
-            schedule_time: unit.scheduleTime || null,
-            schedule_room: unit.classroom || unit.room || null,
-            price: unit.price || null,
-            description: unit.description || null,
+            status: 'active', // Holihope doesn't provide status, default to active
+            start_date: unit.ScheduleItems?.[0]?.BeginDate || null,
+            end_date: unit.ScheduleItems?.[0]?.EndDate || null,
+            max_students: (unit.StudentsCount || 0) + (unit.Vacancies || 0),
+            schedule_days: scheduleDays,
+            schedule_time: scheduleTime,
+            schedule_room: scheduleRoom,
+            price: unit.FiscalInfo?.PriceValue || null,
+            description: unit.Description || null,
             organization_id: orgId,
-            external_id: unit.id?.toString(),
+            external_id: unit.Id?.toString(),
           }, { onConflict: 'external_id' });
           importedCount++;
         }
