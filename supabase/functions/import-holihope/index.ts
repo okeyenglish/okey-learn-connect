@@ -2543,80 +2543,35 @@ Deno.serve(async (req) => {
       progress.push({ step: 'import_ed_units', status: 'in_progress' });
 
       try {
-        let skip = 0;
-        let currentTake = 2; // Very small batches to handle large nested data
-        const minTake = 1;
-        let allUnits = [];
-        let page = 0;
-        const maxPages = 10000;
-
-        // Adaptive date window for heavy nested data (Days/Fiscal/Prices)
-        let windowDays = 90;
-        const minWindowDays = 1;
-
-        while (true) {
-          if (page++ > maxPages) {
-            throw new Error('Safety break: too many pages while fetching educational units');
-          }
-
-          const now = new Date();
-          const from = new Date(now);
-          from.setDate(from.getDate() - windowDays);
-          const to = new Date(now);
-          to.setDate(to.getDate() + windowDays);
-          const dateFrom = from.toISOString().slice(0, 10);
-          const dateTo = to.toISOString().slice(0, 10);
-
-          // Include all data but constrain by date window
-          let apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&take=${currentTake}&skip=${skip}&queryDays=true&queryFiscalInfo=true&queryTeacherPrices=true&dateFrom=${dateFrom}&dateTo=${dateTo}`;
-          console.log(`Fetching educational units (take=${currentTake}, skip=${skip}, windowDays=${windowDays})...`);
-          
-          const response = await fetch(apiUrl, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-          });
-          
-          console.log(`Response status: ${response.status}`);
-          
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`API error response: ${errorText}`);
-
-            if (response.status === 500 && errorText?.includes('maxJsonLength')) {
-              // First, reduce batch size down to 1
-              if (currentTake > minTake) {
-                currentTake = minTake;
-                console.warn(`Reducing page size to single unit and retrying...`);
-                continue; // retry same skip
-              }
-              // If already single unit, shrink date window
-              if (windowDays > minWindowDays) {
-                windowDays = Math.max(minWindowDays, Math.floor(windowDays / 2));
-                console.warn(`Reducing date window to +/- ${windowDays} days and retrying...`);
-                continue; // retry same skip
-              }
-              // As a last resort, skip this unit index
-              console.warn(`Skipping unit at position ${skip} - too large even with minimal window`);
-              skip += 1;
-              continue;
-            }
-
-            throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
-          }
-          
-          const raw = await response.json();
-          const batch = Array.isArray(raw) 
-            ? raw 
-            : (raw?.EdUnits || raw?.EducationalUnits || raw?.Units || []);
-          console.log(`Received ${batch?.length || 0} units in batch, raw type: ${Array.isArray(raw) ? 'array' : 'object'}`);
-          
-          if (!batch || batch.length === 0) break;
-          allUnits = allUnits.concat(batch);
-          
-          skip += batch.length;
-          if (batch.length < currentTake) break;
+        // Step 1: Fetch all units without heavy nested data
+        const now = new Date();
+        const from = new Date(now);
+        from.setDate(from.getDate() - 180); // 6 months back
+        const to = new Date(now);
+        to.setDate(to.getDate() + 180); // 6 months forward
+        const dateFrom = from.toISOString().slice(0, 10);
+        const dateTo = to.toISOString().slice(0, 10);
+        
+        // Fetch basic info without heavy nested data
+        const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&queryDays=false&queryFiscalInfo=false&queryTeacherPrices=false&dateFrom=${dateFrom}&dateTo=${dateTo}`;
+        console.log(`Fetching educational units (basic info only)...`);
+        
+        const response = await fetch(apiUrl, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        console.log(`Response status: ${response.status}`);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
         }
         
+        const raw = await response.json();
+        const allUnits = Array.isArray(raw) 
+          ? raw 
+          : (raw?.EdUnits || raw?.EducationalUnits || raw?.Units || []);
         console.log(`Total units fetched: ${allUnits.length}`);
         
         let importedCount = 0;
