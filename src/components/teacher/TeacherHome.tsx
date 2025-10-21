@@ -17,6 +17,11 @@ import { StartLessonModal } from '@/components/teacher/StartLessonModal';
 import { LessonPlanCard } from '@/components/teacher/LessonPlanCard';
 import { getLessonNumberForGroup } from '@/utils/lessonCalculator';
 import { DashboardModal } from '@/components/dashboards/DashboardModal';
+import { QuickActionsPanel } from '@/components/teacher/QuickActionsPanel';
+import { GroupAttendanceModal } from '@/components/teacher/modals/GroupAttendanceModal';
+import { HomeworkModal } from '@/components/teacher/modals/HomeworkModal';
+import { QuickStartLessonModal } from '@/components/teacher/modals/QuickStartLessonModal';
+import { SubstitutionRequestModal } from '@/components/teacher/modals/SubstitutionRequestModal';
 
 interface TeacherHomeProps {
   teacher: Teacher;
@@ -32,6 +37,12 @@ export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
   const [showDashboardModal, setShowDashboardModal] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [selectedSessionData, setSelectedSessionData] = useState<any>(null);
+  
+  // Быстрые действия
+  const [quickAttendanceModal, setQuickAttendanceModal] = useState<{ open: boolean; groupId: string; sessionId: string; sessionDate: string } | null>(null);
+  const [quickHomeworkModal, setQuickHomeworkModal] = useState<{ open: boolean; groupId: string; sessionId: string } | null>(null);
+  const [quickStartModal, setQuickStartModal] = useState<{ open: boolean; session: any } | null>(null);
+  const [substitutionModal, setSubstitutionModal] = useState<{ open: boolean; type: 'substitution' | 'absence' } | null>(null);
 
   const teacherName = `${teacher.last_name} ${teacher.first_name}`;
 
@@ -143,6 +154,46 @@ export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
     setAttendanceModalOpen(true);
   };
 
+  // Быстрые действия
+  const handleQuickStart = (lesson: any) => {
+    setQuickStartModal({
+      open: true,
+      session: {
+        id: lesson.id,
+        group_name: lesson.learning_groups?.name,
+        lesson_date: format(new Date(lesson.lesson_date), 'd MMMM yyyy', { locale: ru }),
+        start_time: lesson.start_time,
+        online_link: lesson.online_link,
+        type: lesson.group_id ? 'group' : 'individual',
+      },
+    });
+  };
+
+  const handleQuickAttendance = (lesson: any) => {
+    if (lesson.group_id) {
+      setQuickAttendanceModal({
+        open: true,
+        groupId: lesson.group_id,
+        sessionId: lesson.id,
+        sessionDate: format(new Date(lesson.lesson_date), 'd MMMM yyyy', { locale: ru }),
+      });
+    }
+  };
+
+  const handleQuickHomework = (lesson: any) => {
+    setQuickHomeworkModal({
+      open: true,
+      groupId: lesson.group_id,
+      sessionId: lesson.id,
+    });
+  };
+
+  const handleQuickOnline = (lesson: any) => {
+    if (lesson.online_link) {
+      window.open(lesson.online_link, '_blank');
+    }
+  };
+
   if (lessonsLoading || groupsLoading || individualLoading) {
     return <div className="text-center py-8">Загружаем данные...</div>;
   }
@@ -202,24 +253,41 @@ export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
         </div>
 
         {/* Уведомления/задачи */}
-        <div className="card-elevated border-l-4 border-l-warning">
-          <div className="flex items-start gap-3">
-            <Bell className="h-5 w-5 text-warning mt-0.5" />
-            <div className="flex-1">
-              <h3 className="font-semibold text-text-primary mb-1">Уведомления и задачи</h3>
-              <div className="space-y-2 text-sm text-text-secondary">
-                {todayLessons && todayLessons.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-success" />
-                    <span>У вас {todayTotal} {todayTotal === 1 ? 'занятие' : 'занятия'} сегодня</span>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Панель быстрых действий */}
+          <div className="lg:col-span-1">
+            <QuickActionsPanel
+              todayLessons={todayLessons || []}
+              onStartLesson={handleQuickStart}
+              onMarkAttendance={handleQuickAttendance}
+              onAddHomework={handleQuickHomework}
+              onOpenOnline={handleQuickOnline}
+              onRequestSubstitution={() => setSubstitutionModal({ open: true, type: 'substitution' })}
+            />
+          </div>
+
+          {/* Уведомления */}
+          <div className="lg:col-span-2">
+            <div className="card-elevated border-l-4 border-l-warning h-full">
+              <div className="flex items-start gap-3">
+                <Bell className="h-5 w-5 text-warning mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="font-semibold text-text-primary mb-1">Уведомления и задачи</h3>
+                  <div className="space-y-2 text-sm text-text-secondary">
+                    {todayLessons && todayLessons.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-success" />
+                        <span>У вас {todayTotal} {todayTotal === 1 ? 'занятие' : 'занятия'} сегодня</span>
+                      </div>
+                    )}
+                    {weekTotal > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-info" />
+                        <span>Запланировано {weekTotal} {weekTotal === 1 ? 'урок' : 'уроков'} на неделю</span>
+                      </div>
+                    )}
                   </div>
-                )}
-                {weekTotal > 0 && (
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-info" />
-                    <span>Запланировано {weekTotal} {weekTotal === 1 ? 'урок' : 'уроков'} на неделю</span>
-                  </div>
-                )}
+                </div>
               </div>
             </div>
           </div>
@@ -493,6 +561,43 @@ export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
             sessionTime={`${selectedSessionData?.start_time || ''} - ${selectedSessionData?.end_time || ''}`}
           />
         </>
+      )}
+
+      {/* Модальные окна быстрых действий */}
+      {quickAttendanceModal && (
+        <GroupAttendanceModal
+          open={quickAttendanceModal.open}
+          onOpenChange={(open) => !open && setQuickAttendanceModal(null)}
+          groupId={quickAttendanceModal.groupId}
+          sessionId={quickAttendanceModal.sessionId}
+          sessionDate={quickAttendanceModal.sessionDate}
+        />
+      )}
+
+      {quickHomeworkModal && (
+        <HomeworkModal
+          open={quickHomeworkModal.open}
+          onOpenChange={(open) => !open && setQuickHomeworkModal(null)}
+          groupId={quickHomeworkModal.groupId}
+          sessionId={quickHomeworkModal.sessionId}
+        />
+      )}
+
+      {quickStartModal && (
+        <QuickStartLessonModal
+          open={quickStartModal.open}
+          onOpenChange={(open) => !open && setQuickStartModal(null)}
+          session={quickStartModal.session}
+        />
+      )}
+
+      {substitutionModal && (
+        <SubstitutionRequestModal
+          open={substitutionModal.open}
+          onOpenChange={(open) => !open && setSubstitutionModal(null)}
+          teacherId={teacher.id}
+          type={substitutionModal.type}
+        />
       )}
 
       {selectedSessionData && (
