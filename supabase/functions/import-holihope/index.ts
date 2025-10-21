@@ -137,29 +137,7 @@ Deno.serve(async (req) => {
           length: offices?.length ?? null,
           keys: responseData && typeof responseData === 'object' ? Object.keys(responseData) : null,
         });
-        
         console.log(`Found ${offices.length} offices`);
-
-        for (const office of offices) {
-          const { data: orgData } = await supabase
-            .from('organizations')
-            .select('id')
-            .eq('name', "O'KEY ENGLISH")
-            .single();
-
-          if (orgData) {
-            // Check if branch exists
-            const { data: existing } = await supabase
-              .from('profiles')
-              .select('branch')
-              .eq('branch', (office.Name || office.name))
-              .limit(1);
- 
-            if (!existing || existing.length === 0) {
-              console.log(`Branch ${(office.Name || office.name)} will be available for use`);
-            }
-          }
-        }
 
         progress[0].status = 'completed';
         progress[0].count = offices.length;
@@ -214,12 +192,6 @@ Deno.serve(async (req) => {
 
         console.log(`Found ${allTeachers.length} teachers`);
 
-        const { data: orgData } = await supabase
-          .from('organizations')
-          .select('id')
-          .eq('name', "O'KEY ENGLISH")
-          .single();
-
         for (const teacher of allTeachers) {
           const teacherData = {
             first_name: teacher.firstName || '',
@@ -230,7 +202,7 @@ Deno.serve(async (req) => {
             categories: teacher.categories ? [teacher.categories] : [],
             branch: teacher.location || 'Окская',
             is_active: teacher.isActive !== false,
-            organization_id: orgData?.id,
+            organization_id: orgId,
             external_id: teacher.id?.toString(),
           };
 
@@ -268,12 +240,6 @@ Deno.serve(async (req) => {
         let totalClients = 0;
         const processedAgents = new Map(); // Track by phone/email to avoid duplicates
         const allClientsToUpsert: any[] = [];
-
-        const { data: orgData } = await supabase
-          .from('organizations')
-          .select('id')
-          .eq('name', "O'KEY ENGLISH")
-          .single();
 
         while (true) {
           const response = await fetch(`${HOLIHOPE_DOMAIN}/GetStudents?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
@@ -322,7 +288,7 @@ Deno.serve(async (req) => {
                     agent.Position ? `Должность: ${agent.Position}` : null,
                     agent.IsCustomer ? 'Заказчик' : null
                   ].filter(Boolean).join('; ') || null,
-                  organization_id: orgData?.id,
+                  organization_id: orgId,
                   external_id: `agent_${agentKey}`,
                 };
                 
@@ -403,12 +369,6 @@ Deno.serve(async (req) => {
       progress.push({ step: 'import_leads', status: 'in_progress' });
 
       try {
-        const { data: orgData } = await supabase
-          .from('organizations')
-          .select('id')
-          .eq('name', "O'KEY ENGLISH")
-          .single();
-
         // Get "Новый" status ID
         const { data: newStatus } = await supabase
           .from('lead_statuses')
@@ -669,7 +629,7 @@ Deno.serve(async (req) => {
                 name: source.name,
                 email: source.email,
                 branch: source.branch,
-                organization_id: orgData?.id,
+                organization_id: orgId,
               };
             });
             
@@ -735,7 +695,7 @@ Deno.serve(async (req) => {
                 familyGroupsToCreate.push({
                   name: familyName,
                   branch: ld.leadInfo.branch,
-                  organization_id: orgData?.id,
+                  organization_id: orgId,
                 });
               }
             });
@@ -753,7 +713,7 @@ Deno.serve(async (req) => {
                   familyGroupsToCreate.push({
                     name: familyName,
                     branch: ld.leadInfo.branch,
-                    organization_id: orgData?.id,
+                    organization_id: orgId,
                   });
                 }
               }
@@ -1530,12 +1490,6 @@ Deno.serve(async (req) => {
 
         console.log(`Found ${allGroups.length} educational units`);
 
-        const { data: orgData } = await supabase
-          .from('organizations')
-          .select('id')
-          .eq('name', "O'KEY ENGLISH")
-          .single();
-
         for (const group of allGroups) {
           // Find teacher
           let teacherId = null;
@@ -1562,7 +1516,7 @@ Deno.serve(async (req) => {
             end_date: group.endDate || null,
             lesson_duration: group.lessonDuration || 80,
             max_students: group.maxStudents || 8,
-            organization_id: orgData?.id,
+            organization_id: orgId,
             external_id: group.id?.toString(),
           };
 
@@ -1827,8 +1781,6 @@ Deno.serve(async (req) => {
           if (firstArray) statuses = firstArray;
         }
         
-        const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
-        
         let importedCount = 0;
         for (const status of statuses) {
           await supabase.from('client_statuses').upsert({
@@ -1836,7 +1788,7 @@ Deno.serve(async (req) => {
             description: status.description || null,
             is_active: status.isActive !== false,
             sort_order: status.order || status.Order || 0,
-            organization_id: orgData?.id,
+            organization_id: orgId,
             external_id: status.id?.toString() || status.Id?.toString(),
           }, { onConflict: 'external_id' });
           importedCount++;
@@ -1925,8 +1877,6 @@ Deno.serve(async (req) => {
           if (firstArray) statuses = firstArray;
         }
         
-        const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
-        
         let importedCount = 0;
         for (const status of statuses) {
           await supabase.from('lead_statuses').upsert({
@@ -1934,7 +1884,7 @@ Deno.serve(async (req) => {
             description: status.description || null,
             is_active: status.isActive !== false,
             sort_order: status.order || status.Order || 0,
-            organization_id: orgData?.id,
+            organization_id: orgId,
             external_id: status.id?.toString() || status.Id?.toString(),
           }, { onConflict: 'external_id' });
           importedCount++;
@@ -2023,8 +1973,6 @@ Deno.serve(async (req) => {
           if (firstArray) types = firstArray;
         }
         
-        const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
-        
         let importedCount = 0;
         for (const type of types) {
           await supabase.from('learning_types').upsert({
@@ -2032,7 +1980,7 @@ Deno.serve(async (req) => {
             description: type.description || null,
             is_active: type.isActive !== false,
             sort_order: type.order || type.Order || 0,
-            organization_id: orgData?.id,
+            organization_id: orgId,
             external_id: type.id?.toString() || type.Id?.toString(),
           }, { onConflict: 'external_id' });
           importedCount++;
@@ -2107,8 +2055,6 @@ Deno.serve(async (req) => {
           if (tests.length < take) break;
         }
         
-        const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
-        
         let importedCount = 0;
         for (const test of allTests) {
           let studentId = null;
@@ -2130,7 +2076,7 @@ Deno.serve(async (req) => {
             assigned_level: test.assignedLevel || test.level || null,
             teacher_id: teacherId,
             comments: test.comments || null,
-            organization_id: orgData?.id,
+            organization_id: orgId,
             external_id: test.id?.toString(),
           }, { onConflict: 'external_id' });
           importedCount++;
@@ -2205,8 +2151,6 @@ Deno.serve(async (req) => {
           if (tests.length < take) break;
         }
         
-        const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
-        
         let importedCount = 0;
         for (const test of allTests) {
           const { data: student } = await supabase.from('students').select('id').eq('external_id', test.studentId?.toString()).single();
@@ -2222,7 +2166,7 @@ Deno.serve(async (req) => {
             passed: test.passed || false,
             time_spent_minutes: test.timeSpent || null,
             comments: test.comments || null,
-            organization_id: orgData?.id,
+            organization_id: orgId,
             external_id: test.id?.toString(),
           }, { onConflict: 'external_id' });
           importedCount++;
@@ -2298,8 +2242,6 @@ Deno.serve(async (req) => {
           ? responseData 
           : (responseData?.Disciplines || responseData?.disciplines || Object.values(responseData).find(val => Array.isArray(val)) || []);
         
-        const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
-        
         let importedCount = 0;
         for (const disciplineName of disciplines) {
           // API returns array of strings, not objects
@@ -2308,7 +2250,7 @@ Deno.serve(async (req) => {
             description: null,
             is_active: true,
             sort_order: importedCount,
-            organization_id: orgData?.id,
+            organization_id: orgId,
             external_id: disciplineName, // Use name as external_id since no ID provided
           }, { onConflict: 'external_id,organization_id' });
           importedCount++;
@@ -2381,8 +2323,6 @@ Deno.serve(async (req) => {
           ? responseData 
           : (responseData?.Levels || responseData?.levels || Object.values(responseData).find(val => Array.isArray(val)) || []);
         
-        const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
-        
         let importedCount = 0;
         for (const level of levels) {
           // API returns {Name: string, Disciplines: string[]}
@@ -2394,7 +2334,7 @@ Deno.serve(async (req) => {
             description: disciplines.length > 0 ? `Применяется для: ${disciplines.join(', ')}` : null,
             level_order: importedCount,
             is_active: true,
-            organization_id: orgData?.id,
+            organization_id: orgId,
             external_id: levelName, // Use name as external_id since no ID provided
           }, { onConflict: 'external_id,organization_id' });
           importedCount++;
@@ -2492,8 +2432,6 @@ Deno.serve(async (req) => {
           if (employees.length < take) break;
         }
         
-        const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
-        
         let importedCount = 0;
         let skippedCount = 0;
         
@@ -2511,7 +2449,7 @@ Deno.serve(async (req) => {
             phone: employee.Mobile || employee.Phone || null,
             department: employee.Position || null,
             branch: primaryBranch,
-            organization_id: orgData?.id,
+            organization_id: orgId,
           };
           
           // Try to find existing profile by email or phone
@@ -2625,8 +2563,6 @@ Deno.serve(async (req) => {
           if (units.length < take) break;
         }
         
-        const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
-        
         let importedCount = 0;
         let typeStats = {};
         
@@ -2656,7 +2592,7 @@ Deno.serve(async (req) => {
             schedule_room: unit.classroom || unit.room || null,
             price: unit.price || null,
             description: unit.description || null,
-            organization_id: orgData?.id,
+            organization_id: orgId,
             external_id: unit.id?.toString(),
           }, { onConflict: 'external_id' });
           importedCount++;
@@ -2731,8 +2667,6 @@ Deno.serve(async (req) => {
           if (links.length < take) break;
         }
         
-        const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
-        
         let importedCount = 0;
         for (const link of allLinks) {
           const { data: edUnit } = await supabase.from('educational_units').select('id').eq('external_id', link.edUnitId?.toString()).single();
@@ -2748,7 +2682,7 @@ Deno.serve(async (req) => {
             exit_date: link.exitDate || null,
             status: link.status || 'active',
             notes: link.notes || null,
-            organization_id: orgData?.id,
+            organization_id: orgId,
             external_id: link.id?.toString(),
           }, { onConflict: 'external_id' });
           importedCount++;
@@ -3016,8 +2950,6 @@ Deno.serve(async (req) => {
           if (reports.length < take) break;
         }
         
-        const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
-        
         let importedCount = 0;
         for (const report of allReports) {
           const { data: edUnit } = await supabase.from('educational_units').select('id').eq('external_id', report.edUnitId?.toString()).single();
@@ -3040,7 +2972,7 @@ Deno.serve(async (req) => {
             participation_score: report.participationScore || null,
             overall_score: report.overallScore || null,
             comments: report.comments || null,
-            organization_id: orgData?.id,
+            organization_id: orgId,
             external_id: report.id?.toString(),
           }, { onConflict: 'external_id' });
           importedCount++;
@@ -3115,8 +3047,6 @@ Deno.serve(async (req) => {
           if (tests.length < take) break;
         }
         
-        const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
-        
         let importedCount = 0;
         for (const test of allTests) {
           const { data: student } = await supabase.from('students').select('id').eq('external_id', test.studentId?.toString()).single();
@@ -3133,7 +3063,7 @@ Deno.serve(async (req) => {
             percentage: test.percentage || null,
             passed: test.passed || false,
             comments: test.comments || null,
-            organization_id: orgData?.id,
+            organization_id: orgId,
             external_id: test.id?.toString(),
           }, { onConflict: 'external_id' });
           importedCount++;
@@ -3208,8 +3138,6 @@ Deno.serve(async (req) => {
           if (tests.length < take) break;
         }
         
-        const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
-        
         let importedCount = 0;
         for (const test of allTests) {
           const { data: edUnit } = await supabase.from('educational_units').select('id').eq('external_id', test.edUnitId?.toString()).single();
@@ -3224,7 +3152,7 @@ Deno.serve(async (req) => {
             max_score: test.maxScore || null,
             average_score: test.averageScore || null,
             comments: test.comments || null,
-            organization_id: orgData?.id,
+            organization_id: orgId,
             external_id: test.id?.toString(),
           }, { onConflict: 'external_id' });
           importedCount++;
@@ -3300,8 +3228,6 @@ Deno.serve(async (req) => {
           if (plans.length < take) break;
         }
         
-        const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
-        
         let importedCount = 0;
         for (const plan of allPlans) {
           let lessonSessionId = null;
@@ -3326,7 +3252,7 @@ Deno.serve(async (req) => {
             materials_text: plan.materialsText || null,
             materials_links: plan.materialsLinks || null,
             teacher_notes: plan.teacherNotes || null,
-            organization_id: orgData?.id,
+            organization_id: orgId,
             external_id: plan.id?.toString(),
           }, { onConflict: 'external_id' });
           importedCount++;
