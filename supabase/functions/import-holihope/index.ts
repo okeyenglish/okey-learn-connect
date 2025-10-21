@@ -481,16 +481,18 @@ Deno.serve(async (req) => {
             first_name: lead.firstName || '',
             last_name: lead.lastName || '',
             phone: lead.phone || null,
-            email: lead.email || null,
             age: lead.age || null,
-            branch: lead.location || lead.branch || 'Окская',
             status: 'lead',
-            preferred_subject: lead.subject || null,
-            level: lead.level || null,
             notes: lead.notes || lead.comment || null,
             family_group_id: familyGroupId,
             organization_id: orgData?.id,
             external_id: lead.id?.toString(),
+            extra_fields: {
+              email: lead.email || null,
+              branch: lead.location || lead.branch || 'Окская',
+              preferred_subject: lead.subject || null,
+              level: lead.level || null,
+            }
           };
         });
 
