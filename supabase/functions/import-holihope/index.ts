@@ -1492,7 +1492,7 @@ Deno.serve(async (req) => {
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const responseData = await response.json();
         
-        // Normalize response - API returns {"Disciplines": [...]}
+        // Normalize response - API returns {"Disciplines": ["Английский", "Немецкий", ...]}
         const disciplines = Array.isArray(responseData) 
           ? responseData 
           : (responseData?.Disciplines || responseData?.disciplines || Object.values(responseData).find(val => Array.isArray(val)) || []);
@@ -1500,6 +1500,8 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({
           preview: true,
           total: disciplines.length,
+          sample: disciplines.slice(0, 20),
+          mapping: { "string": "name (direct string array)" },
           sample: disciplines.slice(0, 20),
           mapping: { "id": "external_id", "name": "name (languages)" },
           entityType: "disciplines"
@@ -1529,7 +1531,7 @@ Deno.serve(async (req) => {
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const responseData = await response.json();
         
-        // Normalize response - API returns {"Disciplines": [...]}
+        // Normalize response - API returns {"Disciplines": ["Английский", "Немецкий", ...]}
         const disciplines = Array.isArray(responseData) 
           ? responseData 
           : (responseData?.Disciplines || responseData?.disciplines || Object.values(responseData).find(val => Array.isArray(val)) || []);
@@ -1537,15 +1539,16 @@ Deno.serve(async (req) => {
         const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
         
         let importedCount = 0;
-        for (const discipline of disciplines) {
+        for (const disciplineName of disciplines) {
+          // API returns array of strings, not objects
           await supabase.from('disciplines').upsert({
-            name: discipline.name || 'Без названия',
-            description: discipline.description || null,
-            is_active: discipline.isActive !== false,
-            sort_order: discipline.sortOrder || 0,
+            name: disciplineName || 'Без названия',
+            description: null,
+            is_active: true,
+            sort_order: importedCount,
             organization_id: orgData?.id,
-            external_id: discipline.id?.toString(),
-          }, { onConflict: 'external_id' });
+            external_id: disciplineName, // Use name as external_id since no ID provided
+          }, { onConflict: 'external_id,organization_id' });
           importedCount++;
         }
         
