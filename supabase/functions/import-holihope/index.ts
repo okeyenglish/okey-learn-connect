@@ -2844,7 +2844,8 @@ Deno.serve(async (req) => {
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const links = await response.json();
         
-        if (!links || links.length === 0) {
+        // Ensure links is an array
+        if (!Array.isArray(links) || links.length === 0) {
           progress[0].status = 'completed';
           progress[0].count = 0;
           progress[0].message = 'No more links to process';
@@ -2855,9 +2856,6 @@ Deno.serve(async (req) => {
         }
         
         console.log(`Fetched ${links.length} links from Holihope`);
-        const allLinks = links;
-        
-        console.log(`Total links fetched: ${allLinks.length}`);
         
         // Fetch all students, learning_groups and individual_lessons in batches
         console.log('Fetching all students with external_id...');
@@ -2909,7 +2907,7 @@ Deno.serve(async (req) => {
         const individualLessonsToUpdate = [];
         
         console.log('Processing links...');
-        for (const link of allLinks) {
+        for (const link of links) {
           const edUnitExternalId = link.edUnitId?.toString();
           if (!edUnitExternalId) {
             skippedCount++;
