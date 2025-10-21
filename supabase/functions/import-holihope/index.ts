@@ -2550,14 +2550,26 @@ Deno.serve(async (req) => {
         let page = 0;
         const maxPages = 10000;
 
+        // Adaptive date window for heavy nested data (Days/Fiscal/Prices)
+        let windowDays = 90;
+        const minWindowDays = 1;
+
         while (true) {
           if (page++ > maxPages) {
             throw new Error('Safety break: too many pages while fetching educational units');
           }
 
-          // Include all data - Days, FiscalInfo, TeacherPrices
-          const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&take=${currentTake}&skip=${skip}&queryDays=true&queryFiscalInfo=true&queryTeacherPrices=true`;
-          console.log(`Fetching educational units (take=${currentTake}, skip=${skip})...`);
+          const now = new Date();
+          const from = new Date(now);
+          from.setDate(from.getDate() - windowDays);
+          const to = new Date(now);
+          to.setDate(to.getDate() + windowDays);
+          const dateFrom = from.toISOString().slice(0, 10);
+          const dateTo = to.toISOString().slice(0, 10);
+
+          // Include all data but constrain by date window
+          let apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&take=${currentTake}&skip=${skip}&queryDays=true&queryFiscalInfo=true&queryTeacherPrices=true&dateFrom=${dateFrom}&dateTo=${dateTo}`;
+          console.log(`Fetching educational units (take=${currentTake}, skip=${skip}, windowDays=${windowDays})...`);
           
           const response = await fetch(apiUrl, {
             method: 'GET',
@@ -2570,18 +2582,23 @@ Deno.serve(async (req) => {
             const errorText = await response.text();
             console.error(`API error response: ${errorText}`);
 
-            // Adaptive paging: reduce to 1 unit at a time if needed
             if (response.status === 500 && errorText?.includes('maxJsonLength')) {
+              // First, reduce batch size down to 1
               if (currentTake > minTake) {
                 currentTake = minTake;
-                console.warn(`Reducing page size to ${currentTake} (single unit) and retrying...`);
-                continue; // retry same skip with smaller take
-              } else {
-                // Even 1 unit is too large, skip it
-                console.warn(`Skipping unit at position ${skip} - too large even for single fetch`);
-                skip += 1;
-                continue;
+                console.warn(`Reducing page size to single unit and retrying...`);
+                continue; // retry same skip
               }
+              // If already single unit, shrink date window
+              if (windowDays > minWindowDays) {
+                windowDays = Math.max(minWindowDays, Math.floor(windowDays / 2));
+                console.warn(`Reducing date window to +/- ${windowDays} days and retrying...`);
+                continue; // retry same skip
+              }
+              // As a last resort, skip this unit index
+              console.warn(`Skipping unit at position ${skip} - too large even with minimal window`);
+              skip += 1;
+              continue;
             }
 
             throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
@@ -2596,11 +2613,6 @@ Deno.serve(async (req) => {
           
           skip += batch.length;
           if (batch.length < currentTake) break;
-          
-          // Log progress every 50 units
-          if (allUnits.length % 50 === 0) {
-            console.log(`Progress: fetched ${allUnits.length} units so far...`);
-          }
         }
         
         console.log(`Total units fetched: ${allUnits.length}`);
