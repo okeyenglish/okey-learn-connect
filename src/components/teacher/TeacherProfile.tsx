@@ -1,26 +1,43 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { UserCircle, Mail, Phone, MapPin, BookOpen, FileText, Bell, Edit, Calendar, Clock } from 'lucide-react';
+import { UserCircle, Mail, Phone, MapPin, BookOpen, FileText, Bell, Edit, Calendar, Clock, TrendingUp, DollarSign } from 'lucide-react';
 import { Teacher } from '@/hooks/useTeachers';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useTeacherWorkload, useTeacherLessonsHistory } from '@/hooks/useTeacherWorkload';
+import { useTeacherRates } from '@/hooks/useTeacherSalary';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 
 interface TeacherProfileProps {
   teacher: Teacher;
 }
 
 export const TeacherProfile = ({ teacher }: TeacherProfileProps) => {
+  const teacherName = `${teacher.last_name} ${teacher.first_name}`;
+  
+  const { data: workload, isLoading: workloadLoading } = useTeacherWorkload(teacherName);
+  const { data: lessonsHistory } = useTeacherLessonsHistory(teacherName, 6);
+  const { data: rates } = useTeacherRates(teacher.id);
+
   const mockDocuments = [
     { id: '1', name: 'Диплом о высшем образовании', type: 'diploma', date: '2020-06-15' },
     { id: '2', name: 'Сертификат CELTA', type: 'certificate', date: '2021-03-20' },
   ];
 
-  const mockWorkload = {
-    weekly_hours: 18,
-    groups_count: 3,
-    individual_students: 2,
-    lessons_per_week: 10,
-  };
+  // Формируем данные для графика
+  const chartData = (lessonsHistory || []).map((stat: any) => ({
+    month: format(new Date(stat.month + '-01'), 'LLL yyyy', { locale: ru }),
+    Проведено: stat.completed,
+    Отменено: stat.cancelled,
+    Часов: Math.round(stat.total_hours * 10) / 10,
+  }));
+
+  // Получаем текущую ставку
+  const currentRate = rates?.find((r: any) => 
+    r.lesson_type === 'group' || r.lesson_type === 'individual'
+  );
 
   return (
     <div className="space-y-6">
@@ -134,50 +151,127 @@ export const TeacherProfile = ({ teacher }: TeacherProfileProps) => {
             </TabsContent>
 
             <TabsContent value="workload">
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <h3 className="text-lg font-semibold mb-4">Текущая нагрузка</h3>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Card className="p-5 bg-brand/5 border-brand/20">
-                    <div className="flex items-center gap-3">
-                      <Clock className="h-8 w-8 text-brand" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">Часов в неделю</p>
-                        <p className="text-2xl font-bold text-brand">{mockWorkload.weekly_hours}</p>
-                      </div>
-                    </div>
-                  </Card>
+                {workloadLoading ? (
+                  <div className="text-center py-8">Загрузка...</div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Card className="p-5 bg-brand/5 border-brand/20">
+                        <div className="flex items-center gap-3">
+                          <Clock className="h-8 w-8 text-brand" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Часов в неделю</p>
+                            <p className="text-2xl font-bold text-brand">{workload?.weekly_hours || 0}</p>
+                          </div>
+                        </div>
+                      </Card>
 
-                  <Card className="p-5 bg-brand/5 border-brand/20">
-                    <div className="flex items-center gap-3">
-                      <Calendar className="h-8 w-8 text-brand" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">Уроков в неделю</p>
-                        <p className="text-2xl font-bold text-brand">{mockWorkload.lessons_per_week}</p>
-                      </div>
-                    </div>
-                  </Card>
+                      <Card className="p-5 bg-brand/5 border-brand/20">
+                        <div className="flex items-center gap-3">
+                          <Calendar className="h-8 w-8 text-brand" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Уроков в неделю</p>
+                            <p className="text-2xl font-bold text-brand">{workload?.lessons_per_week || 0}</p>
+                          </div>
+                        </div>
+                      </Card>
 
-                  <Card className="p-5 bg-brand/5 border-brand/20">
-                    <div className="flex items-center gap-3">
-                      <BookOpen className="h-8 w-8 text-brand" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">Групп</p>
-                        <p className="text-2xl font-bold text-brand">{mockWorkload.groups_count}</p>
-                      </div>
-                    </div>
-                  </Card>
+                      <Card className="p-5 bg-brand/5 border-brand/20">
+                        <div className="flex items-center gap-3">
+                          <BookOpen className="h-8 w-8 text-brand" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Групп</p>
+                            <p className="text-2xl font-bold text-brand">{workload?.groups_count || 0}</p>
+                          </div>
+                        </div>
+                      </Card>
 
-                  <Card className="p-5 bg-brand/5 border-brand/20">
-                    <div className="flex items-center gap-3">
-                      <UserCircle className="h-8 w-8 text-brand" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">Индивидуальных</p>
-                        <p className="text-2xl font-bold text-brand">{mockWorkload.individual_students}</p>
-                      </div>
+                      <Card className="p-5 bg-brand/5 border-brand/20">
+                        <div className="flex items-center gap-3">
+                          <UserCircle className="h-8 w-8 text-brand" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Индивидуальных</p>
+                            <p className="text-2xl font-bold text-brand">{workload?.individual_students || 0}</p>
+                          </div>
+                        </div>
+                      </Card>
                     </div>
-                  </Card>
-                </div>
+
+                    {/* График истории занятий */}
+                    {chartData && chartData.length > 0 && (
+                      <Card className="p-6">
+                        <h4 className="text-lg font-semibold mb-4">История занятий (последние 6 месяцев)</h4>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={chartData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="month" />
+                            <YAxis />
+                            <Tooltip />
+                            <Legend />
+                            <Bar dataKey="Проведено" fill="hsl(var(--brand))" />
+                            <Bar dataKey="Отменено" fill="hsl(var(--destructive))" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </Card>
+                    )}
+
+                    {/* График часов */}
+                    {chartData && chartData.length > 0 && (
+                      <Card className="p-6">
+                        <h4 className="text-lg font-semibold mb-4">Отработанные часы</h4>
+                        <ResponsiveContainer width="100%" height={250}>
+                          <LineChart data={chartData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="month" />
+                            <YAxis />
+                            <Tooltip />
+                            <Legend />
+                            <Line 
+                              type="monotone" 
+                              dataKey="Часов" 
+                              stroke="hsl(var(--brand))" 
+                              strokeWidth={2}
+                              dot={{ fill: 'hsl(var(--brand))' }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </Card>
+                    )}
+
+                    {/* Информация о ставке */}
+                    {currentRate && (
+                      <Card className="p-6 bg-success/5 border-success/20">
+                        <div className="flex items-start gap-3">
+                          <DollarSign className="h-8 w-8 text-success mt-1" />
+                          <div className="flex-1">
+                            <h4 className="text-lg font-semibold mb-2">Текущая ставка</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-sm text-muted-foreground">За академический час</p>
+                                <p className="text-2xl font-bold text-success">
+                                  {currentRate.rate_per_hour} ₽
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-muted-foreground">Тип занятий</p>
+                                <Badge variant="outline" className="mt-1">
+                                  {currentRate.lesson_type === 'group' && 'Групповые'}
+                                  {currentRate.lesson_type === 'individual' && 'Индивидуальные'}
+                                </Badge>
+                              </div>
+                            </div>
+                            {currentRate.notes && (
+                              <p className="text-sm text-muted-foreground mt-3">{currentRate.notes}</p>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    )}
+                  </>
+                )}
               </div>
             </TabsContent>
 
