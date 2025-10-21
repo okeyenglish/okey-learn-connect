@@ -2842,11 +2842,15 @@ Deno.serve(async (req) => {
         });
         
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const links = await response.json();
+        const raw = await response.json();
         
-        console.log(`API response type: ${typeof links}, isArray: ${Array.isArray(links)}, length: ${Array.isArray(links) ? links.length : 'N/A'}`);
+        // Extract array from possible response shapes
+        const links = Array.isArray(raw)
+          ? raw
+          : (raw.EdUnitStudents || raw.edUnitStudents || raw.Links || raw.links || raw.data || Object.values(raw).find((v: any) => Array.isArray(v)) || []);
         
-        // Ensure links is an array
+        console.log(`API response type: ${typeof raw}, isArray: ${Array.isArray(raw)}, linksLen: ${Array.isArray(links) ? links.length : 'N/A'}`);
+        
         if (!Array.isArray(links) || links.length === 0) {
           console.log(`No links to process. Array.isArray: ${Array.isArray(links)}, length: ${Array.isArray(links) ? links.length : 'N/A'}`);
           progress[0].status = 'completed';
@@ -2911,19 +2915,26 @@ Deno.serve(async (req) => {
         
         console.log('Processing links...');
         for (const link of links) {
-          const edUnitExternalId = link.edUnitId?.toString();
+          const edUnitExternalId = (link.edUnitId ?? link.EdUnitId ?? link.ed_unit_id ?? link.edUnitID)?.toString();
           if (!edUnitExternalId) {
             skippedCount++;
             skippedReasons.noEdUnitId++;
             continue;
           }
           
-          const student = studentMap.get(link.studentId?.toString());
+          const studentExternalId = (link.studentId ?? link.StudentId ?? link.student_id ?? link.StudentID)?.toString();
+          const student = studentMap.get(studentExternalId);
           if (!student) {
             skippedCount++;
             skippedReasons.studentNotFound++;
             continue;
           }
+          
+          const rawStatus = (link.status ?? link.Status ?? '').toString();
+          const status = /inactive|отчисл|выбыл|прекрат/i.test(rawStatus) ? 'inactive' : 'active';
+          const enrollmentDate = (link.enrollmentDate ?? link.EnrollmentDate ?? link.enrolledAt ?? link.EnrolledAt) || new Date().toISOString().split('T')[0];
+          const exitDate = (link.exitDate ?? link.ExitDate ?? null);
+          const notes = (link.notes ?? link.Notes ?? null);
           
           // Try to find in learning_groups first
           const learningGroup = groupMap.get(edUnitExternalId);
@@ -2931,10 +2942,10 @@ Deno.serve(async (req) => {
             groupStudentsToInsert.push({
               group_id: learningGroup.id,
               student_id: student.id,
-              enrollment_date: link.enrollmentDate || new Date().toISOString().split('T')[0],
-              exit_date: link.exitDate || null,
-              status: link.status === 'Inactive' ? 'inactive' : 'active',
-              notes: link.notes || null,
+              enrollment_date: enrollmentDate,
+              exit_date: exitDate,
+              status,
+              notes,
             });
             groupLinksCount++;
             continue;
