@@ -30,6 +30,10 @@ interface AuthContextType {
   signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: any }>;
+  isRoleEmulation: boolean;
+  originalRoles: AppRole[];
+  switchToRole: (role: AppRole) => void;
+  resetRole: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -54,6 +58,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
+  const [isRoleEmulation, setIsRoleEmulation] = useState(false);
+  const [originalRoles, setOriginalRoles] = useState<AppRole[]>([]);
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -292,6 +298,38 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const key = `${permission}:${resource}`;
     return permissions[key] || false;
   };
+
+  const switchToRole = (emulatedRole: AppRole) => {
+    if (!isAdmin(originalRoles.length > 0 ? originalRoles : roles)) {
+      console.warn('Only admins can switch roles');
+      return;
+    }
+    
+    if (!isRoleEmulation) {
+      setOriginalRoles(roles);
+    }
+    
+    setRoles([emulatedRole]);
+    setRole(emulatedRole);
+    setIsRoleEmulation(true);
+    
+    // Rebuild permissions for emulated role
+    const emulatedPermissions = buildPermissionsForRoles([emulatedRole]);
+    setPermissions(emulatedPermissions);
+  };
+
+  const resetRole = () => {
+    if (originalRoles.length > 0) {
+      setRoles(originalRoles);
+      setRole(originalRoles[0]);
+      setIsRoleEmulation(false);
+      
+      // Restore admin permissions
+      const adminPermissions = buildPermissionsForRoles(originalRoles);
+      setPermissions(adminPermissions);
+    }
+  };
+
   const value = {
     user,
     session,
@@ -305,6 +343,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     updateProfile,
     hasPermission,
     hasPermissionSync,
+    isRoleEmulation,
+    originalRoles,
+    switchToRole,
+    resetRole,
   };
 
   return (

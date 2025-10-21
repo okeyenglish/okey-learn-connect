@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { canAccessAdminSection } from "@/lib/permissions";
+import { RoleSwitcher } from "./RoleSwitcher";
 
 const adminItems = [
   { title: "Dashboard", id: "dashboard", icon: BarChart3 },
@@ -67,9 +68,12 @@ export function AdminSidebar({ onSectionChange }: AdminSidebarProps) {
 
   return (
     <Sidebar className="w-64">
-      <div className="p-4 border-b">
-        <SidebarTrigger />
-        <h2 className="text-lg font-semibold mt-2">Admin Panel</h2>
+      <div className="p-4 border-b space-y-3">
+        <div className="flex items-center justify-between">
+          <SidebarTrigger />
+        </div>
+        <h2 className="text-lg font-semibold">Admin Panel</h2>
+        <RoleSwitcher />
       </div>
       
       <SidebarContent>
