@@ -507,31 +507,73 @@ Deno.serve(async (req) => {
           };
 
           let skippedNoPhone = 0;
-          const leadsToInsert = leads.reduce((acc: any[], lead: any) => {
-            const phoneNorm = normalizePhone(extractRawPhone(lead));
-            if (!phoneNorm) { skippedNoPhone++; return acc; }
-            acc.push({
-              first_name: lead.firstName || lead.FirstName || '',
-              last_name: lead.lastName || lead.LastName || '',
-              phone: phoneNorm,
-              email: lead.email || lead.EMail || null,
-              age: lead.age || lead.Age || null,
-              subject: lead.subject || lead.Subject || null,
-              level: lead.level || lead.Level || null,
-              branch: lead.location || lead.Location || lead.branch || 'Окская',
-              notes: lead.notes || lead.comment || lead.Comment || null,
-              status_id: statusId,
-              lead_source_id: null,
-              assigned_to: null,
+          
+          // Prepare leads data and collect ALL phones (lead + agents)
+          const leadsData = []; // {lead data, leadPhone, agentPhones[], allPhones[]}
+          const allPhonesSet = new Set();
+          
+          leads.forEach((lead: any) => {
+            // Extract lead's own phone
+            const leadPhoneRaw = extractRawPhone(lead);
+            const leadPhone = normalizePhone(leadPhoneRaw);
+            
+            // Extract agent phones
+            const agents = lead.Agents || lead.agents || [];
+            const agentPhones = [];
+            
+            if (Array.isArray(agents)) {
+              agents.forEach((agent: any) => {
+                const agentPhoneRaw = agent.Mobile || agent.Phone || agent.mobile || agent.phone;
+                const agentPhone = normalizePhone(agentPhoneRaw);
+                if (agentPhone) {
+                  agentPhones.push(agentPhone);
+                  allPhonesSet.add(agentPhone);
+                }
+              });
+            }
+            
+            // If lead has no phone AND no agents with phones, skip
+            if (!leadPhone && agentPhones.length === 0) {
+              skippedNoPhone++;
+              return;
+            }
+            
+            // Collect all phones for this lead (lead + agents)
+            const allPhones = [];
+            if (leadPhone) {
+              allPhones.push(leadPhone);
+              allPhonesSet.add(leadPhone);
+            }
+            allPhones.push(...agentPhones);
+            
+            leadsData.push({
+              leadInfo: {
+                first_name: lead.firstName || lead.FirstName || '',
+                last_name: lead.lastName || lead.LastName || '',
+                phone: leadPhone,
+                email: lead.email || lead.EMail || null,
+                age: lead.age || lead.Age || null,
+                subject: lead.subject || lead.Subject || null,
+                level: lead.level || lead.Level || null,
+                branch: lead.location || lead.Location || lead.branch || 'Окская',
+                notes: lead.notes || lead.comment || lead.Comment || null,
+                status_id: statusId,
+                lead_source_id: null,
+                assigned_to: null,
+              },
+              leadPhone,
+              agentPhones,
+              allPhones,
+              agents,
             });
-            return acc;
-          }, [] as any[]);
+          });
 
           totalSkippedNoPhone += skippedNoPhone;
-          console.log(`Prepared ${leadsToInsert.length} leads for insert (skipped ${skippedNoPhone} without phone)`);
+          console.log(`Prepared ${leadsData.length} leads for insert (skipped ${skippedNoPhone} without phone)`);
+          console.log(`Total unique phones (lead + agents): ${allPhonesSet.size}`);
 
           // Step 1: Get all unique phones and check which clients already exist
-          const uniquePhones = [...new Set(leadsToInsert.map(l => l.phone))];
+          const uniquePhones = Array.from(allPhonesSet);
           console.log(`Checking ${uniquePhones.length} unique phones...`);
           
           const phoneToClientMap = new Map(); // phone -> client_id
@@ -556,20 +598,39 @@ Deno.serve(async (req) => {
           console.log(`Creating ${phonesToCreateClients.length} new clients...`);
           
           if (phonesToCreateClients.length > 0) {
-            // Group leads by phone to get lead data for client creation
-            const phoneToLeadMap = new Map();
-            leadsToInsert.forEach(lead => {
-              if (!phoneToLeadMap.has(lead.phone)) {
-                phoneToLeadMap.set(lead.phone, lead);
+            // Build phone -> (lead or agent) data for client name/email
+            const phoneToSourceMap = new Map();
+            
+            leadsData.forEach(ld => {
+              // Lead phone
+              if (ld.leadPhone && phonesToCreateClients.includes(ld.leadPhone)) {
+                phoneToSourceMap.set(ld.leadPhone, {
+                  name: `${ld.leadInfo.first_name} ${ld.leadInfo.last_name}`.trim() || 'Без имени',
+                  email: ld.leadInfo.email,
+                  branch: ld.leadInfo.branch,
+                });
               }
+              
+              // Agent phones
+              ld.agentPhones.forEach((agentPhone, idx) => {
+                if (phonesToCreateClients.includes(agentPhone) && !phoneToSourceMap.has(agentPhone)) {
+                  const agent = ld.agents[idx];
+                  const agentName = `${agent?.LastName || agent?.lastName || ''} ${agent?.FirstName || agent?.firstName || ''} ${agent?.MiddleName || agent?.middleName || ''}`.trim() || 'Без имени';
+                  phoneToSourceMap.set(agentPhone, {
+                    name: agentName,
+                    email: agent?.EMail || agent?.email || null,
+                    branch: ld.leadInfo.branch,
+                  });
+                }
+              });
             });
             
             const newClientsData = phonesToCreateClients.map(phone => {
-              const lead = phoneToLeadMap.get(phone);
+              const source = phoneToSourceMap.get(phone) || { name: 'Без имени', email: null, branch: 'Окская' };
               return {
-                name: `${lead.first_name} ${lead.last_name}`.trim() || 'Без имени',
-                email: lead.email,
-                branch: lead.branch,
+                name: source.name,
+                email: source.email,
+                branch: source.branch,
                 organization_id: orgData?.id,
               };
             });
@@ -612,57 +673,25 @@ Deno.serve(async (req) => {
           
           console.log(`Total clients available: ${phoneToClientMap.size}`);
           
-          // Step 3: Get existing family_groups for clients
-          const allClientIds = Array.from(phoneToClientMap.values());
-          const clientToFamilyGroupMap = new Map(); // client_id -> family_group_id
-          
-          console.log(`Checking family groups for ${allClientIds.length} clients...`);
-          for (let i = 0; i < allClientIds.length; i += 100) {
-            const clientBatch = allClientIds.slice(i, i + 100);
-            const { data: existingMembers } = await supabase
-              .from('family_members')
-              .select('client_id, family_group_id')
-              .in('client_id', clientBatch);
-            
-            if (existingMembers) {
-              existingMembers.forEach(m => clientToFamilyGroupMap.set(m.client_id, m.family_group_id));
-            }
-          }
-          
-          console.log(`Found ${clientToFamilyGroupMap.size} clients with existing family groups`);
-          
-          // Step 4: For clients without family_group, create new ones
-          const clientsNeedingFamilyGroups = allClientIds.filter(cid => !clientToFamilyGroupMap.has(cid));
-          console.log(`Creating ${clientsNeedingFamilyGroups.length} new family groups...`);
-          
-          // Map phone -> client_id -> need family_group
-          const phoneToClientWithoutFG = new Map();
-          phoneToClientMap.forEach((clientId, phone) => {
-            if (clientsNeedingFamilyGroups.includes(clientId)) {
-              phoneToClientWithoutFG.set(phone, clientId);
-            }
-          });
-          
-          // Create family groups
+          // Step 3: Create family_groups for each lead (one family per lead)
+          const leadToFamilyGroupMap = new Map(); // lead index -> family_group_id
           const familyGroupsToCreate = [];
-          const phoneToFamilyGroupName = new Map();
           
-          leadsToInsert.forEach(lead => {
-            const clientId = phoneToClientMap.get(lead.phone);
-            if (phoneToClientWithoutFG.has(lead.phone)) {
-              const familyName = `Семья ${lead.last_name || lead.first_name || 'Без имени'}`;
-              phoneToFamilyGroupName.set(lead.phone, familyName);
-              
-              if (!familyGroupsToCreate.find(fg => fg.name === familyName)) {
-                familyGroupsToCreate.push({
-                  name: familyName,
-                  branch: lead.branch,
-                  organization_id: orgData?.id,
-                });
-              }
+          leadsData.forEach((ld, idx) => {
+            const familyName = `Семья ${ld.leadInfo.last_name || ld.leadInfo.first_name || 'Без имени'}`;
+            
+            if (!familyGroupsToCreate.find(fg => fg.name === familyName)) {
+              familyGroupsToCreate.push({
+                name: familyName,
+                branch: ld.leadInfo.branch,
+                organization_id: orgData?.id,
+              });
             }
           });
           
+          console.log(`Creating ${familyGroupsToCreate.length} family groups...`);
+          
+          const familyGroupNameToIdMap = new Map(); // familyName -> family_group_id
           if (familyGroupsToCreate.length > 0) {
             for (let i = 0; i < familyGroupsToCreate.length; i += 50) {
               const batch = familyGroupsToCreate.slice(i, i + 50);
@@ -672,38 +701,35 @@ Deno.serve(async (req) => {
                 .select('id, name');
               
               if (newFamilyGroups) {
-                // Map back to clients
                 newFamilyGroups.forEach(fg => {
-                  phoneToFamilyGroupName.forEach((name, phone) => {
-                    if (name === fg.name) {
-                      const clientId = phoneToClientMap.get(phone);
-                      if (clientId) {
-                        clientToFamilyGroupMap.set(clientId, fg.id);
-                      }
-                    }
-                  });
+                  familyGroupNameToIdMap.set(fg.name, fg.id);
                 });
               }
             }
           }
           
-          console.log(`Total clients with family groups: ${clientToFamilyGroupMap.size}`);
+          console.log(`Created/found ${familyGroupNameToIdMap.size} family groups`);
           
-          // Step 5: Add family_group_id to leads (from client's family_group)
-          const leadsWithFamilyGroups = leadsToInsert.map(lead => {
-            const clientId = phoneToClientMap.get(lead.phone);
-            const familyGroupId = clientId ? clientToFamilyGroupMap.get(clientId) : null;
-            return {
-              ...lead,
-              family_group_id: familyGroupId,
-            };
+          // Map each lead to its family_group_id
+          leadsData.forEach((ld, idx) => {
+            const familyName = `Семья ${ld.leadInfo.last_name || ld.leadInfo.first_name || 'Без имени'}`;
+            const familyGroupId = familyGroupNameToIdMap.get(familyName);
+            if (familyGroupId) {
+              leadToFamilyGroupMap.set(idx, familyGroupId);
+            }
           });
-
-          // Step 6: Batch insert leads into leads table (200 at a time)
-          console.log(`Inserting ${leadsWithFamilyGroups.length} leads into leads table...`);
           
-          for (let i = 0; i < leadsWithFamilyGroups.length; i += 200) {
-            const batch = leadsWithFamilyGroups.slice(i, i + 200);
+          // Step 4: Prepare leads for insert with family_group_id
+          const leadsToInsert = leadsData.map((ld, idx) => ({
+            ...ld.leadInfo,
+            family_group_id: leadToFamilyGroupMap.get(idx) || null,
+          }));
+
+          // Step 5: Batch insert leads into leads table (200 at a time)
+          console.log(`Inserting ${leadsToInsert.length} leads into leads table...`);
+          
+          for (let i = 0; i < leadsToInsert.length; i += 200) {
+            const batch = leadsToInsert.slice(i, i + 200);
             const { data: insertedLeads, error: leadsError } = await supabase
               .from('leads')
               .insert(batch)
@@ -720,20 +746,26 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Step 7: Create family member links for new clients (client -> family_group)
-          console.log('Creating family member links for new clients...');
+          // Step 6: Create family member links (all clients for each lead -> family_group)
+          console.log('Creating family member links...');
           const familyMembersToCreate = [];
           
-          phoneToClientMap.forEach((clientId, phone) => {
-            const familyGroupId = clientToFamilyGroupMap.get(clientId);
-            if (familyGroupId) {
-              familyMembersToCreate.push({
-                family_group_id: familyGroupId,
-                client_id: clientId,
-                is_primary_contact: true,
-                relationship_type: 'main',
-              });
-            }
+          leadsData.forEach((ld, idx) => {
+            const familyGroupId = leadToFamilyGroupMap.get(idx);
+            if (!familyGroupId) return;
+            
+            // Add all clients (lead + agents) to this family_group
+            ld.allPhones.forEach((phone, phoneIdx) => {
+              const clientId = phoneToClientMap.get(phone);
+              if (clientId) {
+                familyMembersToCreate.push({
+                  family_group_id: familyGroupId,
+                  client_id: clientId,
+                  is_primary_contact: phoneIdx === 0, // First phone (lead's own) is primary
+                  relationship_type: phoneIdx === 0 ? 'main' : 'parent',
+                });
+              }
+            });
           });
 
           if (familyMembersToCreate.length > 0) {
