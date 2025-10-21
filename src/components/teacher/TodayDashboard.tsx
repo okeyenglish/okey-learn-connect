@@ -89,7 +89,7 @@ export const TodayDashboard = ({
   return (
     <div className="card-elevated">
       {/* Шапка с переключателем периода */}
-      <div className="mb-6 pb-6 border-b">
+      <div className="mb-4 pb-4 border-b">
         <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
           <div>
             <h2 className="text-xl font-semibold text-text-primary flex items-center gap-2 mb-1">
