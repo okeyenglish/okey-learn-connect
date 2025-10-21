@@ -22,6 +22,9 @@ import { GroupAttendanceModal } from '@/components/teacher/modals/GroupAttendanc
 import { HomeworkModal } from '@/components/teacher/modals/HomeworkModal';
 import { QuickStartLessonModal } from '@/components/teacher/modals/QuickStartLessonModal';
 import { SubstitutionRequestModal } from '@/components/teacher/modals/SubstitutionRequestModal';
+import { KpiCard } from '@/components/teacher/ui/KpiCard';
+import { LessonCard } from '@/components/teacher/ui/LessonCard';
+import { EmptyState } from '@/components/teacher/ui/EmptyState';
 
 interface TeacherHomeProps {
   teacher: Teacher;
@@ -204,52 +207,46 @@ export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
   const weekTotal = upcomingLessons?.length || 0;
   const weekCanceled = upcomingLessons?.filter(l => l.status === 'cancelled').length || 0;
 
+  // Найти ближайший урок (статусы: free, paid_skip, free_skip, rescheduled, completed, cancelled)
+  const nextLesson = todayLessons?.find(l => l.status !== 'completed' && l.status !== 'cancelled');
+
   return (
     <>
       <div className="space-y-6">
         {/* Метрики */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="card-elevated">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-text-secondary text-sm">Сегодня</div>
-              <Calendar className="h-4 w-4 text-brand" />
-            </div>
-            <div className="text-2xl font-bold text-text-primary">{todayTotal}</div>
-            <div className="text-xs text-text-muted mt-1">
-              {todayCompleted > 0 && `${todayCompleted} проведено`}
-            </div>
-          </div>
+          <KpiCard
+            title="Сегодня"
+            value={todayTotal}
+            hint={todayCompleted > 0 ? `${todayCompleted} проведено` : nextLesson ? `Ближайший урок: ${nextLesson.start_time}` : 'Нет занятий'}
+            tone={todayTotal > 0 ? (nextLesson ? "warn" : "ok") : "neutral"}
+            icon={Calendar}
+          />
 
-          <div className="card-elevated">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-text-secondary text-sm">Неделя</div>
-              <TrendingUp className="h-4 w-4 text-success" />
-            </div>
-            <div className="text-2xl font-bold text-text-primary">{weekTotal}</div>
-            <div className="text-xs text-text-muted mt-1">
-              {weekCanceled > 0 && `${weekCanceled} отменено`}
-            </div>
-          </div>
+          <KpiCard
+            title="Неделя"
+            value={weekTotal}
+            hint={weekCanceled > 0 ? `Отменено ${weekCanceled}` : `Запланировано ${weekTotal}`}
+            tone="neutral"
+            icon={TrendingUp}
+          />
 
-          <div className="card-elevated">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-text-secondary text-sm">Мои группы</div>
-              <BookOpen className="h-4 w-4 text-info" />
-            </div>
-            <div className="text-2xl font-bold text-text-primary">{groups?.length || 0}</div>
-            <div className="text-xs text-text-muted mt-1">
-              {individualLessons?.length || 0} индивидуальных
-            </div>
-          </div>
+          <KpiCard
+            title="Мои группы"
+            value={groups?.length || 0}
+            hint={`${individualLessons?.length || 0} индивидуальных`}
+            tone="info"
+            icon={BookOpen}
+          />
 
-          <div className="card-elevated cursor-pointer hover-scale" onClick={() => setShowDashboardModal(true)}>
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-text-secondary text-sm">Статистика</div>
-              <BarChart3 className="h-4 w-4 text-warning" />
-            </div>
-            <div className="text-sm font-medium text-brand">Открыть дашборд</div>
-            <div className="text-xs text-text-muted mt-1">Детальная статистика</div>
-          </div>
+          <KpiCard
+            title="Статистика"
+            value="Дашборд"
+            hint="Детальная статистика"
+            onClick={() => setShowDashboardModal(true)}
+            tone="neutral"
+            icon={BarChart3}
+          />
         </div>
 
         {/* Уведомления/задачи */}
@@ -337,85 +334,45 @@ export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
             </p>
           </div>
           {todayLessons && todayLessons.length > 0 ? (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {todayLessons.map((lesson: any) => (
                 <div key={lesson.id} className="space-y-3">
-                  <div className="flex items-center justify-between p-4 border rounded-xl bg-surface hover:shadow-elev-1 transition-all">
-                    <div className="flex items-center gap-4 flex-wrap">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Clock className="h-4 w-4 text-text-muted" />
-                        <span className="font-medium text-text-primary">{lesson.start_time} - {lesson.end_time}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <BookOpen className="h-4 w-4 text-brand" />
-                        <span className="font-medium text-text-primary">
-                          {lesson.learning_groups?.name || 'Индивидуальное занятие'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-text-secondary">
-                        <MapPin className="h-4 w-4" />
-                        {lesson.classroom}
-                      </div>
-                      <Badge variant={lesson.status === 'completed' ? 'default' : 'secondary'}>
-                        {lesson.status === 'scheduled' ? 'Запланировано' : 
-                         lesson.status === 'ongoing' ? 'Идет урок' : 
-                         lesson.status === 'completed' ? 'Завершено' : 'Отменено'}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {lesson.status === 'scheduled' || lesson.status === 'ongoing' ? (
-                        <>
-                          <Button 
-                            size="sm"
-                            onClick={() => handleStartOnlineLesson(lesson)}
-                          >
-                            <Video className="h-4 w-4 mr-2" />
-                            Начать урок
-                          </Button>
-                          <Button 
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleAddHomework(lesson.id, lesson.group_id)}
-                          >
-                            +ДЗ
-                          </Button>
-                          <Button 
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleAttendance(
-                              lesson.id, 
-                              lesson.lesson_date,
-                              lesson.start_time,
-                              lesson.end_time,
-                              lesson.group_id
-                            )}
-                          >
-                            Присутствие
-                          </Button>
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
+                  <LessonCard
+                    start={lesson.start_time}
+                    end={lesson.end_time}
+                    title={lesson.learning_groups?.name || 'Индивидуальное занятие'}
+                    room={lesson.classroom}
+                    online={!!lesson.online_link}
+                    link={lesson.online_link}
+                    status={lesson.status}
+                    onAttendance={() => handleQuickAttendance(lesson)}
+                    onHomework={() => handleQuickHomework(lesson)}
+                    onOpenLink={() => handleQuickOnline(lesson)}
+                    onStartLesson={() => handleQuickStart(lesson)}
+                  />
                   
                   {/* Планирование урока */}
-                  <LessonPlanCard
-                    lessonNumber={getLessonNumberForGroup(
-                      lesson.learning_groups?.name || 'Индивидуальное занятие',
-                      lesson.learning_groups?.level,
-                      lesson.lesson_date
-                    )}
-                    groupName={lesson.learning_groups?.name || 'Индивидуальное занятие'}
-                    level={lesson.learning_groups?.level}
-                    subject={lesson.learning_groups?.subject}
-                  />
+                  {lesson.status !== 'completed' && lesson.status !== 'cancelled' && (
+                    <LessonPlanCard
+                      lessonNumber={getLessonNumberForGroup(
+                        lesson.learning_groups?.name || 'Индивидуальное занятие',
+                        lesson.learning_groups?.level,
+                        lesson.lesson_date
+                      )}
+                      groupName={lesson.learning_groups?.name || 'Индивидуальное занятие'}
+                      level={lesson.learning_groups?.level}
+                      subject={lesson.learning_groups?.subject}
+                    />
+                  )}
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-center py-12">
-              <Calendar className="h-12 w-12 mx-auto mb-4 text-text-muted opacity-50" />
-              <p className="text-text-secondary">На сегодня занятий не запланировано</p>
-            </div>
+            <EmptyState
+              icon={Calendar}
+              title="На сегодня занятий не запланировано"
+              subtitle="Расписание на завтра и следующие дни можно посмотреть в разделе «Расписание»"
+            />
           )}
         </div>
 
