@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, AlertCircle, Eye } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface ImportStep {
@@ -21,69 +21,25 @@ export default function HolihopeImport() {
   const { toast } = useToast();
   const [isImporting, setIsImporting] = useState(false);
   const [steps, setSteps] = useState<ImportStep[]>([
-    {
-      id: 'clear',
-      name: '1. Архивация данных',
-      description: 'Пометка существующих данных как неактивных (НЕ удаление)',
-      action: 'clear_data',
-      status: 'pending',
-    },
-    {
-      id: 'locations',
-      name: '2. Филиалы',
-      description: 'Импорт филиалов/офисов из Holihope',
-      action: 'import_locations',
-      status: 'pending',
-    },
-    {
-      id: 'teachers',
-      name: '3. Преподаватели',
-      description: 'Импорт преподавателей с предметами и категориями',
-      action: 'import_teachers',
-      status: 'pending',
-    },
-    {
-      id: 'clients',
-      name: '4. Клиенты (родители)',
-      description: 'Импорт клиентов/родителей с контактами',
-      action: 'import_clients',
-      status: 'pending',
-    },
-    {
-      id: 'leads',
-      name: '5. Лиды',
-      description: 'Импорт лидов - потенциальных учеников, которые никогда не учились (через GetLeads API)',
-      action: 'import_leads',
-      status: 'pending',
-    },
-    {
-      id: 'students',
-      name: '6. Ученики',
-      description: 'Импорт активных и архивных учеников (через GetStudents API), связь с родителями',
-      action: 'import_students',
-      status: 'pending',
-    },
-    {
-      id: 'groups',
-      name: '7. Учебные единицы',
-      description: 'Импорт групп, мини-групп, индивидуальных занятий',
-      action: 'import_groups',
-      status: 'pending',
-    },
-    {
-      id: 'schedule',
-      name: '8. Расписание',
-      description: 'Импорт занятий с темами и статусами',
-      action: 'import_schedule',
-      status: 'pending',
-    },
-    {
-      id: 'payments',
-      name: '9. Платежи',
-      description: 'Импорт платежей и истории транзакций',
-      action: 'import_payments',
-      status: 'pending',
-    },
+    { id: 'clear', name: '1. Архивация данных', description: 'Пометка существующих данных как неактивных', action: 'clear_data', status: 'pending' },
+    { id: 'offices', name: '2. Филиалы', description: 'Импорт филиалов/офисов', action: 'import_locations', status: 'pending' },
+    { id: 'disciplines', name: '3. Дисциплины', description: 'Импорт языков/дисциплин', action: 'import_disciplines', status: 'pending' },
+    { id: 'levels', name: '4. Уровни', description: 'Импорт уровней обучения (A1-C2)', action: 'import_levels', status: 'pending' },
+    { id: 'employees', name: '5. Сотрудники', description: 'Импорт сотрудников офиса (кроме преподавателей)', action: 'import_employees', status: 'pending' },
+    { id: 'teachers', name: '6. Преподаватели', description: 'Импорт преподавателей', action: 'import_teachers', status: 'pending' },
+    { id: 'clients', name: '7. Клиенты', description: 'Импорт клиентов/родителей', action: 'import_clients', status: 'pending' },
+    { id: 'leads', name: '8. Лиды', description: 'Импорт лидов через GetLeads', action: 'import_leads', status: 'pending' },
+    { id: 'students', name: '9. Ученики', description: 'Импорт активных и архивных учеников', action: 'import_students', status: 'pending' },
+    { id: 'ed_units', name: '10. Учебные единицы', description: 'Импорт ВСЕХ типов (группы, индивидуальные, пробные и т.д.)', action: 'import_ed_units', status: 'pending' },
+    { id: 'ed_unit_students', name: '11. Связки ученик-группа', description: 'Импорт информации о том, кто в какой группе', action: 'import_ed_unit_students', status: 'pending' },
+    { id: 'schedule', name: '12. Расписание', description: 'Импорт занятий с темами и статусами', action: 'import_schedule', status: 'pending' },
+    { id: 'balances', name: '13. Балансы', description: 'Импорт текущих балансов учеников', action: 'import_balances', status: 'pending' },
+    { id: 'transactions', name: '14. Транзакции', description: 'Импорт поступлений и списаний', action: 'import_transactions', status: 'pending' },
+    { id: 'payments', name: '15. Платежи (legacy)', description: 'Импорт платежей через GetPayments', action: 'import_payments', status: 'pending' },
+    { id: 'academic_reports', name: '16. Отчеты об успеваемости', description: 'Импорт отчетов преподавателей', action: 'import_academic_reports', status: 'pending' },
+    { id: 'personal_tests', name: '17. Персональные тесты', description: 'Импорт результатов индивидуальных тестов', action: 'import_personal_tests', status: 'pending' },
+    { id: 'group_tests', name: '18. Групповые тесты', description: 'Импорт результатов групповых тестов', action: 'import_group_tests', status: 'pending' },
+    { id: 'lesson_plans', name: '19. Планы занятий', description: 'Импорт ДЗ и материалов (только текст и ссылки)', action: 'import_lesson_plans', status: 'pending' },
   ]);
 
   const executeStep = async (step: ImportStep) => {
@@ -179,6 +135,32 @@ export default function HolihopeImport() {
     setIsImporting(true);
     await executeStep(step);
     setIsImporting(false);
+  };
+
+  const previewStep = async (step: ImportStep) => {
+    const previewAction = step.action.replace('import_', 'preview_');
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('import-holihope', {
+        body: { action: previewAction },
+      });
+
+      if (error) throw error;
+
+      console.log('Preview data:', data);
+      toast({
+        title: `Preview: ${step.name}`,
+        description: `Будет импортировано ${data.total || 0} записей. См. консоль для деталей.`,
+      });
+      
+    } catch (error: any) {
+      console.error('Preview error:', error);
+      toast({
+        title: 'Ошибка предпросмотра',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
   };
 
   const getStatusIcon = (status: string) => {
@@ -281,14 +263,27 @@ export default function HolihopeImport() {
                     <CardDescription>{step.description}</CardDescription>
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={() => runSingleStep(step)}
-                  disabled={isImporting}
-                  size="sm"
-                >
-                  Запустить отдельно
-                </Button>
+                <div className="flex gap-2">
+                  {step.action !== 'clear_data' && (
+                    <Button
+                      variant="ghost"
+                      onClick={() => previewStep(step)}
+                      disabled={isImporting}
+                      size="sm"
+                    >
+                      <Eye className="mr-2 h-3 w-3" />
+                      Preview
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    onClick={() => runSingleStep(step)}
+                    disabled={isImporting}
+                    size="sm"
+                  >
+                    Запустить отдельно
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             {(step.message || step.error || step.count !== undefined) && (
