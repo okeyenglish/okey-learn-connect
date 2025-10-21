@@ -449,67 +449,6 @@ Deno.serve(async (req) => {
           
           console.log(`Processing ${leads.length} leads...`);
 
-          // Get all unique client external IDs from this batch
-          const clientExternalIds = [...new Set(
-            leads
-              .filter(lead => lead.clientId)
-              .map(lead => lead.clientId.toString())
-          )];
-
-          // Fetch all clients in batches
-          const clientMap = new Map(); // external_id -> client
-          if (clientExternalIds.length > 0) {
-            for (let i = 0; i < clientExternalIds.length; i += 100) {
-              const batch = clientExternalIds.slice(i, i + 100);
-              const { data: clients } = await supabase
-                .from('clients')
-                .select('id, external_id')
-                .in('external_id', batch);
-              
-              if (clients) {
-                clients.forEach(c => clientMap.set(c.external_id, c));
-              }
-            }
-          }
-
-          // Prepare family groups to create
-          const familyGroupsToCreate = new Map(); // name -> family group data
-          const leadToClientMap = new Map(); // lead id -> client_id
-
-          for (const lead of leads) {
-            if (lead.clientId) {
-              const client = clientMap.get(lead.clientId.toString());
-              if (client) {
-                const familyName = `Семья ${lead.lastName || 'Лида'}`;
-                if (!familyGroupsToCreate.has(familyName)) {
-                  familyGroupsToCreate.set(familyName, {
-                    name: familyName,
-                    branch: lead.location || lead.branch || 'Окская',
-                    organization_id: orgData?.id,
-                  });
-                }
-                leadToClientMap.set(lead.id?.toString(), client.id);
-              }
-            }
-          }
-
-          // Batch upsert family groups
-          const familyGroupMap = new Map(); // name -> family_group_id
-          if (familyGroupsToCreate.size > 0) {
-            const familyGroupsArray = Array.from(familyGroupsToCreate.values());
-            for (let i = 0; i < familyGroupsArray.length; i += 50) {
-              const batch = familyGroupsArray.slice(i, i + 50);
-              const { data: familyGroups } = await supabase
-                .from('family_groups')
-                .upsert(batch, { onConflict: 'name,organization_id' })
-                .select('id, name');
-              
-              if (familyGroups) {
-                familyGroups.forEach(fg => familyGroupMap.set(fg.name, fg.id));
-              }
-            }
-          }
-
           // Normalize and prepare leads; skip records without a valid phone
           const extractRawPhone = (lead: any): string | null => {
             const pickFromObj = (o: any): string | null => {
