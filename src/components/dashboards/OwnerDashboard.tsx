@@ -1,32 +1,188 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { DollarSign, Users, TrendingUp, TrendingDown, BookOpen, UserCheck } from "lucide-react";
+import { DollarSign, Users, TrendingUp, TrendingDown, UserCheck } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 
 export const OwnerDashboard = () => {
-  // Mock data - replace with actual API calls
-  const revenueData = [
-    { date: '1', amount: 45000 },
-    { date: '5', amount: 52000 },
-    { date: '10', amount: 48000 },
-    { date: '15', amount: 61000 },
-    { date: '20', amount: 55000 },
-    { date: '25', amount: 67000 },
-    { date: '30', amount: 72000 },
-  ];
+  // Current month revenue
+  const { data: currentMonthRevenue } = useQuery({
+    queryKey: ["revenue-current-month"],
+    queryFn: async () => {
+      const start = startOfMonth(new Date());
+      const end = endOfMonth(new Date());
+      
+      const { data, error } = await supabase
+        .from("payments")
+        .select("amount")
+        .eq("status", "completed")
+        .gte("created_at", start.toISOString())
+        .lte("created_at", end.toISOString());
+      
+      if (error) throw error;
+      return data.reduce((sum, p) => sum + (p.amount || 0), 0);
+    },
+  });
 
-  const branchData = [
-    { name: 'Филиал 1', revenue: 250000 },
-    { name: 'Филиал 2', revenue: 180000 },
-    { name: 'Филиал 3', revenue: 220000 },
-    { name: 'Филиал 4', revenue: 195000 },
-    { name: 'Филиал 5', revenue: 155000 },
-  ];
+  // Previous month revenue
+  const { data: previousMonthRevenue } = useQuery({
+    queryKey: ["revenue-previous-month"],
+    queryFn: async () => {
+      const start = startOfMonth(subMonths(new Date(), 1));
+      const end = endOfMonth(subMonths(new Date(), 1));
+      
+      const { data, error } = await supabase
+        .from("payments")
+        .select("amount")
+        .eq("status", "completed")
+        .gte("created_at", start.toISOString())
+        .lte("created_at", end.toISOString());
+      
+      if (error) throw error;
+      return data.reduce((sum, p) => sum + (p.amount || 0), 0);
+    },
+  });
 
-  const studentLevelData = [
-    { name: 'Kids', value: 120, color: '#6366f1' },
-    { name: 'Teens', value: 85, color: '#8b5cf6' },
-    { name: 'Adults', value: 95, color: '#ec4899' },
-  ];
+  // Active students count
+  const { data: activeStudentsCount } = useQuery({
+    queryKey: ["active-students-count"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("students")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "active");
+      
+      if (error) throw error;
+      return count || 0;
+    },
+  });
+
+  // New students this month
+  const { data: newStudentsCount } = useQuery({
+    queryKey: ["new-students-count"],
+    queryFn: async () => {
+      const start = startOfMonth(new Date());
+      
+      const { count, error } = await supabase
+        .from("students")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", start.toISOString());
+      
+      if (error) throw error;
+      return count || 0;
+    },
+  });
+
+  // Average check
+  const { data: averageCheck } = useQuery({
+    queryKey: ["average-check"],
+    queryFn: async () => {
+      const start = startOfMonth(new Date());
+      
+      const { data, error } = await supabase
+        .from("payments")
+        .select("amount")
+        .eq("status", "completed")
+        .gte("created_at", start.toISOString());
+      
+      if (error) throw error;
+      if (data.length === 0) return 0;
+      return data.reduce((sum, p) => sum + (p.amount || 0), 0) / data.length;
+    },
+  });
+
+  // Daily revenue for chart
+  const { data: dailyRevenue } = useQuery({
+    queryKey: ["daily-revenue"],
+    queryFn: async () => {
+      const start = startOfMonth(new Date());
+      
+      const { data, error} = await supabase
+        .from("payments")
+        .select("amount, created_at")
+        .eq("status", "completed")
+        .gte("created_at", start.toISOString())
+        .order("created_at");
+      
+      if (error) throw error;
+      
+      // Group by day
+      const grouped = data.reduce((acc: any, payment) => {
+        const day = format(new Date(payment.created_at), "d");
+        if (!acc[day]) acc[day] = 0;
+        acc[day] += payment.amount || 0;
+        return acc;
+      }, {});
+      
+      return Object.entries(grouped).map(([date, amount]) => ({
+        date,
+        amount,
+      }));
+    },
+  });
+
+  // Branch revenue - группируем по клиентам и их филиалам
+  const { data: branchRevenue } = useQuery({
+    queryKey: ["branch-revenue"],
+    queryFn: async () => {
+      const start = startOfMonth(new Date());
+      
+      const { data, error } = await supabase
+        .from("payments")
+        .select("amount, client:clients(branch)")
+        .eq("status", "completed")
+        .gte("created_at", start.toISOString());
+      
+      if (error) throw error;
+      
+      const grouped = data.reduce((acc: any, payment: any) => {
+        const branch = payment.client?.branch || "Не указан";
+        if (!acc[branch]) acc[branch] = 0;
+        acc[branch] += payment.amount || 0;
+        return acc;
+      }, {});
+      
+      return Object.entries(grouped)
+        .map(([name, revenue]) => ({ name, revenue }))
+        .sort((a: any, b: any) => b.revenue - a.revenue)
+        .slice(0, 5);
+    },
+  });
+
+  // Active groups
+  const { data: activeGroupsCount } = useQuery({
+    queryKey: ["active-groups-count"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("learning_groups")
+        .select("*", { count: "exact", head: true })
+        .eq("is_active", true);
+      
+      if (error) throw error;
+      return count || 0;
+    },
+  });
+
+  // New leads this month
+  const { data: newLeadsCount } = useQuery({
+    queryKey: ["new-leads-count"],
+    queryFn: async () => {
+      const start = startOfMonth(new Date());
+      
+      const { count, error } = await supabase
+        .from("leads")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", start.toISOString());
+      
+      if (error) throw error;
+      return count || 0;
+    },
+  });
+
+  const revenueGrowth = previousMonthRevenue && currentMonthRevenue
+    ? ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue * 100).toFixed(1)
+    : 0;
 
   return (
     <div className="space-y-6 p-6">
@@ -43,10 +199,22 @@ export const OwnerDashboard = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1 200 000 ₽</div>
+            <div className="text-2xl font-bold">
+              {currentMonthRevenue?.toLocaleString('ru-RU') || 0} ₽
+            </div>
             <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-              <TrendingUp className="h-3 w-3 text-green-500" />
-              <span className="text-green-500">+12.5%</span> к прошлому месяцу
+              {Number(revenueGrowth) >= 0 ? (
+                <>
+                  <TrendingUp className="h-3 w-3 text-green-500" />
+                  <span className="text-green-500">+{revenueGrowth}%</span>
+                </>
+              ) : (
+                <>
+                  <TrendingDown className="h-3 w-3 text-red-500" />
+                  <span className="text-red-500">{revenueGrowth}%</span>
+                </>
+              )}
+              {' '}к прошлому месяцу
             </p>
           </CardContent>
         </Card>
@@ -57,10 +225,10 @@ export const OwnerDashboard = () => {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">300</div>
+            <div className="text-2xl font-bold">{activeStudentsCount || 0}</div>
             <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
               <TrendingUp className="h-3 w-3 text-green-500" />
-              <span className="text-green-500">+18</span> новых за месяц
+              <span className="text-green-500">+{newStudentsCount || 0}</span> новых за месяц
             </p>
           </CardContent>
         </Card>
@@ -71,24 +239,24 @@ export const OwnerDashboard = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">4 000 ₽</div>
-            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-              <TrendingDown className="h-3 w-3 text-red-500" />
-              <span className="text-red-500">-2.1%</span> к прошлому месяцу
+            <div className="text-2xl font-bold">
+              {averageCheck?.toLocaleString('ru-RU', { maximumFractionDigits: 0 }) || 0} ₽
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Средняя оплата за месяц
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Посещаемость</CardTitle>
+            <CardTitle className="text-sm font-medium">Активные группы</CardTitle>
             <UserCheck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">87%</div>
-            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-              <TrendingUp className="h-3 w-3 text-green-500" />
-              <span className="text-green-500">+3.2%</span> к прошлому месяцу
+            <div className="text-2xl font-bold">{activeGroupsCount || 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Всего групп в работе
             </p>
           </CardContent>
         </Card>
@@ -102,16 +270,22 @@ export const OwnerDashboard = () => {
             <CardDescription>Выручка по дням за текущий месяц</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={revenueData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="amount" stroke="#6366f1" strokeWidth={2} name="Выручка" />
-              </LineChart>
-            </ResponsiveContainer>
+            {dailyRevenue && dailyRevenue.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={dailyRevenue}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="amount" stroke="#6366f1" strokeWidth={2} name="Выручка" />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                Нет данных за текущий месяц
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -121,72 +295,48 @@ export const OwnerDashboard = () => {
             <CardDescription>Сравнение выручки по филиалам</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={branchData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="revenue" fill="#8b5cf6" name="Выручка" />
-              </BarChart>
-            </ResponsiveContainer>
+            {branchRevenue && branchRevenue.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={branchRevenue}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="revenue" fill="#8b5cf6" name="Выручка" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                Нет данных по филиалам
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Распределение учеников по программам</CardTitle>
-            <CardDescription>Количество учеников в каждой категории</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={studentLevelData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {studentLevelData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
+        <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Ключевые метрики</CardTitle>
-            <CardDescription>Операционная сводка</CardDescription>
+            <CardDescription>Операционная сводка за текущий месяц</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">Активные группы</span>
-              <span className="text-2xl font-bold">42</span>
+          <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="space-y-2">
+              <span className="text-sm font-medium text-muted-foreground">Активные группы</span>
+              <div className="text-3xl font-bold">{activeGroupsCount || 0}</div>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">Средняя наполняемость групп</span>
-              <span className="text-2xl font-bold">7.1</span>
+            <div className="space-y-2">
+              <span className="text-sm font-medium text-muted-foreground">Активные ученики</span>
+              <div className="text-3xl font-bold">{activeStudentsCount || 0}</div>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">Активные преподаватели</span>
-              <span className="text-2xl font-bold">18</span>
+            <div className="space-y-2">
+              <span className="text-sm font-medium text-muted-foreground">Новые лиды</span>
+              <div className="text-3xl font-bold">{newLeadsCount || 0}</div>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">Новые лиды за месяц</span>
-              <span className="text-2xl font-bold">127</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">Конверсия лиды → ученики</span>
-              <span className="text-2xl font-bold">42%</span>
+            <div className="space-y-2">
+              <span className="text-sm font-medium text-muted-foreground">Выручка</span>
+              <div className="text-3xl font-bold">
+                {(currentMonthRevenue || 0) / 1000}К ₽
+              </div>
             </div>
           </CardContent>
         </Card>
