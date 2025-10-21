@@ -46,7 +46,7 @@ export default function HolihopeImport() {
     { id: 'lesson_plans', name: '23. Планы занятий', description: 'ДЗ и материалы (текст + ссылки)', action: 'import_lesson_plans', status: 'pending' },
   ]);
 
-  const executeStep = async (step: ImportStep) => {
+  const executeStep = async (step: ImportStep, batchParams?: { skip?: number; batch_mode?: boolean; max_batches?: number }) => {
     setSteps((prev) =>
       prev.map((s) =>
         s.id === step.id ? { ...s, status: 'in_progress' } : s
@@ -54,8 +54,15 @@ export default function HolihopeImport() {
     );
 
     try {
+      const body: any = { action: step.action };
+      
+      // For leads/students, use batch mode if requested
+      if (batchParams) {
+        Object.assign(body, batchParams);
+      }
+      
       const { data, error } = await supabase.functions.invoke('import-holihope', {
-        body: { action: step.action },
+        body,
       });
 
       if (error) throw error;
@@ -80,12 +87,7 @@ export default function HolihopeImport() {
         throw new Error(progress.error || 'Ошибка импорта');
       }
 
-      toast({
-        title: 'Успешно',
-        description: progress?.message || `${step.name} завершен`,
-      });
-
-      return true;
+      return { success: true, progress };
     } catch (error: any) {
       console.error(`Error in step ${step.id}:`, error);
       
@@ -103,7 +105,7 @@ export default function HolihopeImport() {
         variant: 'destructive',
       });
 
-      return false;
+      return { success: false };
     }
   };
 
@@ -112,12 +114,49 @@ export default function HolihopeImport() {
 
     try {
       for (const step of steps) {
-        const success = await executeStep(step);
-        if (!success) {
-          break;
+        // For leads/students, use batch mode
+        if (step.action === 'import_leads' || step.action === 'import_students') {
+          let skip = 0;
+          let totalImported = 0;
+          let hasMore = true;
+          
+          while (hasMore) {
+            const result = await executeStep(step, { skip, batch_mode: true, max_batches: 1 });
+            
+            if (!result.success) break;
+            
+            const progress = result.progress;
+            totalImported += progress?.count || 0;
+            hasMore = progress?.hasMore || false;
+            skip = progress?.nextSkip || skip + 100;
+            
+            setSteps((prev) =>
+              prev.map((s) =>
+                s.id === step.id
+                  ? {
+                      ...s,
+                      count: totalImported,
+                      message: `Импортировано ${totalImported} записей${hasMore ? ' (продолжается...)' : ''}`,
+                    }
+                  : s
+              )
+            );
+          }
+          
+          if (!hasMore) {
+            setSteps((prev) =>
+              prev.map((s) =>
+                s.id === step.id ? { ...s, status: 'completed' } : s
+              )
+            );
+          }
+        } else {
+          const result = await executeStep(step);
+          if (!result.success) break;
         }
+        
         // Small delay between steps
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
       toast({
@@ -137,7 +176,59 @@ export default function HolihopeImport() {
 
   const runSingleStep = async (step: ImportStep) => {
     setIsImporting(true);
-    await executeStep(step);
+    
+    // For leads/students, use batch mode with progress updates
+    if (step.action === 'import_leads' || step.action === 'import_students') {
+      let skip = 0;
+      let totalImported = 0;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const result = await executeStep(step, { skip, batch_mode: true, max_batches: 1 });
+        
+        if (!result.success) break;
+        
+        const progress = result.progress;
+        totalImported += progress?.count || 0;
+        hasMore = progress?.hasMore || false;
+        skip = progress?.nextSkip || skip + 100;
+        
+        // Update UI with cumulative progress
+        setSteps((prev) =>
+          prev.map((s) =>
+            s.id === step.id
+              ? {
+                  ...s,
+                  count: totalImported,
+                  message: `Импортировано ${totalImported} записей${hasMore ? ' (продолжается...)' : ''}`,
+                }
+              : s
+          )
+        );
+        
+        if (!hasMore) {
+          toast({
+            title: 'Успешно',
+            description: `${step.name} завершен. Всего импортировано: ${totalImported}`,
+          });
+          
+          setSteps((prev) =>
+            prev.map((s) =>
+              s.id === step.id ? { ...s, status: 'completed' } : s
+            )
+          );
+        }
+      }
+    } else {
+      const result = await executeStep(step);
+      if (result.success) {
+        toast({
+          title: 'Успешно',
+          description: result.progress?.message || `${step.name} завершен`,
+        });
+      }
+    }
+    
     setIsImporting(false);
   };
 
