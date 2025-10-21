@@ -2544,11 +2544,18 @@ Deno.serve(async (req) => {
 
       try {
         let skip = 0;
-        const take = 100;
+        let currentTake = 50; // start smaller to avoid Holihope maxJsonLength
+        const minTake = 5;
         let allUnits = [];
+        let page = 0;
+        const maxPages = 10000;
 
         while (true) {
-          const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`;
+          if (page++ > maxPages) {
+            throw new Error('Safety break: too many pages while fetching educational units');
+          }
+
+          const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&take=${currentTake}&skip=${skip}`;
           console.log(`Fetching educational units from: ${apiUrl}`);
           
           const response = await fetch(apiUrl, {
@@ -2561,17 +2568,30 @@ Deno.serve(async (req) => {
           if (!response.ok) {
             const errorText = await response.text();
             console.error(`API error response: ${errorText}`);
+
+            // Adaptive paging: reduce page size if Holihope overflows JSON serializer
+            if (response.status === 500 && errorText?.includes('maxJsonLength')) {
+              if (currentTake > minTake) {
+                currentTake = Math.max(minTake, Math.floor(currentTake / 2));
+                console.warn(`Reducing page size to ${currentTake} and retrying...`);
+                continue; // retry same skip with smaller take
+              }
+            }
+
             throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
           }
           
-          const units = await response.json();
-          console.log(`Received ${units?.length || 0} units`);
+          const raw = await response.json();
+          const batch = Array.isArray(raw)
+            ? raw
+            : (raw?.EdUnits || raw?.EducationalUnits || raw?.Units || raw?.items || raw?.results || raw?.data || []);
+          console.log(`Received ${batch?.length || 0} units`);
           
-          if (!units || units.length === 0) break;
-          allUnits = allUnits.concat(units);
+          if (!batch || batch.length === 0) break;
+          allUnits = allUnits.concat(batch);
           
-          skip += take;
-          if (units.length < take) break;
+          skip += batch.length;
+          if (batch.length < currentTake) break;
         }
         
         let importedCount = 0;
