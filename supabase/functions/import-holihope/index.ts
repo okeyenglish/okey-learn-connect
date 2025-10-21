@@ -1182,23 +1182,20 @@ Deno.serve(async (req) => {
               }
             });
             
-            // Create family group for student if they have a phone
+            // Always create a family group for student (even without phone)
+            const studentName = `${sd.studentInfo.first_name} ${sd.studentInfo.last_name}`.trim() || 'Без имени';
+            const familyName = `Семья ${studentName}`;
+            
             if (sd.studentPhone) {
-              const studentClientId = phoneToClientMap.get(sd.studentPhone);
-              if (studentClientId) {
-                const studentName = `${sd.studentInfo.first_name} ${sd.studentInfo.last_name}`.trim() || 'Без имени';
-                const familyName = `Семья ${studentName}`;
-                
-                studentPhoneToFamilyNameMap.set(sd.studentPhone, familyName);
-                
-                if (!familyGroupsToCreate.find(fg => fg.name === familyName)) {
-                  familyGroupsToCreate.push({
-                    name: familyName,
-                    branch: sd.branch,
-                    organization_id: orgData?.id,
-                  });
-                }
-              }
+              studentPhoneToFamilyNameMap.set(sd.studentPhone, familyName);
+            }
+            
+            if (!familyGroupsToCreate.find(fg => fg.name === familyName)) {
+              familyGroupsToCreate.push({
+                name: familyName,
+                branch: sd.branch,
+                organization_id: orgData?.id,
+              });
             }
           });
           
@@ -1236,6 +1233,9 @@ Deno.serve(async (req) => {
             } else if (sd.studentPhone) {
               const familyName = studentPhoneToFamilyNameMap.get(sd.studentPhone);
               familyGroupId = familyGroupNameToIdMap.get(familyName);
+            } else {
+              const fallbackFamilyName = `Семья ${sd.studentInfo.first_name} ${sd.studentInfo.last_name}`.trim() || 'Семья Без имени';
+              familyGroupId = familyGroupNameToIdMap.get(fallbackFamilyName);
             }
             
             if (familyGroupId) {
