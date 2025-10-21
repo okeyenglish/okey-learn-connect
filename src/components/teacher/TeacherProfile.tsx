@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { UserCircle, Mail, Phone, MapPin, BookOpen, FileText, Bell, Edit, Calendar, Clock, TrendingUp, DollarSign } from 'lucide-react';
+import { UserCircle, Mail, Phone, MapPin, BookOpen, FileText, Bell, Edit, Calendar, Clock, TrendingUp, DollarSign, IdCard } from 'lucide-react';
 import { Teacher } from '@/hooks/useTeachers';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTeacherWorkload, useTeacherLessonsHistory } from '@/hooks/useTeacherWorkload';
@@ -9,6 +9,7 @@ import { useTeacherRates } from '@/hooks/useTeacherSalary';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { PersonalDataForm } from '@/components/teacher/PersonalDataForm';
 
 interface TeacherProfileProps {
   teacher: Teacher;
@@ -58,6 +59,7 @@ export const TeacherProfile = ({ teacher }: TeacherProfileProps) => {
           <Tabs defaultValue="info" className="w-full">
             <TabsList className="mb-4">
               <TabsTrigger value="info">Информация</TabsTrigger>
+              <TabsTrigger value="personal">Персональные данные</TabsTrigger>
               <TabsTrigger value="workload">Нагрузка</TabsTrigger>
               <TabsTrigger value="documents">Документы</TabsTrigger>
               <TabsTrigger value="settings">Настройки</TabsTrigger>
@@ -148,6 +150,10 @@ export const TeacherProfile = ({ teacher }: TeacherProfileProps) => {
                   </Badge>
                 </div>
               </div>
+            </TabsContent>
+
+            <TabsContent value="personal">
+              <PersonalDataForm teacher={teacher} />
             </TabsContent>
 
             <TabsContent value="workload">

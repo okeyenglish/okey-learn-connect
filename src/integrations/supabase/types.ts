@@ -4437,41 +4437,71 @@ export type Database = {
       }
       teachers: {
         Row: {
+          birth_place: string | null
+          birthdate: string | null
           branch: string
           categories: string[] | null
           created_at: string
           email: string | null
           first_name: string
           id: string
+          inn: string | null
           is_active: boolean
           last_name: string
+          passport_issued_by: string | null
+          passport_issued_date: string | null
+          passport_number: string | null
+          passport_series: string | null
           phone: string | null
+          registration_address: string | null
+          residential_address: string | null
+          snils: string | null
           subjects: string[] | null
           updated_at: string
         }
         Insert: {
+          birth_place?: string | null
+          birthdate?: string | null
           branch?: string
           categories?: string[] | null
           created_at?: string
           email?: string | null
           first_name: string
           id?: string
+          inn?: string | null
           is_active?: boolean
           last_name: string
+          passport_issued_by?: string | null
+          passport_issued_date?: string | null
+          passport_number?: string | null
+          passport_series?: string | null
           phone?: string | null
+          registration_address?: string | null
+          residential_address?: string | null
+          snils?: string | null
           subjects?: string[] | null
           updated_at?: string
         }
         Update: {
+          birth_place?: string | null
+          birthdate?: string | null
           branch?: string
           categories?: string[] | null
           created_at?: string
           email?: string | null
           first_name?: string
           id?: string
+          inn?: string | null
           is_active?: boolean
           last_name?: string
+          passport_issued_by?: string | null
+          passport_issued_date?: string | null
+          passport_number?: string | null
+          passport_series?: string | null
           phone?: string | null
+          registration_address?: string | null
+          residential_address?: string | null
+          snils?: string | null
           subjects?: string[] | null
           updated_at?: string
         }
