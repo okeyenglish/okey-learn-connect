@@ -23,15 +23,15 @@ export default function TeacherPortal() {
             </TabsContent>
 
             <TabsContent value="materials">
-              <TeacherMaterials />
+              {teacher && <TeacherMaterials teacher={teacher} />}
             </TabsContent>
 
             <TabsContent value="schedule">
-              <TeacherSchedule />
+              {teacher && <TeacherSchedule teacher={teacher} />}
             </TabsContent>
 
             <TabsContent value="substitutions">
-              <TeacherSubstitutions />
+              {teacher && <TeacherSubstitutions teacher={teacher} />}
             </TabsContent>
 
             <TabsContent value="profile">
