@@ -2551,9 +2551,9 @@ Deno.serve(async (req) => {
         const dateFrom = from.toISOString().slice(0, 10);
         const dateTo = to.toISOString().slice(0, 10);
         
-        // Get branches from GetOffice
-        console.log('Fetching list of branches from GetOffice...');
-        const officesUrl = `${HOLIHOPE_DOMAIN}/GetOffice?authkey=${HOLIHOPE_API_KEY}`;
+        // First, get list of unique office IDs from EdUnits (light query)
+        console.log('Fetching list of offices from EdUnits...');
+        const officesUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&queryDays=false&queryFiscalInfo=false&queryTeacherPrices=false`;
         const officesResp = await fetch(officesUrl, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
         
         if (!officesResp.ok) {
@@ -2561,12 +2561,9 @@ Deno.serve(async (req) => {
         }
         
         const officesRaw = await officesResp.json();
-        const offices = Array.isArray(officesRaw) ? officesRaw : (officesRaw?.Offices || officesRaw?.Office || []);
-        const branchIds = offices.map((o: any) => o.Id || o.OfficeId).filter(Boolean);
-        console.log(`Found ${branchIds.length} branch IDs: ${branchIds.join(', ')}`);
-        
-        // Types from documentation
-        const types = ['Group', 'MiniGroup', 'Individual', 'OpenLesson', 'TrialLesson', 'Exam', 'Tour'];
+        const officeUnits = Array.isArray(officesRaw) ? officesRaw : (officesRaw?.EdUnits || []);
+        const officeIds = [...new Set(officeUnits.map((u: any) => u.OfficeOrCompanyId).filter(Boolean))];
+        console.log(`Found ${officeIds.length} unique office IDs: ${officeIds.join(', ')}`);
         
         // Statuses: Working, Reserve, Forming, Stopped, Finished
         const statuses = ['Working', 'Reserve', 'Forming', 'Stopped', 'Finished'];
@@ -2583,13 +2580,13 @@ Deno.serve(async (req) => {
         let fetchedCount = 0;
         let totalRequests = 0;
         
-        // Fetch units for each status + branchId + timeRange combination
+        // Fetch units for each status + officeId + timeRange combination
         for (const status of statuses) {
-          for (const branchId of branchIds) {
+          for (const officeId of officeIds) {
             for (const timeRange of timeRanges) {
               try {
-                const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&officeOrCompanyId=${encodeURIComponent(branchId)}&statuses=${encodeURIComponent(status)}&timeFrom=${encodeURIComponent(timeRange.from)}&timeTo=${encodeURIComponent(timeRange.to)}&queryDays=true&queryFiscalInfo=true&queryTeacherPrices=true&dateFrom=${dateFrom}&dateTo=${dateTo}`;
-                console.log(`Fetching ${status} units from branch ${branchId} (${timeRange.from}-${timeRange.to})...`);
+                const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&officeOrCompanyId=${encodeURIComponent(officeId)}&statuses=${encodeURIComponent(status)}&timeFrom=${encodeURIComponent(timeRange.from)}&timeTo=${encodeURIComponent(timeRange.to)}&queryDays=true&queryFiscalInfo=true&queryTeacherPrices=true&dateFrom=${dateFrom}&dateTo=${dateTo}`;
+                console.log(`Fetching ${status} units from office ${officeId} (${timeRange.from}-${timeRange.to})...`);
                 totalRequests++;
                 
                 const response = await fetch(apiUrl, {
@@ -2598,7 +2595,7 @@ Deno.serve(async (req) => {
                 });
                 
                 if (!response.ok) {
-                  console.warn(`Skipping ${status}/${branchId}/${timeRange.from}: HTTP ${response.status}`);
+                  console.warn(`Skipping ${status}/${officeId}/${timeRange.from}: HTTP ${response.status}`);
                   continue;
                 }
                 
@@ -2611,7 +2608,7 @@ Deno.serve(async (req) => {
                   console.log(`Fetched ${batch.length} ${status} units (total: ${fetchedCount} from ${totalRequests} requests)`);
                 }
               } catch (err) {
-                console.error(`Error fetching ${status}/${branchId}/${timeRange.from}:`, err);
+                console.error(`Error fetching ${status}/${officeId}/${timeRange.from}:`, err);
                 // Continue with next combination
               }
             }
