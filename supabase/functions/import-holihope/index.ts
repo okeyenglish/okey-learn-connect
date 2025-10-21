@@ -475,11 +475,115 @@ Deno.serve(async (req) => {
           .eq('name', "O'KEY ENGLISH")
           .single();
 
+        // CRITICAL: Process agents first to build family groups correctly
+        // Agents ARE clients (parents/contacts), not separate entities
+        const agentToFamilyMap = new Map(); // phone/email -> family_group_id
+
         for (const student of allStudents) {
-          // Find or create family group
           let familyGroupId = null;
-          
-          if (student.clientId) {
+          const studentAgents = student.Agents || [];
+
+          // Step 1: Process each agent (create/find client and family group)
+          for (const agent of studentAgents) {
+            const agentPhone = agent.phone || '';
+            const agentEmail = agent.email || '';
+            const agentKey = agentPhone || agentEmail;
+
+            if (!agentKey) continue;
+
+            // Check if we already processed this agent
+            if (agentToFamilyMap.has(agentKey)) {
+              familyGroupId = agentToFamilyMap.get(agentKey);
+              continue;
+            }
+
+            // Find or create client for this agent
+            let clientId = null;
+            
+            // Try to find existing client by phone or email
+            const { data: existingClient } = await supabase
+              .from('clients')
+              .select('id')
+              .or(`phone.eq.${agentPhone},email.eq.${agentEmail}`)
+              .single();
+
+            if (existingClient) {
+              clientId = existingClient.id;
+            } else {
+              // Create new client from agent
+              const { data: newClient } = await supabase
+                .from('clients')
+                .insert({
+                  name: `${agent.lastName || ''} ${agent.firstName || ''}`.trim() || 'Контакт',
+                  phone: agentPhone,
+                  email: agentEmail,
+                  branch: student.location || 'Окская',
+                  notes: agent.relation ? `Отношение: ${agent.relation}` : null,
+                  organization_id: orgData?.id,
+                  external_id: agent.id?.toString(),
+                })
+                .select()
+                .single();
+
+              clientId = newClient?.id;
+
+              // Add phone number
+              if (clientId && agentPhone) {
+                await supabase.from('client_phone_numbers').upsert({
+                  client_id: clientId,
+                  phone: agentPhone,
+                  is_primary: true,
+                  is_whatsapp_enabled: true,
+                });
+              }
+            }
+
+            if (!clientId) continue;
+
+            // Find existing family for this client
+            const { data: existingFamilyMember } = await supabase
+              .from('family_members')
+              .select('family_group_id')
+              .eq('client_id', clientId)
+              .single();
+
+            if (existingFamilyMember) {
+              // Use existing family
+              familyGroupId = existingFamilyMember.family_group_id;
+            } else {
+              // Create new family group
+              const familyName = `Семья ${agent.lastName || student.lastName || 'Клиента'}`;
+              const { data: newFamily } = await supabase
+                .from('family_groups')
+                .insert({
+                  name: familyName,
+                  branch: student.location || 'Окская',
+                  organization_id: orgData?.id,
+                })
+                .select()
+                .single();
+
+              familyGroupId = newFamily?.id;
+
+              // Link client to family
+              if (familyGroupId) {
+                await supabase.from('family_members').insert({
+                  family_group_id: familyGroupId,
+                  client_id: clientId,
+                  is_primary_contact: agent.isPrimary || true,
+                  relationship_type: 'parent',
+                });
+              }
+            }
+
+            // Remember this agent's family
+            if (familyGroupId) {
+              agentToFamilyMap.set(agentKey, familyGroupId);
+            }
+          }
+
+          // Step 2: If student has clientId but no agents, try to link via clientId
+          if (!familyGroupId && student.clientId) {
             const { data: client } = await supabase
               .from('clients')
               .select('id')
@@ -487,31 +591,50 @@ Deno.serve(async (req) => {
               .single();
 
             if (client) {
-              // Create or get family group
-              const { data: familyGroup } = await supabase
-                .from('family_groups')
-                .upsert({
-                  name: `Семья ${student.lastName || ''}`,
-                  branch: student.location || 'Окская',
-                  organization_id: orgData?.id,
-                }, { onConflict: 'name,organization_id' })
-                .select()
+              // Check if client is already in a family
+              const { data: existingFamilyMember } = await supabase
+                .from('family_members')
+                .select('family_group_id')
+                .eq('client_id', client.id)
                 .single();
 
-              if (familyGroup) {
-                familyGroupId = familyGroup.id;
+              if (existingFamilyMember) {
+                familyGroupId = existingFamilyMember.family_group_id;
+              } else {
+                // Create new family
+                const { data: newFamily } = await supabase
+                  .from('family_groups')
+                  .insert({
+                    name: `Семья ${student.lastName || ''}`,
+                    branch: student.location || 'Окская',
+                    organization_id: orgData?.id,
+                  })
+                  .select()
+                  .single();
 
-                // Link client to family
-                await supabase.from('family_members').upsert({
-                  family_group_id: familyGroup.id,
-                  client_id: client.id,
-                  is_primary_contact: true,
-                  relationship_type: 'main',
-                });
+                familyGroupId = newFamily?.id;
+
+                if (familyGroupId) {
+                  await supabase.from('family_members').insert({
+                    family_group_id: familyGroupId,
+                    client_id: client.id,
+                    is_primary_contact: true,
+                    relationship_type: 'main',
+                  });
+                }
               }
             }
           }
 
+          // Step 3: Build extra_fields JSONB
+          const extraFields = {};
+          if (student.ExtraFields && Array.isArray(student.ExtraFields)) {
+            for (const field of student.ExtraFields) {
+              extraFields[field.name || 'custom_field'] = field.value || null;
+            }
+          }
+
+          // Step 4: Create/update student
           const studentData = {
             first_name: student.firstName || '',
             last_name: student.lastName || '',
@@ -522,46 +645,17 @@ Deno.serve(async (req) => {
             status: student.status === 'Active' ? 'active' : 'archived',
             notes: student.comment || null,
             family_group_id: familyGroupId,
+            extra_fields: extraFields,
             organization_id: orgData?.id,
             external_id: student.id?.toString(),
           };
 
-          const { data: insertedStudent, error } = await supabase
+          const { error } = await supabase
             .from('students')
-            .upsert(studentData, { onConflict: 'external_id' })
-            .select()
-            .single();
+            .upsert(studentData, { onConflict: 'external_id' });
 
           if (error) {
             console.error(`Error importing student ${student.lastName}:`, error);
-          } else if (insertedStudent) {
-            // Import Agents (contact persons)
-            if (student.Agents && Array.isArray(student.Agents)) {
-              for (const agent of student.Agents) {
-                await supabase.from('student_agents').upsert({
-                  student_id: insertedStudent.id,
-                  name: `${agent.lastName || ''} ${agent.firstName || ''}`.trim() || 'Контакт',
-                  relationship: agent.relation || null,
-                  phone: agent.phone || null,
-                  email: agent.email || null,
-                  is_primary: agent.isPrimary || false,
-                  organization_id: orgData?.id,
-                  external_id: agent.id?.toString(),
-                }, { onConflict: 'external_id' });
-              }
-            }
-
-            // Import ExtraFields (custom fields)
-            if (student.ExtraFields && Array.isArray(student.ExtraFields)) {
-              for (const field of student.ExtraFields) {
-                await supabase.from('student_extra_fields').upsert({
-                  student_id: insertedStudent.id,
-                  field_name: field.name || 'custom_field',
-                  field_value: field.value || null,
-                  organization_id: orgData?.id,
-                }, { onConflict: 'student_id,field_name' });
-              }
-            }
           }
         }
 

@@ -3637,6 +3637,7 @@ export type Database = {
           created_at: string
           date_of_birth: string | null
           external_id: string | null
+          extra_fields: Json | null
           family_group_id: string
           first_name: string | null
           gender: string | null
@@ -3658,6 +3659,7 @@ export type Database = {
           created_at?: string
           date_of_birth?: string | null
           external_id?: string | null
+          extra_fields?: Json | null
           family_group_id: string
           first_name?: string | null
           gender?: string | null
@@ -3679,6 +3681,7 @@ export type Database = {
           created_at?: string
           date_of_birth?: string | null
           external_id?: string | null
+          extra_fields?: Json | null
           family_group_id?: string
           first_name?: string | null
           gender?: string | null
