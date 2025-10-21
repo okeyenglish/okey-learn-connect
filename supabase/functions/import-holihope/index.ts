@@ -2548,13 +2548,24 @@ Deno.serve(async (req) => {
         let allUnits = [];
 
         while (true) {
-          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
+          const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`;
+          console.log(`Fetching educational units from: ${apiUrl}`);
+          
+          const response = await fetch(apiUrl, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
           });
           
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          console.log(`Response status: ${response.status}`);
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`API error response: ${errorText}`);
+            throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+          }
+          
           const units = await response.json();
+          console.log(`Received ${units?.length || 0} units`);
           
           if (!units || units.length === 0) break;
           allUnits = allUnits.concat(units);
