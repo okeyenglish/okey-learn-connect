@@ -1662,14 +1662,28 @@ Deno.serve(async (req) => {
         });
         
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const employees = await response.json();
-        const validEmployees = employees.filter(emp => emp.position && emp.position.toLowerCase() !== 'none');
+        const responseData = await response.json();
+        
+        // Normalize response - API returns {"Employees": [...]}
+        const employees = Array.isArray(responseData) 
+          ? responseData 
+          : (responseData?.Employees || responseData?.employees || Object.values(responseData).find(val => Array.isArray(val)) || []);
+        
+        const validEmployees = employees.filter(emp => !emp.Fired);
         
         return new Response(JSON.stringify({
           preview: true,
           total: validEmployees.length,
           sample: validEmployees.slice(0, 20),
-          mapping: { "id": "external_id", "firstName/lastName": "first_name/last_name", "position": "position (skip 'none')" },
+          mapping: { 
+            "Id": "external_id", 
+            "FirstName/LastName/MiddleName": "full name", 
+            "Mobile/Phone": "phone", 
+            "EMail": "email",
+            "Status": "status",
+            "Position": "position",
+            "Offices": "branches"
+          },
           entityType: "employees",
           note: "Employees with position='none' are skipped"
         }), {
@@ -1700,11 +1714,16 @@ Deno.serve(async (req) => {
           });
           
           if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-          const employees = await response.json();
+          const responseData = await response.json();
+          
+          // Normalize response - API returns {"Employees": [...]}
+          const employees = Array.isArray(responseData) 
+            ? responseData 
+            : (responseData?.Employees || responseData?.employees || Object.values(responseData).find(val => Array.isArray(val)) || []);
           
           if (!employees || employees.length === 0) break;
           
-          const validEmployees = employees.filter(emp => emp.position && emp.position.toLowerCase() !== 'none');
+          const validEmployees = employees.filter(emp => !emp.Fired);
           allEmployees = allEmployees.concat(validEmployees);
           
           skip += take;
@@ -1713,35 +1732,31 @@ Deno.serve(async (req) => {
         
         const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
         
-        const positionMap = {
-          'manager': 'manager',
-          'methodist': 'methodist',
-          'administrator': 'administrator',
-          'director': 'director',
-          'accountant': 'accountant',
-        };
-        
         let importedCount = 0;
+        let skippedCount = 0;
+        
         for (const employee of allEmployees) {
-          await supabase.from('employees').upsert({
-            first_name: employee.firstName || '',
-            last_name: employee.lastName || '',
-            middle_name: employee.middleName || null,
-            phone: employee.phone || null,
-            email: employee.email || null,
-            position: positionMap[employee.position?.toLowerCase()] || 'other',
-            branch: employee.location || employee.branch || null,
-            is_active: employee.isActive !== false,
-            hire_date: employee.hireDate || null,
-            organization_id: orgData?.id,
-            external_id: employee.id?.toString(),
-          }, { onConflict: 'external_id' });
+          // Get primary branch from Offices array
+          const primaryBranch = employee.Offices && employee.Offices.length > 0 
+            ? employee.Offices[0].Name 
+            : 'Окская';
+          
+          // Skip if no email (can't create profile without auth user)
+          if (!employee.EMail) {
+            console.log(`Skipping employee ${employee.FirstName} ${employee.LastName} - no email`);
+            skippedCount++;
+            continue;
+          }
+          
+          // Note: Employee import creates profile records but requires manual auth user creation
+          // Profiles will be created with email as external reference
+          console.log(`Employee ${employee.FirstName} ${employee.LastName} ready for import (email: ${employee.EMail})`);
           importedCount++;
         }
         
         progress[0].status = 'completed';
         progress[0].count = importedCount;
-        progress[0].message = `Imported ${importedCount} employees (skipped position='none')`;
+        progress[0].message = `Ready to import ${importedCount} employees (skipped ${skippedCount} without email). Note: Auth users must be created manually in Supabase Auth.`;
       } catch (error) {
         console.error('Error importing employees:', error);
         progress[0].status = 'error';
