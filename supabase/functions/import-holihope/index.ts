@@ -844,7 +844,7 @@ Deno.serve(async (req) => {
                     family_group_id: familyGroupId,
                     client_id: leadClientId,
                     is_primary_contact: false,
-                    relationship_type: 'student',
+                    relationship_type: 'other',
                   });
                 }
               }
@@ -1045,7 +1045,7 @@ Deno.serve(async (req) => {
                 phone: studentPhone,
                 lk_email: student.email || student.Email || student.EMail || null,
                 gender: student.gender || student.Gender || null,
-                status: (student.status || student.Status) === 'Active' ? 'active' : 'archived',
+                status: (student.status || student.Status) === 'Active' ? 'active' : 'inactive',
                 notes: student.comment || student.Comment || null,
                 extra_fields: extraFields,
                 external_id: student.id?.toString() || student.Id?.toString(),
@@ -1344,7 +1344,7 @@ Deno.serve(async (req) => {
                     family_group_id: familyGroupId,
                     client_id: studentClientId,
                     is_primary_contact: false,
-                    relationship_type: 'student',
+                    relationship_type: 'other',
                   });
                 }
               }
