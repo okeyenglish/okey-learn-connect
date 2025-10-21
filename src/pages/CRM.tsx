@@ -41,6 +41,7 @@ import { CreateInvoiceModal } from "@/components/crm/CreateInvoiceModal";
 import { PinnableModalHeader, PinnableDialogContent } from "@/components/crm/PinnableModal";
 import { ManagerMenu } from "@/components/crm/ManagerMenu";
 import { ScriptsModal } from "@/components/crm/ScriptsModal";
+import { DashboardModal } from "@/components/dashboards/DashboardModal";
 import { ScheduleModal } from "@/components/schedule/ScheduleModal";
 import { GroupsModal } from "@/components/learning-groups/GroupsModal";
 import { IndividualLessonsModal } from "@/components/individual-lessons/IndividualLessonsModal";
@@ -262,6 +263,7 @@ const CRMContent = () => {
   // Мобильные модальные окна
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [showScriptsModal, setShowScriptsModal] = useState(false);
+  const [showDashboardModal, setShowDashboardModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   
   // Admin panel state
@@ -1229,6 +1231,15 @@ const CRMContent = () => {
                   <span className="hidden sm:inline">Загрузка данных...</span>
                 </div>
               )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDashboardModal(true)}
+                className="flex items-center gap-2 px-3 h-10"
+              >
+                <BarChart3 className="h-4 w-4" />
+                <span className="text-sm">Дашборд</span>
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -3459,6 +3470,12 @@ const CRMContent = () => {
       <ScriptsModal
         open={showScriptsModal}
         onOpenChange={setShowScriptsModal}
+      />
+
+      {/* Модальное окно дашборда */}
+      <DashboardModal
+        open={showDashboardModal}
+        onOpenChange={setShowDashboardModal}
       />
 
       {/* Модальное окно нового чата */}
