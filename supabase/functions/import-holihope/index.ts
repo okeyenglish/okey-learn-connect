@@ -2571,9 +2571,9 @@ Deno.serve(async (req) => {
         // Statuses: Working, Reserve, Forming, Stopped, Finished
         const statuses = ['Working', 'Reserve', 'Forming', 'Stopped', 'Finished'];
         
-        // Time ranges from 06:00 to 21:00 with 1 hour step
+        // Time ranges from 06:00 to 23:00 with 1 hour step
         const timeRanges: Array<{ from: string; to: string }> = [];
-        for (let hour = 6; hour < 21; hour++) {
+        for (let hour = 6; hour < 23; hour++) {
           const fromTime = `${hour.toString().padStart(2, '0')}:00`;
           const toTime = `${(hour + 1).toString().padStart(2, '0')}:00`;
           timeRanges.push({ from: fromTime, to: toTime });
