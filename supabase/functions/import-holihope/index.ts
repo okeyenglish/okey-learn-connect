@@ -423,6 +423,30 @@ Deno.serve(async (req) => {
             break;
           }
           
+          if (skip === 0) {
+            try {
+              const sample = leads.slice(0, 3);
+              sample.forEach((l: any, idx: number) => {
+                const logObj: any = {
+                  keys: Object.keys(l || {}),
+                  phone_like: {
+                    phone: l?.phone,
+                    Phone: l?.Phone,
+                    Mobile: l?.Mobile,
+                    phones: l?.phones,
+                    Phones: l?.Phones,
+                    ContactPhone: l?.ContactPhone,
+                    Contact: l?.Contact,
+                    Client: l?.Client,
+                  }
+                };
+                console.log('Lead sample', idx, JSON.stringify(logObj).slice(0, 800));
+              });
+            } catch (e) {
+              console.log('Lead sample log error', (e as Error)?.message);
+            }
+          }
+          
           console.log(`Processing ${leads.length} leads...`);
 
           // Get all unique client external IDs from this batch
@@ -488,23 +512,48 @@ Deno.serve(async (req) => {
 
           // Normalize and prepare leads; skip records without a valid phone
           const extractRawPhone = (lead: any): string | null => {
-            const candidates: any[] = [
-              lead.phone,
-              lead.Phone,
-              lead.Mobile,
-              lead.mobile,
-              lead.contactPhone,
-              lead.ContactPhone,
-              Array.isArray(lead.phones) ? lead.phones[0] : null,
-              Array.isArray(lead.Phones) ? lead.Phones[0] : null,
-              lead?.Contact?.phone,
-              lead?.Contact?.Phone,
-              lead?.Client?.phone,
-              lead?.Client?.Phone,
-            ];
-            for (const c of candidates) {
-              if (c) return String(c);
+            const pickFromObj = (o: any): string | null => {
+              if (!o || typeof o !== 'object') return null;
+              const fields = ['phone','Phone','Mobile','mobile','ContactPhone','Telephone','Tel','Number','number','PhoneNumber','Normalized','normalized','value','Value'];
+              for (const k of fields) {
+                if (o[k]) return String(o[k]);
+              }
+              return null;
+            };
+
+            const pickFromArray = (arr: any[]): string | null => {
+              if (!Array.isArray(arr)) return null;
+              for (const item of arr) {
+                if (item == null) continue;
+                if (typeof item === 'string' || typeof item === 'number') return String(item);
+                const v = pickFromObj(item);
+                if (v) return v;
+              }
+              return null;
+            };
+
+            // 1) Try direct fields on the lead
+            const direct = pickFromObj(lead);
+            if (direct) return direct;
+
+            // 2) Try common array fields on the lead
+            const arrayKeys = ['phones','Phones','phoneNumbers','PhoneNumbers','contacts','Contacts','ContactPhones','ContactPhoneNumbers'];
+            for (const key of arrayKeys) {
+              const v = pickFromArray(lead?.[key]);
+              if (v) return v;
             }
+
+            // 3) Try nested contact-like objects
+            const nestedObjs = [lead?.Contact, lead?.Client, lead?.Agent, lead?.customer, lead?.Customer, lead?.PrimaryContact, lead?.Manager];
+            for (const obj of nestedObjs) {
+              const v1 = pickFromObj(obj);
+              if (v1) return v1;
+              for (const key of arrayKeys) {
+                const v2 = pickFromArray(obj?.[key]);
+                if (v2) return v2;
+              }
+            }
+
             return null;
           };
 
