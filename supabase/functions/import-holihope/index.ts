@@ -1576,13 +1576,18 @@ Deno.serve(async (req) => {
         });
         
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const levels = await response.json();
+        const responseData = await response.json();
+        
+        // Normalize response - API returns {"Levels": [{Name, Disciplines}, ...]}
+        const levels = Array.isArray(responseData) 
+          ? responseData 
+          : (responseData?.Levels || responseData?.levels || Object.values(responseData).find(val => Array.isArray(val)) || []);
         
         return new Response(JSON.stringify({
           preview: true,
           total: levels.length,
           sample: levels.slice(0, 20),
-          mapping: { "id": "external_id", "name": "name (A1-C2)" },
+          mapping: { "Name": "name", "Disciplines": "applicable disciplines" },
           entityType: "levels"
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -1607,20 +1612,29 @@ Deno.serve(async (req) => {
         });
         
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const levels = await response.json();
+        const responseData = await response.json();
+        
+        // Normalize response - API returns {"Levels": [{Name, Disciplines}, ...]}
+        const levels = Array.isArray(responseData) 
+          ? responseData 
+          : (responseData?.Levels || responseData?.levels || Object.values(responseData).find(val => Array.isArray(val)) || []);
         
         const { data: orgData } = await supabase.from('organizations').select('id').eq('name', "O'KEY ENGLISH").single();
         
         let importedCount = 0;
         for (const level of levels) {
+          // API returns {Name: string, Disciplines: string[]}
+          const levelName = level.Name || level.name || 'Без названия';
+          const disciplines = level.Disciplines || level.disciplines || [];
+          
           await supabase.from('proficiency_levels').upsert({
-            name: level.name || 'Без названия',
-            description: level.description || null,
-            level_order: level.order || 0,
-            is_active: level.isActive !== false,
+            name: levelName,
+            description: disciplines.length > 0 ? `Применяется для: ${disciplines.join(', ')}` : null,
+            level_order: importedCount,
+            is_active: true,
             organization_id: orgData?.id,
-            external_id: level.id?.toString(),
-          }, { onConflict: 'external_id' });
+            external_id: levelName, // Use name as external_id since no ID provided
+          }, { onConflict: 'external_id,organization_id' });
           importedCount++;
         }
         
