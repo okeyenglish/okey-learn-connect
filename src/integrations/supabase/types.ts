@@ -606,6 +606,7 @@ export type Database = {
           client_number: string | null
           created_at: string
           email: string | null
+          external_id: string | null
           id: string
           is_active: boolean
           last_message_at: string | null
@@ -623,6 +624,7 @@ export type Database = {
           client_number?: string | null
           created_at?: string
           email?: string | null
+          external_id?: string | null
           id?: string
           is_active?: boolean
           last_message_at?: string | null
@@ -640,6 +642,7 @@ export type Database = {
           client_number?: string | null
           created_at?: string
           email?: string | null
+          external_id?: string | null
           id?: string
           is_active?: boolean
           last_message_at?: string | null
@@ -1475,6 +1478,7 @@ export type Database = {
           debt_hours: number | null
           description: string | null
           duration: number | null
+          external_id: string | null
           id: string
           is_active: boolean
           is_skype_only: boolean | null
@@ -1510,6 +1514,7 @@ export type Database = {
           debt_hours?: number | null
           description?: string | null
           duration?: number | null
+          external_id?: string | null
           id?: string
           is_active?: boolean
           is_skype_only?: boolean | null
@@ -1545,6 +1550,7 @@ export type Database = {
           debt_hours?: number | null
           description?: string | null
           duration?: number | null
+          external_id?: string | null
           id?: string
           is_active?: boolean
           is_skype_only?: boolean | null
@@ -2075,6 +2081,7 @@ export type Database = {
           default_price: number | null
           description: string | null
           enrollment_url: string | null
+          external_id: string | null
           group_number: string | null
           group_type: Database["public"]["Enums"]["group_type"]
           id: string
@@ -2120,6 +2127,7 @@ export type Database = {
           default_price?: number | null
           description?: string | null
           enrollment_url?: string | null
+          external_id?: string | null
           group_number?: string | null
           group_type?: Database["public"]["Enums"]["group_type"]
           id?: string
@@ -2165,6 +2173,7 @@ export type Database = {
           default_price?: number | null
           description?: string | null
           enrollment_url?: string | null
+          external_id?: string | null
           group_number?: string | null
           group_type?: Database["public"]["Enums"]["group_type"]
           id?: string
@@ -2225,6 +2234,7 @@ export type Database = {
           created_at: string
           day_of_week: Database["public"]["Enums"]["day_of_week"]
           end_time: string
+          external_id: string | null
           group_id: string | null
           id: string
           is_free_for_student: boolean
@@ -2251,6 +2261,7 @@ export type Database = {
           created_at?: string
           day_of_week: Database["public"]["Enums"]["day_of_week"]
           end_time: string
+          external_id?: string | null
           group_id?: string | null
           id?: string
           is_free_for_student?: boolean
@@ -2277,6 +2288,7 @@ export type Database = {
           created_at?: string
           day_of_week?: Database["public"]["Enums"]["day_of_week"]
           end_time?: string
+          external_id?: string | null
           group_id?: string | null
           id?: string
           is_free_for_student?: boolean
@@ -2714,6 +2726,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          external_id: string | null
           group_id: string | null
           id: string
           individual_lesson_id: string | null
@@ -2733,6 +2746,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          external_id?: string | null
           group_id?: string | null
           id?: string
           individual_lesson_id?: string | null
@@ -2752,6 +2766,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          external_id?: string | null
           group_id?: string | null
           id?: string
           individual_lesson_id?: string | null
@@ -3621,6 +3636,7 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           date_of_birth: string | null
+          external_id: string | null
           family_group_id: string
           first_name: string | null
           gender: string | null
@@ -3641,6 +3657,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           date_of_birth?: string | null
+          external_id?: string | null
           family_group_id: string
           first_name?: string | null
           gender?: string | null
@@ -3661,6 +3678,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           date_of_birth?: string | null
+          external_id?: string | null
           family_group_id?: string
           first_name?: string | null
           gender?: string | null
@@ -4443,6 +4461,7 @@ export type Database = {
           categories: string[] | null
           created_at: string
           email: string | null
+          external_id: string | null
           first_name: string
           id: string
           inn: string | null
@@ -4466,6 +4485,7 @@ export type Database = {
           categories?: string[] | null
           created_at?: string
           email?: string | null
+          external_id?: string | null
           first_name: string
           id?: string
           inn?: string | null
@@ -4489,6 +4509,7 @@ export type Database = {
           categories?: string[] | null
           created_at?: string
           email?: string | null
+          external_id?: string | null
           first_name?: string
           id?: string
           inn?: string | null

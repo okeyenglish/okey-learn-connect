@@ -39,6 +39,9 @@ verify_jwt = true
 [functions.import-students]
 verify_jwt = true
 
+[functions.import-holihope]
+verify_jwt = true
+
 [functions.index-content]
 verify_jwt = false
 
