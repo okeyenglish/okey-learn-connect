@@ -263,6 +263,7 @@ export const TodayDashboard = ({
                   onHomework={() => onHomework(lesson)}
                   onOpenLink={() => onOpenOnline(lesson)}
                   onStartLesson={() => onStartLesson(lesson)}
+                  onRequestSubstitution={onRequestSubstitution}
                 />
 
                 {lesson.status !== 'completed' && lesson.status !== 'cancelled' && (
@@ -301,6 +302,7 @@ export const TodayDashboard = ({
                       onHomework={() => onHomework(lesson)}
                       onOpenLink={() => onOpenOnline(lesson)}
                       onStartLesson={() => onStartLesson(lesson)}
+                      onRequestSubstitution={onRequestSubstitution}
                     />
                   ))}
                 </div>

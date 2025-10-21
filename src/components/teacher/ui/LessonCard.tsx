@@ -1,4 +1,4 @@
-import { Calendar, ClipboardCheck, NotebookPen, Video, MapPin, Clock } from "lucide-react";
+import { Calendar, ClipboardCheck, NotebookPen, Video, MapPin, Clock, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -14,6 +14,7 @@ interface LessonCardProps {
   onHomework?: () => void;
   onOpenLink?: () => void;
   onStartLesson?: () => void;
+  onRequestSubstitution?: () => void;
 }
 
 export function LessonCard({
@@ -28,6 +29,7 @@ export function LessonCard({
   onHomework,
   onOpenLink,
   onStartLesson,
+  onRequestSubstitution,
 }: LessonCardProps) {
   const formatTime = (time: string) => {
     try {
@@ -94,6 +96,11 @@ export function LessonCard({
           {onHomework && (
             <IconBtn tooltip="Домашнее задание" onClick={onHomework}>
               <NotebookPen className="w-4 h-4" />
+            </IconBtn>
+          )}
+          {onRequestSubstitution && (
+            <IconBtn tooltip="Запросить замену" onClick={onRequestSubstitution}>
+              <UserX className="w-4 h-4" />
             </IconBtn>
           )}
           {onStartLesson && (
