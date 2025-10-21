@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { usePinnedModalsDB } from "@/hooks/usePinnedModalsDB";
 
 interface LeadCardProps {
   lead: any;
@@ -16,10 +17,20 @@ export const LeadCard = ({ lead, onUpdate }: LeadCardProps) => {
   const fullName = `${lead.first_name} ${lead.last_name}`;
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { pinModal, openPinnedModal } = usePinnedModalsDB();
 
-  const handleOpen = () => {
-    // Открываем карточку студента в CRM
-    navigate(`/newcrm?student=${lead.id}`);
+  const handleOpen = async () => {
+    // Гарантируем нахождение в CRM
+    navigate(`/newcrm`);
+
+    // Закрепляем и открываем карточку студента как отдельное окно
+    await pinModal({
+      id: lead.id,
+      type: 'student',
+      title: `Студент: ${fullName}`,
+      props: { student: { id: lead.id, name: fullName } }
+    });
+    await openPinnedModal(lead.id, 'student');
   };
 
   const handleScheduleTrial = () => {
