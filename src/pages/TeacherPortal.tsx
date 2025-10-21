@@ -7,7 +7,7 @@ import { TeacherMaterials } from '@/components/teacher/TeacherMaterials';
 import { TeacherSchedule } from '@/components/teacher/TeacherSchedule';
 import { TeacherSubstitutions } from '@/components/teacher/TeacherSubstitutions';
 import { TeacherProfile } from '@/components/teacher/TeacherProfile';
-import { TeacherChats } from '@/components/teacher/TeacherChats';
+import { TeacherAIHub } from '@/components/teacher/TeacherAIHub';
 
 export default function TeacherPortal() {
   return (
@@ -35,13 +35,12 @@ export default function TeacherPortal() {
               {teacher && <TeacherSubstitutions teacher={teacher} />}
             </TabsContent>
 
-            <TabsContent value="chats">
-              {teacher && <TeacherChats teacher={teacher} />}
-            </TabsContent>
-
             <TabsContent value="profile">
               {teacher && <TeacherProfile teacher={teacher} />}
             </TabsContent>
+            
+            {/* Плавающая кнопка AI Hub */}
+            {teacher && <TeacherAIHub teacher={teacher} />}
           </>
         )}
       </TeacherLayout>
