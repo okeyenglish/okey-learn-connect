@@ -14,6 +14,20 @@ import { Teacher } from '@/hooks/useTeachers';
 
 // Схема валидации для персональных данных
 const personalDataSchema = z.object({
+  email: z.string()
+    .trim()
+    .email({ message: "Неверный формат email" })
+    .max(255, "Максимум 255 символов")
+    .optional()
+    .or(z.literal('')),
+  
+  phone: z.string()
+    .trim()
+    .regex(/^[+]?[\d\s\-()]{10,20}$/, "Неверный формат телефона")
+    .max(20, "Максимум 20 символов")
+    .optional()
+    .or(z.literal('')),
+  
   birthdate: z.string().optional().refine((val) => {
     if (!val) return true;
     const date = new Date(val);
@@ -85,6 +99,8 @@ export const PersonalDataForm = ({ teacher }: PersonalDataFormProps) => {
   const { register, handleSubmit, formState: { errors }, reset } = useForm<PersonalDataFormData>({
     resolver: zodResolver(personalDataSchema),
     defaultValues: {
+      email: teacher.email || '',
+      phone: teacher.phone || '',
       birthdate: (teacher as any).birthdate || '',
       birth_place: (teacher as any).birth_place || '',
       passport_series: (teacher as any).passport_series || '',
@@ -154,6 +170,43 @@ export const PersonalDataForm = ({ teacher }: PersonalDataFormProps) => {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Контактная информация */}
+        <div className="border rounded-xl p-4 space-y-4">
+          <h4 className="font-medium text-sm text-muted-foreground">Контактная информация</h4>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                {...register('email')}
+                disabled={!isEditing}
+                placeholder="example@mail.com"
+                maxLength={255}
+              />
+              {errors.email && (
+                <p className="text-sm text-destructive">{errors.email.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Телефон</Label>
+              <Input
+                id="phone"
+                type="tel"
+                {...register('phone')}
+                disabled={!isEditing}
+                placeholder="+7 (999) 123-45-67"
+                maxLength={20}
+              />
+              {errors.phone && (
+                <p className="text-sm text-destructive">{errors.phone.message}</p>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Паспортные данные */}
         <div className="border rounded-xl p-4 space-y-4">
           <h4 className="font-medium text-sm text-muted-foreground">Паспортные данные</h4>
