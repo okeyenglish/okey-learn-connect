@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Plus, Search, Filter } from "lucide-react";
@@ -24,44 +24,62 @@ export function LeadsModalContent({ onLeadClick }: LeadsModalContentProps) {
     branch: "all",
   });
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { students, isLoading: studentsLoading } = useStudents();
 
-  // Лиды = студенты без активных курсов
-  const { data: leadsData, isLoading: coursesLoading, refetch } = useQuery({
-    queryKey: ["leads-from-students", students],
+  // Получаем активных студентов по занятиям
+  const { data: activeGroupStudents = [], isLoading: groupStudentsLoading } = useQuery({
+    queryKey: ['active-group-students'],
     queryFn: async () => {
-      if (!students || students.length === 0) return [];
-
-      // Получаем всех студентов с их активными курсами
-      const { data: coursesData, error } = await supabase
-        .from("student_courses")
-        .select("student_id, is_active")
-        .eq("is_active", true);
-
+      const { data, error } = await supabase
+        .from('group_students')
+        .select('student_id')
+        .eq('status', 'active');
       if (error) throw error;
-
-      // ID студентов с активными курсами
-      const studentsWithCourses = new Set(
-        (coursesData || []).map((c) => c.student_id)
-      );
-
-      // Фильтруем студентов без активных курсов
-      return students
-        .filter((s) => !studentsWithCourses.has(s.id))
-        .map((s) => ({
-          id: s.id,
-          first_name: s.first_name || s.name?.split(" ")[0] || "Без имени",
-          last_name: s.last_name || s.name?.split(" ").slice(1).join(" ") || "",
-          phone: s.phone || "",
-          email: s.email || "",
-          branch: s.branch || "Окская",
-          notes: s.notes || "",
-          status: s.status,
-          created_at: s.created_at,
-        }));
-    },
-    enabled: !!students && students.length > 0,
+      return (data || []).map((gs: any) => gs.student_id as string);
+    }
   });
+
+  const { data: activeIndividualLessons = [], isLoading: individualLessonsLoading } = useQuery({
+    queryKey: ['active-individual-lessons'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('individual_lessons')
+        .select('student_id')
+        .eq('is_active', true)
+        .eq('status', 'active');
+      if (error) throw error;
+      return (data || []).map((il: any) => il.student_id as string);
+    }
+  });
+
+  // Лиды = студенты без занятий
+  const leadsData = useMemo(() => {
+    if (!students || students.length === 0) return [];
+    
+    const activeStudentIds = new Set<string>([...activeGroupStudents, ...activeIndividualLessons]);
+    
+    return students
+      .filter((s) => !activeStudentIds.has(s.id))
+      .map((s) => ({
+        id: s.id,
+        first_name: s.first_name || s.name?.split(" ")[0] || "Без имени",
+        last_name: s.last_name || s.name?.split(" ").slice(1).join(" ") || "",
+        phone: s.phone || "",
+        email: s.email || "",
+        branch: s.branch || "Окская",
+        notes: s.notes || "",
+        status: s.status,
+        created_at: s.created_at,
+      }));
+  }, [students, activeGroupStudents, activeIndividualLessons]);
+  
+  const refetch = () => {
+    // Инвалидируем все связанные запросы
+    queryClient.invalidateQueries({ queryKey: ['students'] });
+    queryClient.invalidateQueries({ queryKey: ['active-group-students'] });
+    queryClient.invalidateQueries({ queryKey: ['active-individual-lessons'] });
+  };
 
   const applyFilters = (items: any[]) => {
     const s = search.toLowerCase();
@@ -74,7 +92,7 @@ export function LeadsModalContent({ onLeadClick }: LeadsModalContentProps) {
   };
 
   const displayLeads = applyFilters(leadsData || []);
-  const loading = studentsLoading || coursesLoading;
+  const loading = studentsLoading || groupStudentsLoading || individualLessonsLoading;
 
   return (
     <div className="space-y-6 p-6">
