@@ -13,9 +13,10 @@ import { supabase } from "@/integrations/supabase/client";
 interface LeadCardProps {
   lead: any;
   onUpdate: () => void;
+  onOpen?: (lead: any) => void;
 }
 
-export const LeadCard = ({ lead, onUpdate }: LeadCardProps) => {
+export const LeadCard = ({ lead, onUpdate, onOpen }: LeadCardProps) => {
   const fullName = `${lead.first_name} ${lead.last_name}`;
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -23,6 +24,10 @@ export const LeadCard = ({ lead, onUpdate }: LeadCardProps) => {
   const [opening, setOpening] = useState(false);
 
   const handleOpen = async () => {
+    if (onOpen) {
+      onOpen(lead);
+      return;
+    }
     if (opening) return;
     setOpening(true);
     try {

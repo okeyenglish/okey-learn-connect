@@ -9,6 +9,7 @@ import { CreateLeadDialog } from "@/components/leads/CreateLeadDialog";
 import { LeadFilters } from "@/components/leads/LeadFilters";
 import { useToast } from "@/hooks/use-toast";
 import { useStudents } from "@/hooks/useStudents";
+import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
 
 interface LeadsModalContentProps {
   onLeadClick?: (clientId: string) => void;
@@ -26,6 +27,8 @@ export function LeadsModalContent({ onLeadClick }: LeadsModalContentProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { students, isLoading: studentsLoading } = useStudents();
+  const [selectedLead, setSelectedLead] = useState<any | null>(null);
+  const [studentCardOpen, setStudentCardOpen] = useState(false);
 
   // Получаем активных студентов по занятиям
   const { data: activeGroupStudents = [], isLoading: groupStudentsLoading } = useQuery({
@@ -142,7 +145,12 @@ export function LeadsModalContent({ onLeadClick }: LeadsModalContentProps) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {displayLeads.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} onUpdate={refetch} />
+            <LeadCard 
+              key={lead.id} 
+              lead={lead} 
+              onUpdate={refetch} 
+              onOpen={() => { setSelectedLead(lead); setStudentCardOpen(true); }}
+            />
           ))}
         </div>
       )}
@@ -155,6 +163,16 @@ export function LeadsModalContent({ onLeadClick }: LeadsModalContentProps) {
           toast({ title: "Лид создан", description: "Новый лид успешно добавлен в систему" });
         }}
       />
+
+      {selectedLead && (
+        <EnhancedStudentCard
+          student={{ id: selectedLead.id, name: `${selectedLead.first_name} ${selectedLead.last_name}`.trim() }}
+          open={studentCardOpen}
+          onOpenChange={setStudentCardOpen}
+          onUpdate={refetch}
+        />
+      )}
     </div>
   );
 }
+
