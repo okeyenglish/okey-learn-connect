@@ -1,0 +1,486 @@
+{
+  "info": {
+    "name": "Language School CRM - API Tests",
+    "_postman_id": "crm-acceptance-tests-2025",
+    "description": "Коллекция для тестирования API языковой школы CRM",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://kbojujfwtvmsgudumown.supabase.co/rest/v1",
+      "type": "string"
+    },
+    {
+      "key": "apikey",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtib2p1amZ3dHZtc2d1ZHVtb3duIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxOTQ5MzksImV4cCI6MjA3Mzc3MDkzOX0.4SZggdlllMM8SYUo9yZKR-fR-nK4fIL4ZMciQW2EaNY",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "YOUR_AUTH_TOKEN_HERE",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Leads Management",
+      "item": [
+        {
+          "name": "Get All Leads",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "apikey", "value": "{{apikey}}", "type": "text"},
+              {"key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/leads?select=*&order=created_at.desc",
+              "host": ["{{base_url}}"],
+              "path": ["leads"],
+              "query": [
+                {"key": "select", "value": "*"},
+                {"key": "order", "value": "created_at.desc"}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create New Lead",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "apikey", "value": "{{apikey}}", "type": "text"},
+              {"key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text"},
+              {"key": "Content-Type", "value": "application/json", "type": "text"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Иван\",\n  \"last_name\": \"Петров\",\n  \"phone\": \"+79001234567\",\n  \"email\": \"ivan@example.com\",\n  \"age\": 25,\n  \"subject\": \"Английский\",\n  \"level\": \"Intermediate\",\n  \"branch\": \"Окская\",\n  \"utm_source\": \"instagram\",\n  \"notes\": \"Хочет индивидуальные занятия\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/leads",
+              "host": ["{{base_url}}"],
+              "path": ["leads"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Leads by Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "apikey", "value": "{{apikey}}", "type": "text"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/leads?status_id=eq.NEW_LEAD_STATUS_ID",
+              "host": ["{{base_url}}"],
+              "path": ["leads"],
+              "query": [
+                {"key": "status_id", "value": "eq.NEW_LEAD_STATUS_ID"}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Lead Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {"key": "apikey", "value": "{{apikey}}", "type": "text"},
+              {"key": "Content-Type", "value": "application/json", "type": "text"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status_id\": \"CONTACTED_STATUS_ID\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/leads?id=eq.LEAD_ID",
+              "host": ["{{base_url}}"],
+              "path": ["leads"],
+              "query": [
+                {"key": "id", "value": "eq.LEAD_ID"}
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Clients Management",
+      "item": [
+        {
+          "name": "Get All Clients",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "apikey", "value": "{{apikey}}", "type": "text"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/clients?select=*&is_active=eq.true&limit=50",
+              "host": ["{{base_url}}"],
+              "path": ["clients"],
+              "query": [
+                {"key": "select", "value": "*"},
+                {"key": "is_active", "value": "eq.true"},
+                {"key": "limit", "value": "50"}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Client by Phone",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "apikey", "value": "{{apikey}}", "type": "text"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/clients?phone=eq.+79001234567",
+              "host": ["{{base_url}}"],
+              "path": ["clients"],
+              "query": [
+                {"key": "phone", "value": "eq.+79001234567"}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Client",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "apikey", "value": "{{apikey}}", "type": "text"},
+              {"key": "Content-Type", "value": "application/json", "type": "text"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Иван Петров\",\n  \"phone\": \"+79001234567\",\n  \"email\": \"ivan@example.com\",\n  \"branch\": \"Окская\",\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/clients",
+              "host": ["{{base_url}}"],
+              "path": ["clients"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Payments",
+      "item": [
+        {
+          "name": "Get All Payments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "apikey", "value": "{{apikey}}", "type": "text"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/payments?select=*&order=created_at.desc",
+              "host": ["{{base_url}}"],
+              "path": ["payments"],
+              "query": [
+                {"key": "select", "value": "*"},
+                {"key": "order", "value": "created_at.desc"}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payments by Date Range",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "apikey", "value": "{{apikey}}", "type": "text"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/payments?created_at=gte.2025-10-01&created_at=lte.2025-10-31",
+              "host": ["{{base_url}}"],
+              "path": ["payments"],
+              "query": [
+                {"key": "created_at", "value": "gte.2025-10-01"},
+                {"key": "created_at", "value": "lte.2025-10-31"}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "apikey", "value": "{{apikey}}", "type": "text"},
+              {"key": "Content-Type", "value": "application/json", "type": "text"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": \"CLIENT_UUID\",\n  \"amount\": 5000,\n  \"payment_method\": \"card\",\n  \"payment_type\": \"subscription\",\n  \"status\": \"paid\",\n  \"branch\": \"Окская\",\n  \"notes\": \"Абонемент на 8 занятий\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/payments",
+              "host": ["{{base_url}}"],
+              "path": ["payments"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Total Revenue",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "apikey", "value": "{{apikey}}", "type": "text"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/payments?select=amount&status=eq.paid",
+              "host": ["{{base_url}}"],
+              "path": ["payments"],
+              "query": [
+                {"key": "select", "value": "amount"},
+                {"key": "status", "value": "eq.paid"}
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Learning Groups",
+      "item": [
+        {
+          "name": "Get All Active Groups",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "apikey", "value": "{{apikey}}", "type": "text"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/learning_groups?select=*&is_active=eq.true",
+              "host": ["{{base_url}}"],
+              "path": ["learning_groups"],
+              "query": [
+                {"key": "select", "value": "*"},
+                {"key": "is_active", "value": "eq.true"}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Groups by Teacher",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "apikey", "value": "{{apikey}}", "type": "text"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/learning_groups?responsible_teacher=eq.Пышнов Даниил",
+              "host": ["{{base_url}}"],
+              "path": ["learning_groups"],
+              "query": [
+                {"key": "responsible_teacher", "value": "eq.Пышнов Даниил"}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Learning Group",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "apikey", "value": "{{apikey}}", "type": "text"},
+              {"key": "Content-Type", "value": "application/json", "type": "text"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kids Box 1 - Группа А\",\n  \"branch\": \"Окская\",\n  \"subject\": \"Английский\",\n  \"level\": \"Beginner\",\n  \"responsible_teacher\": \"Пышнов Даниил\",\n  \"capacity\": 10,\n  \"current_students\": 0,\n  \"schedule_days\": [\"Понедельник\", \"Среда\"],\n  \"schedule_time\": \"18:00-19:30\",\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/learning_groups",
+              "host": ["{{base_url}}"],
+              "path": ["learning_groups"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Lesson Sessions",
+      "item": [
+        {
+          "name": "Get Today's Lessons",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "apikey", "value": "{{apikey}}", "type": "text"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/lesson_sessions?select=*,learning_groups(name)&lesson_date=eq.2025-10-21&order=start_time.asc",
+              "host": ["{{base_url}}"],
+              "path": ["lesson_sessions"],
+              "query": [
+                {"key": "select", "value": "*,learning_groups(name)"},
+                {"key": "lesson_date", "value": "eq.2025-10-21"},
+                {"key": "order", "value": "start_time.asc"}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Lessons by Teacher",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "apikey", "value": "{{apikey}}", "type": "text"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/lesson_sessions?teacher_name=eq.Пышнов Даниил&lesson_date=gte.2025-10-21",
+              "host": ["{{base_url}}"],
+              "path": ["lesson_sessions"],
+              "query": [
+                {"key": "teacher_name", "value": "eq.Пышнов Даниил"},
+                {"key": "lesson_date", "value": "gte.2025-10-21"}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Lesson Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "apikey", "value": "{{apikey}}", "type": "text"},
+              {"key": "Content-Type", "value": "application/json", "type": "text"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"group_id\": \"GROUP_UUID\",\n  \"teacher_name\": \"Пышнов Даниил\",\n  \"lesson_date\": \"2025-10-25\",\n  \"start_time\": \"18:00\",\n  \"end_time\": \"19:30\",\n  \"classroom\": \"Кабинет 101\",\n  \"branch\": \"Окская\",\n  \"status\": \"scheduled\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/lesson_sessions",
+              "host": ["{{base_url}}"],
+              "path": ["lesson_sessions"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. Teachers",
+      "item": [
+        {
+          "name": "Get All Teachers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "apikey", "value": "{{apikey}}", "type": "text"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/teachers?select=*&is_active=eq.true",
+              "host": ["{{base_url}}"],
+              "path": ["teachers"],
+              "query": [
+                {"key": "select", "value": "*"},
+                {"key": "is_active", "value": "eq.true"}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Teacher by Name",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "apikey", "value": "{{apikey}}", "type": "text"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/teachers?first_name=eq.Даниил&last_name=eq.Пышнов",
+              "host": ["{{base_url}}"],
+              "path": ["teachers"],
+              "query": [
+                {"key": "first_name", "value": "eq.Даниил"},
+                {"key": "last_name", "value": "eq.Пышнов"}
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7. Analytics & Dashboards",
+      "item": [
+        {
+          "name": "Get Monthly Revenue Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "apikey", "value": "{{apikey}}", "type": "text"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/rpc/get_monthly_revenue?month_start=2025-10-01&month_end=2025-10-31",
+              "host": ["{{base_url}}"],
+              "path": ["rpc", "get_monthly_revenue"],
+              "query": [
+                {"key": "month_start", "value": "2025-10-01"},
+                {"key": "month_end", "value": "2025-10-31"}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Active Students Count",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "apikey", "value": "{{apikey}}", "type": "text"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/students?select=count&status=eq.active",
+              "host": ["{{base_url}}"],
+              "path": ["students"],
+              "query": [
+                {"key": "select", "value": "count"},
+                {"key": "status", "value": "eq.active"}
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "value",
+        "value": "{{apikey}}",
+        "type": "string"
+      },
+      {
+        "key": "key",
+        "value": "apikey",
+        "type": "string"
+      }
+    ]
+  }
+}
