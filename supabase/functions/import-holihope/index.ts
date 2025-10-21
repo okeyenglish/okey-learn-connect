@@ -2544,8 +2544,8 @@ Deno.serve(async (req) => {
 
       try {
         let skip = 0;
-        let currentTake = 50; // Start with reasonable batch size
-        const minTake = 20; // Don't go below 20
+        let currentTake = 2; // Very small batches to handle large nested data
+        const minTake = 1;
         let allUnits = [];
         let page = 0;
         const maxPages = 10000;
@@ -2555,8 +2555,8 @@ Deno.serve(async (req) => {
             throw new Error('Safety break: too many pages while fetching educational units');
           }
 
-          // Exclude heavy nested data to avoid maxJsonLength errors
-          const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&take=${currentTake}&skip=${skip}&queryDays=false&queryFiscalInfo=false&queryTeacherPrices=false`;
+          // Include all data - Days, FiscalInfo, TeacherPrices
+          const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&take=${currentTake}&skip=${skip}&queryDays=true&queryFiscalInfo=true&queryTeacherPrices=true`;
           console.log(`Fetching educational units (take=${currentTake}, skip=${skip})...`);
           
           const response = await fetch(apiUrl, {
@@ -2570,12 +2570,17 @@ Deno.serve(async (req) => {
             const errorText = await response.text();
             console.error(`API error response: ${errorText}`);
 
-            // Adaptive paging: reduce page size if Holihope overflows JSON serializer
+            // Adaptive paging: reduce to 1 unit at a time if needed
             if (response.status === 500 && errorText?.includes('maxJsonLength')) {
               if (currentTake > minTake) {
-                currentTake = Math.max(minTake, Math.floor(currentTake / 2));
-                console.warn(`Reducing page size to ${currentTake} and retrying...`);
+                currentTake = minTake;
+                console.warn(`Reducing page size to ${currentTake} (single unit) and retrying...`);
                 continue; // retry same skip with smaller take
+              } else {
+                // Even 1 unit is too large, skip it
+                console.warn(`Skipping unit at position ${skip} - too large even for single fetch`);
+                skip += 1;
+                continue;
               }
             }
 
@@ -2591,6 +2596,11 @@ Deno.serve(async (req) => {
           
           skip += batch.length;
           if (batch.length < currentTake) break;
+          
+          // Log progress every 50 units
+          if (allUnits.length % 50 === 0) {
+            console.log(`Progress: fetched ${allUnits.length} units so far...`);
+          }
         }
         
         console.log(`Total units fetched: ${allUnits.length}`);
