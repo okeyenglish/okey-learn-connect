@@ -4,6 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { AdminSidebar } from "./AdminSidebar";
 import { AdminDashboard } from "./AdminDashboard";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { DashboardRouter } from "@/components/dashboards/DashboardRouter";
 
 interface AdminModalProps {
   open: boolean;
@@ -21,7 +22,11 @@ export const AdminModal = ({ open, onOpenChange }: AdminModalProps) => {
             <AdminSidebar onSectionChange={setActiveSection} />
             <ScrollArea className="flex-1 h-full">
               <div className="p-6">
-                <AdminDashboard activeSection={activeSection} />
+                {activeSection === "dashboard" ? (
+                  <DashboardRouter />
+                ) : (
+                  <AdminDashboard activeSection={activeSection} />
+                )}
               </div>
             </ScrollArea>
           </div>
