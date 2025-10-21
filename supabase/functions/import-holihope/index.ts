@@ -2850,7 +2850,15 @@ Deno.serve(async (req) => {
           : (raw.EdUnitStudents || raw.edUnitStudents || raw.Links || raw.links || raw.data || Object.values(raw).find((v: any) => Array.isArray(v)) || []);
         
         console.log(`API response type: ${typeof raw}, isArray: ${Array.isArray(raw)}, linksLen: ${Array.isArray(links) ? links.length : 'N/A'}`);
-        
+        // Debug a tiny sample of fields to verify keys
+        if (Array.isArray(links) && links.length > 0) {
+          const sampleKeys = Object.keys(links[0]);
+          console.log('Sample link keys:', sampleKeys);
+          console.log('Sample ids:', links.slice(0, 3).map((l: any) => ({
+            StudentId: l.StudentId ?? l.studentId ?? l.student_id ?? l.StudentID ?? l.ClientId ?? l.ClientID ?? l.ChildId ?? l.ChildID ?? null,
+            EdUnitId: l.EdUnitId ?? l.edUnitId ?? l.ed_unit_id ?? l.edUnitID ?? null,
+          })));
+        }
         if (!Array.isArray(links) || links.length === 0) {
           console.log(`No links to process. Array.isArray: ${Array.isArray(links)}, length: ${Array.isArray(links) ? links.length : 'N/A'}`);
           progress[0].status = 'completed';
@@ -2922,7 +2930,7 @@ Deno.serve(async (req) => {
             continue;
           }
           
-          const studentExternalId = (link.studentId ?? link.StudentId ?? link.student_id ?? link.StudentID)?.toString();
+          const studentExternalId = (link.studentId ?? link.StudentId ?? link.student_id ?? link.StudentID ?? link.ClientId ?? link.ClientID ?? link.Client_id ?? link.ChildId ?? link.ChildID)?.toString();
           const student = studentMap.get(studentExternalId);
           if (!student) {
             skippedCount++;
