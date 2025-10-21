@@ -2,13 +2,13 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Filter, AlertTriangle } from "lucide-react";
+import { Plus, Search, Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { LeadCard } from "@/components/leads/LeadCard";
 import { CreateLeadDialog } from "@/components/leads/CreateLeadDialog";
 import { LeadFilters } from "@/components/leads/LeadFilters";
 import { useToast } from "@/hooks/use-toast";
-import { useClients } from "@/hooks/useClients";
+import { useStudents } from "@/hooks/useStudents";
 
 interface LeadsModalContentProps {
   onLeadClick?: (clientId: string) => void;
@@ -24,46 +24,44 @@ export function LeadsModalContent({ onLeadClick }: LeadsModalContentProps) {
     branch: "all",
   });
   const { toast } = useToast();
+  const { students, isLoading: studentsLoading } = useStudents();
 
-  // Primary source: leads table (simple select, no FK expansions to avoid schema issues)
-  const { data: leads, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ["leads", filters, search],
+  // Лиды = студенты без активных курсов
+  const { data: leadsData, isLoading: coursesLoading, refetch } = useQuery({
+    queryKey: ["leads-from-students", students],
     queryFn: async () => {
-      let query = supabase
-        .from("leads")
-        .select("*")
-        .order("created_at", { ascending: false });
+      if (!students || students.length === 0) return [];
 
-      if (search) {
-        query = query.or(
-          `first_name.ilike.%${search}%,last_name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`
-        );
-      }
+      // Получаем всех студентов с их активными курсами
+      const { data: coursesData, error } = await supabase
+        .from("student_courses")
+        .select("student_id, is_active")
+        .eq("is_active", true);
 
-      if (filters.status !== "all") query = query.eq("status_id", filters.status);
-      if (filters.source !== "all") query = query.eq("lead_source_id", filters.source);
-      if (filters.branch !== "all") query = query.eq("branch", filters.branch);
-
-      const { data, error } = await query;
       if (error) throw error;
-      return data || [];
-    },
-  });
 
-  // Fallback: clients as leads when leads table is empty or unavailable
-  const { clients, isLoading: clientsLoading } = useClients();
-  const mappedClients = useMemo(() =>
-    (clients || []).map((client: any) => ({
-      id: client.id,
-      first_name: client.name?.split(" ")[0] || client.name || "Без имени",
-      last_name: client.name?.split(" ").slice(1).join(" ") || "",
-      phone: client.phone,
-      email: client.email || "",
-      branch: client.branch || "Окская",
-      notes: client.notes || "",
-      created_at: client.created_at,
-    })),
-  [clients]);
+      // ID студентов с активными курсами
+      const studentsWithCourses = new Set(
+        (coursesData || []).map((c) => c.student_id)
+      );
+
+      // Фильтруем студентов без активных курсов
+      return students
+        .filter((s) => !studentsWithCourses.has(s.id))
+        .map((s) => ({
+          id: s.id,
+          first_name: s.first_name || s.name?.split(" ")[0] || "Без имени",
+          last_name: s.last_name || s.name?.split(" ").slice(1).join(" ") || "",
+          phone: s.phone || "",
+          email: s.email || "",
+          branch: s.branch || "Окская",
+          notes: s.notes || "",
+          status: s.status,
+          created_at: s.created_at,
+        }));
+    },
+    enabled: !!students && students.length > 0,
+  });
 
   const applyFilters = (items: any[]) => {
     const s = search.toLowerCase();
@@ -71,15 +69,12 @@ export function LeadsModalContent({ onLeadClick }: LeadsModalContentProps) {
       const fullName = `${x.first_name || ""} ${x.last_name || ""}`.toLowerCase();
       const matchesSearch = !s || fullName.includes(s) || (x.phone || "").toLowerCase().includes(s) || (x.email || "").toLowerCase().includes(s);
       const matchesBranch = filters.branch === "all" || x.branch === filters.branch;
-      const matchesStatus = filters.status === "all" || x.status_id === filters.status;
-      const matchesSource = filters.source === "all" || x.lead_source_id === filters.source;
-      return matchesSearch && matchesBranch && matchesStatus && matchesSource;
+      return matchesSearch && matchesBranch;
     });
   };
 
-  const useFallback = isError || (leads && leads.length === 0);
-  const displayLeads = useFallback ? applyFilters(mappedClients) : applyFilters(leads || []);
-  const loading = isLoading || (useFallback && clientsLoading);
+  const displayLeads = applyFilters(leadsData || []);
+  const loading = studentsLoading || coursesLoading;
 
   return (
     <div className="space-y-6 p-6">
@@ -87,12 +82,12 @@ export function LeadsModalContent({ onLeadClick }: LeadsModalContentProps) {
         <div>
           <h2 className="text-2xl font-bold">Лиды</h2>
           <p className="text-muted-foreground mt-1">
-            Управление входящими заявками{useFallback ? " (данные из контактов)" : ""}
+            Ученики без занятий ({displayLeads.length})
           </p>
         </div>
         <Button onClick={() => setCreateDialogOpen(true)}>
           <Plus className="w-4 h-4 mr-2" />
-          Создать лид
+          Добавить лида
         </Button>
       </div>
 
@@ -114,13 +109,6 @@ export function LeadsModalContent({ onLeadClick }: LeadsModalContentProps) {
 
       {showFilters && (
         <LeadFilters filters={filters} onFiltersChange={setFilters} />
-      )}
-
-      {isError && (
-        <div className="flex items-center gap-2 text-yellow-600 text-sm">
-          <AlertTriangle className="w-4 h-4" />
-          Не удалось загрузить таблицу лидов. Показаны контакты как лиды. {String((error as any)?.message || "")}
-        </div>
       )}
 
       {loading ? (
