@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const HOLIHOPE_DOMAIN = 'https://okeyenglish.t8s.ru';
+const HOLIHOPE_DOMAIN = 'https://okeyenglish.t8s.ru/Api/V2';
 const HOLIHOPE_API_KEY = 'eUhKlOpwAPTjOi8MgkVjms2DBY6jQPFrGPtfa8IyxpIZclH9wKMcTVGyumfvoWuJ';
 
 interface ImportProgress {
@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
         const formData = new URLSearchParams();
         formData.append('authkey', HOLIHOPE_API_KEY);
         
-        const response = await fetch(`${HOLIHOPE_DOMAIN}/api/GetLocations`, {
+        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetLocations`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
           formData.append('take', take.toString());
           formData.append('skip', skip.toString());
           
-          const response = await fetch(`${HOLIHOPE_DOMAIN}/api/GetTeachers`, {
+          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetTeachers`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',
@@ -222,7 +222,7 @@ Deno.serve(async (req) => {
           formData.append('take', take.toString());
           formData.append('skip', skip.toString());
           
-          const response = await fetch(`${HOLIHOPE_DOMAIN}/api/GetClients`, {
+          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetClients`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',
@@ -312,7 +312,7 @@ Deno.serve(async (req) => {
           formData.append('take', take.toString());
           formData.append('skip', skip.toString());
           
-          const response = await fetch(`${HOLIHOPE_DOMAIN}/api/GetStudents`, {
+          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetStudents`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',
@@ -433,7 +433,7 @@ Deno.serve(async (req) => {
           formData.append('take', take.toString());
           formData.append('skip', skip.toString());
           
-          const response = await fetch(`${HOLIHOPE_DOMAIN}/api/GetEdUnits`, {
+          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetEdUnits`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',
@@ -549,7 +549,7 @@ Deno.serve(async (req) => {
         formData.append('authkey', HOLIHOPE_API_KEY);
         formData.append('queryDays', 'true');
         
-        const response = await fetch(`${HOLIHOPE_DOMAIN}/api/GetSchedule`, {
+        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetSchedule`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -628,7 +628,7 @@ Deno.serve(async (req) => {
           formData.append('take', take.toString());
           formData.append('skip', skip.toString());
           
-          const response = await fetch(`${HOLIHOPE_DOMAIN}/api/GetPayments`, {
+          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetPayments`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',
