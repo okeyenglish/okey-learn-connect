@@ -52,6 +52,14 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Resolve organization from the authenticated user's profile
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('organization_id, branch')
+      .eq('id', user.id)
+      .single();
+    const orgId = profile?.organization_id || null;
+
     const body = await req.json();
     const { action } = body;
     
@@ -945,11 +953,6 @@ Deno.serve(async (req) => {
       progress.push({ step: 'import_students', status: 'in_progress' });
 
       try {
-        const { data: orgData } = await supabase
-          .from('organizations')
-          .select('id')
-          .eq('name', "O'KEY ENGLISH")
-          .single();
 
         let skip = (body?.skip ?? 0);
         const take = (body?.take ?? 100);
@@ -1046,7 +1049,7 @@ Deno.serve(async (req) => {
                 notes: student.comment || student.Comment || null,
                 extra_fields: extraFields,
                 external_id: student.id?.toString() || student.Id?.toString(),
-                organization_id: orgData?.id,
+                organization_id: orgId,
               },
               branch,
               studentPhone,
@@ -1089,8 +1092,8 @@ Deno.serve(async (req) => {
               if (sd.studentPhone && phonesToCreateClients.includes(sd.studentPhone)) {
                 phoneToSourceMap.set(sd.studentPhone, {
                   name: `${sd.studentInfo.first_name} ${sd.studentInfo.last_name}`.trim() || 'Без имени',
-                  email: sd.studentInfo.email,
-                  branch: sd.studentInfo.branch,
+                  email: sd.studentInfo.lk_email,
+                  branch: sd.branch,
                 });
               }
               
@@ -1114,7 +1117,7 @@ Deno.serve(async (req) => {
                 name: source.name,
                 email: source.email,
                 branch: source.branch,
-                organization_id: orgData?.id,
+                organization_id: orgId,
               };
             });
             
@@ -1177,7 +1180,7 @@ Deno.serve(async (req) => {
                 familyGroupsToCreate.push({
                   name: familyName,
                   branch: sd.branch,
-                  organization_id: orgData?.id,
+                  organization_id: orgId,
                 });
               }
             });
@@ -1194,7 +1197,7 @@ Deno.serve(async (req) => {
               familyGroupsToCreate.push({
                 name: familyName,
                 branch: sd.branch,
-                organization_id: orgData?.id,
+                organization_id: orgId,
               });
             }
           });
@@ -1224,7 +1227,7 @@ Deno.serve(async (req) => {
               .from('family_groups')
               .select('id, name')
               .in('name', names)
-              .eq('organization_id', orgData?.id);
+              .eq('organization_id', orgId);
             if (fetchErr) {
               console.error('family_groups select error:', fetchErr);
             }
