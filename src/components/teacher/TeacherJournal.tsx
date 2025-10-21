@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BookOpen, Users, User, Calendar, FileText, Clock } from 'lucide-react';
+import { BookOpen, Users, User, Calendar, FileText, Clock, ClipboardCheck, BookOpenCheck } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +8,8 @@ import { useTeacherGroups, useTeacherIndividualLessons } from '@/hooks/useTeache
 import { Teacher } from '@/hooks/useTeachers';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { GroupAttendanceModal } from './modals/GroupAttendanceModal';
+import { HomeworkModal } from './modals/HomeworkModal';
 
 interface TeacherJournalProps {
   teacher: Teacher;
@@ -14,6 +17,8 @@ interface TeacherJournalProps {
 
 export const TeacherJournal = ({ teacher }: TeacherJournalProps) => {
   const teacherName = `${teacher.last_name} ${teacher.first_name}`;
+  const [attendanceModal, setAttendanceModal] = useState<{ open: boolean; groupId: string; sessionId: string; sessionDate: string } | null>(null);
+  const [homeworkModal, setHomeworkModal] = useState<{ open: boolean; groupId: string; sessionId: string } | null>(null);
   
   const { data: groups, isLoading: groupsLoading } = useTeacherGroups(teacherName);
   const { data: individualLessons, isLoading: individualsLoading } = useTeacherIndividualLessons(teacherName);
@@ -28,6 +33,7 @@ export const TeacherJournal = ({ teacher }: TeacherJournalProps) => {
     return statusMap[status] || { label: status, variant: 'secondary' };
   };
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
@@ -106,12 +112,41 @@ export const TeacherJournal = ({ teacher }: TeacherJournalProps) => {
                       )}
 
                       <div className="mt-4 flex gap-2">
-                        <Button size="sm" variant="outline">
-                          <FileText className="h-4 w-4 mr-2" />
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            const recentSession = group.recent_sessions[0];
+                            if (recentSession) {
+                              setAttendanceModal({
+                                open: true,
+                                groupId: group.id,
+                                sessionId: recentSession.id,
+                                sessionDate: format(new Date(recentSession.lesson_date), 'd MMMM yyyy', { locale: ru }),
+                              });
+                            }
+                          }}
+                          disabled={!group.recent_sessions[0]}
+                        >
+                          <ClipboardCheck className="h-4 w-4 mr-2" />
                           Посещаемость
                         </Button>
-                        <Button size="sm" variant="outline">
-                          <BookOpen className="h-4 w-4 mr-2" />
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            const recentSession = group.recent_sessions[0];
+                            if (recentSession) {
+                              setHomeworkModal({
+                                open: true,
+                                groupId: group.id,
+                                sessionId: recentSession.id,
+                              });
+                            }
+                          }}
+                          disabled={!group.recent_sessions[0]}
+                        >
+                          <BookOpenCheck className="h-4 w-4 mr-2" />
                           Домашние задания
                         </Button>
                       </div>
@@ -202,5 +237,25 @@ export const TeacherJournal = ({ teacher }: TeacherJournalProps) => {
         </Tabs>
       </CardContent>
     </Card>
+
+    {attendanceModal && (
+      <GroupAttendanceModal
+        open={attendanceModal.open}
+        onOpenChange={(open) => !open && setAttendanceModal(null)}
+        groupId={attendanceModal.groupId}
+        sessionId={attendanceModal.sessionId}
+        sessionDate={attendanceModal.sessionDate}
+      />
+    )}
+
+    {homeworkModal && (
+      <HomeworkModal
+        open={homeworkModal.open}
+        onOpenChange={(open) => !open && setHomeworkModal(null)}
+        groupId={homeworkModal.groupId}
+        sessionId={homeworkModal.sessionId}
+      />
+    )}
+    </>
   );
 };

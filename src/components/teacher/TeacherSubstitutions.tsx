@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { RefreshCcw, Calendar, Plus, Clock, User, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { RefreshCcw, Calendar, Plus, Clock, User, CheckCircle, XCircle, AlertCircle, UserX } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -8,12 +9,14 @@ import { ru } from 'date-fns/locale';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Teacher } from '@/hooks/useTeachers';
+import { SubstitutionRequestModal } from './modals/SubstitutionRequestModal';
 
 interface TeacherSubstitutionsProps {
   teacher: Teacher;
 }
 
 export const TeacherSubstitutions = ({ teacher }: TeacherSubstitutionsProps) => {
+  const [requestModal, setRequestModal] = useState<{ open: boolean; type: 'substitution' | 'absence' } | null>(null);
   // Получаем заявки на замены для преподавателя
   const { data: substitutions, isLoading: substitutionsLoading } = useQuery({
     queryKey: ['teacher-substitutions', teacher.id],
@@ -77,6 +80,7 @@ export const TeacherSubstitutions = ({ teacher }: TeacherSubstitutionsProps) => 
   }
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
@@ -99,7 +103,7 @@ export const TeacherSubstitutions = ({ teacher }: TeacherSubstitutionsProps) => 
 
           <TabsContent value="substitutions">
             <div className="mb-4">
-              <Button>
+              <Button onClick={() => setRequestModal({ open: true, type: 'substitution' })}>
                 <Plus className="h-4 w-4 mr-2" />
                 Запросить замену
               </Button>
@@ -182,7 +186,7 @@ export const TeacherSubstitutions = ({ teacher }: TeacherSubstitutionsProps) => 
 
           <TabsContent value="absences">
             <div className="mb-4">
-              <Button>
+              <Button onClick={() => setRequestModal({ open: true, type: 'absence' })}>
                 <Plus className="h-4 w-4 mr-2" />
                 Запросить отпуск
               </Button>
@@ -199,5 +203,15 @@ export const TeacherSubstitutions = ({ teacher }: TeacherSubstitutionsProps) => 
         </Tabs>
       </CardContent>
     </Card>
+
+    {requestModal && (
+      <SubstitutionRequestModal
+        open={requestModal.open}
+        onOpenChange={(open) => !open && setRequestModal(null)}
+        teacherId={teacher.id}
+        type={requestModal.type}
+      />
+    )}
+    </>
   );
 };
