@@ -1000,6 +1000,40 @@ Deno.serve(async (req) => {
             return s.length >= 10 ? s : null;
           };
 
+          const parseDateToISO = (input: any): string | null => {
+            if (!input) return null;
+            const s = String(input).trim();
+            // Try DD.MM.YYYY
+            const m = s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})$/);
+            if (m) {
+              const d = m[1].padStart(2, '0');
+              const mo = m[2].padStart(2, '0');
+              const y = m[3].length === 2 ? (Number(m[3]) + 2000).toString() : m[3];
+              return `${y}-${mo}-${d}`;
+            }
+            // Try native Date
+            const dt = new Date(s);
+            if (!isNaN(dt.getTime())) {
+              const yyyy = dt.getFullYear();
+              const mm = String(dt.getMonth() + 1).padStart(2, '0');
+              const dd = String(dt.getDate()).padStart(2, '0');
+              return `${yyyy}-${mm}-${dd}`;
+            }
+            return null;
+          };
+
+          const calcAge = (isoDate: string | null): number | null => {
+            if (!isoDate) return null;
+            const [y, m, d] = isoDate.split('-').map(Number);
+            if (!y || !m || !d) return null;
+            const birth = new Date(y, m - 1, d);
+            if (isNaN(birth.getTime())) return null;
+            const now = new Date();
+            let age = now.getFullYear() - birth.getFullYear();
+            const md = now.getMonth() - birth.getMonth();
+            if (md < 0 || (md === 0 && now.getDate() < birth.getDate())) age--;
+            return age;
+          };
           // Prepare students data and collect ALL phones (student + agents)
           const studentsData = [];
           const allPhonesSet = new Set();
@@ -1031,7 +1065,11 @@ Deno.serve(async (req) => {
             }
             
             const branch = student.location || student.Location || 'Окская';
-            const age = student.age || student.Age || 0;
+            const rawDob = student.dateOfBirth || student.DateOfBirth || null;
+            const dobISO = parseDateToISO(rawDob);
+            const providedAge = Number(student.age || student.Age);
+            const computedAge = Number.isFinite(providedAge) && providedAge > 0 ? providedAge : (calcAge(dobISO) ?? 7);
+            const safeAge = Math.max(1, Math.min(100, computedAge));
             const fullName = `${student.firstName || student.FirstName || ''} ${student.lastName || student.LastName || ''}`.trim() || 'Без имени';
             
             studentsData.push({
@@ -1040,8 +1078,8 @@ Deno.serve(async (req) => {
                 first_name: student.firstName || student.FirstName || '',
                 last_name: student.lastName || student.LastName || '',
                 middle_name: student.middleName || student.MiddleName || null,
-                age: age,
-                date_of_birth: student.dateOfBirth || student.DateOfBirth || null,
+                age: safeAge,
+                date_of_birth: dobISO,
                 phone: studentPhone,
                 lk_email: student.email || student.Email || student.EMail || null,
                 gender: student.gender || student.Gender || null,
