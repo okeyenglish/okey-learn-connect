@@ -2544,8 +2544,8 @@ Deno.serve(async (req) => {
 
       try {
         let skip = 0;
-        let currentTake = 10; // start very small to avoid Holihope maxJsonLength
-        const minTake = 3;
+        let currentTake = 50; // Start with reasonable batch size
+        const minTake = 20; // Don't go below 20
         let allUnits = [];
         let page = 0;
         const maxPages = 10000;
@@ -2555,7 +2555,8 @@ Deno.serve(async (req) => {
             throw new Error('Safety break: too many pages while fetching educational units');
           }
 
-          const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&take=${currentTake}&skip=${skip}`;
+          // Exclude heavy nested data to avoid maxJsonLength errors
+          const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&take=${currentTake}&skip=${skip}&queryDays=false&queryFiscalInfo=false&queryTeacherPrices=false`;
           console.log(`Fetching educational units (take=${currentTake}, skip=${skip})...`);
           
           const response = await fetch(apiUrl, {
