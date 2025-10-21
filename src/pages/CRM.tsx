@@ -1316,7 +1316,7 @@ const CRMContent = () => {
                       </PinnableModalHeader>
                       <div>
                         {item.label === "Лиды" && (
-                          <StudentsLeadsModal />
+                          <LeadsModalContent />
                         )}
                         {item.label === "Расписание" && (
                           <div className="h-full">
