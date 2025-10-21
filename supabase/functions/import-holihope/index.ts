@@ -2835,6 +2835,7 @@ Deno.serve(async (req) => {
         const take = 100;
         let allLinks = [];
 
+        console.log('Fetching all ed unit student links from Holihope...');
         while (true) {
           const response = await fetch(`${HOLIHOPE_DOMAIN}/GetEdUnitStudents?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
             method: 'GET',
@@ -2846,88 +2847,157 @@ Deno.serve(async (req) => {
           
           if (!links || links.length === 0) break;
           allLinks = allLinks.concat(links);
+          console.log(`Fetched ${allLinks.length} links so far...`);
           
           skip += take;
           if (links.length < take) break;
         }
         
+        console.log(`Total links fetched: ${allLinks.length}`);
+        
+        // Fetch all students, learning_groups and individual_lessons in batches
+        console.log('Fetching all students with external_id...');
+        const { data: allStudents } = await supabase
+          .from('students')
+          .select('id, client_id, external_id')
+          .not('external_id', 'is', null);
+        
+        const studentMap = new Map(allStudents?.map(s => [s.external_id, s]) || []);
+        console.log(`Found ${studentMap.size} students with external_id`);
+        
+        console.log('Fetching all learning groups with external_id...');
+        const { data: allGroups } = await supabase
+          .from('learning_groups')
+          .select('id, name, external_id')
+          .not('external_id', 'is', null);
+        
+        const groupMap = new Map(allGroups?.map(g => [g.external_id, g]) || []);
+        console.log(`Found ${groupMap.size} groups with external_id`);
+        
+        console.log('Fetching all individual lessons with external_id...');
+        const { data: allIndividualLessons } = await supabase
+          .from('individual_lessons')
+          .select('id, student_name, external_id')
+          .not('external_id', 'is', null);
+        
+        const individualLessonMap = new Map(allIndividualLessons?.map(il => [il.external_id, il]) || []);
+        console.log(`Found ${individualLessonMap.size} individual lessons with external_id`);
+        
+        // Fetch all clients for names
+        console.log('Fetching all clients...');
+        const { data: allClients } = await supabase
+          .from('clients')
+          .select('id, name');
+        
+        const clientMap = new Map(allClients?.map(c => [c.id, c]) || []);
+        console.log(`Found ${clientMap.size} clients`);
+        
         let groupLinksCount = 0;
         let individualLinksCount = 0;
         let skippedCount = 0;
+        let skippedReasons = {
+          noEdUnitId: 0,
+          studentNotFound: 0,
+          edUnitNotFound: 0
+        };
         
+        const groupStudentsToInsert = [];
+        const individualLessonsToUpdate = [];
+        
+        console.log('Processing links...');
         for (const link of allLinks) {
           const edUnitExternalId = link.edUnitId?.toString();
           if (!edUnitExternalId) {
             skippedCount++;
+            skippedReasons.noEdUnitId++;
             continue;
           }
           
-          // Find student
-          const { data: student } = await supabase
-            .from('students')
-            .select('id, client_id')
-            .eq('external_id', link.studentId?.toString())
-            .maybeSingle();
-          
+          const student = studentMap.get(link.studentId?.toString());
           if (!student) {
             skippedCount++;
+            skippedReasons.studentNotFound++;
             continue;
           }
           
           // Try to find in learning_groups first
-          const { data: learningGroup } = await supabase
-            .from('learning_groups')
-            .select('id, name')
-            .eq('external_id', edUnitExternalId)
-            .maybeSingle();
-          
+          const learningGroup = groupMap.get(edUnitExternalId);
           if (learningGroup) {
-            // Link student to group via group_students
-            await supabase.from('group_students').upsert({
+            groupStudentsToInsert.push({
               group_id: learningGroup.id,
               student_id: student.id,
               enrollment_date: link.enrollmentDate || new Date().toISOString().split('T')[0],
               exit_date: link.exitDate || null,
               status: link.status === 'Inactive' ? 'inactive' : 'active',
               notes: link.notes || null,
-            }, { onConflict: 'group_id,student_id' });
+            });
             groupLinksCount++;
             continue;
           }
           
           // Try to find in individual_lessons
-          const { data: individualLesson } = await supabase
-            .from('individual_lessons')
-            .select('id, student_name')
-            .eq('external_id', edUnitExternalId)
-            .maybeSingle();
-          
+          const individualLesson = individualLessonMap.get(edUnitExternalId);
           if (individualLesson) {
-            // Update individual_lesson with student_id
-            const { data: clientData } = await supabase
-              .from('clients')
-              .select('name')
-              .eq('id', student.client_id)
-              .maybeSingle();
-            
-            await supabase
-              .from('individual_lessons')
-              .update({
-                student_id: student.id,
-                student_name: clientData?.name || individualLesson.student_name,
-              })
-              .eq('id', individualLesson.id);
+            const clientData = clientMap.get(student.client_id);
+            individualLessonsToUpdate.push({
+              id: individualLesson.id,
+              student_id: student.id,
+              student_name: clientData?.name || individualLesson.student_name,
+            });
             individualLinksCount++;
             continue;
           }
           
           // Educational unit not found
           skippedCount++;
+          skippedReasons.edUnitNotFound++;
+        }
+        
+        console.log(`Prepared ${groupStudentsToInsert.length} group links and ${individualLessonsToUpdate.length} individual lesson updates`);
+        console.log(`Skip reasons:`, skippedReasons);
+        
+        // Batch insert group_students
+        if (groupStudentsToInsert.length > 0) {
+          console.log(`Inserting ${groupStudentsToInsert.length} group-student links in batches...`);
+          for (let i = 0; i < groupStudentsToInsert.length; i += 100) {
+            const batch = groupStudentsToInsert.slice(i, i + 100);
+            const { error } = await supabase
+              .from('group_students')
+              .upsert(batch, { onConflict: 'group_id,student_id', ignoreDuplicates: false });
+            
+            if (error) {
+              console.error(`Error inserting group_students batch ${i}-${i + batch.length}:`, error);
+            } else {
+              console.log(`Inserted group_students batch ${i}-${i + batch.length}`);
+            }
+          }
+        }
+        
+        // Batch update individual_lessons
+        if (individualLessonsToUpdate.length > 0) {
+          console.log(`Updating ${individualLessonsToUpdate.length} individual lessons in batches...`);
+          for (let i = 0; i < individualLessonsToUpdate.length; i += 100) {
+            const batch = individualLessonsToUpdate.slice(i, i + 100);
+            for (const update of batch) {
+              const { error } = await supabase
+                .from('individual_lessons')
+                .update({
+                  student_id: update.student_id,
+                  student_name: update.student_name,
+                })
+                .eq('id', update.id);
+              
+              if (error) {
+                console.error(`Error updating individual_lesson ${update.id}:`, error);
+              }
+            }
+            console.log(`Updated individual_lessons batch ${i}-${i + batch.length}`);
+          }
         }
         
         progress[0].status = 'completed';
         progress[0].count = groupLinksCount + individualLinksCount;
-        progress[0].message = `Linked ${groupLinksCount} students to groups, ${individualLinksCount} to individual lessons (skipped ${skippedCount})`;
+        progress[0].message = `Linked ${groupLinksCount} students to groups, ${individualLinksCount} to individual lessons (skipped ${skippedCount}: no edUnitId=${skippedReasons.noEdUnitId}, student not found=${skippedReasons.studentNotFound}, edUnit not found=${skippedReasons.edUnitNotFound})`;
       } catch (error) {
         console.error('Error importing ed unit students:', error);
         progress[0].status = 'error';
