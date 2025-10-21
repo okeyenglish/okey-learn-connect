@@ -394,6 +394,7 @@ Deno.serve(async (req) => {
         const take = 100;
         let totalLeadsImported = 0;
         let totalFamilyLinksCreated = 0;
+        let totalSkippedNoPhone = 0;
 
         // Process leads in batches to avoid CPU timeout
         while (true) {
@@ -485,21 +486,39 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Prepare leads data for the leads table
-          const leadsToInsert = leads.map(lead => ({
-            first_name: lead.firstName || '',
-            last_name: lead.lastName || '',
-            phone: lead.phone || null,
-            email: lead.email || null,
-            age: lead.age || null,
-            subject: lead.subject || null,
-            level: lead.level || null,
-            branch: lead.location || lead.branch || 'Окская',
-            notes: lead.notes || lead.comment || null,
-            status_id: statusId,
-            lead_source_id: null,
-            assigned_to: null,
-          }));
+          // Normalize and prepare leads; skip records without a valid phone
+          const normalizePhone = (p: any): string | null => {
+            if (!p) return null;
+            let s = String(p).replace(/\D/g, '');
+            if (!s) return null;
+            // Basic RU normalization: 8XXXXXXXXXX -> 7XXXXXXXXXX
+            if (s.length === 11 && s.startsWith('8')) s = '7' + s.slice(1);
+            return s.length >= 10 ? s : null;
+          };
+
+          let skippedNoPhone = 0;
+          const leadsToInsert = leads.reduce((acc: any[], lead: any) => {
+            const phoneNorm = normalizePhone(lead.phone);
+            if (!phoneNorm) { skippedNoPhone++; return acc; }
+            acc.push({
+              first_name: lead.firstName || '',
+              last_name: lead.lastName || '',
+              phone: phoneNorm,
+              email: lead.email || null,
+              age: lead.age || null,
+              subject: lead.subject || null,
+              level: lead.level || null,
+              branch: lead.location || lead.branch || 'Окская',
+              notes: lead.notes || lead.comment || null,
+              status_id: statusId,
+              lead_source_id: null,
+              assigned_to: null,
+            });
+            return acc;
+          }, [] as any[]);
+
+          totalSkippedNoPhone += skippedNoPhone;
+          console.log(`Prepared ${leadsToInsert.length} leads for insert (skipped ${skippedNoPhone} without phone)`);
 
           // Batch insert leads into leads table (200 at a time)
           console.log(`Inserting ${leadsToInsert.length} leads into leads table...`);
@@ -566,8 +585,8 @@ Deno.serve(async (req) => {
 
         progress[0].status = 'completed';
         progress[0].count = totalLeadsImported;
-        progress[0].message = `Imported ${totalLeadsImported} leads (${totalFamilyLinksCreated} linked to parents)`;
-        console.log(`Import complete: ${totalLeadsImported} leads, ${totalFamilyLinksCreated} family links`);
+        progress[0].message = `Imported ${totalLeadsImported} leads (${totalFamilyLinksCreated} linked to parents, skipped ${totalSkippedNoPhone} without phone)`;
+        console.log(`Import complete: ${totalLeadsImported} leads, ${totalFamilyLinksCreated} family links, skipped ${totalSkippedNoPhone} without phone`);
       } catch (error) {
         console.error('Error importing leads:', error);
         progress[0].status = 'error';
