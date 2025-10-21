@@ -134,6 +134,35 @@ export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
     },
   });
 
+  // Получаем занятия на месяц
+  const { data: monthLessons } = useQuery({
+    queryKey: ['teacher-lessons-month', teacherName],
+    queryFn: async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const nextMonth = new Date();
+      nextMonth.setDate(nextMonth.getDate() + 30);
+      
+      const { data, error } = await supabase
+        .from('lesson_sessions')
+        .select(`
+          *,
+          learning_groups (
+            name,
+            subject,
+            level
+          )
+        `)
+        .eq('teacher_name', teacherName)
+        .gte('lesson_date', today)
+        .lte('lesson_date', nextMonth.toISOString().split('T')[0])
+        .order('lesson_date')
+        .order('start_time');
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const handleStartOnlineLesson = (session: any) => {
     setSelectedSessionData(session);
     setStartLessonModalOpen(true);
@@ -215,6 +244,8 @@ export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
         {/* Объединенный блок: быстрые действия + сегодняшние занятия */}
         <TodayDashboard
           todayLessons={todayLessons || []}
+          weekLessons={upcomingLessons || []}
+          monthLessons={monthLessons || []}
           todayTotal={todayTotal}
           todayCompleted={todayCompleted}
           weekTotal={weekTotal}
