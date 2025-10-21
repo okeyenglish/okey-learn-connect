@@ -69,14 +69,13 @@ Deno.serve(async (req) => {
       progress.push({ step: 'import_locations', status: 'in_progress' });
 
       try {
-        const url = `${HOLIHOPE_DOMAIN}/GetLocations`;
+        const url = `${HOLIHOPE_DOMAIN}/GetLocations?authkey=${HOLIHOPE_API_KEY}`;
         console.log('Calling Holihope URL:', url);
         const response = await fetch(url, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ authkey: HOLIHOPE_API_KEY }),
         });
         
         if (!response.ok) {
@@ -140,16 +139,11 @@ Deno.serve(async (req) => {
         let allTeachers = [];
 
         while (true) {
-          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetTeachers`, {
+          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetTeachers?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ 
-              authkey: HOLIHOPE_API_KEY,
-              take: take,
-              skip: skip
-            }),
           });
           
           if (!response.ok) {
@@ -222,16 +216,11 @@ Deno.serve(async (req) => {
         let allClients = [];
 
         while (true) {
-          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetClients`, {
+          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetClients?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ 
-              authkey: HOLIHOPE_API_KEY,
-              take: take,
-              skip: skip
-            }),
           });
           
           if (!response.ok) {
@@ -311,16 +300,11 @@ Deno.serve(async (req) => {
         let allStudents = [];
 
         while (true) {
-          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetStudents`, {
+          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetStudents?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ 
-              authkey: HOLIHOPE_API_KEY,
-              take: take,
-              skip: skip
-            }),
           });
           
           if (!response.ok) {
@@ -431,16 +415,11 @@ Deno.serve(async (req) => {
         let allGroups = [];
 
         while (true) {
-          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetEdUnits`, {
+          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ 
-              authkey: HOLIHOPE_API_KEY,
-              take: take,
-              skip: skip
-            }),
           });
           
           if (!response.ok) {
@@ -547,15 +526,11 @@ Deno.serve(async (req) => {
       progress.push({ step: 'import_schedule', status: 'in_progress' });
 
       try {
-        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetSchedule`, {
+        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetSchedule?authkey=${HOLIHOPE_API_KEY}&queryDays=true`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ 
-            authkey: HOLIHOPE_API_KEY,
-            queryDays: true
-          }),
         });
         
         if (!response.ok) {
@@ -624,16 +599,11 @@ Deno.serve(async (req) => {
         let allPayments = [];
 
         while (true) {
-          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetPayments`, {
+          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetPayments?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ 
-              authkey: HOLIHOPE_API_KEY,
-              take: take,
-              skip: skip
-            }),
           });
           
           if (!response.ok) {
