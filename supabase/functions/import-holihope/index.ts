@@ -86,10 +86,8 @@ Deno.serve(async (req) => {
         const responseData = await response.json();
         console.log('API Response structure:', JSON.stringify(responseData).slice(0, 500));
         
-        // Проверяем различные возможные структуры ответа
-        const locations = Array.isArray(responseData) 
-          ? responseData 
-          : (responseData?.data || responseData?.locations || responseData?.result || []);
+        // API возвращает {Locations: [...]} с заглавной буквы
+        const locations = responseData?.Locations || [];
         
         console.log(`Found ${locations.length} locations`);
 
