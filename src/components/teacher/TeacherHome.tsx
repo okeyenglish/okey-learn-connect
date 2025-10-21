@@ -212,42 +212,6 @@ export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
   return (
     <>
       <div className="space-y-6">
-        {/* Метрики */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <KpiCard
-            title="Сегодня"
-            value={todayTotal}
-            hint={todayCompleted > 0 ? `${todayCompleted} проведено` : nextLesson ? `Ближайший урок: ${nextLesson.start_time}` : 'Нет занятий'}
-            tone={todayTotal > 0 ? (nextLesson ? "warn" : "ok") : "neutral"}
-            icon={Calendar}
-          />
-
-          <KpiCard
-            title="Неделя"
-            value={weekTotal}
-            hint={weekCanceled > 0 ? `Отменено ${weekCanceled}` : `Запланировано ${weekTotal}`}
-            tone="neutral"
-            icon={TrendingUp}
-          />
-
-          <KpiCard
-            title="Мои группы"
-            value={groups?.length || 0}
-            hint={`${individualLessons?.length || 0} индивидуальных`}
-            tone="info"
-            icon={BookOpen}
-          />
-
-          <KpiCard
-            title="Статистика"
-            value="Дашборд"
-            hint="Детальная статистика"
-            onClick={() => setShowDashboardModal(true)}
-            tone="neutral"
-            icon={BarChart3}
-          />
-        </div>
-
         {/* Объединенный блок: быстрые действия + сегодняшние занятия */}
         <TodayDashboard
           todayLessons={todayLessons || []}
