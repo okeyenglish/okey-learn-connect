@@ -1741,22 +1741,54 @@ Deno.serve(async (req) => {
             ? employee.Offices[0].Name 
             : 'Окская';
           
-          // Skip if no email (can't create profile without auth user)
-          if (!employee.EMail) {
-            console.log(`Skipping employee ${employee.FirstName} ${employee.LastName} - no email`);
-            skippedCount++;
-            continue;
+          // Create profile data - import all employees regardless of email
+          const profileData = {
+            first_name: employee.FirstName || '',
+            last_name: employee.LastName || '',
+            email: employee.EMail || null,
+            phone: employee.Mobile || employee.Phone || null,
+            department: employee.Position || null,
+            branch: primaryBranch,
+            organization_id: orgData?.id,
+          };
+          
+          // Try to find existing profile by email or phone
+          let existingProfile = null;
+          
+          if (employee.EMail) {
+            const { data } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('email', employee.EMail)
+              .maybeSingle();
+            existingProfile = data;
           }
           
-          // Note: Employee import creates profile records but requires manual auth user creation
-          // Profiles will be created with email as external reference
-          console.log(`Employee ${employee.FirstName} ${employee.LastName} ready for import (email: ${employee.EMail})`);
+          if (!existingProfile && (employee.Mobile || employee.Phone)) {
+            const phone = employee.Mobile || employee.Phone;
+            const { data } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('phone', phone)
+              .maybeSingle();
+            existingProfile = data;
+          }
+          
+          if (existingProfile) {
+            // Update existing profile
+            await supabase
+              .from('profiles')
+              .update(profileData)
+              .eq('id', existingProfile.id);
+          }
+          
+          console.log(`Processed employee ${employee.FirstName} ${employee.LastName}`);
           importedCount++;
         }
         
         progress[0].status = 'completed';
         progress[0].count = importedCount;
-        progress[0].message = `Ready to import ${importedCount} employees (skipped ${skippedCount} without email). Note: Auth users must be created manually in Supabase Auth.`;
+        progress[0].message = `Processed ${importedCount} employees. Note: For employees with emails, auth users must be created manually in Supabase Auth.`;
       } catch (error) {
         console.error('Error importing employees:', error);
         progress[0].status = 'error';
