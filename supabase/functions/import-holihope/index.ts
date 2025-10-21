@@ -163,7 +163,12 @@ Deno.serve(async (req) => {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
           
-          const teachers = await response.json();
+          const responseData = await response.json();
+          
+          // Normalize response - API may return {"Teachers": [...]} or direct array
+          const teachers = Array.isArray(responseData) 
+            ? responseData 
+            : (responseData?.Teachers || responseData?.teachers || Object.values(responseData).find(val => Array.isArray(val)) || []);
           
           if (!teachers || teachers.length === 0) break;
           
@@ -240,7 +245,12 @@ Deno.serve(async (req) => {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
           
-          const clients = await response.json();
+          const responseData = await response.json();
+          
+          // Normalize response - API may return {"Clients": [...]} or direct array
+          const clients = Array.isArray(responseData) 
+            ? responseData 
+            : (responseData?.Clients || responseData?.clients || Object.values(responseData).find(val => Array.isArray(val)) || []);
           
           if (!clients || clients.length === 0) break;
           
@@ -324,7 +334,12 @@ Deno.serve(async (req) => {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
           
-          const leads = await response.json();
+          const responseData = await response.json();
+          
+          // Normalize response - API may return {"Leads": [...]} or direct array
+          const leads = Array.isArray(responseData) 
+            ? responseData 
+            : (responseData?.Leads || responseData?.leads || Object.values(responseData).find(val => Array.isArray(val)) || []);
           
           if (!leads || leads.length === 0) break;
           
@@ -457,7 +472,12 @@ Deno.serve(async (req) => {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
           
-          const students = await response.json();
+          const responseData = await response.json();
+          
+          // Normalize response - API may return {"Students": [...]} or direct array
+          const students = Array.isArray(responseData) 
+            ? responseData 
+            : (responseData?.Students || responseData?.students || Object.values(responseData).find(val => Array.isArray(val)) || []);
           
           if (!students || students.length === 0) break;
           
