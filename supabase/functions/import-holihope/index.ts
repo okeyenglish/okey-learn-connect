@@ -2551,9 +2551,9 @@ Deno.serve(async (req) => {
         const dateFrom = from.toISOString().slice(0, 10);
         const dateTo = to.toISOString().slice(0, 10);
         
-        // First, get list of unique office IDs from EdUnits (light query)
-        console.log('Fetching list of offices from EdUnits...');
-        const officesUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&queryDays=false&queryFiscalInfo=false&queryTeacherPrices=false`;
+        // Step 1: Get list of offices
+        console.log('Fetching list of offices from GetOffices...');
+        const officesUrl = `${HOLIHOPE_DOMAIN}/GetOffices?authkey=${HOLIHOPE_API_KEY}`;
         const officesResp = await fetch(officesUrl, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
         
         if (!officesResp.ok) {
@@ -2561,12 +2561,16 @@ Deno.serve(async (req) => {
         }
         
         const officesRaw = await officesResp.json();
-        const officeUnits = Array.isArray(officesRaw) ? officesRaw : (officesRaw?.EdUnits || []);
-        const officeIds = [...new Set(officeUnits.map((u: any) => u.OfficeOrCompanyId).filter(Boolean))];
-        console.log(`Found ${officeIds.length} unique office IDs: ${officeIds.join(', ')}`);
+        const offices = Array.isArray(officesRaw) ? officesRaw : (officesRaw?.Offices || officesRaw?.Office || []);
+        const officeIds = offices.map((o: any) => o.Id || o.OfficeId || o.id).filter(Boolean);
+        console.log(`Found ${officeIds.length} offices: ${officeIds.join(', ')}`);
         
-        // Statuses: Working, Reserve, Forming, Stopped, Finished
-        const statuses = ['Working', 'Reserve', 'Forming', 'Stopped', 'Finished'];
+        if (officeIds.length === 0) {
+          throw new Error('No offices found');
+        }
+        
+        // Statuses to iterate through
+        const statuses = ['Reserve', 'Forming', 'Working', 'Stopped', 'Finished'];
         
         // Time ranges from 06:00 to 23:00 with 1 hour step
         const timeRanges: Array<{ from: string; to: string }> = [];
@@ -2576,18 +2580,22 @@ Deno.serve(async (req) => {
           timeRanges.push({ from: fromTime, to: toTime });
         }
         
+        console.log(`Will make ${officeIds.length} x ${statuses.length} x ${timeRanges.length} = ${officeIds.length * statuses.length * timeRanges.length} requests`);
+        
         let allUnits: any[] = [];
         let fetchedCount = 0;
         let totalRequests = 0;
+        let successfulRequests = 0;
         
-        // Fetch units for each status + officeId + timeRange combination
-        for (const status of statuses) {
-          for (const officeId of officeIds) {
+        // Step 2: For each office, fetch units by status and time range
+        for (const officeId of officeIds) {
+          for (const status of statuses) {
             for (const timeRange of timeRanges) {
               try {
                 const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&officeOrCompanyId=${encodeURIComponent(officeId)}&statuses=${encodeURIComponent(status)}&timeFrom=${encodeURIComponent(timeRange.from)}&timeTo=${encodeURIComponent(timeRange.to)}&queryDays=true&queryFiscalInfo=true&queryTeacherPrices=true&dateFrom=${dateFrom}&dateTo=${dateTo}`;
-                console.log(`Fetching ${status} units from office ${officeId} (${timeRange.from}-${timeRange.to})...`);
                 totalRequests++;
+                
+                console.log(`[${totalRequests}/${officeIds.length * statuses.length * timeRanges.length}] Fetching: Office=${officeId}, Status=${status}, Time=${timeRange.from}-${timeRange.to}`);
                 
                 const response = await fetch(apiUrl, {
                   method: 'GET',
@@ -2595,7 +2603,7 @@ Deno.serve(async (req) => {
                 });
                 
                 if (!response.ok) {
-                  console.warn(`Skipping ${status}/${officeId}/${timeRange.from}: HTTP ${response.status}`);
+                  console.warn(`  ⚠️ HTTP ${response.status}`);
                   continue;
                 }
                 
@@ -2605,10 +2613,11 @@ Deno.serve(async (req) => {
                 if (batch.length > 0) {
                   allUnits = allUnits.concat(batch);
                   fetchedCount += batch.length;
-                  console.log(`Fetched ${batch.length} ${status} units (total: ${fetchedCount} from ${totalRequests} requests)`);
+                  successfulRequests++;
+                  console.log(`  ✓ Fetched ${batch.length} units (total: ${fetchedCount}, successful requests: ${successfulRequests})`);
                 }
               } catch (err) {
-                console.error(`Error fetching ${status}/${officeId}/${timeRange.from}:`, err);
+                console.error(`  ✗ Error: ${err}`);
                 // Continue with next combination
               }
             }
