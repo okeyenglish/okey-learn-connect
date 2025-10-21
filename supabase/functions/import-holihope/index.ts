@@ -951,10 +951,14 @@ Deno.serve(async (req) => {
           .eq('name', "O'KEY ENGLISH")
           .single();
 
-        let skip = 0;
-        const take = 100;
+        let skip = (body?.skip ?? 0);
+        const take = (body?.take ?? 100);
         let totalStudentsImported = 0;
         let totalFamilyLinksCreated = 0;
+        const batchMode = !!body?.batch_mode;
+        const maxBatches = Number.isFinite(body?.max_batches) ? body?.max_batches : 1;
+        let batchesProcessed = 0;
+        let lastBatchSize = 0;
 
         // Process students in batches
         while (true) {
@@ -977,9 +981,10 @@ Deno.serve(async (req) => {
             : (responseData?.Students || responseData?.students || Object.values(responseData).find(val => Array.isArray(val)) || []);
           
           if (!students || students.length === 0) {
-            console.log('No more students to process');
+            console.log('Reached last page of students');
             break;
           }
+          lastBatchSize = students.length;
           
           console.log(`Processing ${students.length} students...`);
 
@@ -1022,18 +1027,28 @@ Deno.serve(async (req) => {
               }
             }
             
+            const branch = student.location || student.Location || 'Окская';
+            const age = student.age || student.Age || 0;
+            const fullName = `${student.firstName || student.FirstName || ''} ${student.lastName || student.LastName || ''}`.trim() || 'Без имени';
+            
             studentsData.push({
               studentInfo: {
+                name: fullName,
                 first_name: student.firstName || student.FirstName || '',
                 last_name: student.lastName || student.LastName || '',
+                middle_name: student.middleName || student.MiddleName || null,
+                age: age,
                 date_of_birth: student.dateOfBirth || student.DateOfBirth || null,
                 phone: studentPhone,
+                lk_email: student.email || student.Email || student.EMail || null,
+                gender: student.gender || student.Gender || null,
                 status: (student.status || student.Status) === 'Active' ? 'active' : 'archived',
                 notes: student.comment || student.Comment || null,
                 extra_fields: extraFields,
                 external_id: student.id?.toString() || student.Id?.toString(),
+                organization_id: orgData?.id,
               },
-              branch: student.location || student.Location || 'Окская',
+              branch,
               studentPhone,
               agentPhones,
               agents,
@@ -1161,7 +1176,7 @@ Deno.serve(async (req) => {
               if (!familyGroupsToCreate.find(fg => fg.name === familyName)) {
                 familyGroupsToCreate.push({
                   name: familyName,
-                  branch: sd.studentInfo.branch,
+                  branch: sd.branch,
                   organization_id: orgData?.id,
                 });
               }
@@ -1179,7 +1194,7 @@ Deno.serve(async (req) => {
                 if (!familyGroupsToCreate.find(fg => fg.name === familyName)) {
                   familyGroupsToCreate.push({
                     name: familyName,
-                    branch: sd.studentInfo.branch,
+                    branch: sd.branch,
                     organization_id: orgData?.id,
                   });
                 }
@@ -1208,18 +1223,38 @@ Deno.serve(async (req) => {
           
           console.log(`Created/found ${familyGroupNameToIdMap.size} family groups`);
 
-          // Step 4: Insert students
-          const studentsToInsert = studentsData.map((sd) => sd.studentInfo);
+          // Step 4: Prepare students with family_group_id
+          const studentsToInsert = [];
+          studentsData.forEach((sd) => {
+            // Determine family_group_id priority: agent family > student family
+            let familyGroupId = null;
+            
+            if (sd.agentPhones.length > 0) {
+              const firstAgentPhone = sd.agentPhones[0];
+              const familyName = agentPhoneToFamilyNameMap.get(firstAgentPhone);
+              familyGroupId = familyGroupNameToIdMap.get(familyName);
+            } else if (sd.studentPhone) {
+              const familyName = studentPhoneToFamilyNameMap.get(sd.studentPhone);
+              familyGroupId = familyGroupNameToIdMap.get(familyName);
+            }
+            
+            if (familyGroupId) {
+              studentsToInsert.push({
+                ...sd.studentInfo,
+                family_group_id: familyGroupId,
+              });
+            }
+          });
 
           console.log(`Inserting ${studentsToInsert.length} students into students table...`);
           
           const studentIdMap = new Map();
-          for (let i = 0; i < studentsToInsert.length; i += 200) {
-            const batch = studentsToInsert.slice(i, i + 200);
+          for (let i = 0; i < studentsToInsert.length; i += 100) {
+            const batch = studentsToInsert.slice(i, i + 100);
             const { data: insertedStudents, error: studentsError } = await supabase
               .from('students')
               .upsert(batch, { onConflict: 'external_id' })
-              .select('id, phone, email, first_name, last_name, external_id');
+              .select('id, phone, lk_email, first_name, last_name, external_id');
 
             if (studentsError) {
               console.error(`Error inserting students batch (size: ${batch.length}):`, studentsError);
@@ -1231,7 +1266,7 @@ Deno.serve(async (req) => {
               console.log(`Inserted ${insertedStudents.length} students successfully`);
               
               insertedStudents.forEach((student) => {
-                const key = student.external_id || `${student.first_name}_${student.last_name}_${student.phone || ''}_${student.email || ''}`;
+                const key = student.external_id || `${student.first_name}_${student.last_name}_${student.phone || ''}_${student.lk_email || ''}`;
                 studentIdMap.set(key, student.id);
               });
             }
@@ -1242,7 +1277,7 @@ Deno.serve(async (req) => {
           const familyMembersToCreate = [];
           
           studentsData.forEach((sd) => {
-            const studentKey = sd.studentInfo.external_id || `${sd.studentInfo.first_name}_${sd.studentInfo.last_name}_${sd.studentInfo.phone || ''}_${sd.studentInfo.email || ''}`;
+            const studentKey = sd.studentInfo.external_id || `${sd.studentInfo.first_name}_${sd.studentInfo.last_name}_${sd.studentInfo.phone || ''}_${sd.studentInfo.lk_email || ''}`;
             const studentId = studentIdMap.get(studentKey);
             
             // A. Add members to each AGENT's family_group
@@ -1339,6 +1374,21 @@ Deno.serve(async (req) => {
           }
 
           skip += take;
+          batchesProcessed++;
+          
+          if (batchMode && batchesProcessed >= maxBatches) {
+            const hasMore = lastBatchSize >= take;
+            progress[0].status = 'in_progress';
+            progress[0].count = totalStudentsImported;
+            progress[0].message = `Импортировано ${totalStudentsImported} студентов`;
+            progress[0].hasMore = hasMore;
+            progress[0].nextSkip = skip;
+            
+            console.log(`Batch complete: ${totalStudentsImported} students, hasMore=${hasMore}, nextSkip=${skip}`);
+            return new Response(JSON.stringify({ progress }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
           
           if (students.length < take) {
             console.log('Reached last page of students');
@@ -1348,7 +1398,7 @@ Deno.serve(async (req) => {
 
         progress[0].status = 'completed';
         progress[0].count = totalStudentsImported;
-        progress[0].message = `Imported ${totalStudentsImported} students (${totalFamilyLinksCreated} family links)`;
+        progress[0].message = `Import complete: ${totalStudentsImported} students, ${totalFamilyLinksCreated} family links`;
         console.log(`Import complete: ${totalStudentsImported} students, ${totalFamilyLinksCreated} family links`);
       } catch (error) {
         console.error('Error importing students:', error);
