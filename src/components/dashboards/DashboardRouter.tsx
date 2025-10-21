@@ -7,7 +7,7 @@ import { StudentDashboard } from "./StudentDashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const DashboardRouter = () => {
-  const { roles } = useAuth();
+  const { roles, isRoleEmulation } = useAuth();
 
   // Определяем, какой дашборд показать на основе роли пользователя
   const getDashboard = () => {
@@ -26,7 +26,17 @@ export const DashboardRouter = () => {
       );
     }
 
-    // Приоритет отображения дашбордов по ролям
+    // В режиме эмуляции роли показываем дашборд для эмулируемой роли
+    // Проверяем специфичные роли (teacher, student) в первую очередь
+    if (roles.includes('teacher')) {
+      return <TeacherDashboard />;
+    }
+
+    if (roles.includes('student')) {
+      return <StudentDashboard />;
+    }
+
+    // Затем административные роли
     if (roles.includes('admin')) {
       return <OwnerDashboard />;
     }
@@ -49,14 +59,6 @@ export const DashboardRouter = () => {
     
     if (roles.includes('receptionist') || roles.includes('support')) {
       return <BranchAdminDashboard />;
-    }
-
-    if (roles.includes('teacher')) {
-      return <TeacherDashboard />;
-    }
-
-    if (roles.includes('student')) {
-      return <StudentDashboard />;
     }
 
     // Дефолтный дашборд для других ролей
