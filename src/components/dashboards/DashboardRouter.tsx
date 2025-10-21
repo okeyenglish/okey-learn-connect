@@ -2,6 +2,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { OwnerDashboard } from "./OwnerDashboard";
 import { SalesManagerDashboard } from "./SalesManagerDashboard";
 import { BranchAdminDashboard } from "./BranchAdminDashboard";
+import { TeacherDashboard } from "./TeacherDashboard";
+import { StudentDashboard } from "./StudentDashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const DashboardRouter = () => {
@@ -47,6 +49,14 @@ export const DashboardRouter = () => {
     
     if (roles.includes('receptionist') || roles.includes('support')) {
       return <BranchAdminDashboard />;
+    }
+
+    if (roles.includes('teacher')) {
+      return <TeacherDashboard />;
+    }
+
+    if (roles.includes('student')) {
+      return <StudentDashboard />;
     }
 
     // Дефолтный дашборд для других ролей

@@ -6,20 +6,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, Video, BookOpen, User, Clock, MapPin, LogOut, Library } from 'lucide-react';
+import { Calendar, Video, BookOpen, User, Clock, MapPin, LogOut, Library, BarChart3 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { CourseMaterialsLibrary } from '@/components/student/CourseMaterialsLibrary';
 import { StudentLessonCard } from '@/components/student/StudentLessonCard';
+import { DashboardModal } from '@/components/dashboards/DashboardModal';
 
 export default function StudentPortal() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [showDashboardModal, setShowDashboardModal] = useState(false);
 
   // Получаем данные студента через функцию связки по user_id
   const { data: student, isLoading: studentLoading } = useQuery({
@@ -216,6 +218,10 @@ export default function StudentPortal() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setShowDashboardModal(true)}>
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Дашборд
+                </Button>
                 <Button variant="outline" onClick={() => navigate('/newcrm')}>
                   CRM
                 </Button>
@@ -447,6 +453,12 @@ export default function StudentPortal() {
             </Tabs>
           </div>
         )}
+
+        {/* Модальное окно дашборда */}
+        <DashboardModal
+          open={showDashboardModal}
+          onOpenChange={setShowDashboardModal}
+        />
       </div>
     </ProtectedRoute>
   );

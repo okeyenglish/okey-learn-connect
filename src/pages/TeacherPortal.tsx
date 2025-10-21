@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Video, BookOpen, User, Clock, MapPin, LogOut, GraduationCap, DollarSign } from 'lucide-react';
+import { Calendar, Video, BookOpen, User, Clock, MapPin, LogOut, GraduationCap, DollarSign, BarChart3 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,6 +17,7 @@ import { AttendanceModal } from '@/components/teacher/AttendanceModal';
 import { StartLessonModal } from '@/components/teacher/StartLessonModal';
 import { LessonPlanCard } from '@/components/teacher/LessonPlanCard';
 import { getLessonNumberForGroup } from '@/utils/lessonCalculator';
+import { DashboardModal } from '@/components/dashboards/DashboardModal';
 import { useState } from 'react';
 
 export default function TeacherPortal() {
@@ -30,6 +31,7 @@ export default function TeacherPortal() {
   const [homeworkModalOpen, setHomeworkModalOpen] = useState(false);
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
   const [startLessonModalOpen, setStartLessonModalOpen] = useState(false);
+  const [showDashboardModal, setShowDashboardModal] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [selectedSessionData, setSelectedSessionData] = useState<any>(null);
 
@@ -219,6 +221,10 @@ export default function TeacherPortal() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setShowDashboardModal(true)}>
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Дашборд
+                </Button>
                 <Button variant="outline" onClick={() => navigate('/course-details/kids-box-1')}>
                   <BookOpen className="h-4 w-4 mr-2" />
                   Материалы курсов
@@ -595,6 +601,12 @@ export default function TeacherPortal() {
             teacherName={`${teacher.last_name} ${teacher.first_name}`}
           />
         )}
+
+        {/* Модальное окно дашборда */}
+        <DashboardModal
+          open={showDashboardModal}
+          onOpenChange={setShowDashboardModal}
+        />
       </div>
     </ProtectedRoute>
   );
