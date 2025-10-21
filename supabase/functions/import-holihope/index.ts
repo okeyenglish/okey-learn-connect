@@ -2844,18 +2844,21 @@ Deno.serve(async (req) => {
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const links = await response.json();
         
+        console.log(`API response type: ${typeof links}, isArray: ${Array.isArray(links)}, length: ${Array.isArray(links) ? links.length : 'N/A'}`);
+        
         // Ensure links is an array
         if (!Array.isArray(links) || links.length === 0) {
+          console.log(`No links to process. Array.isArray: ${Array.isArray(links)}, length: ${Array.isArray(links) ? links.length : 'N/A'}`);
           progress[0].status = 'completed';
           progress[0].count = 0;
-          progress[0].message = 'No more links to process';
+          progress[0].message = `No more links to process (skip=${skipParam})`;
           progress[0].hasMore = false;
           return new Response(JSON.stringify({ progress }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
         
-        console.log(`Fetched ${links.length} links from Holihope`);
+        console.log(`Fetched ${links.length} links from Holihope (skip=${skipParam})`);
         
         // Fetch all students, learning_groups and individual_lessons in batches
         console.log('Fetching all students with external_id...');
