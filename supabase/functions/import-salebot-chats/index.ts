@@ -36,7 +36,10 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    console.log('Начинаем импорт чатов из Salebot...');
+    // Получаем параметры из запроса
+    const { offset = 0 } = await req.json().catch(() => ({ offset: 0 }));
+    
+    console.log(`Начинаем импорт чатов из Salebot (offset: ${offset})...`);
 
     // Получаем organization_id (берем первую организацию)
     const { data: orgs } = await supabase.from('organizations').select('id').limit(1);
@@ -49,42 +52,51 @@ Deno.serve(async (req) => {
     let totalImported = 0;
     let totalClients = 0;
     let errors: string[] = [];
-    let offset = 0;
-    const clientBatchSize = 10; // Загружаем клиентов батчами (уменьшено для снижения нагрузки)
+    const clientBatchSize = 5; // Обрабатываем только 5 клиентов за раз
     
-    while (true) {
-      // Получаем клиентов батчами с retry при таймауте
-      let clients: any[] = [];
-      let retries = 3;
-      
-      while (retries > 0) {
-        try {
-          const { data, error } = await supabase
-            .from('clients')
-            .select('id, name, phone_numbers:client_phone_numbers(phone)')
-            .not('phone_numbers', 'is', null)
-            .range(offset, offset + clientBatchSize - 1);
+    // Получаем клиентов батчами с retry при таймауте
+    let clients: any[] = [];
+    let retries = 3;
+    
+    while (retries > 0) {
+      try {
+        const { data, error } = await supabase
+          .from('clients')
+          .select('id, name, phone_numbers:client_phone_numbers(phone)')
+          .not('phone_numbers', 'is', null)
+          .range(offset, offset + clientBatchSize - 1);
 
-          if (error) throw error;
-          
-          clients = data || [];
-          break;
-        } catch (error: any) {
-          retries--;
-          if (retries === 0 || !error.message?.includes('timeout')) {
-            throw new Error(`Ошибка загрузки клиентов: ${error.message}`);
-          }
-          console.log(`Retry загрузки клиентов (осталось: ${retries})`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-      }
-
-      if (clients.length === 0) {
-        console.log('Все клиенты обработаны');
+        if (error) throw error;
+        
+        clients = data || [];
         break;
+      } catch (error: any) {
+        retries--;
+        if (retries === 0 || !error.message?.includes('timeout')) {
+          throw new Error(`Ошибка загрузки клиентов: ${error.message}`);
+        }
+        console.log(`Retry загрузки клиентов (осталось: ${retries})`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
+    }
 
-      console.log(`Загружено ${clients.length} клиентов (offset: ${offset})`);
+    if (clients.length === 0) {
+      console.log('Все клиенты обработаны');
+      return new Response(
+        JSON.stringify({
+          success: true,
+          completed: true,
+          totalImported: 0,
+          totalClients: 0,
+          nextOffset: offset,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    console.log(`Загружено ${clients.length} клиентов (offset: ${offset})`);
 
     for (const client of clients || []) {
       const phoneNumbers = client.phone_numbers || [];
@@ -260,24 +272,20 @@ Deno.serve(async (req) => {
         // Задержка между клиентами для снижения нагрузки
         await new Promise(resolve => setTimeout(resolve, 1500));
       }
-      }
-      
-      offset += clientBatchSize;
-      
-      // Задержка между батчами клиентов для снижения нагрузки
-      if (clients.length === clientBatchSize) {
-        console.log('Пауза 3 секунды перед загрузкой следующего батча клиентов...');
-        await new Promise(resolve => setTimeout(resolve, 3000));
-      }
     }
 
-    console.log(`Импорт завершен. Всего импортировано: ${totalImported} сообщений от ${totalClients} клиентов`);
+    console.log(`Батч завершен. Импортировано: ${totalImported} сообщений от ${totalClients} клиентов`);
+
+    const nextOffset = offset + clientBatchSize;
+    const hasMore = clients.length === clientBatchSize;
 
     return new Response(
       JSON.stringify({
         success: true,
+        completed: !hasMore,
         totalImported,
         totalClients,
+        nextOffset,
         errors: errors.length > 0 ? errors : undefined,
       }),
       {

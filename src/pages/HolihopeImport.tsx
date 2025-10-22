@@ -524,22 +524,52 @@ export default function HolihopeImport() {
                 setIsImportingChats(true);
                 setChatImportStatus('Инициализация импорта...');
                 try {
-                  setChatImportStatus('Загрузка клиентов и их контактов...');
-                  const { data, error } = await supabase.functions.invoke('import-salebot-chats', {
-                    body: {},
-                  });
+                  let offset = 0;
+                  let totalImported = 0;
+                  let totalClients = 0;
+                  let allErrors: string[] = [];
+                  let batchNumber = 1;
 
-                  if (error) throw error;
+                  while (true) {
+                    setChatImportStatus(`Обработка батча ${batchNumber} (клиенты ${offset + 1}-${offset + 5})...`);
+                    
+                    const { data, error } = await supabase.functions.invoke('import-salebot-chats', {
+                      body: { offset },
+                    });
+
+                    if (error) throw error;
+
+                    totalImported += data.totalImported || 0;
+                    totalClients += data.totalClients || 0;
+                    
+                    if (data.errors && data.errors.length > 0) {
+                      allErrors = [...allErrors, ...data.errors];
+                    }
+
+                    setChatImportStatus(
+                      `Батч ${batchNumber} завершен. Всего: ${totalImported} сообщений от ${totalClients} клиентов`
+                    );
+
+                    if (data.completed) {
+                      break;
+                    }
+
+                    offset = data.nextOffset;
+                    batchNumber++;
+                    
+                    // Небольшая пауза между батчами
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                  }
 
                   setChatImportStatus('Завершение импорта...');
                   
                   toast({
                     title: 'Импорт завершен',
-                    description: `Импортировано ${data.totalImported} сообщений от ${data.totalClients} клиентов${data.errors ? ` (ошибок: ${data.errors.length})` : ''}`,
+                    description: `Импортировано ${totalImported} сообщений от ${totalClients} клиентов${allErrors.length > 0 ? ` (ошибок: ${allErrors.length})` : ''}`,
                   });
 
-                  if (data.errors && data.errors.length > 0) {
-                    console.error('Ошибки импорта:', data.errors);
+                  if (allErrors.length > 0) {
+                    console.error('Ошибки импорта:', allErrors);
                   }
                 } catch (error: any) {
                   console.error('Ошибка импорта чатов:', error);
