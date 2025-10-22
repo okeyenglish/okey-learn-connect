@@ -5207,7 +5207,14 @@ export type Database = {
       finance_payment_status: "pending" | "completed" | "failed" | "refunded"
       finance_price_type: "hourly" | "daily" | "monthly"
       group_category: "preschool" | "school" | "adult" | "all"
-      group_status: "reserve" | "forming" | "active" | "suspended" | "finished"
+      group_status:
+        | "reserve"
+        | "forming"
+        | "active"
+        | "suspended"
+        | "finished"
+        | "paused"
+        | "dropped"
       group_student_status: "active" | "paused" | "completed" | "dropped"
       group_type: "general" | "individual" | "mini" | "corporate"
       lesson_status:
@@ -5396,7 +5403,15 @@ export const Constants = {
       finance_payment_status: ["pending", "completed", "failed", "refunded"],
       finance_price_type: ["hourly", "daily", "monthly"],
       group_category: ["preschool", "school", "adult", "all"],
-      group_status: ["reserve", "forming", "active", "suspended", "finished"],
+      group_status: [
+        "reserve",
+        "forming",
+        "active",
+        "suspended",
+        "finished",
+        "paused",
+        "dropped",
+      ],
       group_student_status: ["active", "paused", "completed", "dropped"],
       group_type: ["general", "individual", "mini", "corporate"],
       lesson_status: [
