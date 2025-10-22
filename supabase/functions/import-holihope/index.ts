@@ -2913,46 +2913,41 @@ Deno.serve(async (req) => {
       try {
         const batchMode = body.batch_mode === true;
         const skipParam = body.skip || 0;
-        const take = 100;
+        const take = 50; // Process 50 educational units at a time
 
-        console.log(`Fetching ed unit student links (batch_mode=${batchMode}, skip=${skipParam})...`);
-        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetEdUnitStudents?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skipParam}`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-        });
+        // Fetch educational units from DB (both groups and individual lessons) with external_id
+        console.log(`Fetching educational units from DB (skip=${skipParam}, take=${take})...`);
+        const { data: allGroups } = await supabase
+          .from('learning_groups')
+          .select('id, name, external_id')
+          .not('external_id', 'is', null)
+          .range(skipParam, skipParam + take - 1);
         
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const raw = await response.json();
+        const { data: allIndividualLessons } = await supabase
+          .from('individual_lessons')
+          .select('id, student_name, external_id')
+          .not('external_id', 'is', null)
+          .range(skipParam, skipParam + take - 1);
         
-        // Extract array from possible response shapes
-        const links = Array.isArray(raw)
-          ? raw
-          : (raw.EdUnitStudents || raw.edUnitStudents || raw.Links || raw.links || raw.data || Object.values(raw).find((v: any) => Array.isArray(v)) || []);
+        const edUnits = [
+          ...(allGroups || []).map(g => ({ ...g, type: 'group' })),
+          ...(allIndividualLessons || []).map(il => ({ ...il, type: 'individual' }))
+        ];
         
-        console.log(`API response type: ${typeof raw}, isArray: ${Array.isArray(raw)}, linksLen: ${Array.isArray(links) ? links.length : 'N/A'}`);
-        // Debug a tiny sample of fields to verify keys
-        if (Array.isArray(links) && links.length > 0) {
-          const sampleKeys = Object.keys(links[0]);
-          console.log('Sample link keys:', sampleKeys);
-          console.log('Sample ids:', links.slice(0, 3).map((l: any) => ({
-            StudentId: l.StudentId ?? l.studentId ?? l.student_id ?? l.StudentID ?? l.ClientId ?? l.ClientID ?? l.ChildId ?? l.ChildID ?? null,
-            EdUnitId: l.EdUnitId ?? l.edUnitId ?? l.ed_unit_id ?? l.edUnitID ?? null,
-          })));
-        }
-        if (!Array.isArray(links) || links.length === 0) {
-          console.log(`No links to process. Array.isArray: ${Array.isArray(links)}, length: ${Array.isArray(links) ? links.length : 'N/A'}`);
+        console.log(`Found ${edUnits.length} educational units to process (${allGroups?.length || 0} groups, ${allIndividualLessons?.length || 0} individual)`);
+        
+        if (edUnits.length === 0) {
+          console.log('No more educational units to process');
           progress[0].status = 'completed';
           progress[0].count = 0;
-          progress[0].message = `No more links to process (skip=${skipParam})`;
+          progress[0].message = `No more educational units to process (skip=${skipParam})`;
           progress[0].hasMore = false;
           return new Response(JSON.stringify({ progress }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
         
-        console.log(`Fetched ${links.length} links from Holihope (skip=${skipParam})`);
-        
-        // Fetch all students with external_id
+        // Fetch all students with external_id and by phone+name
         console.log('Fetching all students with external_id...');
         const { data: allStudents } = await supabase
           .from('students')
@@ -3003,132 +2998,140 @@ Deno.serve(async (req) => {
         
         console.log(`Built phone->family_groups map with ${phoneToFamilyGroupsMap.size} phone numbers`);
         
-        console.log('Fetching all learning groups with external_id...');
-        const { data: allGroups } = await supabase
-          .from('learning_groups')
-          .select('id, name, external_id')
-          .not('external_id', 'is', null);
-        
-        const groupMap = new Map(allGroups?.map(g => [g.external_id, g]) || []);
-        console.log(`Found ${groupMap.size} groups with external_id`);
-        
-        console.log('Fetching all individual lessons with external_id...');
-        const { data: allIndividualLessons } = await supabase
-          .from('individual_lessons')
-          .select('id, student_name, external_id')
-          .not('external_id', 'is', null);
-        
-        const individualLessonMap = new Map(allIndividualLessons?.map(il => [il.external_id, il]) || []);
-        console.log(`Found ${individualLessonMap.size} individual lessons with external_id`);
-        
-        
         let groupLinksCount = 0;
         let individualLinksCount = 0;
         let skippedCount = 0;
         let skippedReasons = {
-          noEdUnitId: 0,
+          noStudentsInResponse: 0,
           studentNotFound: 0,
-          edUnitNotFound: 0
+          apiError: 0
         };
         
         const groupStudentsToInsert = [];
         const individualLessonsToUpdate = [];
         
-        console.log('Processing links...');
-        for (const link of links) {
-          const edUnitExternalId = (link.edUnitId ?? link.EdUnitId ?? link.ed_unit_id ?? link.edUnitID)?.toString();
-          if (!edUnitExternalId) {
-            skippedCount++;
-            skippedReasons.noEdUnitId++;
-            continue;
-          }
+        console.log('Processing educational units...');
+        for (const edUnit of edUnits) {
+          const edUnitExternalId = edUnit.external_id;
+          console.log(`\nProcessing ${edUnit.type} with external_id=${edUnitExternalId}...`);
           
-          // Try to find student by external_id first
-          const studentExternalId = (link.studentId ?? link.StudentId ?? link.student_id ?? link.StudentID)?.toString();
-          let studentId = null;
-          
-          if (studentExternalId) {
-            const student = studentMap.get(studentExternalId);
-            if (student) studentId = student.id;
-          }
-          
-          // If not found, try to find via phone + name
-          if (!studentId) {
-            // Normalize phone from link
-            const rawPhone = link.StudentMobile ?? link.studentMobile ?? null;
-            let normalizedPhone = null;
-            if (rawPhone) {
-              let s = String(rawPhone).replace(/\D/g, '');
-              if (s.length === 11 && s.startsWith('8')) s = '7' + s.slice(1);
-              if (s.length === 10 && s.startsWith('9')) s = '7' + s;
-              normalizedPhone = s.length >= 10 ? s : null;
+          try {
+            // Make API request to GetEdUnitStudents for this specific educational unit
+            const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnitStudents?authkey=${HOLIHOPE_API_KEY}&edUnitId=${edUnitExternalId}`;
+            console.log(`  Fetching students from: ${apiUrl}`);
+            
+            const response = await fetch(apiUrl, {
+              method: 'GET',
+              headers: { 'Content-Type': 'application/json' },
+            });
+            
+            if (!response.ok) {
+              console.log(`  API error for edUnit ${edUnitExternalId}: HTTP ${response.status}`);
+              skippedReasons.apiError++;
+              continue;
             }
             
-            const studentName = (link.StudentName ?? link.studentName ?? '').toString().trim();
+            const raw = await response.json();
             
-            if (normalizedPhone && studentName) {
-              // Find family groups by phone
-              const familyGroups = phoneToFamilyGroupsMap.get(normalizedPhone) || [];
+            // Extract array from response
+            const students = Array.isArray(raw)
+              ? raw
+              : (raw.EdUnitStudents || raw.edUnitStudents || raw.Students || raw.students || raw.data || []);
+            
+            if (!Array.isArray(students) || students.length === 0) {
+              console.log(`  No students in response for edUnit ${edUnitExternalId}`);
+              skippedReasons.noStudentsInResponse++;
+              continue;
+            }
+            
+            console.log(`  Found ${students.length} students for edUnit ${edUnitExternalId}`);
+            
+            // Process each student in this educational unit
+            for (const studentData of students) {
+              let studentId = null;
               
-              // Search for student by name in these family groups
-              for (const fgId of familyGroups) {
-                const students = familyGroupToStudentsMap.get(fgId) || [];
-                const found = students.find(s => {
-                  const sName = s.name.toLowerCase().trim();
-                  const linkName = studentName.toLowerCase().trim();
-                  return sName === linkName || sName.includes(linkName) || linkName.includes(sName);
-                });
-                if (found) {
-                  studentId = found.id;
-                  break;
+              // Try to find student by StudentClientId (as external_id)
+              const studentClientId = (studentData.StudentClientId ?? studentData.studentClientId)?.toString();
+              if (studentClientId) {
+                const student = studentMap.get(studentClientId);
+                if (student) studentId = student.id;
+              }
+              
+              // If not found, try to find via phone + name
+              if (!studentId) {
+                const rawPhone = studentData.StudentMobile ?? studentData.studentMobile ?? null;
+                let normalizedPhone = null;
+                if (rawPhone) {
+                  let s = String(rawPhone).replace(/\D/g, '');
+                  if (s.length === 11 && s.startsWith('8')) s = '7' + s.slice(1);
+                  if (s.length === 10 && s.startsWith('9')) s = '7' + s;
+                  normalizedPhone = s.length >= 10 ? s : null;
+                }
+                
+                const studentName = (studentData.StudentName ?? studentData.studentName ?? '').toString().trim();
+                
+                if (normalizedPhone && studentName) {
+                  const familyGroups = phoneToFamilyGroupsMap.get(normalizedPhone) || [];
+                  
+                  for (const fgId of familyGroups) {
+                    const students = familyGroupToStudentsMap.get(fgId) || [];
+                    const found = students.find(s => {
+                      const sName = s.name.toLowerCase().trim();
+                      const linkName = studentName.toLowerCase().trim();
+                      return sName === linkName || sName.includes(linkName) || linkName.includes(sName);
+                    });
+                    if (found) {
+                      studentId = found.id;
+                      break;
+                    }
+                  }
                 }
               }
+              
+              if (!studentId) {
+                skippedCount++;
+                skippedReasons.studentNotFound++;
+                console.log(`    Skipped: student not found for ClientId=${studentClientId}, phone=${studentData.StudentMobile}, name=${studentData.StudentName}`);
+                continue;
+              }
+              
+              const rawStatus = (studentData.Status ?? studentData.status ?? '').toString();
+              const status = /reserve|резерв/i.test(rawStatus) ? 'reserve' 
+                          : /stopped|stopped|отчисл|выбыл|прекрат/i.test(rawStatus) ? 'inactive' 
+                          : 'active';
+              
+              const enrollmentDate = studentData.BeginDate ?? studentData.beginDate ?? new Date().toISOString().split('T')[0];
+              const exitDate = studentData.EndDate ?? studentData.endDate ?? null;
+              
+              // Determine if this is a group or individual lesson based on edUnit.type
+              if (edUnit.type === 'group') {
+                // Link student to group
+                groupStudentsToInsert.push({
+                  student_id: studentId,
+                  group_id: edUnit.id,
+                  status,
+                  enrollment_date: enrollmentDate,
+                  exit_date: exitDate,
+                  notes: `Imported from Holihope (Status: ${rawStatus})`
+                });
+                groupLinksCount++;
+              } else if (edUnit.type === 'individual') {
+                // Update individual lesson with student
+                individualLessonsToUpdate.push({
+                  id: edUnit.id,
+                  student_id: studentId,
+                  status,
+                  start_date: enrollmentDate,
+                  end_date: exitDate,
+                  notes: `Imported from Holihope (Status: ${rawStatus})`
+                });
+                individualLinksCount++;
+              }
             }
+          } catch (err) {
+            console.log(`  Error processing edUnit ${edUnitExternalId}:`, err.message);
+            skippedReasons.apiError++;
           }
-          
-          if (!studentId) {
-            skippedCount++;
-            skippedReasons.studentNotFound++;
-            console.log(`  Skipped: student not found for phone=${link.StudentMobile}, name=${link.StudentName}`);
-            continue;
-          }
-          
-          const rawStatus = (link.status ?? link.Status ?? '').toString();
-          const status = /inactive|отчисл|выбыл|прекрат/i.test(rawStatus) ? 'inactive' : 'active';
-          const enrollmentDate = (link.enrollmentDate ?? link.EnrollmentDate ?? link.enrolledAt ?? link.EnrolledAt) || new Date().toISOString().split('T')[0];
-          const exitDate = (link.exitDate ?? link.ExitDate ?? null);
-          const notes = (link.notes ?? link.Notes ?? null);
-          
-          // Try to find in learning_groups first
-          const learningGroup = groupMap.get(edUnitExternalId);
-          if (learningGroup) {
-            groupStudentsToInsert.push({
-              group_id: learningGroup.id,
-              student_id: studentId,
-              enrollment_date: enrollmentDate,
-              exit_date: exitDate,
-              status,
-              notes,
-            });
-            groupLinksCount++;
-            continue;
-          }
-          
-          // Try to find in individual_lessons
-          const individualLesson = individualLessonMap.get(edUnitExternalId);
-          if (individualLesson) {
-            individualLessonsToUpdate.push({
-              id: individualLesson.id,
-              student_id: studentId,
-              student_name: individualLesson.student_name,
-            });
-            individualLinksCount++;
-            continue;
-          }
-          
-          // Educational unit not found
-          skippedCount++;
-          skippedReasons.edUnitNotFound++;
         }
         
         console.log(`Prepared ${groupStudentsToInsert.length} group links and ${individualLessonsToUpdate.length} individual lesson updates`);
@@ -3170,9 +3173,9 @@ Deno.serve(async (req) => {
         
         progress[0].status = 'completed';
         progress[0].count = groupLinksCount + individualLinksCount;
-        progress[0].message = `Linked ${groupLinksCount} students to groups, ${individualLinksCount} to individual lessons (skipped ${skippedCount}: no edUnitId=${skippedReasons.noEdUnitId}, student not found=${skippedReasons.studentNotFound}, edUnit not found=${skippedReasons.edUnitNotFound})`;
-        progress[0].hasMore = batchMode && links.length === take;
-        progress[0].nextSkip = skipParam + links.length;
+        progress[0].message = `Linked ${groupLinksCount} students to groups, ${individualLinksCount} to individual lessons (skipped ${skippedCount}: no students=${skippedReasons.noStudentsInResponse}, student not found=${skippedReasons.studentNotFound}, API errors=${skippedReasons.apiError})`;
+        progress[0].hasMore = batchMode && edUnits.length === take;
+        progress[0].nextSkip = skipParam + edUnits.length;
       } catch (error) {
         console.error('Error importing ed unit students:', error);
         progress[0].status = 'error';
