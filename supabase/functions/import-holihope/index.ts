@@ -2661,17 +2661,22 @@ Deno.serve(async (req) => {
         console.log(`Total units fetched: ${allUnits.length}`);
         console.log(`Processed ${totalRequests} requests (${successfulRequests} successful)`);
         
-        // Remove duplicates by Id
+        // Create unique ID including period dates to handle multiple periods for same EdUnit
         const uniqueUnits = allUnits.reduce((acc, unit) => {
           const id = unit.Id?.toString();
-          if (id && !acc.has(id)) {
-            acc.set(id, unit);
+          const beginDate = unit.ScheduleItems?.[0]?.BeginDate || '';
+          const endDate = unit.ScheduleItems?.[0]?.EndDate || '';
+          // Create composite key: EdUnitId + BeginDate + EndDate
+          const compositeKey = `${id}_${beginDate}_${endDate}`;
+          
+          if (id && !acc.has(compositeKey)) {
+            acc.set(compositeKey, unit);
           }
           return acc;
         }, new Map());
         
         const unitsToImport = Array.from(uniqueUnits.values());
-        console.log(`Unique units after deduplication: ${unitsToImport.length}`);
+        console.log(`Unique units after deduplication by ID+period: ${unitsToImport.length}`);
         
         let importedCount = 0;
         let typeStats = {};
@@ -2712,6 +2717,11 @@ Deno.serve(async (req) => {
           if (unitType === 'Individual') {
             // Import as individual_lessons (student will be linked in step 13)
             // Note: student_name will be updated when linking students
+            // Create unique external_id including period to handle multiple periods for same EdUnit
+            const beginDate = unit.ScheduleItems?.[0]?.BeginDate || '';
+            const endDate = unit.ScheduleItems?.[0]?.EndDate || '';
+            const externalId = `${unit.Id}_${beginDate}_${endDate}`;
+            
             const { error: lessonError } = await supabase.from('individual_lessons').upsert({
               student_name: unit.Name || 'Без названия',
               branch: unit.OfficeOrCompanyName || 'Окская',
@@ -2729,7 +2739,7 @@ Deno.serve(async (req) => {
               price_per_lesson: unit.FiscalInfo?.PriceValue || null,
               description: unit.Description || null,
               organization_id: orgId,
-              external_id: unit.Id?.toString(),
+              external_id: externalId,
             }, { onConflict: 'external_id' });
             
             if (lessonError) {
@@ -2741,6 +2751,11 @@ Deno.serve(async (req) => {
             // Import as learning_groups (Group, MiniGroup, etc.)
             const groupType = unitType === 'MiniGroup' ? 'mini' : 'general';
             const maxStudents = (unit.StudentsCount || 0) + (unit.Vacancies || 0);
+            
+            // Create unique external_id including period to handle multiple periods for same EdUnit
+            const beginDate = unit.ScheduleItems?.[0]?.BeginDate || '';
+            const endDate = unit.ScheduleItems?.[0]?.EndDate || '';
+            const externalId = `${unit.Id}_${beginDate}_${endDate}`;
             
             const { error: groupError } = await supabase.from('learning_groups').upsert({
               name: unit.Name || 'Без названия',
@@ -2762,7 +2777,7 @@ Deno.serve(async (req) => {
               default_price: unit.FiscalInfo?.PriceValue || null,
               description: unit.Description || null,
               organization_id: orgId,
-              external_id: unit.Id?.toString(),
+              external_id: externalId,
             }, { onConflict: 'external_id' });
             
             if (groupError) {
