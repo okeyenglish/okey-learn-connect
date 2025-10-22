@@ -3068,19 +3068,38 @@ Deno.serve(async (req) => {
             for (const studentData of students) {
               let studentId = null;
               const studentName = (studentData.StudentName ?? studentData.studentName ?? '').toString().trim();
+              // Build candidate ClientIds (student as client)
+              const candidateClientIds: string[] = [];
+              const payers = (studentData.Payers || studentData.payers || []) as any[];
               
-              // 1) PRIMARY: Find by Payers[].ClientId (это сам ученик как клиент - железобетонный вариант!)
-              const payers = studentData.Payers || studentData.payers || [];
-              if (payers.length > 0 && studentName) {
-                // Берём первого плательщика с Actual=true или просто первого
-                const actualPayer = payers.find((p: any) => p.Actual === true || p.actual === true) || payers[0];
-                const payerClientId = (actualPayer?.ClientId ?? actualPayer?.clientId)?.toString();
+              if (payers.length > 0) {
+                const notCompany = payers.filter(p => (p.IsCompany === false || p.isCompany === false || p.IsCompany === 0));
+                const preferred = notCompany.filter(p => p.Actual === false || p.actual === false);
+                const byName = notCompany.filter(p => String(p.Name || p.name || '').trim().toLowerCase() === studentName.toLowerCase());
                 
-                if (payerClientId) {
-                  // Находим клиента (ученика) по external_id = ClientId
-                  // Затем его family_group и в ней студента по имени
-                  const familyGroups = clientExternalIdToFamilyGroups.get(payerClientId) || [];
-                  
+                const ordered = [...preferred, ...byName, ...notCompany, ...payers];
+                for (const p of ordered) {
+                  const id = (p.ClientId ?? p.clientId)?.toString();
+                  if (id && !candidateClientIds.includes(id)) candidateClientIds.push(id);
+                }
+              }
+              
+              // Also consider StudentClientId as candidate (after payers)
+              const studentClientIdRaw = (studentData.StudentClientId ?? studentData.studentClientId)?.toString();
+              if (studentClientIdRaw && !candidateClientIds.includes(studentClientIdRaw)) {
+                candidateClientIds.push(studentClientIdRaw);
+              }
+              
+              // 1) Try direct match: students.external_id == ClientId
+              for (const cand of candidateClientIds) {
+                const s = studentMap.get(cand);
+                if (s) { studentId = s.id; break; }
+              }
+              
+              // 2) If not found, try via family mapping: client(ClientId) -> family_groups -> student by name
+              if (!studentId && studentName) {
+                outerFG: for (const cand of candidateClientIds) {
+                  const familyGroups = clientExternalIdToFamilyGroups.get(cand) || [];
                   for (const fgId of familyGroups) {
                     const groupStudents = familyGroupToStudentsMap.get(fgId) || [];
                     const found = groupStudents.find((s: any) => {
@@ -3088,36 +3107,12 @@ Deno.serve(async (req) => {
                       const linkName = studentName.toLowerCase().trim();
                       return sName === linkName || sName.includes(linkName) || linkName.includes(sName);
                     });
-                    if (found) {
-                      studentId = found.id;
-                      break;
-                    }
+                    if (found) { studentId = found.id; break outerFG; }
                   }
                 }
               }
               
-              // 2) FALLBACK: Try StudentClientId if Payers didn't work
-              if (!studentId) {
-                const studentClientId = (studentData.StudentClientId ?? studentData.studentClientId)?.toString();
-                if (studentClientId && studentName) {
-                  const familyGroups = clientExternalIdToFamilyGroups.get(studentClientId) || [];
-                  
-                  for (const fgId of familyGroups) {
-                    const groupStudents = familyGroupToStudentsMap.get(fgId) || [];
-                    const found = groupStudents.find((s: any) => {
-                      const sName = String(s.name || '').toLowerCase().trim();
-                      const linkName = studentName.toLowerCase().trim();
-                      return sName === linkName || sName.includes(linkName) || linkName.includes(sName);
-                    });
-                    if (found) {
-                      studentId = found.id;
-                      break;
-                    }
-                  }
-                }
-              }
-              
-              // 3) FALLBACK: Try by phone + name
+              // 3) Fallback: Try by phone + name
               if (!studentId) {
                 const rawPhone = studentData.StudentMobile ?? studentData.studentMobile ?? null;
                 let normalizedPhone = null;
