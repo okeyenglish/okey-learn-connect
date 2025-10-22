@@ -819,6 +819,69 @@ const CRMContent = () => {
     setSelectedChatIds(newSelected);
   }, [selectedChatIds]);
 
+  // Обработчики для чатов
+  const handleChatClick = useCallback(async (chatId: string, chatType: 'client' | 'corporate' | 'teachers') => {
+    console.log('Переключение на чат:', { chatId, chatType });
+    
+    // Только переключаемся на новый чат, если это действительно другой чат
+    const isNewChat = activeChatId !== chatId || activeChatType !== chatType;
+    setActiveChatId(chatId);
+    setActiveChatType(chatType);
+    
+    // Помечаем как прочитанное только при переключении на НОВЫЙ чат
+    if (isNewChat) {
+      // Сначала помечаем чат как прочитанный глобально для всех пользователей
+      await markChatAsReadGlobally(chatId);
+      
+      if (chatType === 'client') {
+        // Помечаем все сообщения в чате как прочитанные для текущего пользователя
+        markChatMessagesAsReadMutation.mutate(chatId);
+        // Помечаем сообщения как прочитанные в базе данных (старая система)
+        markAsReadMutation.mutate(chatId);
+        // Помечаем чат как прочитанный в персональном состоянии (для закрепленных и пр.)
+        markAsRead(chatId);
+      } else if (chatType === 'corporate') {
+        // Папка корпоративных чатов — не отмечаем прочитанным на этом уровне
+      } else if (chatType === 'teachers') {
+        // Для преподавательских чатов
+        teacherChats.forEach(async (chat: any) => {
+          if (chat.id) {
+            await markChatAsReadGlobally(chat.id);
+            markChatMessagesAsReadMutation.mutate(chat.id);
+            markAsReadMutation.mutate(chat.id);
+            markAsRead(chat.id);
+          }
+        });
+      }
+    }
+    
+    // Обновляем имя активного клиента для модальных окон
+    if (chatType === 'client') {
+      const activeClient = clients.find(client => client.id === chatId);
+      if (activeClient) {
+        setActiveClientName(activeClient.name);
+      }
+    }
+    
+    if (isMobile) {
+      setLeftSidebarOpen(false);
+    }
+  }, [activeChatId, activeChatType, markChatAsReadGlobally, markChatMessagesAsReadMutation, markAsReadMutation, markAsRead, teacherChats, clients, isMobile]);
+
+  const handleChatAction = useCallback((chatId: string, action: 'unread' | 'pin' | 'archive' | 'block') => {
+    if (action === 'unread') {
+      // 1) Флаг чата для текущего пользователя
+      markAsUnread(chatId);
+      // 2) Обновим сообщения в таблице, чтобы счётчик нитей тоже мог обновиться
+      markAsUnreadMutation.mutate(chatId);
+    } else if (action === 'pin') {
+      togglePin(chatId);
+    } else if (action === 'archive') {
+      toggleArchive(chatId);
+    }
+    console.log(`${action} для чата:`, chatId);
+  }, [markAsUnread, markAsUnreadMutation, togglePin, toggleArchive]);
+
   const [activeFamilyMemberId, setActiveFamilyMemberId] = useState('550e8400-e29b-41d4-a716-446655440001');
 
   const handleSwitchFamilyMember = (memberId: string) => {
@@ -940,20 +1003,6 @@ const CRMContent = () => {
     queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
   };
 
-  const handleChatAction = (chatId: string, action: 'unread' | 'pin' | 'archive' | 'block') => {
-    if (action === 'unread') {
-      // 1) Флаг чата для текущего пользователя
-      markAsUnread(chatId);
-      // 2) Обновим сообщения в таблице, чтобы счётчик нитей тоже мог обновиться
-      markAsUnreadMutation.mutate(chatId);
-    } else if (action === 'pin') {
-      togglePin(chatId);
-    } else if (action === 'archive') {
-      toggleArchive(chatId);
-    }
-    console.log(`${action} для чата:`, chatId);
-  };
-
   // Обработчики для мобильной навигации
   const handleMobileCorporateClick = () => {
     setActiveChatType('corporate');
@@ -983,50 +1032,6 @@ const CRMContent = () => {
 
   const handleMobileScheduleClick = () => {
     setShowScheduleModal(true);
-  };
-
-  const handleChatClick = async (chatId: string, chatType: 'client' | 'corporate' | 'teachers') => {
-    console.log('Переключение на чат:', { chatId, chatType });
-    
-    // Только переключаемся на новый чат, если это действительно другой чат
-    const isNewChat = activeChatId !== chatId || activeChatType !== chatType;
-    setActiveChatId(chatId);
-    setActiveChatType(chatType);
-    
-    // Помечаем как прочитанное только при переключении на НОВЫЙ чат
-    if (isNewChat) {
-      // Сначала помечаем чат как прочитанный глобально для всех пользователей
-      await markChatAsReadGlobally(chatId);
-      
-      if (chatType === 'client') {
-        // Помечаем все сообщения в чате как прочитанные для текущего пользователя
-        markChatMessagesAsReadMutation.mutate(chatId);
-        // Помечаем сообщения как прочитанные в базе данных (старая система)
-        markAsReadMutation.mutate(chatId);
-        // Помечаем чат как прочитанный в персональном состоянии (для закрепленных и пр.)
-        markAsRead(chatId);
-      } else if (chatType === 'corporate') {
-        // Папка корпоративных чатов — не отмечаем прочитанным на этом уровне
-      } else if (chatType === 'teachers') {
-        // Для преподавательских чатов
-        teacherChats.forEach(async (chat: any) => {
-          if (chat.id) {
-            await markChatAsReadGlobally(chat.id);
-            markChatMessagesAsReadMutation.mutate(chat.id);
-            markAsReadMutation.mutate(chat.id);
-            markAsRead(chat.id);
-          }
-        });
-      }
-    }
-    
-    // Обновляем имя активного клиента для модальных окон
-    if (chatType === 'client') {
-      const activeClient = clients.find(client => client.id === chatId);
-      if (activeClient) {
-        setActiveClientName(activeClient.name);
-      }
-    }
   };
 
   // Обработчики для закрепления модальных окон

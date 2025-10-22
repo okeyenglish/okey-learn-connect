@@ -28,12 +28,11 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
           return;
         }
 
-        // Мои состояния чатов (все, не только закрепленные)
+        // Мои состояния чатов (загружаем все для текущего пользователя)
         const { data: myStates, error: myStatesError } = await supabase
           .from('chat_states')
           .select('chat_id, is_pinned')
-          .eq('user_id', user.id)
-          .in('chat_id', chatIds);
+          .eq('user_id', user.id);
 
         if (myStatesError) {
           console.error('Error fetching my chat states:', myStatesError);
@@ -56,9 +55,10 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
         const countMap = new Map<string, number>();
         (counts || []).forEach((row: any) => countMap.set(row.chat_id, row.pin_count));
 
-        // Собираем итоговую карту
+        // Собираем итоговую карту только для запрошенных chatIds
         const chatStatesMap: Record<string, SharedChatState> = {};
-        chatIds.forEach((chatId) => {
+        const requestedChatIds = chatIds.length > 0 ? chatIds : Array.from(myStatesMap.keys());
+        requestedChatIds.forEach((chatId) => {
           const isPinnedByMe = myStatesMap.get(chatId) || false;
           const totalPins = countMap.get(chatId) || 0;
           chatStatesMap[chatId] = {
