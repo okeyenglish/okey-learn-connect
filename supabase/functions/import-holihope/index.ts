@@ -2647,6 +2647,9 @@ Deno.serve(async (req) => {
                   successfulRequests++;
                   console.log(`  ✓ Fetched ${batch.length} units (total: ${fetchedCount}, successful requests: ${successfulRequests})`);
                 }
+                
+                // Small delay to avoid overwhelming the API
+                await new Promise(resolve => setTimeout(resolve, 100));
               } catch (err) {
                 console.error(`  ✗ Error: ${err}`);
                 // Continue with next combination

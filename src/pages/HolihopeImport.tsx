@@ -158,7 +158,7 @@ export default function HolihopeImport() {
           let totalImported = 0;
           let totalFetched = 0;
           let batchParams = { 
-            batch_size: 100, // Process 100 requests per batch
+            batch_size: 30, // Reduced to avoid timeouts
             office_index: 0,
             status_index: 0,
             time_index: 0
@@ -276,14 +276,14 @@ export default function HolihopeImport() {
     }
     // For ed_units, use batch mode with office/status/time indices
     else if (step.action === 'import_ed_units') {
-      let totalImported = 0;
-      let totalFetched = 0;
-      let batchParams = { 
-        batch_size: 100,
-        office_index: 0,
-        status_index: 0,
-        time_index: 0
-      };
+          let totalImported = 0;
+          let totalFetched = 0;
+          let batchParams = { 
+            batch_size: 30, // Reduced to avoid timeouts
+            office_index: 0,
+            status_index: 0,
+            time_index: 0
+          };
       
       while (true) {
         const result = await executeStep(step, batchParams);
