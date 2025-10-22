@@ -3092,8 +3092,8 @@ Deno.serve(async (req) => {
                   id: edUnit.id,
                   student_id: studentId,
                   status,
-                  start_date: enrollmentDate,
-                  end_date: exitDate,
+                  period_start: enrollmentDate,
+                  period_end: exitDate,
                   notes: `Imported from Holihope (Status: ${rawStatus})`
                 });
                 individualLinksCount++;
