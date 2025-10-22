@@ -20,6 +20,7 @@ interface ImportStep {
 export default function HolihopeImport() {
   const { toast } = useToast();
   const [isImporting, setIsImporting] = useState(false);
+  const [shouldStopImport, setShouldStopImport] = useState(false);
   const [steps, setSteps] = useState<ImportStep[]>([
     { id: 'clear', name: '1. Архивация данных', description: 'Пометка существующих данных как неактивных', action: 'clear_data', status: 'pending' },
     { id: 'offices', name: '2. Филиалы', description: 'Импорт филиалов/офисов', action: 'import_locations', status: 'pending' },
@@ -113,16 +114,27 @@ export default function HolihopeImport() {
 
   const runFullImport = async () => {
     setIsImporting(true);
+    setShouldStopImport(false);
 
     try {
       for (const step of steps) {
+        // Check if user requested to stop
+        if (shouldStopImport) {
+          toast({
+            title: 'Импорт остановлен',
+            description: 'Импорт был остановлен пользователем',
+            variant: 'default',
+          });
+          break;
+        }
+        
         // For leads/students/ed_unit_students, use batch mode with skip
         if (step.action === 'import_leads' || step.action === 'import_students' || step.action === 'import_ed_unit_students') {
           let skip = 0;
           let totalImported = 0;
           let hasMore = true;
           
-          while (hasMore) {
+          while (hasMore && !shouldStopImport) {
             const result = await executeStep(step, { skip, batch_mode: true, max_batches: 1 });
             
             if (!result.success) break;
@@ -164,7 +176,7 @@ export default function HolihopeImport() {
             time_index: 0
           };
           
-          while (true) {
+          while (!shouldStopImport) {
             const result = await executeStep(step, batchParams);
             
             if (!result.success) break;
@@ -213,10 +225,12 @@ export default function HolihopeImport() {
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
-      toast({
-        title: 'Импорт завершен',
-        description: 'Все данные успешно импортированы из Holihope',
-      });
+      if (!shouldStopImport) {
+        toast({
+          title: 'Импорт завершен',
+          description: 'Все данные успешно импортированы из Holihope',
+        });
+      }
     } catch (error: any) {
       toast({
         title: 'Ошибка импорта',
@@ -225,11 +239,13 @@ export default function HolihopeImport() {
       });
     } finally {
       setIsImporting(false);
+      setShouldStopImport(false);
     }
   };
 
   const runSingleStep = async (step: ImportStep) => {
     setIsImporting(true);
+    setShouldStopImport(false);
     
     // For leads/students/ed_unit_students, use batch mode with skip
     if (step.action === 'import_leads' || step.action === 'import_students' || step.action === 'import_ed_unit_students') {
@@ -237,7 +253,7 @@ export default function HolihopeImport() {
       let totalImported = 0;
       let hasMore = true;
       
-      while (hasMore) {
+      while (hasMore && !shouldStopImport) {
         const result = await executeStep(step, { skip, batch_mode: true, max_batches: 1 });
         
         if (!result.success) break;
@@ -285,7 +301,7 @@ export default function HolihopeImport() {
             time_index: 0
           };
       
-      while (true) {
+      while (!shouldStopImport) {
         const result = await executeStep(step, batchParams);
         
         if (!result.success) break;
@@ -341,7 +357,16 @@ export default function HolihopeImport() {
       }
     }
     
+    if (shouldStopImport) {
+      toast({
+        title: 'Импорт остановлен',
+        description: `${step.name} был остановлен пользователем`,
+        variant: 'default',
+      });
+    }
+    
     setIsImporting(false);
+    setShouldStopImport(false);
   };
 
   const previewStep = async (step: ImportStep) => {
@@ -392,20 +417,32 @@ export default function HolihopeImport() {
             Полный импорт данных из CRM Holihope в текущую систему
           </p>
         </div>
-        <Button
-          onClick={runFullImport}
-          disabled={isImporting}
-          size="lg"
-        >
-          {isImporting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Импорт...
-            </>
-          ) : (
-            'Запустить полный импорт'
+        <div className="flex gap-2">
+          {isImporting && (
+            <Button
+              onClick={() => setShouldStopImport(true)}
+              disabled={shouldStopImport}
+              variant="destructive"
+              size="lg"
+            >
+              {shouldStopImport ? 'Остановка...' : 'Остановить импорт'}
+            </Button>
           )}
-        </Button>
+          <Button
+            onClick={runFullImport}
+            disabled={isImporting}
+            size="lg"
+          >
+            {isImporting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Импорт...
+              </>
+            ) : (
+              'Запустить полный импорт'
+            )}
+          </Button>
+        </div>
       </div>
 
       <Alert>
