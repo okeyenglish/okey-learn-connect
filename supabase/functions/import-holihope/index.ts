@@ -2698,7 +2698,7 @@ Deno.serve(async (req) => {
           if (unitType === 'Individual') {
             // Import as individual_lessons (student will be linked in step 13)
             // Note: student_name will be updated when linking students
-            await supabase.from('individual_lessons').upsert({
+            const { error: lessonError } = await supabase.from('individual_lessons').upsert({
               student_name: unit.Name || 'Без названия',
               branch: unit.OfficeOrCompanyName || 'Окская',
               subject: unit.Discipline || 'Английский',
@@ -2717,12 +2717,18 @@ Deno.serve(async (req) => {
               organization_id: orgId,
               external_id: unit.Id?.toString(),
             }, { onConflict: 'external_id' });
+            
+            if (lessonError) {
+              console.error(`Error importing individual lesson ${unit.Id}:`, lessonError);
+            } else {
+              importedCount++;
+            }
           } else {
             // Import as learning_groups (Group, MiniGroup, etc.)
             const groupType = unitType === 'MiniGroup' ? 'mini' : 'general';
             const maxStudents = (unit.StudentsCount || 0) + (unit.Vacancies || 0);
             
-            await supabase.from('learning_groups').upsert({
+            const { error: groupError } = await supabase.from('learning_groups').upsert({
               name: unit.Name || 'Без названия',
               branch: unit.OfficeOrCompanyName || 'Окская',
               subject: unit.Discipline || 'Английский',
@@ -2744,8 +2750,13 @@ Deno.serve(async (req) => {
               organization_id: orgId,
               external_id: unit.Id?.toString(),
             }, { onConflict: 'external_id' });
+            
+            if (groupError) {
+              console.error(`Error importing learning group ${unit.Id}:`, groupError);
+            } else {
+              importedCount++;
+            }
           }
-          importedCount++;
         }
         
         progress[0].status = hasMore ? 'in_progress' : 'completed';
