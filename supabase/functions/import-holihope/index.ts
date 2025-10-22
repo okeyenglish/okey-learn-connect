@@ -2926,13 +2926,13 @@ Deno.serve(async (req) => {
         console.log(`Fetching educational units from DB (skip=${skipParam}, take=${take})...`);
         const { data: allGroups } = await supabase
           .from('learning_groups')
-          .select('id, name, external_id')
+          .select('id, name, external_id, organization_id')
           .not('external_id', 'is', null)
           .range(skipParam, skipParam + take - 1);
         
         const { data: allIndividualLessons } = await supabase
           .from('individual_lessons')
-          .select('id, student_name, external_id')
+          .select('id, student_name, external_id, organization_id')
           .not('external_id', 'is', null)
           .range(skipParam, skipParam + take - 1);
         
@@ -3104,6 +3104,7 @@ Deno.serve(async (req) => {
                   student_id: studentId,
                   student_name: studentName,
                   level: studentLevel,
+                  organization_id: edUnit.organization_id,
                   status,
                   period_start: enrollmentDate,
                   period_end: exitDate,
