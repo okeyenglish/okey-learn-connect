@@ -2575,7 +2575,7 @@ const CRMContent = () => {
                                     <div className="flex flex-col items-end">
                                       <Pin className="h-3 w-3 text-orange-600 mb-1" />
                                       <span className="text-xs text-muted-foreground">{chat.time}</span>
-                                       {displayUnread && (
+{displayUnread && (
        <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-sm mt-1 flex items-center gap-1">
          {showEye ? (
            <>
@@ -2583,13 +2583,13 @@ const CRMContent = () => {
                <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
                <AvatarFallback className="text-[8px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
              </Avatar>
-             <span>1</span>
+             <span>{Math.max(chat.unread || 0, 1)}</span>
            </>
          ) : (
-           1
+           chat.unread
          )}
        </span>
-                                       )}
+     )}
                                     </div>
                                   </div>
                                 </button>
@@ -2634,9 +2634,9 @@ const CRMContent = () => {
                         .map((chat) => {
                           const chatState = getChatState(chat.id);
                           // Используем глобальную систему прочитанности
-                          const isUnreadGlobally = !isChatReadGlobally(chat.id);
                           const showEye = !!chatState?.isUnread;
-                          const displayUnread = showEye || isUnreadGlobally || chat.unread > 0;
+                          const unreadConsideringGlobal = (chat.unread > 0) && !isChatReadGlobally(chat.id);
+                          const displayUnread = showEye || unreadConsideringGlobal;
                           return (
                             <ChatContextMenu
                               key={chat.id}
@@ -2768,11 +2768,11 @@ const CRMContent = () => {
                                               <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
                                               <AvatarFallback className="text-[8px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
                                             </Avatar>
-                                            <span>1</span>
+                                            <span>{Math.max(chat.unread || 0, 1)}</span>
                                           </span>
                                        ) : (
                                           <span className="w-5 h-5 rounded-full bg-primary flex items-center justify-center" aria-label="Непрочитанные сообщения">
-                                            <span className="text-xs text-white">1</span>
+                                            <span className="text-xs text-white">{chat.unread}</span>
                                           </span>
                                        )
                                      )}
@@ -2956,9 +2956,9 @@ const CRMContent = () => {
                             .map((chat) => {
                               const chatState = getChatState(chat.id);
                               // Используем глобальную систему прочитанности
-                              const isUnreadGlobally = !isChatReadGlobally(chat.id);
                               const showEye = !!chatState?.isUnread;
-                              const displayUnread = showEye || isUnreadGlobally || chat.unread > 0;
+                              const unreadConsideringGlobal = (chat.unread > 0) && !isChatReadGlobally(chat.id);
+                              const displayUnread = showEye || unreadConsideringGlobal;
                               return (
                                 <div 
                                   key={chat.id}
@@ -3113,9 +3113,9 @@ const CRMContent = () => {
                         .map((chat) => {
                           const chatState = getChatState(chat.id);
                           // Используем глобальную систему прочитанности
-                          const isUnreadGlobally = !isChatReadGlobally(chat.id);
                           const showEye = !!chatState?.isUnread;
-                          const displayUnread = showEye || isUnreadGlobally || chat.unread > 0;
+                          const unreadConsideringGlobal = (chat.unread > 0) && !isChatReadGlobally(chat.id);
+                          const displayUnread = showEye || unreadConsideringGlobal;
                           return (
                             <div 
                               key={chat.id}
