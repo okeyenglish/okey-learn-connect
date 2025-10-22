@@ -3026,16 +3026,8 @@ Deno.serve(async (req) => {
                 studentData.Id ??
                 studentData.id
               )?.toString();
-              
-              // DEBUG: log first 3 students to see structure
-              if (students.indexOf(studentData) < 3) {
-                console.log(`  DEBUG student #${students.indexOf(studentData)}: keys=${Object.keys(studentData).join(',')}, clientId=${studentClientId}`);
-              }
-              
               if (studentClientId) {
                 studentId = studentByExternalIdMap.get(studentClientId) || null;
-                if (!studentId && students.indexOf(studentData) < 3) {
-                  console.log(`    -> NOT FOUND in DB for external_id=${studentClientId}`);
               }
               
               if (!studentId) {
