@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CheckCircle2, XCircle, AlertCircle, Eye } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, AlertCircle, Eye, MessageSquare } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface ImportStep {
@@ -21,6 +21,7 @@ export default function HolihopeImport() {
   const { toast } = useToast();
   const [isImporting, setIsImporting] = useState(false);
   const [shouldStopImport, setShouldStopImport] = useState(false);
+  const [isImportingChats, setIsImportingChats] = useState(false);
   const [steps, setSteps] = useState<ImportStep[]>([
     { id: 'clear', name: '1. Архивация данных', description: 'Пометка существующих данных как неактивных', action: 'clear_data', status: 'pending' },
     { id: 'offices', name: '2. Филиалы', description: 'Импорт филиалов/офисов', action: 'import_locations', status: 'pending' },
@@ -485,6 +486,70 @@ export default function HolihopeImport() {
           </Button>
         </div>
       </div>
+
+      <Card className="border-purple-500/50 bg-purple-50/50 dark:bg-purple-950/20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-purple-700 dark:text-purple-300">
+            <MessageSquare className="h-5 w-5" />
+            Импорт истории чатов из Salebot
+          </CardTitle>
+          <CardDescription>
+            Перенос всей истории переписки с клиентами из WhatsApp Salebot
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Этот инструмент загружает историю сообщений WhatsApp из платформы Salebot для всех клиентов в системе.
+              Для каждого клиента с номером телефона будет получена вся доступная история переписки.
+            </p>
+            <Button
+              onClick={async () => {
+                setIsImportingChats(true);
+                try {
+                  const { data, error } = await supabase.functions.invoke('import-salebot-chats', {
+                    body: {},
+                  });
+
+                  if (error) throw error;
+
+                  toast({
+                    title: 'Импорт завершен',
+                    description: `Импортировано ${data.totalImported} сообщений от ${data.totalClients} клиентов${data.errors ? ` (ошибок: ${data.errors.length})` : ''}`,
+                  });
+
+                  if (data.errors && data.errors.length > 0) {
+                    console.error('Ошибки импорта:', data.errors);
+                  }
+                } catch (error: any) {
+                  console.error('Ошибка импорта чатов:', error);
+                  toast({
+                    title: 'Ошибка импорта',
+                    description: error.message,
+                    variant: 'destructive',
+                  });
+                } finally {
+                  setIsImportingChats(false);
+                }
+              }}
+              disabled={isImportingChats || isImporting}
+              className="w-full"
+            >
+              {isImportingChats ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Импорт чатов...
+                </>
+              ) : (
+                <>
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Импортировать историю чатов
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Alert>
         <AlertCircle className="h-4 w-4" />
