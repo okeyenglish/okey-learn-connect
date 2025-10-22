@@ -3035,7 +3035,8 @@ Deno.serve(async (req) => {
           
           try {
             // Make API request to GetEdUnitStudents for this specific educational unit
-            const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnitStudents?authkey=${HOLIHOPE_API_KEY}&edUnitId=${edUnitExternalId}`;
+            // ВАЖНО: queryPayers=true для получения массива Payers с ClientId
+            const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnitStudents?authkey=${HOLIHOPE_API_KEY}&edUnitId=${edUnitExternalId}&queryPayers=true`;
             console.log(`  Fetching students from: ${apiUrl}`);
             
             const response = await fetch(apiUrl, {
