@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CheckCircle2, XCircle, AlertCircle, Eye, MessageSquare } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Progress } from '@/components/ui/progress';
 
 interface ImportStep {
   id: string;
@@ -22,6 +23,7 @@ export default function HolihopeImport() {
   const [isImporting, setIsImporting] = useState(false);
   const [shouldStopImport, setShouldStopImport] = useState(false);
   const [isImportingChats, setIsImportingChats] = useState(false);
+  const [chatImportStatus, setChatImportStatus] = useState<string>('');
   const [steps, setSteps] = useState<ImportStep[]>([
     { id: 'clear', name: '1. Архивация данных', description: 'Пометка существующих данных как неактивных', action: 'clear_data', status: 'pending' },
     { id: 'offices', name: '2. Филиалы', description: 'Импорт филиалов/офисов', action: 'import_locations', status: 'pending' },
@@ -503,16 +505,34 @@ export default function HolihopeImport() {
               Этот инструмент загружает историю сообщений WhatsApp из платформы Salebot для всех клиентов в системе.
               Для каждого клиента с номером телефона будет получена вся доступная история переписки.
             </p>
+            {isImportingChats && (
+              <div className="space-y-3 mb-4">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Импорт в процессе...</span>
+                  <Loader2 className="h-4 w-4 animate-spin text-purple-500" />
+                </div>
+                <Progress value={undefined} className="h-2" />
+                {chatImportStatus && (
+                  <p className="text-xs text-muted-foreground animate-pulse">
+                    {chatImportStatus}
+                  </p>
+                )}
+              </div>
+            )}
             <Button
               onClick={async () => {
                 setIsImportingChats(true);
+                setChatImportStatus('Инициализация импорта...');
                 try {
+                  setChatImportStatus('Загрузка клиентов и их контактов...');
                   const { data, error } = await supabase.functions.invoke('import-salebot-chats', {
                     body: {},
                   });
 
                   if (error) throw error;
 
+                  setChatImportStatus('Завершение импорта...');
+                  
                   toast({
                     title: 'Импорт завершен',
                     description: `Импортировано ${data.totalImported} сообщений от ${data.totalClients} клиентов${data.errors ? ` (ошибок: ${data.errors.length})` : ''}`,
@@ -530,6 +550,7 @@ export default function HolihopeImport() {
                   });
                 } finally {
                   setIsImportingChats(false);
+                  setChatImportStatus('');
                 }
               }}
               disabled={isImportingChats || isImporting}
