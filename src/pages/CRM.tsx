@@ -2349,6 +2349,8 @@ const CRMContent = () => {
                           onClick={() => {
                             selectedChatIds.forEach(chatId => {
                               markChatAsReadGlobally(chatId);
+                              markChatMessagesAsReadMutation.mutate(chatId);
+                              markAsReadMutation.mutate(chatId);
                               markAsRead(chatId);
                             });
                             setBulkSelectMode(false);
