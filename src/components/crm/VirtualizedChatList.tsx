@@ -36,8 +36,8 @@ export const VirtualizedChatList = React.memo(({
   const virtualizer = useVirtualizer({
     count: chats.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 56,
-    overscan: 5,
+    estimateSize: () => 52,
+    overscan: 4,
   });
 
   return (
@@ -72,25 +72,27 @@ export const VirtualizedChatList = React.memo(({
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
-              <ChatListItem
-                chat={chat}
-                isActive={chat.id === activeChatId}
-                isPinned={chatState.isPinned}
-                isArchived={chatState.isArchived}
-                displayUnread={displayUnread}
-                showEye={showEye}
-                isInWorkByOthers={isInWorkByOthers(chat.id)}
-                pinnedByUserName={getPinnedByUserName(chat.id)}
-                profile={profile}
-                bulkSelectMode={bulkSelectMode}
-                isSelected={selectedChatIds.has(chat.id)}
-                onChatClick={() => onChatClick(chat.id, chat.type)}
-                onMarkUnread={() => onChatAction(chat.id, 'unread')}
-                onPinDialog={() => onChatAction(chat.id, 'pin')}
-                onArchive={() => onChatAction(chat.id, 'archive')}
-                onBlock={chat.type === 'client' ? () => onChatAction(chat.id, 'block') : undefined}
-                onBulkSelect={() => onBulkSelect(chat.id)}
-              />
+              <div className="h-full">
+                <ChatListItem
+                  chat={chat}
+                  isActive={chat.id === activeChatId}
+                  isPinned={chatState.isPinned}
+                  isArchived={chatState.isArchived}
+                  displayUnread={displayUnread}
+                  showEye={showEye}
+                  isInWorkByOthers={isInWorkByOthers(chat.id)}
+                  pinnedByUserName={getPinnedByUserName(chat.id)}
+                  profile={profile}
+                  bulkSelectMode={bulkSelectMode}
+                  isSelected={selectedChatIds.has(chat.id)}
+                  onChatClick={() => onChatClick(chat.id, chat.type)}
+                  onMarkUnread={() => onChatAction(chat.id, 'unread')}
+                  onPinDialog={() => onChatAction(chat.id, 'pin')}
+                  onArchive={() => onChatAction(chat.id, 'archive')}
+                  onBlock={chat.type === 'client' ? () => onChatAction(chat.id, 'block') : undefined}
+                  onBulkSelect={() => onBulkSelect(chat.id)}
+                />
+              </div>
             </div>
           );
         })}
