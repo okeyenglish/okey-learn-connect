@@ -43,8 +43,8 @@ export const VirtualizedChatList = React.memo(({
   return (
     <div 
       ref={parentRef} 
-      className="flex-1 overflow-auto"
-      style={{ contain: 'strict' }}
+      className="flex-1 overflow-auto min-h-[300px]"
+      style={{ contain: 'strict', height: '100%' }}
     >
       <div
         style={{
