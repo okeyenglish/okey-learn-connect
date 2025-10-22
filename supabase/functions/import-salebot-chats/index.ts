@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
               client_id: client.id,
               organization_id: organizationId,
               message_text: msg.text || '',
-              message_type: 'text',
+              message_type: msg.client_replica ? 'client' : 'manager',
               is_outgoing: !msg.client_replica,
               is_read: true,
               created_at: date.toISOString(),
