@@ -2964,7 +2964,7 @@ Deno.serve(async (req) => {
         while (true) {
           const { data: studentsBatch, error } = await supabase
             .from('students')
-            .select('id, external_id, first_name, last_name')
+            .select('id, external_id, first_name, last_name, level')
             .not('external_id', 'is', null)
             .range(fetchOffset, fetchOffset + fetchBatchSize - 1);
           
@@ -3080,9 +3080,10 @@ Deno.serve(async (req) => {
               const enrollmentDate = studentData.BeginDate ?? studentData.beginDate ?? new Date().toISOString().split('T')[0];
               const exitDate = studentData.EndDate ?? studentData.endDate ?? null;
               
-              // Get student name for individual lessons
+              // Get student info for individual lessons
               const student = allStudents?.find(s => s.id === studentId);
               const studentName = student ? `${student.first_name || ''} ${student.last_name || ''}`.trim() : 'Unknown Student';
+              const studentLevel = student?.level || 'A1'; // Default level if not found
               
               // Determine if this is a group or individual lesson based on edUnit.type
               if (edUnit.type === 'group') {
@@ -3102,6 +3103,7 @@ Deno.serve(async (req) => {
                   id: edUnit.id,
                   student_id: studentId,
                   student_name: studentName,
+                  level: studentLevel,
                   status,
                   period_start: enrollmentDate,
                   period_end: exitDate,
