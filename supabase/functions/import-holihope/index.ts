@@ -3069,7 +3069,7 @@ Deno.serve(async (req) => {
               let studentId = null;
               const studentName = (studentData.StudentName ?? studentData.studentName ?? '').toString().trim();
               
-              // 1) PRIMARY: Find by Payers ClientId (это клиент-плательщик - железобетонный вариант!)
+              // 1) PRIMARY: Find by Payers[].ClientId (это сам ученик как клиент - железобетонный вариант!)
               const payers = studentData.Payers || studentData.payers || [];
               if (payers.length > 0 && studentName) {
                 // Берём первого плательщика с Actual=true или просто первого
@@ -3077,7 +3077,8 @@ Deno.serve(async (req) => {
                 const payerClientId = (actualPayer?.ClientId ?? actualPayer?.clientId)?.toString();
                 
                 if (payerClientId) {
-                  // Находим семью этого клиента-плательщика
+                  // Находим клиента (ученика) по external_id = ClientId
+                  // Затем его family_group и в ней студента по имени
                   const familyGroups = clientExternalIdToFamilyGroups.get(payerClientId) || [];
                   
                   for (const fgId of familyGroups) {
