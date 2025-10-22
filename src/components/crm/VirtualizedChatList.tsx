@@ -36,8 +36,8 @@ export const VirtualizedChatList = React.memo(({
   const virtualizer = useVirtualizer({
     count: chats.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 64, // примерная высота одного элемента чата
-    overscan: 5, // рендерить 5 дополнительных элементов за пределами видимой области
+    estimateSize: () => 56,
+    overscan: 5,
   });
 
   return (
