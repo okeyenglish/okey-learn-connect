@@ -2661,22 +2661,39 @@ Deno.serve(async (req) => {
         console.log(`Total units fetched: ${allUnits.length}`);
         console.log(`Processed ${totalRequests} requests (${successfulRequests} successful)`);
         
+        // Log units without ID for debugging
+        const unitsWithoutId = allUnits.filter(u => !u.Id);
+        console.log(`Units without ID: ${unitsWithoutId.length}`);
+        
         // Create unique ID including period dates to handle multiple periods for same EdUnit
-        const uniqueUnits = allUnits.reduce((acc, unit) => {
+        const uniqueUnits = allUnits.reduce((acc, unit, index) => {
           const id = unit.Id?.toString();
+          
+          // Skip units without ID
+          if (!id) {
+            console.log(`  Skipping unit without ID at index ${index}: ${unit.Name || 'unnamed'}`);
+            return acc;
+          }
+          
           const beginDate = unit.ScheduleItems?.[0]?.BeginDate || '';
           const endDate = unit.ScheduleItems?.[0]?.EndDate || '';
-          // Create composite key: EdUnitId + BeginDate + EndDate
-          const compositeKey = `${id}_${beginDate}_${endDate}`;
           
-          if (id && !acc.has(compositeKey)) {
+          // Create composite key: EdUnitId + BeginDate + EndDate
+          // If no dates, include name to avoid collisions
+          const compositeKey = (beginDate || endDate) 
+            ? `${id}_${beginDate}_${endDate}`
+            : `${id}_${unit.Name || 'noname'}`;
+          
+          if (!acc.has(compositeKey)) {
             acc.set(compositeKey, unit);
+          } else {
+            console.log(`  Duplicate found: ${compositeKey}`);
           }
           return acc;
         }, new Map());
         
         const unitsToImport = Array.from(uniqueUnits.values());
-        console.log(`Unique units after deduplication by ID+period: ${unitsToImport.length}`);
+        console.log(`Unique units after deduplication: ${unitsToImport.length} (from ${allUnits.length} total)`);
         
         let importedCount = 0;
         let typeStats = {};
@@ -2720,7 +2737,10 @@ Deno.serve(async (req) => {
             // Create unique external_id including period to handle multiple periods for same EdUnit
             const beginDate = unit.ScheduleItems?.[0]?.BeginDate || '';
             const endDate = unit.ScheduleItems?.[0]?.EndDate || '';
-            const externalId = `${unit.Id}_${beginDate}_${endDate}`;
+            // If no dates, include name to match deduplication logic
+            const externalId = (beginDate || endDate)
+              ? `${unit.Id}_${beginDate}_${endDate}`
+              : `${unit.Id}_${unit.Name || 'noname'}`;
             
             const { error: lessonError } = await supabase.from('individual_lessons').upsert({
               student_name: unit.Name || 'Без названия',
@@ -2755,7 +2775,10 @@ Deno.serve(async (req) => {
             // Create unique external_id including period to handle multiple periods for same EdUnit
             const beginDate = unit.ScheduleItems?.[0]?.BeginDate || '';
             const endDate = unit.ScheduleItems?.[0]?.EndDate || '';
-            const externalId = `${unit.Id}_${beginDate}_${endDate}`;
+            // If no dates, include name to match deduplication logic
+            const externalId = (beginDate || endDate)
+              ? `${unit.Id}_${beginDate}_${endDate}`
+              : `${unit.Id}_${unit.Name || 'noname'}`;
             
             const { error: groupError } = await supabase.from('learning_groups').upsert({
               name: unit.Name || 'Без названия',
