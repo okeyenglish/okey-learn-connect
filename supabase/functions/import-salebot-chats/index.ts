@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
     // Получаем всех клиентов с номерами телефонов
     const { data: clients, error: clientsError } = await supabase
       .from('clients')
-      .select('id, name, phone_numbers:client_phone_numbers(number)')
+      .select('id, name, phone_numbers:client_phone_numbers(phone)')
       .not('phone_numbers', 'is', null);
 
     if (clientsError) {
@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       const phoneNumbers = client.phone_numbers || [];
       
       for (const phoneRecord of phoneNumbers) {
-        const phone = phoneRecord.number;
+        const phone = phoneRecord.phone;
         if (!phone) continue;
 
         // Убираем все символы кроме цифр
