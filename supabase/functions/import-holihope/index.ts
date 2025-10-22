@@ -2952,15 +2952,54 @@ Deno.serve(async (req) => {
         
         console.log(`Fetched ${links.length} links from Holihope (skip=${skipParam})`);
         
-        // Fetch all students, learning_groups and individual_lessons in batches
+        // Fetch all students with external_id
         console.log('Fetching all students with external_id...');
         const { data: allStudents } = await supabase
           .from('students')
-          .select('id, client_id, external_id')
+          .select('id, external_id, family_group_id')
           .not('external_id', 'is', null);
         
         const studentMap = new Map(allStudents?.map(s => [s.external_id, s]) || []);
         console.log(`Found ${studentMap.size} students with external_id`);
+        
+        // Build map: clientId -> students
+        // Fetch family_members to link clients to family_groups
+        console.log('Building client to student map...');
+        const { data: familyMembers } = await supabase
+          .from('family_members')
+          .select('client_id, family_group_id');
+        
+        // Map family_group_id -> client_ids
+        const familyGroupToClientsMap = new Map();
+        familyMembers?.forEach(fm => {
+          if (!familyGroupToClientsMap.has(fm.family_group_id)) {
+            familyGroupToClientsMap.set(fm.family_group_id, []);
+          }
+          familyGroupToClientsMap.get(fm.family_group_id).push(fm.client_id);
+        });
+        
+        // Fetch all clients with external_id
+        const { data: allClients } = await supabase
+          .from('clients')
+          .select('id, external_id')
+          .not('external_id', 'is', null);
+        
+        const clientExternalIdMap = new Map(allClients?.map(c => [c.external_id, c.id]) || []);
+        console.log(`Found ${clientExternalIdMap.size} clients with external_id`);
+        
+        // Build clientId -> studentId map
+        const clientToStudentMap = new Map();
+        allStudents?.forEach(s => {
+          const familyGroupId = s.family_group_id;
+          const clientIds = familyGroupToClientsMap.get(familyGroupId) || [];
+          clientIds.forEach(clientId => {
+            if (!clientToStudentMap.has(clientId)) {
+              clientToStudentMap.set(clientId, s.id);
+            }
+          });
+        });
+        
+        console.log(`Built client->student map with ${clientToStudentMap.size} entries`);
         
         console.log('Fetching all learning groups with external_id...');
         const { data: allGroups } = await supabase
@@ -2980,14 +3019,6 @@ Deno.serve(async (req) => {
         const individualLessonMap = new Map(allIndividualLessons?.map(il => [il.external_id, il]) || []);
         console.log(`Found ${individualLessonMap.size} individual lessons with external_id`);
         
-        // Fetch all clients for names
-        console.log('Fetching all clients...');
-        const { data: allClients } = await supabase
-          .from('clients')
-          .select('id, name');
-        
-        const clientMap = new Map(allClients?.map(c => [c.id, c]) || []);
-        console.log(`Found ${clientMap.size} clients`);
         
         let groupLinksCount = 0;
         let individualLinksCount = 0;
@@ -3010,9 +3041,27 @@ Deno.serve(async (req) => {
             continue;
           }
           
-          const studentExternalId = (link.studentId ?? link.StudentId ?? link.student_id ?? link.StudentID ?? link.ClientId ?? link.ClientID ?? link.Client_id ?? link.ChildId ?? link.ChildID)?.toString();
-          const student = studentMap.get(studentExternalId);
-          if (!student) {
+          // Try to find student by external_id first
+          const studentExternalId = (link.studentId ?? link.StudentId ?? link.student_id ?? link.StudentID)?.toString();
+          let studentId = null;
+          
+          if (studentExternalId) {
+            const student = studentMap.get(studentExternalId);
+            if (student) studentId = student.id;
+          }
+          
+          // If not found, try to find via StudentClientId
+          if (!studentId) {
+            const clientExternalId = (link.StudentClientId ?? link.studentClientId ?? link.ClientId ?? link.ClientID)?.toString();
+            if (clientExternalId) {
+              const clientId = clientExternalIdMap.get(clientExternalId);
+              if (clientId) {
+                studentId = clientToStudentMap.get(clientId);
+              }
+            }
+          }
+          
+          if (!studentId) {
             skippedCount++;
             skippedReasons.studentNotFound++;
             continue;
@@ -3029,7 +3078,7 @@ Deno.serve(async (req) => {
           if (learningGroup) {
             groupStudentsToInsert.push({
               group_id: learningGroup.id,
-              student_id: student.id,
+              student_id: studentId,
               enrollment_date: enrollmentDate,
               exit_date: exitDate,
               status,
@@ -3042,11 +3091,10 @@ Deno.serve(async (req) => {
           // Try to find in individual_lessons
           const individualLesson = individualLessonMap.get(edUnitExternalId);
           if (individualLesson) {
-            const clientData = clientMap.get(student.client_id);
             individualLessonsToUpdate.push({
               id: individualLesson.id,
-              student_id: student.id,
-              student_name: clientData?.name || individualLesson.student_name,
+              student_id: studentId,
+              student_name: individualLesson.student_name,
             });
             individualLinksCount++;
             continue;
