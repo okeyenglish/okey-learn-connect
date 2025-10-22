@@ -1578,15 +1578,40 @@ Deno.serve(async (req) => {
       console.log('Importing schedule (lessons from educational units)...');
       progress.push({ step: 'import_schedule', status: 'in_progress' });
 
+      // Helper function to parse weekdays bitmask
+      const parseWeekdays = (weekdaysMask: number): string[] => {
+        const days: string[] = [];
+        const dayMap: { [key: number]: string } = {
+          1: 'monday',    // 2^0 = 1
+          2: 'tuesday',   // 2^1 = 2
+          4: 'wednesday', // 2^2 = 4
+          8: 'thursday',  // 2^3 = 8
+          16: 'friday',   // 2^4 = 16
+          32: 'saturday', // 2^5 = 32
+          64: 'sunday',   // 2^6 = 64
+        };
+        
+        for (const [bit, day] of Object.entries(dayMap)) {
+          if (weekdaysMask & parseInt(bit)) {
+            days.push(day);
+          }
+        }
+        
+        return days;
+      };
+
       try {
         let skip = 0;
         const take = 100;
         let totalLessons = 0;
         let totalGroupLessons = 0;
         let totalIndividualLessons = 0;
+        let totalScheduleItems = 0;
+        let totalGroupSchedules = 0;
+        let totalIndividualSchedules = 0;
 
         while (true) {
-          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}&queryDays=true`, {
+          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
@@ -1609,102 +1634,159 @@ Deno.serve(async (req) => {
             break;
           }
           
-          console.log(`Processing ${units.length} educational units for lessons...`);
+          console.log(`Processing ${units.length} educational units for schedule and lessons...`);
 
           for (const unit of units) {
-            // Check if unit has Days (actual lesson dates)
-            if (!unit.Days || !Array.isArray(unit.Days) || unit.Days.length === 0) {
-              continue;
-            }
-
             const isIndividual = unit.UnitType?.toLowerCase().includes('individual') || 
                                 unit.UnitType?.toLowerCase().includes('индивидуальн');
 
-            // Import lessons based on unit type
-            if (isIndividual) {
-              // Find individual lesson
-              const { data: individualLesson } = await supabase
-                .from('individual_lessons')
-                .select('id')
-                .eq('external_id', unit.Id?.toString())
-                .single();
-
-              if (!individualLesson) continue;
-
-              // Import each day as individual lesson session
-              for (const day of unit.Days) {
-                const sessionData = {
-                  individual_lesson_id: individualLesson.id,
-                  lesson_date: day.Date || day.date,
-                  start_time: day.BeginTime || day.beginTime || '10:00',
-                  end_time: day.EndTime || day.endTime || '11:20',
-                  status: day.Canceled ? 'cancelled' : 
-                         day.IsCompleted || day.isCompleted ? 'completed' : 'scheduled',
-                  topic: day.Topic || day.topic || null,
-                  homework: day.Homework || day.homework || null,
-                  notes: day.Notes || day.notes || null,
-                  external_id: day.Id?.toString() || `${unit.Id}_${day.Date}`,
-                };
-
-                const { error } = await supabase
-                  .from('individual_lesson_sessions')
-                  .upsert(sessionData, { onConflict: 'external_id' });
-
-                if (error) {
-                  console.error(`Error importing individual lesson session:`, error);
+            // Process ScheduleItems (recurring schedule)
+            if (unit.ScheduleItems && Array.isArray(unit.ScheduleItems) && unit.ScheduleItems.length > 0) {
+              for (const scheduleItem of unit.ScheduleItems) {
+                if (isIndividual) {
+                  // Update individual lesson schedule
+                  const { data: individualLesson } = await supabase
+                    .from('individual_lessons')
+                    .select('id')
+                    .eq('external_id', unit.Id?.toString())
+                    .single();
+                  
+                  if (individualLesson) {
+                    const scheduleDays = parseWeekdays(scheduleItem.Weekdays || 0);
+                    
+                    await supabase
+                      .from('individual_lessons')
+                      .update({
+                        schedule_days: scheduleDays,
+                        schedule_time: `${scheduleItem.BeginTime}-${scheduleItem.EndTime}`,
+                        lesson_location: scheduleItem.ClassroomName || scheduleItem.ClassroomLink || null,
+                        period_start: scheduleItem.BeginDate || null,
+                        period_end: scheduleItem.EndDate || null,
+                      })
+                      .eq('id', individualLesson.id);
+                    
+                    totalIndividualSchedules++;
+                  }
                 } else {
-                  totalIndividualLessons++;
+                  // Update group schedule
+                  const { data: group } = await supabase
+                    .from('learning_groups')
+                    .select('id')
+                    .eq('external_id', unit.Id?.toString())
+                    .single();
+                  
+                  if (group) {
+                    const scheduleDays = parseWeekdays(scheduleItem.Weekdays || 0);
+                    
+                    await supabase
+                      .from('learning_groups')
+                      .update({
+                        schedule_days: scheduleDays,
+                        lesson_start_time: scheduleItem.BeginTime || null,
+                        lesson_end_time: scheduleItem.EndTime || null,
+                        schedule_room: scheduleItem.ClassroomName || null,
+                        zoom_link: scheduleItem.ClassroomLink || null,
+                        period_start: scheduleItem.BeginDate || null,
+                        period_end: scheduleItem.EndDate || null,
+                      })
+                      .eq('id', group.id);
+                    
+                    totalGroupSchedules++;
+                  }
                 }
-              }
-            } else {
-              // Find group
-              const { data: group } = await supabase
-                .from('learning_groups')
-                .select('id')
-                .eq('external_id', unit.Id?.toString())
-                .single();
-
-              if (!group) continue;
-
-              // Import each day as group lesson session
-              for (const day of unit.Days) {
-                const sessionData = {
-                  group_id: group.id,
-                  lesson_date: day.Date || day.date,
-                  start_time: day.BeginTime || day.beginTime || '10:00',
-                  end_time: day.EndTime || day.endTime || '11:20',
-                  status: day.Canceled ? 'cancelled' : 
-                         day.IsCompleted || day.isCompleted ? 'completed' : 'scheduled',
-                  topic: day.Topic || day.topic || null,
-                  homework: day.Homework || day.homework || null,
-                  notes: day.Notes || day.notes || null,
-                  external_id: day.Id?.toString() || `${unit.Id}_${day.Date}`,
-                };
-
-                const { error } = await supabase
-                  .from('lesson_sessions')
-                  .upsert(sessionData, { onConflict: 'external_id' });
-
-                if (error) {
-                  console.error(`Error importing group lesson session:`, error);
-                } else {
-                  totalGroupLessons++;
-                }
+                
+                totalScheduleItems++;
               }
             }
-            
-            totalLessons += unit.Days.length;
+
+            // Process Days (specific lesson sessions)
+            if (unit.Days && Array.isArray(unit.Days) && unit.Days.length > 0) {
+              if (isIndividual) {
+                // Find individual lesson
+                const { data: individualLesson } = await supabase
+                  .from('individual_lessons')
+                  .select('id')
+                  .eq('external_id', unit.Id?.toString())
+                  .single();
+
+                if (!individualLesson) continue;
+
+                // Import each day as individual lesson session
+                for (const day of unit.Days) {
+                  const sessionData = {
+                    individual_lesson_id: individualLesson.id,
+                    lesson_date: day.Date || day.date,
+                    start_time: day.BeginTime || day.beginTime || '10:00',
+                    end_time: day.EndTime || day.endTime || '11:20',
+                    status: day.Canceled ? 'cancelled' : 
+                           day.IsCompleted || day.isCompleted ? 'completed' : 'scheduled',
+                    topic: day.Topic || day.topic || null,
+                    homework: day.Homework || day.homework || null,
+                    notes: day.Notes || day.notes || null,
+                    external_id: day.Id?.toString() || `${unit.Id}_${day.Date}`,
+                  };
+
+                  const { error } = await supabase
+                    .from('individual_lesson_sessions')
+                    .upsert(sessionData, { onConflict: 'external_id' });
+
+                  if (error) {
+                    console.error(`Error importing individual lesson session:`, error);
+                  } else {
+                    totalIndividualLessons++;
+                  }
+                }
+              } else {
+                // Find group
+                const { data: group } = await supabase
+                  .from('learning_groups')
+                  .select('id')
+                  .eq('external_id', unit.Id?.toString())
+                  .single();
+
+                if (!group) continue;
+
+                // Import each day as group lesson session
+                for (const day of unit.Days) {
+                  const sessionData = {
+                    group_id: group.id,
+                    lesson_date: day.Date || day.date,
+                    start_time: day.BeginTime || day.beginTime || '10:00',
+                    end_time: day.EndTime || day.endTime || '11:20',
+                    status: day.Canceled ? 'cancelled' : 
+                           day.IsCompleted || day.isCompleted ? 'completed' : 'scheduled',
+                    topic: day.Topic || day.topic || null,
+                    homework: day.Homework || day.homework || null,
+                    notes: day.Notes || day.notes || null,
+                    external_id: day.Id?.toString() || `${unit.Id}_${day.Date}`,
+                  };
+
+                  const { error } = await supabase
+                    .from('lesson_sessions')
+                    .upsert(sessionData, { onConflict: 'external_id' });
+
+                  if (error) {
+                    console.error(`Error importing group lesson session:`, error);
+                  } else {
+                    totalGroupLessons++;
+                  }
+                }
+              }
+              
+              totalLessons += unit.Days.length;
+            }
           }
           
           skip += take;
           if (units.length < take) break;
         }
 
-        console.log(`Imported ${totalLessons} total lessons (${totalGroupLessons} group, ${totalIndividualLessons} individual)`);
+        console.log(`Imported ${totalScheduleItems} schedule items (${totalGroupSchedules} group, ${totalIndividualSchedules} individual)`);
+        console.log(`Imported ${totalLessons} lesson sessions (${totalGroupLessons} group, ${totalIndividualLessons} individual)`);
 
         progress[0].status = 'completed';
-        progress[0].count = totalLessons;
-        progress[0].message = `Imported ${totalLessons} lessons (${totalGroupLessons} group, ${totalIndividualLessons} individual)`;
+        progress[0].count = totalLessons + totalScheduleItems;
+        progress[0].message = `Imported ${totalScheduleItems} schedules and ${totalLessons} lesson sessions`;
       } catch (error) {
         console.error('Error importing schedule:', error);
         progress[0].status = 'error';
