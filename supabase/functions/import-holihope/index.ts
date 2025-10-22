@@ -3069,14 +3069,33 @@ Deno.serve(async (req) => {
               let studentId = null;
               const studentName = (studentData.StudentName ?? studentData.studentName ?? '').toString().trim();
               
-              // 1) Try to find student by external_id (if StudentId is provided)
-              const studentExternalId = (studentData.StudentId ?? studentData.studentId)?.toString();
-              if (studentExternalId) {
-                const student = studentMap.get(studentExternalId);
-                if (student) studentId = student.id;
+              // 1) PRIMARY: Find by Payers ClientId (это клиент-плательщик - железобетонный вариант!)
+              const payers = studentData.Payers || studentData.payers || [];
+              if (payers.length > 0 && studentName) {
+                // Берём первого плательщика с Actual=true или просто первого
+                const actualPayer = payers.find((p: any) => p.Actual === true || p.actual === true) || payers[0];
+                const payerClientId = (actualPayer?.ClientId ?? actualPayer?.clientId)?.toString();
+                
+                if (payerClientId) {
+                  // Находим семью этого клиента-плательщика
+                  const familyGroups = clientExternalIdToFamilyGroups.get(payerClientId) || [];
+                  
+                  for (const fgId of familyGroups) {
+                    const groupStudents = familyGroupToStudentsMap.get(fgId) || [];
+                    const found = groupStudents.find((s: any) => {
+                      const sName = String(s.name || '').toLowerCase().trim();
+                      const linkName = studentName.toLowerCase().trim();
+                      return sName === linkName || sName.includes(linkName) || linkName.includes(sName);
+                    });
+                    if (found) {
+                      studentId = found.id;
+                      break;
+                    }
+                  }
+                }
               }
               
-              // 2) If not found, find by client external_id (StudentClientId) -> family_group -> student by name
+              // 2) FALLBACK: Try StudentClientId if Payers didn't work
               if (!studentId) {
                 const studentClientId = (studentData.StudentClientId ?? studentData.studentClientId)?.toString();
                 if (studentClientId && studentName) {
@@ -3097,7 +3116,7 @@ Deno.serve(async (req) => {
                 }
               }
               
-              // 3) Fallback: find by phone + name
+              // 3) FALLBACK: Try by phone + name
               if (!studentId) {
                 const rawPhone = studentData.StudentMobile ?? studentData.studentMobile ?? null;
                 let normalizedPhone = null;
@@ -3109,7 +3128,6 @@ Deno.serve(async (req) => {
                 }
                 
                 if (normalizedPhone && studentName) {
-                  // Try directly by student phone
                   const candidates = phoneToStudentsMap.get(normalizedPhone) || [];
                   const byPhone = candidates.find((s: any) => {
                     const sName = String(s.name || '').toLowerCase().trim();
@@ -3125,7 +3143,8 @@ Deno.serve(async (req) => {
               if (!studentId) {
                 skippedCount++;
                 skippedReasons.studentNotFound++;
-                console.log(`    Skipped: student not found for ClientId=${studentData.StudentClientId ?? 'N/A'}, phone=${studentData.StudentMobile ?? 'N/A'}, name=${studentName}`);
+                const payerInfo = studentData.Payers?.[0] ? `Payer.ClientId=${studentData.Payers[0].ClientId}` : 'No payers';
+                console.log(`    Skipped: student not found for ${payerInfo}, StudentClientId=${studentData.StudentClientId ?? 'N/A'}, name=${studentName}`);
                 continue;
               }
               
