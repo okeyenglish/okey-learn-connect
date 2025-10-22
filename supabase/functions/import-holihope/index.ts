@@ -1037,6 +1037,13 @@ Deno.serve(async (req) => {
             else if (/проб|trial/.test(rawStatus)) normalizedStatus = 'trial';
             else if (/выпуск|graduat/.test(rawStatus)) normalizedStatus = 'graduated';
             
+            // CRITICAL: Use only ClientId for external_id (required for linking with groups)
+            const clientId = student.ClientId ?? student.clientId;
+            if (!clientId) {
+              console.warn(`⚠️ Skipping student "${fullName}" - no ClientId in API response (only Id=${student.Id ?? student.id})`);
+              return; // Skip students without ClientId
+            }
+            
             studentsData.push({
               studentInfo: {
                 name: fullName,
@@ -1051,7 +1058,7 @@ Deno.serve(async (req) => {
                 status: normalizedStatus,
                 notes: student.comment || student.Comment || null,
                 extra_fields: extraFields,
-                external_id: (student.ClientId ?? student.clientId ?? student.Id ?? student.id)?.toString(),
+                external_id: clientId.toString(),
                 organization_id: orgId,
               },
               branch,
