@@ -2956,50 +2956,52 @@ Deno.serve(async (req) => {
         console.log('Fetching all students with external_id...');
         const { data: allStudents } = await supabase
           .from('students')
-          .select('id, external_id, family_group_id')
+          .select('id, external_id, family_group_id, name')
           .not('external_id', 'is', null);
         
         const studentMap = new Map(allStudents?.map(s => [s.external_id, s]) || []);
         console.log(`Found ${studentMap.size} students with external_id`);
         
-        // Build map: clientId -> students
-        // Fetch family_members to link clients to family_groups
-        console.log('Building client to student map...');
+        // Build family_group_id -> students map
+        const familyGroupToStudentsMap = new Map();
+        allStudents?.forEach(s => {
+          if (!familyGroupToStudentsMap.has(s.family_group_id)) {
+            familyGroupToStudentsMap.set(s.family_group_id, []);
+          }
+          familyGroupToStudentsMap.get(s.family_group_id).push(s);
+        });
+        
+        // Fetch family_members and clients with phones
+        console.log('Building phone to family_group map...');
         const { data: familyMembers } = await supabase
           .from('family_members')
           .select('client_id, family_group_id');
         
-        // Map family_group_id -> client_ids
-        const familyGroupToClientsMap = new Map();
+        const { data: clientPhones } = await supabase
+          .from('client_phone_numbers')
+          .select('phone, client_id');
+        
+        // Build phone -> family_group_ids map
+        const phoneToFamilyGroupsMap = new Map();
+        const clientIdToFamilyGroups = new Map();
         familyMembers?.forEach(fm => {
-          if (!familyGroupToClientsMap.has(fm.family_group_id)) {
-            familyGroupToClientsMap.set(fm.family_group_id, []);
+          if (!clientIdToFamilyGroups.has(fm.client_id)) {
+            clientIdToFamilyGroups.set(fm.client_id, []);
           }
-          familyGroupToClientsMap.get(fm.family_group_id).push(fm.client_id);
+          clientIdToFamilyGroups.get(fm.client_id).push(fm.family_group_id);
         });
         
-        // Fetch all clients with external_id
-        const { data: allClients } = await supabase
-          .from('clients')
-          .select('id, external_id')
-          .not('external_id', 'is', null);
-        
-        const clientExternalIdMap = new Map(allClients?.map(c => [c.external_id, c.id]) || []);
-        console.log(`Found ${clientExternalIdMap.size} clients with external_id`);
-        
-        // Build clientId -> studentId map
-        const clientToStudentMap = new Map();
-        allStudents?.forEach(s => {
-          const familyGroupId = s.family_group_id;
-          const clientIds = familyGroupToClientsMap.get(familyGroupId) || [];
-          clientIds.forEach(clientId => {
-            if (!clientToStudentMap.has(clientId)) {
-              clientToStudentMap.set(clientId, s.id);
+        clientPhones?.forEach(cp => {
+          const familyGroups = clientIdToFamilyGroups.get(cp.client_id) || [];
+          familyGroups.forEach(fgId => {
+            if (!phoneToFamilyGroupsMap.has(cp.phone)) {
+              phoneToFamilyGroupsMap.set(cp.phone, []);
             }
+            phoneToFamilyGroupsMap.get(cp.phone).push(fgId);
           });
         });
         
-        console.log(`Built client->student map with ${clientToStudentMap.size} entries`);
+        console.log(`Built phone->family_groups map with ${phoneToFamilyGroupsMap.size} phone numbers`);
         
         console.log('Fetching all learning groups with external_id...');
         const { data: allGroups } = await supabase
@@ -3050,13 +3052,36 @@ Deno.serve(async (req) => {
             if (student) studentId = student.id;
           }
           
-          // If not found, try to find via StudentClientId
+          // If not found, try to find via phone + name
           if (!studentId) {
-            const clientExternalId = (link.StudentClientId ?? link.studentClientId ?? link.ClientId ?? link.ClientID)?.toString();
-            if (clientExternalId) {
-              const clientId = clientExternalIdMap.get(clientExternalId);
-              if (clientId) {
-                studentId = clientToStudentMap.get(clientId);
+            // Normalize phone from link
+            const rawPhone = link.StudentMobile ?? link.studentMobile ?? null;
+            let normalizedPhone = null;
+            if (rawPhone) {
+              let s = String(rawPhone).replace(/\D/g, '');
+              if (s.length === 11 && s.startsWith('8')) s = '7' + s.slice(1);
+              if (s.length === 10 && s.startsWith('9')) s = '7' + s;
+              normalizedPhone = s.length >= 10 ? s : null;
+            }
+            
+            const studentName = (link.StudentName ?? link.studentName ?? '').toString().trim();
+            
+            if (normalizedPhone && studentName) {
+              // Find family groups by phone
+              const familyGroups = phoneToFamilyGroupsMap.get(normalizedPhone) || [];
+              
+              // Search for student by name in these family groups
+              for (const fgId of familyGroups) {
+                const students = familyGroupToStudentsMap.get(fgId) || [];
+                const found = students.find(s => {
+                  const sName = s.name.toLowerCase().trim();
+                  const linkName = studentName.toLowerCase().trim();
+                  return sName === linkName || sName.includes(linkName) || linkName.includes(sName);
+                });
+                if (found) {
+                  studentId = found.id;
+                  break;
+                }
               }
             }
           }
@@ -3064,6 +3089,7 @@ Deno.serve(async (req) => {
           if (!studentId) {
             skippedCount++;
             skippedReasons.studentNotFound++;
+            console.log(`  Skipped: student not found for phone=${link.StudentMobile}, name=${link.StudentName}`);
             continue;
           }
           
