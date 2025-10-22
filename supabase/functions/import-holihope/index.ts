@@ -1974,46 +1974,68 @@ Deno.serve(async (req) => {
       progress.push({ step: 'import_entrance_tests', status: 'in_progress' });
 
       try {
-        let skip = 0;
-        const take = 100;
-        let allTests = [];
-
-        console.log('Fetching entrance tests from Holihope...');
-        while (true) {
-          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetEntranceTests?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-          });
-          
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-          const tests = await response.json();
-          
-          if (!tests || tests.length === 0) break;
-          allTests = allTests.concat(tests);
-          console.log(`Fetched ${allTests.length} tests so far...`);
-          
-          skip += take;
-          if (tests.length < take) break;
-        }
-        
-        console.log(`Total tests fetched: ${allTests.length}`);
-        
-        // Pre-load all students and teachers to avoid N queries
-        console.log('Pre-loading students and teachers...');
+        // Get all students with external_id (clientId from Holihope)
+        console.log('Loading students...');
         const { data: students } = await supabase
           .from('students')
           .select('id, external_id')
           .not('external_id', 'is', null);
         
+        if (!students || students.length === 0) {
+          throw new Error('No students found with external_id');
+        }
+        
+        console.log(`Found ${students.length} students with external_id`);
+        
+        // Pre-load teachers map
         const { data: teachers } = await supabase
           .from('teachers')
           .select('id, external_id')
           .not('external_id', 'is', null);
         
-        const studentMap = new Map((students || []).map(s => [s.external_id, s.id]));
         const teacherMap = new Map((teachers || []).map(t => [t.external_id, t.id]));
+        console.log(`Loaded ${teacherMap.size} teachers`);
         
-        console.log(`Loaded ${studentMap.size} students and ${teacherMap.size} teachers`);
+        let allTests = [];
+        let processedStudents = 0;
+        
+        // For each student, fetch their entrance tests using clientId
+        for (const student of students) {
+          try {
+            const response = await fetch(
+              `${HOLIHOPE_DOMAIN}/GetEntranceTests?authkey=${HOLIHOPE_API_KEY}&clientId=${student.external_id}`,
+              {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+              }
+            );
+            
+            if (response.ok) {
+              const tests = await response.json();
+              if (tests && Array.isArray(tests) && tests.length > 0) {
+                // Add student_id to each test
+                tests.forEach(test => {
+                  test._student_id = student.id;
+                  test._student_external_id = student.external_id;
+                });
+                allTests = allTests.concat(tests);
+              }
+            }
+            
+            processedStudents++;
+            if (processedStudents % 50 === 0) {
+              console.log(`Processed ${processedStudents}/${students.length} students, found ${allTests.length} tests`);
+            }
+            
+            // Small delay to avoid overwhelming the API
+            await new Promise(resolve => setTimeout(resolve, 50));
+          } catch (err) {
+            console.error(`Error fetching tests for student ${student.external_id}:`, err);
+            // Continue with next student
+          }
+        }
+        
+        console.log(`Total tests fetched: ${allTests.length} from ${processedStudents} students`);
         
         // Batch insert tests
         const batchSize = 100;
@@ -2022,14 +2044,14 @@ Deno.serve(async (req) => {
         for (let i = 0; i < allTests.length; i += batchSize) {
           const batch = allTests.slice(i, i + batchSize);
           const testsToInsert = batch.map(test => ({
-            student_id: test.studentId ? studentMap.get(test.studentId.toString()) || null : null,
+            student_id: test._student_id,
             lead_id: test.leadId || null,
-            test_date: test.testDate || new Date().toISOString().split('T')[0],
-            assigned_level: test.assignedLevel || test.level || null,
+            test_date: test.testDate || test.TestDate || new Date().toISOString().split('T')[0],
+            assigned_level: test.assignedLevel || test.AssignedLevel || test.level || test.Level || null,
             teacher_id: test.teacherId ? teacherMap.get(test.teacherId.toString()) || null : null,
-            comments: test.comments || null,
+            comments: test.comments || test.Comments || null,
             organization_id: orgId,
-            external_id: test.id?.toString(),
+            external_id: test.id?.toString() || test.Id?.toString(),
           }));
           
           const { error } = await supabase
@@ -2046,7 +2068,7 @@ Deno.serve(async (req) => {
         
         progress[0].status = 'completed';
         progress[0].count = importedCount;
-        progress[0].message = `Imported ${importedCount} entrance tests`;
+        progress[0].message = `Imported ${importedCount} entrance tests from ${processedStudents} students`;
       } catch (error) {
         console.error('Error importing entrance tests:', error);
         progress[0].status = 'error';
