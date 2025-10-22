@@ -1582,13 +1582,13 @@ Deno.serve(async (req) => {
       const parseWeekdays = (weekdaysMask: number): string[] => {
         const days: string[] = [];
         const dayMap: { [key: number]: string } = {
-          1: 'monday',    // 2^0 = 1
-          2: 'tuesday',   // 2^1 = 2
-          4: 'wednesday', // 2^2 = 4
-          8: 'thursday',  // 2^3 = 8
-          16: 'friday',   // 2^4 = 16
-          32: 'saturday', // 2^5 = 32
-          64: 'sunday',   // 2^6 = 64
+          1: 'monday',
+          2: 'tuesday',
+          4: 'wednesday',
+          8: 'thursday',
+          16: 'friday',
+          32: 'saturday',
+          64: 'sunday',
         };
         
         for (const [bit, day] of Object.entries(dayMap)) {
@@ -1601,108 +1601,197 @@ Deno.serve(async (req) => {
       };
 
       try {
-        let skip = 0;
-        const take = 100;
-        let totalLessons = 0;
-        let totalGroupLessons = 0;
-        let totalIndividualLessons = 0;
+        // Define date range for import (3 months back, 3 months forward)
+        const now = new Date();
+        const from = new Date(now);
+        from.setMonth(from.getMonth() - 3);
+        const to = new Date(now);
+        to.setMonth(to.getMonth() + 3);
+        const dateFrom = from.toISOString().slice(0, 10);
+        const dateTo = to.toISOString().slice(0, 10);
+        
+        console.log(`Fetching schedule data from ${dateFrom} to ${dateTo}`);
+        
+        // Step 1: Get list of offices
+        console.log('Fetching list of offices...');
+        const officesUrl = `${HOLIHOPE_DOMAIN}/GetOffices?authkey=${HOLIHOPE_API_KEY}`;
+        const officesResp = await fetch(officesUrl, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+        
+        if (!officesResp.ok) {
+          throw new Error(`Failed to fetch offices: ${officesResp.status}`);
+        }
+        
+        const officesRaw = await officesResp.json();
+        const offices = Array.isArray(officesRaw) ? officesRaw : (officesRaw?.Offices || officesRaw?.Office || []);
+        const officeIds = offices.map((o: any) => o.Id || o.OfficeId || o.id).filter(Boolean);
+        console.log(`Found ${officeIds.length} offices`);
+        
+        if (officeIds.length === 0) {
+          throw new Error('No offices found');
+        }
+        
+        // Statuses and time ranges
+        const statuses = ['Reserve', 'Forming', 'Working', 'Stopped', 'Finished'];
+        const timeRanges: Array<{ from: string; to: string }> = [];
+        for (let hour = 6; hour < 23; hour++) {
+          const fromTime = `${hour.toString().padStart(2, '0')}:00`;
+          const toTime = `${(hour + 1).toString().padStart(2, '0')}:00`;
+          timeRanges.push({ from: fromTime, to: toTime });
+        }
+        
+        const totalCombinations = officeIds.length * statuses.length * timeRanges.length;
+        console.log(`Total combinations to process: ${totalCombinations}`);
+        
+        let allUnits: any[] = [];
+        let totalRequests = 0;
+        let successfulRequests = 0;
+        
+        // Step 2: Fetch all units with schedule data
+        for (let oi = 0; oi < officeIds.length; oi++) {
+          const officeId = officeIds[oi];
+          
+          for (let si = 0; si < statuses.length; si++) {
+            const status = statuses[si];
+            
+            for (let ti = 0; ti < timeRanges.length; ti++) {
+              const timeRange = timeRanges[ti];
+              
+              try {
+                const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&officeOrCompanyId=${encodeURIComponent(officeId)}&statuses=${encodeURIComponent(status)}&timeFrom=${encodeURIComponent(timeRange.from)}&timeTo=${encodeURIComponent(timeRange.to)}&queryDays=true&dateFrom=${dateFrom}&dateTo=${dateTo}`;
+                totalRequests++;
+                
+                const currentPosition = (oi * statuses.length * timeRanges.length) + (si * timeRanges.length) + ti + 1;
+                if (currentPosition % 50 === 0 || currentPosition === 1) {
+                  console.log(`[${currentPosition}/${totalCombinations}] Processing: Office=${officeId}, Status=${status}`);
+                }
+                
+                const response = await fetch(apiUrl, {
+                  method: 'GET',
+                  headers: { 'Content-Type': 'application/json' },
+                });
+                
+                if (!response.ok) {
+                  continue;
+                }
+                
+                const raw = await response.json();
+                const batch = Array.isArray(raw) ? raw : (raw?.EdUnits || []);
+                
+                if (batch.length > 0) {
+                  allUnits = allUnits.concat(batch);
+                  successfulRequests++;
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 50));
+              } catch (err) {
+                // Continue with next combination
+              }
+            }
+          }
+        }
+        
+        console.log(`Fetched ${allUnits.length} units from ${successfulRequests} successful requests`);
+        
+        // Step 3: Process units and update schedules + create sessions
         let totalScheduleItems = 0;
         let totalGroupSchedules = 0;
         let totalIndividualSchedules = 0;
-
-        while (true) {
-          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-          
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        let totalLessons = 0;
+        let totalGroupLessons = 0;
+        let totalIndividualLessons = 0;
+        
+        // Deduplicate units by Id
+        const uniqueUnitsMap = new Map();
+        for (const unit of allUnits) {
+          if (!unit.Id) continue;
+          const key = unit.Id.toString();
+          if (!uniqueUnitsMap.has(key)) {
+            uniqueUnitsMap.set(key, unit);
+          } else {
+            // Merge Days if unit already exists
+            const existing = uniqueUnitsMap.get(key);
+            if (unit.Days && Array.isArray(unit.Days)) {
+              existing.Days = [...(existing.Days || []), ...unit.Days];
+            }
           }
-          
-          const responseData = await response.json();
-          
-          // Normalize response
-          const units = Array.isArray(responseData) 
-            ? responseData 
-            : (responseData?.EdUnits || responseData?.edUnits || Object.values(responseData).find(val => Array.isArray(val)) || []);
-          
-          if (!units || units.length === 0) {
-            console.log('No more units to process');
-            break;
-          }
-          
-          console.log(`Processing ${units.length} educational units for schedule and lessons...`);
+        }
+        
+        console.log(`Processing ${uniqueUnitsMap.size} unique units...`);
+        
+        for (const unit of uniqueUnitsMap.values()) {
+          const isIndividual = unit.UnitType?.toLowerCase().includes('individual') || 
+                              unit.UnitType?.toLowerCase().includes('индивидуальн');
 
-          for (const unit of units) {
-            const isIndividual = unit.UnitType?.toLowerCase().includes('individual') || 
-                                unit.UnitType?.toLowerCase().includes('индивидуальн');
-
-            // Process ScheduleItems (recurring schedule)
-            if (unit.ScheduleItems && Array.isArray(unit.ScheduleItems) && unit.ScheduleItems.length > 0) {
-              for (const scheduleItem of unit.ScheduleItems) {
-                if (isIndividual) {
-                  // Update individual lesson schedule
-                  const { data: individualLesson } = await supabase
-                    .from('individual_lessons')
-                    .select('id')
-                    .eq('external_id', unit.Id?.toString())
-                    .single();
-                  
-                  if (individualLesson) {
-                    const scheduleDays = parseWeekdays(scheduleItem.Weekdays || 0);
-                    
-                    await supabase
-                      .from('individual_lessons')
-                      .update({
-                        schedule_days: scheduleDays,
-                        schedule_time: `${scheduleItem.BeginTime}-${scheduleItem.EndTime}`,
-                        lesson_location: scheduleItem.ClassroomName || scheduleItem.ClassroomLink || null,
-                        period_start: scheduleItem.BeginDate || null,
-                        period_end: scheduleItem.EndDate || null,
-                      })
-                      .eq('id', individualLesson.id);
-                    
-                    totalIndividualSchedules++;
-                  }
-                } else {
-                  // Update group schedule
-                  const { data: group } = await supabase
-                    .from('learning_groups')
-                    .select('id')
-                    .eq('external_id', unit.Id?.toString())
-                    .single();
-                  
-                  if (group) {
-                    const scheduleDays = parseWeekdays(scheduleItem.Weekdays || 0);
-                    
-                    await supabase
-                      .from('learning_groups')
-                      .update({
-                        schedule_days: scheduleDays,
-                        lesson_start_time: scheduleItem.BeginTime || null,
-                        lesson_end_time: scheduleItem.EndTime || null,
-                        schedule_room: scheduleItem.ClassroomName || null,
-                        zoom_link: scheduleItem.ClassroomLink || null,
-                        period_start: scheduleItem.BeginDate || null,
-                        period_end: scheduleItem.EndDate || null,
-                      })
-                      .eq('id', group.id);
-                    
-                    totalGroupSchedules++;
-                  }
-                }
+          // Process ScheduleItems (recurring schedule)
+          if (unit.ScheduleItems && Array.isArray(unit.ScheduleItems) && unit.ScheduleItems.length > 0) {
+            for (const scheduleItem of unit.ScheduleItems) {
+              if (isIndividual) {
+                const { data: individualLesson } = await supabase
+                  .from('individual_lessons')
+                  .select('id')
+                  .eq('external_id', unit.Id?.toString())
+                  .single();
                 
-                totalScheduleItems++;
+                if (individualLesson) {
+                  const scheduleDays = parseWeekdays(scheduleItem.Weekdays || 0);
+                  
+                  await supabase
+                    .from('individual_lessons')
+                    .update({
+                      schedule_days: scheduleDays,
+                      schedule_time: `${scheduleItem.BeginTime}-${scheduleItem.EndTime}`,
+                      lesson_location: scheduleItem.ClassroomName || scheduleItem.ClassroomLink || null,
+                      period_start: scheduleItem.BeginDate || null,
+                      period_end: scheduleItem.EndDate || null,
+                    })
+                    .eq('id', individualLesson.id);
+                  
+                  totalIndividualSchedules++;
+                }
+              } else {
+                const { data: group } = await supabase
+                  .from('learning_groups')
+                  .select('id')
+                  .eq('external_id', unit.Id?.toString())
+                  .single();
+                
+                if (group) {
+                  const scheduleDays = parseWeekdays(scheduleItem.Weekdays || 0);
+                  
+                  await supabase
+                    .from('learning_groups')
+                    .update({
+                      schedule_days: scheduleDays,
+                      lesson_start_time: scheduleItem.BeginTime || null,
+                      lesson_end_time: scheduleItem.EndTime || null,
+                      schedule_room: scheduleItem.ClassroomName || null,
+                      zoom_link: scheduleItem.ClassroomLink || null,
+                      period_start: scheduleItem.BeginDate || null,
+                      period_end: scheduleItem.EndDate || null,
+                    })
+                    .eq('id', group.id);
+                  
+                  totalGroupSchedules++;
+                }
+              }
+              
+              totalScheduleItems++;
+            }
+          }
+
+          // Process Days (specific lesson sessions)
+          if (unit.Days && Array.isArray(unit.Days) && unit.Days.length > 0) {
+            // Deduplicate Days by Date + BeginTime
+            const uniqueDays = new Map();
+            for (const day of unit.Days) {
+              const dayKey = `${day.Date}_${day.BeginTime}`;
+              if (!uniqueDays.has(dayKey)) {
+                uniqueDays.set(dayKey, day);
               }
             }
-
-            // Process Days (specific lesson sessions)
-            if (unit.Days && Array.isArray(unit.Days) && unit.Days.length > 0) {
+            
+            for (const day of uniqueDays.values()) {
               if (isIndividual) {
-                // Find individual lesson
                 const { data: individualLesson } = await supabase
                   .from('individual_lessons')
                   .select('id')
@@ -1711,33 +1800,27 @@ Deno.serve(async (req) => {
 
                 if (!individualLesson) continue;
 
-                // Import each day as individual lesson session
-                for (const day of unit.Days) {
-                  const sessionData = {
-                    individual_lesson_id: individualLesson.id,
-                    lesson_date: day.Date || day.date,
-                    start_time: day.BeginTime || day.beginTime || '10:00',
-                    end_time: day.EndTime || day.endTime || '11:20',
-                    status: day.Canceled ? 'cancelled' : 
-                           day.IsCompleted || day.isCompleted ? 'completed' : 'scheduled',
-                    topic: day.Topic || day.topic || null,
-                    homework: day.Homework || day.homework || null,
-                    notes: day.Notes || day.notes || null,
-                    external_id: day.Id?.toString() || `${unit.Id}_${day.Date}`,
-                  };
+                const sessionData = {
+                  individual_lesson_id: individualLesson.id,
+                  lesson_date: day.Date || day.date,
+                  start_time: day.BeginTime || day.beginTime || '10:00',
+                  end_time: day.EndTime || day.endTime || '11:20',
+                  status: day.Canceled ? 'cancelled' : 
+                         day.IsCompleted || day.isCompleted ? 'completed' : 'scheduled',
+                  topic: day.Topic || day.topic || null,
+                  homework: day.Homework || day.homework || null,
+                  notes: day.Notes || day.notes || null,
+                  external_id: day.Id?.toString() || `${unit.Id}_${day.Date}`,
+                };
 
-                  const { error } = await supabase
-                    .from('individual_lesson_sessions')
-                    .upsert(sessionData, { onConflict: 'external_id' });
+                const { error } = await supabase
+                  .from('individual_lesson_sessions')
+                  .upsert(sessionData, { onConflict: 'external_id' });
 
-                  if (error) {
-                    console.error(`Error importing individual lesson session:`, error);
-                  } else {
-                    totalIndividualLessons++;
-                  }
+                if (!error) {
+                  totalIndividualLessons++;
                 }
               } else {
-                // Find group
                 const { data: group } = await supabase
                   .from('learning_groups')
                   .select('id')
@@ -1746,39 +1829,31 @@ Deno.serve(async (req) => {
 
                 if (!group) continue;
 
-                // Import each day as group lesson session
-                for (const day of unit.Days) {
-                  const sessionData = {
-                    group_id: group.id,
-                    lesson_date: day.Date || day.date,
-                    start_time: day.BeginTime || day.beginTime || '10:00',
-                    end_time: day.EndTime || day.endTime || '11:20',
-                    status: day.Canceled ? 'cancelled' : 
-                           day.IsCompleted || day.isCompleted ? 'completed' : 'scheduled',
-                    topic: day.Topic || day.topic || null,
-                    homework: day.Homework || day.homework || null,
-                    notes: day.Notes || day.notes || null,
-                    external_id: day.Id?.toString() || `${unit.Id}_${day.Date}`,
-                  };
+                const sessionData = {
+                  group_id: group.id,
+                  lesson_date: day.Date || day.date,
+                  start_time: day.BeginTime || day.beginTime || '10:00',
+                  end_time: day.EndTime || day.endTime || '11:20',
+                  status: day.Canceled ? 'cancelled' : 
+                         day.IsCompleted || day.isCompleted ? 'completed' : 'scheduled',
+                  topic: day.Topic || day.topic || null,
+                  homework: day.Homework || day.homework || null,
+                  notes: day.Notes || day.notes || null,
+                  external_id: day.Id?.toString() || `${unit.Id}_${day.Date}`,
+                };
 
-                  const { error } = await supabase
-                    .from('lesson_sessions')
-                    .upsert(sessionData, { onConflict: 'external_id' });
+                const { error } = await supabase
+                  .from('lesson_sessions')
+                  .upsert(sessionData, { onConflict: 'external_id' });
 
-                  if (error) {
-                    console.error(`Error importing group lesson session:`, error);
-                  } else {
-                    totalGroupLessons++;
-                  }
+                if (!error) {
+                  totalGroupLessons++;
                 }
               }
-              
-              totalLessons += unit.Days.length;
             }
+            
+            totalLessons += uniqueDays.size;
           }
-          
-          skip += take;
-          if (units.length < take) break;
         }
 
         console.log(`Imported ${totalScheduleItems} schedule items (${totalGroupSchedules} group, ${totalIndividualSchedules} individual)`);
