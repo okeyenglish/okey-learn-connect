@@ -2773,8 +2773,20 @@ Deno.serve(async (req) => {
           }
         }
         
+        // Get actual counts from database instead of using importedCount
+        // because upsert can update existing records without incrementing
+        const { count: groupsCount } = await supabase.from('learning_groups')
+          .select('*', { count: 'exact', head: true })
+          .not('external_id', 'is', null);
+        
+        const { count: lessonsCount } = await supabase.from('individual_lessons')
+          .select('*', { count: 'exact', head: true })
+          .not('external_id', 'is', null);
+        
+        const actualCount = (groupsCount || 0) + (lessonsCount || 0);
+        
         progress[0].status = hasMore ? 'in_progress' : 'completed';
-        progress[0].count = importedCount;
+        progress[0].count = actualCount;
         progress[0].hasMore = hasMore;
         
         if (hasMore) {
