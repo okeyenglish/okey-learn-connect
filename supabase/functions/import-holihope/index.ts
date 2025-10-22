@@ -2957,19 +2957,55 @@ Deno.serve(async (req) => {
         const studentMap = new Map(allStudents?.map(s => [s.external_id, s]) || []);
         console.log(`Found ${studentMap.size} students with external_id`);
         
-        // Build family_group_id -> students map
+        // Build family_group_id -> students map (ALL students, not just with external_id)
+        const { data: allStudentsWithFG } = await supabase
+          .from('students')
+          .select('id, family_group_id, name');
+        
         const familyGroupToStudentsMap = new Map();
-        allStudents?.forEach(s => {
+        allStudentsWithFG?.forEach(s => {
           if (!familyGroupToStudentsMap.has(s.family_group_id)) {
             familyGroupToStudentsMap.set(s.family_group_id, []);
           }
           familyGroupToStudentsMap.get(s.family_group_id).push(s);
         });
+        console.log(`Built family_group->students map with ${familyGroupToStudentsMap.size} family groups`);
         
-        // Build phone -> students map for direct matching
+        // Fetch clients with external_id and their family groups
+        console.log('Building client external_id -> family_groups map...');
+        const { data: allClients } = await supabase
+          .from('clients')
+          .select('id, external_id')
+          .not('external_id', 'is', null);
+        
+        const { data: familyMembers } = await supabase
+          .from('family_members')
+          .select('client_id, family_group_id');
+        
+        // Build client_external_id -> family_group_ids map
+        const clientExternalIdToFamilyGroups = new Map();
+        const clientIdToFamilyGroups = new Map();
+        
+        familyMembers?.forEach(fm => {
+          if (!clientIdToFamilyGroups.has(fm.client_id)) {
+            clientIdToFamilyGroups.set(fm.client_id, []);
+          }
+          clientIdToFamilyGroups.get(fm.client_id).push(fm.family_group_id);
+        });
+        
+        allClients?.forEach(client => {
+          if (client.external_id) {
+            const familyGroups = clientIdToFamilyGroups.get(client.id) || [];
+            clientExternalIdToFamilyGroups.set(client.external_id, familyGroups);
+          }
+        });
+        
+        console.log(`Built ${clientExternalIdToFamilyGroups.size} client external_id mappings`);
+        
+        // Also build phone -> students map for fallback
         const phoneToStudentsMap = new Map();
-        allStudents?.forEach(s => {
-          const raw = s.phone as any;
+        allStudentsWithFG?.forEach(s => {
+          const raw = (s as any).phone;
           if (!raw) return;
           let p = String(raw).replace(/\D/g, '');
           if (p.length === 11 && p.startsWith('8')) p = '7' + p.slice(1);
@@ -2979,39 +3015,6 @@ Deno.serve(async (req) => {
             phoneToStudentsMap.get(p).push(s);
           }
         });
-        console.log(`Built phone->students map with ${phoneToStudentsMap.size} phone numbers`);
-        
-        // Fetch family_members and clients with phones
-        console.log('Building phone to family_group map...');
-        const { data: familyMembers } = await supabase
-          .from('family_members')
-          .select('client_id, family_group_id');
-        
-        const { data: clientPhones } = await supabase
-          .from('client_phone_numbers')
-          .select('phone, client_id');
-        
-        // Build phone -> family_group_ids map
-        const phoneToFamilyGroupsMap = new Map();
-        const clientIdToFamilyGroups = new Map();
-        familyMembers?.forEach(fm => {
-          if (!clientIdToFamilyGroups.has(fm.client_id)) {
-            clientIdToFamilyGroups.set(fm.client_id, []);
-          }
-          clientIdToFamilyGroups.get(fm.client_id).push(fm.family_group_id);
-        });
-        
-        clientPhones?.forEach(cp => {
-          const familyGroups = clientIdToFamilyGroups.get(cp.client_id) || [];
-          familyGroups.forEach(fgId => {
-            if (!phoneToFamilyGroupsMap.has(cp.phone)) {
-              phoneToFamilyGroupsMap.set(cp.phone, []);
-            }
-            phoneToFamilyGroupsMap.get(cp.phone).push(fgId);
-          });
-        });
-        
-        console.log(`Built phone->family_groups map with ${phoneToFamilyGroupsMap.size} phone numbers`);
         
         let groupLinksCount = 0;
         let individualLinksCount = 0;
@@ -3064,15 +3067,37 @@ Deno.serve(async (req) => {
             // Process each student in this educational unit
             for (const studentData of students) {
               let studentId = null;
+              const studentName = (studentData.StudentName ?? studentData.studentName ?? '').toString().trim();
               
-              // Try to find student by StudentClientId (as external_id)
-              const studentClientId = (studentData.StudentClientId ?? studentData.studentClientId)?.toString();
-              if (studentClientId) {
-                const student = studentMap.get(studentClientId);
+              // 1) Try to find student by external_id (if StudentId is provided)
+              const studentExternalId = (studentData.StudentId ?? studentData.studentId)?.toString();
+              if (studentExternalId) {
+                const student = studentMap.get(studentExternalId);
                 if (student) studentId = student.id;
               }
               
-              // If not found, try to find via phone + name
+              // 2) If not found, find by client external_id (StudentClientId) -> family_group -> student by name
+              if (!studentId) {
+                const studentClientId = (studentData.StudentClientId ?? studentData.studentClientId)?.toString();
+                if (studentClientId && studentName) {
+                  const familyGroups = clientExternalIdToFamilyGroups.get(studentClientId) || [];
+                  
+                  for (const fgId of familyGroups) {
+                    const groupStudents = familyGroupToStudentsMap.get(fgId) || [];
+                    const found = groupStudents.find((s: any) => {
+                      const sName = String(s.name || '').toLowerCase().trim();
+                      const linkName = studentName.toLowerCase().trim();
+                      return sName === linkName || sName.includes(linkName) || linkName.includes(sName);
+                    });
+                    if (found) {
+                      studentId = found.id;
+                      break;
+                    }
+                  }
+                }
+              }
+              
+              // 3) Fallback: find by phone + name
               if (!studentId) {
                 const rawPhone = studentData.StudentMobile ?? studentData.studentMobile ?? null;
                 let normalizedPhone = null;
@@ -3083,10 +3108,8 @@ Deno.serve(async (req) => {
                   normalizedPhone = s.length >= 10 ? s : null;
                 }
                 
-                const studentName = (studentData.StudentName ?? studentData.studentName ?? '').toString().trim();
-                
                 if (normalizedPhone && studentName) {
-                  // 1) Directly by student phone
+                  // Try directly by student phone
                   const candidates = phoneToStudentsMap.get(normalizedPhone) || [];
                   const byPhone = candidates.find((s: any) => {
                     const sName = String(s.name || '').toLowerCase().trim();
@@ -3096,30 +3119,13 @@ Deno.serve(async (req) => {
                   if (byPhone) {
                     studentId = byPhone.id;
                   }
-                  
-                  // 2) Fallback via family groups (phone on parent/agent)
-                  if (!studentId) {
-                    const familyGroups = phoneToFamilyGroupsMap.get(normalizedPhone) || [];
-                    for (const fgId of familyGroups) {
-                      const groupStudents = familyGroupToStudentsMap.get(fgId) || [];
-                      const found = groupStudents.find((s: any) => {
-                        const sName = String(s.name || '').toLowerCase().trim();
-                        const linkName = studentName.toLowerCase().trim();
-                        return sName === linkName || sName.includes(linkName) || linkName.includes(sName);
-                      });
-                      if (found) {
-                        studentId = found.id;
-                        break;
-                      }
-                    }
-                  }
                 }
               }
               
               if (!studentId) {
                 skippedCount++;
                 skippedReasons.studentNotFound++;
-                console.log(`    Skipped: student not found for ClientId=${studentClientId}, phone=${studentData.StudentMobile}, name=${studentData.StudentName}`);
+                console.log(`    Skipped: student not found for ClientId=${studentData.StudentClientId ?? 'N/A'}, phone=${studentData.StudentMobile ?? 'N/A'}, name=${studentName}`);
                 continue;
               }
               
