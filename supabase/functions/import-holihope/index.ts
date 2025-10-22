@@ -3016,6 +3016,25 @@ Deno.serve(async (req) => {
           }
         });
         
+        // Build phone -> family_group_ids map using client_phone_numbers
+        console.log('Building phone -> family_group_ids map...');
+        const { data: clientPhones } = await supabase
+          .from('client_phone_numbers')
+          .select('phone, client_id');
+        const phoneToFamilyGroupsMap = new Map();
+        // we already have clientIdToFamilyGroups from familyMembers mapping above
+        clientPhones?.forEach(cp => {
+          const fgList = clientIdToFamilyGroups.get(cp.client_id) || [];
+          let phoneNorm = String(cp.phone || '').replace(/\D/g, '');
+          if (phoneNorm.length === 11 && phoneNorm.startsWith('8')) phoneNorm = '7' + phoneNorm.slice(1);
+          if (phoneNorm.length === 10 && phoneNorm.startsWith('9')) phoneNorm = '7' + phoneNorm;
+          if (phoneNorm.length >= 10) {
+            if (!phoneToFamilyGroupsMap.has(phoneNorm)) phoneToFamilyGroupsMap.set(phoneNorm, []);
+            phoneToFamilyGroupsMap.get(phoneNorm).push(...fgList);
+          }
+        });
+        console.log(`Built phone->family_groups map with ${phoneToFamilyGroupsMap.size} phone numbers`);
+        
         let groupLinksCount = 0;
         let individualLinksCount = 0;
         let skippedCount = 0;
@@ -3133,6 +3152,30 @@ Deno.serve(async (req) => {
                   });
                   if (byPhone) {
                     studentId = byPhone.id;
+                  }
+                  // Fallback: parent's/agent's phones -> family groups -> student by name
+                  if (!studentId) {
+                    const agents = studentData.StudentAgents || studentData.studentAgents || [];
+                    for (const ag of agents) {
+                      const agPhoneRaw = ag.Mobile || ag.mobile || ag.Phone || ag.phone;
+                      if (!agPhoneRaw) continue;
+                      let p = String(agPhoneRaw).replace(/\D/g, '');
+                      if (p.length === 11 && p.startsWith('8')) p = '7' + p.slice(1);
+                      if (p.length === 10 && p.startsWith('9')) p = '7' + p;
+                      if (p.length >= 10) {
+                        const fgList = phoneToFamilyGroupsMap.get(p) || [];
+                        for (const fgId of fgList) {
+                          const groupStudents = familyGroupToStudentsMap.get(fgId) || [];
+                          const found = groupStudents.find((s: any) => {
+                            const sName = String(s.name || '').toLowerCase().trim();
+                            const linkName = studentName.toLowerCase().trim();
+                            return sName === linkName || sName.includes(linkName) || linkName.includes(sName);
+                          });
+                          if (found) { studentId = found.id; break; }
+                        }
+                        if (studentId) break;
+                      }
+                    }
                   }
                 }
               }
