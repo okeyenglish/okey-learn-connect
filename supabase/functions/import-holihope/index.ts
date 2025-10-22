@@ -3002,38 +3002,24 @@ Deno.serve(async (req) => {
         
         console.log(`Built ${clientExternalIdToFamilyGroups.size} client external_id mappings`);
         
-        // Also build phone -> students map for fallback
-        const phoneToStudentsMap = new Map();
-        allStudentsWithFG?.forEach(s => {
-          const raw = (s as any).phone;
-          if (!raw) return;
-          let p = String(raw).replace(/\D/g, '');
-          if (p.length === 11 && p.startsWith('8')) p = '7' + p.slice(1);
-          if (p.length === 10 && p.startsWith('9')) p = '7' + p;
-          if (p.length >= 10) {
-            if (!phoneToStudentsMap.has(p)) phoneToStudentsMap.set(p, []);
-            phoneToStudentsMap.get(p).push(s);
+        // Build client_external_id -> students map (via family membership)
+        console.log('Building client external_id -> students map...');
+        const clientExternalIdToStudents = new Map();
+        allClients?.forEach(client => {
+          if (!client.external_id) return;
+          const fgList = clientIdToFamilyGroups.get(client.id) || [];
+          const studentsForClient: any[] = [];
+          for (const fgId of fgList) {
+            const groupStudents = familyGroupToStudentsMap.get(fgId) || [];
+            for (const s of groupStudents) {
+              if (!studentsForClient.find((x: any) => x.id === s.id)) {
+                studentsForClient.push(s);
+              }
+            }
           }
+          clientExternalIdToStudents.set(client.external_id, studentsForClient);
         });
-        
-        // Build phone -> family_group_ids map using client_phone_numbers
-        console.log('Building phone -> family_group_ids map...');
-        const { data: clientPhones } = await supabase
-          .from('client_phone_numbers')
-          .select('phone, client_id');
-        const phoneToFamilyGroupsMap = new Map();
-        // we already have clientIdToFamilyGroups from familyMembers mapping above
-        clientPhones?.forEach(cp => {
-          const fgList = clientIdToFamilyGroups.get(cp.client_id) || [];
-          let phoneNorm = String(cp.phone || '').replace(/\D/g, '');
-          if (phoneNorm.length === 11 && phoneNorm.startsWith('8')) phoneNorm = '7' + phoneNorm.slice(1);
-          if (phoneNorm.length === 10 && phoneNorm.startsWith('9')) phoneNorm = '7' + phoneNorm;
-          if (phoneNorm.length >= 10) {
-            if (!phoneToFamilyGroupsMap.has(phoneNorm)) phoneToFamilyGroupsMap.set(phoneNorm, []);
-            phoneToFamilyGroupsMap.get(phoneNorm).push(...fgList);
-          }
-        });
-        console.log(`Built phone->family_groups map with ${phoneToFamilyGroupsMap.size} phone numbers`);
+        console.log(`Built ${clientExternalIdToStudents.size} client external_id -> students mappings`);
         
         let groupLinksCount = 0;
         let individualLinksCount = 0;
@@ -3110,73 +3096,20 @@ Deno.serve(async (req) => {
                 candidateClientIds.push(studentClientIdRaw);
               }
               
-              // 1) Try direct match: students.external_id == ClientId
+              // Match student via client external_id -> students mapping
               for (const cand of candidateClientIds) {
-                const s = studentMap.get(cand);
-                if (s) { studentId = s.id; break; }
-              }
-              
-              // 2) If not found, try via family mapping: client(ClientId) -> family_groups -> student by name
-              if (!studentId && studentName) {
-                outerFG: for (const cand of candidateClientIds) {
-                  const familyGroups = clientExternalIdToFamilyGroups.get(cand) || [];
-                  for (const fgId of familyGroups) {
-                    const groupStudents = familyGroupToStudentsMap.get(fgId) || [];
-                    const found = groupStudents.find((s: any) => {
-                      const sName = String(s.name || '').toLowerCase().trim();
-                      const linkName = studentName.toLowerCase().trim();
-                      return sName === linkName || sName.includes(linkName) || linkName.includes(sName);
-                    });
-                    if (found) { studentId = found.id; break outerFG; }
-                  }
+                const candidates = clientExternalIdToStudents.get(cand) || [];
+                if (candidates.length === 1) {
+                  studentId = candidates[0].id;
+                  break;
                 }
-              }
-              
-              // 3) Fallback: Try by phone + name
-              if (!studentId) {
-                const rawPhone = studentData.StudentMobile ?? studentData.studentMobile ?? null;
-                let normalizedPhone = null;
-                if (rawPhone) {
-                  let s = String(rawPhone).replace(/\D/g, '');
-                  if (s.length === 11 && s.startsWith('8')) s = '7' + s.slice(1);
-                  if (s.length === 10 && s.startsWith('9')) s = '7' + s;
-                  normalizedPhone = s.length >= 10 ? s : null;
-                }
-                
-                if (normalizedPhone && studentName) {
-                  const candidates = phoneToStudentsMap.get(normalizedPhone) || [];
-                  const byPhone = candidates.find((s: any) => {
+                if (candidates.length > 1 && studentName) {
+                  const linkName = studentName.toLowerCase().trim();
+                  const byName = candidates.find((s: any) => {
                     const sName = String(s.name || '').toLowerCase().trim();
-                    const linkName = studentName.toLowerCase().trim();
                     return sName === linkName || sName.includes(linkName) || linkName.includes(sName);
                   });
-                  if (byPhone) {
-                    studentId = byPhone.id;
-                  }
-                  // Fallback: parent's/agent's phones -> family groups -> student by name
-                  if (!studentId) {
-                    const agents = studentData.StudentAgents || studentData.studentAgents || [];
-                    for (const ag of agents) {
-                      const agPhoneRaw = ag.Mobile || ag.mobile || ag.Phone || ag.phone;
-                      if (!agPhoneRaw) continue;
-                      let p = String(agPhoneRaw).replace(/\D/g, '');
-                      if (p.length === 11 && p.startsWith('8')) p = '7' + p.slice(1);
-                      if (p.length === 10 && p.startsWith('9')) p = '7' + p;
-                      if (p.length >= 10) {
-                        const fgList = phoneToFamilyGroupsMap.get(p) || [];
-                        for (const fgId of fgList) {
-                          const groupStudents = familyGroupToStudentsMap.get(fgId) || [];
-                          const found = groupStudents.find((s: any) => {
-                            const sName = String(s.name || '').toLowerCase().trim();
-                            const linkName = studentName.toLowerCase().trim();
-                            return sName === linkName || sName.includes(linkName) || linkName.includes(sName);
-                          });
-                          if (found) { studentId = found.id; break; }
-                        }
-                        if (studentId) break;
-                      }
-                    }
-                  }
+                  if (byName) { studentId = byName.id; break; }
                 }
               }
               
