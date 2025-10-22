@@ -1048,7 +1048,7 @@ export const ChatArea = ({
 
   return (
     <div 
-      className="flex-1 bg-background flex flex-col min-w-0 min-h-0"
+      className="flex-1 bg-background flex flex-col min-w-0 min-h-0 relative"
       onDragOver={(e) => {
         e.preventDefault();
         e.stopPropagation();
