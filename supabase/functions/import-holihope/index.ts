@@ -2646,6 +2646,8 @@ Deno.serve(async (req) => {
                   fetchedCount += batch.length;
                   successfulRequests++;
                   console.log(`  ✓ Fetched ${batch.length} units (total: ${fetchedCount}, successful requests: ${successfulRequests})`);
+                } else {
+                  console.log(`  ℹ Empty response (0 units)`);
                 }
                 
                 // Small delay to avoid overwhelming the API
@@ -2763,7 +2765,7 @@ Deno.serve(async (req) => {
             }, { onConflict: 'external_id' });
             
             if (lessonError) {
-              console.error(`Error importing individual lesson ${unit.Id}:`, lessonError);
+              console.error(`❌ Error importing individual lesson ${unit.Id} (external_id: ${externalId}):`, JSON.stringify(lessonError));
             } else {
               importedCount++;
             }
@@ -2804,7 +2806,7 @@ Deno.serve(async (req) => {
             }, { onConflict: 'external_id' });
             
             if (groupError) {
-              console.error(`Error importing learning group ${unit.Id}:`, groupError);
+              console.error(`❌ Error importing learning group ${unit.Id} (external_id: ${externalId}):`, JSON.stringify(groupError));
             } else {
               importedCount++;
             }
