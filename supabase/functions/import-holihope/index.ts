@@ -2913,7 +2913,7 @@ Deno.serve(async (req) => {
       try {
         const batchMode = body.batch_mode === true;
         const skipParam = body.skip || 0;
-        const take = 50; // Process 50 educational units at a time
+        const take = body.take ? Number(body.take) : (batchMode ? 1 : 10); // Smaller batches to avoid timeouts
 
         // Fetch educational units from DB (both groups and individual lessons) with external_id
         console.log(`Fetching educational units from DB (skip=${skipParam}, take=${take})...`);
