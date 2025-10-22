@@ -2977,8 +2977,12 @@ Deno.serve(async (req) => {
           
           try {
             // Make API request to GetEdUnitStudents for this specific educational unit
+            // IMPORTANT: for groups, API expects original unit Id, not composite external_id with dates
+            const edUnitIdForApi = edUnit.type === 'group'
+              ? (typeof edUnitExternalId === 'string' ? edUnitExternalId.split('_')[0] : edUnitExternalId)
+              : edUnitExternalId;
             // ВАЖНО: queryPayers=true для получения массива Payers с ClientId
-            const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnitStudents?authkey=${HOLIHOPE_API_KEY}&edUnitId=${edUnitExternalId}&queryPayers=true`;
+            const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnitStudents?authkey=${HOLIHOPE_API_KEY}&edUnitId=${edUnitIdForApi}&queryPayers=true`;
             console.log(`  Fetching students from: ${apiUrl}`);
             
             const response = await fetch(apiUrl, {
@@ -3011,8 +3015,15 @@ Deno.serve(async (req) => {
             for (const studentData of students) {
               let studentId = null;
               
-              // Прямой поиск: students.external_id == StudentClientId
-              const studentClientId = (studentData.StudentClientId ?? studentData.studentClientId)?.toString();
+              // Поиск: students.external_id == ClientId (с разными источниками)
+              const studentClientId = (
+                studentData.StudentClientId ??
+                studentData.studentClientId ??
+                studentData.ClientId ??
+                studentData.clientId ??
+                (Array.isArray(studentData.Payers) && studentData.Payers[0]?.ClientId) ??
+                (Array.isArray(studentData.payers) && studentData.payers[0]?.clientId)
+              )?.toString();
               if (studentClientId) {
                 studentId = studentByExternalIdMap.get(studentClientId) || null;
               }
