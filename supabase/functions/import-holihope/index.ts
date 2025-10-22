@@ -1978,6 +1978,7 @@ Deno.serve(async (req) => {
         const take = 100;
         let allTests = [];
 
+        console.log('Fetching entrance tests from Holihope...');
         while (true) {
           const response = await fetch(`${HOLIHOPE_DOMAIN}/GetEntranceTests?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
             method: 'GET',
@@ -1989,36 +1990,58 @@ Deno.serve(async (req) => {
           
           if (!tests || tests.length === 0) break;
           allTests = allTests.concat(tests);
+          console.log(`Fetched ${allTests.length} tests so far...`);
           
           skip += take;
           if (tests.length < take) break;
         }
         
+        console.log(`Total tests fetched: ${allTests.length}`);
+        
+        // Pre-load all students and teachers to avoid N queries
+        console.log('Pre-loading students and teachers...');
+        const { data: students } = await supabase
+          .from('students')
+          .select('id, external_id')
+          .not('external_id', 'is', null);
+        
+        const { data: teachers } = await supabase
+          .from('teachers')
+          .select('id, external_id')
+          .not('external_id', 'is', null);
+        
+        const studentMap = new Map((students || []).map(s => [s.external_id, s.id]));
+        const teacherMap = new Map((teachers || []).map(t => [t.external_id, t.id]));
+        
+        console.log(`Loaded ${studentMap.size} students and ${teacherMap.size} teachers`);
+        
+        // Batch insert tests
+        const batchSize = 100;
         let importedCount = 0;
-        for (const test of allTests) {
-          let studentId = null;
-          if (test.studentId) {
-            const { data: student } = await supabase.from('students').select('id').eq('external_id', test.studentId.toString()).single();
-            studentId = student?.id;
-          }
-          
-          let teacherId = null;
-          if (test.teacherId) {
-            const { data: teacher } = await supabase.from('teachers').select('id').eq('external_id', test.teacherId.toString()).single();
-            teacherId = teacher?.id;
-          }
-          
-          await supabase.from('entrance_tests').upsert({
-            student_id: studentId,
+        
+        for (let i = 0; i < allTests.length; i += batchSize) {
+          const batch = allTests.slice(i, i + batchSize);
+          const testsToInsert = batch.map(test => ({
+            student_id: test.studentId ? studentMap.get(test.studentId.toString()) || null : null,
             lead_id: test.leadId || null,
             test_date: test.testDate || new Date().toISOString().split('T')[0],
             assigned_level: test.assignedLevel || test.level || null,
-            teacher_id: teacherId,
+            teacher_id: test.teacherId ? teacherMap.get(test.teacherId.toString()) || null : null,
             comments: test.comments || null,
             organization_id: orgId,
             external_id: test.id?.toString(),
-          }, { onConflict: 'external_id' });
-          importedCount++;
+          }));
+          
+          const { error } = await supabase
+            .from('entrance_tests')
+            .upsert(testsToInsert, { onConflict: 'external_id' });
+          
+          if (error) {
+            console.error(`Error inserting batch starting at ${i}:`, error);
+          } else {
+            importedCount += batch.length;
+            console.log(`Imported ${importedCount}/${allTests.length} tests`);
+          }
         }
         
         progress[0].status = 'completed';
