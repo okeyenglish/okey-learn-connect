@@ -116,16 +116,30 @@ Deno.serve(async (req) => {
           }
 
           // Шаг 3: Преобразуем и сохраняем сообщения
-          const chatMessages = messages.map((msg) => ({
-            client_id: client.id,
-            organization_id: organizationId,
-            message_text: msg.text || '',
-            message_type: 'text',
-            is_outgoing: !msg.client_replica, // если не реплика клиента, значит исходящее от менеджера
-            is_read: true, // историю считаем прочитанной
-            created_at: new Date(msg.created_at * 1000).toISOString(),
-            messenger_type: 'whatsapp',
-          }));
+          const chatMessages = messages
+            .filter((msg) => msg.created_at && msg.created_at > 0) // фильтруем невалидные timestamp
+            .map((msg) => {
+              const timestamp = msg.created_at * 1000;
+              const date = new Date(timestamp);
+              
+              // Проверяем валидность даты
+              if (isNaN(date.getTime())) {
+                console.warn(`Невалидная дата для сообщения ${msg.id}, пропускаем`);
+                return null;
+              }
+              
+              return {
+                client_id: client.id,
+                organization_id: organizationId,
+                message_text: msg.text || '',
+                message_type: 'text',
+                is_outgoing: !msg.client_replica, // если не реплика клиента, значит исходящее от менеджера
+                is_read: true, // историю считаем прочитанной
+                created_at: date.toISOString(),
+                messenger_type: 'whatsapp',
+              };
+            })
+            .filter((msg) => msg !== null); // убираем null значения
 
           // Вставляем сообщения батчами по 100
           const batchSize = 100;
