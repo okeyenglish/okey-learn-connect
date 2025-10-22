@@ -2429,7 +2429,7 @@ const CRMContent = () => {
                 </div>
               </div>
               <ScrollArea className="flex-1 min-h-0">
-                <div className="p-2 flex flex-col min-h-full">
+                <div className="p-2 pb-24 flex flex-col min-h-full">
                   {/* Закрепленные чаты */}
                    {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
                     <div className="mb-4">
@@ -2801,7 +2801,7 @@ const CRMContent = () => {
                 </div>
               </div>
               <ScrollArea className="flex-1">
-                <div className="p-3 flex flex-col min-h-full">
+                <div className="p-3 pb-24 flex flex-col min-h-full">
                   {/* Закрепленные чаты */}
                   {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
                     <div className="mb-6">
