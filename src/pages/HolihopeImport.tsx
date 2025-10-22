@@ -177,43 +177,65 @@ export default function HolihopeImport() {
           };
           
           while (!shouldStopImport) {
-            const result = await executeStep(step, batchParams);
-            
-            if (!result.success) break;
-            
-            const progress = result.progress;
-            const stats = result.stats;
-            const nextBatch = result.nextBatch;
-            
-            totalImported += stats?.totalImported || 0;
-            totalFetched += stats?.totalFetched || 0;
-            
-            const hasMore = progress?.hasMore || false;
-            
-            setSteps((prev) =>
-              prev.map((s) =>
-                s.id === step.id
-                  ? {
-                      ...s,
-                      count: totalImported,
-                      message: `Импортировано ${totalImported} учебных единиц (получено ${totalFetched})${hasMore ? ' (продолжается...)' : ''}`,
-                      status: hasMore ? 'in_progress' : 'completed',
-                    }
-                  : s
-              )
-            );
-            
-            if (!hasMore) break;
-            
-            // Update batch parameters for next iteration
-            if (nextBatch) {
-              batchParams = nextBatch;
-            } else {
+            try {
+              console.log('Executing batch with params:', batchParams);
+              const result = await executeStep(step, batchParams);
+              console.log('Batch result:', result);
+              
+              if (!result.success) {
+                console.error('Batch failed, stopping');
+                break;
+              }
+              
+              const progress = result.progress;
+              const stats = result.stats;
+              const nextBatch = result.nextBatch;
+              
+              totalImported += stats?.totalImported || 0;
+              totalFetched += stats?.totalFetched || 0;
+              
+              const hasMore = progress?.hasMore || false;
+              
+              console.log(`Batch completed: imported=${stats?.totalImported}, fetched=${stats?.totalFetched}, hasMore=${hasMore}, nextBatch=`, nextBatch);
+              
+              setSteps((prev) =>
+                prev.map((s) =>
+                  s.id === step.id
+                    ? {
+                        ...s,
+                        count: totalImported,
+                        message: `Импортировано ${totalImported} учебных единиц (получено ${totalFetched})${hasMore ? ' (продолжается...)' : ''}`,
+                        status: hasMore ? 'in_progress' : 'completed',
+                      }
+                    : s
+                )
+              );
+              
+              if (!hasMore) {
+                console.log('No more data, stopping loop');
+                break;
+              }
+              
+              // Update batch parameters for next iteration
+              if (nextBatch) {
+                batchParams = nextBatch;
+                console.log('Updated batch params for next iteration:', batchParams);
+              } else {
+                console.log('No nextBatch provided, stopping');
+                break;
+              }
+              
+              // Small delay between batches
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+            } catch (error) {
+              console.error('Error in batch loop:', error);
+              toast({
+                title: 'Ошибка в цикле импорта',
+                description: error instanceof Error ? error.message : 'Неизвестная ошибка',
+                variant: 'destructive',
+              });
               break;
             }
-            
-            // Small delay between batches
-            await new Promise((resolve) => setTimeout(resolve, 1000));
           }
         } 
         else {
@@ -302,49 +324,69 @@ export default function HolihopeImport() {
           };
       
       while (!shouldStopImport) {
-        const result = await executeStep(step, batchParams);
-        
-        if (!result.success) break;
-        
-        const progress = result.progress;
-        const stats = result.stats;
-        const nextBatch = result.nextBatch;
-        
-        totalImported += stats?.totalImported || 0;
-        totalFetched += stats?.totalFetched || 0;
-        
-        const hasMore = progress?.hasMore || false;
-        
-        setSteps((prev) =>
-          prev.map((s) =>
-            s.id === step.id
-              ? {
-                  ...s,
-                  count: totalImported,
-                  message: `Импортировано ${totalImported} учебных единиц (получено ${totalFetched})${hasMore ? ' (продолжается...)' : ''}`,
-                  status: hasMore ? 'in_progress' : 'completed',
-                }
-              : s
-          )
-        );
-        
-        if (!hasMore) {
+        try {
+          console.log('Executing batch with params:', batchParams);
+          const result = await executeStep(step, batchParams);
+          console.log('Batch result:', result);
+          
+          if (!result.success) {
+            console.error('Batch failed, stopping');
+            break;
+          }
+          
+          const progress = result.progress;
+          const stats = result.stats;
+          const nextBatch = result.nextBatch;
+          
+          totalImported += stats?.totalImported || 0;
+          totalFetched += stats?.totalFetched || 0;
+          
+          const hasMore = progress?.hasMore || false;
+          
+          console.log(`Batch completed: imported=${stats?.totalImported}, fetched=${stats?.totalFetched}, hasMore=${hasMore}, nextBatch=`, nextBatch);
+          
+          setSteps((prev) =>
+            prev.map((s) =>
+              s.id === step.id
+                ? {
+                    ...s,
+                    count: totalImported,
+                    message: `Импортировано ${totalImported} учебных единиц (получено ${totalFetched})${hasMore ? ' (продолжается...)' : ''}`,
+                    status: hasMore ? 'in_progress' : 'completed',
+                  }
+                : s
+            )
+          );
+          
+          if (!hasMore) {
+            toast({
+              title: 'Успешно',
+              description: `${step.name} завершен. Всего импортировано: ${totalImported} (получено ${totalFetched})`,
+            });
+            console.log('No more data, stopping loop');
+            break;
+          }
+          
+          // Update batch parameters for next iteration
+          if (nextBatch) {
+            batchParams = nextBatch;
+            console.log('Updated batch params for next iteration:', batchParams);
+          } else {
+            console.log('No nextBatch provided, stopping');
+            break;
+          }
+          
+          // Small delay between batches
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        } catch (error) {
+          console.error('Error in batch loop:', error);
           toast({
-            title: 'Успешно',
-            description: `${step.name} завершен. Всего импортировано: ${totalImported} (получено ${totalFetched})`,
+            title: 'Ошибка в цикле импорта',
+            description: error instanceof Error ? error.message : 'Неизвестная ошибка',
+            variant: 'destructive',
           });
           break;
         }
-        
-        // Update batch parameters for next iteration
-        if (nextBatch) {
-          batchParams = nextBatch;
-        } else {
-          break;
-        }
-        
-        // Small delay between batches
-        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
     } 
     else {
