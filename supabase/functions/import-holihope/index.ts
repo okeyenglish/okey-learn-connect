@@ -3102,8 +3102,8 @@ Deno.serve(async (req) => {
         progress[0].status = 'completed';
         progress[0].count = groupLinksCount + individualLinksCount;
         progress[0].message = `Linked ${groupLinksCount} students to groups, ${individualLinksCount} to individual lessons (skipped ${skippedCount}: no students=${skippedReasons.noStudentsInResponse}, student not found=${skippedReasons.studentNotFound}, API errors=${skippedReasons.apiError})`;
-        progress[0].hasMore = batchMode && edUnits.length === take;
-        progress[0].nextSkip = skipParam + edUnits.length;
+        progress[0].hasMore = batchMode && ((allGroups?.length === take) || (allIndividualLessons?.length === take));
+        progress[0].nextSkip = skipParam + take;
       } catch (error) {
         console.error('Error importing ed unit students:', error);
         progress[0].status = 'error';
