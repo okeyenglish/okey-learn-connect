@@ -3015,14 +3015,16 @@ Deno.serve(async (req) => {
             for (const studentData of students) {
               let studentId = null;
               
-              // Поиск: students.external_id == ClientId (с разными источниками)
+              // Поиск: students.external_id может быть Id, ClientId, или StudentClientId
               const studentClientId = (
                 studentData.StudentClientId ??
                 studentData.studentClientId ??
                 studentData.ClientId ??
                 studentData.clientId ??
                 (Array.isArray(studentData.Payers) && studentData.Payers[0]?.ClientId) ??
-                (Array.isArray(studentData.payers) && studentData.payers[0]?.clientId)
+                (Array.isArray(studentData.payers) && studentData.payers[0]?.clientId) ??
+                studentData.Id ??
+                studentData.id
               )?.toString();
               if (studentClientId) {
                 studentId = studentByExternalIdMap.get(studentClientId) || null;
