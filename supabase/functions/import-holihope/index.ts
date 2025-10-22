@@ -1051,7 +1051,7 @@ Deno.serve(async (req) => {
                 status: normalizedStatus,
                 notes: student.comment || student.Comment || null,
                 extra_fields: extraFields,
-                external_id: (student.clientId ?? student.ClientId ?? student.Id ?? student.id)?.toString(),
+                external_id: (student.ClientId ?? student.clientId ?? student.Id ?? student.id)?.toString(),
                 organization_id: orgId,
               },
               branch,
