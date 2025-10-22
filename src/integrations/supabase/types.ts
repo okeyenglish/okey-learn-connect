@@ -4799,10 +4799,6 @@ export type Database = {
         }
         Returns: undefined
       }
-      binary_quantize: {
-        Args: { "": string } | { "": unknown }
-        Returns: unknown
-      }
       calculate_teacher_payment: {
         Args: {
           p_group_id: string
@@ -4895,14 +4891,8 @@ export type Database = {
         }
         Returns: boolean
       }
-      cleanup_old_cron_logs: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      cleanup_old_typing_status: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      cleanup_old_cron_logs: { Args: never; Returns: undefined }
+      cleanup_old_typing_status: { Args: never; Returns: undefined }
       create_internal_group_chat: {
         Args: {
           p_branch?: string
@@ -4986,25 +4976,45 @@ export type Database = {
           user_name: string
         }[]
       }
-      get_public_schedule: {
-        Args: Record<PropertyKey, never> | { branch_name?: string }
-        Returns: {
-          compact_classroom: string
-          compact_days: string
-          compact_teacher: string
-          compact_time: string
-          created_at: string
-          group_URL: string
-          id: string
-          is_active: boolean
-          level: string
-          name: string
-          office_name: string
-          updated_at: string
-          vacancies: number
-          Возраст: string
-        }[]
-      }
+      get_public_schedule:
+        | {
+            Args: { branch_name?: string }
+            Returns: {
+              compact_classroom: string
+              compact_days: string
+              compact_teacher: string
+              compact_time: string
+              created_at: string
+              group_URL: string
+              id: string
+              is_active: boolean
+              level: string
+              name: string
+              office_name: string
+              updated_at: string
+              vacancies: number
+              Возраст: string
+            }[]
+          }
+        | {
+            Args: never
+            Returns: {
+              compact_classroom: string
+              compact_days: string
+              compact_teacher: string
+              compact_time: string
+              created_at: string
+              group_URL: string
+              id: string
+              is_active: boolean
+              level: string
+              name: string
+              office_name: string
+              updated_at: string
+              vacancies: number
+              Возраст: string
+            }[]
+          }
       get_schedule_conflicts: {
         Args: {
           p_branch: string
@@ -5079,14 +5089,8 @@ export type Database = {
         }
         Returns: number
       }
-      get_user_branches: {
-        Args: { _user_id: string }
-        Returns: string[]
-      }
-      get_user_organization_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      get_user_branches: { Args: { _user_id: string }; Returns: string[] }
+      get_user_organization_id: { Args: never; Returns: string }
       get_user_permissions: {
         Args: { _user_id: string }
         Returns: {
@@ -5102,64 +5106,12 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"][]
       }
-      halfvec_avg: {
-        Args: { "": number[] }
-        Returns: unknown
-      }
-      halfvec_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      halfvec_send: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      halfvec_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
-      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
-      }
-      hnsw_bit_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hnsw_halfvec_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hnsw_sparsevec_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hnswhandler: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ivfflat_bit_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ivfflat_halfvec_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ivfflathandler: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      l2_norm: {
-        Args: { "": unknown } | { "": unknown }
-        Returns: number
-      }
-      l2_normalize: {
-        Args: { "": string } | { "": unknown } | { "": unknown }
-        Returns: unknown
       }
       mark_chat_messages_as_read: {
         Args: { p_client_id: string }
@@ -5203,18 +5155,6 @@ export type Database = {
         }
         Returns: string
       }
-      sparsevec_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      sparsevec_send: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      sparsevec_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
-      }
       sync_auto_group_students: {
         Args: { p_group_id: string }
         Returns: undefined
@@ -5223,36 +5163,15 @@ export type Database = {
         Args: { _subscription_id: string }
         Returns: boolean
       }
-      user_has_permission: {
-        Args:
-          | { _permission: string; _resource: string; _user_id: string }
-          | { _permission_key: string; _user_id: string }
-        Returns: boolean
-      }
-      vector_avg: {
-        Args: { "": number[] }
-        Returns: string
-      }
-      vector_dims: {
-        Args: { "": string } | { "": unknown }
-        Returns: number
-      }
-      vector_norm: {
-        Args: { "": string }
-        Returns: number
-      }
-      vector_out: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      vector_send: {
-        Args: { "": string }
-        Returns: string
-      }
-      vector_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
-      }
+      user_has_permission:
+        | {
+            Args: { _permission: string; _resource: string; _user_id: string }
+            Returns: boolean
+          }
+        | {
+            Args: { _permission_key: string; _user_id: string }
+            Returns: boolean
+          }
     }
     Enums: {
       app_role:
