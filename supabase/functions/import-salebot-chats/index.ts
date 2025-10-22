@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     let totalClients = 0;
     let errors: string[] = [];
     let offset = 0;
-    const clientBatchSize = 50; // Загружаем клиентов батчами
+    const clientBatchSize = 10; // Загружаем клиентов батчами (уменьшено для снижения нагрузки)
     
     while (true) {
       // Получаем клиентов батчами с retry при таймауте
@@ -180,8 +180,8 @@ Deno.serve(async (req) => {
 
           console.log(`Валидных сообщений для ${client.name}: ${chatMessages.length} из ${messages.length}`);
 
-          // Вставляем сообщения батчами по 20 (уменьшено для снижения нагрузки)
-          const batchSize = 20;
+          // Вставляем сообщения батчами по 10 (уменьшено для снижения нагрузки)
+          const batchSize = 10;
           for (let i = 0; i < chatMessages.length; i += batchSize) {
             const batch = chatMessages.slice(i, i + batchSize);
             
@@ -246,7 +246,7 @@ Deno.serve(async (req) => {
             }
             
             // Задержка между батчами для снижения нагрузки
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await new Promise(resolve => setTimeout(resolve, 500));
           }
 
           totalClients++;
@@ -258,12 +258,18 @@ Deno.serve(async (req) => {
         }
 
         // Задержка между клиентами для снижения нагрузки
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
+      }
+      
+      offset += clientBatchSize;
+      
+      // Задержка между батчами клиентов для снижения нагрузки
+      if (clients.length === clientBatchSize) {
+        console.log('Пауза 3 секунды перед загрузкой следующего батча клиентов...');
+        await new Promise(resolve => setTimeout(resolve, 3000));
       }
     }
-      
-    offset += clientBatchSize;
-  }
 
     console.log(`Импорт завершен. Всего импортировано: ${totalImported} сообщений от ${totalClients} клиентов`);
 
