@@ -2954,14 +2954,36 @@ Deno.serve(async (req) => {
           });
         }
         
-        // Fetch all students with external_id (это StudentClientId из API)
+        // Fetch all students with external_id in batches (Supabase has 1000 row limit by default)
         console.log('Fetching all students with external_id...');
-        const { data: allStudents } = await supabase
-          .from('students')
-          .select('id, external_id')
-          .not('external_id', 'is', null);
+        const studentByExternalIdMap = new Map();
         
-        const studentByExternalIdMap = new Map(allStudents?.map(s => [s.external_id, s.id]) || []);
+        let fetchOffset = 0;
+        const fetchBatchSize = 1000;
+        while (true) {
+          const { data: studentsBatch, error } = await supabase
+            .from('students')
+            .select('id, external_id')
+            .not('external_id', 'is', null)
+            .range(fetchOffset, fetchOffset + fetchBatchSize - 1);
+          
+          if (error) {
+            console.error('Error fetching students:', error);
+            break;
+          }
+          
+          if (!studentsBatch || studentsBatch.length === 0) {
+            break;
+          }
+          
+          studentsBatch.forEach(s => studentByExternalIdMap.set(s.external_id, s.id));
+          fetchOffset += fetchBatchSize;
+          
+          if (studentsBatch.length < fetchBatchSize) {
+            break; // Last batch
+          }
+        }
+        
         console.log(`Found ${studentByExternalIdMap.size} students with external_id`);
         
         
