@@ -119,14 +119,21 @@ Deno.serve(async (req) => {
           const chatMessages: any[] = [];
           
           for (const msg of messages) {
-            // Пропускаем сообщения без timestamp или с неверным timestamp
-            if (!msg.created_at || msg.created_at <= 0) {
+            // Пропускаем сообщения без timestamp
+            if (!msg.created_at) {
               console.warn(`Пропущено сообщение ${msg.id} - нет timestamp`);
               continue;
             }
 
-            const timestamp = msg.created_at * 1000;
-            const date = new Date(timestamp);
+            // Парсим дату - может быть строкой или числом (unix timestamp)
+            let date: Date;
+            if (typeof msg.created_at === 'number') {
+              // Unix timestamp в секундах
+              date = new Date(msg.created_at * 1000);
+            } else {
+              // Строка с датой
+              date = new Date(msg.created_at);
+            }
             
             // Проверяем валидность даты
             if (isNaN(date.getTime())) {
