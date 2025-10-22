@@ -143,18 +143,22 @@ Deno.serve(async (req) => {
               is_read: true,
               created_at: date.toISOString(),
               messenger_type: 'whatsapp',
+              salebot_message_id: msg.id.toString(), // Сохраняем ID из Salebot
             });
           }
 
           console.log(`Валидных сообщений для ${client.name}: ${chatMessages.length} из ${messages.length}`);
 
-          // Вставляем сообщения батчами по 100
+          // Вставляем сообщения батчами по 100 с использованием upsert
           const batchSize = 100;
           for (let i = 0; i < chatMessages.length; i += batchSize) {
             const batch = chatMessages.slice(i, i + batchSize);
             const { error: insertError } = await supabase
               .from('chat_messages')
-              .insert(batch);
+              .upsert(batch, {
+                onConflict: 'client_id,salebot_message_id',
+                ignoreDuplicates: false, // Обновляем существующие записи
+              });
 
             if (insertError) {
               console.error(`Ошибка вставки сообщений для ${client.name}:`, insertError);

@@ -405,6 +405,7 @@ export type Database = {
           messenger_type: Database["public"]["Enums"]["messenger_type"] | null
           organization_id: string
           phone_number_id: string | null
+          salebot_message_id: string | null
           system_type: string | null
           webhook_id: string | null
         }
@@ -425,6 +426,7 @@ export type Database = {
           messenger_type?: Database["public"]["Enums"]["messenger_type"] | null
           organization_id?: string
           phone_number_id?: string | null
+          salebot_message_id?: string | null
           system_type?: string | null
           webhook_id?: string | null
         }
@@ -445,6 +447,7 @@ export type Database = {
           messenger_type?: Database["public"]["Enums"]["messenger_type"] | null
           organization_id?: string
           phone_number_id?: string | null
+          salebot_message_id?: string | null
           system_type?: string | null
           webhook_id?: string | null
         }
