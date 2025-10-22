@@ -2694,6 +2694,20 @@ Deno.serve(async (req) => {
             scheduleRoom = firstSchedule.ClassroomName || firstSchedule.ClassroomLink || null;
           }
           
+          // Map Holihope status to our enum
+          const mapGroupStatus = (holihopeStatus: string): string => {
+            const statusMap: Record<string, string> = {
+              'working': 'active',
+              'reserve': 'reserve',
+              'forming': 'forming',
+              'active': 'active',
+              'suspended': 'suspended',
+              'finished': 'finished',
+              'completed': 'finished'
+            };
+            return statusMap[holihopeStatus?.toLowerCase()] || 'active';
+          };
+
           // Import based on unit type
           if (unitType === 'Individual') {
             // Import as individual_lessons (student will be linked in step 13)
@@ -2735,7 +2749,7 @@ Deno.serve(async (req) => {
               level: unit.Level || 'A1',
               category: 'all',
               group_type: groupType,
-              status: 'working',
+              status: mapGroupStatus(unit.Status),
               payment_method: 'per_lesson',
               capacity: maxStudents > 0 ? maxStudents : 12,
               current_students: unit.StudentsCount || 0,
