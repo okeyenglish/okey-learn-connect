@@ -156,22 +156,38 @@ Deno.serve(async (req) => {
 
           console.log(`Валидных сообщений для ${client.name}: ${chatMessages.length} из ${messages.length}`);
 
-          // Вставляем сообщения батчами по 100 с использованием upsert
+          // Вставляем сообщения батчами по 100
           const batchSize = 100;
           for (let i = 0; i < chatMessages.length; i += batchSize) {
             const batch = chatMessages.slice(i, i + batchSize);
-            const { error: insertError } = await supabase
+            
+            // Проверяем какие сообщения уже существуют
+            const salebotIds = batch.map(m => m.salebot_message_id);
+            const { data: existing } = await supabase
               .from('chat_messages')
-              .upsert(batch, {
-                onConflict: 'client_id,salebot_message_id',
-                ignoreDuplicates: false, // Обновляем существующие записи
-              });
+              .select('salebot_message_id')
+              .eq('client_id', client.id)
+              .in('salebot_message_id', salebotIds);
+            
+            const existingIds = new Set(existing?.map(e => e.salebot_message_id) || []);
+            
+            // Фильтруем только новые сообщения
+            const newMessages = batch.filter(m => !existingIds.has(m.salebot_message_id));
+            
+            if (newMessages.length > 0) {
+              const { error: insertError } = await supabase
+                .from('chat_messages')
+                .insert(newMessages);
 
-            if (insertError) {
-              console.error(`Ошибка вставки сообщений для ${client.name}:`, insertError);
-              errors.push(`${client.name} (${phone}): ${insertError.message}`);
+              if (insertError) {
+                console.error(`Ошибка вставки сообщений для ${client.name}:`, insertError);
+                errors.push(`${client.name} (${phone}): ${insertError.message}`);
+              } else {
+                totalImported += newMessages.length;
+                console.log(`Вставлено ${newMessages.length} новых сообщений (пропущено ${batch.length - newMessages.length} дубликатов)`);
+              }
             } else {
-              totalImported += batch.length;
+              console.log(`Все ${batch.length} сообщений уже существуют, пропускаем`);
             }
           }
 
