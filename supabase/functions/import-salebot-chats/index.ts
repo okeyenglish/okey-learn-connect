@@ -38,22 +38,6 @@ Deno.serve(async (req) => {
 
     console.log('Начинаем импорт чатов из Salebot...');
 
-    // Получаем всех клиентов с номерами телефонов
-    const { data: clients, error: clientsError } = await supabase
-      .from('clients')
-      .select('id, name, phone_numbers:client_phone_numbers(phone)')
-      .not('phone_numbers', 'is', null);
-
-    if (clientsError) {
-      throw new Error(`Ошибка загрузки клиентов: ${clientsError.message}`);
-    }
-
-    console.log(`Найдено ${clients?.length || 0} клиентов`);
-
-    let totalImported = 0;
-    let totalClients = 0;
-    let errors: string[] = [];
-
     // Получаем organization_id (берем первую организацию)
     const { data: orgs } = await supabase.from('organizations').select('id').limit(1);
     const organizationId = orgs?.[0]?.id;
@@ -61,6 +45,46 @@ Deno.serve(async (req) => {
     if (!organizationId) {
       throw new Error('Не найдена организация');
     }
+
+    let totalImported = 0;
+    let totalClients = 0;
+    let errors: string[] = [];
+    let offset = 0;
+    const clientBatchSize = 50; // Загружаем клиентов батчами
+    
+    while (true) {
+      // Получаем клиентов батчами с retry при таймауте
+      let clients: any[] = [];
+      let retries = 3;
+      
+      while (retries > 0) {
+        try {
+          const { data, error } = await supabase
+            .from('clients')
+            .select('id, name, phone_numbers:client_phone_numbers(phone)')
+            .not('phone_numbers', 'is', null)
+            .range(offset, offset + clientBatchSize - 1);
+
+          if (error) throw error;
+          
+          clients = data || [];
+          break;
+        } catch (error: any) {
+          retries--;
+          if (retries === 0 || !error.message?.includes('timeout')) {
+            throw new Error(`Ошибка загрузки клиентов: ${error.message}`);
+          }
+          console.log(`Retry загрузки клиентов (осталось: ${retries})`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+
+      if (clients.length === 0) {
+        console.log('Все клиенты обработаны');
+        break;
+      }
+
+      console.log(`Загружено ${clients.length} клиентов (offset: ${offset})`);
 
     for (const client of clients || []) {
       const phoneNumbers = client.phone_numbers || [];
@@ -237,6 +261,9 @@ Deno.serve(async (req) => {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
+      
+    offset += clientBatchSize;
+  }
 
     console.log(`Импорт завершен. Всего импортировано: ${totalImported} сообщений от ${totalClients} клиентов`);
 
