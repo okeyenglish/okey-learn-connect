@@ -2947,79 +2947,16 @@ Deno.serve(async (req) => {
           });
         }
         
-        // Fetch all students with external_id and by phone+name
+        // Fetch all students with external_id (это StudentClientId из API)
         console.log('Fetching all students with external_id...');
         const { data: allStudents } = await supabase
           .from('students')
-          .select('id, external_id, family_group_id, name')
-          .not('external_id', 'is', null);
-        
-        const studentMap = new Map(allStudents?.map(s => [s.external_id, s]) || []);
-        console.log(`Found ${studentMap.size} students with external_id`);
-        
-        // Build family_group_id -> students map (ALL students, not just with external_id)
-        const { data: allStudentsWithFG } = await supabase
-          .from('students')
-          .select('id, family_group_id, name');
-        
-        const familyGroupToStudentsMap = new Map();
-        allStudentsWithFG?.forEach(s => {
-          if (!familyGroupToStudentsMap.has(s.family_group_id)) {
-            familyGroupToStudentsMap.set(s.family_group_id, []);
-          }
-          familyGroupToStudentsMap.get(s.family_group_id).push(s);
-        });
-        console.log(`Built family_group->students map with ${familyGroupToStudentsMap.size} family groups`);
-        
-        // Fetch clients with external_id and their family groups
-        console.log('Building client external_id -> family_groups map...');
-        const { data: allClients } = await supabase
-          .from('clients')
           .select('id, external_id')
           .not('external_id', 'is', null);
         
-        const { data: familyMembers } = await supabase
-          .from('family_members')
-          .select('client_id, family_group_id');
+        const studentByExternalIdMap = new Map(allStudents?.map(s => [s.external_id, s.id]) || []);
+        console.log(`Found ${studentByExternalIdMap.size} students with external_id`);
         
-        // Build client_external_id -> family_group_ids map
-        const clientExternalIdToFamilyGroups = new Map();
-        const clientIdToFamilyGroups = new Map();
-        
-        familyMembers?.forEach(fm => {
-          if (!clientIdToFamilyGroups.has(fm.client_id)) {
-            clientIdToFamilyGroups.set(fm.client_id, []);
-          }
-          clientIdToFamilyGroups.get(fm.client_id).push(fm.family_group_id);
-        });
-        
-        allClients?.forEach(client => {
-          if (client.external_id) {
-            const familyGroups = clientIdToFamilyGroups.get(client.id) || [];
-            clientExternalIdToFamilyGroups.set(client.external_id, familyGroups);
-          }
-        });
-        
-        console.log(`Built ${clientExternalIdToFamilyGroups.size} client external_id mappings`);
-        
-        // Build client_external_id -> students map (via family membership)
-        console.log('Building client external_id -> students map...');
-        const clientExternalIdToStudents = new Map();
-        allClients?.forEach(client => {
-          if (!client.external_id) return;
-          const fgList = clientIdToFamilyGroups.get(client.id) || [];
-          const studentsForClient: any[] = [];
-          for (const fgId of fgList) {
-            const groupStudents = familyGroupToStudentsMap.get(fgId) || [];
-            for (const s of groupStudents) {
-              if (!studentsForClient.find((x: any) => x.id === s.id)) {
-                studentsForClient.push(s);
-              }
-            }
-          }
-          clientExternalIdToStudents.set(client.external_id, studentsForClient);
-        });
-        console.log(`Built ${clientExternalIdToStudents.size} client external_id -> students mappings`);
         
         let groupLinksCount = 0;
         let individualLinksCount = 0;
@@ -3073,51 +3010,17 @@ Deno.serve(async (req) => {
             // Process each student in this educational unit
             for (const studentData of students) {
               let studentId = null;
-              const studentName = (studentData.StudentName ?? studentData.studentName ?? '').toString().trim();
-              // Build candidate ClientIds (student as client)
-              const candidateClientIds: string[] = [];
-              const payers = (studentData.Payers || studentData.payers || []) as any[];
               
-              if (payers.length > 0) {
-                const notCompany = payers.filter(p => (p.IsCompany === false || p.isCompany === false || p.IsCompany === 0));
-                const preferred = notCompany.filter(p => p.Actual === false || p.actual === false);
-                const byName = notCompany.filter(p => String(p.Name || p.name || '').trim().toLowerCase() === studentName.toLowerCase());
-                
-                const ordered = [...preferred, ...byName, ...notCompany, ...payers];
-                for (const p of ordered) {
-                  const id = (p.ClientId ?? p.clientId)?.toString();
-                  if (id && !candidateClientIds.includes(id)) candidateClientIds.push(id);
-                }
-              }
-              
-              // Also consider StudentClientId as candidate (after payers)
-              const studentClientIdRaw = (studentData.StudentClientId ?? studentData.studentClientId)?.toString();
-              if (studentClientIdRaw && !candidateClientIds.includes(studentClientIdRaw)) {
-                candidateClientIds.push(studentClientIdRaw);
-              }
-              
-              // Match student via client external_id -> students mapping
-              for (const cand of candidateClientIds) {
-                const candidates = clientExternalIdToStudents.get(cand) || [];
-                if (candidates.length === 1) {
-                  studentId = candidates[0].id;
-                  break;
-                }
-                if (candidates.length > 1 && studentName) {
-                  const linkName = studentName.toLowerCase().trim();
-                  const byName = candidates.find((s: any) => {
-                    const sName = String(s.name || '').toLowerCase().trim();
-                    return sName === linkName || sName.includes(linkName) || linkName.includes(sName);
-                  });
-                  if (byName) { studentId = byName.id; break; }
-                }
+              // Прямой поиск: students.external_id == StudentClientId
+              const studentClientId = (studentData.StudentClientId ?? studentData.studentClientId)?.toString();
+              if (studentClientId) {
+                studentId = studentByExternalIdMap.get(studentClientId) || null;
               }
               
               if (!studentId) {
                 skippedCount++;
                 skippedReasons.studentNotFound++;
-                const payerInfo = studentData.Payers?.[0] ? `Payer.ClientId=${studentData.Payers[0].ClientId}` : 'No payers';
-                console.log(`    Skipped: student not found for ${payerInfo}, StudentClientId=${studentData.StudentClientId ?? 'N/A'}, name=${studentName}`);
+                console.log(`    Skipped: student not found for StudentClientId=${studentClientId ?? 'N/A'}`);
                 continue;
               }
               
