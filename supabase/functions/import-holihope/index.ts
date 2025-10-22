@@ -3031,6 +3031,7 @@ Deno.serve(async (req) => {
               }
               
               if (!studentId) {
+                console.log(`  ❌ Student NOT FOUND: ClientId=${studentClientId}, EdUnit=${edUnitExternalId}`);
                 skippedCount++;
                 skippedReasons.studentNotFound++;
                 continue;
