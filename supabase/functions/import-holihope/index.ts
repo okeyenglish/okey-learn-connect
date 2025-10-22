@@ -2957,13 +2957,14 @@ Deno.serve(async (req) => {
         // Fetch all students with external_id in batches (Supabase has 1000 row limit by default)
         console.log('Fetching all students with external_id...');
         const studentByExternalIdMap = new Map();
+        const allStudents = [];
         
         let fetchOffset = 0;
         const fetchBatchSize = 1000;
         while (true) {
           const { data: studentsBatch, error } = await supabase
             .from('students')
-            .select('id, external_id')
+            .select('id, external_id, first_name, last_name')
             .not('external_id', 'is', null)
             .range(fetchOffset, fetchOffset + fetchBatchSize - 1);
           
@@ -2976,7 +2977,10 @@ Deno.serve(async (req) => {
             break;
           }
           
-          studentsBatch.forEach(s => studentByExternalIdMap.set(s.external_id, s.id));
+          studentsBatch.forEach(s => {
+            studentByExternalIdMap.set(s.external_id, s.id);
+            allStudents.push(s);
+          });
           fetchOffset += fetchBatchSize;
           
           if (studentsBatch.length < fetchBatchSize) {
@@ -3067,12 +3071,18 @@ Deno.serve(async (req) => {
               }
               
               const rawStatus = (studentData.Status ?? studentData.status ?? '').toString();
-              const status = /reserve|резерв/i.test(rawStatus) ? 'reserve' 
-                          : /stopped|stopped|отчисл|выбыл|прекрат/i.test(rawStatus) ? 'inactive' 
+              // Map Holihope status to our enum (active, paused, completed, dropped)
+              const status = /reserve|резерв/i.test(rawStatus) ? 'paused' 
+                          : /stopped|отчисл|выбыл|прекрат/i.test(rawStatus) ? 'dropped' 
+                          : /завершен|completed/i.test(rawStatus) ? 'completed'
                           : 'active';
               
               const enrollmentDate = studentData.BeginDate ?? studentData.beginDate ?? new Date().toISOString().split('T')[0];
               const exitDate = studentData.EndDate ?? studentData.endDate ?? null;
+              
+              // Get student name for individual lessons
+              const student = allStudents?.find(s => s.id === studentId);
+              const studentName = student ? `${student.first_name || ''} ${student.last_name || ''}`.trim() : 'Unknown Student';
               
               // Determine if this is a group or individual lesson based on edUnit.type
               if (edUnit.type === 'group') {
@@ -3091,6 +3101,7 @@ Deno.serve(async (req) => {
                 individualLessonsToUpdate.push({
                   id: edUnit.id,
                   student_id: studentId,
+                  student_name: studentName,
                   status,
                   period_start: enrollmentDate,
                   period_end: exitDate,
