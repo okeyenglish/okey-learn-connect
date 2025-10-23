@@ -12,6 +12,7 @@ import { FamilyGroupsCleanup } from "./FamilyGroupsCleanup";
 import { FamilyMembersManager } from "./FamilyMembersManager";
 import { FamilyGroupSplitter } from "./FamilyGroupSplitter";
 import { FamilyMembersRestorer } from "./FamilyMembersRestorer";
+import { FamilyGroupsReorganizer } from "./FamilyGroupsReorganizer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -48,6 +49,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <FamilyGroupSplitter />;
       case "family-restorer":
         return <FamilyMembersRestorer />;
+      case "family-reorganizer":
+        return <FamilyGroupsReorganizer />;
       case "sync":
         return (
           <Card>
@@ -143,6 +146,13 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 <CardHeader>
                   <CardTitle>Восстановление связей родителей</CardTitle>
                   <CardDescription>Автоматическое связывание студентов с родителями</CardDescription>
+                </CardHeader>
+              </Card>
+              
+              <Card className="cursor-pointer hover:bg-muted/50 border-red-200" onClick={() => setCurrentSection("family-reorganizer")}>
+                <CardHeader>
+                  <CardTitle className="text-red-600">⚠️ Полная реорганизация</CardTitle>
+                  <CardDescription>Пересоздание всех семейных групп с нуля</CardDescription>
                 </CardHeader>
               </Card>
               
