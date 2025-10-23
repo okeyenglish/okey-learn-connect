@@ -2603,7 +2603,7 @@ Deno.serve(async (req) => {
         
         let importedCount = 0;
         for (const type of types) {
-          await supabase.from('learning_types').upsert({
+          const { error } = await supabase.from('learning_types').upsert({
             name: type.name || type.Name || 'Без названия',
             description: type.description || null,
             is_active: type.isActive !== false,
@@ -2611,7 +2611,12 @@ Deno.serve(async (req) => {
             organization_id: orgId,
             external_id: type.id?.toString() || type.Id?.toString(),
             holihope_metadata: type, // Store complete API response
-          }, { onConflict: 'external_id' });
+          });
+          
+          if (error) {
+            console.error('Error upserting learning type:', error);
+            throw error;
+          }
           importedCount++;
         }
         
