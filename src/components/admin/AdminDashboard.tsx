@@ -10,6 +10,7 @@ import { AdminCoursePricing } from "./AdminCoursePricing";
 import ReferencesSection from "@/components/references/ReferencesSection";
 import { FamilyGroupsCleanup } from "./FamilyGroupsCleanup";
 import { FamilyMembersManager } from "./FamilyMembersManager";
+import { FamilyGroupSplitter } from "./FamilyGroupSplitter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -42,6 +43,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <FamilyGroupsCleanup />;
       case "family-members":
         return <FamilyMembersManager />;
+      case "family-splitter":
+        return <FamilyGroupSplitter />;
       case "sync":
         return (
           <Card>
@@ -123,6 +126,13 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 <CardHeader>
                   <CardTitle>Управление членами семьи</CardTitle>
                   <CardDescription>Просмотр и удаление связей</CardDescription>
+                </CardHeader>
+              </Card>
+              
+              <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("family-splitter")}>
+                <CardHeader>
+                  <CardTitle>Разделение семейных групп</CardTitle>
+                  <CardDescription>Разделение студентов на отдельные группы</CardDescription>
                 </CardHeader>
               </Card>
               
