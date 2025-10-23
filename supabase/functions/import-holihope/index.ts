@@ -1871,9 +1871,20 @@ Deno.serve(async (req) => {
 
           console.log(`Inserting ${studentsToInsert.length} students into students table...`);
           
+          // Remove duplicates by external_id within studentsToInsert array
+          const uniqueStudentsMap = new Map();
+          studentsToInsert.forEach(student => {
+            const key = `${student.external_id}_${student.organization_id}`;
+            if (!uniqueStudentsMap.has(key)) {
+              uniqueStudentsMap.set(key, student);
+            }
+          });
+          const uniqueStudents = Array.from(uniqueStudentsMap.values());
+          console.log(`Filtered to ${uniqueStudents.length} unique students (removed ${studentsToInsert.length - uniqueStudents.length} duplicates)`);
+          
           const studentIdMap = new Map();
-          for (let i = 0; i < studentsToInsert.length; i += 100) {
-            const batch = studentsToInsert.slice(i, i + 100);
+          for (let i = 0; i < uniqueStudents.length; i += 100) {
+            const batch = uniqueStudents.slice(i, i + 100);
             const { data: insertedStudents, error: studentsError } = await supabase
               .from('students')
               .upsert(batch, { onConflict: 'external_id,organization_id' })
