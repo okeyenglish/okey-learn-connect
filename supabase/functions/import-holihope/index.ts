@@ -3563,6 +3563,47 @@ Deno.serve(async (req) => {
         let totalGroupLessons = 0;
         let totalIndividualLessons = 0;
         
+        // Build external_id to DB id cache for faster lookups
+        const groupIdCache = new Map<string, string>();
+        const individualLessonIdCache = new Map<string, string>();
+        
+        // Pre-fetch all IDs for units we're processing
+        const externalIds = unitsToImport.map(unit => {
+          const beginDate = unit.ScheduleItems?.[0]?.BeginDate || '';
+          const endDate = unit.ScheduleItems?.[0]?.EndDate || '';
+          return (beginDate || endDate)
+            ? `${unit.Id}_${beginDate}_${endDate}`
+            : `${unit.Id}_${unit.Name || 'noname'}`;
+        });
+        
+        // Batch fetch groups
+        const { data: groups } = await supabase
+          .from('learning_groups')
+          .select('id, external_id')
+          .in('external_id', externalIds);
+        
+        if (groups) {
+          for (const g of groups) {
+            groupIdCache.set(g.external_id, g.id);
+          }
+        }
+        
+        // Batch fetch individual lessons
+        const { data: individualLessons } = await supabase
+          .from('individual_lessons')
+          .select('id, external_id')
+          .in('external_id', externalIds);
+        
+        if (individualLessons) {
+          for (const il of individualLessons) {
+            individualLessonIdCache.set(il.external_id, il.id);
+          }
+        }
+        
+        // Collect all updates for batch processing
+        const groupUpdates: any[] = [];
+        const individualLessonUpdates: any[] = [];
+        
         for (const unit of unitsToImport) {
           const unitType = unit.Type || unit.type || 'Group';
           const isIndividual = unitType === 'Individual';
@@ -3578,46 +3619,34 @@ Deno.serve(async (req) => {
                 : `${unit.Id}_${unit.Name || 'noname'}`;
               
               if (isIndividual) {
-                const { data: individualLesson } = await supabase
-                  .from('individual_lessons')
-                  .select('id')
-                  .eq('external_id', externalId)
-                  .single();
+                const individualLessonId = individualLessonIdCache.get(externalId);
                 
-                if (individualLesson) {
-                  await supabase
-                    .from('individual_lessons')
-                    .update({
-                      schedule_days: scheduleDays,
-                      schedule_time: `${scheduleItem.BeginTime}-${scheduleItem.EndTime}`,
-                      lesson_location: scheduleItem.ClassroomName || scheduleItem.ClassroomLink || null,
-                      period_start: scheduleItem.BeginDate || null,
-                      period_end: scheduleItem.EndDate || null,
-                    })
-                    .eq('id', individualLesson.id);
+                if (individualLessonId) {
+                  individualLessonUpdates.push({
+                    id: individualLessonId,
+                    schedule_days: scheduleDays,
+                    schedule_time: `${scheduleItem.BeginTime}-${scheduleItem.EndTime}`,
+                    lesson_location: scheduleItem.ClassroomName || scheduleItem.ClassroomLink || null,
+                    period_start: scheduleItem.BeginDate || null,
+                    period_end: scheduleItem.EndDate || null,
+                  });
                   
                   totalIndividualSchedules++;
                 }
               } else {
-                const { data: group } = await supabase
-                  .from('learning_groups')
-                  .select('id')
-                  .eq('external_id', externalId)
-                  .single();
+                const groupId = groupIdCache.get(externalId);
                 
-                if (group) {
-                  await supabase
-                    .from('learning_groups')
-                    .update({
-                      schedule_days: scheduleDays,
-                      lesson_start_time: scheduleItem.BeginTime || null,
-                      lesson_end_time: scheduleItem.EndTime || null,
-                      schedule_room: scheduleItem.ClassroomName || null,
-                      zoom_link: scheduleItem.ClassroomLink || null,
-                      period_start: scheduleItem.BeginDate || null,
-                      period_end: scheduleItem.EndDate || null,
-                    })
-                    .eq('id', group.id);
+                if (groupId) {
+                  groupUpdates.push({
+                    id: groupId,
+                    schedule_days: scheduleDays,
+                    lesson_start_time: scheduleItem.BeginTime || null,
+                    lesson_end_time: scheduleItem.EndTime || null,
+                    schedule_room: scheduleItem.ClassroomName || null,
+                    zoom_link: scheduleItem.ClassroomLink || null,
+                    period_start: scheduleItem.BeginDate || null,
+                    period_end: scheduleItem.EndDate || null,
+                  });
                   
                   totalGroupSchedules++;
                 }
@@ -3626,6 +3655,24 @@ Deno.serve(async (req) => {
               totalScheduleItems++;
             }
           }
+        }
+        
+        // Batch update groups and individual lessons
+        if (groupUpdates.length > 0) {
+          await supabase.from('learning_groups').upsert(groupUpdates);
+        }
+        
+        if (individualLessonUpdates.length > 0) {
+          await supabase.from('individual_lessons').upsert(individualLessonUpdates);
+        }
+        
+        // Collect all lesson sessions for batch processing
+        const groupSessionsToUpsert: any[] = [];
+        const individualSessionsToUpsert: any[] = [];
+        
+        for (const unit of unitsToImport) {
+          const unitType = unit.Type || unit.type || 'Group';
+          const isIndividual = unitType === 'Individual';
           
           // Process Days (specific lesson sessions)
           if (unit.Days && Array.isArray(unit.Days) && unit.Days.length > 0) {
@@ -3646,15 +3693,11 @@ Deno.serve(async (req) => {
             
             for (const day of uniqueDays.values()) {
               if (isIndividual) {
-                const { data: individualLesson } = await supabase
-                  .from('individual_lessons')
-                  .select('id')
-                  .eq('external_id', externalId)
-                  .single();
+                const individualLessonId = individualLessonIdCache.get(externalId);
 
-                if (individualLesson) {
-                  const sessionData = {
-                    individual_lesson_id: individualLesson.id,
+                if (individualLessonId) {
+                  individualSessionsToUpsert.push({
+                    individual_lesson_id: individualLessonId,
                     lesson_date: day.Date || day.date,
                     start_time: day.BeginTime || day.beginTime || '10:00',
                     end_time: day.EndTime || day.endTime || '11:20',
@@ -3664,26 +3707,16 @@ Deno.serve(async (req) => {
                     homework: day.Homework || day.homework || null,
                     notes: day.Notes || day.notes || null,
                     external_id: day.Id?.toString() || `${unit.Id}_${day.Date}`,
-                  };
-
-                  const { error } = await supabase
-                    .from('individual_lesson_sessions')
-                    .upsert(sessionData, { onConflict: 'external_id' });
-
-                  if (!error) {
-                    totalIndividualLessons++;
-                  }
+                  });
+                  
+                  totalIndividualLessons++;
                 }
               } else {
-                const { data: group } = await supabase
-                  .from('learning_groups')
-                  .select('id')
-                  .eq('external_id', externalId)
-                  .single();
+                const groupId = groupIdCache.get(externalId);
 
-                if (group) {
-                  const sessionData = {
-                    group_id: group.id,
+                if (groupId) {
+                  groupSessionsToUpsert.push({
+                    group_id: groupId,
                     lesson_date: day.Date || day.date,
                     start_time: day.BeginTime || day.beginTime || '10:00',
                     end_time: day.EndTime || day.endTime || '11:20',
@@ -3693,15 +3726,9 @@ Deno.serve(async (req) => {
                     homework: day.Homework || day.homework || null,
                     notes: day.Notes || day.notes || null,
                     external_id: day.Id?.toString() || `${unit.Id}_${day.Date}`,
-                  };
-
-                  const { error } = await supabase
-                    .from('lesson_sessions')
-                    .upsert(sessionData, { onConflict: 'external_id' });
-
-                  if (!error) {
-                    totalGroupLessons++;
-                  }
+                  });
+                  
+                  totalGroupLessons++;
                 }
               }
             }
@@ -3709,6 +3736,20 @@ Deno.serve(async (req) => {
             totalLessons += uniqueDays.size;
           }
         }
+        
+        // Batch upsert all lesson sessions
+        if (groupSessionsToUpsert.length > 0) {
+          await supabase
+            .from('lesson_sessions')
+            .upsert(groupSessionsToUpsert, { onConflict: 'external_id' });
+        }
+        
+        if (individualSessionsToUpsert.length > 0) {
+          await supabase
+            .from('individual_lesson_sessions')
+            .upsert(individualSessionsToUpsert, { onConflict: 'external_id' });
+        }
+        
         
         console.log(`Processed ${totalScheduleItems} schedule items (${totalGroupSchedules} group, ${totalIndividualSchedules} individual)`);
         console.log(`Processed ${totalLessons} lesson sessions (${totalGroupLessons} group, ${totalIndividualLessons} individual)`);
