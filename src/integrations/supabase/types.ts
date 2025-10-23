@@ -684,6 +684,7 @@ export type Database = {
           created_at: string
           email: string | null
           external_id: string | null
+          holihope_metadata: Json | null
           id: string
           is_active: boolean
           last_message_at: string | null
@@ -702,6 +703,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           external_id?: string | null
+          holihope_metadata?: Json | null
           id?: string
           is_active?: boolean
           last_message_at?: string | null
@@ -720,6 +722,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           external_id?: string | null
+          holihope_metadata?: Json | null
           id?: string
           is_active?: boolean
           last_message_at?: string | null
@@ -2044,8 +2047,10 @@ export type Database = {
           converted_to_student_id: string | null
           created_at: string
           email: string | null
+          external_id: string | null
           family_group_id: string | null
           first_name: string
+          holihope_metadata: Json | null
           id: string
           last_name: string | null
           lead_source_id: string | null
@@ -2073,8 +2078,10 @@ export type Database = {
           converted_to_student_id?: string | null
           created_at?: string
           email?: string | null
+          external_id?: string | null
           family_group_id?: string | null
           first_name: string
+          holihope_metadata?: Json | null
           id?: string
           last_name?: string | null
           lead_source_id?: string | null
@@ -2102,8 +2109,10 @@ export type Database = {
           converted_to_student_id?: string | null
           created_at?: string
           email?: string | null
+          external_id?: string | null
           family_group_id?: string | null
           first_name?: string
+          holihope_metadata?: Json | null
           id?: string
           last_name?: string | null
           lead_source_id?: string | null
@@ -3811,6 +3820,7 @@ export type Database = {
           family_group_id: string
           first_name: string | null
           gender: string | null
+          holihope_metadata: Json | null
           id: string
           last_name: string | null
           lk_email: string | null
@@ -3833,6 +3843,7 @@ export type Database = {
           family_group_id: string
           first_name?: string | null
           gender?: string | null
+          holihope_metadata?: Json | null
           id?: string
           last_name?: string | null
           lk_email?: string | null
@@ -3855,6 +3866,7 @@ export type Database = {
           family_group_id?: string
           first_name?: string | null
           gender?: string | null
+          holihope_metadata?: Json | null
           id?: string
           last_name?: string | null
           lk_email?: string | null
@@ -4636,6 +4648,7 @@ export type Database = {
           email: string | null
           external_id: string | null
           first_name: string
+          holihope_metadata: Json | null
           id: string
           inn: string | null
           is_active: boolean
@@ -4660,6 +4673,7 @@ export type Database = {
           email?: string | null
           external_id?: string | null
           first_name: string
+          holihope_metadata?: Json | null
           id?: string
           inn?: string | null
           is_active?: boolean
@@ -4684,6 +4698,7 @@ export type Database = {
           email?: string | null
           external_id?: string | null
           first_name?: string
+          holihope_metadata?: Json | null
           id?: string
           inn?: string | null
           is_active?: boolean

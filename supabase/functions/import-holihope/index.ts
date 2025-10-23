@@ -426,6 +426,7 @@ Deno.serve(async (req) => {
             is_active: teacher.isActive !== false,
             organization_id: orgId,
             external_id: teacher.id?.toString(),
+            holihope_metadata: teacher, // Store complete API response
           };
 
           const { error } = await supabase
@@ -541,6 +542,7 @@ Deno.serve(async (req) => {
                   ].filter(Boolean).join('; ') || null,
                   organization_id: orgId,
                   external_id: `agent_${agentKey}`,
+                  holihope_metadata: agent, // Store complete agent data
                 };
                 
                 allClientsToUpsert.push({
@@ -837,6 +839,8 @@ Deno.serve(async (req) => {
                 status_id: statusId,
                 lead_source_id: null,
                 assigned_to: null,
+                external_id: lead.Id?.toString() || lead.id?.toString(),
+                holihope_metadata: lead, // Store complete API response
               },
               leadPhone,
               agentPhones,
@@ -1508,6 +1512,7 @@ Deno.serve(async (req) => {
                 extra_fields: extraFields,
                 external_id: clientId.toString(),
                 organization_id: orgId,
+                holihope_metadata: student, // Store complete API response
               },
               branch,
               branches: studentBranches, // Store all branches
