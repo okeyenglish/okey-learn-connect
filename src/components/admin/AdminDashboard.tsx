@@ -86,13 +86,18 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card className="cursor-pointer hover:bg-muted/50 border-red-200 bg-red-50" onClick={() => setCurrentSection("family-reorganizer")}>
+              {/* Полная реорганизация — всегда первая и заметная */}
+              <Card
+                className="cursor-pointer hover:bg-muted/50 border-red-200 bg-red-50"
+                onClick={() => setCurrentSection("family-reorganizer")}
+              >
                 <CardHeader>
                   <CardTitle className="text-red-600">⚠️ Полная реорганизация</CardTitle>
                   <CardDescription>Пересоздание всех семейных групп с нуля</CardDescription>
                 </CardHeader>
               </Card>
 
+              {/* Восстановление связей родителей */}
               <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("family-restorer")}>
                 <CardHeader>
                   <CardTitle>Восстановление связей родителей</CardTitle>
@@ -100,6 +105,7 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 </CardHeader>
               </Card>
 
+              {/* Очистка семейных групп */}
               <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("family-cleanup")}>
                 <CardHeader>
                   <CardTitle>Очистка семейных групп</CardTitle>
@@ -107,6 +113,7 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 </CardHeader>
               </Card>
               
+              {/* FAQ */}
               <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("faq")}>
                 <CardHeader>
                   <CardTitle>FAQ Management</CardTitle>
@@ -114,6 +121,7 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 </CardHeader>
               </Card>
               
+              {/* Schedule */}
               <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("schedule")}>
                 <CardHeader>
                   <CardTitle>Schedule Management</CardTitle>
@@ -121,6 +129,7 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 </CardHeader>
               </Card>
               
+              {/* WhatsApp */}
               <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("whatsapp")}>
                 <CardHeader>
                   <CardTitle>WhatsApp Integration</CardTitle>
@@ -128,6 +137,7 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 </CardHeader>
               </Card>
               
+              {/* Textbooks */}
               <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("textbooks")}>
                 <CardHeader>
                   <CardTitle>Textbooks</CardTitle>
@@ -135,6 +145,7 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 </CardHeader>
               </Card>
               
+              {/* Users */}
               <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("users")}>
                 <CardHeader>
                   <CardTitle>User Permissions</CardTitle>
@@ -142,6 +153,7 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 </CardHeader>
               </Card>
               
+              {/* Управление членами семьи */}
               <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("family-members")}>
                 <CardHeader>
                   <CardTitle>Управление членами семьи</CardTitle>
@@ -149,6 +161,7 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 </CardHeader>
               </Card>
               
+              {/* Разделение семейных групп */}
               <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("family-splitter")}>
                 <CardHeader>
                   <CardTitle>Разделение семейных групп</CardTitle>
@@ -156,6 +169,7 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 </CardHeader>
               </Card>
               
+              {/* Synchronization */}
               <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("sync")}>
                 <CardHeader>
                   <CardTitle>Synchronization</CardTitle>
