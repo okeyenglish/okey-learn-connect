@@ -1084,6 +1084,74 @@ export type Database = {
         }
         Relationships: []
       }
+      employees: {
+        Row: {
+          branch: string | null
+          created_at: string
+          department: string | null
+          email: string | null
+          external_id: string | null
+          first_name: string
+          hire_date: string | null
+          holihope_metadata: Json | null
+          id: string
+          is_active: boolean
+          last_name: string
+          middle_name: string | null
+          notes: string | null
+          organization_id: string | null
+          phone: string | null
+          position: string | null
+          updated_at: string
+        }
+        Insert: {
+          branch?: string | null
+          created_at?: string
+          department?: string | null
+          email?: string | null
+          external_id?: string | null
+          first_name: string
+          hire_date?: string | null
+          holihope_metadata?: Json | null
+          id?: string
+          is_active?: boolean
+          last_name: string
+          middle_name?: string | null
+          notes?: string | null
+          organization_id?: string | null
+          phone?: string | null
+          position?: string | null
+          updated_at?: string
+        }
+        Update: {
+          branch?: string | null
+          created_at?: string
+          department?: string | null
+          email?: string | null
+          external_id?: string | null
+          first_name?: string
+          hire_date?: string | null
+          holihope_metadata?: Json | null
+          id?: string
+          is_active?: boolean
+          last_name?: string
+          middle_name?: string | null
+          notes?: string | null
+          organization_id?: string | null
+          phone?: string | null
+          position?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employees_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       family_groups: {
         Row: {
           branch: string | null

@@ -3106,7 +3106,13 @@ Deno.serve(async (req) => {
           
           if (!employees || employees.length === 0) break;
           
-          const validEmployees = employees.filter(emp => !emp.Fired);
+          const validEmployees = employees.filter(emp => {
+            const isNotFired = !emp.Fired;
+            const position = (emp.Position || '').toLowerCase();
+            // Exclude teachers - they should be imported via GetTeachers
+            const isNotTeacher = !position.includes('преподаватель') && !position.includes('teacher');
+            return isNotFired && isNotTeacher;
+          });
           allEmployees = allEmployees.concat(validEmployees);
           
           skip += take;
@@ -3122,24 +3128,28 @@ Deno.serve(async (req) => {
             ? employee.Offices[0].Name 
             : 'Окская';
           
-          // Import into teachers table
-          const teacherData = {
+          // Import into employees table (NOT teachers)
+          const employeeData = {
+            organization_id: orgId,
             first_name: employee.FirstName || '',
             last_name: employee.LastName || '',
+            middle_name: employee.MiddleName || null,
             email: employee.EMail || null,
             phone: employee.Mobile || employee.Phone || null,
+            position: employee.Position || null,
             branch: primaryBranch,
+            department: employee.Position || null,
             is_active: !employee.Fired,
             external_id: employee.Id?.toString(),
             holihope_metadata: employee,
           };
           
-          const { error: teacherError } = await supabase
-            .from('teachers')
-            .upsert(teacherData);
+          const { error: employeeError } = await supabase
+            .from('employees')
+            .upsert(employeeData);
           
-          if (teacherError) {
-            console.error('Error upserting teacher:', teacherError);
+          if (employeeError) {
+            console.error('Error upserting employee:', employeeError);
             skippedCount++;
             continue;
           }
@@ -3185,7 +3195,7 @@ Deno.serve(async (req) => {
         
         progress[0].status = 'completed';
         progress[0].count = importedCount;
-        progress[0].message = `Processed ${importedCount} employees. Note: For employees with emails, auth users must be created manually in Supabase Auth.`;
+        progress[0].message = `Imported ${importedCount} employees (office staff)`;
       } catch (error) {
         console.error('Error importing employees:', error);
         progress[0].status = 'error';
