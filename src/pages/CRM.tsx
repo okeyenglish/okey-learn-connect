@@ -717,10 +717,13 @@ const CRMContent = () => {
     ...threads
       .filter(thread => {
         const clientData = clients.find(c => c.id === thread.client_id);
-        return clientData && !clientData.name.includes('Корпоративный чат') && 
-               !clientData.name.includes('Чат педагогов') && 
-               !clientData.name.includes('Преподаватель:') &&
-               !clientData.name.includes('Кастомный чат');
+        return (
+          !!clientData &&
+          !clientData.name?.includes('Корпоративный чат') &&
+          !clientData.name?.includes('Чат педагогов') &&
+          !clientData.name?.includes('Преподаватель:') &&
+          !clientData.name?.includes('Кастомный чат')
+        );
       })
       .map(thread => {
         const clientData = clients.find(c => c.id === thread.client_id);
@@ -755,11 +758,11 @@ const CRMContent = () => {
   ];
 
   const filteredChats = allChats
-    .filter(chat => 
-      chatSearchQuery.length === 0 || 
-      chat.name.toLowerCase().includes(chatSearchQuery.toLowerCase()) ||
-      chat.phone.includes(chatSearchQuery)
-    )
+  .filter(chat => 
+    chatSearchQuery.length === 0 || 
+    (chat.name?.toLowerCase?.().includes(chatSearchQuery.toLowerCase()) ?? false) ||
+    (chat.phone?.includes(chatSearchQuery) ?? false)
+  )
     .filter(chat => !getChatState(chat.id).isArchived) // Скрываем архивированные чаты
     .filter(chat => {
       // Skip filtering for corporate and teacher chats as they don't have client_id
