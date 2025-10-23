@@ -65,7 +65,125 @@ Deno.serve(async (req) => {
     
     const progress: ImportProgress[] = [];
 
-    // Step 1: Clear existing data
+    // Step 1: Delete all data completely
+    if (action === 'delete_all_data') {
+      console.log('Starting complete data deletion...');
+      
+      try {
+        const stats = {
+          students: 0,
+          clients: 0,
+          familyGroups: 0,
+          familyMembers: 0,
+          leads: 0,
+        };
+
+        // Delete in correct order due to foreign key constraints
+        
+        // 1. Delete lesson sessions
+        const { error: sessionsError } = await supabase
+          .from('lesson_sessions')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+        if (sessionsError) console.error('Error deleting lesson_sessions:', sessionsError);
+
+        // 2. Delete individual lesson sessions
+        const { error: indivSessionsError } = await supabase
+          .from('individual_lesson_sessions')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+        if (indivSessionsError) console.error('Error deleting individual_lesson_sessions:', indivSessionsError);
+
+        // 3. Delete group students
+        const { error: groupStudentsError } = await supabase
+          .from('group_students')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+        if (groupStudentsError) console.error('Error deleting group_students:', groupStudentsError);
+
+        // 4. Delete learning groups
+        const { error: groupsError } = await supabase
+          .from('learning_groups')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+        if (groupsError) console.error('Error deleting learning_groups:', groupsError);
+
+        // 5. Delete individual lessons
+        const { error: indivLessonsError } = await supabase
+          .from('individual_lessons')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+        if (indivLessonsError) console.error('Error deleting individual_lessons:', indivLessonsError);
+
+        // 6. Delete payments
+        const { error: paymentsError } = await supabase
+          .from('payments')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+        if (paymentsError) console.error('Error deleting payments:', paymentsError);
+
+        // 7. Delete students
+        const { data: deletedStudents, error: studentsError } = await supabase
+          .from('students')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000')
+          .select();
+        if (!studentsError) stats.students = deletedStudents?.length || 0;
+
+        // 8. Delete family members
+        const { data: deletedMembers, error: membersError } = await supabase
+          .from('family_members')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000')
+          .select();
+        if (!membersError) stats.familyMembers = deletedMembers?.length || 0;
+
+        // 9. Delete family groups
+        const { data: deletedGroups, error: familyGroupsError } = await supabase
+          .from('family_groups')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000')
+          .select();
+        if (!familyGroupsError) stats.familyGroups = deletedGroups?.length || 0;
+
+        // 10. Delete leads
+        const { data: deletedLeads, error: leadsError } = await supabase
+          .from('leads')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000')
+          .select();
+        if (!leadsError) stats.leads = deletedLeads?.length || 0;
+
+        // 11. Delete clients
+        const { data: deletedClients, error: clientsError } = await supabase
+          .from('clients')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000')
+          .select();
+        if (!clientsError) stats.clients = deletedClients?.length || 0;
+
+        console.log('Complete deletion stats:', stats);
+
+        return new Response(JSON.stringify({ 
+          success: true,
+          stats,
+          message: 'All data deleted successfully'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (error) {
+        console.error('Error during complete deletion:', error);
+        return new Response(JSON.stringify({ 
+          error: error.message,
+          success: false 
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        });
+      }
+    }
+
+    // Step 2: Clear existing data (old way - marks as inactive)
     if (action === 'clear_data') {
       console.log('Starting data cleanup...');
       progress.push({ step: 'clear_data', status: 'in_progress', message: 'Clearing existing data' });

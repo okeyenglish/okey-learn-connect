@@ -24,6 +24,7 @@ export default function HolihopeImport() {
   const [shouldStopImport, setShouldStopImport] = useState(false);
   const [isImportingChats, setIsImportingChats] = useState(false);
   const [chatImportStatus, setChatImportStatus] = useState<string>('');
+  const [isClearing, setIsClearing] = useState(false);
   const [steps, setSteps] = useState<ImportStep[]>([
     { id: 'clear', name: '1. Архивация данных', description: 'Пометка существующих данных как неактивных', action: 'clear_data', status: 'pending' },
     { id: 'offices', name: '2. Филиалы', description: 'Импорт филиалов/офисов', action: 'import_locations', status: 'pending' },
@@ -413,6 +414,40 @@ export default function HolihopeImport() {
     setShouldStopImport(false);
   };
 
+  const clearAllData = async () => {
+    if (!confirm('⚠️ ВНИМАНИЕ! Это действие удалит ВСЕ данные:\n\n• Всех учеников\n• Всех клиентов\n• Все семейные группы и связи\n• Всех лидов\n• Все связанные данные\n\nЭто действие НЕОБРАТИМО!\n\nВы уверены?')) {
+      return;
+    }
+
+    setIsClearing(true);
+    toast({
+      title: 'Начинаю полную очистку данных...',
+      description: 'Удаление всех студентов, клиентов и связей',
+    });
+
+    try {
+      const { data, error } = await supabase.functions.invoke('import-holihope', {
+        body: { action: 'delete_all_data' },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Очистка завершена!',
+        description: `Удалено: ${data.stats?.students || 0} учеников, ${data.stats?.clients || 0} клиентов, ${data.stats?.familyGroups || 0} семейных групп, ${data.stats?.leads || 0} лидов`,
+      });
+    } catch (error: any) {
+      console.error('Clear error:', error);
+      toast({
+        title: 'Ошибка очистки',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
   const previewStep = async (step: ImportStep) => {
     const previewAction = step.action.replace('import_', 'preview_');
     
@@ -460,8 +495,31 @@ export default function HolihopeImport() {
           <p className="text-muted-foreground mt-2">
             Полный импорт данных из CRM Holihope в текущую систему
           </p>
+          <Alert variant="destructive" className="mt-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Важно! Сначала очистите данные</AlertTitle>
+            <AlertDescription>
+              Перед импортом необходимо удалить всех существующих учеников, клиентов и семейные связи, 
+              иначе могут возникнуть дубли и конфликты данных.
+            </AlertDescription>
+          </Alert>
         </div>
         <div className="flex gap-2">
+          <Button
+            onClick={clearAllData}
+            disabled={isImporting || isClearing}
+            variant="destructive"
+            size="lg"
+          >
+            {isClearing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Очистка...
+              </>
+            ) : (
+              '🗑️ Очистить все данные'
+            )}
+          </Button>
           {isImporting && (
             <Button
               onClick={() => setShouldStopImport(true)}
@@ -474,7 +532,7 @@ export default function HolihopeImport() {
           )}
           <Button
             onClick={runFullImport}
-            disabled={isImporting}
+            disabled={isImporting || isClearing}
             size="lg"
           >
             {isImporting ? (
