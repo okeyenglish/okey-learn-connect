@@ -3118,7 +3118,10 @@ const CRMContent = () => {
             rightPanelCollapsed ? "w-0" : "w-80 lg:w-96 p-4"
           )}>
             {!rightPanelCollapsed && (
-              <FamilyCardWrapper clientId={activeChatId} />
+              <FamilyCardWrapper 
+                clientId={activeChatId} 
+                onOpenChat={(memberId) => handleChatClick(memberId, 'client')}
+              />
             )}
           </div>
         )}
@@ -3127,7 +3130,10 @@ const CRMContent = () => {
         <Sheet open={rightSidebarOpen} onOpenChange={setRightSidebarOpen}>
           <SheetContent side="right" className="w-80 p-4">
             {activeChatType === 'client' && activeChatId && (
-              <FamilyCardWrapper clientId={activeChatId} />
+              <FamilyCardWrapper 
+                clientId={activeChatId}
+                onOpenChat={(memberId) => handleChatClick(memberId, 'client')}
+              />
             )}
           </SheetContent>
         </Sheet>

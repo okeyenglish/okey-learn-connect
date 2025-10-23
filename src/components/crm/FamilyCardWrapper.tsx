@@ -7,9 +7,10 @@ import { useToast } from "@/hooks/use-toast";
 
 interface FamilyCardWrapperProps {
   clientId: string;
+  onOpenChat?: (clientId: string) => void;
 }
 
-export const FamilyCardWrapper = ({ clientId }: FamilyCardWrapperProps) => {
+export const FamilyCardWrapper = ({ clientId, onOpenChat }: FamilyCardWrapperProps) => {
   const [familyGroupId, setFamilyGroupId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -138,7 +139,7 @@ export const FamilyCardWrapper = ({ clientId }: FamilyCardWrapperProps) => {
       familyGroupId={familyGroupId}
       activeMemberId={clientId}
       onSwitchMember={(memberId) => console.log('Switch member:', memberId)}
-      onOpenChat={(memberId) => console.log('Open chat:', memberId)}
+      onOpenChat={onOpenChat}
       onCall={(memberId) => console.log('Call member:', memberId)}
       onPhoneSwitch={(phoneId) => console.log('Switch phone:', phoneId)}
       activePhoneId="1"
