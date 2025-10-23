@@ -2429,7 +2429,7 @@ const CRMContent = () => {
                 </div>
               </div>
               <ScrollArea className="flex-1 min-h-0">
-                <div className="p-2 pb-24 md:pb-0 flex flex-col h-full">
+                <div className="p-2 flex flex-col h-full">
                   {/* Закрепленные чаты */}
                    {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
                     <div className="mb-4">
@@ -2801,7 +2801,7 @@ const CRMContent = () => {
                 </div>
               </div>
               <ScrollArea className="flex-1">
-                <div className="p-3 pb-24 md:pb-0 flex flex-col h-full">
+                <div className="p-3 flex flex-col h-full">
                   {/* Закрепленные чаты */}
                   {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
                     <div className="mb-6">
@@ -3220,8 +3220,8 @@ const CRMContent = () => {
         }}
       />
 
-      {/* Мобильная нижняя навигация */}
-      {isMobile && !(activeChatType === 'client' && !!activeChatId) && (
+      {/* Мобильная нижняя навигация - показываем только внутри открытого диалога */}
+      {isMobile && !!activeChatId && (
         <MobileBottomNavigation
           onCorporateClick={handleMobileCorporateClick}
           onTeachersClick={handleMobileTeachersClick}
