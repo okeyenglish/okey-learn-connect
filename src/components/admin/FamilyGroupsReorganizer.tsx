@@ -109,12 +109,70 @@ export const FamilyGroupsReorganizer = () => {
 
       return { createdGroups, errors, totalStudents: students?.length || 0 };
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       toast.success(
-        `Реорганизация завершена!\n` +
-        `Создано групп: ${result.createdGroups}/${result.totalStudents}\n` +
-        `Ошибок: ${result.errors}`
+        `Реорганизация завершена! Создано групп: ${result.createdGroups}/${result.totalStudents}, ошибок: ${result.errors}`
       );
+      
+      // Автоматическое восстановление связей
+      toast.info('Начинаю автоматическое восстановление связей с родителями...');
+      
+      try {
+        // Получаем студентов без родителей
+        const { data: students } = await supabase
+          .from('students')
+          .select('id, name, family_group_id, family_groups:family_group_id(id, name)')
+          .not('family_group_id', 'is', null);
+
+        let linkedCount = 0;
+        let notFoundCount = 0;
+
+        for (const student of students || []) {
+          const { data: existingMembers } = await supabase
+            .from('family_members')
+            .select('id')
+            .eq('family_group_id', student.family_group_id)
+            .limit(1);
+
+          if (!existingMembers || existingMembers.length === 0) {
+            const familyGroupName = (student.family_groups as any)?.name || '';
+            
+            if (familyGroupName && familyGroupName.includes('Семья ')) {
+              const parentName = familyGroupName.replace('Семья ', '');
+              
+              const { data: clients } = await supabase
+                .from('clients')
+                .select('id, name')
+                .ilike('name', `%${parentName}%`)
+                .limit(1);
+
+              if (clients && clients.length > 0) {
+                await supabase
+                  .from('family_members')
+                  .insert({
+                    family_group_id: student.family_group_id,
+                    client_id: clients[0].id,
+                    relationship_type: 'main',
+                    is_primary_contact: true,
+                  });
+                linkedCount++;
+              } else {
+                notFoundCount++;
+              }
+            } else {
+              notFoundCount++;
+            }
+          }
+        }
+
+        toast.success(
+          `Восстановление связей завершено! Связано: ${linkedCount}, не найдено: ${notFoundCount}`
+        );
+      } catch (error) {
+        console.error('Ошибка восстановления связей:', error);
+        toast.error('Ошибка при восстановлении связей. Используйте ручное восстановление.');
+      }
+
       queryClient.invalidateQueries({ queryKey: ['family-reorganization-stats'] });
       queryClient.invalidateQueries({ queryKey: ['student-details'] });
       queryClient.invalidateQueries({ queryKey: ['students-without-parents'] });
