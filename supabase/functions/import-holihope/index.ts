@@ -424,14 +424,13 @@ Deno.serve(async (req) => {
             categories: teacher.categories ? [teacher.categories] : [],
             branch: teacher.location || 'Окская',
             is_active: teacher.isActive !== false,
-            organization_id: orgId,
             external_id: teacher.id?.toString(),
             holihope_metadata: teacher, // Store complete API response
           };
 
           const { error } = await supabase
             .from('teachers')
-            .upsert(teacherData, { onConflict: 'external_id' });
+            .upsert(teacherData);
 
           if (error) {
             console.error(`Error importing teacher ${teacher.lastName}:`, error);
