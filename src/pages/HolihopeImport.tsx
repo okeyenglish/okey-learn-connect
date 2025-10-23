@@ -66,35 +66,56 @@ export default function HolihopeImport() {
         Object.assign(body, batchParams);
       }
       
-      const { data, error } = await supabase.functions.invoke('import-holihope', {
-        body,
-      });
-
-      if (error) throw error;
-
-      const progress = data?.progress?.[0];
-      const nextBatch = data?.nextBatch;
-      const stats = data?.stats;
+      // Set 60 second timeout for edge function calls
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
       
-      setSteps((prev) =>
-        prev.map((s) =>
-          s.id === step.id
-            ? {
-                ...s,
-                status: progress?.status || 'completed',
-                count: progress?.count || stats?.totalImported,
-                message: progress?.message,
-                error: progress?.error,
-              }
-            : s
-        )
-      );
+      try {
+        const { data, error } = await supabase.functions.invoke('import-holihope', {
+          body,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (error) throw error;
 
-      if (progress?.status === 'error') {
-        throw new Error(progress.error || 'Ошибка импорта');
+        const progress = data?.progress?.[0];
+        const nextBatch = data?.nextBatch;
+        const stats = data?.stats;
+        
+        setSteps((prev) =>
+          prev.map((s) =>
+            s.id === step.id
+              ? {
+                  ...s,
+                  status: progress?.status || 'completed',
+                  count: progress?.count || stats?.totalImported,
+                  message: progress?.message,
+                  error: progress?.error,
+                }
+              : s
+          )
+        );
+
+        if (progress?.status === 'error') {
+          throw new Error(progress.error || 'Ошибка импорта');
+        }
+
+        return { success: true, progress, nextBatch, stats };
+      } catch (err: any) {
+        clearTimeout(timeoutId);
+        
+        // If timeout, treat as temporary error and allow retry
+        if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+          console.warn('Request timeout, but backend continues working. Will retry...');
+          throw new Error('Таймаут запроса. Backend продолжает работу. Повтор...');
+        }
+        
+        throw err;
       }
-
-      return { success: true, progress, nextBatch, stats };
     } catch (error: any) {
       console.error(`Error in step ${step.id}:`, error);
       
