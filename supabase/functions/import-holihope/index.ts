@@ -329,6 +329,7 @@ Deno.serve(async (req) => {
           
           const branchData = {
             organization_id: orgId,
+            holihope_id: office.Id,
             name: branchName,
             address: office.Address || null,
             phone: office.Phone || null,
@@ -336,7 +337,6 @@ Deno.serve(async (req) => {
             is_active: !office.NoClassrooms, // Если есть аудитории, то активен
             working_hours: null, // Можно будет добавить позже
             settings: {
-              holihope_id: office.Id,
               location: office.Location,
               license: office.License,
               timezone: office.TimeZone,
@@ -347,7 +347,7 @@ Deno.serve(async (req) => {
           const { error } = await supabase
             .from('organization_branches')
             .upsert(branchData, { 
-              onConflict: 'organization_id,name',
+              onConflict: 'organization_id,holihope_id',
               ignoreDuplicates: false 
             });
 
