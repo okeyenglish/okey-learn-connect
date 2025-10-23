@@ -376,15 +376,22 @@ const CRMContent = () => {
     : (students || []).filter(s => !activeStudentIds.has(s.id)).length;
   const studentsCount = students?.length ?? 0;
   
-  console.log('Menu counters:', { 
-    tasksCount, 
-    unreadTotal, 
-    leadsCount, 
-    studentsCount, 
-    studentsData: students?.map(s => ({ id: s.id, status: s.status })),
-    activeGroupStudentsCount: activeGroupStudents.length,
-    activeIndividualLessonsCount: activeIndividualLessons.length
-  });
+  // Детальная диагностика счётчиков
+  useEffect(() => {
+    console.log('[CRM Counters] Подробная информация:', { 
+      tasksCount, 
+      unreadTotal, 
+      leadsCount, 
+      studentsCount,
+      studentsLoading,
+      studentsArrayLength: students?.length,
+      activeGroupStudentsCount: activeGroupStudents.length,
+      activeIndividualLessonsCount: activeIndividualLessons.length,
+      activeStudentIdsSize: activeStudentIds.size,
+      firstStudents: students?.slice(0, 3).map(s => ({ id: s.id, name: s.name, status: s.status })),
+      lastStudents: students?.slice(-3).map(s => ({ id: s.id, name: s.name, status: s.status }))
+    });
+  }, [students, tasksCount, unreadTotal, leadsCount, studentsCount, studentsLoading, activeGroupStudents, activeIndividualLessons, activeStudentIds]);
   const getMenuCount = (label: string) => {
     if (label === "Мои задачи") return tasksCount;
     if (label === "Заявки") return unreadTotal;
