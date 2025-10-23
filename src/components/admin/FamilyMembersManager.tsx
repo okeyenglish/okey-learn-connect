@@ -33,51 +33,59 @@ export const FamilyMembersManager = () => {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 200;
 
   const { data: familyMembers, isLoading } = useQuery({
-    queryKey: ['family-members-all'],
+    queryKey: ['family-members-all', page],
     queryFn: async () => {
-      // Получаем все данные одним запросом
-      const [membersRes, studentsRes] = await Promise.all([
-        supabase
-          .from('family_members')
-          .select(`
+      const offset = (page - 1) * pageSize;
+
+      // 1) Получаем страницу связей family_members
+      const membersRes = await supabase
+        .from('family_members')
+        .select(`
+          id,
+          family_group_id,
+          client_id,
+          relationship_type,
+          family_groups:family_group_id (
             id,
-            family_group_id,
-            client_id,
-            relationship_type,
-            family_groups:family_group_id (
-              id,
-              name
-            ),
-            clients:client_id (
-              id,
-              name
-            )
-          `)
-          .order('family_group_id'),
-        supabase
-          .from('students')
-          .select('id, name, family_group_id')
-      ]);
+            name
+          ),
+          clients:client_id (
+            id,
+            name
+          )
+        `)
+        .order('family_group_id')
+        .range(offset, offset + pageSize - 1);
 
       if (membersRes.error) throw membersRes.error;
-      if (studentsRes.error) throw studentsRes.error;
+      const members = membersRes.data || [];
 
-      // Группируем студентов по family_group_id
-      const studentsByGroup = new Map<string, Array<{ id: string; name: string }>>();
-      (studentsRes.data || []).forEach(student => {
-        if (!studentsByGroup.has(student.family_group_id)) {
-          studentsByGroup.set(student.family_group_id, []);
-        }
-        studentsByGroup.get(student.family_group_id)!.push({
-          id: student.id,
-          name: student.name,
+      // 2) Загружаем студентов только по нужным группам
+      const groupIds = Array.from(new Set(members.map(m => m.family_group_id)));
+      let studentsByGroup = new Map<string, Array<{ id: string; name: string }>>();
+
+      if (groupIds.length > 0) {
+        const studentsRes = await supabase
+          .from('students')
+          .select('id, name, family_group_id')
+          .in('family_group_id', groupIds);
+        if (studentsRes.error) throw studentsRes.error;
+
+        studentsByGroup = new Map();
+        (studentsRes.data || []).forEach((s) => {
+          if (!studentsByGroup.has(s.family_group_id)) {
+            studentsByGroup.set(s.family_group_id, []);
+          }
+          studentsByGroup.get(s.family_group_id)!.push({ id: s.id, name: s.name });
         });
-      });
+      }
 
-      // Преобразуем данные
-      const groupedData: FamilyMemberRecord[] = (membersRes.data || []).map(member => ({
+      // 3) Преобразуем данные
+      const groupedData: FamilyMemberRecord[] = members.map(member => ({
         id: member.id,
         familyGroupId: member.family_group_id,
         familyGroupName: (member.family_groups as any)?.name || 'Без названия',
@@ -241,6 +249,16 @@ export const FamilyMembersManager = () => {
               })}
             </div>
           )}
+
+          <div className="flex items-center gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1}>
+              Назад
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setPage(page + 1)}>
+              Далее
+            </Button>
+            <span className="text-xs text-muted-foreground">Страница {page}</span>
+          </div>
         </CardContent>
       </Card>
     </div>

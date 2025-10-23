@@ -38,14 +38,16 @@ interface FamilyGroupIssue {
 export const FamilyGroupsCleanup = () => {
   const queryClient = useQueryClient();
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 200;
 
   // Fetch all family groups with potential issues
   const { data: issuesData, isLoading } = useQuery({
-    queryKey: ['family-groups-issues'],
+    queryKey: ['family-groups-issues', page],
     queryFn: async () => {
       // Получаем все данные одним запросом
       const [groupsRes, studentsRes, membersRes] = await Promise.all([
-        supabase.from('family_groups').select('id, name'),
+        supabase.from('family_groups').select('id, name').order('name', { ascending: true }).range((page - 1) * pageSize, page * pageSize - 1),
         supabase.from('students').select('id, name, family_group_id'),
         supabase.from('family_members').select(`
           id,
@@ -178,8 +180,13 @@ export const FamilyGroupsCleanup = () => {
             <p className="text-muted-foreground">Проблем не найдено</p>
           ) : (
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground flex items-center gap-3">
                 Найдено групп с проблемами: {issuesData.length}
+                <span className="inline-flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1}>Назад</Button>
+                  <Button variant="outline" size="sm" onClick={() => setPage(page + 1)}>Далее</Button>
+                  <span className="text-xs text-muted-foreground">Страница {page}</span>
+                </span>
               </p>
 
               {issuesData.map((issue) => (
