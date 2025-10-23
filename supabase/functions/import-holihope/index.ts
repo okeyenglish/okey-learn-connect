@@ -2610,6 +2610,7 @@ Deno.serve(async (req) => {
             sort_order: type.order || type.Order || 0,
             organization_id: orgId,
             external_id: type.id?.toString() || type.Id?.toString(),
+            holihope_metadata: type, // Store complete API response
           }, { onConflict: 'external_id' });
           importedCount++;
         }

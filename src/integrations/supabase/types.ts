@@ -2357,6 +2357,53 @@ export type Database = {
           },
         ]
       }
+      learning_types: {
+        Row: {
+          created_at: string
+          description: string | null
+          external_id: string | null
+          holihope_metadata: Json | null
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          external_id?: string | null
+          holihope_metadata?: Json | null
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          external_id?: string | null
+          holihope_metadata?: Json | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_types_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lesson_sessions: {
         Row: {
           branch: string
