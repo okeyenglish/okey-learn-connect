@@ -3644,6 +3644,7 @@ Deno.serve(async (req) => {
                 if (individualLessonId) {
                   individualLessonUpdates.push({
                     id: individualLessonId,
+                    student_name: (unit.Name && unit.Name.trim()) || 'Без названия',
                     schedule_days: scheduleDays,
                     schedule_time: `${scheduleItem.BeginTime}-${scheduleItem.EndTime}`,
                     lesson_location: scheduleItem.ClassroomName || scheduleItem.ClassroomLink || null,
@@ -3659,6 +3660,7 @@ Deno.serve(async (req) => {
                 if (groupId) {
                   groupUpdates.push({
                     id: groupId,
+                    name: (unit.Name && unit.Name.trim()) || 'Без названия',
                     schedule_days: scheduleDays,
                     lesson_start_time: scheduleItem.BeginTime || null,
                     lesson_end_time: scheduleItem.EndTime || null,
