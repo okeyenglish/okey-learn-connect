@@ -1595,9 +1595,9 @@ export const ChatArea = ({
             />
             
             {/* Bottom row: Icons on left, Send button on right */}
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-1 md:gap-2">
               {/* Left side - Action icons */}
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5 md:gap-1">
                 <FileUpload
                   onFileUpload={(fileInfo) => {
                     setAttachedFiles(prev => [...prev, fileInfo]);
@@ -1759,14 +1759,14 @@ export const ChatArea = ({
               
               {/* Right side - Send button taking up available space */}
               <Button 
-                className={`h-[40px] px-8 flex items-center gap-2 min-w-[140px] ${
+                className={`h-[40px] px-3 md:px-8 flex items-center gap-2 min-w-[44px] md:min-w-[140px] flex-shrink-0 ${
                   commentMode ? "bg-yellow-500 hover:bg-yellow-600" : ""
                 }`}
                 onClick={handleSendMessage}
                 disabled={loading || (!message.trim() && attachedFiles.length === 0) || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
               >
-                <Send className="h-4 w-4" />
-                <span>Отправить</span>
+                <Send className="h-4 w-4 flex-shrink-0" />
+                <span className="hidden md:inline">Отправить</span>
               </Button>
             </div>
           </div>
