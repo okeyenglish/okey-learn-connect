@@ -146,7 +146,14 @@ Deno.serve(async (req) => {
           .select();
         if (!familyGroupsError) stats.familyGroups = deletedGroups?.length || 0;
 
-        // 10. Delete leads
+        // 10. Delete lead branches (связаны с лидами)
+        const { error: leadBranchesError } = await supabase
+          .from('lead_branches')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+        if (leadBranchesError) console.error('Error deleting lead_branches:', leadBranchesError);
+
+        // 11. Delete leads
         const { data: deletedLeads, error: leadsError } = await supabase
           .from('leads')
           .delete()
@@ -175,7 +182,21 @@ Deno.serve(async (req) => {
           .neq('id', '00000000-0000-0000-0000-000000000000');
         if (chatMessagesError) console.error('Error deleting chat_messages:', chatMessagesError);
 
-        // 14. Delete clients
+        // 14. Delete client phone numbers (связаны с клиентами)
+        const { error: phonesError } = await supabase
+          .from('client_phone_numbers')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+        if (phonesError) console.error('Error deleting client_phone_numbers:', phonesError);
+
+        // 15. Delete client branches (связаны с клиентами)
+        const { error: clientBranchesError } = await supabase
+          .from('client_branches')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+        if (clientBranchesError) console.error('Error deleting client_branches:', clientBranchesError);
+
+        // 16. Delete clients
         const { data: deletedClients, error: clientsError } = await supabase
           .from('clients')
           .delete()
