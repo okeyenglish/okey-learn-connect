@@ -3739,8 +3739,6 @@ Deno.serve(async (req) => {
                     end_time: day.EndTime || day.endTime || '11:20',
                     status: day.Canceled ? 'cancelled' : 
                            day.IsCompleted || day.isCompleted ? 'completed' : 'scheduled',
-                    topic: day.Topic || day.topic || null,
-                    homework: day.Homework || day.homework || null,
                     notes: day.Notes || day.notes || null,
                     external_id: day.Id?.toString() || `${unit.Id}_${day.Date}`,
                     organization_id: orgId,
