@@ -1612,10 +1612,10 @@ export const ChatArea = ({
               disabled={loading || !!pendingMessage || isOtherUserTyping}
             />
             
-            {/* Bottom row: Icons on left, Send button on right */}
-            <div ref={composerRef} className="flex flex-wrap items-center justify-between gap-1 md:gap-2">
-              {/* Left side - Action icons */}
-              <div className="flex items-center gap-0.5 md:gap-1 flex-wrap">
+            {/* Bottom row: All icons in one line */}
+            <div ref={composerRef} className="flex items-center gap-0.5 md:gap-1">
+              {/* Action icons */}
+              <div className="flex items-center gap-0.5 md:gap-1 flex-1">
                 <FileUpload
                   onFileUpload={(fileInfo) => {
                     setAttachedFiles(prev => [...prev, fileInfo]);
@@ -1773,19 +1773,20 @@ export const ChatArea = ({
                     </DialogContent>
                   </Dialog>
                 )}
-              </div>
               
-              {/* Right side - Send button taking up available space */}
+              {/* Send button - same size as other icons */}
               <Button 
-                className={`h-[40px] px-3 md:px-8 flex items-center gap-2 min-w-[44px] md:min-w-[140px] flex-shrink-0 ${
-                  commentMode ? "bg-yellow-500 hover:bg-yellow-600" : ""
+                size="sm"
+                variant="ghost"
+                className={`h-8 w-8 p-0 ml-auto ${
+                  commentMode ? "bg-yellow-500 hover:bg-yellow-600 text-white" : ""
                 }`}
                 onClick={handleSendMessage}
                 disabled={loading || (!message.trim() && attachedFiles.length === 0) || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
               >
-                <Send className="h-4 w-4 flex-shrink-0" />
-                {isCompactComposer ? null : <span>Отправить</span>}
+                <Send className="h-4 w-4" />
               </Button>
+              </div>
             </div>
           </div>
         </div>
