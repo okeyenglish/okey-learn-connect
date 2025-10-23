@@ -2283,16 +2283,23 @@ Deno.serve(async (req) => {
         
         let importedCount = 0;
         for (const status of statuses) {
-          await supabase.from('client_statuses').upsert({
+          const { error } = await supabase.from('client_statuses').upsert({
             name: status.name || status.Name || 'Без названия',
             description: status.description || null,
             is_active: status.isActive !== false,
             sort_order: status.order || status.Order || 0,
             organization_id: orgId,
             external_id: status.id?.toString() || status.Id?.toString(),
-          }, { onConflict: 'external_id' });
-          importedCount++;
+          }, { onConflict: 'external_id,organization_id' });
+          
+          if (error) {
+            console.error('Error upserting client status:', error);
+          } else {
+            importedCount++;
+          }
         }
+        
+        console.log(`Successfully imported ${importedCount} of ${statuses.length} client statuses`);
         
         progress[0].status = 'completed';
         progress[0].count = importedCount;
@@ -2379,22 +2386,132 @@ Deno.serve(async (req) => {
         
         let importedCount = 0;
         for (const status of statuses) {
-          await supabase.from('lead_statuses').upsert({
+          const { error } = await supabase.from('lead_statuses').upsert({
             name: status.name || status.Name || 'Без названия',
             description: status.description || null,
             is_active: status.isActive !== false,
             sort_order: status.order || status.Order || 0,
             organization_id: orgId,
             external_id: status.id?.toString() || status.Id?.toString(),
-          }, { onConflict: 'external_id' });
-          importedCount++;
+          }, { onConflict: 'external_id,organization_id' });
+          
+          if (error) {
+            console.error('Error upserting lead status:', error);
+          } else {
+            importedCount++;
+          }
         }
+        
+        console.log(`Successfully imported ${importedCount} of ${statuses.length} lead statuses`);
         
         progress[0].status = 'completed';
         progress[0].count = importedCount;
         progress[0].message = `Imported ${importedCount} lead statuses`;
       } catch (error) {
         console.error('Error importing lead statuses:', error);
+        progress[0].status = 'error';
+        progress[0].error = error.message;
+      }
+
+      return new Response(JSON.stringify({ progress }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Preview: Student Statuses
+    if (action === 'preview_student_statuses') {
+      console.log('Previewing student statuses...');
+      try {
+        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetStudentStatuses?authkey=${HOLIHOPE_API_KEY}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const responseData = await response.json();
+        
+        // Normalize response structure
+        let statuses: any[] = [];
+        if (Array.isArray(responseData)) {
+          statuses = responseData;
+        } else if (Array.isArray(responseData?.Statuses)) {
+          statuses = responseData.Statuses;
+        } else if (Array.isArray(responseData?.statuses)) {
+          statuses = responseData.statuses;
+        } else if (responseData && typeof responseData === 'object') {
+          const firstArray = Object.values(responseData).find((v) => Array.isArray(v)) as any[] | undefined;
+          if (firstArray) statuses = firstArray;
+        }
+        
+        return new Response(JSON.stringify({
+          preview: true,
+          total: statuses.length,
+          sample: statuses.slice(0, 20),
+          mapping: { "id": "external_id", "name": "name" },
+          entityType: "student_statuses"
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500
+        });
+      }
+    }
+
+    // Import: Student Statuses
+    if (action === 'import_student_statuses') {
+      console.log('Importing student statuses...');
+      progress.push({ step: 'import_student_statuses', status: 'in_progress' });
+
+      try {
+        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetStudentStatuses?authkey=${HOLIHOPE_API_KEY}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const responseData = await response.json();
+        
+        // Normalize response structure
+        let statuses: any[] = [];
+        if (Array.isArray(responseData)) {
+          statuses = responseData;
+        } else if (Array.isArray(responseData?.Statuses)) {
+          statuses = responseData.Statuses;
+        } else if (Array.isArray(responseData?.statuses)) {
+          statuses = responseData.statuses;
+        } else if (responseData && typeof responseData === 'object') {
+          const firstArray = Object.values(responseData).find((v) => Array.isArray(v)) as any[] | undefined;
+          if (firstArray) statuses = firstArray;
+        }
+        
+        let importedCount = 0;
+        for (const status of statuses) {
+          const { error } = await supabase.from('student_statuses').upsert({
+            name: status.name || status.Name || 'Без названия',
+            description: status.description || null,
+            is_active: status.isActive !== false,
+            sort_order: status.order || status.Order || 0,
+            organization_id: orgId,
+            external_id: status.id?.toString() || status.Id?.toString(),
+          }, { onConflict: 'external_id,organization_id' });
+          
+          if (error) {
+            console.error('Error upserting student status:', error);
+          } else {
+            importedCount++;
+          }
+        }
+        
+        console.log(`Successfully imported ${importedCount} of ${statuses.length} student statuses`);
+        
+        progress[0].status = 'completed';
+        progress[0].count = importedCount;
+        progress[0].message = `Imported ${importedCount} student statuses`;
+      } catch (error) {
+        console.error('Error importing student statuses:', error);
         progress[0].status = 'error';
         progress[0].error = error.message;
       }

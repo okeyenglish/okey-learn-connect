@@ -1996,11 +1996,13 @@ export type Database = {
           color: string | null
           created_at: string
           description: string | null
+          external_id: string | null
           id: string
           is_active: boolean
           is_failure: boolean
           is_success: boolean
           name: string
+          organization_id: string | null
           sort_order: number
           updated_at: string
         }
@@ -2008,11 +2010,13 @@ export type Database = {
           color?: string | null
           created_at?: string
           description?: string | null
+          external_id?: string | null
           id?: string
           is_active?: boolean
           is_failure?: boolean
           is_success?: boolean
           name: string
+          organization_id?: string | null
           sort_order?: number
           updated_at?: string
         }
@@ -2020,11 +2024,13 @@ export type Database = {
           color?: string | null
           created_at?: string
           description?: string | null
+          external_id?: string | null
           id?: string
           is_active?: boolean
           is_failure?: boolean
           is_success?: boolean
           name?: string
+          organization_id?: string | null
           sort_order?: number
           updated_at?: string
         }
