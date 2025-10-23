@@ -96,7 +96,10 @@ Deno.serve(async (req) => {
         // 1) student_lesson_sessions -> 2) lesson_sessions -> 3) individual_lesson_sessions
         // 4) group_students (will write history) -> 5) group_history -> 6) learning_groups -> 7) individual_lessons
         const step = async (table: string) => {
-          const { error } = await supabase.from(table as any).delete();
+          const { error } = await supabase
+            .from(table as any)
+            .delete()
+            .not('id', 'is', null); // Необходимое условие для удаления всех записей
           if (error) console.error(`Error deleting from ${table}:`, error);
         };
 
