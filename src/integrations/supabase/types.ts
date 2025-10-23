@@ -2740,6 +2740,7 @@ export type Database = {
           address: string | null
           created_at: string
           email: string | null
+          holihope_id: number | null
           id: string
           is_active: boolean | null
           name: string
@@ -2754,6 +2755,7 @@ export type Database = {
           address?: string | null
           created_at?: string
           email?: string | null
+          holihope_id?: number | null
           id?: string
           is_active?: boolean | null
           name: string
@@ -2768,6 +2770,7 @@ export type Database = {
           address?: string | null
           created_at?: string
           email?: string | null
+          holihope_id?: number | null
           id?: string
           is_active?: boolean | null
           name?: string
