@@ -2429,7 +2429,7 @@ const CRMContent = () => {
                 </div>
               </div>
               <ScrollArea className="flex-1 min-h-0">
-                <div className="p-2 pb-24 flex flex-col min-h-full">
+                <div className="p-2 flex flex-col h-full">
                   {/* Закрепленные чаты */}
                    {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
                     <div className="mb-4">
@@ -2638,7 +2638,7 @@ const CRMContent = () => {
                   )}
 
                   {/* Активные чаты */}
-                  <div>
+                  <div className="flex-1 min-h-0 flex flex-col">
                      <div className="flex items-center justify-between px-2 py-1 mb-2">
                         <h3 className="text-xs font-normal text-muted-foreground uppercase tracking-wide pl-1">
                           Активные чаты
@@ -2801,7 +2801,7 @@ const CRMContent = () => {
                 </div>
               </div>
               <ScrollArea className="flex-1">
-                <div className="p-3 pb-24 flex flex-col min-h-full">
+                <div className="p-3 flex flex-col h-full">
                   {/* Закрепленные чаты */}
                   {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
                     <div className="mb-6">
@@ -2969,7 +2969,7 @@ const CRMContent = () => {
                   )}
 
                   {/* Активные чаты */}
-                  <div>
+                  <div className="flex-1 min-h-0 flex flex-col">
                      <div className="flex items-center justify-between px-2 py-2 mb-3">
                          <h3 className="text-sm font-normal text-muted-foreground uppercase tracking-wide pl-1">
                            Активные чаты
