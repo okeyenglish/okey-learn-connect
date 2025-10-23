@@ -3521,7 +3521,6 @@ Deno.serve(async (req) => {
         const unitsToImport = Array.from(uniqueUnits.values());
         console.log(`Unique units after deduplication: ${unitsToImport.length} (from ${allUnits.length} total)`);
         
-        let importedCount = 0;
         let typeStats = {};
         
         for (const unit of unitsToImport) {
@@ -3607,8 +3606,6 @@ Deno.serve(async (req) => {
             
             if (lessonError) {
               console.error(`❌ Error importing individual lesson ${unit.Id} (external_id: ${externalId}):`, JSON.stringify(lessonError));
-            } else {
-              importedCount++;
             }
           } else {
             // Import as learning_groups (Group, MiniGroup, etc.)
@@ -3651,8 +3648,6 @@ Deno.serve(async (req) => {
             
             if (groupError) {
               console.error(`❌ Error importing learning group ${unit.Id} (external_id: ${externalId}):`, JSON.stringify(groupError));
-            } else {
-              importedCount++;
             }
           }
         }
@@ -3919,8 +3914,12 @@ Deno.serve(async (req) => {
         
         const progressPercentage = Math.round((currentPosition / totalCombinations) * 100);
         
+        // Get actual counts from DB for accurate reporting
+        const uniqueUnitsProcessed = unitsToImport.length;
+        const duplicatesFiltered = fetchedCount - uniqueUnitsProcessed;
+        
         if (hasMore) {
-          progress[0].message = `Обработано ${currentPosition} из ${totalCombinations} комбинаций (${progressPercentage}%). Импортировано ${importedCount} единиц.`;
+          progress[0].message = `Обработано ${currentPosition}/${totalCombinations} комбинаций (${progressPercentage}%). Получено из API: ${fetchedCount}, уникальных: ${uniqueUnitsProcessed}, дубликатов отфильтровано: ${duplicatesFiltered}. Всего в БД: ${actualCount}`;
           // Include next batch parameters in response
           return new Response(JSON.stringify({ 
             progress,
@@ -3932,7 +3931,9 @@ Deno.serve(async (req) => {
             },
             stats: {
               totalFetched: fetchedCount,
-              totalImported: importedCount,
+              totalImported: actualCount,
+              uniqueInBatch: uniqueUnitsProcessed,
+              duplicatesFiltered: duplicatesFiltered,
               requestsProcessed: totalRequests,
               successfulRequests: successfulRequests,
               typeStats: typeStats,
@@ -3944,12 +3945,14 @@ Deno.serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         } else {
-          progress[0].message = `Импорт завершен: ${importedCount} учебных единиц. Типы: ${JSON.stringify(typeStats)}`;
+          progress[0].message = `Импорт завершен. Получено из API: ${fetchedCount}, уникальных после дедупликации: ${uniqueUnitsProcessed}, дубликатов: ${duplicatesFiltered}. Итого в БД: ${actualCount}. Типы: ${JSON.stringify(typeStats)}`;
           return new Response(JSON.stringify({ 
             progress,
             stats: {
               totalFetched: fetchedCount,
-              totalImported: importedCount,
+              totalImported: actualCount,
+              uniqueInBatch: uniqueUnitsProcessed,
+              duplicatesFiltered: duplicatesFiltered,
               requestsProcessed: totalRequests,
               successfulRequests: successfulRequests,
               typeStats: typeStats,
