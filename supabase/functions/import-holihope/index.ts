@@ -3010,7 +3010,9 @@ Deno.serve(async (req) => {
             is_active: true,
             organization_id: orgId,
             external_id: levelName, // Use name as external_id since no ID provided
-          }, { onConflict: 'external_id,organization_id' });
+            subject: disciplines.length > 0 ? disciplines[0] : null, // Store first discipline as main subject
+            holihope_metadata: level, // Store complete API response
+          }, { onConflict: 'organization_id,external_id' });
           importedCount++;
         }
         

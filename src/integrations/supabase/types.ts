@@ -3189,31 +3189,51 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          external_id: string | null
+          holihope_metadata: Json | null
           id: string
           is_active: boolean
           level_order: number
           name: string
+          organization_id: string | null
+          subject: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           description?: string | null
+          external_id?: string | null
+          holihope_metadata?: Json | null
           id?: string
           is_active?: boolean
           level_order?: number
           name: string
+          organization_id?: string | null
+          subject?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           description?: string | null
+          external_id?: string | null
+          holihope_metadata?: Json | null
           id?: string
           is_active?: boolean
           level_order?: number
           name?: string
+          organization_id?: string | null
+          subject?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "proficiency_levels_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
