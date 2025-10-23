@@ -485,7 +485,7 @@ export default function HolihopeImport() {
 
       toast({
         title: 'Удаление завершено!',
-        description: `Удалено: ${data.stats?.learningGroups || 0} групп, ${data.stats?.individualLessons || 0} индивидуальных уроков, ${data.stats?.lessonSessions || 0} занятий`,
+        description: `Удалено: ${data.stats?.learningGroups || 0} групп, ${data.stats?.individualLessons || 0} индивидуальных уроков, ${data.stats?.lessonSessions || 0} занятий, ${data.stats?.studentLessonSessions || 0} студенческих сессий`,
       });
     } catch (error: any) {
       console.error('Delete error:', error);

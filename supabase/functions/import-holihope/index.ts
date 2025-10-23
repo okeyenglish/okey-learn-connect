@@ -71,8 +71,10 @@ Deno.serve(async (req) => {
       
       try {
         const stats = {
+          studentLessonSessions: 0,
           lessonSessions: 0,
           individualSessions: 0,
+          groupHistory: 0,
           groupStudents: 0,
           learningGroups: 0,
           individualLessons: 0,
@@ -80,7 +82,16 @@ Deno.serve(async (req) => {
 
         // Delete in correct order due to foreign key constraints
         
-        // 1. Delete lesson sessions
+        // 1. Delete student_lesson_sessions (связаны с lesson_sessions)
+        const { data: deletedStudentSessions, error: studentSessionsError } = await supabase
+          .from('student_lesson_sessions')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000')
+          .select();
+        if (!studentSessionsError) stats.studentLessonSessions = deletedStudentSessions?.length || 0;
+        if (studentSessionsError) console.error('Error deleting student_lesson_sessions:', studentSessionsError);
+
+        // 2. Delete lesson sessions
         const { data: deletedSessions, error: sessionsError } = await supabase
           .from('lesson_sessions')
           .delete()
@@ -89,7 +100,7 @@ Deno.serve(async (req) => {
         if (!sessionsError) stats.lessonSessions = deletedSessions?.length || 0;
         if (sessionsError) console.error('Error deleting lesson_sessions:', sessionsError);
 
-        // 2. Delete individual lesson sessions
+        // 3. Delete individual lesson sessions
         const { data: deletedIndivSessions, error: indivSessionsError } = await supabase
           .from('individual_lesson_sessions')
           .delete()
@@ -98,7 +109,16 @@ Deno.serve(async (req) => {
         if (!indivSessionsError) stats.individualSessions = deletedIndivSessions?.length || 0;
         if (indivSessionsError) console.error('Error deleting individual_lesson_sessions:', indivSessionsError);
 
-        // 3. Delete group students
+        // 4. Delete group_history (связана с learning_groups)
+        const { data: deletedHistory, error: historyError } = await supabase
+          .from('group_history')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000')
+          .select();
+        if (!historyError) stats.groupHistory = deletedHistory?.length || 0;
+        if (historyError) console.error('Error deleting group_history:', historyError);
+
+        // 5. Delete group students
         const { data: deletedGroupStudents, error: groupStudentsError } = await supabase
           .from('group_students')
           .delete()
@@ -107,7 +127,7 @@ Deno.serve(async (req) => {
         if (!groupStudentsError) stats.groupStudents = deletedGroupStudents?.length || 0;
         if (groupStudentsError) console.error('Error deleting group_students:', groupStudentsError);
 
-        // 4. Delete learning groups
+        // 6. Delete learning groups
         const { data: deletedGroups, error: groupsError } = await supabase
           .from('learning_groups')
           .delete()
@@ -116,7 +136,7 @@ Deno.serve(async (req) => {
         if (!groupsError) stats.learningGroups = deletedGroups?.length || 0;
         if (groupsError) console.error('Error deleting learning_groups:', groupsError);
 
-        // 5. Delete individual lessons
+        // 7. Delete individual lessons
         const { data: deletedIndivLessons, error: indivLessonsError } = await supabase
           .from('individual_lessons')
           .delete()
@@ -159,35 +179,49 @@ Deno.serve(async (req) => {
 
         // Delete in correct order due to foreign key constraints
         
-        // 1. Delete lesson sessions
+        // 1. Delete student_lesson_sessions (связаны с lesson_sessions)
+        const { error: studentSessionsError } = await supabase
+          .from('student_lesson_sessions')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+        if (studentSessionsError) console.error('Error deleting student_lesson_sessions:', studentSessionsError);
+
+        // 2. Delete lesson sessions
         const { error: sessionsError } = await supabase
           .from('lesson_sessions')
           .delete()
           .neq('id', '00000000-0000-0000-0000-000000000000');
         if (sessionsError) console.error('Error deleting lesson_sessions:', sessionsError);
 
-        // 2. Delete individual lesson sessions
+        // 3. Delete individual lesson sessions
         const { error: indivSessionsError } = await supabase
           .from('individual_lesson_sessions')
           .delete()
           .neq('id', '00000000-0000-0000-0000-000000000000');
         if (indivSessionsError) console.error('Error deleting individual_lesson_sessions:', indivSessionsError);
 
-        // 3. Delete group students
+        // 4. Delete group_history (связана с learning_groups)
+        const { error: historyError } = await supabase
+          .from('group_history')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+        if (historyError) console.error('Error deleting group_history:', historyError);
+
+        // 5. Delete group students
         const { error: groupStudentsError } = await supabase
           .from('group_students')
           .delete()
           .neq('id', '00000000-0000-0000-0000-000000000000');
         if (groupStudentsError) console.error('Error deleting group_students:', groupStudentsError);
 
-        // 4. Delete learning groups
+        // 6. Delete learning groups
         const { error: groupsError } = await supabase
           .from('learning_groups')
           .delete()
           .neq('id', '00000000-0000-0000-0000-000000000000');
         if (groupsError) console.error('Error deleting learning_groups:', groupsError);
 
-        // 5. Delete individual lessons
+        // 7. Delete individual lessons
         const { error: indivLessonsError } = await supabase
           .from('individual_lessons')
           .delete()
@@ -232,7 +266,7 @@ Deno.serve(async (req) => {
           .neq('id', '00000000-0000-0000-0000-000000000000');
         if (leadBranchesError) console.error('Error deleting lead_branches:', leadBranchesError);
 
-        // 11. Delete leads (using service role to bypass RLS)
+        // 11. Delete leads in batches to avoid timeout
         console.log('Deleting leads...');
         const { count: leadsCount, error: leadsCountError } = await supabase
           .from('leads')
@@ -244,18 +278,37 @@ Deno.serve(async (req) => {
           console.log(`Found ${leadsCount} leads to delete`);
         }
         
-        const { data: deletedLeads, error: leadsError } = await supabase
-          .from('leads')
-          .delete()
-          .neq('id', '00000000-0000-0000-0000-000000000000')
-          .select();
+        // Delete leads in batches of 1000
+        let deletedLeadsCount = 0;
+        const batchSize = 1000;
         
-        if (leadsError) {
-          console.error('Error deleting leads:', leadsError);
-        } else {
-          stats.leads = deletedLeads?.length || 0;
-          console.log(`Deleted ${stats.leads} leads`);
+        while (true) {
+          const { data: leadBatch, error: fetchError } = await supabase
+            .from('leads')
+            .select('id')
+            .limit(batchSize);
+          
+          if (fetchError || !leadBatch || leadBatch.length === 0) break;
+          
+          const leadIds = leadBatch.map(l => l.id);
+          const { error: deleteError } = await supabase
+            .from('leads')
+            .delete()
+            .in('id', leadIds);
+          
+          if (deleteError) {
+            console.error('Error deleting leads batch:', deleteError);
+            break;
+          }
+          
+          deletedLeadsCount += leadBatch.length;
+          console.log(`Deleted ${deletedLeadsCount} leads so far...`);
+          
+          if (leadBatch.length < batchSize) break;
         }
+        
+        stats.leads = deletedLeadsCount;
+        console.log(`Total deleted ${stats.leads} leads`);
 
         // 11. Delete call comments (связаны с клиентами)
         const { error: callCommentsError } = await supabase
