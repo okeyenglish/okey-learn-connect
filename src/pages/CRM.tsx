@@ -277,11 +277,13 @@ const CRMContent = () => {
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
   
-  // Auto-collapse right panel on small screens
+  // Auto-manage right panel state based on screen size
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 1280) { // xl breakpoint
-        setRightPanelCollapsed(true);
+      if (window.innerWidth > 1200) {
+        setRightPanelCollapsed(false); // Открыта на больших экранах
+      } else {
+        setRightPanelCollapsed(true); // Закрыта на малых экранах
       }
     };
     
