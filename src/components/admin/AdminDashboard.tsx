@@ -11,6 +11,7 @@ import ReferencesSection from "@/components/references/ReferencesSection";
 import { FamilyGroupsCleanup } from "./FamilyGroupsCleanup";
 import { FamilyMembersManager } from "./FamilyMembersManager";
 import { FamilyGroupSplitter } from "./FamilyGroupSplitter";
+import { FamilyMembersRestorer } from "./FamilyMembersRestorer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -45,6 +46,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <FamilyMembersManager />;
       case "family-splitter":
         return <FamilyGroupSplitter />;
+      case "family-restorer":
+        return <FamilyMembersRestorer />;
       case "sync":
         return (
           <Card>
@@ -133,6 +136,13 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 <CardHeader>
                   <CardTitle>Разделение семейных групп</CardTitle>
                   <CardDescription>Разделение студентов на отдельные группы</CardDescription>
+                </CardHeader>
+              </Card>
+              
+              <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("family-restorer")}>
+                <CardHeader>
+                  <CardTitle>Восстановление связей родителей</CardTitle>
+                  <CardDescription>Автоматическое связывание студентов с родителями</CardDescription>
                 </CardHeader>
               </Card>
               
