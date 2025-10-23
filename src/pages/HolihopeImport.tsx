@@ -25,6 +25,7 @@ export default function HolihopeImport() {
   const [isImportingChats, setIsImportingChats] = useState(false);
   const [chatImportStatus, setChatImportStatus] = useState<string>('');
   const [isClearing, setIsClearing] = useState(false);
+  const [isDeletingEdUnits, setIsDeletingEdUnits] = useState(false);
   const [steps, setSteps] = useState<ImportStep[]>([
     { id: 'clear', name: '1. Архивация данных', description: 'Пометка существующих данных как неактивных', action: 'clear_data', status: 'pending' },
     { id: 'offices', name: '2. Филиалы', description: 'Импорт филиалов/офисов', action: 'import_locations', status: 'pending' },
@@ -464,6 +465,40 @@ export default function HolihopeImport() {
     setShouldStopImport(false);
   };
 
+  const deleteEdUnitsAndSchedule = async () => {
+    if (!confirm('⚠️ ВНИМАНИЕ! Это действие удалит:\n\n• Все учебные единицы (группы, индивидуальные)\n• Все занятия и расписание\n• Связи ученик-группа\n\nЭто действие НЕОБРАТИМО!\n\nВы уверены?')) {
+      return;
+    }
+
+    setIsDeletingEdUnits(true);
+    toast({
+      title: 'Начинаю удаление учебных единиц и расписания...',
+      description: 'Удаление групп, занятий и расписания',
+    });
+
+    try {
+      const { data, error } = await supabase.functions.invoke('import-holihope', {
+        body: { action: 'delete_ed_units_and_schedule' },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Удаление завершено!',
+        description: `Удалено: ${data.stats?.learningGroups || 0} групп, ${data.stats?.individualLessons || 0} индивидуальных уроков, ${data.stats?.lessonSessions || 0} занятий`,
+      });
+    } catch (error: any) {
+      console.error('Delete error:', error);
+      toast({
+        title: 'Ошибка удаления',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeletingEdUnits(false);
+    }
+  };
+
   const clearAllData = async () => {
     if (!confirm('⚠️ ВНИМАНИЕ! Это действие удалит ВСЕ данные:\n\n• Всех учеников\n• Всех клиентов\n• Все семейные группы и связи\n• Всех лидов\n• Все связанные данные\n\nЭто действие НЕОБРАТИМО!\n\nВы уверены?')) {
       return;
@@ -556,8 +591,24 @@ export default function HolihopeImport() {
         </div>
         <div className="flex gap-2">
           <Button
+            onClick={deleteEdUnitsAndSchedule}
+            disabled={isImporting || isDeletingEdUnits || isClearing}
+            variant="outline"
+            className="border-orange-500 text-orange-600 hover:bg-orange-50"
+            size="lg"
+          >
+            {isDeletingEdUnits ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Удаление...
+              </>
+            ) : (
+              '🗑️ Удалить учебные единицы + расписание'
+            )}
+          </Button>
+          <Button
             onClick={clearAllData}
-            disabled={isImporting || isClearing}
+            disabled={isImporting || isClearing || isDeletingEdUnits}
             variant="destructive"
             size="lg"
           >

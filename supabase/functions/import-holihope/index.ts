@@ -65,6 +65,85 @@ Deno.serve(async (req) => {
     
     const progress: ImportProgress[] = [];
 
+    // Delete educational units and schedules only
+    if (action === 'delete_ed_units_and_schedule') {
+      console.log('Starting deletion of educational units and schedules...');
+      
+      try {
+        const stats = {
+          lessonSessions: 0,
+          individualSessions: 0,
+          groupStudents: 0,
+          learningGroups: 0,
+          individualLessons: 0,
+        };
+
+        // Delete in correct order due to foreign key constraints
+        
+        // 1. Delete lesson sessions
+        const { data: deletedSessions, error: sessionsError } = await supabase
+          .from('lesson_sessions')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000')
+          .select();
+        if (!sessionsError) stats.lessonSessions = deletedSessions?.length || 0;
+        if (sessionsError) console.error('Error deleting lesson_sessions:', sessionsError);
+
+        // 2. Delete individual lesson sessions
+        const { data: deletedIndivSessions, error: indivSessionsError } = await supabase
+          .from('individual_lesson_sessions')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000')
+          .select();
+        if (!indivSessionsError) stats.individualSessions = deletedIndivSessions?.length || 0;
+        if (indivSessionsError) console.error('Error deleting individual_lesson_sessions:', indivSessionsError);
+
+        // 3. Delete group students
+        const { data: deletedGroupStudents, error: groupStudentsError } = await supabase
+          .from('group_students')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000')
+          .select();
+        if (!groupStudentsError) stats.groupStudents = deletedGroupStudents?.length || 0;
+        if (groupStudentsError) console.error('Error deleting group_students:', groupStudentsError);
+
+        // 4. Delete learning groups
+        const { data: deletedGroups, error: groupsError } = await supabase
+          .from('learning_groups')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000')
+          .select();
+        if (!groupsError) stats.learningGroups = deletedGroups?.length || 0;
+        if (groupsError) console.error('Error deleting learning_groups:', groupsError);
+
+        // 5. Delete individual lessons
+        const { data: deletedIndivLessons, error: indivLessonsError } = await supabase
+          .from('individual_lessons')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000')
+          .select();
+        if (!indivLessonsError) stats.individualLessons = deletedIndivLessons?.length || 0;
+        if (indivLessonsError) console.error('Error deleting individual_lessons:', indivLessonsError);
+
+        console.log('Educational units deletion stats:', stats);
+
+        return new Response(
+          JSON.stringify({ 
+            success: true,
+            stats,
+            message: 'Учебные единицы и расписание успешно удалены'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (error) {
+        console.error('Error during educational units deletion:', error);
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // Step 1: Delete all data completely
     if (action === 'delete_all_data') {
       console.log('Starting complete data deletion...');
