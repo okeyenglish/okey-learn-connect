@@ -3732,11 +3732,20 @@ Deno.serve(async (req) => {
                 const groupId = groupIdCache.get(externalId);
 
                 if (groupId) {
+                  // Calculate day_of_week from lesson_date
+                  const lessonDate = new Date(day.Date || day.date);
+                  const dayOfWeekMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                  const dayOfWeek = dayOfWeekMap[lessonDate.getDay()];
+                  
                   groupSessionsToUpsert.push({
                     group_id: groupId,
+                    teacher_name: unit.ScheduleItems?.[0]?.TeacherName || 'Преподаватель не назначен',
+                    branch: unit.OfficeOrCompanyName || 'Окская',
+                    classroom: unit.ScheduleItems?.[0]?.ClassroomName || 'Не указан',
                     lesson_date: day.Date || day.date,
                     start_time: day.BeginTime || day.beginTime || '10:00',
                     end_time: day.EndTime || day.endTime || '11:20',
+                    day_of_week: dayOfWeek,
                     status: day.Canceled ? 'cancelled' : 
                            day.IsCompleted || day.isCompleted ? 'completed' : 'scheduled',
                     notes: day.Notes || day.notes || null,
