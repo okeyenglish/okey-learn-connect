@@ -1368,19 +1368,6 @@ export const ChatArea = ({
             </div>
           </div>
         )}
-        
-        {/* Fallback open button pinned in header when right panel is collapsed */}
-        {!isMobile && onToggleRightPanel && rightPanelCollapsed && (
-          <Button
-            size="icon"
-            variant="outline"
-            className="absolute top-2 right-2 h-8 w-8"
-            title="Показать семейную группу"
-            onClick={onToggleRightPanel}
-          >
-            <PanelLeft className="h-4 w-4" />
-          </Button>
-        )}
       </div>
 
       {/* Drag overlay */}
