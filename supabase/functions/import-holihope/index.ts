@@ -83,65 +83,58 @@ Deno.serve(async (req) => {
         // Delete in correct order due to foreign key constraints
         
         // 1. Delete student_lesson_sessions (связаны с lesson_sessions)
-        const { data: deletedStudentSessions, error: studentSessionsError } = await supabase
-          .from('student_lesson_sessions')
-          .delete()
-          .neq('id', '00000000-0000-0000-0000-000000000000')
-          .select();
+          const { data: deletedStudentSessions, error: studentSessionsError } = await supabase
+            .from('student_lesson_sessions')
+            .delete()
+            .select();
         if (!studentSessionsError) stats.studentLessonSessions = deletedStudentSessions?.length || 0;
         if (studentSessionsError) console.error('Error deleting student_lesson_sessions:', studentSessionsError);
 
         // 2. Delete lesson sessions
-        const { data: deletedSessions, error: sessionsError } = await supabase
-          .from('lesson_sessions')
-          .delete()
-          .neq('id', '00000000-0000-0000-0000-000000000000')
-          .select();
+          const { data: deletedSessions, error: sessionsError } = await supabase
+            .from('lesson_sessions')
+            .delete()
+            .select();
         if (!sessionsError) stats.lessonSessions = deletedSessions?.length || 0;
         if (sessionsError) console.error('Error deleting lesson_sessions:', sessionsError);
 
         // 3. Delete individual lesson sessions
-        const { data: deletedIndivSessions, error: indivSessionsError } = await supabase
-          .from('individual_lesson_sessions')
-          .delete()
-          .neq('id', '00000000-0000-0000-0000-000000000000')
-          .select();
+          const { data: deletedIndivSessions, error: indivSessionsError } = await supabase
+            .from('individual_lesson_sessions')
+            .delete()
+            .select();
         if (!indivSessionsError) stats.individualSessions = deletedIndivSessions?.length || 0;
         if (indivSessionsError) console.error('Error deleting individual_lesson_sessions:', indivSessionsError);
 
         // 4. Delete group_history (связана с learning_groups)
-        const { data: deletedHistory, error: historyError } = await supabase
-          .from('group_history')
-          .delete()
-          .neq('id', '00000000-0000-0000-0000-000000000000')
-          .select();
+          const { data: deletedHistory, error: historyError } = await supabase
+            .from('group_history')
+            .delete()
+            .select();
         if (!historyError) stats.groupHistory = deletedHistory?.length || 0;
         if (historyError) console.error('Error deleting group_history:', historyError);
 
         // 5. Delete group students
-        const { data: deletedGroupStudents, error: groupStudentsError } = await supabase
-          .from('group_students')
-          .delete()
-          .neq('id', '00000000-0000-0000-0000-000000000000')
-          .select();
+          const { data: deletedGroupStudents, error: groupStudentsError } = await supabase
+            .from('group_students')
+            .delete()
+            .select();
         if (!groupStudentsError) stats.groupStudents = deletedGroupStudents?.length || 0;
         if (groupStudentsError) console.error('Error deleting group_students:', groupStudentsError);
 
         // 6. Delete learning groups
-        const { data: deletedGroups, error: groupsError } = await supabase
-          .from('learning_groups')
-          .delete()
-          .neq('id', '00000000-0000-0000-0000-000000000000')
-          .select();
+          const { data: deletedGroups, error: groupsError } = await supabase
+            .from('learning_groups')
+            .delete()
+            .select();
         if (!groupsError) stats.learningGroups = deletedGroups?.length || 0;
         if (groupsError) console.error('Error deleting learning_groups:', groupsError);
 
         // 7. Delete individual lessons
-        const { data: deletedIndivLessons, error: indivLessonsError } = await supabase
-          .from('individual_lessons')
-          .delete()
-          .neq('id', '00000000-0000-0000-0000-000000000000')
-          .select();
+          const { data: deletedIndivLessons, error: indivLessonsError } = await supabase
+            .from('individual_lessons')
+            .delete()
+            .select();
         if (!indivLessonsError) stats.individualLessons = deletedIndivLessons?.length || 0;
         if (indivLessonsError) console.error('Error deleting individual_lessons:', indivLessonsError);
 
