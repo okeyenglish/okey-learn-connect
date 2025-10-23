@@ -56,6 +56,8 @@ export const useChatThreads = () => {
   const { data: threads, isLoading, error } = useQuery({
     queryKey: ['chat-threads'],
     queryFn: async () => {
+      console.log('[useChatThreads] Fetching chat messages...');
+      
       // Fetch chat messages
       const { data: messagesData, error: messagesError } = await supabase
         .from('chat_messages')
@@ -64,6 +66,7 @@ export const useChatThreads = () => {
           message_text,
           created_at,
           is_read,
+          salebot_message_id,
           clients (
             id,
             name,
@@ -72,7 +75,17 @@ export const useChatThreads = () => {
         `)
         .order('created_at', { ascending: false });
       
-      if (messagesError) throw messagesError;
+      if (messagesError) {
+        console.error('[useChatThreads] Error fetching messages:', messagesError);
+        throw messagesError;
+      }
+      
+      console.log('[useChatThreads] Messages fetched:', {
+        total: messagesData?.length || 0,
+        withClients: messagesData?.filter((m: any) => m.clients).length || 0,
+        withoutClients: messagesData?.filter((m: any) => !m.clients).length || 0,
+        salebotMessages: messagesData?.filter((m: any) => m.salebot_message_id).length || 0,
+      });
 
       // Fetch call logs
       const { data: callsData, error: callsError } = await supabase
@@ -101,7 +114,16 @@ export const useChatThreads = () => {
         const clientId = message.client_id;
         const client = message.clients;
         
-        if (!client) return;
+        // Логируем сообщения без клиентов
+        if (!client) {
+          console.warn('[useChatThreads] Message without client:', {
+            messageId: message.id,
+            clientId,
+            salebotId: message.salebot_message_id,
+            messageText: message.message_text?.substring(0, 50)
+          });
+          return;
+        }
         
         if (!threadsMap.has(clientId)) {
           threadsMap.set(clientId, {
