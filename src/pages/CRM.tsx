@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -115,17 +115,20 @@ import { TeacherMessagesPanel } from "@/components/crm/TeacherMessagesPanel";
 import { UserPermissionsManager } from "@/components/admin/UserPermissionsManager";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
-import { LeadsModalContent } from "@/components/leads/LeadsModalContent";
-import { StudentsModal } from "@/components/crm/StudentsModal";
-import { StudentsLeadsModal } from "@/components/students/StudentsLeadsModal";
-import { ImportStudentsModal } from "@/components/students/ImportStudentsModal";
-import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
-import { NewFinancesSection } from "@/components/finances/NewFinancesSection";
-import { AIHub } from "@/components/ai-hub/AIHub";
-import ScheduleSection from "@/components/crm/sections/ScheduleSection";
-import { DocumentsSection } from "@/components/documents/DocumentsSection";
-import { AnalyticsSection } from "@/components/analytics/AnalyticsSection";
-import { CommunicationsSection } from "@/components/communications/CommunicationsSection";
+
+// Lazy load тяжелых компонентов модальных окон для быстрого открытия
+const LeadsModalContent = lazy(() => import("@/components/leads/LeadsModalContent").then(m => ({ default: m.LeadsModalContent })));
+const StudentsModal = lazy(() => import("@/components/crm/StudentsModal").then(m => ({ default: m.StudentsModal })));
+const StudentsLeadsModal = lazy(() => import("@/components/students/StudentsLeadsModal").then(m => ({ default: m.StudentsLeadsModal })));
+const ImportStudentsModal = lazy(() => import("@/components/students/ImportStudentsModal").then(m => ({ default: m.ImportStudentsModal })));
+const EnhancedStudentCard = lazy(() => import("@/components/students/EnhancedStudentCard").then(m => ({ default: m.EnhancedStudentCard })));
+const NewFinancesSection = lazy(() => import("@/components/finances/NewFinancesSection").then(m => ({ default: m.NewFinancesSection })));
+const AIHub = lazy(() => import("@/components/ai-hub/AIHub").then(m => ({ default: m.AIHub })));
+const ScheduleSection = lazy(() => import("@/components/crm/sections/ScheduleSection"));
+const DocumentsSection = lazy(() => import("@/components/documents/DocumentsSection").then(m => ({ default: m.DocumentsSection })));
+const AnalyticsSection = lazy(() => import("@/components/analytics/AnalyticsSection").then(m => ({ default: m.AnalyticsSection })));
+const CommunicationsSection = lazy(() => import("@/components/communications/CommunicationsSection").then(m => ({ default: m.CommunicationsSection })));
+
 import { OrganizationSettings } from "@/components/settings/OrganizationSettings";
 import { BranchesSettings } from "@/components/settings/BranchesSettings";
 import { BrandingSettings } from "@/components/settings/BrandingSettings";
@@ -1383,36 +1386,44 @@ const CRMContent = () => {
                       >
                         <item.icon className="h-5 w-5 ml-2" />
                       </PinnableModalHeader>
-                      <div>
-                        {item.label === "Лиды" && (
-                          <LeadsModalContent />
-                        )}
-                        {item.label === "Расписание" && (
-                          <div className="h-full">
-                            <ScheduleSection />
+                      <Suspense fallback={
+                        <div className="flex items-center justify-center h-64">
+                          <div className="text-center">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                            <p className="text-muted-foreground">Загрузка...</p>
                           </div>
-                        )}
-                        {item.label === "Финансы" && (
-                          <div className="h-full">
-                            <NewFinancesSection />
-                          </div>
-                        )}
-                        {item.label === "Отчёты" && (
-                          <div className="h-full">
-                            <AnalyticsSection />
-                          </div>
-                        )}
-                        {item.label === "Уведомления" && (
-                          <div className="h-full">
-                            <CommunicationsSection />
-                          </div>
-                        )}
-                        {item.label === "Документы" && (
-                          <div className="h-full">
-                            <DocumentsSection />
-                          </div>
-                        )}
-                        {item.label === "Мои задачи" && (
+                        </div>
+                      }>
+                        <div>
+                          {openModal === item.label && item.label === "Лиды" && (
+                            <LeadsModalContent />
+                          )}
+                          {openModal === item.label && item.label === "Расписание" && (
+                            <div className="h-full">
+                              <ScheduleSection />
+                            </div>
+                          )}
+                          {openModal === item.label && item.label === "Финансы" && (
+                            <div className="h-full">
+                              <NewFinancesSection />
+                            </div>
+                          )}
+                          {openModal === item.label && item.label === "Отчёты" && (
+                            <div className="h-full">
+                              <AnalyticsSection />
+                            </div>
+                          )}
+                          {openModal === item.label && item.label === "Уведомления" && (
+                            <div className="h-full">
+                              <CommunicationsSection />
+                            </div>
+                          )}
+                          {openModal === item.label && item.label === "Документы" && (
+                            <div className="h-full">
+                              <DocumentsSection />
+                            </div>
+                          )}
+                        {openModal === item.label && item.label === "Мои задачи" && (
                           <div className="space-y-4">
                             {/* Переключение между списком и календарем */}
                             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-2">
@@ -2202,7 +2213,7 @@ const CRMContent = () => {
                           </div>
                         )}
                         
-                        {item.label === "Настройки" && (
+                        {openModal === item.label && item.label === "Настройки" && (
                           <Tabs defaultValue="organization" className="space-y-6">
                             <TabsList className="grid w-full grid-cols-5">
                               <TabsTrigger value="organization" className="gap-2">
@@ -2249,7 +2260,7 @@ const CRMContent = () => {
                           </Tabs>
                         )}
                         
-                        {item.label === "Админ-панель" && canAccessAdmin && (
+                        {openModal === item.label && item.label === "Админ-панель" && canAccessAdmin && (
                           <SidebarProvider>
                             <div className="flex h-full w-full">
                               <AdminSidebar onSectionChange={setAdminActiveSection} />
@@ -2260,13 +2271,14 @@ const CRMContent = () => {
                           </SidebarProvider>
                         )}
                         
-                        {item.label === "Ученики" && (
+                        {openModal === item.label && item.label === "Ученики" && (
                           <div className="h-full overflow-hidden">
                             <StudentsModal open={true} onOpenChange={() => {}} pinnedModals={{ pinnedModals, loading: pinnedLoading, pinModal, unpinModal, openPinnedModal, closePinnedModal, isPinned }} />
                           </div>
                         )}
                         
                       </div>
+                      </Suspense>
                     </PinnableDialogContent>
                   </Dialog>
                 ))}
