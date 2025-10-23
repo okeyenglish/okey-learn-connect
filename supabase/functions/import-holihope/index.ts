@@ -3719,15 +3719,11 @@ Deno.serve(async (req) => {
                   individualSessionsToUpsert.push({
                     individual_lesson_id: individualLessonId,
                     lesson_date: day.Date || day.date,
-                    start_time: day.BeginTime || day.beginTime || '10:00',
-                    end_time: day.EndTime || day.endTime || '11:20',
                     status: day.Canceled ? 'cancelled' : 
-                           day.IsCompleted || day.isCompleted ? 'completed' : 'scheduled',
-                    topic: day.Topic || day.topic || null,
-                    homework: day.Homework || day.homework || null,
+                           (day.IsCompleted || day.isCompleted ? 'completed' : 'scheduled'),
                     notes: day.Notes || day.notes || null,
-                    external_id: day.Id?.toString() || `${unit.Id}_${day.Date}`,
-                    organization_id: organizationId,
+                    duration: 80,
+                    organization_id: orgId,
                   });
                   
                   totalIndividualLessons++;
@@ -3747,7 +3743,7 @@ Deno.serve(async (req) => {
                     homework: day.Homework || day.homework || null,
                     notes: day.Notes || day.notes || null,
                     external_id: day.Id?.toString() || `${unit.Id}_${day.Date}`,
-                    organization_id: organizationId,
+                    organization_id: orgId,
                   });
                   
                   totalGroupLessons++;
@@ -3777,7 +3773,7 @@ Deno.serve(async (req) => {
           console.log(`Upserting ${individualSessionsToUpsert.length} individual sessions...`);
           const { error: individualSessionError } = await supabase
             .from('individual_lesson_sessions')
-            .upsert(individualSessionsToUpsert, { onConflict: 'external_id' });
+            .upsert(individualSessionsToUpsert, { onConflict: 'individual_lesson_id,lesson_date' });
           
           if (individualSessionError) {
             console.error('❌ Error upserting individual sessions:', individualSessionError);
