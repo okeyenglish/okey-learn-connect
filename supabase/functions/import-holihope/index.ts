@@ -3420,6 +3420,9 @@ Deno.serve(async (req) => {
         let nextOfficeIndex = startOfficeIndex;
         let nextStatusIndex = startStatusIndex;
         let nextTimeIndex = startTimeIndex;
+        let currentPosition = (startOfficeIndex * statuses.length * timeRanges.length) + 
+                               (startStatusIndex * timeRanges.length) + 
+                               startTimeIndex;
         
         // Step 2: For each office, fetch units by status and time range
         outerLoop: for (let oi = startOfficeIndex; oi < officeIds.length; oi++) {
@@ -3437,6 +3440,7 @@ Deno.serve(async (req) => {
                 nextOfficeIndex = oi;
                 nextStatusIndex = si;
                 nextTimeIndex = ti;
+                currentPosition = (oi * statuses.length * timeRanges.length) + (si * timeRanges.length) + ti;
                 console.log(`Batch limit reached. Next batch should start at: office=${oi}, status=${si}, time=${ti}`);
                 break outerLoop;
               }
@@ -3445,7 +3449,7 @@ Deno.serve(async (req) => {
                 const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnits?authkey=${HOLIHOPE_API_KEY}&officeOrCompanyId=${encodeURIComponent(officeId)}&statuses=${encodeURIComponent(status)}&timeFrom=${encodeURIComponent(timeRange.from)}&timeTo=${encodeURIComponent(timeRange.to)}&queryDays=true&queryFiscalInfo=true&queryTeacherPrices=true&dateFrom=${dateFrom}&dateTo=${dateTo}`;
                 totalRequests++;
                 
-                const currentPosition = (oi * statuses.length * timeRanges.length) + (si * timeRanges.length) + ti + 1;
+                currentPosition = (oi * statuses.length * timeRanges.length) + (si * timeRanges.length) + ti + 1;
                 console.log(`[${currentPosition}/${totalCombinations}] Fetching: Office=${officeId}, Status=${status}, Time=${timeRange.from}-${timeRange.to}`);
                 
                 const response = await fetch(apiUrl, {
@@ -3913,8 +3917,10 @@ Deno.serve(async (req) => {
         progress[0].count = actualCount;
         progress[0].hasMore = hasMore;
         
+        const progressPercentage = Math.round((currentPosition / totalCombinations) * 100);
+        
         if (hasMore) {
-          progress[0].message = `Batch completed: Imported ${importedCount} units from ${successfulRequests} requests. Continue with next batch.`;
+          progress[0].message = `Обработано ${currentPosition} из ${totalCombinations} комбинаций (${progressPercentage}%). Импортировано ${importedCount} единиц.`;
           // Include next batch parameters in response
           return new Response(JSON.stringify({ 
             progress,
@@ -3929,13 +3935,16 @@ Deno.serve(async (req) => {
               totalImported: importedCount,
               requestsProcessed: totalRequests,
               successfulRequests: successfulRequests,
-              typeStats: typeStats
+              typeStats: typeStats,
+              currentPosition: currentPosition,
+              totalCombinations: totalCombinations,
+              progressPercentage: progressPercentage
             }
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         } else {
-          progress[0].message = `Import completed: ${importedCount} educational units imported. Types: ${JSON.stringify(typeStats)}`;
+          progress[0].message = `Импорт завершен: ${importedCount} учебных единиц. Типы: ${JSON.stringify(typeStats)}`;
           return new Response(JSON.stringify({ 
             progress,
             stats: {
@@ -3943,7 +3952,10 @@ Deno.serve(async (req) => {
               totalImported: importedCount,
               requestsProcessed: totalRequests,
               successfulRequests: successfulRequests,
-              typeStats: typeStats
+              typeStats: typeStats,
+              currentPosition: totalCombinations,
+              totalCombinations: totalCombinations,
+              progressPercentage: 100
             }
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }

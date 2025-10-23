@@ -213,8 +213,11 @@ export default function HolihopeImport() {
                 totalFetched += stats?.totalFetched || 0;
                 
                 const hasMore = progress?.hasMore || false;
+                const progressPercent = stats?.progressPercentage || 0;
+                const currentPos = stats?.currentPosition || 0;
+                const totalCombs = stats?.totalCombinations || 1615;
                 
-                console.log(`Batch completed: imported=${stats?.totalImported}, fetched=${stats?.totalFetched}, hasMore=${hasMore}, nextBatch=`, nextBatch);
+                console.log(`Batch completed: imported=${stats?.totalImported}, fetched=${stats?.totalFetched}, hasMore=${hasMore}, progress=${progressPercent}%`);
                 
                 setSteps((prev) =>
                   prev.map((s) =>
@@ -222,7 +225,7 @@ export default function HolihopeImport() {
                       ? {
                           ...s,
                           count: totalImported,
-                          message: `Импортировано ${totalImported} учебных единиц (получено ${totalFetched})${hasMore ? ' (продолжается...)' : ''}`,
+                          message: `Обработано ${currentPos}/${totalCombs} комбинаций (${progressPercent}%). Импортировано: ${totalImported} единиц.`,
                           status: hasMore ? 'in_progress' : 'completed',
                         }
                       : s
@@ -266,7 +269,7 @@ export default function HolihopeImport() {
               break;
             }
           }
-        } 
+        }
         else {
           const result = await executeStep(step);
           if (!result.success) break;
@@ -385,8 +388,11 @@ export default function HolihopeImport() {
             totalFetched += stats?.totalFetched || 0;
             
             const hasMore = progress?.hasMore || false;
+            const progressPercent = stats?.progressPercentage || 0;
+            const currentPos = stats?.currentPosition || 0;
+            const totalCombs = stats?.totalCombinations || 1615;
             
-            console.log(`Batch completed: imported=${stats?.totalImported}, fetched=${stats?.totalFetched}, hasMore=${hasMore}, nextBatch=`, nextBatch);
+            console.log(`Batch completed: imported=${stats?.totalImported}, fetched=${stats?.totalFetched}, hasMore=${hasMore}, progress=${progressPercent}%`);
             
             setSteps((prev) =>
               prev.map((s) =>
@@ -394,7 +400,7 @@ export default function HolihopeImport() {
                   ? {
                       ...s,
                       count: totalImported,
-                      message: `Импортировано ${totalImported} учебных единиц (получено ${totalFetched})${hasMore ? ' (продолжается...)' : ''}`,
+                      message: `Обработано ${currentPos}/${totalCombs} комбинаций (${progressPercent}%). Импортировано: ${totalImported} единиц.`,
                       status: hasMore ? 'in_progress' : 'completed',
                     }
                   : s
@@ -404,7 +410,7 @@ export default function HolihopeImport() {
             if (!hasMore) {
               toast({
                 title: 'Успешно',
-                description: `${step.name} завершен. Всего импортировано: ${totalImported} (получено ${totalFetched})`,
+                description: `${step.name} завершен. Всего импортировано: ${totalImported}`,
               });
               console.log('No more data, stopping loop');
               break;
