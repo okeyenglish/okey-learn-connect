@@ -1096,7 +1096,7 @@ export const ChatArea = ({
       }}
     >
       {/* Chat Header */}
-      <div className={`border-b shrink-0 ${isMobile ? 'bg-background sticky top-0 z-20' : 'p-3'}`}>
+      <div className={`border-b shrink-0 relative ${isMobile ? 'bg-background sticky top-0 z-20' : 'p-3'}`}>
         {/* Mobile: Compact header with contact info and actions on the same line */}
         {isMobile && (
           <div className="flex items-center justify-between p-3 bg-background border-b">
@@ -1367,6 +1367,19 @@ export const ChatArea = ({
               )}
             </div>
           </div>
+        )}
+        
+        {/* Fallback open button pinned in header when right panel is collapsed */}
+        {!isMobile && onToggleRightPanel && rightPanelCollapsed && (
+          <Button
+            size="icon"
+            variant="outline"
+            className="absolute top-2 right-2 h-8 w-8"
+            title="Показать семейную группу"
+            onClick={onToggleRightPanel}
+          >
+            <PanelLeft className="h-4 w-4" />
+          </Button>
         )}
       </div>
 
