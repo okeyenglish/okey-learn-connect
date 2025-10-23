@@ -683,6 +683,34 @@ Deno.serve(async (req) => {
             }
             allPhones.push(...agentPhones);
             
+            // Extract all branches for this lead
+            const extractBranches = (lead: any): string[] => {
+              const branchesSet = new Set<string>();
+              
+              if (lead.location) branchesSet.add(lead.location);
+              if (lead.Location) branchesSet.add(lead.Location);
+              if (lead.branch) branchesSet.add(lead.branch);
+              if (lead.Branch) branchesSet.add(lead.Branch);
+              
+              if (Array.isArray(lead.OfficesAndCompanies)) {
+                lead.OfficesAndCompanies.forEach((office: any) => {
+                  if (office?.Name) branchesSet.add(office.Name);
+                });
+              }
+              
+              if (Array.isArray(lead.Offices)) {
+                lead.Offices.forEach((office: any) => {
+                  if (typeof office === 'string') branchesSet.add(office);
+                  else if (office?.Name) branchesSet.add(office.Name);
+                });
+              }
+              
+              const branches = Array.from(branchesSet).filter(b => b && b.trim());
+              return branches.length > 0 ? branches : ['Окская'];
+            };
+
+            const leadBranches = extractBranches(lead);
+            
             leadsData.push({
               leadInfo: {
                 first_name: lead.firstName || lead.FirstName || '',
@@ -692,7 +720,7 @@ Deno.serve(async (req) => {
                 age: lead.age || lead.Age || null,
                 subject: lead.subject || lead.Subject || null,
                 level: lead.level || lead.Level || null,
-                branch: lead.location || lead.Location || lead.branch || 'Окская',
+                branch: leadBranches[0], // First branch for backward compatibility
                 notes: lead.notes || lead.comment || lead.Comment || null,
                 status_id: statusId,
                 lead_source_id: null,
@@ -702,6 +730,7 @@ Deno.serve(async (req) => {
               agentPhones,
               allPhones,
               agents,
+              branches: leadBranches, // Store all branches
             });
           });
 
@@ -745,6 +774,7 @@ Deno.serve(async (req) => {
                   name: `${ld.leadInfo.first_name} ${ld.leadInfo.last_name}`.trim() || 'Без имени',
                   email: ld.leadInfo.email,
                   branch: ld.leadInfo.branch,
+                  branches: ld.branches, // Store all branches
                 });
               }
               
@@ -757,6 +787,7 @@ Deno.serve(async (req) => {
                     name: agentName,
                     email: agent?.EMail || agent?.email || null,
                     branch: ld.leadInfo.branch,
+                    branches: ld.branches, // Store all branches
                   });
                 }
               });
@@ -799,6 +830,32 @@ Deno.serve(async (req) => {
                 await supabase
                   .from('client_phone_numbers')
                   .insert(phoneRecords);
+                
+                // Insert client branches
+                const clientBranchRecords = [];
+                newClients.forEach((client, idx) => {
+                  const phone = phonesToCreateClients[i + idx];
+                  const source = phoneToSourceMap.get(phone);
+                  
+                  if (source?.branches) {
+                    source.branches.forEach((branch: string) => {
+                      clientBranchRecords.push({
+                        client_id: client.id,
+                        branch: branch,
+                      });
+                    });
+                  }
+                });
+                
+                if (clientBranchRecords.length > 0) {
+                  const { error: branchError } = await supabase
+                    .from('client_branches')
+                    .upsert(clientBranchRecords, { onConflict: 'client_id,branch' });
+                  
+                  if (branchError) {
+                    console.error('Error inserting client branches:', branchError);
+                  }
+                }
                 
                 // Map phones to new client IDs
                 newClients.forEach((client, idx) => {
@@ -908,6 +965,38 @@ Deno.serve(async (req) => {
                 leadIdMap.set(key, lead.id);
               });
             }
+          }
+
+          // Insert lead branches
+          console.log('Inserting lead branches...');
+          const leadBranchRecords = [];
+          
+          leadsData.forEach((ld) => {
+            const leadKey = `${ld.leadInfo.first_name}_${ld.leadInfo.last_name}_${ld.leadInfo.phone || ''}_${ld.leadInfo.email || ''}`;
+            const leadId = leadIdMap.get(leadKey);
+            
+            if (leadId && ld.branches) {
+              ld.branches.forEach((branch: string) => {
+                leadBranchRecords.push({
+                  lead_id: leadId,
+                  branch: branch,
+                });
+              });
+            }
+          });
+          
+          if (leadBranchRecords.length > 0) {
+            for (let i = 0; i < leadBranchRecords.length; i += 200) {
+              const batch = leadBranchRecords.slice(i, i + 200);
+              const { error: branchError } = await supabase
+                .from('lead_branches')
+                .upsert(batch, { onConflict: 'lead_id,branch' });
+              
+              if (branchError) {
+                console.error('Error inserting lead branches:', branchError);
+              }
+            }
+            console.log(`Inserted ${leadBranchRecords.length} lead branch associations`);
           }
 
           // Step 6: Create family member links
@@ -1163,7 +1252,18 @@ Deno.serve(async (req) => {
               }
             }
             
-            const branch = (student.OfficesAndCompanies?.[0]?.Name) || student.location || student.Location || 'Окская';
+            // Extract all branches for this student
+            const studentBranches = [];
+            if (Array.isArray(student.OfficesAndCompanies)) {
+              student.OfficesAndCompanies.forEach((office: any) => {
+                if (office?.Name) studentBranches.push(office.Name);
+              });
+            }
+            if (studentBranches.length === 0) {
+              studentBranches.push(student.location || student.Location || 'Окская');
+            }
+            
+            const branch = studentBranches[0]; // First branch for backward compatibility
             const rawDob = student.Birthday || student.dateOfBirth || student.DateOfBirth || null;
             const dobISO = parseDateToISO(rawDob);
             const providedAge = Number(student.age || student.Age);
@@ -1201,6 +1301,7 @@ Deno.serve(async (req) => {
                 organization_id: orgId,
               },
               branch,
+              branches: studentBranches, // Store all branches
               studentPhone,
               agentPhones,
               agents,
@@ -1243,6 +1344,7 @@ Deno.serve(async (req) => {
                   name: `${sd.studentInfo.first_name} ${sd.studentInfo.last_name}`.trim() || 'Без имени',
                   email: sd.studentInfo.lk_email,
                   branch: sd.branch,
+                  branches: sd.branches, // Store all branches
                 });
               }
               
@@ -1255,6 +1357,7 @@ Deno.serve(async (req) => {
                     name: agentName,
                     email: agent?.EMail || agent?.email || null,
                     branch: sd.branch,
+                    branches: sd.branches, // Store all branches
                   });
                 }
               });
@@ -1295,6 +1398,28 @@ Deno.serve(async (req) => {
                 await supabase
                   .from('client_phone_numbers')
                   .insert(phoneRecords);
+                
+                // Insert client branches
+                const clientBranchRecords = [];
+                newClients.forEach((client, idx) => {
+                  const phone = phonesToCreateClients[i + idx];
+                  const source = phoneToSourceMap.get(phone);
+                  
+                  if (source?.branches) {
+                    source.branches.forEach((branch: string) => {
+                      clientBranchRecords.push({
+                        client_id: client.id,
+                        branch: branch,
+                      });
+                    });
+                  }
+                });
+                
+                if (clientBranchRecords.length > 0) {
+                  await supabase
+                    .from('client_branches')
+                    .upsert(clientBranchRecords, { onConflict: 'client_id,branch' });
+                }
                 
                 newClients.forEach((client, idx) => {
                   phoneToClientMap.set(phonesToCreateClients[i + idx], client.id);

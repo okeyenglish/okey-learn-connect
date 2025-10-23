@@ -12,6 +12,7 @@ export interface Client {
   avatar_url?: string;
   is_active: boolean;
   branch?: string;
+  branches?: string[]; // Multiple branches
   created_at: string;
   updated_at: string;
 }
@@ -36,12 +37,13 @@ export const useClients = () => {
       try {
         const { data, error } = await supabase
           .from('clients')
-          .select('*')
+          .select(`
+            *,
+            client_branches (
+              branch
+            )
+          `)
           .eq('is_active', true)
-          .not('name', 'ilike', 'Преподаватель:%')
-          .not('name', 'ilike', 'Teacher:%')
-          .not('name', 'ilike', 'Чат педагогов - %')
-          .not('name', 'ilike', 'Корпоративный чат - %')
           .order('created_at', { ascending: false });
         
         if (error) {
@@ -49,7 +51,11 @@ export const useClients = () => {
           throw error;
         }
         console.log('Clients fetched successfully:', data?.length);
-        return data as Client[];
+        
+        return (data || []).map(client => ({
+          ...client,
+          branches: client.client_branches?.map((b: any) => b.branch) || [],
+        })) as Client[];
       } catch (err) {
         console.error('Client fetch failed:', err);
         throw err;
@@ -175,10 +181,6 @@ export const useSearchClients = () => {
         .select('*')
         .or(`name.ilike.%${query}%,phone.ilike.%${query}%,email.ilike.%${query}%`)
         .eq('is_active', true)
-        .not('name', 'ilike', 'Преподаватель:%')
-        .not('name', 'ilike', 'Teacher:%')
-        .not('name', 'ilike', 'Чат педагогов - %')
-        .not('name', 'ilike', 'Корпоративный чат - %')
         .limit(10);
 
       if (error) throw error;

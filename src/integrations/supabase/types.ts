@@ -558,6 +558,35 @@ export type Database = {
           },
         ]
       }
+      client_branches: {
+        Row: {
+          branch: string
+          client_id: string
+          created_at: string | null
+          id: string
+        }
+        Insert: {
+          branch: string
+          client_id: string
+          created_at?: string | null
+          id?: string
+        }
+        Update: {
+          branch?: string
+          client_id?: string
+          created_at?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_branches_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_phone_numbers: {
         Row: {
           client_id: string
@@ -1805,6 +1834,35 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_branches: {
+        Row: {
+          branch: string
+          created_at: string | null
+          id: string
+          lead_id: string
+        }
+        Insert: {
+          branch: string
+          created_at?: string | null
+          id?: string
+          lead_id: string
+        }
+        Update: {
+          branch?: string
+          created_at?: string | null
+          id?: string
+          lead_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_branches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
             referencedColumns: ["id"]
           },
         ]
