@@ -173,7 +173,7 @@ export default function HolihopeImport() {
           let totalImported = 0;
           let totalFetched = 0;
           let batchParams = { 
-            batch_size: 1, // Minimal batch to avoid CPU timeouts during schedule processing
+            batch_size: 10, // Process 10 requests per batch for faster import
             office_index: 0,
             status_index: 0,
             time_index: 0
@@ -345,7 +345,7 @@ export default function HolihopeImport() {
           let totalImported = 0;
           let totalFetched = 0;
           let batchParams = { 
-            batch_size: 1, // Minimal batch to avoid CPU timeouts during schedule processing
+            batch_size: 10, // Process 10 requests per batch for faster import
             office_index: 0,
             status_index: 0,
             time_index: 0

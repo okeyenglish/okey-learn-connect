@@ -313,10 +313,6 @@ export const FamilyCard = ({
               </div>
             )}
             <div className="flex items-center gap-2">
-              <Clock className="h-3 w-3 text-muted-foreground" />
-              <span>День рождения: 25.12.1993</span>
-            </div>
-            <div className="flex items-center gap-2">
               <Home className="h-3 w-3 text-muted-foreground" />
               {isChangingBranch ? (
                 <select 

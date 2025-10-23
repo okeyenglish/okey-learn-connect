@@ -1075,7 +1075,8 @@ Deno.serve(async (req) => {
           clusterToAgentsMap.forEach((agentPhones, clusterId) => {
             const firstAgent = clusterToFirstAgentMap.get(clusterId);
             const agentName = `${firstAgent?.LastName || firstAgent?.lastName || ''} ${firstAgent?.FirstName || firstAgent?.firstName || ''}`.trim() || 'Без имени';
-            const familyName = `Семья ${agentName}`;
+            const firstAgentPhone = Array.from(agentPhones)[0];
+            const familyName = `Семья ${agentName} (${firstAgentPhone})`;
             
             if (!familyGroupsToCreate.find(fg => fg.name === familyName)) {
               const childLeadKeys = clusterToChildrenMap.get(clusterId) || [];
@@ -1736,7 +1737,8 @@ Deno.serve(async (req) => {
           clusterToAgentsMap.forEach((agentPhones, clusterId) => {
             const firstAgent = clusterToFirstAgentMap.get(clusterId);
             const agentName = `${firstAgent?.LastName || firstAgent?.lastName || ''} ${firstAgent?.FirstName || firstAgent?.firstName || ''}`.trim() || 'Без имени';
-            const familyName = `Семья ${agentName}`;
+            const firstAgentPhone = Array.from(agentPhones)[0];
+            const familyName = `Семья ${agentName} (${firstAgentPhone})`;
             
             if (!familyGroupsToCreate.find(fg => fg.name === familyName)) {
               const childStudentKeys = clusterToChildrenMap.get(clusterId) || [];
@@ -1851,7 +1853,8 @@ Deno.serve(async (req) => {
               if (clusterId !== undefined) {
                 const firstAgent = clusterToFirstAgentMap.get(clusterId);
                 const agentName = `${firstAgent?.LastName || firstAgent?.lastName || ''} ${firstAgent?.FirstName || firstAgent?.firstName || ''}`.trim() || 'Без имени';
-                const familyName = `Семья ${agentName}`;
+                const clusterFirstPhone = Array.from(clusterToAgentsMap.get(clusterId))[0];
+                const familyName = `Семья ${agentName} (${clusterFirstPhone})`;
                 familyGroupId = familyGroupNameToIdMap.get(familyName);
               }
             } else {
@@ -1914,7 +1917,8 @@ Deno.serve(async (req) => {
           clusterToAgentsMap.forEach((agentPhones, clusterId) => {
             const firstAgent = clusterToFirstAgentMap.get(clusterId);
             const agentName = `${firstAgent?.LastName || firstAgent?.lastName || ''} ${firstAgent?.FirstName || firstAgent?.firstName || ''}`.trim() || 'Без имени';
-            const familyName = `Семья ${agentName}`;
+            const firstAgentPhone = Array.from(agentPhones)[0];
+            const familyName = `Семья ${agentName} (${firstAgentPhone})`;
             const familyGroupId = familyGroupNameToIdMap.get(familyName);
             if (!familyGroupId) return;
             
