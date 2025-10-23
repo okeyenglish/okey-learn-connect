@@ -153,13 +153,30 @@ Deno.serve(async (req) => {
           .neq('id', '00000000-0000-0000-0000-000000000000');
         if (leadBranchesError) console.error('Error deleting lead_branches:', leadBranchesError);
 
-        // 11. Delete leads
+        // 11. Delete leads (using service role to bypass RLS)
+        console.log('Deleting leads...');
+        const { count: leadsCount, error: leadsCountError } = await supabase
+          .from('leads')
+          .select('*', { count: 'exact', head: true });
+        
+        if (leadsCountError) {
+          console.error('Error counting leads:', leadsCountError);
+        } else {
+          console.log(`Found ${leadsCount} leads to delete`);
+        }
+        
         const { data: deletedLeads, error: leadsError } = await supabase
           .from('leads')
           .delete()
           .neq('id', '00000000-0000-0000-0000-000000000000')
           .select();
-        if (!leadsError) stats.leads = deletedLeads?.length || 0;
+        
+        if (leadsError) {
+          console.error('Error deleting leads:', leadsError);
+        } else {
+          stats.leads = deletedLeads?.length || 0;
+          console.log(`Deleted ${stats.leads} leads`);
+        }
 
         // 11. Delete call comments (связаны с клиентами)
         const { error: callCommentsError } = await supabase
