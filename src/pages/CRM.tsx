@@ -20,6 +20,7 @@ import { useClientStatus } from "@/hooks/useClientStatus";
 import { useChatThreads, useRealtimeMessages, useMarkAsRead, useMarkAsUnread } from "@/hooks/useChatMessages";
 import { useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
 import { useStudents } from "@/hooks/useStudents";
+import { useStudentsCount } from "@/hooks/useStudentsCount";
 import { ChatArea } from "@/components/crm/ChatArea";
 import { CorporateChatArea } from "@/components/crm/CorporateChatArea";
 import { TeacherChatArea } from "@/components/crm/TeacherChatArea";
@@ -138,6 +139,7 @@ const CRMContent = () => {
   const { clients, isLoading: clientsLoading } = useClients();
   const { threads, isLoading: threadsLoading } = useChatThreads();
   const { students, isLoading: studentsLoading } = useStudents();
+  const { count: totalStudentsCount } = useStudentsCount();
   const { corporateChats, teacherChats, isLoading: systemChatsLoading } = useSystemChatMessages();
   const { 
     searchResults: clientSearchResults, 
@@ -374,7 +376,7 @@ const CRMContent = () => {
   const leadsCount = studentsLoading || groupStudentsLoading || individualLessonsLoading 
     ? 0 
     : (students || []).filter(s => !activeStudentIds.has(s.id)).length;
-  const studentsCount = students?.length ?? 0;
+  const studentsCount = totalStudentsCount ?? (students?.length ?? 0);
   
   // Детальная диагностика счётчиков
   useEffect(() => {
@@ -383,6 +385,7 @@ const CRMContent = () => {
       unreadTotal, 
       leadsCount, 
       studentsCount,
+      totalStudentsCount,
       studentsLoading,
       studentsArrayLength: students?.length,
       activeGroupStudentsCount: activeGroupStudents.length,
@@ -391,7 +394,7 @@ const CRMContent = () => {
       firstStudents: students?.slice(0, 3).map(s => ({ id: s.id, name: s.name, status: s.status })),
       lastStudents: students?.slice(-3).map(s => ({ id: s.id, name: s.name, status: s.status }))
     });
-  }, [students, tasksCount, unreadTotal, leadsCount, studentsCount, studentsLoading, activeGroupStudents, activeIndividualLessons, activeStudentIds]);
+  }, [students, tasksCount, unreadTotal, leadsCount, studentsCount, totalStudentsCount, studentsLoading, activeGroupStudents, activeIndividualLessons, activeStudentIds]);
   const getMenuCount = (label: string) => {
     if (label === "Мои задачи") return tasksCount;
     if (label === "Заявки") return unreadTotal;
@@ -1361,12 +1364,12 @@ const CRMContent = () => {
                         onClick={() => handleMenuClick(item.label)}
                       >
                         <item.icon className="h-4 w-4 shrink-0 text-muted-foreground stroke-1" />
-                        <span className="text-sm flex-1 text-foreground">
-                          {item.label}
-                          {getMenuCount(item.label) > 0 && (
-                            <span className="text-muted-foreground"> ({getMenuCount(item.label)})</span>
-                          )}
-                        </span>
+                <span className="text-sm flex-1 text-foreground">
+                  {item.label}
+                  {getMenuCount(item.label) > 0 && (
+                    <span className="text-muted-foreground"> ({getMenuCount(item.label)})</span>
+                  )}
+                </span>
                         <ExternalLink className="h-3 w-3 ml-auto text-muted-foreground/30" />
                       </button>
                     </DialogTrigger>

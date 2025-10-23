@@ -26,6 +26,7 @@ import {
   Upload
 } from "lucide-react";
 import { useStudents } from "@/hooks/useStudents";
+import { useStudentsCount } from "@/hooks/useStudentsCount";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
 import { ImportStudentsModal } from "@/components/students/ImportStudentsModal";
 import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
@@ -81,6 +82,7 @@ export const StudentsModal = ({ open, onOpenChange, children, pinnedModals: pinn
   const handleOpenChange = isControlled ? onOpenChange : setInternalOpen;
 
   const { students, isLoading } = useStudents();
+  const { count: totalStudentsCount } = useStudentsCount();
 
   // If open is true and onOpenChange is provided, render content without dialog
   if (open === true && onOpenChange) {
@@ -235,6 +237,7 @@ const StudentsContent = ({
   selectedStudent, setSelectedStudent, showStudentCard, setShowStudentCard,
   pinnedModals
 }: StudentsContentProps) => {
+  const { count: totalStudentsCount } = useStudentsCount();
   // Filter students based on current filters with proper null checks
   const filteredStudents = students.filter(student => {
     // Search filter - check name, phone, and email
@@ -430,11 +433,11 @@ const StudentsContent = ({
         <div className="flex flex-col h-full">
           <div className="px-6 py-3 border-b bg-background shrink-0">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                <h3 className="font-semibold">Список учеников</h3>
-                <Badge variant="secondary">{filteredStudents.length}</Badge>
-              </div>
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              <h3 className="font-semibold">Список учеников</h3>
+              <Badge variant="secondary">{totalStudentsCount || filteredStudents.length}</Badge>
+            </div>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
                   <Upload className="h-4 w-4 mr-2" />
