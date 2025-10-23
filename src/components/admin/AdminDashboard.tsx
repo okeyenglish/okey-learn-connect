@@ -86,6 +86,27 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <Card className="cursor-pointer hover:bg-muted/50 border-red-200 bg-red-50" onClick={() => setCurrentSection("family-reorganizer")}>
+                <CardHeader>
+                  <CardTitle className="text-red-600">⚠️ Полная реорганизация</CardTitle>
+                  <CardDescription>Пересоздание всех семейных групп с нуля</CardDescription>
+                </CardHeader>
+              </Card>
+
+              <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("family-restorer")}>
+                <CardHeader>
+                  <CardTitle>Восстановление связей родителей</CardTitle>
+                  <CardDescription>Автоматическое связывание студентов с родителями</CardDescription>
+                </CardHeader>
+              </Card>
+
+              <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("family-cleanup")}>
+                <CardHeader>
+                  <CardTitle>Очистка семейных групп</CardTitle>
+                  <CardDescription>Удаление дубликатов и исправление данных</CardDescription>
+                </CardHeader>
+              </Card>
+              
               <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("faq")}>
                 <CardHeader>
                   <CardTitle>FAQ Management</CardTitle>
@@ -121,13 +142,6 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 </CardHeader>
               </Card>
               
-              <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("family-cleanup")}>
-                <CardHeader>
-                  <CardTitle>Очистка семейных групп</CardTitle>
-                  <CardDescription>Удаление дубликатов и исправление данных</CardDescription>
-                </CardHeader>
-              </Card>
-              
               <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("family-members")}>
                 <CardHeader>
                   <CardTitle>Управление членами семьи</CardTitle>
@@ -139,20 +153,6 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 <CardHeader>
                   <CardTitle>Разделение семейных групп</CardTitle>
                   <CardDescription>Разделение студентов на отдельные группы</CardDescription>
-                </CardHeader>
-              </Card>
-              
-              <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("family-restorer")}>
-                <CardHeader>
-                  <CardTitle>Восстановление связей родителей</CardTitle>
-                  <CardDescription>Автоматическое связывание студентов с родителями</CardDescription>
-                </CardHeader>
-              </Card>
-              
-              <Card className="cursor-pointer hover:bg-muted/50 border-red-200" onClick={() => setCurrentSection("family-reorganizer")}>
-                <CardHeader>
-                  <CardTitle className="text-red-600">⚠️ Полная реорганизация</CardTitle>
-                  <CardDescription>Пересоздание всех семейных групп с нуля</CardDescription>
                 </CardHeader>
               </Card>
               
