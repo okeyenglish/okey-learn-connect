@@ -33,7 +33,8 @@ export const useStudentsWithFilters = (filters?: StudentFilters) => {
             )
           )
         `)
-        .order('created_at', { ascending: false }) as any;
+        .order('created_at', { ascending: false })
+        .limit(10000) as any; // Увеличен лимит до 10000 студентов
 
       // Поиск по имени, телефону, email
       if (filters?.searchTerm && filters.searchTerm.trim()) {
