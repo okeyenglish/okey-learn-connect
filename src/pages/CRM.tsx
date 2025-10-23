@@ -262,6 +262,7 @@ const CRMContent = () => {
   const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
   const [isPinnedSectionOpen, setIsPinnedSectionOpen] = useState(false);
   const [showOnlyUnread, setShowOnlyUnread] = useState(false);
+  const [activeClientInfo, setActiveClientInfo] = useState<{ name: string; phone: string; comment: string } | null>(null);
   
   // Состояния для модальных окон
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
@@ -876,6 +877,50 @@ const CRMContent = () => {
     setActiveChatId(chatId);
     setActiveChatType(chatType);
     
+    // Загружаем информацию о клиенте, если её нет в кэше
+    if (chatType === 'client' && isNewChat) {
+      const existingClient = clients.find(c => c.id === chatId);
+      const existingThread = threads.find(t => t.client_id === chatId);
+      
+      if (existingClient) {
+        setActiveClientInfo({
+          name: existingClient.name,
+          phone: existingClient.phone,
+          comment: existingClient.notes || 'Клиент'
+        });
+      } else if (existingThread) {
+        setActiveClientInfo({
+          name: existingThread.client_name,
+          phone: existingThread.client_phone,
+          comment: 'Клиент'
+        });
+      } else {
+        // Загружаем из базы данных
+        try {
+          const { data: clientData, error } = await supabase
+            .from('clients')
+            .select('name, phone, notes')
+            .eq('id', chatId)
+            .maybeSingle();
+          
+          if (!error && clientData) {
+            setActiveClientInfo({
+              name: clientData.name,
+              phone: clientData.phone || '',
+              comment: clientData.notes || 'Клиент'
+            });
+          } else {
+            setActiveClientInfo(null);
+          }
+        } catch (err) {
+          console.error('Error loading client info:', err);
+          setActiveClientInfo(null);
+        }
+      }
+    } else if (chatType !== 'client') {
+      setActiveClientInfo(null);
+    }
+    
     // Помечаем как прочитанное только при переключении на НОВЫЙ чат
     if (isNewChat) {
       // Сначала помечаем чат как прочитанный глобально для всех пользователей
@@ -914,7 +959,7 @@ const CRMContent = () => {
     if (isMobile) {
       setLeftSidebarOpen(false);
     }
-  }, [activeChatId, activeChatType, markChatAsReadGlobally, markChatMessagesAsReadMutation, markAsReadMutation, markAsRead, teacherChats, clients, isMobile]);
+  }, [activeChatId, activeChatType, markChatAsReadGlobally, markChatMessagesAsReadMutation, markAsReadMutation, markAsRead, teacherChats, clients, threads, isMobile]);
 
   const handleChatAction = useCallback((chatId: string, action: 'unread' | 'pin' | 'archive' | 'block') => {
     if (action === 'unread') {
@@ -985,6 +1030,12 @@ const CRMContent = () => {
 
   const getActiveClientInfo = (clientId?: string | null) => {
     const targetClientId = clientId || activeChatId;
+    
+    // Если запрашиваем активный чат и есть закэшированная информация
+    if (targetClientId === activeChatId && activeClientInfo) {
+      return activeClientInfo;
+    }
+    
     const targetClient = clients.find(client => client.id === targetClientId);
     const targetThread = threads.find(thread => thread.client_id === targetClientId);
     
