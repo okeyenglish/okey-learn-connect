@@ -45,51 +45,61 @@ export const FamilyGroupsCleanup = () => {
   const { data: issuesData, isLoading } = useQuery({
     queryKey: ['family-groups-issues', page],
     queryFn: async () => {
-      // Получаем все данные одним запросом
-      const [groupsRes, studentsRes, membersRes] = await Promise.all([
-        supabase.from('family_groups').select('id, name').order('name', { ascending: true }).range((page - 1) * pageSize, page * pageSize - 1),
-        supabase.from('students').select('id, name, family_group_id'),
-        supabase.from('family_members').select(`
-          id,
-          family_group_id,
-          client_id,
-          relationship_type,
-          clients:client_id (name)
-        `)
-      ]);
+      // 1) Загружаем страницу групп
+      const groupsRes = await supabase
+        .from('family_groups')
+        .select('id, name')
+        .order('name', { ascending: true })
+        .range((page - 1) * pageSize, page * pageSize - 1);
 
       if (groupsRes.error) throw groupsRes.error;
+      const groups = groupsRes.data || [];
+      const groupIds = groups.map(g => g.id);
+      if (groupIds.length === 0) return [] as FamilyGroupIssue[];
+
+      // 2) Загружаем только нужных студентов и членов семей по текущим группам
+      const [studentsRes, membersRes] = await Promise.all([
+        supabase
+          .from('students')
+          .select('id, name, family_group_id')
+          .in('family_group_id', groupIds),
+        supabase
+          .from('family_members')
+          .select(`
+            id,
+            family_group_id,
+            client_id,
+            relationship_type,
+            clients:client_id (name)
+          `)
+          .in('family_group_id', groupIds)
+      ]);
+
       if (studentsRes.error) throw studentsRes.error;
       if (membersRes.error) throw membersRes.error;
 
-      // Группируем студентов по family_group_id
-      const studentsByGroup = new Map<string, typeof studentsRes.data>();
-      (studentsRes.data || []).forEach(student => {
-        if (!studentsByGroup.has(student.family_group_id)) {
-          studentsByGroup.set(student.family_group_id, []);
-        }
-        studentsByGroup.get(student.family_group_id)!.push(student);
+      // 3) Группируем локально
+      const studentsByGroup = new Map<string, Array<{ id: string; name: string }>>();
+      (studentsRes.data || []).forEach(s => {
+        if (!studentsByGroup.has(s.family_group_id)) studentsByGroup.set(s.family_group_id, []);
+        studentsByGroup.get(s.family_group_id)!.push({ id: s.id, name: s.name });
       });
 
-      // Группируем членов семьи по family_group_id
-      const membersByGroup = new Map<string, typeof membersRes.data>();
-      (membersRes.data || []).forEach(member => {
-        if (!membersByGroup.has(member.family_group_id)) {
-          membersByGroup.set(member.family_group_id, []);
-        }
-        membersByGroup.get(member.family_group_id)!.push(member);
+      const membersByGroup = new Map<string, Array<any>>();
+      (membersRes.data || []).forEach(m => {
+        if (!membersByGroup.has(m.family_group_id)) membersByGroup.set(m.family_group_id, []);
+        membersByGroup.get(m.family_group_id)!.push(m);
       });
 
       const issues: FamilyGroupIssue[] = [];
 
-      for (const group of groupsRes.data || []) {
+      for (const group of groups) {
         const students = studentsByGroup.get(group.id) || [];
         const members = membersByGroup.get(group.id) || [];
 
         const studentsCount = students.length;
         const membersCount = members.length;
 
-        // Проблема: есть дубликаты клиентов в family_members
         const uniqueClientIds = new Set(members.map(m => m.client_id));
         const hasDuplicates = uniqueClientIds.size < membersCount;
 
@@ -99,10 +109,7 @@ export const FamilyGroupsCleanup = () => {
             familyGroupName: group.name,
             studentsCount,
             membersCount,
-            students: students.map(s => ({
-              id: s.id,
-              name: s.name,
-            })),
+            students,
             members: members.map(m => ({
               id: m.id,
               clientId: m.client_id,
@@ -165,38 +172,38 @@ export const FamilyGroupsCleanup = () => {
   // Удаление всех дубликатов сразу
   const removeAllDuplicates = useMutation({
     mutationFn: async () => {
-      if (!issuesData) return 0;
+      // Глобальная очистка по всей таблице family_members
+      // 1) Получаем минимальные данные для дедупликации
+      const { data, error } = await supabase
+        .from('family_members')
+        .select('id, family_group_id, client_id');
+      if (error) throw error;
 
-      let totalDeleted = 0;
+      const all = data || [];
 
-      for (const issue of issuesData) {
-        const clientGroups = new Map<string, typeof issue.members>();
-        issue.members.forEach(member => {
-          if (!clientGroups.has(member.clientId)) {
-            clientGroups.set(member.clientId, []);
-          }
-          clientGroups.get(member.clientId)!.push(member);
-        });
-
-        const idsToDelete: string[] = [];
-        clientGroups.forEach((membersList) => {
-          if (membersList.length > 1) {
-            idsToDelete.push(...membersList.slice(1).map(m => m.id));
-          }
-        });
-
-        if (idsToDelete.length > 0) {
-          const { error } = await supabase
-            .from('family_members')
-            .delete()
-            .in('id', idsToDelete);
-
-          if (error) throw error;
-          totalDeleted += idsToDelete.length;
-        }
+      // 2) Группируем по паре (family_group_id, client_id)
+      const map = new Map<string, string[]>();
+      for (const row of all) {
+        const key = `${row.family_group_id}_${row.client_id}`;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(row.id);
       }
 
-      return totalDeleted;
+      // 3) Оставляем по одному id, остальные удаляем
+      const idsToDelete: string[] = [];
+      map.forEach((ids) => {
+        if (ids.length > 1) idsToDelete.push(...ids.slice(1));
+      });
+
+      if (idsToDelete.length === 0) return 0;
+
+      const { error: delError } = await supabase
+        .from('family_members')
+        .delete()
+        .in('id', idsToDelete);
+      if (delError) throw delError;
+
+      return idsToDelete.length;
     },
     onSuccess: (deletedCount) => {
       toast.success(`Удалено ${deletedCount} дубликатов из всех групп`);

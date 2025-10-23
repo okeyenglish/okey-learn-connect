@@ -123,35 +123,38 @@ export const FamilyMembersManager = () => {
   // Удаление всех дубликатов
   const deleteAllDuplicates = useMutation({
     mutationFn: async () => {
-      if (!familyMembers) return 0;
+      // Глобальная дедупликация по всей таблице
+      const { data, error } = await supabase
+        .from('family_members')
+        .select('id, family_group_id, client_id');
+      if (error) throw error;
 
-      // Группируем по family_group_id и client_id
-      const groupedByFamilyAndClient = new Map<string, FamilyMemberRecord[]>();
-      
-      familyMembers.forEach(member => {
-        const key = `${member.familyGroupId}_${member.clientId}`;
-        if (!groupedByFamilyAndClient.has(key)) {
-          groupedByFamilyAndClient.set(key, []);
-        }
-        groupedByFamilyAndClient.get(key)!.push(member);
-      });
+      const rows = data || [];
 
-      // Находим дубликаты
+      // Собираем дубликаты по ключу (group, client)
+      const map = new Map<string, string[]>();
+      for (const r of rows) {
+        const key = `${r.family_group_id}_${r.client_id}`;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(r.id);
+      }
+
       const idsToDelete: string[] = [];
-      groupedByFamilyAndClient.forEach(members => {
-        if (members.length > 1) {
-          // Оставляем первую запись, остальные удаляем
-          idsToDelete.push(...members.slice(1).map(m => m.id));
-        }
+      map.forEach((ids) => {
+        if (ids.length > 1) idsToDelete.push(...ids.slice(1));
       });
 
-      if (idsToDelete.length > 0) {
-        const { error } = await supabase
+      if (idsToDelete.length === 0) return 0;
+
+      // Удаляем чанками, чтобы не упереться в лимиты URL/SQL
+      const chunkSize = 1000;
+      for (let i = 0; i < idsToDelete.length; i += chunkSize) {
+        const chunk = idsToDelete.slice(i, i + chunkSize);
+        const { error: delErr } = await supabase
           .from('family_members')
           .delete()
-          .in('id', idsToDelete);
-
-        if (error) throw error;
+          .in('id', chunk);
+        if (delErr) throw delErr;
       }
 
       return idsToDelete.length;
