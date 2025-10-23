@@ -96,6 +96,7 @@ export const FamilyCard = ({
                        familyData.members.find(m => m.isPrimaryContact) || 
                        familyData.members[0];
   const otherMembers = familyData.members.filter(m => m.id !== activeMember?.id);
+  const parentMembers = otherMembers.filter(m => m.relationship === 'parent');
 
   const getRelationshipLabel = (relationship: string) => {
     switch (relationship) {
@@ -375,7 +376,7 @@ export const FamilyCard = ({
               )}
             </TabsTrigger>
             <TabsTrigger value="contacts" className="relative flex items-center justify-between">
-              <span>Семья ({otherMembers.length})</span>
+              <span>Семья ({parentMembers.length})</span>
               {activeTab === 'contacts' && (
                 <AddFamilyMemberModal 
                   familyGroupId={familyGroupId}
@@ -474,19 +475,23 @@ export const FamilyCard = ({
         </TabsContent>
 
         <TabsContent value="contacts" className="space-y-2 mt-4">
-          {otherMembers.length === 0 ? (
+          {parentMembers.length === 0 ? (
             <div className="text-center py-6">
               <Users className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
               <p className="text-sm text-muted-foreground mb-3">
-                Пока нет связанных контактов
+                Пока нет родителей в семье
               </p>
             </div>
           ) : (
             <div className="space-y-2">
-              {otherMembers.map((member) => {
+              {parentMembers.map((member) => {
                 const RelationIcon = getRelationshipIcon(member.relationship);
                 return (
-                  <Card key={member.id} className="hover:bg-muted/30 transition-colors cursor-pointer">
+                  <Card 
+                    key={member.id} 
+                    className="hover:bg-muted/30 transition-colors cursor-pointer"
+                    onClick={() => onOpenChat?.(member.id)}
+                  >
                     <CardContent className="p-3">
                       <div className="flex items-center justify-between">
                          <div className="flex items-center gap-3 flex-1">
@@ -528,20 +533,14 @@ export const FamilyCard = ({
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => onOpenChat?.(member.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenChat?.(member.id);
+                            }}
                             className="h-6 w-6 p-0"
                             title="Открыть чат"
                           >
                             <MessageCircle className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => onSwitchMember?.(member.id)}
-                            className="h-6 w-6 p-0"
-                            title="Переключиться"
-                          >
-                            <ArrowLeftRight className="h-3 w-3" />
                           </Button>
                         </div>
                       </div>
