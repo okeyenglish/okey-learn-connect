@@ -70,80 +70,50 @@ Deno.serve(async (req) => {
       console.log('Starting deletion of educational units and schedules...');
       
       try {
-        const stats = {
-          studentLessonSessions: 0,
-          lessonSessions: 0,
-          individualSessions: 0,
-          groupHistory: 0,
-          groupStudents: 0,
-          learningGroups: 0,
-          individualLessons: 0,
+        // Count rows BEFORE deletion to avoid large payloads on DELETE .select()
+        const counts: Record<string, number> = {};
+
+        const countTable = async (table: string) => {
+          const { count, error } = await supabase
+            .from(table as any)
+            .select('*', { count: 'exact', head: true });
+          if (error) {
+            console.error(`Error counting ${table}:`, error);
+            return 0;
+          }
+          return count || 0;
         };
 
-        // Delete in correct order due to foreign key constraints
-        
-        // 1. Delete student_lesson_sessions (связаны с lesson_sessions)
-          const { data: deletedStudentSessions, error: studentSessionsError } = await supabase
-            .from('student_lesson_sessions')
-            .delete()
-            .select();
-        if (!studentSessionsError) stats.studentLessonSessions = deletedStudentSessions?.length || 0;
-        if (studentSessionsError) console.error('Error deleting student_lesson_sessions:', studentSessionsError);
+        counts.studentLessonSessions = await countTable('student_lesson_sessions');
+        counts.lessonSessions = await countTable('lesson_sessions');
+        counts.individualSessions = await countTable('individual_lesson_sessions');
+        counts.groupStudents = await countTable('group_students');
+        counts.groupHistory = await countTable('group_history');
+        counts.learningGroups = await countTable('learning_groups');
+        counts.individualLessons = await countTable('individual_lessons');
 
-        // 2. Delete lesson sessions
-          const { data: deletedSessions, error: sessionsError } = await supabase
-            .from('lesson_sessions')
-            .delete()
-            .select();
-        if (!sessionsError) stats.lessonSessions = deletedSessions?.length || 0;
-        if (sessionsError) console.error('Error deleting lesson_sessions:', sessionsError);
+        // Delete in safe order:
+        // 1) student_lesson_sessions -> 2) lesson_sessions -> 3) individual_lesson_sessions
+        // 4) group_students (will write history) -> 5) group_history -> 6) learning_groups -> 7) individual_lessons
+        const step = async (table: string) => {
+          const { error } = await supabase.from(table as any).delete();
+          if (error) console.error(`Error deleting from ${table}:`, error);
+        };
 
-        // 3. Delete individual lesson sessions
-          const { data: deletedIndivSessions, error: indivSessionsError } = await supabase
-            .from('individual_lesson_sessions')
-            .delete()
-            .select();
-        if (!indivSessionsError) stats.individualSessions = deletedIndivSessions?.length || 0;
-        if (indivSessionsError) console.error('Error deleting individual_lesson_sessions:', indivSessionsError);
+        await step('student_lesson_sessions');
+        await step('lesson_sessions');
+        await step('individual_lesson_sessions');
+        await step('group_students');
+        await step('group_history');
+        await step('learning_groups');
+        await step('individual_lessons');
 
-        // 4. Delete group_history (связана с learning_groups)
-          const { data: deletedHistory, error: historyError } = await supabase
-            .from('group_history')
-            .delete()
-            .select();
-        if (!historyError) stats.groupHistory = deletedHistory?.length || 0;
-        if (historyError) console.error('Error deleting group_history:', historyError);
-
-        // 5. Delete group students
-          const { data: deletedGroupStudents, error: groupStudentsError } = await supabase
-            .from('group_students')
-            .delete()
-            .select();
-        if (!groupStudentsError) stats.groupStudents = deletedGroupStudents?.length || 0;
-        if (groupStudentsError) console.error('Error deleting group_students:', groupStudentsError);
-
-        // 6. Delete learning groups
-          const { data: deletedGroups, error: groupsError } = await supabase
-            .from('learning_groups')
-            .delete()
-            .select();
-        if (!groupsError) stats.learningGroups = deletedGroups?.length || 0;
-        if (groupsError) console.error('Error deleting learning_groups:', groupsError);
-
-        // 7. Delete individual lessons
-          const { data: deletedIndivLessons, error: indivLessonsError } = await supabase
-            .from('individual_lessons')
-            .delete()
-            .select();
-        if (!indivLessonsError) stats.individualLessons = deletedIndivLessons?.length || 0;
-        if (indivLessonsError) console.error('Error deleting individual_lessons:', indivLessonsError);
-
-        console.log('Educational units deletion stats:', stats);
+        console.log('Educational units deletion stats:', counts);
 
         return new Response(
           JSON.stringify({ 
             success: true,
-            stats,
+            stats: counts,
             message: 'Учебные единицы и расписание успешно удалены'
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -151,7 +121,7 @@ Deno.serve(async (req) => {
       } catch (error) {
         console.error('Error during educational units deletion:', error);
         return new Response(
-          JSON.stringify({ error: error.message }),
+          JSON.stringify({ error: (error as any).message }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
