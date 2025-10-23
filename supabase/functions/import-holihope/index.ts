@@ -316,9 +316,48 @@ Deno.serve(async (req) => {
         });
         console.log(`Found ${offices.length} offices`);
 
+        // Сохраняем филиалы в БД
+        let importedCount = 0;
+        for (const office of offices) {
+          // Извлекаем название филиала из "OKEY ENGLISH Окская" -> "Окская"
+          const branchName = office.Name?.replace(/^OKEY ENGLISH\s*/i, '').trim() || office.Name;
+          
+          const branchData = {
+            organization_id: orgId,
+            name: branchName,
+            address: office.Address || null,
+            phone: office.Phone || null,
+            email: office.EMail || null,
+            is_active: !office.NoClassrooms, // Если есть аудитории, то активен
+            working_hours: null, // Можно будет добавить позже
+            settings: {
+              holihope_id: office.Id,
+              location: office.Location,
+              license: office.License,
+              timezone: office.TimeZone,
+            },
+            sort_order: office.Id || 0,
+          };
+
+          const { error } = await supabase
+            .from('organization_branches')
+            .upsert(branchData, { 
+              onConflict: 'organization_id,name',
+              ignoreDuplicates: false 
+            });
+
+          if (error) {
+            console.error(`Error importing branch ${branchName}:`, error);
+          } else {
+            importedCount++;
+          }
+        }
+
+        console.log(`Successfully imported ${importedCount} of ${offices.length} branches`);
+
         progress[0].status = 'completed';
-        progress[0].count = offices.length;
-        progress[0].message = `Imported ${offices.length} offices`;
+        progress[0].count = importedCount;
+        progress[0].message = `Imported ${importedCount} of ${offices.length} offices`;
       } catch (error) {
         console.error('Error importing locations:', error);
         progress[0].status = 'error';
