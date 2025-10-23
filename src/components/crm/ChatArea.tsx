@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone, PanelLeft, PanelRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -42,6 +42,8 @@ interface ChatAreaProps {
   managerName?: string; // Add manager name for comments
   onBackToList?: () => void; // Function to go back to chat list on mobile
   onChatAction?: (chatId: string, action: 'unread' | 'pin' | 'archive' | 'block') => void; // Chat actions
+  rightPanelCollapsed?: boolean; // State of right panel
+  onToggleRightPanel?: () => void; // Toggle right panel
 }
 
 interface ScheduledMessage {
@@ -63,7 +65,9 @@ export const ChatArea = ({
   onOpenInvoiceModal,
   managerName = "Менеджер",
   onBackToList,
-  onChatAction
+  onChatAction,
+  rightPanelCollapsed = false,
+  onToggleRightPanel
 }: ChatAreaProps) => {
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -1238,6 +1242,19 @@ export const ChatArea = ({
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+              )}
+              
+              {/* Toggle right panel button - only show on desktop when callback is provided */}
+              {!isMobile && onToggleRightPanel && (
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="h-8 w-8 p-0"
+                  title={rightPanelCollapsed ? "Показать семейную группу" : "Скрыть семейную группу"}
+                  onClick={onToggleRightPanel}
+                >
+                  {rightPanelCollapsed ? <PanelLeft className="h-4 w-4" /> : <PanelRight className="h-4 w-4" />}
+                </Button>
               )}
             </div>
           </div>

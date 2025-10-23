@@ -276,6 +276,21 @@ const CRMContent = () => {
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
+  
+  // Auto-collapse right panel on small screens
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1280) { // xl breakpoint
+        setRightPanelCollapsed(true);
+      }
+    };
+    
+    // Initial check
+    handleResize();
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const { typingByClient } = useTypingPresence();
   
   // Enable real-time updates for clients data
@@ -3022,6 +3037,8 @@ const CRMContent = () => {
                 setActiveTab('chats');
               } : undefined}
               onChatAction={handleChatAction}
+              rightPanelCollapsed={rightPanelCollapsed}
+              onToggleRightPanel={() => setRightPanelCollapsed(!rightPanelCollapsed)}
             />
           ) : activeChatType === 'corporate' ? (
             <CorporateChatArea 
@@ -3056,35 +3073,13 @@ const CRMContent = () => {
         {/* Right Sidebar - Desktop */}
         {!isMobile && activeChatType === 'client' && activeChatId && (
           <div className={cn(
-            "bg-background border-l overflow-y-auto h-full transition-all duration-300 relative",
-            rightPanelCollapsed ? "w-0 opacity-0" : "w-80 lg:w-96 p-4"
+            "bg-background border-l overflow-y-auto h-full transition-all duration-300",
+            rightPanelCollapsed ? "w-0" : "w-80 lg:w-96 p-4"
           )}>
             {!rightPanelCollapsed && (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute top-2 right-2 z-10 h-8 w-8 p-0"
-                  onClick={() => setRightPanelCollapsed(true)}
-                >
-                  <PanelRight className="h-4 w-4" />
-                </Button>
-                <FamilyCardWrapper clientId={activeChatId} />
-              </>
+              <FamilyCardWrapper clientId={activeChatId} />
             )}
           </div>
-        )}
-        
-        {/* Toggle button for collapsed right panel */}
-        {!isMobile && activeChatType === 'client' && activeChatId && rightPanelCollapsed && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="absolute top-4 right-4 z-10 h-10 w-10 p-0 bg-background border shadow-sm hover:shadow-md"
-            onClick={() => setRightPanelCollapsed(false)}
-          >
-            <PanelLeft className="h-4 w-4" />
-          </Button>
         )}
 
         {/* Right Sidebar - Mobile */}
