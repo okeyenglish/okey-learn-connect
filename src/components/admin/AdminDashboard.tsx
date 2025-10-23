@@ -9,6 +9,7 @@ import { UserPermissionsManager } from "./UserPermissionsManager";
 import { AdminCoursePricing } from "./AdminCoursePricing";
 import ReferencesSection from "@/components/references/ReferencesSection";
 import { FamilyGroupsCleanup } from "./FamilyGroupsCleanup";
+import { FamilyMembersManager } from "./FamilyMembersManager";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -39,6 +40,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <ReferencesSection />;
       case "family-cleanup":
         return <FamilyGroupsCleanup />;
+      case "family-members":
+        return <FamilyMembersManager />;
       case "sync":
         return (
           <Card>
@@ -113,6 +116,13 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 <CardHeader>
                   <CardTitle>Очистка семейных групп</CardTitle>
                   <CardDescription>Удаление дубликатов и исправление данных</CardDescription>
+                </CardHeader>
+              </Card>
+              
+              <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("family-members")}>
+                <CardHeader>
+                  <CardTitle>Управление членами семьи</CardTitle>
+                  <CardDescription>Просмотр и удаление связей</CardDescription>
                 </CardHeader>
               </Card>
               
