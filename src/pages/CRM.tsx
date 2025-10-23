@@ -21,6 +21,7 @@ import { useChatThreads, useRealtimeMessages, useMarkAsRead, useMarkAsUnread } f
 import { useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
 import { useStudentsLazy } from "@/hooks/useStudentsLazy";
 import { useStudentsCount } from "@/hooks/useStudentsCount";
+import { useLeadsCount } from "@/hooks/useLeadsCount";
 import { useTasksLazy } from "@/hooks/useTasksLazy";
 import { ChatArea } from "@/components/crm/ChatArea";
 import { CorporateChatArea } from "@/components/crm/CorporateChatArea";
@@ -157,6 +158,7 @@ const CRMContent = () => {
   
   const { students, isLoading: studentsLoading } = useStudentsLazy(studentsEnabled);
   const { count: totalStudentsCount } = useStudentsCount();
+  const { count: totalLeadsCount } = useLeadsCount();
   const { tasks: allTasks, isLoading: tasksLoading } = useTasksLazy(tasksEnabled);
   
   // Другие хуки
@@ -391,9 +393,7 @@ const CRMContent = () => {
   // Menu counters - вычисляем только после загрузки всех данных
   const tasksCount = allTasks?.length ?? 0;
   const unreadTotal = (threads || []).reduce((sum, t) => sum + (t.unread_count || 0), 0);
-  const leadsCount = studentsLoading || groupStudentsLoading || individualLessonsLoading 
-    ? 0 
-    : (students || []).filter(s => !activeStudentIds.has(s.id)).length;
+  const leadsCount = totalLeadsCount;
   const studentsCount = totalStudentsCount ?? (students?.length ?? 0);
   
   // Детальная диагностика счётчиков
