@@ -315,12 +315,17 @@ Deno.serve(async (req) => {
           keys: responseData && typeof responseData === 'object' ? Object.keys(responseData) : null,
         });
         console.log(`Found ${offices.length} offices`);
+        console.log('First 3 offices from API:', JSON.stringify(offices.slice(0, 3), null, 2));
 
         // Сохраняем филиалы в БД
         let importedCount = 0;
         for (const office of offices) {
+          console.log(`Processing office:`, JSON.stringify(office, null, 2));
+          
           // Извлекаем название филиала из "OKEY ENGLISH Окская" -> "Окская"
           const branchName = office.Name?.replace(/^OKEY ENGLISH\s*/i, '').trim() || office.Name;
+          
+          console.log(`Branch name extracted: "${branchName}" from "${office.Name}"`);
           
           const branchData = {
             organization_id: orgId,
@@ -350,6 +355,7 @@ Deno.serve(async (req) => {
             console.error(`Error importing branch ${branchName}:`, error);
           } else {
             importedCount++;
+            console.log(`✓ Imported branch: ${branchName}`);
           }
         }
 
