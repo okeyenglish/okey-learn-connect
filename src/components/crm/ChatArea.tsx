@@ -1774,17 +1774,16 @@ export const ChatArea = ({
                   </Dialog>
                 )}
               
-              {/* Send button - same size as other icons */}
+              {/* Send button - icon only on mobile, icon+text on desktop */}
               <Button 
-                size="sm"
-                variant="ghost"
-                className={`h-8 w-8 p-0 ml-auto ${
-                  commentMode ? "bg-yellow-500 hover:bg-yellow-600 text-white" : ""
+                className={`h-8 w-8 p-0 md:h-[40px] md:w-auto md:px-8 md:gap-2 ml-auto ${
+                  commentMode ? "bg-yellow-500 hover:bg-yellow-600" : ""
                 }`}
                 onClick={handleSendMessage}
                 disabled={loading || (!message.trim() && attachedFiles.length === 0) || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
               >
                 <Send className="h-4 w-4" />
+                <span className="hidden md:inline">Отправить</span>
               </Button>
               </div>
             </div>
