@@ -19,8 +19,9 @@ import { useClients, useSearchClients, useCreateClient } from "@/hooks/useClient
 import { useClientStatus } from "@/hooks/useClientStatus";
 import { useChatThreads, useRealtimeMessages, useMarkAsRead, useMarkAsUnread } from "@/hooks/useChatMessages";
 import { useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
-import { useStudents } from "@/hooks/useStudents";
+import { useStudentsLazy } from "@/hooks/useStudentsLazy";
 import { useStudentsCount } from "@/hooks/useStudentsCount";
+import { useTasksLazy } from "@/hooks/useTasksLazy";
 import { ChatArea } from "@/components/crm/ChatArea";
 import { CorporateChatArea } from "@/components/crm/CorporateChatArea";
 import { TeacherChatArea } from "@/components/crm/TeacherChatArea";
@@ -139,11 +140,26 @@ import { cn } from "@/lib/utils";
 const CRMContent = () => {
   const { user, profile, role, roles, signOut } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  
+  // Состояния
+  const [openModal, setOpenModal] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("chats");
+  
+  // Критичные данные - загружаем сразу
   const { clients, isLoading: clientsLoading } = useClients();
   const { threads, isLoading: threadsLoading } = useChatThreads();
-  const { students, isLoading: studentsLoading } = useStudents();
-  const { count: totalStudentsCount } = useStudentsCount();
   const { corporateChats, teacherChats, isLoading: systemChatsLoading } = useSystemChatMessages();
+  
+  // Данные для модальных окон - загружаем только при открытии
+  const studentsEnabled = openModal === "Ученики" || openModal === "Лиды";
+  const tasksEnabled = openModal === "Мои задачи";
+  
+  const { students, isLoading: studentsLoading } = useStudentsLazy(studentsEnabled);
+  const { count: totalStudentsCount } = useStudentsCount();
+  const { tasks: allTasks, isLoading: tasksLoading } = useTasksLazy(tasksEnabled);
+  
+  // Другие хуки
   const { 
     searchResults: clientSearchResults, 
     isSearching, 
@@ -154,7 +170,6 @@ const CRMContent = () => {
   const markAsReadMutation = useMarkAsRead();
   const markAsUnreadMutation = useMarkAsUnread();
   const markChatMessagesAsReadMutation = useMarkChatMessagesAsRead();
-  const queryClient = useQueryClient();
   const { 
     pinnedModals, 
     loading: pinnedLoading,
@@ -184,7 +199,6 @@ const CRMContent = () => {
 
   const { isInWorkByOthers, isPinnedByCurrentUser, isPinnedByAnyone, getPinnedByUserName, isLoading: sharedStatesLoading } = useSharedChatStates(visibleChatIds);
   const { markChatAsReadGlobally, isChatReadGlobally } = useGlobalChatReadStatus();
-  const { tasks: allTasks, isLoading: tasksLoading } = useAllTasks();
   const completeTask = useCompleteTask();
   const cancelTask = useCancelTask();
   const updateTask = useUpdateTask();
@@ -222,8 +236,6 @@ const CRMContent = () => {
   
   // Local view state for tasks section
   const [tasksView, setTasksView] = useState<"list" | "calendar">("list");
-  const [openModal, setOpenModal] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string>("chats");
   const [hasUnsavedChat, setHasUnsavedChat] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [chatSearchQuery, setChatSearchQuery] = useState("");
@@ -347,7 +359,7 @@ const CRMContent = () => {
     }
   }, [pinnedLoading, pinnedModals, isManualModalOpen]);
 
-  // Получаем активных студентов по занятиям (для расчета лидов)
+  // Получаем активных студентов по занятиям (для расчета лидов) - загружаем отложенно
   const { data: activeGroupStudents = [], isLoading: groupStudentsLoading } = useQuery({
     queryKey: ['active-group-students'],
     queryFn: async () => {
@@ -357,7 +369,8 @@ const CRMContent = () => {
         .eq('status', 'active');
       if (error) throw error;
       return (data || []).map((gs: any) => gs.student_id as string);
-    }
+    },
+    enabled: openModal === "Лиды", // Загружаем только когда открыт модал "Лиды"
   });
   const { data: activeIndividualLessons = [], isLoading: individualLessonsLoading } = useQuery({
     queryKey: ['active-individual-lessons'],
@@ -369,7 +382,8 @@ const CRMContent = () => {
         .eq('status', 'active');
       if (error) throw error;
       return (data || []).map((il: any) => il.student_id as string);
-    }
+    },
+    enabled: openModal === "Лиды", // Загружаем только когда открыт модал "Лиды"
   });
   const activeStudentIds = useMemo(() => new Set<string>([...activeGroupStudents, ...activeIndividualLessons]), [activeGroupStudents, activeIndividualLessons]);
 
