@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface SearchInputProps {
   placeholder?: string;
@@ -9,6 +10,8 @@ interface SearchInputProps {
   onClear?: () => void;
   className?: string;
   size?: 'sm' | 'md' | 'lg';
+  debounceMs?: number;
+  value?: string;
 }
 
 export const SearchInput = ({ 
@@ -16,17 +19,34 @@ export const SearchInput = ({
   onSearch, 
   onClear,
   className = "",
-  size = 'md'
+  size = 'md',
+  debounceMs = 500,
+  value: externalValue
 }: SearchInputProps) => {
-  const [query, setQuery] = useState("");
+  const [internalQuery, setInternalQuery] = useState(externalValue || "");
+  const query = externalValue !== undefined ? externalValue : internalQuery;
+  
+  // Debounced value для оптимизации запросов
+  const debouncedQuery = useDebounce(query, debounceMs);
 
-  const handleSearch = (value: string) => {
-    setQuery(value);
-    onSearch?.(value);
+  // Вызываем onSearch только когда debounced значение меняется
+  useEffect(() => {
+    if (debouncedQuery !== undefined) {
+      onSearch?.(debouncedQuery);
+    }
+  }, [debouncedQuery, onSearch]);
+
+  const handleChange = (value: string) => {
+    if (externalValue === undefined) {
+      setInternalQuery(value);
+    }
+    // Если используется controlled компонент, родитель обновит значение
   };
 
   const handleClear = () => {
-    setQuery("");
+    if (externalValue === undefined) {
+      setInternalQuery("");
+    }
     onClear?.();
   };
 
@@ -40,7 +60,7 @@ export const SearchInput = ({
     <div className={`relative ${className}`}>
       <Input
         value={query}
-        onChange={(e) => handleSearch(e.target.value)}
+        onChange={(e) => handleChange(e.target.value)}
         placeholder={placeholder}
         className={`pr-20 ${sizeClasses[size]}`}
       />

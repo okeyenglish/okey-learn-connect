@@ -1,10 +1,11 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { LanguageProvider } from "@/hooks/useLanguage";
+import { createOptimizedQueryClient } from "@/lib/queryConfig";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ChatBot from "@/components/ChatBot";
@@ -69,7 +70,8 @@ const LoadingComponent = () => (
   </div>
 );
 
-const queryClient = new QueryClient();
+// Оптимизированный Query Client для лучшей производительности
+const queryClient = createOptimizedQueryClient();
 
 const AppContent = () => {
   const location = useLocation();
