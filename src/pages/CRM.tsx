@@ -2429,7 +2429,7 @@ const CRMContent = () => {
                 </div>
               </div>
               <ScrollArea className="flex-1 min-h-0">
-                <div className="p-2 flex flex-col h-full">
+                <div className="p-2 flex flex-col h-full relative z-10 pointer-events-auto bg-background">
                   {/* Закрепленные чаты */}
                    {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
                     <div className="mb-4">
