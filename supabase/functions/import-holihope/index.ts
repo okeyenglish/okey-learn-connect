@@ -867,43 +867,104 @@ Deno.serve(async (req) => {
           
           console.log(`Total clients available: ${phoneToClientMap.size}`);
           
-          // Step 3: Create family_groups - ONE per UNIQUE SET of parents
-          // Group children by their complete set of agents
+          // Step 3: Create family_groups - Group by ANY common agent
+          // Use Union-Find to cluster children who share at least one agent
           const familyGroupsToCreate = [];
-          const agentSetToFamilyNameMap = new Map(); // "phone1_phone2" -> familyName
-          const agentSetToChildrenMap = new Map(); // "phone1_phone2" -> [leadKeys]
-          const agentSetToAgentsMap = new Map(); // "phone1_phone2" -> [agentPhones]
           const leadsWithoutAgents = []; // leadKeys without agents
+          
+          // Build clusters: children with any common agent go to same family
+          const agentToClusterMap = new Map(); // agentPhone -> clusterId
+          const clusterToAgentsMap = new Map(); // clusterId -> Set(agentPhones)
+          const clusterToChildrenMap = new Map(); // clusterId -> [leadKeys]
+          const clusterToFirstAgentMap = new Map(); // clusterId -> first agent for naming
+          let nextClusterId = 0;
           
           leadsData.forEach((ld) => {
             const leadKey = `${ld.leadInfo.first_name}_${ld.leadInfo.last_name}_${ld.leadInfo.phone || ''}_${ld.leadInfo.email || ''}`;
             
             if (ld.agentPhones.length === 0) {
               leadsWithoutAgents.push(leadKey);
-            } else {
-              // Create unique key from sorted agent phones
-              const sortedAgents = [...ld.agentPhones].sort();
-              const agentSetKey = sortedAgents.join('_');
-              
-              // Use first agent's name for family name
-              const firstAgent = ld.agents[0];
-              const agentName = `${firstAgent?.LastName || firstAgent?.lastName || ''} ${firstAgent?.FirstName || firstAgent?.firstName || ''}`.trim() || 'Без имени';
-              const familyName = `Семья ${agentName}`;
-              
-              agentSetToFamilyNameMap.set(agentSetKey, familyName);
-              agentSetToAgentsMap.set(agentSetKey, sortedAgents);
-              
-              if (!agentSetToChildrenMap.has(agentSetKey)) {
-                agentSetToChildrenMap.set(agentSetKey, []);
+              return;
+            }
+            
+            // Find if any agent already belongs to a cluster
+            let targetClusterId = null;
+            const clustersToMerge = new Set();
+            
+            for (const agentPhone of ld.agentPhones) {
+              if (agentToClusterMap.has(agentPhone)) {
+                clustersToMerge.add(agentToClusterMap.get(agentPhone));
               }
-              agentSetToChildrenMap.get(agentSetKey).push(leadKey);
+            }
+            
+            // Merge all found clusters into one
+            if (clustersToMerge.size === 0) {
+              // Create new cluster
+              targetClusterId = nextClusterId++;
+            } else if (clustersToMerge.size === 1) {
+              // Use existing cluster
+              targetClusterId = Array.from(clustersToMerge)[0];
+            } else {
+              // Merge multiple clusters into the first one
+              const clusterIds = Array.from(clustersToMerge);
+              targetClusterId = clusterIds[0];
+              
+              // Merge other clusters into target
+              for (let i = 1; i < clusterIds.length; i++) {
+                const mergeId = clusterIds[i];
+                
+                // Merge agents
+                const mergeAgents = clusterToAgentsMap.get(mergeId) || new Set();
+                const targetAgents = clusterToAgentsMap.get(targetClusterId) || new Set();
+                mergeAgents.forEach(a => targetAgents.add(a));
+                clusterToAgentsMap.set(targetClusterId, targetAgents);
+                
+                // Merge children
+                const mergeChildren = clusterToChildrenMap.get(mergeId) || [];
+                const targetChildren = clusterToChildrenMap.get(targetClusterId) || [];
+                clusterToChildrenMap.set(targetClusterId, [...targetChildren, ...mergeChildren]);
+                
+                // Update agent mappings
+                mergeAgents.forEach(a => agentToClusterMap.set(a, targetClusterId));
+                
+                // Clean up merged cluster
+                clusterToAgentsMap.delete(mergeId);
+                clusterToChildrenMap.delete(mergeId);
+                clusterToFirstAgentMap.delete(mergeId);
+              }
+            }
+            
+            // Add current child's agents to cluster
+            if (!clusterToAgentsMap.has(targetClusterId)) {
+              clusterToAgentsMap.set(targetClusterId, new Set());
+            }
+            if (!clusterToChildrenMap.has(targetClusterId)) {
+              clusterToChildrenMap.set(targetClusterId, []);
+            }
+            
+            const clusterAgents = clusterToAgentsMap.get(targetClusterId);
+            ld.agentPhones.forEach(phone => {
+              clusterAgents.add(phone);
+              agentToClusterMap.set(phone, targetClusterId);
+            });
+            
+            clusterToChildrenMap.get(targetClusterId).push(leadKey);
+            
+            // Store first agent for naming if not set
+            if (!clusterToFirstAgentMap.has(targetClusterId)) {
+              clusterToFirstAgentMap.set(targetClusterId, ld.agents[0]);
             }
           });
           
-          // Create family groups for each unique agent set
-          agentSetToFamilyNameMap.forEach((familyName, agentSetKey) => {
+          // Create family groups for each cluster
+          clusterToAgentsMap.forEach((agentPhones, clusterId) => {
+            const firstAgent = clusterToFirstAgentMap.get(clusterId);
+            const agentName = `${firstAgent?.LastName || firstAgent?.lastName || ''} ${firstAgent?.FirstName || firstAgent?.firstName || ''}`.trim() || 'Без имени';
+            const familyName = `Семья ${agentName}`;
+            
             if (!familyGroupsToCreate.find(fg => fg.name === familyName)) {
-              const leadKey = agentSetToChildrenMap.get(agentSetKey)?.[0];
+              const childLeadKeys = clusterToChildrenMap.get(clusterId) || [];
+              const leadKey = childLeadKeys[0];
               const leadData = leadsData.find(ld => 
                 `${ld.leadInfo.first_name}_${ld.leadInfo.last_name}_${ld.leadInfo.phone || ''}_${ld.leadInfo.email || ''}` === leadKey
               );
@@ -936,7 +997,7 @@ Deno.serve(async (req) => {
             }
           });
           
-          console.log(`Creating ${familyGroupsToCreate.length} family groups (one per unique parent set)...`);
+          console.log(`Creating ${familyGroupsToCreate.length} family groups (unified by common parents)...`);
           
           const familyGroupNameToIdMap = new Map();
           if (familyGroupsToCreate.length > 0) {
@@ -1019,20 +1080,21 @@ Deno.serve(async (req) => {
             console.log(`Inserted ${leadBranchRecords.length} lead branch associations`);
           }
 
-          // Step 6: Create family member links - unified parent groups
+          // Step 6: Create family member links - unified families by common parents
           console.log('Creating family member links...');
           const familyMembersToCreate = [];
           
-          // A. Add all agents and children for each agent set
-          agentSetToChildrenMap.forEach((childLeadKeys, agentSetKey) => {
-            const familyName = agentSetToFamilyNameMap.get(agentSetKey);
+          // A. Add all agents and children for each cluster
+          clusterToAgentsMap.forEach((agentPhones, clusterId) => {
+            const firstAgent = clusterToFirstAgentMap.get(clusterId);
+            const agentName = `${firstAgent?.LastName || firstAgent?.lastName || ''} ${firstAgent?.FirstName || firstAgent?.firstName || ''}`.trim() || 'Без имени';
+            const familyName = `Семья ${agentName}`;
             const familyGroupId = familyGroupNameToIdMap.get(familyName);
             if (!familyGroupId) return;
             
-            const agentPhones = agentSetToAgentsMap.get(agentSetKey) || [];
-            
-            // Add ALL agents as parents (first one is primary)
-            agentPhones.forEach((agentPhone, idx) => {
+            // Add ALL unique agents as parents (first one is primary)
+            const agentPhonesArray = Array.from(agentPhones);
+            agentPhonesArray.forEach((agentPhone, idx) => {
               const agentClientId = phoneToClientMap.get(agentPhone);
               if (agentClientId) {
                 familyMembersToCreate.push({
@@ -1045,6 +1107,7 @@ Deno.serve(async (req) => {
             });
             
             // Add all children to this family
+            const childLeadKeys = clusterToChildrenMap.get(clusterId) || [];
             childLeadKeys.forEach((leadKey) => {
               const leadData = leadsData.find(ld => 
                 `${ld.leadInfo.first_name}_${ld.leadInfo.last_name}_${ld.leadInfo.phone || ''}_${ld.leadInfo.email || ''}` === leadKey
@@ -1435,43 +1498,104 @@ Deno.serve(async (req) => {
           
           console.log(`Total clients available: ${phoneToClientMap.size}`);
           
-          // Step 3: Create family_groups - ONE per UNIQUE SET of parents
-          // Group children by their complete set of agents
+          // Step 3: Create family_groups - Group by ANY common agent
+          // Use Union-Find to cluster children who share at least one agent
           const familyGroupsToCreate = [];
-          const agentSetToFamilyNameMap = new Map(); // "phone1_phone2" -> familyName
-          const agentSetToChildrenMap = new Map(); // "phone1_phone2" -> [studentKeys]
-          const agentSetToAgentsMap = new Map(); // "phone1_phone2" -> [agentPhones]
           const studentsWithoutAgents = []; // studentKeys without agents
+          
+          // Build clusters: children with any common agent go to same family
+          const agentToClusterMap = new Map(); // agentPhone -> clusterId
+          const clusterToAgentsMap = new Map(); // clusterId -> Set(agentPhones)
+          const clusterToChildrenMap = new Map(); // clusterId -> [studentKeys]
+          const clusterToFirstAgentMap = new Map(); // clusterId -> first agent for naming
+          let nextClusterId = 0;
           
           studentsData.forEach((sd) => {
             const studentKey = sd.studentInfo.external_id || `${sd.studentInfo.first_name}_${sd.studentInfo.last_name}_${sd.studentInfo.phone || ''}_${sd.studentInfo.lk_email || ''}`;
             
             if (sd.agentPhones.length === 0) {
               studentsWithoutAgents.push(studentKey);
-            } else {
-              // Create unique key from sorted agent phones
-              const sortedAgents = [...sd.agentPhones].sort();
-              const agentSetKey = sortedAgents.join('_');
-              
-              // Use first agent's name for family name
-              const firstAgent = sd.agents[0];
-              const agentName = `${firstAgent?.LastName || firstAgent?.lastName || ''} ${firstAgent?.FirstName || firstAgent?.firstName || ''}`.trim() || 'Без имени';
-              const familyName = `Семья ${agentName}`;
-              
-              agentSetToFamilyNameMap.set(agentSetKey, familyName);
-              agentSetToAgentsMap.set(agentSetKey, sortedAgents);
-              
-              if (!agentSetToChildrenMap.has(agentSetKey)) {
-                agentSetToChildrenMap.set(agentSetKey, []);
+              return;
+            }
+            
+            // Find if any agent already belongs to a cluster
+            let targetClusterId = null;
+            const clustersToMerge = new Set();
+            
+            for (const agentPhone of sd.agentPhones) {
+              if (agentToClusterMap.has(agentPhone)) {
+                clustersToMerge.add(agentToClusterMap.get(agentPhone));
               }
-              agentSetToChildrenMap.get(agentSetKey).push(studentKey);
+            }
+            
+            // Merge all found clusters into one
+            if (clustersToMerge.size === 0) {
+              // Create new cluster
+              targetClusterId = nextClusterId++;
+            } else if (clustersToMerge.size === 1) {
+              // Use existing cluster
+              targetClusterId = Array.from(clustersToMerge)[0];
+            } else {
+              // Merge multiple clusters into the first one
+              const clusterIds = Array.from(clustersToMerge);
+              targetClusterId = clusterIds[0];
+              
+              // Merge other clusters into target
+              for (let i = 1; i < clusterIds.length; i++) {
+                const mergeId = clusterIds[i];
+                
+                // Merge agents
+                const mergeAgents = clusterToAgentsMap.get(mergeId) || new Set();
+                const targetAgents = clusterToAgentsMap.get(targetClusterId) || new Set();
+                mergeAgents.forEach(a => targetAgents.add(a));
+                clusterToAgentsMap.set(targetClusterId, targetAgents);
+                
+                // Merge children
+                const mergeChildren = clusterToChildrenMap.get(mergeId) || [];
+                const targetChildren = clusterToChildrenMap.get(targetClusterId) || [];
+                clusterToChildrenMap.set(targetClusterId, [...targetChildren, ...mergeChildren]);
+                
+                // Update agent mappings
+                mergeAgents.forEach(a => agentToClusterMap.set(a, targetClusterId));
+                
+                // Clean up merged cluster
+                clusterToAgentsMap.delete(mergeId);
+                clusterToChildrenMap.delete(mergeId);
+                clusterToFirstAgentMap.delete(mergeId);
+              }
+            }
+            
+            // Add current child's agents to cluster
+            if (!clusterToAgentsMap.has(targetClusterId)) {
+              clusterToAgentsMap.set(targetClusterId, new Set());
+            }
+            if (!clusterToChildrenMap.has(targetClusterId)) {
+              clusterToChildrenMap.set(targetClusterId, []);
+            }
+            
+            const clusterAgents = clusterToAgentsMap.get(targetClusterId);
+            sd.agentPhones.forEach(phone => {
+              clusterAgents.add(phone);
+              agentToClusterMap.set(phone, targetClusterId);
+            });
+            
+            clusterToChildrenMap.get(targetClusterId).push(studentKey);
+            
+            // Store first agent for naming if not set
+            if (!clusterToFirstAgentMap.has(targetClusterId)) {
+              clusterToFirstAgentMap.set(targetClusterId, sd.agents[0]);
             }
           });
           
-          // Create family groups for each unique agent set
-          agentSetToFamilyNameMap.forEach((familyName, agentSetKey) => {
+          // Create family groups for each cluster
+          clusterToAgentsMap.forEach((agentPhones, clusterId) => {
+            const firstAgent = clusterToFirstAgentMap.get(clusterId);
+            const agentName = `${firstAgent?.LastName || firstAgent?.lastName || ''} ${firstAgent?.FirstName || firstAgent?.firstName || ''}`.trim() || 'Без имени';
+            const familyName = `Семья ${agentName}`;
+            
             if (!familyGroupsToCreate.find(fg => fg.name === familyName)) {
-              const studentKey = agentSetToChildrenMap.get(agentSetKey)?.[0];
+              const childStudentKeys = clusterToChildrenMap.get(clusterId) || [];
+              const studentKey = childStudentKeys[0];
               const studentData = studentsData.find(sd => {
                 const key = sd.studentInfo.external_id || `${sd.studentInfo.first_name}_${sd.studentInfo.last_name}_${sd.studentInfo.phone || ''}_${sd.studentInfo.lk_email || ''}`;
                 return key === studentKey;
@@ -1506,7 +1630,7 @@ Deno.serve(async (req) => {
             }
           });
           
-          console.log(`Creating ${familyGroupsToCreate.length} family groups (one per unique parent set)...`);
+          console.log(`Creating ${familyGroupsToCreate.length} family groups (unified by common parents)...`);
           
           const familyGroupNameToIdMap = new Map();
           if (familyGroupsToCreate.length > 0) {
@@ -1573,12 +1697,18 @@ Deno.serve(async (req) => {
             
             let familyGroupId = null;
             
-            // If student has agents, find their family by agent set
+            // If student has agents, find their cluster
             if (sd.agentPhones.length > 0) {
-              const sortedAgents = [...sd.agentPhones].sort();
-              const agentSetKey = sortedAgents.join('_');
-              const familyName = agentSetToFamilyNameMap.get(agentSetKey);
-              familyGroupId = familyGroupNameToIdMap.get(familyName);
+              // Find cluster by checking first agent
+              const firstAgentPhone = sd.agentPhones[0];
+              const clusterId = agentToClusterMap.get(firstAgentPhone);
+              
+              if (clusterId !== undefined) {
+                const firstAgent = clusterToFirstAgentMap.get(clusterId);
+                const agentName = `${firstAgent?.LastName || firstAgent?.lastName || ''} ${firstAgent?.FirstName || firstAgent?.firstName || ''}`.trim() || 'Без имени';
+                const familyName = `Семья ${agentName}`;
+                familyGroupId = familyGroupNameToIdMap.get(familyName);
+              }
             } else {
               // Student without agents - use their own family
               const studentName = `${sd.studentInfo.first_name} ${sd.studentInfo.last_name}`.trim() || 'Без имени';
@@ -1620,20 +1750,21 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Step 5: Create family member links - unified parent groups
+          // Step 5: Create family member links - unified families by common parents
           console.log('Creating family member links...');
           const familyMembersToCreate = [];
           
-          // A. Add all agents and children for each agent set
-          agentSetToChildrenMap.forEach((childStudentKeys, agentSetKey) => {
-            const familyName = agentSetToFamilyNameMap.get(agentSetKey);
+          // A. Add all agents and children for each cluster
+          clusterToAgentsMap.forEach((agentPhones, clusterId) => {
+            const firstAgent = clusterToFirstAgentMap.get(clusterId);
+            const agentName = `${firstAgent?.LastName || firstAgent?.lastName || ''} ${firstAgent?.FirstName || firstAgent?.firstName || ''}`.trim() || 'Без имени';
+            const familyName = `Семья ${agentName}`;
             const familyGroupId = familyGroupNameToIdMap.get(familyName);
             if (!familyGroupId) return;
             
-            const agentPhones = agentSetToAgentsMap.get(agentSetKey) || [];
-            
-            // Add ALL agents as parents (first one is primary)
-            agentPhones.forEach((agentPhone, idx) => {
+            // Add ALL unique agents as parents (first one is primary)
+            const agentPhonesArray = Array.from(agentPhones);
+            agentPhonesArray.forEach((agentPhone, idx) => {
               const agentClientId = phoneToClientMap.get(agentPhone);
               if (agentClientId) {
                 familyMembersToCreate.push({
@@ -1646,6 +1777,7 @@ Deno.serve(async (req) => {
             });
             
             // Add all children to this family
+            const childStudentKeys = clusterToChildrenMap.get(clusterId) || [];
             childStudentKeys.forEach((studentKey) => {
               const studentData = studentsData.find(sd => {
                 const key = sd.studentInfo.external_id || `${sd.studentInfo.first_name}_${sd.studentInfo.last_name}_${sd.studentInfo.phone || ''}_${sd.studentInfo.lk_email || ''}`;
