@@ -3707,6 +3707,7 @@ Deno.serve(async (req) => {
                     homework: day.Homework || day.homework || null,
                     notes: day.Notes || day.notes || null,
                     external_id: day.Id?.toString() || `${unit.Id}_${day.Date}`,
+                    organization_id: organizationId,
                   });
                   
                   totalIndividualLessons++;
@@ -3726,6 +3727,7 @@ Deno.serve(async (req) => {
                     homework: day.Homework || day.homework || null,
                     notes: day.Notes || day.notes || null,
                     external_id: day.Id?.toString() || `${unit.Id}_${day.Date}`,
+                    organization_id: organizationId,
                   });
                   
                   totalGroupLessons++;
@@ -3739,15 +3741,29 @@ Deno.serve(async (req) => {
         
         // Batch upsert all lesson sessions
         if (groupSessionsToUpsert.length > 0) {
-          await supabase
+          console.log(`Upserting ${groupSessionsToUpsert.length} group sessions...`);
+          const { error: groupSessionError } = await supabase
             .from('lesson_sessions')
             .upsert(groupSessionsToUpsert, { onConflict: 'external_id' });
+          
+          if (groupSessionError) {
+            console.error('❌ Error upserting group sessions:', groupSessionError);
+          } else {
+            console.log(`✅ Successfully upserted ${groupSessionsToUpsert.length} group sessions`);
+          }
         }
         
         if (individualSessionsToUpsert.length > 0) {
-          await supabase
+          console.log(`Upserting ${individualSessionsToUpsert.length} individual sessions...`);
+          const { error: individualSessionError } = await supabase
             .from('individual_lesson_sessions')
             .upsert(individualSessionsToUpsert, { onConflict: 'external_id' });
+          
+          if (individualSessionError) {
+            console.error('❌ Error upserting individual sessions:', individualSessionError);
+          } else {
+            console.log(`✅ Successfully upserted ${individualSessionsToUpsert.length} individual sessions`);
+          }
         }
         
         
