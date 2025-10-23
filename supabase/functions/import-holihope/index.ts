@@ -402,15 +402,44 @@ Deno.serve(async (req) => {
         const allClientsToUpsert: any[] = [];
 
         while (true) {
-          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetStudents?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
+          let response;
+          let retries = 3;
           
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+          while (retries > 0) {
+            try {
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+              
+              response = await fetch(`${HOLIHOPE_DOMAIN}/GetStudents?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                signal: controller.signal,
+              });
+              
+              clearTimeout(timeoutId);
+              
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              
+              break; // Success, exit retry loop
+            } catch (error) {
+              retries--;
+              console.warn(`Fetch failed (${retries} retries left):`, error.message);
+              
+              if (retries === 0) {
+                throw new Error(`Failed to fetch students after 3 attempts: ${error.message}`);
+              }
+              
+              // Wait before retrying (exponential backoff)
+              await new Promise(resolve => setTimeout(resolve, (4 - retries) * 2000));
+            }
+          }
+          
+          if (!response) {
+            throw new Error('Failed to get response after retries');
           }
           
           const responseData = await response.json();
@@ -1240,19 +1269,48 @@ Deno.serve(async (req) => {
         let batchesProcessed = 0;
         let lastBatchSize = 0;
 
-        // Process students in batches
+        // Process students in batches with timeout and retry
         while (true) {
           console.log(`Fetching students batch: skip=${skip}, take=${take}`);
           
-          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetStudents?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
+          let response;
+          let retries = 3;
           
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+          while (retries > 0) {
+            try {
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+              
+              response = await fetch(`${HOLIHOPE_DOMAIN}/GetStudents?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                signal: controller.signal,
+              });
+              
+              clearTimeout(timeoutId);
+              
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              
+              break; // Success, exit retry loop
+            } catch (error) {
+              retries--;
+              console.warn(`Fetch failed (${retries} retries left):`, error.message);
+              
+              if (retries === 0) {
+                throw new Error(`Failed to fetch students after 3 attempts: ${error.message}`);
+              }
+              
+              // Wait before retrying (exponential backoff)
+              await new Promise(resolve => setTimeout(resolve, (4 - retries) * 2000));
+            }
+          }
+          
+          if (!response) {
+            throw new Error('Failed to get response after retries');
           }
           
           const responseData = await response.json();
