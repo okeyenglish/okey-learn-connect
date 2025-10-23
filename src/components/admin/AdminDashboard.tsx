@@ -8,6 +8,7 @@ import { RoleManager } from "./RoleManager";
 import { UserPermissionsManager } from "./UserPermissionsManager";
 import { AdminCoursePricing } from "./AdminCoursePricing";
 import ReferencesSection from "@/components/references/ReferencesSection";
+import { FamilyGroupsCleanup } from "./FamilyGroupsCleanup";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -36,6 +37,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <TextbookManager />;
       case "references":
         return <ReferencesSection />;
+      case "family-cleanup":
+        return <FamilyGroupsCleanup />;
       case "sync":
         return (
           <Card>
@@ -103,6 +106,13 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 <CardHeader>
                   <CardTitle>User Permissions</CardTitle>
                   <CardDescription>Manage detailed user permissions</CardDescription>
+                </CardHeader>
+              </Card>
+              
+              <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("family-cleanup")}>
+                <CardHeader>
+                  <CardTitle>Очистка семейных групп</CardTitle>
+                  <CardDescription>Удаление дубликатов и исправление данных</CardDescription>
                 </CardHeader>
               </Card>
               

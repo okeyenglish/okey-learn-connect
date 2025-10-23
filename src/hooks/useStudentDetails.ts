@@ -195,9 +195,18 @@ export const useStudentDetails = (studentId: string) => {
           .eq('family_group_id', studentData.family_group_id);
 
         if (!familyError && familyMembers) {
+          // Дедупликация по client_id - убираем дубликаты родителей
+          const uniqueFamilyMembers = Array.from(
+            new Map(
+              familyMembers
+                .filter((member: any) => member.clients) // Только записи с валидными клиентами
+                .map((member: any) => [member.client_id, member])
+            ).values()
+          );
+
           // Fetch phone numbers for each parent
           const parentsWithPhones = await Promise.all(
-            familyMembers.map(async (member: any) => {
+            uniqueFamilyMembers.map(async (member: any) => {
               const { data: phones } = await supabase
                 .from('client_phone_numbers')
                 .select('*')
