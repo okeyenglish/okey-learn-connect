@@ -194,6 +194,7 @@ export default function HolihopeImport() {
         else if (step.action === 'import_ed_units') {
           let totalImported = 0;
           let totalFetched = 0;
+          let shouldContinueImport = true;
           let batchParams = { 
             batch_size: 10, // Process 10 requests per batch for faster import
             office_index: 0,
@@ -201,7 +202,7 @@ export default function HolihopeImport() {
             time_index: 0
           };
           
-          while (!shouldStopImport) {
+          while (!shouldStopImport && shouldContinueImport) {
             let retries = 0;
             const maxRetries = 3;
             let batchSuccess = false;
@@ -217,6 +218,7 @@ export default function HolihopeImport() {
                   retries++;
                   if (retries >= maxRetries) {
                     console.error('Max retries reached, stopping');
+                    shouldContinueImport = false;
                     break;
                   }
                   console.log(`Retrying in 2 seconds...`);
@@ -254,7 +256,8 @@ export default function HolihopeImport() {
                 );
                 
                 if (!hasMore) {
-                  console.log('No more data, stopping loop');
+                  console.log('Import completed, exiting loop');
+                  shouldContinueImport = false;
                   break;
                 }
                 
@@ -264,6 +267,7 @@ export default function HolihopeImport() {
                   console.log('Updated batch params for next iteration:', batchParams);
                 } else {
                   console.log('No nextBatch provided, stopping');
+                  shouldContinueImport = false;
                   break;
                 }
                 
@@ -278,6 +282,7 @@ export default function HolihopeImport() {
                     description: error instanceof Error ? error.message : 'Неизвестная ошибка',
                     variant: 'destructive',
                   });
+                  shouldContinueImport = false;
                   break;
                 }
                 console.log(`Retrying in 2 seconds...`);
@@ -287,6 +292,7 @@ export default function HolihopeImport() {
             
             if (!batchSuccess) {
               console.error('Batch failed after all retries, stopping');
+              shouldContinueImport = false;
               break;
             }
           }
@@ -369,6 +375,7 @@ export default function HolihopeImport() {
     else if (step.action === 'import_ed_units') {
           let totalImported = 0;
           let totalFetched = 0;
+          let shouldContinueImport = true;
           let batchParams = { 
             batch_size: 10, // Process 10 requests per batch for faster import
             office_index: 0,
@@ -376,7 +383,7 @@ export default function HolihopeImport() {
             time_index: 0
           };
       
-      while (!shouldStopImport) {
+      while (!shouldStopImport && shouldContinueImport) {
         let retries = 0;
         const maxRetries = 3;
         let batchSuccess = false;
@@ -392,6 +399,7 @@ export default function HolihopeImport() {
               retries++;
               if (retries >= maxRetries) {
                 console.error('Max retries reached, stopping');
+                shouldContinueImport = false;
                 break;
               }
               console.log(`Retrying in 2 seconds...`);
@@ -433,7 +441,8 @@ export default function HolihopeImport() {
                 title: 'Успешно',
                 description: `${step.name} завершен. Всего импортировано: ${totalImported}`,
               });
-              console.log('No more data, stopping loop');
+              console.log('Import completed in single step, exiting loop');
+              shouldContinueImport = false;
               break;
             }
             
@@ -443,6 +452,7 @@ export default function HolihopeImport() {
               console.log('Updated batch params for next iteration:', batchParams);
             } else {
               console.log('No nextBatch provided, stopping');
+              shouldContinueImport = false;
               break;
             }
             
@@ -457,6 +467,7 @@ export default function HolihopeImport() {
                 description: error instanceof Error ? error.message : 'Неизвестная ошибка',
                 variant: 'destructive',
               });
+              shouldContinueImport = false;
               break;
             }
             console.log(`Retrying in 2 seconds...`);
@@ -466,6 +477,7 @@ export default function HolihopeImport() {
         
         if (!batchSuccess) {
           console.error('Batch failed after all retries, stopping');
+          shouldContinueImport = false;
           break;
         }
       }
