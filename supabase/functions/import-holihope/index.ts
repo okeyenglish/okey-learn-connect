@@ -3127,12 +3127,10 @@ Deno.serve(async (req) => {
           const teacherData = {
             first_name: employee.FirstName || '',
             last_name: employee.LastName || '',
-            middle_name: employee.MiddleName || null,
             email: employee.EMail || null,
             phone: employee.Mobile || employee.Phone || null,
             branch: primaryBranch,
             is_active: !employee.Fired,
-            organization_id: orgId,
             external_id: employee.Id?.toString(),
             holihope_metadata: employee,
           };
