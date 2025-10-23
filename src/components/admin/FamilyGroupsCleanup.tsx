@@ -43,40 +43,52 @@ export const FamilyGroupsCleanup = () => {
   const { data: issuesData, isLoading } = useQuery({
     queryKey: ['family-groups-issues'],
     queryFn: async () => {
-      // Получаем все семейные группы
-      const { data: groups, error: groupsError } = await supabase
-        .from('family_groups')
-        .select('id, name');
+      // Получаем все данные одним запросом
+      const [groupsRes, studentsRes, membersRes] = await Promise.all([
+        supabase.from('family_groups').select('id, name'),
+        supabase.from('students').select('id, name, family_group_id'),
+        supabase.from('family_members').select(`
+          id,
+          family_group_id,
+          client_id,
+          relationship_type,
+          clients:client_id (name)
+        `)
+      ]);
 
-      if (groupsError) throw groupsError;
+      if (groupsRes.error) throw groupsRes.error;
+      if (studentsRes.error) throw studentsRes.error;
+      if (membersRes.error) throw membersRes.error;
+
+      // Группируем студентов по family_group_id
+      const studentsByGroup = new Map<string, typeof studentsRes.data>();
+      (studentsRes.data || []).forEach(student => {
+        if (!studentsByGroup.has(student.family_group_id)) {
+          studentsByGroup.set(student.family_group_id, []);
+        }
+        studentsByGroup.get(student.family_group_id)!.push(student);
+      });
+
+      // Группируем членов семьи по family_group_id
+      const membersByGroup = new Map<string, typeof membersRes.data>();
+      (membersRes.data || []).forEach(member => {
+        if (!membersByGroup.has(member.family_group_id)) {
+          membersByGroup.set(member.family_group_id, []);
+        }
+        membersByGroup.get(member.family_group_id)!.push(member);
+      });
 
       const issues: FamilyGroupIssue[] = [];
 
-      for (const group of groups || []) {
-        // Получаем студентов в группе
-        const { data: students } = await supabase
-          .from('students')
-          .select('id, name')
-          .eq('family_group_id', group.id);
+      for (const group of groupsRes.data || []) {
+        const students = studentsByGroup.get(group.id) || [];
+        const members = membersByGroup.get(group.id) || [];
 
-        // Получаем членов семьи
-        const { data: members } = await supabase
-          .from('family_members')
-          .select(`
-            id,
-            client_id,
-            relationship_type,
-            clients:client_id (
-              name
-            )
-          `)
-          .eq('family_group_id', group.id);
-
-        const studentsCount = students?.length || 0;
-        const membersCount = members?.length || 0;
+        const studentsCount = students.length;
+        const membersCount = members.length;
 
         // Проблема: есть дубликаты клиентов в family_members
-        const uniqueClientIds = new Set(members?.map(m => m.client_id) || []);
+        const uniqueClientIds = new Set(members.map(m => m.client_id));
         const hasDuplicates = uniqueClientIds.size < membersCount;
 
         if (hasDuplicates || membersCount > 3) {
@@ -85,11 +97,11 @@ export const FamilyGroupsCleanup = () => {
             familyGroupName: group.name,
             studentsCount,
             membersCount,
-            students: (students || []).map(s => ({
+            students: students.map(s => ({
               id: s.id,
               name: s.name,
             })),
-            members: (members || []).map(m => ({
+            members: members.map(m => ({
               id: m.id,
               clientId: m.client_id,
               clientName: (m.clients as any)?.name || 'Неизвестно',

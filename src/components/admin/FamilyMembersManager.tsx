@@ -37,45 +37,55 @@ export const FamilyMembersManager = () => {
   const { data: familyMembers, isLoading } = useQuery({
     queryKey: ['family-members-all'],
     queryFn: async () => {
-      const { data: members, error } = await supabase
-        .from('family_members')
-        .select(`
-          id,
-          family_group_id,
-          client_id,
-          relationship_type,
-          family_groups:family_group_id (
+      // Получаем все данные одним запросом
+      const [membersRes, studentsRes] = await Promise.all([
+        supabase
+          .from('family_members')
+          .select(`
             id,
-            name
-          ),
-          clients:client_id (
-            id,
-            name
-          )
-        `)
-        .order('family_group_id');
-
-      if (error) throw error;
-
-      // Группируем по family_group_id для получения студентов
-      const groupedData: FamilyMemberRecord[] = [];
-      
-      for (const member of members || []) {
-        const { data: students } = await supabase
+            family_group_id,
+            client_id,
+            relationship_type,
+            family_groups:family_group_id (
+              id,
+              name
+            ),
+            clients:client_id (
+              id,
+              name
+            )
+          `)
+          .order('family_group_id'),
+        supabase
           .from('students')
-          .select('id, name')
-          .eq('family_group_id', member.family_group_id);
+          .select('id, name, family_group_id')
+      ]);
 
-        groupedData.push({
-          id: member.id,
-          familyGroupId: member.family_group_id,
-          familyGroupName: (member.family_groups as any)?.name || 'Без названия',
-          clientId: member.client_id,
-          clientName: (member.clients as any)?.name || 'Неизвестно',
-          relationship: member.relationship_type,
-          students: (students || []).map(s => ({ id: s.id, name: s.name })),
+      if (membersRes.error) throw membersRes.error;
+      if (studentsRes.error) throw studentsRes.error;
+
+      // Группируем студентов по family_group_id
+      const studentsByGroup = new Map<string, Array<{ id: string; name: string }>>();
+      (studentsRes.data || []).forEach(student => {
+        if (!studentsByGroup.has(student.family_group_id)) {
+          studentsByGroup.set(student.family_group_id, []);
+        }
+        studentsByGroup.get(student.family_group_id)!.push({
+          id: student.id,
+          name: student.name,
         });
-      }
+      });
+
+      // Преобразуем данные
+      const groupedData: FamilyMemberRecord[] = (membersRes.data || []).map(member => ({
+        id: member.id,
+        familyGroupId: member.family_group_id,
+        familyGroupName: (member.family_groups as any)?.name || 'Без названия',
+        clientId: member.client_id,
+        clientName: (member.clients as any)?.name || 'Неизвестно',
+        relationship: member.relationship_type,
+        students: studentsByGroup.get(member.family_group_id) || [],
+      }));
 
       return groupedData;
     },
