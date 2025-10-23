@@ -1810,7 +1810,7 @@ Deno.serve(async (req) => {
             const batch = studentsToInsert.slice(i, i + 100);
             const { data: insertedStudents, error: studentsError } = await supabase
               .from('students')
-              .upsert(batch, { onConflict: 'external_id' })
+              .upsert(batch, { onConflict: 'external_id,organization_id' })
               .select('id, phone, lk_email, first_name, last_name, external_id');
 
             if (studentsError) {
@@ -1904,9 +1904,20 @@ Deno.serve(async (req) => {
           });
 
           if (familyMembersToCreate.length > 0) {
-            console.log(`Upserting ${familyMembersToCreate.length} family member links...`);
-            for (let i = 0; i < familyMembersToCreate.length; i += 100) {
-              const batch = familyMembersToCreate.slice(i, i + 100);
+            // Deduplicate family members to avoid "ON CONFLICT DO UPDATE command cannot affect row a second time"
+            const uniqueFamilyMembers = [];
+            const seen = new Set();
+            for (const member of familyMembersToCreate) {
+              const key = `${member.family_group_id}_${member.client_id}`;
+              if (!seen.has(key)) {
+                seen.add(key);
+                uniqueFamilyMembers.push(member);
+              }
+            }
+            
+            console.log(`Upserting ${uniqueFamilyMembers.length} unique family member links (${familyMembersToCreate.length - uniqueFamilyMembers.length} duplicates removed)...`);
+            for (let i = 0; i < uniqueFamilyMembers.length; i += 100) {
+              const batch = uniqueFamilyMembers.slice(i, i + 100);
               const { error: familyError } = await supabase
                 .from('family_members')
                 .upsert(batch, { onConflict: 'family_group_id,client_id' });
