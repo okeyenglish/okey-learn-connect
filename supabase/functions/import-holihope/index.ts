@@ -154,7 +154,28 @@ Deno.serve(async (req) => {
           .select();
         if (!leadsError) stats.leads = deletedLeads?.length || 0;
 
-        // 11. Delete clients
+        // 11. Delete call comments (связаны с клиентами)
+        const { error: callCommentsError } = await supabase
+          .from('call_comments')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+        if (callCommentsError) console.error('Error deleting call_comments:', callCommentsError);
+
+        // 12. Delete call logs (связаны с клиентами)
+        const { error: callLogsError } = await supabase
+          .from('call_logs')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+        if (callLogsError) console.error('Error deleting call_logs:', callLogsError);
+
+        // 13. Delete chat messages (связаны с клиентами)
+        const { error: chatMessagesError } = await supabase
+          .from('chat_messages')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+        if (chatMessagesError) console.error('Error deleting chat_messages:', chatMessagesError);
+
+        // 14. Delete clients
         const { data: deletedClients, error: clientsError } = await supabase
           .from('clients')
           .delete()
