@@ -1243,19 +1243,6 @@ export const ChatArea = ({
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
-              
-              {/* Toggle right panel button - only show on desktop when callback is provided */}
-              {!isMobile && onToggleRightPanel && (
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="h-8 w-8 p-0"
-                  title={rightPanelCollapsed ? "Показать семейную группу" : "Скрыть семейную группу"}
-                  onClick={onToggleRightPanel}
-                >
-                  {rightPanelCollapsed ? <PanelLeft className="h-4 w-4" /> : <PanelRight className="h-4 w-4" />}
-                </Button>
-              )}
             </div>
           </div>
         )}
@@ -1355,6 +1342,19 @@ export const ChatArea = ({
               >
                 <Forward className="h-4 w-4" />
               </Button>
+              
+              {/* Toggle right panel button */}
+              {onToggleRightPanel && (
+                <Button 
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  title={rightPanelCollapsed ? "Показать семейную группу" : "Скрыть семейную группу"}
+                  onClick={onToggleRightPanel}
+                >
+                  {rightPanelCollapsed ? <PanelLeft className="h-4 w-4" /> : <PanelRight className="h-4 w-4" />}
+                </Button>
+              )}
               
               {showSearchInput && (
                 <Input
