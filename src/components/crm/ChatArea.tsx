@@ -109,6 +109,9 @@ export const ChatArea = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const editNameInputRef = useRef<HTMLInputElement>(null);
+  // Composer width detection
+  const composerRef = useRef<HTMLDivElement>(null);
+  const [isCompactComposer, setIsCompactComposer] = useState(false);
 
   const MAX_MESSAGE_LENGTH = 4000;
 
@@ -132,7 +135,22 @@ export const ChatArea = ({
     console.log('ChatArea - pendingGPTLoading:', pendingGPTLoading);
     console.log('ChatArea - pendingGPTError:', pendingGPTError);
   }, [clientId, pendingGPTResponses, pendingGPTLoading, pendingGPTError]);
-
+  // Наблюдение за шириной composer для адаптивной кнопки
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const w = entry.contentRect.width;
+        setIsCompactComposer(w < 560);
+      }
+    });
+    ro.observe(el);
+    // Инициализация
+    setIsCompactComposer(el.clientWidth < 560);
+    return () => ro.disconnect();
+  }, []);
+  
   // Функция для прокрутки к концу чата
   const scrollToBottom = (smooth = true) => {
     messagesEndRef.current?.scrollIntoView({ 
@@ -1595,9 +1613,9 @@ export const ChatArea = ({
             />
             
             {/* Bottom row: Icons on left, Send button on right */}
-            <div className="flex items-center justify-between gap-1 md:gap-2">
+            <div ref={composerRef} className="flex flex-wrap items-center justify-between gap-1 md:gap-2">
               {/* Left side - Action icons */}
-              <div className="flex items-center gap-0.5 md:gap-1">
+              <div className="flex items-center gap-0.5 md:gap-1 flex-wrap">
                 <FileUpload
                   onFileUpload={(fileInfo) => {
                     setAttachedFiles(prev => [...prev, fileInfo]);
@@ -1766,7 +1784,7 @@ export const ChatArea = ({
                 disabled={loading || (!message.trim() && attachedFiles.length === 0) || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
               >
                 <Send className="h-4 w-4 flex-shrink-0" />
-                <span className="hidden md:inline">Отправить</span>
+                {isCompactComposer ? null : <span>Отправить</span>}
               </Button>
             </div>
           </div>
