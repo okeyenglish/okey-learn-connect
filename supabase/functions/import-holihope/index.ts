@@ -3123,18 +3123,31 @@ Deno.serve(async (req) => {
             ? employee.Offices[0].Name 
             : 'Окская';
           
-          // Create profile data - import all employees regardless of email
-          const profileData = {
+          // Import into teachers table
+          const teacherData = {
             first_name: employee.FirstName || '',
             last_name: employee.LastName || '',
+            middle_name: employee.MiddleName || null,
             email: employee.EMail || null,
             phone: employee.Mobile || employee.Phone || null,
-            department: employee.Position || null,
             branch: primaryBranch,
+            is_active: !employee.Fired,
             organization_id: orgId,
+            external_id: employee.Id?.toString(),
+            holihope_metadata: employee,
           };
           
-          // Try to find existing profile by email or phone
+          const { error: teacherError } = await supabase
+            .from('teachers')
+            .upsert(teacherData);
+          
+          if (teacherError) {
+            console.error('Error upserting teacher:', teacherError);
+            skippedCount++;
+            continue;
+          }
+          
+          // Try to find existing profile by email or phone and link them
           let existingProfile = null;
           
           if (employee.EMail) {
@@ -3157,10 +3170,15 @@ Deno.serve(async (req) => {
           }
           
           if (existingProfile) {
-            // Update existing profile
+            // Update existing profile with employee data
             await supabase
               .from('profiles')
-              .update(profileData)
+              .update({
+                first_name: employee.FirstName || '',
+                last_name: employee.LastName || '',
+                department: employee.Position || null,
+                branch: primaryBranch,
+              })
               .eq('id', existingProfile.id);
           }
           
