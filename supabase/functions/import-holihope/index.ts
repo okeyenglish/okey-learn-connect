@@ -3450,6 +3450,20 @@ Deno.serve(async (req) => {
             return statusMap[holihopeStatus?.toLowerCase()] || 'active';
           };
 
+          // Helper to parse price from string like "10 490,00 руб." to number
+          const parsePrice = (priceValue: any): number | null => {
+            if (typeof priceValue === 'number') return priceValue;
+            if (!priceValue) return null;
+            
+            const priceStr = String(priceValue)
+              .replace(/\s+/g, '')           // Remove spaces
+              .replace(/руб\.?/gi, '')       // Remove "руб." or "руб"
+              .replace(',', '.');            // Replace comma with dot
+            
+            const parsed = parseFloat(priceStr);
+            return isNaN(parsed) ? null : parsed;
+          };
+
           // Import based on unit type
           if (unitType === 'Individual') {
             // Import as individual_lessons (student will be linked in step 13)
@@ -3462,8 +3476,11 @@ Deno.serve(async (req) => {
               ? `${unit.Id}_${beginDate}_${endDate}`
               : `${unit.Id}_${unit.Name || 'noname'}`;
             
+            // Ensure student_name is not null or empty
+            const studentName = (unit.Name && unit.Name.trim()) || 'Без названия';
+            
             const { error: lessonError } = await supabase.from('individual_lessons').upsert({
-              student_name: unit.Name || 'Без названия',
+              student_name: studentName,
               branch: unit.OfficeOrCompanyName || 'Окская',
               subject: unit.Discipline || 'Английский',
               level: unit.Level || 'A1',
@@ -3476,7 +3493,7 @@ Deno.serve(async (req) => {
               lesson_location: scheduleRoom,
               period_start: unit.ScheduleItems?.[0]?.BeginDate || null,
               period_end: unit.ScheduleItems?.[0]?.EndDate || null,
-              price_per_lesson: unit.FiscalInfo?.PriceValue || null,
+              price_per_lesson: parsePrice(unit.FiscalInfo?.PriceValue),
               description: unit.Description || null,
               organization_id: orgId,
               external_id: externalId,
@@ -3500,8 +3517,11 @@ Deno.serve(async (req) => {
               ? `${unit.Id}_${beginDate}_${endDate}`
               : `${unit.Id}_${unit.Name || 'noname'}`;
             
+            // Ensure group name is not null or empty
+            const groupName = (unit.Name && unit.Name.trim()) || 'Без названия';
+            
             const { error: groupError } = await supabase.from('learning_groups').upsert({
-              name: unit.Name || 'Без названия',
+              name: groupName,
               branch: unit.OfficeOrCompanyName || 'Окская',
               subject: unit.Discipline || 'Английский',
               level: unit.Level || 'A1',
@@ -3517,7 +3537,7 @@ Deno.serve(async (req) => {
               schedule_room: scheduleRoom,
               period_start: unit.ScheduleItems?.[0]?.BeginDate || null,
               period_end: unit.ScheduleItems?.[0]?.EndDate || null,
-              default_price: unit.FiscalInfo?.PriceValue || null,
+              default_price: parsePrice(unit.FiscalInfo?.PriceValue),
               description: unit.Description || null,
               organization_id: orgId,
               external_id: externalId,
