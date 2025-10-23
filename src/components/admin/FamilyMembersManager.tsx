@@ -99,6 +99,7 @@ export const FamilyMembersManager = () => {
     },
   });
 
+  // Удаление одного члена семьи
   const deleteMember = useMutation({
     mutationFn: async (memberId: string) => {
       const { error } = await supabase
@@ -119,7 +120,54 @@ export const FamilyMembersManager = () => {
     },
   });
 
-  const filteredMembers = familyMembers?.filter(member => 
+  // Удаление всех дубликатов
+  const deleteAllDuplicates = useMutation({
+    mutationFn: async () => {
+      if (!familyMembers) return 0;
+
+      // Группируем по family_group_id и client_id
+      const groupedByFamilyAndClient = new Map<string, FamilyMemberRecord[]>();
+      
+      familyMembers.forEach(member => {
+        const key = `${member.familyGroupId}_${member.clientId}`;
+        if (!groupedByFamilyAndClient.has(key)) {
+          groupedByFamilyAndClient.set(key, []);
+        }
+        groupedByFamilyAndClient.get(key)!.push(member);
+      });
+
+      // Находим дубликаты
+      const idsToDelete: string[] = [];
+      groupedByFamilyAndClient.forEach(members => {
+        if (members.length > 1) {
+          // Оставляем первую запись, остальные удаляем
+          idsToDelete.push(...members.slice(1).map(m => m.id));
+        }
+      });
+
+      if (idsToDelete.length > 0) {
+        const { error } = await supabase
+          .from('family_members')
+          .delete()
+          .in('id', idsToDelete);
+
+        if (error) throw error;
+      }
+
+      return idsToDelete.length;
+    },
+    onSuccess: (deletedCount) => {
+      toast.success(`Удалено ${deletedCount} дубликатов`);
+      queryClient.invalidateQueries({ queryKey: ['family-members-all'] });
+      queryClient.invalidateQueries({ queryKey: ['family-groups-issues'] });
+      queryClient.invalidateQueries({ queryKey: ['student-details'] });
+    },
+    onError: (error) => {
+      toast.error('Ошибка при удалении дубликатов: ' + error.message);
+    },
+  });
+
+  const filteredMembers = familyMembers?.filter(member =>
     member.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     member.familyGroupName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     member.students.some(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -142,10 +190,37 @@ export const FamilyMembersManager = () => {
     <div className="space-y-4 p-4">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Управление членами семьи
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Управление членами семьи
+            </CardTitle>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Удалить все дубликаты
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Удалить все дубликаты?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Будут удалены все дублирующиеся записи family_members (когда один клиент связан с одной группой несколько раз).
+                    Для каждой пары "клиент-группа" останется только одна запись.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Отмена</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => deleteAllDuplicates.mutate()}
+                  >
+                    Удалить все
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-2">

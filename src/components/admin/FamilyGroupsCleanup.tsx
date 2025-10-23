@@ -117,7 +117,7 @@ export const FamilyGroupsCleanup = () => {
     },
   });
 
-  // Удаление дублирующихся записей
+  // Удаление дублирующихся записей для одной группы
   const removeDuplicates = useMutation({
     mutationFn: async (familyGroupId: string) => {
       const issue = issuesData?.find(i => i.familyGroupId === familyGroupId);
@@ -162,6 +162,52 @@ export const FamilyGroupsCleanup = () => {
     },
   });
 
+  // Удаление всех дубликатов сразу
+  const removeAllDuplicates = useMutation({
+    mutationFn: async () => {
+      if (!issuesData) return 0;
+
+      let totalDeleted = 0;
+
+      for (const issue of issuesData) {
+        const clientGroups = new Map<string, typeof issue.members>();
+        issue.members.forEach(member => {
+          if (!clientGroups.has(member.clientId)) {
+            clientGroups.set(member.clientId, []);
+          }
+          clientGroups.get(member.clientId)!.push(member);
+        });
+
+        const idsToDelete: string[] = [];
+        clientGroups.forEach((membersList) => {
+          if (membersList.length > 1) {
+            idsToDelete.push(...membersList.slice(1).map(m => m.id));
+          }
+        });
+
+        if (idsToDelete.length > 0) {
+          const { error } = await supabase
+            .from('family_members')
+            .delete()
+            .in('id', idsToDelete);
+
+          if (error) throw error;
+          totalDeleted += idsToDelete.length;
+        }
+      }
+
+      return totalDeleted;
+    },
+    onSuccess: (deletedCount) => {
+      toast.success(`Удалено ${deletedCount} дубликатов из всех групп`);
+      queryClient.invalidateQueries({ queryKey: ['family-groups-issues'] });
+      queryClient.invalidateQueries({ queryKey: ['student-details'] });
+    },
+    onError: (error) => {
+      toast.error('Ошибка при удалении дубликатов: ' + error.message);
+    },
+  });
+
   if (isLoading) {
     return <div className="p-4">Загрузка...</div>;
   }
@@ -170,10 +216,39 @@ export const FamilyGroupsCleanup = () => {
     <div className="space-y-4 p-4">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-yellow-600" />
-            Проблемы с семейными группами
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-yellow-600" />
+              Проблемы с семейными группами
+            </CardTitle>
+            {issuesData && issuesData.length > 0 && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Очистить все
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Удалить все дубликаты?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Будут удалены все дублирующиеся записи family_members во всех найденных группах. 
+                      Для каждого клиента останется только одна запись в каждой группе.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Отмена</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => removeAllDuplicates.mutate()}
+                    >
+                      Удалить все
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {!issuesData || issuesData.length === 0 ? (
