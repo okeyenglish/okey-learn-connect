@@ -631,6 +631,51 @@ export type Database = {
           },
         ]
       }
+      client_statuses: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          external_id: string | null
+          id: string
+          is_active: boolean
+          is_failure: boolean
+          is_success: boolean
+          name: string
+          organization_id: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          external_id?: string | null
+          id?: string
+          is_active?: boolean
+          is_failure?: boolean
+          is_success?: boolean
+          name: string
+          organization_id?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          external_id?: string | null
+          id?: string
+          is_active?: boolean
+          is_failure?: boolean
+          is_success?: boolean
+          name?: string
+          organization_id?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           avatar_url: string | null
@@ -3700,6 +3745,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      student_statuses: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          external_id: string | null
+          id: string
+          is_active: boolean
+          is_failure: boolean
+          is_success: boolean
+          name: string
+          organization_id: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          external_id?: string | null
+          id?: string
+          is_active?: boolean
+          is_failure?: boolean
+          is_success?: boolean
+          name: string
+          organization_id?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          external_id?: string | null
+          id?: string
+          is_active?: boolean
+          is_failure?: boolean
+          is_success?: boolean
+          name?: string
+          organization_id?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       students: {
         Row: {
