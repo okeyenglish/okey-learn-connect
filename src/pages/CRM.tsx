@@ -2428,7 +2428,7 @@ const CRMContent = () => {
                 )}
                 </div>
               </div>
-              <ScrollArea className="flex-1 min-h-0">
+              <div className="flex-1 min-h-0 overflow-auto">
                 <div className="p-2 flex flex-col h-full relative z-10 pointer-events-auto bg-background">
                   {/* Закрепленные чаты */}
                    {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
@@ -2681,7 +2681,7 @@ const CRMContent = () => {
                     </div>
                   )}
                 </div>
-              </ScrollArea>
+              </div>
             </TabsContent>
           </Tabs>
         </div>
@@ -2800,7 +2800,7 @@ const CRMContent = () => {
                   </DropdownMenu>
                 </div>
               </div>
-              <ScrollArea className="flex-1">
+              <div className="flex-1 overflow-auto">
                 <div className="p-3 flex flex-col h-full">
                   {/* Закрепленные чаты */}
                   {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
@@ -3004,7 +3004,7 @@ const CRMContent = () => {
                       />
                   </div>
                 </div>
-              </ScrollArea>
+              </div>
             </div>
           ) : activeChatId && activeChatType === 'client' ? (
             <ChatArea 
