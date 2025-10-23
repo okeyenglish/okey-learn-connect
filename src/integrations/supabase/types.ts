@@ -3900,31 +3900,48 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          external_id: string | null
+          holihope_metadata: Json | null
           id: string
           is_active: boolean
           name: string
+          organization_id: string | null
           sort_order: number
           updated_at: string
         }
         Insert: {
           created_at?: string
           description?: string | null
+          external_id?: string | null
+          holihope_metadata?: Json | null
           id?: string
           is_active?: boolean
           name: string
+          organization_id?: string | null
           sort_order?: number
           updated_at?: string
         }
         Update: {
           created_at?: string
           description?: string | null
+          external_id?: string | null
+          holihope_metadata?: Json | null
           id?: string
           is_active?: boolean
           name?: string
+          organization_id?: string | null
           sort_order?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "subjects_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subscription_freezes: {
         Row: {

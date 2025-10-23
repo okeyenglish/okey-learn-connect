@@ -2918,14 +2918,15 @@ Deno.serve(async (req) => {
         let importedCount = 0;
         for (const disciplineName of disciplines) {
           // API returns array of strings, not objects
-          await supabase.from('disciplines').upsert({
+          await supabase.from('subjects').upsert({
             name: disciplineName || 'Без названия',
-            description: null,
+            description: `Обучение ${(disciplineName || '').toLowerCase()}`,
             is_active: true,
             sort_order: importedCount,
             organization_id: orgId,
             external_id: disciplineName, // Use name as external_id since no ID provided
-          }, { onConflict: 'external_id,organization_id' });
+            holihope_metadata: { original_name: disciplineName },
+          }, { onConflict: 'organization_id,external_id' });
           importedCount++;
         }
         
