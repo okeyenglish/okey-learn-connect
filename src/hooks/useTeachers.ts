@@ -7,8 +7,8 @@ export interface Teacher {
   last_name: string;
   email?: string;
   phone?: string;
-  subjects: string[];
-  categories: string[];
+  subjects: string[] | null;
+  categories: string[] | null;
   branch: string;
   is_active: boolean;
   created_at: string;
@@ -45,13 +45,13 @@ export const useTeachers = (filters?: TeacherFilters) => {
       
       if (filters?.subject) {
         filteredData = filteredData.filter(teacher => 
-          teacher.subjects.includes(filters.subject!)
+          teacher.subjects?.includes(filters.subject!) ?? false
         );
       }
       
       if (filters?.category) {
         filteredData = filteredData.filter(teacher => 
-          teacher.categories.includes(filters.category!)
+          teacher.categories?.includes(filters.category!) ?? false
         );
       }
       
@@ -72,7 +72,7 @@ export const getTeacherFullName = (teacher: Teacher): string => {
 
 export const getFilteredTeachers = (teachers: Teacher[], subject: string, category: string): Teacher[] => {
   return teachers.filter(teacher => 
-    teacher.subjects.includes(subject) && 
-    teacher.categories.includes(category)
+    (teacher.subjects?.includes(subject) ?? false) && 
+    (teacher.categories?.includes(category) ?? false)
   );
 };
