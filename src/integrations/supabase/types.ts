@@ -3448,6 +3448,42 @@ export type Database = {
         }
         Relationships: []
       }
+      salebot_import_progress: {
+        Row: {
+          created_at: string
+          current_offset: number
+          errors: Json | null
+          id: string
+          is_running: boolean
+          last_run_at: string | null
+          total_clients_processed: number
+          total_imported: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_offset?: number
+          errors?: Json | null
+          id?: string
+          is_running?: boolean
+          last_run_at?: string | null
+          total_clients_processed?: number
+          total_imported?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_offset?: number
+          errors?: Json | null
+          id?: string
+          is_running?: boolean
+          last_run_at?: string | null
+          total_clients_processed?: number
+          total_imported?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       schedule: {
         Row: {
           compact_classroom: string

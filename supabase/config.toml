@@ -83,3 +83,6 @@ verify_jwt = true
 
 [functions.import-salebot-chats]
 verify_jwt = true
+
+[functions.import-salebot-chats-auto]
+verify_jwt = false
