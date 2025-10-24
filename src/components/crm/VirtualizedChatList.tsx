@@ -36,7 +36,7 @@ export const VirtualizedChatList = React.memo(({
   const virtualizer = useVirtualizer({
     count: chats.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 80,
+    estimateSize: () => 60,
     overscan: 4,
   });
 
