@@ -854,9 +854,14 @@ export default function HolihopeImport() {
                         </div>
                       </div>
                       <div className="space-y-1">
-                        <div className="text-xs text-purple-600 dark:text-purple-400">Импортировано сообщений</div>
+                        <div className="text-xs text-purple-600 dark:text-purple-400">Обработано сообщений</div>
                         <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
                           {importProgress.totalMessagesImported}
+                        </div>
+                        <div className="text-[10px] text-purple-500 dark:text-purple-400 leading-tight">
+                          {importProgress.totalImported > 0 
+                            ? `${importProgress.totalImported} новых, остальные дубликаты` 
+                            : 'Все уже импортированы ранее'}
                         </div>
                       </div>
                     </div>

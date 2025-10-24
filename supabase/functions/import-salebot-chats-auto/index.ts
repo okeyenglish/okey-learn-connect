@@ -98,6 +98,7 @@ Deno.serve(async (req) => {
 
     let totalImported = 0;
     let totalClients = 0;
+    let totalProcessedMessages = 0;
     let errors: string[] = progressData.errors || [];
     const clientBatchSize = 20;
     
@@ -298,8 +299,11 @@ Deno.serve(async (req) => {
 
           // Вставляем батчами
           const batchSize = 50;
+          let processedMessages = 0;
+          
           for (let i = 0; i < chatMessages.length; i += batchSize) {
             const batch = chatMessages.slice(i, i + batchSize);
+            processedMessages += batch.length;
             
             const salebotIds = batch.map(m => m.salebot_message_id);
             const { data: existing } = await supabase
@@ -311,7 +315,7 @@ Deno.serve(async (req) => {
             const existingIds = new Set((existing || []).map(e => e.salebot_message_id));
             const newMessages = batch.filter(m => !existingIds.has(m.salebot_message_id));
             
-            console.log(`Батч: всего ${batch.length} сообщений, уже существует ${existingIds.size}, новых ${newMessages.length}`);
+            console.log(`Батч ${i/batchSize + 1}: всего ${batch.length} сообщений, уже существует ${existingIds.size}, новых ${newMessages.length}`);
             
               if (newMessages.length > 0) {
                 const { error: insertError } = await supabase
@@ -332,13 +336,14 @@ Deno.serve(async (req) => {
           }
 
           totalClients++;
-          console.log(`Клиент обработан. Всего клиентов: ${totalClients}, всего сообщений: ${totalImported}`);
+          totalProcessedMessages += processedMessages;
+          console.log(`Клиент обработан. Всего клиентов: ${totalClients}, обработано всего сообщений: ${totalProcessedMessages}, новых: ${totalImported}`);
           
           // Обновляем прогресс после каждого клиента
           const { error: updateError } = await supabase
             .from('salebot_import_progress')
             .update({ 
-              total_messages_imported: totalImported,
+              total_messages_imported: totalProcessedMessages,
               total_clients_processed: totalClients,
               total_imported: totalImported,
               updated_at: new Date().toISOString()
@@ -347,6 +352,8 @@ Deno.serve(async (req) => {
           
           if (updateError) {
             console.error('Ошибка обновления прогресса:', updateError);
+          } else {
+            console.log(`Прогресс обновлен: клиентов ${totalClients}, обработано сообщений ${totalProcessedMessages}, новых ${totalImported}`);
           }
 
         } catch (error: any) {
