@@ -92,6 +92,34 @@ export default function HolihopeImport() {
     return () => clearInterval(interval);
   }, [isImportingChats]);
 
+  // Emergency stop via URL param: /holihope-import?stop_salebot=1
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('stop_salebot') === '1') {
+      (async () => {
+        try {
+          setChatImportStatus('Останавливаю импорт Salebot...');
+          const { data: progress } = await supabase
+            .from('salebot_import_progress')
+            .select('id')
+            .limit(1)
+            .single();
+          if (progress?.id) {
+            await supabase
+              .from('salebot_import_progress')
+              .update({ is_running: false })
+              .eq('id', progress.id);
+            setIsImportingChats(false);
+            toast({ title: 'Импорт остановлен', description: 'Импорт Salebot принудительно остановлен' });
+          }
+        } catch (e) {
+          console.error('Не удалось остановить импорт:', e);
+        }
+      })();
+    }
+  }, []);
+
+
   const formatElapsedTime = (startTime: Date) => {
     const elapsed = Math.floor((Date.now() - startTime.getTime()) / 1000);
     const minutes = Math.floor(elapsed / 60);
