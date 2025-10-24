@@ -105,14 +105,26 @@ Deno.serve(async (req) => {
         const phone = phoneRecord.phone;
         if (!phone) continue;
 
-        // Убираем все символы кроме цифр
-        const cleanPhone = phone.replace(/\D/g, '');
+        // Нормализуем телефон к формату 79161234567
+        let normalized = phone.replace(/\D/g, ''); // Убираем все кроме цифр
+        
+        // Если номер начинается с 8, заменяем на 7
+        if (normalized.match(/^8\d{10}$/)) {
+          normalized = '7' + normalized.substring(1);
+        }
+        
+        // Если номер 10 цифр, добавляем 7
+        if (normalized.length === 10) {
+          normalized = '7' + normalized;
+        }
+        
+        const cleanPhone = normalized;
         
         try {
-          console.log(`Обработка клиента: ${client.name}, телефон: ${phone}`);
+          console.log(`Обработка клиента: ${client.name}, телефон: ${phone} → нормализован: ${cleanPhone}`);
 
           // Шаг 1: Получаем client_id из Salebot по номеру телефона
-          // Пробуем разные форматы номера
+          // Пробуем разные форматы для Salebot API
           const phoneVariants = [
             cleanPhone,                                    // 79161234567
             cleanPhone.replace(/^7/, '8'),                // 89161234567

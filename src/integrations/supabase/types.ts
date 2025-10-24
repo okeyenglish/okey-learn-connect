@@ -5462,6 +5462,7 @@ export type Database = {
           url: string
         }[]
       }
+      normalize_phone: { Args: { phone_input: string }; Returns: string }
       refund_lesson_to_subscription: {
         Args: {
           _lesson_session_id: string
