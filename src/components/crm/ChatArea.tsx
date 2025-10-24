@@ -945,6 +945,17 @@ export const ChatArea = ({
     setSelectedMessages(newSelected);
   };
 
+  // Функция для пересылки одного сообщения через контекстное меню
+  const handleForwardSingleMessage = (messageId: string) => {
+    setSelectedMessages(new Set([messageId]));
+    setShowForwardModal(true);
+  };
+
+  // Функция для включения режима множественного выбора через контекстное меню
+  const handleEnterSelectionMode = () => {
+    setIsSelectionMode(true);
+  };
+
   const handleForwardMessages = async (recipients: Array<{id: string, type: 'client' | 'teacher' | 'corporate', name: string}>) => {
     const messagesToForward = messages.filter(msg => selectedMessages.has(msg.id));
     
@@ -1554,6 +1565,8 @@ export const ChatArea = ({
                         showAvatar={showAvatar}
                         showName={showName}
                         isLastInGroup={isLastInGroup}
+                        onForwardMessage={handleForwardSingleMessage}
+                        onEnterSelectionMode={handleEnterSelectionMode}
                       />
                     );
                   })}

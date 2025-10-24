@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AttachedFile } from "./AttachedFile";
 import { MessageReadIndicator } from "./MessageReadIndicator";
 import { MessageReactions } from "./MessageReactions";
+import { MessageContextMenu } from "./MessageContextMenu";
 
 interface ChatMessageProps {
   type: 'client' | 'manager' | 'system' | 'comment';
@@ -37,9 +38,11 @@ interface ChatMessageProps {
   showAvatar?: boolean;
   showName?: boolean;
   isLastInGroup?: boolean;
+  onForwardMessage?: (messageId: string) => void;
+  onEnterSelectionMode?: () => void;
 }
 
-const ChatMessageComponent = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, whatsappChatId, greenApiMessageId, showAvatar = true, showName = true, isLastInGroup = true }: ChatMessageProps) => {
+const ChatMessageComponent = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, whatsappChatId, greenApiMessageId, showAvatar = true, showName = true, isLastInGroup = true, onForwardMessage, onEnterSelectionMode }: ChatMessageProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message);
 
@@ -82,6 +85,22 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditedMessage(message);
+  };
+
+  const handleDelete = async () => {
+    if (!messageId || !onMessageDelete) return;
+    await onMessageDelete(messageId);
+  };
+
+  const handleForward = () => {
+    if (!messageId || !onForwardMessage) return;
+    onForwardMessage(messageId);
+  };
+
+  const handleSelectMultiple = () => {
+    if (onEnterSelectionMode) {
+      onEnterSelectionMode();
+    }
   };
   if (type === 'system') {
     if (systemType === 'missed-call') {
@@ -217,8 +236,18 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
   }
 
   return (
-    <div className={`flex ${type === 'manager' ? 'justify-end' : 'justify-start'} ${isLastInGroup ? 'mb-4' : 'mb-1'} ${isSelectionMode ? 'hover:bg-muted/20 p-2 rounded-lg' : ''}`}>
-      <div className="flex items-start gap-3 max-w-xs lg:max-w-md xl:max-w-lg">
+    <MessageContextMenu
+      messageId={messageId}
+      messageType={type}
+      messageText={message}
+      onEdit={type === 'manager' && message !== '[Сообщение удалено]' ? () => setIsEditing(true) : undefined}
+      onDelete={onMessageDelete && messageId ? handleDelete : undefined}
+      onForward={onForwardMessage && messageId ? handleForward : undefined}
+      onSelectMultiple={onEnterSelectionMode ? handleSelectMultiple : undefined}
+      isDeleted={message === '[Сообщение удалено]'}
+    >
+      <div className={`flex ${type === 'manager' ? 'justify-end' : 'justify-start'} ${isLastInGroup ? 'mb-4' : 'mb-1'} ${isSelectionMode ? 'hover:bg-muted/20 p-2 rounded-lg' : ''}`}>
+        <div className="flex items-start gap-3 max-w-xs lg:max-w-md xl:max-w-lg">
         {/* Чекбокс для выделения сообщений */}
         {isSelectionMode && (
           <div className="flex items-center pt-2">
@@ -423,6 +452,7 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
         </div>
       </div>
     </div>
+    </MessageContextMenu>
   );
 };
 
