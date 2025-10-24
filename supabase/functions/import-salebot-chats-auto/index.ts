@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
     let totalImported = 0;
     let totalClients = 0;
     let errors: string[] = progressData.errors || [];
-    const clientBatchSize = 5;
+    const clientBatchSize = 20;
 
     let salebotClients: SalebotClient[] = [];
 
@@ -284,7 +284,7 @@ Deno.serve(async (req) => {
           }
 
           // Вставляем батчами
-          const batchSize = 10;
+          const batchSize = 50;
           for (let i = 0; i < chatMessages.length; i += batchSize) {
             const batch = chatMessages.slice(i, i + batchSize);
             
@@ -310,7 +310,7 @@ Deno.serve(async (req) => {
               }
             }
             
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 200));
           }
 
           totalClients++;
@@ -320,7 +320,7 @@ Deno.serve(async (req) => {
           errors.push(`Salebot ID ${salebotClient.id}: ${error.message}`);
         }
 
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     } else if (!listId) {
       // Обработка клиентов из нашей базы (старая логика)
@@ -437,7 +437,7 @@ Deno.serve(async (req) => {
               });
             }
 
-            const batchSize = 10;
+            const batchSize = 50;
             for (let i = 0; i < chatMessages.length; i += batchSize) {
               const batch = chatMessages.slice(i, i + batchSize);
               
@@ -463,7 +463,7 @@ Deno.serve(async (req) => {
                 }
               }
               
-              await new Promise(resolve => setTimeout(resolve, 500));
+              await new Promise(resolve => setTimeout(resolve, 200));
             }
 
             totalClients++;
@@ -473,7 +473,7 @@ Deno.serve(async (req) => {
             errors.push(`${client.name}: ${error.message}`);
           }
 
-          await new Promise(resolve => setTimeout(resolve, 1500));
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
     }

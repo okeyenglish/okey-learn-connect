@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
     let totalImported = 0;
     let totalClients = 0;
     let errors: string[] = [];
-    const clientBatchSize = 5;
+    const clientBatchSize = 20;
     
     // Если указан list_id, получаем клиентов из списка Salebot
     if (listId) {
@@ -229,7 +229,7 @@ Deno.serve(async (req) => {
           }
 
           // Вставляем батчами
-          const batchSize = 10;
+          const batchSize = 50;
           for (let i = 0; i < chatMessages.length; i += batchSize) {
             const batch = chatMessages.slice(i, i + batchSize);
             
@@ -255,7 +255,7 @@ Deno.serve(async (req) => {
               }
             }
             
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 200));
           }
 
           totalClients++;
@@ -265,7 +265,7 @@ Deno.serve(async (req) => {
           errors.push(`Salebot ID ${salebotClient.id}: ${error.message}`);
         }
 
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
 
       return new Response(
@@ -454,8 +454,8 @@ Deno.serve(async (req) => {
 
           console.log(`Валидных сообщений для ${client.name}: ${chatMessages.length} из ${messages.length}`);
 
-          // Вставляем сообщения батчами по 10 (уменьшено для снижения нагрузки)
-          const batchSize = 10;
+          // Вставляем сообщения батчами по 50
+          const batchSize = 50;
           for (let i = 0; i < chatMessages.length; i += batchSize) {
             const batch = chatMessages.slice(i, i + batchSize);
             
@@ -520,7 +520,7 @@ Deno.serve(async (req) => {
             }
             
             // Задержка между батчами для снижения нагрузки
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 200));
           }
 
           totalClients++;
@@ -532,7 +532,7 @@ Deno.serve(async (req) => {
         }
 
         // Задержка между клиентами для снижения нагрузки
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
 
