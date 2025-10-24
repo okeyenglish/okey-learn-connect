@@ -219,7 +219,10 @@ Deno.serve(async (req) => {
             .eq('phone', phoneNumber);
 
           let clientId: string;
-          let clientName = salebotClient.name || `Клиент ${phoneNumber}`;
+          // Берем имя из Salebot, если оно есть и не пустое
+          let clientName = (salebotClient.name && salebotClient.name.trim()) 
+            ? salebotClient.name.trim() 
+            : `Клиент ${phoneNumber}`;
 
           if (existingPhones && existingPhones.length > 0) {
             // Клиент существует
