@@ -63,7 +63,7 @@ export const ChatListItem = React.memo(({
       isArchived={isArchived}
     >
       <button 
-        className={`w-full p-3 text-left rounded-lg transition-all duration-200 relative mb-1 border ${
+        className={`w-full p-2 text-left rounded-lg transition-all duration-200 relative mb-1 border ${
           isPinned 
             ? `border-orange-200 bg-gradient-to-r ${
                 isActive 
@@ -82,8 +82,8 @@ export const ChatListItem = React.memo(({
           }
         }}
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3 flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start gap-2 flex-1 min-w-0">
             {bulkSelectMode && (
               <input 
                 type="checkbox" 
@@ -94,7 +94,7 @@ export const ChatListItem = React.memo(({
               />
             )}
             
-            <Avatar className={`h-11 w-11 flex-shrink-0 ring-2 transition-all ${
+            <Avatar className={`h-9 w-9 flex-shrink-0 ring-2 transition-all ${
               isPinned 
                 ? 'ring-orange-200 shadow-sm' 
                 : 'ring-border/30'
@@ -107,8 +107,8 @@ export const ChatListItem = React.memo(({
               </AvatarFallback>
             </Avatar>
             
-            <div className="flex-1 min-w-0 overflow-hidden">
-              <div className="flex items-center gap-2 mb-0.5">
+              <div className="flex-1 min-w-0 overflow-hidden">
+              <div className="flex items-center gap-1.5 mb-0">
                 <p className={`text-sm ${displayUnread ? 'font-semibold' : 'font-medium'} truncate`}>
                   {chat.name}
                 </p>
@@ -117,7 +117,7 @@ export const ChatListItem = React.memo(({
                 )}
               </div>
               
-              <div className="flex items-center gap-1.5 flex-wrap mb-1">
+              <div className="flex items-center gap-1 flex-wrap mb-0.5">
                 {isPinned && (
                   <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/50">
                     В работе
@@ -136,8 +136,8 @@ export const ChatListItem = React.memo(({
             </div>
           </div>
           
-          <div className="flex flex-col items-end gap-1 flex-shrink-0">
-            <span className="text-[11px] text-muted-foreground font-medium">{chat.time}</span>
+          <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+            <span className="text-[10px] text-muted-foreground font-medium">{chat.time}</span>
             {displayUnread && (
               <span className={`${
                 isPinned ? 'bg-gradient-to-r from-orange-500 to-orange-600' : 'bg-gradient-to-r from-primary to-primary/90'
