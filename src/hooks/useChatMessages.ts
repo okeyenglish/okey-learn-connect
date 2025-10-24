@@ -55,6 +55,8 @@ export const useChatMessages = (clientId: string) => {
 export const useChatThreads = () => {
   const { data: threads, isLoading, error } = useQuery({
     queryKey: ['chat-threads'],
+    staleTime: 0,
+    refetchOnMount: true,
     queryFn: async () => {
       console.log('[useChatThreads] Fetching chat messages...');
       
@@ -102,7 +104,8 @@ export const useChatThreads = () => {
         withClients: messagesData?.filter((m: any) => m.clients).length || 0,
         withoutClients: messagesData?.filter((m: any) => !m.clients).length || 0,
         salebotMessages: messagesData?.filter((m: any) => m.salebot_message_id).length || 0,
-        sample: messagesData?.slice(0, 3).map((m: any) => ({
+        uniqueClientIds: new Set(messagesData?.map((m: any) => m.client_id)).size,
+        sample: messagesData?.slice(0, 5).map((m: any) => ({
           client_id: m.client_id,
           has_client: !!m.clients,
           client_name: m.clients?.name,
@@ -207,8 +210,21 @@ export const useChatThreads = () => {
         }
       });
 
-      return Array.from(threadsMap.values())
+      const finalThreads = Array.from(threadsMap.values())
         .sort((a, b) => new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime());
+      
+      console.log('[useChatThreads] Threads created from messages:', {
+        totalThreads: finalThreads.length,
+        threadsWithNames: finalThreads.filter(t => t.client_name).length,
+        threadsWithoutNames: finalThreads.filter(t => !t.client_name).length,
+        sample: finalThreads.slice(0, 5).map(t => ({
+          id: t.client_id,
+          name: t.client_name || '(no name)',
+          lastMsg: t.last_message?.substring(0, 30)
+        }))
+      });
+      
+      return finalThreads;
     },
   });
 
