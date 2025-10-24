@@ -232,7 +232,7 @@ Deno.serve(async (req) => {
               .insert({
                 name: clientName,
                 organization_id: organizationId,
-                status: 'lead'
+                is_active: true
               })
               .select()
               .single();
