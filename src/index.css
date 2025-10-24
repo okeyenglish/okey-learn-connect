@@ -107,8 +107,8 @@ img[alt*="avatar"],
     --radius-lg: 20px;
     
     /* === Avatar Colors === */
-    --avatar-blue: 217 40% 60%;
-    --avatar-purple: 267 30% 65%;
+    --avatar-blue: 214 45% 58%;
+    --avatar-purple: 220 35% 62%;
     
     /* === Animations === */
     --transition-fast: all 120ms cubic-bezier(0.4, 0, 0.2, 1);
