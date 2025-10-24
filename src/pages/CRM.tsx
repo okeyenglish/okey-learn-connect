@@ -2545,9 +2545,9 @@ const CRMContent = () => {
                 <div className="p-3 flex flex-col h-full relative z-10 pointer-events-auto bg-background">
                   {/* Закрепленные чаты */}
                    {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
-                    <div className="mb-6">
+                    <div className="mb-3">
                       <button 
-                        className="w-full flex items-center justify-between px-3 py-2 mb-3 hover:bg-accent/50 rounded-lg transition-all duration-200 group"
+                        className="w-full flex items-center justify-between px-3 py-1.5 mb-2 hover:bg-accent/50 rounded-lg transition-all duration-200 group"
                         onClick={() => setIsPinnedSectionOpen(!isPinnedSectionOpen)}
                       >
                         <div className="flex items-center gap-2.5">
@@ -2752,7 +2752,7 @@ const CRMContent = () => {
 
                   {/* Активные чаты */}
                   <div className="flex-1 min-h-0 flex flex-col">
-                     <div className="flex items-center justify-between px-3 py-2 mb-3 bg-gradient-to-r from-accent/30 to-transparent rounded-lg">
+                     <div className="flex items-center justify-between px-3 py-1.5 mb-2 bg-gradient-to-r from-accent/30 to-transparent rounded-lg">
                         <h3 className="text-sm font-semibold text-foreground/80">
                           Активные чаты
                         </h3>
@@ -2917,9 +2917,9 @@ const CRMContent = () => {
                 <div className="p-4 flex flex-col h-full">
                   {/* Закрепленные чаты */}
                   {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
-                    <div className="mb-6">
+                    <div className="mb-3">
                       <button 
-                        className="w-full flex items-center justify-between px-3 py-2 mb-3 hover:bg-accent/50 rounded-lg transition-all duration-200 group"
+                        className="w-full flex items-center justify-between px-3 py-1.5 mb-2 hover:bg-accent/50 rounded-lg transition-all duration-200 group"
                         onClick={() => setIsPinnedSectionOpen(!isPinnedSectionOpen)}
                       >
                         <div className="flex items-center gap-2.5">
@@ -2951,7 +2951,7 @@ const CRMContent = () => {
                         })()}
                       </button>
                       {isPinnedSectionOpen && (
-                        <div className="space-y-2 mb-6">
+                        <div className="space-y-1.5 mb-3">
                            {filteredChats
                              .filter(chat => getChatState(chat.id).isPinned)
                             .map((chat) => {
@@ -2998,7 +2998,7 @@ const CRMContent = () => {
                                            />
                                          </div>
                                        ) : (
-                                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 shadow-sm flex items-center justify-center flex-shrink-0 ring-2 ring-orange-200">
+                                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 shadow-sm flex items-center justify-center flex-shrink-0 ring-2 ring-blue-200">
                                            <User className="h-6 w-6 text-white" />
                                          </div>
                                        )}
@@ -3083,7 +3083,7 @@ const CRMContent = () => {
 
                   {/* Активные чаты */}
                   <div className="flex-1 min-h-0 flex flex-col">
-                     <div className="flex items-center justify-between px-3 py-2 mb-3 bg-gradient-to-r from-accent/30 to-transparent rounded-lg">
+                     <div className="flex items-center justify-between px-3 py-1.5 mb-2 bg-gradient-to-r from-accent/30 to-transparent rounded-lg">
                          <h3 className="text-sm font-semibold text-foreground/80">
                            Активные чаты
                          </h3>
