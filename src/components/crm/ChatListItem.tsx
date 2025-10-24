@@ -164,6 +164,7 @@ export const ChatListItem = React.memo(({
   // Оптимизация: ре-рендерить только если изменились критичные пропсы
   return (
     prevProps.chat.id === nextProps.chat.id &&
+    prevProps.chat.name === nextProps.chat.name && // ВАЖНО: обновлять при изменении имени
     prevProps.chat.unread === nextProps.chat.unread &&
     prevProps.chat.lastMessage === nextProps.chat.lastMessage &&
     prevProps.chat.time === nextProps.chat.time &&
