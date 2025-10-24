@@ -2632,21 +2632,21 @@ const CRMContent = () => {
                                            )}
                                          </div>
                                        )}
-                                       {/* Avatar or icon */}
-                                       {chat.type === 'corporate' ? (
-                                         <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                           <Building2 className="h-5 w-5 text-blue-600" />
-                                         </div>
-                                       ) : chat.type === 'teachers' ? (
-                                         <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                                           <GraduationCap className="h-5 w-5 text-purple-600" />
-                                         </div>
-                                           ) : chat.avatar_url ? (
-                                             <div className="relative flex-shrink-0">
-                                                <img 
-                                                  src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
-                                                  alt={`${chat.name} avatar`} 
-                                                  className="w-10 h-10 rounded-full object-cover border-2 border-green-200"
+                                        {/* Avatar or icon */}
+                                        {chat.type === 'corporate' ? (
+                                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
+                                            <Building2 className="h-5 w-5 text-white" />
+                                          </div>
+                                        ) : chat.type === 'teachers' ? (
+                                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center flex-shrink-0">
+                                            <GraduationCap className="h-5 w-5 text-white" />
+                                          </div>
+                                            ) : chat.avatar_url ? (
+                                              <div className="relative flex-shrink-0">
+                                                 <img 
+                                                   src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
+                                                   alt={`${chat.name} avatar`} 
+                                                   className="w-10 h-10 rounded-full object-cover border-2 border-blue-200"
                                                   style={{ borderRadius: '50%' }}
                                                   loading="lazy"
                                                   decoding="async"
@@ -2679,11 +2679,11 @@ const CRMContent = () => {
                                                ) : null;
                                              })()}
                                           </div>
-                                       ) : (
-                                         <div className="relative flex-shrink-0">
-                                           <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                                             <User className="h-5 w-5 text-green-600" />
-                                           </div>
+                                        ) : (
+                                          <div className="relative flex-shrink-0">
+                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                                              <User className="h-5 w-5 text-white" />
+                                            </div>
                                             {/* Lead indicator */}
                                              {(() => {
                                                const chatInfo = chat as any;
