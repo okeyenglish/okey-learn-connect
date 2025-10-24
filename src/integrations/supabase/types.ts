@@ -744,6 +744,183 @@ export type Database = {
           },
         ]
       }
+      content_docs: {
+        Row: {
+          created_at: string | null
+          html: string
+          id: string
+          idea_id: string | null
+          meta: Json
+          organization_id: string | null
+          published_at: string | null
+          quality: Json | null
+          version: number | null
+          word_count: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          html: string
+          id?: string
+          idea_id?: string | null
+          meta?: Json
+          organization_id?: string | null
+          published_at?: string | null
+          quality?: Json | null
+          version?: number | null
+          word_count?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          html?: string
+          id?: string
+          idea_id?: string | null
+          meta?: Json
+          organization_id?: string | null
+          published_at?: string | null
+          quality?: Json | null
+          version?: number | null
+          word_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_docs_idea_id_fkey"
+            columns: ["idea_id"]
+            isOneToOne: false
+            referencedRelation: "content_ideas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_docs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_ideas: {
+        Row: {
+          branch: string | null
+          cluster_id: string | null
+          created_at: string | null
+          h1: string
+          id: string
+          idea_type: string
+          meta: Json
+          organization_id: string | null
+          route: string
+          score: number | null
+          status: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          branch?: string | null
+          cluster_id?: string | null
+          created_at?: string | null
+          h1: string
+          id?: string
+          idea_type: string
+          meta?: Json
+          organization_id?: string | null
+          route: string
+          score?: number | null
+          status?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          branch?: string | null
+          cluster_id?: string | null
+          created_at?: string | null
+          h1?: string
+          id?: string
+          idea_type?: string
+          meta?: Json
+          organization_id?: string | null
+          route?: string
+          score?: number | null
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_ideas_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "kw_clusters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_ideas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_metrics: {
+        Row: {
+          avg_position: number | null
+          bounce_rate: number | null
+          clicks: number | null
+          content_id: string | null
+          created_at: string | null
+          ctr: number | null
+          date: string | null
+          id: string
+          impressions: number | null
+          organization_id: string | null
+          scroll_depth: number | null
+          time_on_page: number | null
+        }
+        Insert: {
+          avg_position?: number | null
+          bounce_rate?: number | null
+          clicks?: number | null
+          content_id?: string | null
+          created_at?: string | null
+          ctr?: number | null
+          date?: string | null
+          id?: string
+          impressions?: number | null
+          organization_id?: string | null
+          scroll_depth?: number | null
+          time_on_page?: number | null
+        }
+        Update: {
+          avg_position?: number | null
+          bounce_rate?: number | null
+          clicks?: number | null
+          content_id?: string | null
+          created_at?: string | null
+          ctr?: number | null
+          date?: string | null
+          id?: string
+          impressions?: number | null
+          organization_id?: string | null
+          scroll_depth?: number | null
+          time_on_page?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_metrics_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "content_docs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_metrics_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_prices: {
         Row: {
           course_name: string
@@ -1872,6 +2049,50 @@ export type Database = {
         }
         Relationships: []
       }
+      internal_link_graph: {
+        Row: {
+          anchor: string
+          created_at: string | null
+          from_route: string
+          id: string
+          link_type: string | null
+          organization_id: string | null
+          strength: number | null
+          to_route: string
+          updated_at: string | null
+        }
+        Insert: {
+          anchor: string
+          created_at?: string | null
+          from_route: string
+          id?: string
+          link_type?: string | null
+          organization_id?: string | null
+          strength?: number | null
+          to_route: string
+          updated_at?: string | null
+        }
+        Update: {
+          anchor?: string
+          created_at?: string | null
+          from_route?: string
+          id?: string
+          link_type?: string | null
+          organization_id?: string | null
+          strength?: number | null
+          to_route?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_link_graph_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       internal_message_read_status: {
         Row: {
           id: string
@@ -1950,6 +2171,135 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kw_clusters: {
+        Row: {
+          branch: string | null
+          created_at: string | null
+          head_term: string
+          id: string
+          intent: string | null
+          members: Json
+          organization_id: string | null
+          score: number | null
+          slug: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          branch?: string | null
+          created_at?: string | null
+          head_term: string
+          id?: string
+          intent?: string | null
+          members?: Json
+          organization_id?: string | null
+          score?: number | null
+          slug: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          branch?: string | null
+          created_at?: string | null
+          head_term?: string
+          id?: string
+          intent?: string | null
+          members?: Json
+          organization_id?: string | null
+          score?: number | null
+          slug?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kw_clusters_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kw_norm: {
+        Row: {
+          created_at: string | null
+          difficulty: number | null
+          id: string
+          intent: string | null
+          monthly_searches: number | null
+          organization_id: string | null
+          phrase: string
+          region: string | null
+          trend: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          difficulty?: number | null
+          id?: string
+          intent?: string | null
+          monthly_searches?: number | null
+          organization_id?: string | null
+          phrase: string
+          region?: string | null
+          trend?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          difficulty?: number | null
+          id?: string
+          intent?: string | null
+          monthly_searches?: number | null
+          organization_id?: string | null
+          phrase?: string
+          region?: string | null
+          trend?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kw_norm_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kw_sources: {
+        Row: {
+          collected_at: string | null
+          id: string
+          organization_id: string | null
+          payload: Json
+          source: string
+        }
+        Insert: {
+          collected_at?: string | null
+          id?: string
+          organization_id?: string | null
+          payload: Json
+          source: string
+        }
+        Update: {
+          collected_at?: string | null
+          id?: string
+          organization_id?: string | null
+          payload?: Json
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kw_sources_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -3412,6 +3762,54 @@ export type Database = {
           },
         ]
       }
+      publication_queue: {
+        Row: {
+          attempts: number | null
+          content_id: string | null
+          created_at: string | null
+          id: string
+          last_error: string | null
+          organization_id: string | null
+          scheduled_at: string
+          status: string | null
+        }
+        Insert: {
+          attempts?: number | null
+          content_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_error?: string | null
+          organization_id?: string | null
+          scheduled_at: string
+          status?: string | null
+        }
+        Update: {
+          attempts?: number | null
+          content_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_error?: string | null
+          organization_id?: string | null
+          scheduled_at?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "publication_queue_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "content_docs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "publication_queue_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_permissions: {
         Row: {
           can_create: boolean | null
@@ -3546,6 +3944,47 @@ export type Database = {
           Возраст?: string | null
         }
         Relationships: []
+      }
+      seo_job_logs: {
+        Row: {
+          details: Json | null
+          duration_ms: number | null
+          error_message: string | null
+          executed_at: string | null
+          id: string
+          job_name: string
+          organization_id: string | null
+          status: string
+        }
+        Insert: {
+          details?: Json | null
+          duration_ms?: number | null
+          error_message?: string | null
+          executed_at?: string | null
+          id?: string
+          job_name: string
+          organization_id?: string | null
+          status: string
+        }
+        Update: {
+          details?: Json | null
+          duration_ms?: number | null
+          error_message?: string | null
+          executed_at?: string | null
+          id?: string
+          job_name?: string
+          organization_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seo_job_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       student_attendance: {
         Row: {
@@ -5174,6 +5613,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      calculate_cluster_score: {
+        Args: {
+          p_business_value?: number
+          p_difficulty: number
+          p_monthly_searches: number
+          p_trend?: number
+        }
+        Returns: number
+      }
       calculate_teacher_payment: {
         Args: {
           p_group_id: string
@@ -5291,6 +5739,29 @@ export type Database = {
           has_conflict: boolean
           last_name: string
           teacher_id: string
+        }[]
+      }
+      find_similar_routes: {
+        Args: { p_route: string; p_threshold?: number }
+        Returns: {
+          route: string
+          similarity: number
+        }[]
+      }
+      find_weak_seo_pages: {
+        Args: {
+          p_max_ctr?: number
+          p_min_bounce?: number
+          p_min_days?: number
+          p_min_position?: number
+        }
+        Returns: {
+          avg_bounce: number
+          avg_ctr: number
+          avg_position: number
+          days_since_publish: number
+          idea_id: string
+          route: string
         }[]
       }
       freeze_subscription: {
@@ -5531,6 +6002,8 @@ export type Database = {
         }
         Returns: string
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       sync_auto_group_students: {
         Args: { p_group_id: string }
         Returns: undefined
