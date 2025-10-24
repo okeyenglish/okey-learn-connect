@@ -112,27 +112,50 @@ Deno.serve(async (req) => {
           console.log(`Обработка клиента: ${client.name}, телефон: ${phone}`);
 
           // Шаг 1: Получаем client_id из Salebot по номеру телефона
-          const clientIdUrl = `https://chatter.salebot.pro/api/${salebotApiKey}/whatsapp_client_id?phone=${cleanPhone}&group_id=115236`;
-          const clientIdResponse = await fetch(clientIdUrl);
+          // Пробуем разные форматы номера
+          const phoneVariants = [
+            cleanPhone,                                    // 79161234567
+            cleanPhone.replace(/^7/, '8'),                // 89161234567
+            `+${cleanPhone}`,                             // +79161234567
+            cleanPhone.substring(1),                       // 9161234567
+          ];
 
-          if (clientIdResponse.status === 404) {
-            console.log(`Клиент с телефоном ${phone} не найден в Salebot`);
-            continue;
+          let salebotClientId = null;
+          let foundPhone = null;
+
+          for (const phoneVariant of phoneVariants) {
+            const clientIdUrl = `https://chatter.salebot.pro/api/${salebotApiKey}/whatsapp_client_id?phone=${phoneVariant}&group_id=115236`;
+            
+            try {
+              const clientIdResponse = await fetch(clientIdUrl);
+
+              if (clientIdResponse.status === 404) {
+                continue; // Пробуем следующий вариант
+              }
+
+              if (!clientIdResponse.ok) {
+                console.warn(`Ошибка для ${phoneVariant}: ${clientIdResponse.statusText}`);
+                continue;
+              }
+
+              const clientIdData = await clientIdResponse.json();
+              if (clientIdData.client_id) {
+                salebotClientId = clientIdData.client_id;
+                foundPhone = phoneVariant;
+                break;
+              }
+            } catch (error) {
+              console.warn(`Ошибка запроса для ${phoneVariant}:`, error);
+              continue;
+            }
           }
-
-          if (!clientIdResponse.ok) {
-            throw new Error(`Ошибка получения client_id: ${clientIdResponse.statusText}`);
-          }
-
-          const clientIdData = await clientIdResponse.json();
-          const salebotClientId = clientIdData.client_id;
 
           if (!salebotClientId) {
-            console.log(`client_id не получен для телефона ${phone}`);
+            console.log(`Клиент с телефоном ${phone} не найден в Salebot (пробовали: ${phoneVariants.join(', ')})`);
             continue;
           }
 
-          console.log(`Получен client_id: ${salebotClientId} для ${phone}`);
+          console.log(`Получен client_id: ${salebotClientId} для ${phone} (формат: ${foundPhone})`);
 
           // Шаг 2: Получаем историю сообщений
           const historyUrl = `https://chatter.salebot.pro/api/${salebotApiKey}/get_history?client_id=${salebotClientId}&limit=2000`;
