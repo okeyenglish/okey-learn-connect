@@ -160,7 +160,8 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
           
           // Process messages from nested data
           const messages = c.chat_messages || [];
-          const unreadCount = messages.filter((m: any) => !m.is_read).length;
+          // Считаем только непрочитанные сообщения от клиентов
+          const unreadCount = messages.filter((m: any) => !m.is_read && m.message_type === 'client').length;
           const sortedMessages = messages.sort((a: any, b: any) => 
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
           );

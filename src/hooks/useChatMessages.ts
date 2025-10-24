@@ -176,7 +176,8 @@ export const useChatThreads = () => {
           thread.last_message_time = message.created_at;
         }
         
-        if (!message.is_read) {
+        // Считаем только непрочитанные сообщения от клиентов, игнорируем сообщения менеджеров и системные
+        if (!message.is_read && message.message_type === 'client') {
           thread.unread_count++;
         }
       });
