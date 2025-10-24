@@ -742,18 +742,27 @@ export default function HolihopeImport() {
                 setChatImportStatus(`Инициализация импорта из ${mode}...`);
                 
                 try {
-                  // Устанавливаем list_id и сбрасываем прогресс в таблице
-                  const { error: updateError } = await supabase
+                  // Получаем существующую запись прогресса
+                  const { data: existingProgress } = await supabase
                     .from('salebot_import_progress')
-                    .update({
-                      list_id: salebotListId || null,
-                      current_offset: 0,
-                      is_running: false
-                    })
-                    .limit(1);
+                    .select('id')
+                    .limit(1)
+                    .single();
 
-                  if (updateError) {
-                    console.error('Ошибка обновления прогресса:', updateError);
+                  if (existingProgress) {
+                    // Устанавливаем list_id и сбрасываем прогресс в таблице
+                    const { error: updateError } = await supabase
+                      .from('salebot_import_progress')
+                      .update({
+                        list_id: salebotListId || null,
+                        current_offset: 0,
+                        is_running: false
+                      })
+                      .eq('id', existingProgress.id);
+
+                    if (updateError) {
+                      console.error('Ошибка обновления прогресса:', updateError);
+                    }
                   }
 
                   let offset = 0;
