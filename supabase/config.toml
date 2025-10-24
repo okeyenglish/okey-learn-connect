@@ -89,3 +89,6 @@ verify_jwt = false
 
 [functions.salebot-stop]
 verify_jwt = false
+
+[functions.seo-suggest-ideas]
+verify_jwt = true
