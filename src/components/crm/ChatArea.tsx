@@ -259,8 +259,8 @@ export const ChatArea = ({
     console.log('Loading messages for client:', clientId);
     
     try {
-      // Load messages along with client data for avatars
-      const { data, error } = await supabase
+      // Load messages along with client data for avatars (LEFT JOIN)
+      const primary = await supabase
         .from('chat_messages')
         .select(`
           *,
@@ -269,34 +269,43 @@ export const ChatArea = ({
         .eq('client_id', clientId)
         .order('created_at', { ascending: true });
 
-      if (error) {
-        console.error('Error loading messages:', error);
-        return;
+      let data: any[] = primary.data as any[] || [];
+
+      // If join or RLS on clients blocked results, fall back to plain select without join
+      if (primary.error || data.length === 0) {
+        if (primary.error) console.warn('Primary messages query error, falling back without join:', primary.error);
+        const fallback = await supabase
+          .from('chat_messages')
+          .select('*')
+          .eq('client_id', clientId)
+          .order('created_at', { ascending: true });
+        data = (fallback.data as any[]) || [];
+        if (fallback.error) console.error('Fallback messages query error:', fallback.error);
       }
 
-      console.log('Loaded messages from database:', data);
+      console.log('Loaded messages from database (count):', data?.length || 0);
 
-      const formattedMessages = (data || []).map(msg => ({
+      const formattedMessages = (data || []).map((msg: any) => ({
         id: msg.id,
         type: msg.message_type || (msg.is_outgoing ? 'manager' : 'client'),
         message: msg.message_text || '',
-        time: new Date(msg.created_at).toLocaleTimeString('ru-RU', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
+        time: new Date(msg.created_at).toLocaleTimeString('ru-RU', {
+          hour: '2-digit',
+          minute: '2-digit'
         }),
         systemType: msg.system_type,
         callDuration: msg.call_duration,
         messageStatus: msg.message_status,
-        clientAvatar: msg.clients?.avatar_url || null,
+        clientAvatar: (msg.clients && msg.clients.avatar_url) ? msg.clients.avatar_url : null,
         managerName: managerName, // Pass manager name for comments
         fileUrl: msg.file_url,
         fileName: msg.file_name,
         fileType: msg.file_type,
-        whatsappChatId: msg.clients?.whatsapp_chat_id,
+        whatsappChatId: msg.whatsapp_chat_id,
         greenApiMessageId: msg.green_api_message_id
       }));
 
-      console.log('Formatted messages:', formattedMessages);
+      console.log('Formatted messages (count):', formattedMessages.length);
       setMessages(formattedMessages);
       
       // Мгновенная прокрутка к концу при первой загрузке
