@@ -2634,11 +2634,11 @@ const CRMContent = () => {
                                        )}
                                         {/* Avatar or icon */}
                                         {chat.type === 'corporate' ? (
-                                          <div className="w-10 h-10 rounded-full bg-[#5B8DEE] flex items-center justify-center flex-shrink-0">
+                                          <div className="w-10 h-10 rounded-full bg-[hsl(var(--avatar-blue))] flex items-center justify-center flex-shrink-0">
                                             <Building2 className="h-5 w-5 text-white" />
                                           </div>
                                         ) : chat.type === 'teachers' ? (
-                                          <div className="w-10 h-10 rounded-full bg-[#9B7EDE] flex items-center justify-center flex-shrink-0">
+                                          <div className="w-10 h-10 rounded-full bg-[hsl(var(--avatar-purple))] flex items-center justify-center flex-shrink-0">
                                             <GraduationCap className="h-5 w-5 text-white" />
                                           </div>
                                             ) : chat.avatar_url ? (
@@ -2681,7 +2681,7 @@ const CRMContent = () => {
                                           </div>
                                         ) : (
                                           <div className="relative flex-shrink-0">
-                                            <div className="w-10 h-10 rounded-full bg-[#5B8DEE] flex items-center justify-center">
+                                            <div className="w-10 h-10 rounded-full bg-[hsl(var(--avatar-blue))] flex items-center justify-center">
                                               <User className="h-5 w-5 text-white" />
                                             </div>
                                             {/* Lead indicator */}
@@ -2973,11 +2973,11 @@ const CRMContent = () => {
                                        }}
                                      >
                                         {chat.type === 'corporate' ? (
-                                          <div className="w-12 h-12 rounded-full bg-[#5B8DEE] shadow-sm flex items-center justify-center flex-shrink-0 ring-2 ring-border/30">
+                                          <div className="w-12 h-12 rounded-full bg-[hsl(var(--avatar-blue))] shadow-sm flex items-center justify-center flex-shrink-0 ring-2 ring-border/30">
                                             <Building2 className="h-6 w-6 text-white" />
                                           </div>
                                         ) : chat.type === 'teachers' ? (
-                                          <div className="w-12 h-12 rounded-full bg-[#9B7EDE] shadow-sm flex items-center justify-center flex-shrink-0 ring-2 ring-border/30">
+                                          <div className="w-12 h-12 rounded-full bg-[hsl(var(--avatar-purple))] shadow-sm flex items-center justify-center flex-shrink-0 ring-2 ring-border/30">
                                             <GraduationCap className="h-6 w-6 text-white" />
                                           </div>
                                        ) : chat.avatar_url ? (
@@ -2998,7 +2998,7 @@ const CRMContent = () => {
                                            />
                                          </div>
                                         ) : (
-                                          <div className="w-12 h-12 rounded-full bg-[#5B8DEE] shadow-sm flex items-center justify-center flex-shrink-0 ring-2 ring-border/30">
+                                          <div className="w-12 h-12 rounded-full bg-[hsl(var(--avatar-blue))] shadow-sm flex items-center justify-center flex-shrink-0 ring-2 ring-border/30">
                                             <User className="h-6 w-6 text-white" />
                                           </div>
                                        )}
