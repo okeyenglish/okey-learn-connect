@@ -92,3 +92,9 @@ verify_jwt = false
 
 [functions.seo-suggest-ideas]
 verify_jwt = true
+
+[functions.seo-create-brief]
+verify_jwt = true
+
+[functions.seo-generate-content]
+verify_jwt = true
