@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Phone, PhoneCall, Play, FileSpreadsheet, Edit2, Check, X, Forward, Trash2, CheckCheck, MessageCircle, User, CheckCircle, XCircle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +39,7 @@ interface ChatMessageProps {
   isLastInGroup?: boolean;
 }
 
-export const ChatMessage = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, whatsappChatId, greenApiMessageId, showAvatar = true, showName = true, isLastInGroup = true }: ChatMessageProps) => {
+const ChatMessageComponent = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, whatsappChatId, greenApiMessageId, showAvatar = true, showName = true, isLastInGroup = true }: ChatMessageProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message);
 
@@ -425,3 +425,5 @@ export const ChatMessage = ({ type, message, time, systemType, callDuration, isE
     </div>
   );
 };
+
+export const ChatMessage = memo(ChatMessageComponent);

@@ -8,17 +8,37 @@ export const useInfiniteChatMessages = (clientId: string) => {
   return useInfiniteQuery({
     queryKey: ['chat-messages-infinite', clientId],
     queryFn: async ({ pageParam = 0 }) => {
-      const { data, error, count } = await supabase
+      // Try with avatar join first
+      const primary = await supabase
         .from('chat_messages')
-        .select('*', { count: 'exact' })
+        .select(`
+          *,
+          clients(avatar_url, whatsapp_chat_id)
+        `, { count: 'exact' })
         .eq('client_id', clientId)
         .order('created_at', { ascending: false })
         .range(pageParam, pageParam + PAGE_SIZE - 1);
       
-      if (error) throw error;
+      let data: any[] = primary.data as any[] || [];
+      let count = primary.count;
+      
+      // Fallback if join fails due to RLS
+      if (primary.error || (!data.length && pageParam === 0)) {
+        console.warn('[useInfiniteChatMessages] Join failed, falling back:', primary.error?.message);
+        const fallback = await supabase
+          .from('chat_messages')
+          .select('*', { count: 'exact' })
+          .eq('client_id', clientId)
+          .order('created_at', { ascending: false })
+          .range(pageParam, pageParam + PAGE_SIZE - 1);
+        
+        if (fallback.error) throw fallback.error;
+        data = fallback.data as any[] || [];
+        count = fallback.count;
+      }
       
       return {
-        messages: (data as ChatMessage[]).reverse(), // для правильного порядка отображения
+        messages: (data as ChatMessage[]).reverse(),
         nextCursor: pageParam + PAGE_SIZE,
         hasMore: (count ?? 0) > pageParam + PAGE_SIZE
       };

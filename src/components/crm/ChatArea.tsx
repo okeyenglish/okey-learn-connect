@@ -77,6 +77,9 @@ export const ChatArea = ({
   const [messages, setMessages] = useState<any[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [messageLimit, setMessageLimit] = useState(100); // Начинаем с 100 последних сообщений
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
   const [showForwardModal, setShowForwardModal] = useState(false);
@@ -247,19 +250,50 @@ export const ChatArea = ({
     setIsEditingName(false);
   };
 
-  // Load messages from database
-  const loadMessages = async () => {
+  // Format message helper - мемоизированная функция
+  const formatMessage = (msg: any) => ({
+    id: msg.id,
+    type: msg.message_type || (msg.is_outgoing ? 'manager' : 'client'),
+    message: msg.message_text || '',
+    time: new Date(msg.created_at).toLocaleTimeString('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit'
+    }),
+    systemType: msg.system_type,
+    callDuration: msg.call_duration,
+    messageStatus: msg.message_status,
+    clientAvatar: (msg.clients && msg.clients.avatar_url) ? msg.clients.avatar_url : null,
+    managerName: managerName,
+    fileUrl: msg.file_url,
+    fileName: msg.file_name,
+    fileType: msg.file_type,
+    whatsappChatId: msg.whatsapp_chat_id,
+    greenApiMessageId: msg.green_api_message_id
+  });
+
+  // Load messages from database with pagination
+  const loadMessages = async (limit = messageLimit, append = false) => {
     if (!clientId || clientId === '1') {
       console.log('Invalid clientId:', clientId);
       setLoadingMessages(false);
       return;
     }
     
-    setLoadingMessages(true);
-    console.log('Loading messages for client:', clientId);
+    if (append) {
+      setLoadingOlderMessages(true);
+    } else {
+      setLoadingMessages(true);
+    }
+    console.log('Loading messages for client:', clientId, 'limit:', limit, 'append:', append);
     
     try {
-      // Load messages along with client data for avatars (LEFT JOIN)
+      // Get total count first
+      const { count: totalCount } = await supabase
+        .from('chat_messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('client_id', clientId);
+      
+      // Load messages with limit (most recent ones)
       const primary = await supabase
         .from('chat_messages')
         .select(`
@@ -267,7 +301,8 @@ export const ChatArea = ({
           clients(avatar_url, whatsapp_chat_id)
         `)
         .eq('client_id', clientId)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false })
+        .limit(limit);
 
       let data: any[] = primary.data as any[] || [];
 
@@ -278,63 +313,64 @@ export const ChatArea = ({
           .from('chat_messages')
           .select('*')
           .eq('client_id', clientId)
-          .order('created_at', { ascending: true });
+          .order('created_at', { ascending: false })
+          .limit(limit);
         data = (fallback.data as any[]) || [];
         if (fallback.error) console.error('Fallback messages query error:', fallback.error);
       }
 
-      console.log('Loaded messages from database (count):', data?.length || 0);
+      console.log('Loaded messages from database (count/total):', data?.length || 0, '/', totalCount);
+      
+      // Check if there are more messages to load
+      setHasMoreMessages((totalCount || 0) > limit);
 
-      const formattedMessages = (data || []).map((msg: any) => ({
-        id: msg.id,
-        type: msg.message_type || (msg.is_outgoing ? 'manager' : 'client'),
-        message: msg.message_text || '',
-        time: new Date(msg.created_at).toLocaleTimeString('ru-RU', {
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        systemType: msg.system_type,
-        callDuration: msg.call_duration,
-        messageStatus: msg.message_status,
-        clientAvatar: (msg.clients && msg.clients.avatar_url) ? msg.clients.avatar_url : null,
-        managerName: managerName, // Pass manager name for comments
-        fileUrl: msg.file_url,
-        fileName: msg.file_name,
-        fileType: msg.file_type,
-        whatsappChatId: msg.whatsapp_chat_id,
-        greenApiMessageId: msg.green_api_message_id
-      }));
+      // Reverse to show oldest first
+      const formattedMessages = (data || []).reverse().map(formatMessage);
 
       console.log('Formatted messages (count):', formattedMessages.length);
-      setMessages(formattedMessages);
       
-      // Мгновенная прокрутка к концу при первой загрузке
-      if (formattedMessages.length > 0) {
-        setTimeout(() => scrollToBottom(false), 50);
-        setIsInitialLoad(false);
+      if (append) {
+        setMessages(prev => [...formattedMessages, ...prev]);
+      } else {
+        setMessages(formattedMessages);
         
-        // Отмечаем все сообщения в чате как прочитанные
-        markChatMessagesAsReadMutation.mutate(clientId);
+        // Мгновенная прокрутка к концу при первой загрузке
+        if (formattedMessages.length > 0) {
+          setTimeout(() => scrollToBottom(false), 50);
+          setIsInitialLoad(false);
+          
+          // Отмечаем все сообщения в чате как прочитанные
+          markChatMessagesAsReadMutation.mutate(clientId);
+        }
       }
     } catch (error) {
       console.error('Error loading messages:', error);
     } finally {
-      setLoadingMessages(false);
+      if (append) {
+        setLoadingOlderMessages(false);
+      } else {
+        setLoadingMessages(false);
+      }
     }
+  };
+
+  // Load older messages handler
+  const loadOlderMessages = () => {
+    const newLimit = messageLimit + 100;
+    setMessageLimit(newLimit);
+    loadMessages(newLimit, false);
   };
 
   // Load messages on component mount and when clientId changes
   useEffect(() => {
     setIsInitialLoad(true);
-    loadMessages();
+    setMessageLimit(100); // Reset limit
+    loadMessages(100, false);
   }, [clientId]);
 
   // Set up real-time message updates when client changes
   useEffect(() => {
     if (!clientId || clientId === '1') return;
-    
-    // Load messages initially and when client changes
-    loadMessages();
     
     // Set up real-time subscription for new messages
     const channel = supabase
@@ -349,7 +385,7 @@ export const ChatArea = ({
         },
         (payload) => {
           console.log('Received new message via real-time:', payload);
-          loadMessages(); // Reload messages when new one arrives
+          loadMessages(messageLimit, false); // Reload with current limit
         }
       )
       .subscribe();
@@ -357,7 +393,7 @@ export const ChatArea = ({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [clientId]);
+  }, [clientId, messageLimit]);
 
   // Cleanup pending message interval and scheduled messages on unmount
   useEffect(() => {
@@ -1447,6 +1483,31 @@ export const ChatArea = ({
                 </div>
               ) : filteredMessages.length > 0 ? (
                 <>
+                  {/* Load older messages button */}
+                  {hasMoreMessages && (
+                    <div className="flex justify-center py-2 mb-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={loadOlderMessages}
+                        disabled={loadingOlderMessages}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        {loadingOlderMessages ? (
+                          <>
+                            <Clock className="h-3 w-3 mr-1 animate-spin" />
+                            Загрузка...
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="h-3 w-3 mr-1" />
+                            Загрузить старые сообщения
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                  
                   {filteredMessages.map((msg, index) => {
                     const prevMessage = filteredMessages[index - 1];
                     const nextMessage = filteredMessages[index + 1];
