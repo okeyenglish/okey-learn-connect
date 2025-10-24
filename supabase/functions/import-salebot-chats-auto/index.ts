@@ -299,17 +299,17 @@ Deno.serve(async (req) => {
             const existingIds = new Set((existing || []).map(e => e.salebot_message_id));
             const newMessages = batch.filter(m => !existingIds.has(m.salebot_message_id));
             
-            if (newMessages.length > 0) {
-              const { error: insertError } = await supabase
-                .from('chat_messages')
-                .insert(newMessages);
+              if (newMessages.length > 0) {
+                const { error: insertError } = await supabase
+                  .from('chat_messages')
+                  .insert(newMessages, { onConflict: 'client_id,salebot_message_id', ignoreDuplicates: true });
 
-              if (insertError) {
-                console.error('Ошибка вставки:', insertError);
-              } else {
-                totalImported += newMessages.length;
+                if (insertError) {
+                  console.error('Ошибка вставки:', insertError);
+                } else {
+                  totalImported += newMessages.length;
+                }
               }
-            }
             
             await new Promise(resolve => setTimeout(resolve, 200));
           }
@@ -455,7 +455,7 @@ Deno.serve(async (req) => {
               if (newMessages.length > 0) {
                 const { error: insertError } = await supabase
                   .from('chat_messages')
-                  .insert(newMessages);
+                  .insert(newMessages, { onConflict: 'client_id,salebot_message_id', ignoreDuplicates: true });
 
                 if (insertError) {
                   console.error('Ошибка вставки:', insertError);

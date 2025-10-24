@@ -246,7 +246,7 @@ Deno.serve(async (req) => {
             if (newMessages.length > 0) {
               const { error: insertError } = await supabase
                 .from('chat_messages')
-                .insert(newMessages);
+                .insert(newMessages, { onConflict: 'client_id,salebot_message_id', ignoreDuplicates: true });
 
               if (insertError) {
                 console.error('Ошибка вставки:', insertError);
@@ -497,7 +497,7 @@ Deno.serve(async (req) => {
                 try {
                   const { error: insertError } = await supabase
                     .from('chat_messages')
-                    .insert(newMessages);
+                    .insert(newMessages, { onConflict: 'client_id,salebot_message_id', ignoreDuplicates: true });
 
                   if (insertError) throw insertError;
                   
