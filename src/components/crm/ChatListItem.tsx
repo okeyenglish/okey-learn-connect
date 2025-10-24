@@ -141,7 +141,7 @@ export const ChatListItem = React.memo(({
             {displayUnread && (
               <span className={`${
                 isPinned ? 'bg-gradient-to-r from-orange-500 to-orange-600' : 'bg-gradient-to-r from-primary to-primary/90'
-              } text-white text-xs px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1`}>
+              } text-white text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1`}>
                 {showEye ? (
                   <>
                     <Avatar className="h-3.5 w-3.5">
