@@ -63,17 +63,17 @@ export const ChatListItem = React.memo(({
       isArchived={isArchived}
     >
       <button 
-        className={`w-full h-full py-1.5 px-3 text-left rounded-none transition-colors relative ${
+        className={`w-full p-3 text-left rounded-lg transition-all duration-200 relative mb-2 border ${
           isPinned 
-            ? `border-l-2 border-orange-400 ${
+            ? `border-orange-200 bg-gradient-to-r ${
                 isActive 
-                  ? 'bg-orange-50 hover:bg-orange-100 dark:bg-orange-950 dark:hover:bg-orange-900' 
-                  : 'bg-orange-25 hover:bg-orange-50 dark:bg-orange-975 dark:hover:bg-orange-950'
+                  ? 'from-orange-50 to-orange-100/50 shadow-sm dark:from-orange-950 dark:to-orange-900/50' 
+                  : 'from-white to-orange-50/30 hover:to-orange-50 dark:from-background dark:to-orange-950/30 hover:shadow-sm'
               }`
             : isActive 
-              ? 'bg-muted hover:bg-muted' 
-              : 'hover:bg-muted/50'
-        } ${bulkSelectMode && isSelected ? 'ring-2 ring-primary' : ''}`}
+              ? 'bg-accent/50 shadow-sm border-accent' 
+              : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
+        } ${bulkSelectMode && isSelected ? 'ring-2 ring-primary ring-offset-1' : ''}`}
         onClick={() => {
           if (bulkSelectMode && onBulkSelect) {
             onBulkSelect();
@@ -82,66 +82,80 @@ export const ChatListItem = React.memo(({
           }
         }}
       >
-        <div className="flex items-center gap-3">
-          {bulkSelectMode && (
-            <input 
-              type="checkbox" 
-              checked={isSelected}
-              onChange={onBulkSelect}
-              className="h-4 w-4"
-              onClick={(e) => e.stopPropagation()}
-            />
-          )}
-          
-          <Avatar className="h-10 w-10 flex-shrink-0">
-            {chat.avatar_url ? (
-              <AvatarImage src={chat.avatar_url} alt={chat.name} />
-            ) : null}
-            <AvatarFallback>
-              {chat.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          
-          <div className="flex-1 min-w-0 overflow-hidden">
-            <div className="flex items-center gap-2">
-              <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
-                {chat.name}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            {bulkSelectMode && (
+              <input 
+                type="checkbox" 
+                checked={isSelected}
+                onChange={onBulkSelect}
+                className="h-4 w-4 mt-1 rounded border-2"
+                onClick={(e) => e.stopPropagation()}
+              />
+            )}
+            
+            <Avatar className={`h-11 w-11 flex-shrink-0 ring-2 transition-all ${
+              isPinned 
+                ? 'ring-orange-200 shadow-sm' 
+                : 'ring-border/30'
+            }`}>
+              {chat.avatar_url ? (
+                <AvatarImage src={chat.avatar_url} alt={chat.name} />
+              ) : null}
+              <AvatarFallback className={isPinned ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white' : 'bg-gradient-to-br from-primary/80 to-primary text-primary-foreground'}>
+                {chat.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            
+            <div className="flex-1 min-w-0 overflow-hidden">
+              <div className="flex items-center gap-2 mb-0.5">
+                <p className={`text-sm ${displayUnread ? 'font-semibold' : 'font-medium'} truncate`}>
+                  {chat.name}
+                </p>
+                {isPinned && (
+                  <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
+                )}
+              </div>
+              
+              <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                {isPinned && (
+                  <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/50">
+                    В работе
+                  </Badge>
+                )}
+                {isInWorkByOthers && pinnedByUserName && (
+                  <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50">
+                    У {pinnedByUserName}
+                  </Badge>
+                )}
+              </div>
+              
+              <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
+                {chat.lastMessage || "Нет сообщений"}
               </p>
-              {isPinned && (
-                <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300">
-                  В работе
-                </Badge>
-              )}
-              {isInWorkByOthers && pinnedByUserName && (
-                <Badge variant="outline" className="text-xs h-4 bg-blue-100 text-blue-700 border-blue-300">
-                  У {pinnedByUserName}
-                </Badge>
-              )}
             </div>
-            <p className="text-xs text-muted-foreground line-clamp-2 leading-snug break-words overflow-hidden">
-              {chat.lastMessage || "Нет сообщений"}
-            </p>
           </div>
-        </div>
-        
-        <div className="flex flex-col items-end">
-          {isPinned && <Pin className="h-3 w-3 text-orange-600 mb-1" />}
-          <span className="text-xs text-muted-foreground">{chat.time}</span>
-          {displayUnread && (
-            <span className={`${isPinned ? 'bg-orange-500' : 'bg-primary'} text-white text-xs px-1.5 py-0.5 rounded-sm mt-1 flex items-center gap-1`}>
-              {showEye ? (
-                <>
-                  <Avatar className="h-4 w-4">
-                    <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
-                    <AvatarFallback className="text-[8px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
-                  </Avatar>
-                  <span>{Math.max(chat.unread || 0, 1)}</span>
-                </>
-              ) : (
-                chat.unread
-              )}
-            </span>
-          )}
+          
+          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+            <span className="text-[11px] text-muted-foreground font-medium">{chat.time}</span>
+            {displayUnread && (
+              <span className={`${
+                isPinned ? 'bg-gradient-to-r from-orange-500 to-orange-600' : 'bg-gradient-to-r from-primary to-primary/90'
+              } text-white text-xs px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1`}>
+                {showEye ? (
+                  <>
+                    <Avatar className="h-3.5 w-3.5">
+                      <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
+                      <AvatarFallback className="text-[7px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
+                    </Avatar>
+                    <span className="font-semibold">{Math.max(chat.unread || 0, 1)}</span>
+                  </>
+                ) : (
+                  <span className="font-semibold">{chat.unread}</span>
+                )}
+              </span>
+            )}
+          </div>
         </div>
       </button>
     </ChatContextMenu>

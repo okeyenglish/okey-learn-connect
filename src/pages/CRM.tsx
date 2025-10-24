@@ -2542,21 +2542,21 @@ const CRMContent = () => {
                 </div>
               </div>
               <div className="flex-1 min-h-0 overflow-auto">
-                <div className="p-2 flex flex-col h-full relative z-10 pointer-events-auto bg-background">
+                <div className="p-3 flex flex-col h-full relative z-10 pointer-events-auto bg-background">
                   {/* Закрепленные чаты */}
                    {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
-                    <div className="mb-4">
+                    <div className="mb-6">
                       <button 
-                        className="w-full flex items-center justify-between px-2 py-1 mb-2 hover:bg-muted/50 rounded transition-colors"
+                        className="w-full flex items-center justify-between px-3 py-2 mb-3 hover:bg-accent/50 rounded-lg transition-all duration-200 group"
                         onClick={() => setIsPinnedSectionOpen(!isPinnedSectionOpen)}
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2.5">
                           {isPinnedSectionOpen ? (
-                            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                            <ChevronDown className="h-4 w-4 text-orange-500 group-hover:text-orange-600 transition-colors" />
                           ) : (
-                            <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                            <ChevronRight className="h-4 w-4 text-orange-500 group-hover:text-orange-600 transition-colors" />
                           )}
-                          <h3 className="text-xs font-normal text-muted-foreground uppercase tracking-wide">
+                          <h3 className="text-sm font-semibold bg-gradient-to-r from-orange-600 to-orange-500 bg-clip-text text-transparent">
                             Закрепленные ({filteredChats.filter(chat => getChatState(chat.id).isPinned).length})
                           </h3>
                         </div>
@@ -2752,8 +2752,8 @@ const CRMContent = () => {
 
                   {/* Активные чаты */}
                   <div className="flex-1 min-h-0 flex flex-col">
-                     <div className="flex items-center justify-between px-2 py-1 mb-2">
-                        <h3 className="text-xs font-normal text-muted-foreground uppercase tracking-wide pl-1">
+                     <div className="flex items-center justify-between px-3 py-2 mb-3 bg-gradient-to-r from-accent/30 to-transparent rounded-lg">
+                        <h3 className="text-sm font-semibold text-foreground/80">
                           Активные чаты
                         </h3>
                        <div className="flex items-center gap-2">
@@ -2914,21 +2914,21 @@ const CRMContent = () => {
                 </div>
               </div>
               <div className="flex-1 overflow-auto">
-                <div className="p-3 flex flex-col h-full">
+                <div className="p-4 flex flex-col h-full">
                   {/* Закрепленные чаты */}
                   {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
                     <div className="mb-6">
                       <button 
-                        className="w-full flex items-center justify-between px-2 py-2 mb-3 hover:bg-muted/50 rounded transition-colors"
+                        className="w-full flex items-center justify-between px-3 py-2 mb-3 hover:bg-accent/50 rounded-lg transition-all duration-200 group"
                         onClick={() => setIsPinnedSectionOpen(!isPinnedSectionOpen)}
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2.5">
                           {isPinnedSectionOpen ? (
-                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            <ChevronDown className="h-4 w-4 text-orange-500 group-hover:text-orange-600 transition-colors" />
                           ) : (
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            <ChevronRight className="h-4 w-4 text-orange-500 group-hover:text-orange-600 transition-colors" />
                           )}
-                          <h3 className="text-sm font-normal text-muted-foreground uppercase tracking-wide">
+                          <h3 className="text-sm font-semibold bg-gradient-to-r from-orange-600 to-orange-500 bg-clip-text text-transparent">
                             Закрепленные (в работе)
                           </h3>
                         </div>
@@ -2951,7 +2951,7 @@ const CRMContent = () => {
                         })()}
                       </button>
                       {isPinnedSectionOpen && (
-                        <div className="space-y-1 mb-6">
+                        <div className="space-y-2 mb-6">
                            {filteredChats
                              .filter(chat => getChatState(chat.id).isPinned)
                             .map((chat) => {
@@ -2963,29 +2963,29 @@ const CRMContent = () => {
                               return (
                                 <div 
                                   key={chat.id}
-                                  className="w-full p-2 text-left rounded-lg transition-colors bg-card border hover:bg-muted/50 shadow-sm"
+                                  className="w-full p-3 text-left rounded-lg transition-all duration-200 bg-gradient-to-r from-orange-50 to-orange-100/30 border border-orange-200 hover:shadow-md hover:to-orange-100/50 dark:from-orange-950 dark:to-orange-900/30"
                                 >
-                                  <div className="flex items-center justify-between">
+                                  <div className="flex items-start justify-between gap-3">
                                      <div 
-                                       className="flex items-center gap-3 flex-1 cursor-pointer"
+                                       className="flex items-start gap-3 flex-1 cursor-pointer"
                                        onClick={() => {
                                          handleChatClick(chat.id, chat.type as any);
                                        }}
                                      >
                                        {chat.type === 'corporate' ? (
-                                         <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                           <Building2 className="h-6 w-6 text-blue-600" />
+                                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 shadow-sm flex items-center justify-center flex-shrink-0 ring-2 ring-blue-200">
+                                           <Building2 className="h-6 w-6 text-white" />
                                          </div>
                                        ) : chat.type === 'teachers' ? (
-                                         <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                                           <GraduationCap className="h-6 w-6 text-purple-600" />
+                                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 shadow-sm flex items-center justify-center flex-shrink-0 ring-2 ring-purple-200">
+                                           <GraduationCap className="h-6 w-6 text-white" />
                                          </div>
                                        ) : chat.avatar_url ? (
                                          <div className="relative flex-shrink-0">
                                             <img 
                                               src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
                                               alt={`${chat.name} avatar`} 
-                                              className="w-12 h-12 rounded-full object-cover border-2 border-green-200"
+                                              className="w-12 h-12 rounded-full object-cover ring-2 ring-orange-200 shadow-sm"
                                               style={{ borderRadius: '50%' }}
                                               loading="lazy"
                                               decoding="async"
@@ -2998,30 +2998,30 @@ const CRMContent = () => {
                                            />
                                          </div>
                                        ) : (
-                                         <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                                           <User className="h-6 w-6 text-green-600" />
+                                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 shadow-sm flex items-center justify-center flex-shrink-0 ring-2 ring-orange-200">
+                                           <User className="h-6 w-6 text-white" />
                                          </div>
                                        )}
                                       <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2">
-                                          <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
+                                        <div className="flex items-center gap-2 mb-0.5">
+                                          <p className={`text-sm ${displayUnread ? 'font-semibold' : 'font-medium'} truncate`}>
                                             {chat.name}
                                           </p>
-                                           <Badge variant="outline" className="text-xs h-5 bg-orange-100 text-orange-700 border-orange-300">
-                                             В работе
-                                           </Badge>
+                                          <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
                                         </div>
-                                        <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
+                                        <Badge variant="outline" className="text-[10px] h-4 px-1.5 mb-1 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/50">
+                                          В работе
+                                        </Badge>
+                                        <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
                                           {(typingByClient[chat.id]?.count ?? 0) > 0
                                             ? `${typingByClient[chat.id]?.names?.[0] || 'Менеджер'} печатает...`
                                             : (chat.lastMessage || 'Последнее сообщение')}
                                         </p>
                                       </div>
                                     </div>
-                                    <div className="flex flex-col items-end gap-2">
+                                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
                                       <div className="flex items-center gap-2">
-                                        <Pin className="h-4 w-4 text-orange-600" />
-                                        <span className="text-xs text-muted-foreground">{chat.time}</span>
+                                        <span className="text-[11px] text-muted-foreground font-medium">{chat.time}</span>
                                         
                                         {/* Mobile Settings Menu */}
                                         <DropdownMenu>
@@ -3029,10 +3029,10 @@ const CRMContent = () => {
                                             <Button 
                                               size="sm" 
                                               variant="ghost" 
-                                              className="h-8 w-8 p-0 opacity-60 hover:opacity-100"
+                                              className="h-7 w-7 p-0 opacity-60 hover:opacity-100"
                                               onClick={(e) => e.stopPropagation()}
                                             >
-                                              <MoreVertical className="h-4 w-4" />
+                                              <MoreVertical className="h-3.5 w-3.5" />
                                             </Button>
                                           </DropdownMenuTrigger>
                                           <DropdownMenuContent align="end" className="w-56">
@@ -3057,17 +3057,17 @@ const CRMContent = () => {
                                       </div>
                                       
                                        {displayUnread && (
-                                           <span className="bg-orange-500 text-white text-xs px-2 py-0.5 rounded-sm flex items-center gap-1 min-w-[20px] h-5 justify-center">
+                                           <span className="bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1 min-w-[20px] h-5 justify-center">
                                              {showEye ? (
                                                <>
-                                                 <Avatar className="h-3 w-3">
+                                                 <Avatar className="h-3.5 w-3.5">
                                                    <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
-                                                   <AvatarFallback className="text-[8px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
+                                                   <AvatarFallback className="text-[7px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
                                                  </Avatar>
-                                                 <span>1</span>
+                                                 <span className="font-semibold">1</span>
                                                </>
                                              ) : (
-                                               <span>1</span>
+                                               <span className="font-semibold">1</span>
                                              )}
                                            </span>
                                        )}
@@ -3083,8 +3083,8 @@ const CRMContent = () => {
 
                   {/* Активные чаты */}
                   <div className="flex-1 min-h-0 flex flex-col">
-                     <div className="flex items-center justify-between px-2 py-2 mb-3">
-                         <h3 className="text-sm font-normal text-muted-foreground uppercase tracking-wide pl-1">
+                     <div className="flex items-center justify-between px-3 py-2 mb-3 bg-gradient-to-r from-accent/30 to-transparent rounded-lg">
+                         <h3 className="text-sm font-semibold text-foreground/80">
                            Активные чаты
                          </h3>
                        <div className="flex items-center gap-2">
