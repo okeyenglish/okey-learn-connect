@@ -421,31 +421,6 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                     />
                   </div>
                 )}
-                
-                {type === 'manager' && message !== '[Сообщение удалено]' && (
-                  <div className="absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      className="h-6 w-6 p-0 text-slate-600 hover:bg-slate-200 hover:text-slate-800"
-                      onClick={() => setIsEditing(true)}
-                      title="Редактировать сообщение"
-                    >
-                      <Edit2 className="h-3 w-3" />
-                    </Button>
-                    {onMessageDelete && messageId && (
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="h-6 w-6 p-0 text-red-600 hover:bg-red-100 hover:text-red-800"
-                        onClick={() => onMessageDelete(messageId)}
-                        title="Удалить сообщение"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
-                )}
               </>
             )}
           </div>
