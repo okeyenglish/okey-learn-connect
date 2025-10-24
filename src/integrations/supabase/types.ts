@@ -3453,36 +3453,45 @@ export type Database = {
           created_at: string
           current_offset: number
           errors: Json | null
+          estimated_total: number | null
           id: string
           is_running: boolean
           last_run_at: string | null
           list_id: string | null
+          start_time: string | null
           total_clients_processed: number
           total_imported: number
+          total_messages_imported: number | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           current_offset?: number
           errors?: Json | null
+          estimated_total?: number | null
           id?: string
           is_running?: boolean
           last_run_at?: string | null
           list_id?: string | null
+          start_time?: string | null
           total_clients_processed?: number
           total_imported?: number
+          total_messages_imported?: number | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           current_offset?: number
           errors?: Json | null
+          estimated_total?: number | null
           id?: string
           is_running?: boolean
           last_run_at?: string | null
           list_id?: string | null
+          start_time?: string | null
           total_clients_processed?: number
           total_imported?: number
+          total_messages_imported?: number | null
           updated_at?: string
         }
         Relationships: []

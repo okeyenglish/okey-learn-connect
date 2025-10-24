@@ -98,8 +98,19 @@ Deno.serve(async (req) => {
 
     let totalImported = 0;
     let totalClients = 0;
+    let totalMessages = 0;
     let errors: string[] = progressData.errors || [];
     const clientBatchSize = 20;
+    
+    // Устанавливаем start_time и обнуляем счетчик сообщений в начале
+    await supabase
+      .from('salebot_import_progress')
+      .update({ 
+        start_time: new Date().toISOString(),
+        total_messages_imported: 0,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', progressData.id);
 
     let salebotClients: SalebotClient[] = [];
 
@@ -311,6 +322,7 @@ Deno.serve(async (req) => {
                   console.error('Ошибка вставки:', insertError);
                 } else {
                   totalImported += newMessages.length;
+                  totalMessages += newMessages.length;
                 }
               }
             
@@ -318,6 +330,16 @@ Deno.serve(async (req) => {
           }
 
           totalClients++;
+          
+          // Обновляем прогресс после каждого клиента
+          await supabase
+            .from('salebot_import_progress')
+            .update({ 
+              total_messages_imported: totalMessages,
+              total_clients_processed: totalClients,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', progressData.id);
 
         } catch (error: any) {
           console.error(`Ошибка обработки клиента Salebot ID ${salebotClient.id}:`, error);

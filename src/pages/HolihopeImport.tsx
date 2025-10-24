@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,6 +31,14 @@ export default function HolihopeImport() {
   const [salebotListId, setSalebotListId] = useState<string>('');
   const [startOffset, setStartOffset] = useState<string>('0');
   const [batchSize, setBatchSize] = useState<string>('10');
+  const [importProgress, setImportProgress] = useState<{
+    totalClientsProcessed: number;
+    totalImported: number;
+    totalMessagesImported: number;
+    currentOffset: number;
+    startTime: Date | null;
+    isRunning: boolean;
+  } | null>(null);
   const [steps, setSteps] = useState<ImportStep[]>([
     { id: 'clear', name: '1. Архивация данных', description: 'Пометка существующих данных как неактивных', action: 'clear_data', status: 'pending' },
     { id: 'offices', name: '2. Филиалы', description: 'Импорт филиалов/офисов', action: 'import_locations', status: 'pending' },
@@ -55,6 +63,41 @@ export default function HolihopeImport() {
     { id: 'payments', name: '21. Платежи (legacy)', description: 'Платежи через GetPayments', action: 'import_payments', status: 'pending' },
     { id: 'lesson_plans', name: '22. Планы занятий', description: 'ДЗ и материалы (текст + ссылки)', action: 'import_lesson_plans', status: 'pending' },
   ]);
+
+  // Poll import progress while importing chats
+  useEffect(() => {
+    if (!isImportingChats) return;
+
+    const pollProgress = async () => {
+      const { data } = await supabase
+        .from('salebot_import_progress')
+        .select('*')
+        .limit(1)
+        .single();
+      
+      if (data) {
+        setImportProgress({
+          totalClientsProcessed: data.total_clients_processed || 0,
+          totalImported: data.total_imported || 0,
+          totalMessagesImported: data.total_messages_imported || 0,
+          currentOffset: data.current_offset || 0,
+          startTime: data.start_time ? new Date(data.start_time) : null,
+          isRunning: data.is_running || false
+        });
+      }
+    };
+
+    pollProgress();
+    const interval = setInterval(pollProgress, 2000);
+    return () => clearInterval(interval);
+  }, [isImportingChats]);
+
+  const formatElapsedTime = (startTime: Date) => {
+    const elapsed = Math.floor((Date.now() - startTime.getTime()) / 1000);
+    const minutes = Math.floor(elapsed / 60);
+    const seconds = elapsed % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
 
   const executeStep = async (step: ImportStep, batchParams?: any) => {
     setSteps((prev) =>
@@ -603,6 +646,48 @@ export default function HolihopeImport() {
     }
   };
 
+  // useEffect(() => {
+  //   let intervalId: NodeJS.Timeout;
+
+  //   const pollImportProgress = async () => {
+  //     const { data } = await supabase
+  //       .from('salebot_import_progress')
+  //       .select('*')
+  //       .limit(1)
+  //       .single();
+      
+  //     if (data) {
+  //       setImportProgress({
+  //         totalClientsProcessed: data.total_clients_processed || 0,
+  //         totalImported: data.total_imported || 0,
+  //         totalMessagesImported: data.total_messages_imported || 0,
+  //         currentOffset: data.current_offset || 0,
+  //         startTime: data.start_time ? new Date(data.start_time) : null,
+  //         isRunning: data.is_running || false
+  //       });
+
+  //       // Stop polling if import finished
+  //       if (!data.is_running && isImportingChats) {
+  //         setIsImportingChats(false);
+  //         setChatImportStatus("Импорт завершен");
+  //       }
+  //     }
+  //   };
+
+  //   if (isImportingChats) {
+  //     // Initial fetch
+  //     pollImportProgress();
+  //     // Poll every 2 seconds
+  //     intervalId = setInterval(pollImportProgress, 2000);
+  //   }
+
+  //   return () => {
+  //     if (intervalId) {
+  //       clearInterval(intervalId);
+  //     }
+  //   };
+  // }, [isImportingChats]);
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
@@ -752,7 +837,55 @@ export default function HolihopeImport() {
                 />
               </div>
             </div>
-            {isImportingChats && (
+            {isImportingChats && importProgress && importProgress.isRunning && (
+              <Card className="mt-4 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 border-purple-200 dark:border-purple-800">
+                <CardContent className="pt-6">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-purple-900 dark:text-purple-100">Прогресс импорта</span>
+                      <Loader2 className="h-4 w-4 animate-spin text-purple-500" />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <div className="text-xs text-purple-600 dark:text-purple-400">Обработано клиентов</div>
+                        <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                          {importProgress.totalClientsProcessed}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-xs text-purple-600 dark:text-purple-400">Импортировано сообщений</div>
+                        <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                          {importProgress.totalMessagesImported}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-purple-600 dark:text-purple-400">
+                          Offset: {importProgress.currentOffset}
+                        </span>
+                        {importProgress.startTime && (
+                          <span className="text-purple-600 dark:text-purple-400">
+                            ⏱️ {formatElapsedTime(importProgress.startTime)}
+                          </span>
+                        )}
+                      </div>
+                      <Progress value={undefined} className="h-2" />
+                    </div>
+                    
+                    {chatImportStatus && (
+                      <p className="text-xs text-purple-700 dark:text-purple-300 animate-pulse">
+                        {chatImportStatus}
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {isImportingChats && !importProgress?.isRunning && (
               <div className="space-y-3 mb-4">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Импорт в процессе...</span>
