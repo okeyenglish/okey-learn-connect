@@ -98,3 +98,12 @@ verify_jwt = true
 
 [functions.seo-generate-content]
 verify_jwt = true
+
+[functions.seo-reoptimize-page]
+verify_jwt = true
+
+[functions.seo-yandex-export]
+verify_jwt = true
+
+[functions.seo-indexnow]
+verify_jwt = true
