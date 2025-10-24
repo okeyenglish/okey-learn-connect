@@ -1389,15 +1389,6 @@ export const ChatArea = ({
               >
                 <Phone className="h-4 w-4" />
               </Button>
-              <Button 
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                title="Переслать сообщения"
-                onClick={handleToggleSelectionMode}
-              >
-                <Forward className="h-4 w-4" />
-              </Button>
               
               {/* Toggle right panel button */}
               {onToggleRightPanel && (
