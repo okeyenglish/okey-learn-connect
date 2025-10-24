@@ -2545,7 +2545,7 @@ const CRMContent = () => {
                 <div className="p-3 flex flex-col h-full relative z-10 pointer-events-auto bg-background">
                   {/* Закрепленные чаты */}
                    {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
-                    <div className="mb-2">
+                    <div className="mb-1">
                       <button 
                         className="w-full flex items-center justify-between px-3 py-1.5 mb-2 hover:bg-accent/50 rounded-lg transition-all duration-200 group"
                         onClick={() => setIsPinnedSectionOpen(!isPinnedSectionOpen)}
@@ -2578,8 +2578,8 @@ const CRMContent = () => {
                           ) : null;
                         })()}
                       </button>
-                      {isPinnedSectionOpen && (
-                         <div className="space-y-0.5">
+                       {isPinnedSectionOpen && (
+                          <div className="space-y-0">
                          {filteredChats
                            .filter(chat => getChatState(chat.id).isPinned)
                           .map((chat) => {
@@ -2634,11 +2634,11 @@ const CRMContent = () => {
                                        )}
                                         {/* Avatar or icon */}
                                         {chat.type === 'corporate' ? (
-                                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
+                                          <div className="w-10 h-10 rounded-full bg-[#5B8DEE] flex items-center justify-center flex-shrink-0">
                                             <Building2 className="h-5 w-5 text-white" />
                                           </div>
                                         ) : chat.type === 'teachers' ? (
-                                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center flex-shrink-0">
+                                          <div className="w-10 h-10 rounded-full bg-[#9B7EDE] flex items-center justify-center flex-shrink-0">
                                             <GraduationCap className="h-5 w-5 text-white" />
                                           </div>
                                             ) : chat.avatar_url ? (
@@ -2646,7 +2646,7 @@ const CRMContent = () => {
                                                  <img 
                                                    src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
                                                    alt={`${chat.name} avatar`} 
-                                                   className="w-10 h-10 rounded-full object-cover border-2 border-blue-200"
+                                                   className="w-10 h-10 rounded-full object-cover border-2 border-border/30"
                                                   style={{ borderRadius: '50%' }}
                                                   loading="lazy"
                                                   decoding="async"
@@ -2681,7 +2681,7 @@ const CRMContent = () => {
                                           </div>
                                         ) : (
                                           <div className="relative flex-shrink-0">
-                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                                            <div className="w-10 h-10 rounded-full bg-[#5B8DEE] flex items-center justify-center">
                                               <User className="h-5 w-5 text-white" />
                                             </div>
                                             {/* Lead indicator */}
@@ -2917,7 +2917,7 @@ const CRMContent = () => {
                 <div className="p-4 flex flex-col h-full">
                   {/* Закрепленные чаты */}
                   {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
-                    <div className="mb-2">
+                    <div className="mb-1">
                       <button 
                         className="w-full flex items-center justify-between px-3 py-1.5 mb-2 hover:bg-accent/50 rounded-lg transition-all duration-200 group"
                         onClick={() => setIsPinnedSectionOpen(!isPinnedSectionOpen)}
@@ -2950,8 +2950,8 @@ const CRMContent = () => {
                           ) : null;
                         })()}
                       </button>
-                      {isPinnedSectionOpen && (
-                        <div className="space-y-1.5 mb-3">
+                       {isPinnedSectionOpen && (
+                         <div className="space-y-1 mb-2">
                            {filteredChats
                              .filter(chat => getChatState(chat.id).isPinned)
                             .map((chat) => {
@@ -2972,14 +2972,14 @@ const CRMContent = () => {
                                          handleChatClick(chat.id, chat.type as any);
                                        }}
                                      >
-                                       {chat.type === 'corporate' ? (
-                                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 shadow-sm flex items-center justify-center flex-shrink-0 ring-2 ring-blue-200">
-                                           <Building2 className="h-6 w-6 text-white" />
-                                         </div>
-                                       ) : chat.type === 'teachers' ? (
-                                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 shadow-sm flex items-center justify-center flex-shrink-0 ring-2 ring-purple-200">
-                                           <GraduationCap className="h-6 w-6 text-white" />
-                                         </div>
+                                        {chat.type === 'corporate' ? (
+                                          <div className="w-12 h-12 rounded-full bg-[#5B8DEE] shadow-sm flex items-center justify-center flex-shrink-0 ring-2 ring-border/30">
+                                            <Building2 className="h-6 w-6 text-white" />
+                                          </div>
+                                        ) : chat.type === 'teachers' ? (
+                                          <div className="w-12 h-12 rounded-full bg-[#9B7EDE] shadow-sm flex items-center justify-center flex-shrink-0 ring-2 ring-border/30">
+                                            <GraduationCap className="h-6 w-6 text-white" />
+                                          </div>
                                        ) : chat.avatar_url ? (
                                          <div className="relative flex-shrink-0">
                                             <img 
@@ -2997,10 +2997,10 @@ const CRMContent = () => {
                                              }}
                                            />
                                          </div>
-                                       ) : (
-                                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 shadow-sm flex items-center justify-center flex-shrink-0 ring-2 ring-blue-200">
-                                           <User className="h-6 w-6 text-white" />
-                                         </div>
+                                        ) : (
+                                          <div className="w-12 h-12 rounded-full bg-[#5B8DEE] shadow-sm flex items-center justify-center flex-shrink-0 ring-2 ring-border/30">
+                                            <User className="h-6 w-6 text-white" />
+                                          </div>
                                        )}
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-0.5">

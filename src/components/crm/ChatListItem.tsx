@@ -63,7 +63,7 @@ export const ChatListItem = React.memo(({
       isArchived={isArchived}
     >
       <button 
-        className={`w-full p-3 text-left rounded-lg transition-all duration-200 relative mb-2 border ${
+        className={`w-full p-3 text-left rounded-lg transition-all duration-200 relative mb-1 border ${
           isPinned 
             ? `border-orange-200 bg-gradient-to-r ${
                 isActive 
@@ -102,7 +102,7 @@ export const ChatListItem = React.memo(({
               {chat.avatar_url ? (
                 <AvatarImage src={chat.avatar_url} alt={chat.name} />
               ) : null}
-              <AvatarFallback className={isPinned ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white' : 'bg-gradient-to-br from-blue-400 to-blue-600 text-white'}>
+              <AvatarFallback className={isPinned ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white' : 'bg-[#5B8DEE] text-white'}>
                 {chat.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
