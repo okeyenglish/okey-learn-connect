@@ -20,6 +20,22 @@ interface SalebotHistoryMessage {
   manager_email: string | null;
 }
 
+interface SalebotClient {
+  id: number;
+  platform_id: string;
+  client_type: number;
+  name: string | null;
+  avatar: string | null;
+  message_id: number | null;
+  project_id: number;
+  created_at: number;
+  updated_at: number;
+  custom_answer: string | null;
+  tag: string | null;
+  group: string;
+  operator_start_dialog: string | null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -39,7 +55,17 @@ Deno.serve(async (req) => {
     // Получаем параметры из запроса
     const { offset = 0 } = await req.json().catch(() => ({ offset: 0 }));
     
-    console.log(`Начинаем импорт чатов из Salebot (offset: ${offset})...`);
+    // Проверяем, есть ли list_id в таблице прогресса
+    const { data: progressData } = await supabase
+      .from('salebot_import_progress')
+      .select('list_id')
+      .limit(1)
+      .single();
+    
+    const listId = progressData?.list_id;
+    const mode = listId ? `список ${listId}` : 'все клиенты';
+    
+    console.log(`Начинаем импорт чатов из Salebot (${mode}, offset: ${offset})...`);
 
     // Получаем organization_id (берем первую организацию)
     const { data: orgs } = await supabase.from('organizations').select('id').limit(1);
@@ -52,9 +78,210 @@ Deno.serve(async (req) => {
     let totalImported = 0;
     let totalClients = 0;
     let errors: string[] = [];
-    const clientBatchSize = 5; // Обрабатываем только 5 клиентов за раз
+    const clientBatchSize = 5;
     
-    // Получаем клиентов батчами с retry при таймауте
+    // Если указан list_id, получаем клиентов из списка Salebot
+    if (listId) {
+      console.log(`Получаем клиентов из списка Salebot ${listId}...`);
+      
+      const clientsUrl = `https://chatter.salebot.pro/api/${salebotApiKey}/get_clients`;
+      const clientsResponse = await fetch(clientsUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          list: listId,
+          offset: offset,
+          limit: clientBatchSize
+        })
+      });
+
+      if (!clientsResponse.ok) {
+        throw new Error(`Ошибка получения клиентов из списка: ${clientsResponse.statusText}`);
+      }
+
+      const clientsData = await clientsResponse.json();
+      const salebotClients: SalebotClient[] = clientsData.clients || [];
+
+      if (salebotClients.length === 0) {
+        console.log(`Все клиенты из списка ${listId} обработаны`);
+        return new Response(
+          JSON.stringify({
+            success: true,
+            completed: true,
+            totalImported: 0,
+            totalClients: 0,
+            nextOffset: offset,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`Загружено ${salebotClients.length} клиентов из списка ${listId}`);
+
+      // Обрабатываем клиентов из списка
+      for (const salebotClient of salebotClients) {
+        try {
+          console.log(`Обработка клиента из списка: Salebot ID ${salebotClient.id}, имя: ${salebotClient.name || 'неизвестно'}`);
+
+          // Получаем историю сообщений
+          const historyUrl = `https://chatter.salebot.pro/api/${salebotApiKey}/get_history?client_id=${salebotClient.id}&limit=2000`;
+          const historyResponse = await fetch(historyUrl);
+
+          if (!historyResponse.ok) {
+            throw new Error(`Ошибка получения истории: ${historyResponse.statusText}`);
+          }
+
+          const historyData = await historyResponse.json();
+          const messages: SalebotHistoryMessage[] = historyData.result || [];
+
+          console.log(`Получено ${messages.length} сообщений`);
+
+          if (messages.length === 0) continue;
+
+          // Пытаемся извлечь телефон из platform_id
+          let phoneNumber = salebotClient.platform_id?.replace(/\D/g, '');
+          
+          if (!phoneNumber || phoneNumber.length < 10) {
+            console.log(`Не удалось извлечь телефон для клиента ${salebotClient.id}`);
+            continue;
+          }
+
+          // Нормализуем телефон
+          if (phoneNumber.match(/^8\d{10}$/)) {
+            phoneNumber = '7' + phoneNumber.substring(1);
+          }
+          if (phoneNumber.length === 10) {
+            phoneNumber = '7' + phoneNumber;
+          }
+
+          console.log(`Извлечен телефон: ${phoneNumber}`);
+
+          // Ищем клиента в нашей базе по телефону
+          const { data: existingPhones } = await supabase
+            .from('client_phone_numbers')
+            .select('client_id, clients(id, name)')
+            .eq('phone', phoneNumber);
+
+          let clientId: string;
+          let clientName = salebotClient.name || `Клиент ${phoneNumber}`;
+
+          if (existingPhones && existingPhones.length > 0) {
+            // Клиент существует
+            clientId = existingPhones[0].client_id;
+            console.log(`Найден существующий клиент: ${clientId}`);
+          } else {
+            // Создаем нового клиента
+            const { data: newClient, error: createError } = await supabase
+              .from('clients')
+              .insert({
+                name: clientName,
+                organization_id: organizationId,
+                status: 'lead'
+              })
+              .select()
+              .single();
+
+            if (createError || !newClient) {
+              console.error('Ошибка создания клиента:', createError);
+              continue;
+            }
+
+            clientId = newClient.id;
+
+            // Добавляем телефон
+            await supabase
+              .from('client_phone_numbers')
+              .insert({
+                client_id: clientId,
+                phone: phoneNumber,
+                is_primary: true
+              });
+
+            console.log(`Создан новый клиент: ${clientId}, телефон: ${phoneNumber}`);
+          }
+
+          // Преобразуем и вставляем сообщения
+          const chatMessages: any[] = [];
+          
+          for (const msg of messages) {
+            if (!msg.created_at) continue;
+
+            let date: Date;
+            if (typeof msg.created_at === 'number') {
+              date = new Date(msg.created_at * 1000);
+            } else {
+              date = new Date(msg.created_at);
+            }
+            
+            if (isNaN(date.getTime())) continue;
+            
+            chatMessages.push({
+              client_id: clientId,
+              organization_id: organizationId,
+              message_text: msg.text || '',
+              message_type: msg.client_replica ? 'client' : 'manager',
+              is_outgoing: !msg.client_replica,
+              is_read: true,
+              created_at: date.toISOString(),
+              messenger_type: 'whatsapp',
+              salebot_message_id: msg.id.toString(),
+            });
+          }
+
+          // Вставляем батчами
+          const batchSize = 10;
+          for (let i = 0; i < chatMessages.length; i += batchSize) {
+            const batch = chatMessages.slice(i, i + batchSize);
+            
+            const salebotIds = batch.map(m => m.salebot_message_id);
+            const { data: existing } = await supabase
+              .from('chat_messages')
+              .select('salebot_message_id')
+              .eq('client_id', clientId)
+              .in('salebot_message_id', salebotIds);
+            
+            const existingIds = new Set((existing || []).map(e => e.salebot_message_id));
+            const newMessages = batch.filter(m => !existingIds.has(m.salebot_message_id));
+            
+            if (newMessages.length > 0) {
+              const { error: insertError } = await supabase
+                .from('chat_messages')
+                .insert(newMessages);
+
+              if (insertError) {
+                console.error('Ошибка вставки:', insertError);
+              } else {
+                totalImported += newMessages.length;
+              }
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+
+          totalClients++;
+
+        } catch (error: any) {
+          console.error(`Ошибка обработки клиента Salebot ID ${salebotClient.id}:`, error);
+          errors.push(`Salebot ID ${salebotClient.id}: ${error.message}`);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          totalImported,
+          totalClients,
+          nextOffset: offset + clientBatchSize,
+          completed: salebotClients.length < clientBatchSize,
+          errors: errors.slice(0, 10),
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Старая логика - получаем клиентов из нашей базы
     let clients: any[] = [];
     let retries = 3;
     

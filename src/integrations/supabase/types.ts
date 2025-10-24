@@ -3456,6 +3456,7 @@ export type Database = {
           id: string
           is_running: boolean
           last_run_at: string | null
+          list_id: string | null
           total_clients_processed: number
           total_imported: number
           updated_at: string
@@ -3467,6 +3468,7 @@ export type Database = {
           id?: string
           is_running?: boolean
           last_run_at?: string | null
+          list_id?: string | null
           total_clients_processed?: number
           total_imported?: number
           updated_at?: string
@@ -3478,6 +3480,7 @@ export type Database = {
           id?: string
           is_running?: boolean
           last_run_at?: string | null
+          list_id?: string | null
           total_clients_processed?: number
           total_imported?: number
           updated_at?: string

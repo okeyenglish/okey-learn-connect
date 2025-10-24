@@ -6,6 +6,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, CheckCircle2, XCircle, AlertCircle, Eye, MessageSquare } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface ImportStep {
   id: string;
@@ -26,6 +28,7 @@ export default function HolihopeImport() {
   const [chatImportStatus, setChatImportStatus] = useState<string>('');
   const [isClearing, setIsClearing] = useState(false);
   const [isDeletingEdUnits, setIsDeletingEdUnits] = useState(false);
+  const [salebotListId, setSalebotListId] = useState<string>('');
   const [steps, setSteps] = useState<ImportStep[]>([
     { id: 'clear', name: '1. Архивация данных', description: 'Пометка существующих данных как неактивных', action: 'clear_data', status: 'pending' },
     { id: 'offices', name: '2. Филиалы', description: 'Импорт филиалов/офисов', action: 'import_locations', status: 'pending' },
@@ -700,9 +703,24 @@ export default function HolihopeImport() {
         <CardContent>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Этот инструмент загружает историю сообщений WhatsApp из платформы Salebot для всех клиентов в системе.
-              Для каждого клиента с номером телефона будет получена вся доступная история переписки.
+              Этот инструмент загружает историю сообщений WhatsApp из платформы Salebot. Вы можете импортировать чаты для всех клиентов или только для клиентов из определенного списка Salebot.
             </p>
+            
+            <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
+              <Label htmlFor="salebot-list-id">ID списка Salebot (опционально)</Label>
+              <Input
+                id="salebot-list-id"
+                type="text"
+                placeholder="Например: 740756"
+                value={salebotListId}
+                onChange={(e) => setSalebotListId(e.target.value)}
+                disabled={isImportingChats}
+              />
+              <p className="text-xs text-muted-foreground">
+                Если указан, импорт будет выполнен только для клиентов из этого списка Salebot. 
+                Клиенты, которых нет в базе, будут автоматически созданы.
+              </p>
+            </div>
             {isImportingChats && (
               <div className="space-y-3 mb-4">
                 <div className="flex items-center justify-between text-sm">
@@ -720,8 +738,24 @@ export default function HolihopeImport() {
             <Button
               onClick={async () => {
                 setIsImportingChats(true);
-                setChatImportStatus('Инициализация импорта...');
+                const mode = salebotListId ? `списка ${salebotListId}` : 'всех клиентов';
+                setChatImportStatus(`Инициализация импорта из ${mode}...`);
+                
                 try {
+                  // Устанавливаем list_id и сбрасываем прогресс в таблице
+                  const { error: updateError } = await supabase
+                    .from('salebot_import_progress')
+                    .update({
+                      list_id: salebotListId || null,
+                      current_offset: 0,
+                      is_running: false
+                    })
+                    .limit(1);
+
+                  if (updateError) {
+                    console.error('Ошибка обновления прогресса:', updateError);
+                  }
+
                   let offset = 0;
                   let totalImported = 0;
                   let totalClients = 0;
@@ -729,7 +763,7 @@ export default function HolihopeImport() {
                   let batchNumber = 1;
 
                   while (true) {
-                    setChatImportStatus(`Обработка батча ${batchNumber} (клиенты ${offset + 1}-${offset + 5})...`);
+                    setChatImportStatus(`Обработка батча ${batchNumber} (${mode}, offset: ${offset})...`);
                     
                     const { data, error } = await supabase.functions.invoke('import-salebot-chats', {
                       body: { offset },
