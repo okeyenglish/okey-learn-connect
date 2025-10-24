@@ -114,22 +114,14 @@ export const useChatThreads = () => {
         const clientId = message.client_id;
         const client = message.clients;
         
-        // Логируем сообщения без клиентов
-        if (!client) {
-          console.warn('[useChatThreads] Message without client:', {
-            messageId: message.id,
-            clientId,
-            salebotId: message.salebot_message_id,
-            messageText: message.message_text?.substring(0, 50)
-          });
-          return;
-        }
+        // Обрабатываем даже если клиент не подтянулся из join (RLS/доступ)
+        const safeClient = message.clients || { id: message.client_id, name: '', phone: '' };
         
         if (!threadsMap.has(clientId)) {
           threadsMap.set(clientId, {
             client_id: clientId,
-            client_name: client.name,
-            client_phone: client.phone,
+            client_name: safeClient.name,
+            client_phone: safeClient.phone,
             last_message: message.message_text,
             last_message_time: message.created_at,
             unread_count: 0,
