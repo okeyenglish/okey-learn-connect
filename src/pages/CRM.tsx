@@ -760,15 +760,6 @@ const CRMContent = () => {
           ? `${typing.names[0] || 'Менеджер'} печатает...`
           : (thread.last_message?.trim?.() || 'Нет сообщений');
           
-        // Диагностика для отладки аватаров
-        if (isMobile && (clientData?.name || thread.client_name)) {
-          console.log(`Mobile avatar debug for ${clientData?.name ?? thread.client_name}:`, {
-            id: clientData?.id ?? thread.client_id,
-            avatar_url: clientData?.avatar_url,
-            hasAvatar: !!clientData?.avatar_url
-          });
-        }
-          
         return {
           id: thread.client_id,
           name: cleanClientName(clientData?.name ?? thread.client_name ?? 'Без имени'),
@@ -784,6 +775,14 @@ const CRMContent = () => {
     // Добавляем клиентов без сообщений, чтобы они тоже отображались как чаты
     ...clientChatsWithoutThreads
   ];
+
+  console.log('[CRM] allChats constructed:', {
+    total: allChats.length,
+    systemChats: systemChats.length,
+    threadChats: threads.length,
+    clientsWithoutThreads: clientChatsWithoutThreads.length,
+    sample: allChats.slice(0, 5).map(c => ({ id: c.id, name: c.name, type: c.type }))
+  });
 
   const filteredChats = allChats
   .filter(chat => 
@@ -827,6 +826,12 @@ const CRMContent = () => {
       // Внутри каждой группы сортируем по времени (новые сверху)
       return (b.timestamp || 0) - (a.timestamp || 0);
     });
+
+  console.log('[CRM] filteredChats after filters:', {
+    count: filteredChats.length,
+    searchQuery: chatSearchQuery,
+    sample: filteredChats.slice(0, 5).map(c => ({ id: c.id, name: c.name, lastMessage: c.lastMessage?.substring(0, 20) }))
+  });
 
   // Use client status hook for lead detection - memoize to prevent unnecessary re-renders
   const clientIds = useMemo(() => 

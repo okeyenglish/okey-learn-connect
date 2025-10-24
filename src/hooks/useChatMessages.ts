@@ -80,11 +80,17 @@ export const useChatThreads = () => {
         throw messagesError;
       }
       
-      console.log('[useChatThreads] Messages fetched:', {
+      console.log('[useChatThreads] Raw messages fetched:', {
         total: messagesData?.length || 0,
         withClients: messagesData?.filter((m: any) => m.clients).length || 0,
         withoutClients: messagesData?.filter((m: any) => !m.clients).length || 0,
         salebotMessages: messagesData?.filter((m: any) => m.salebot_message_id).length || 0,
+        sample: messagesData?.slice(0, 3).map((m: any) => ({
+          client_id: m.client_id,
+          has_client: !!m.clients,
+          client_name: m.clients?.name,
+          message: m.message_text?.substring(0, 30)
+        }))
       });
 
       // Fetch call logs
@@ -174,6 +180,17 @@ export const useChatThreads = () => {
       return Array.from(threadsMap.values())
         .sort((a, b) => new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime());
     },
+  });
+
+  console.log('[useChatThreads] Returning threads:', {
+    count: threads?.length || 0,
+    isLoading,
+    hasError: !!error,
+    sample: threads?.slice(0, 3).map(t => ({
+      id: t.client_id,
+      name: t.client_name,
+      lastMsg: t.last_message?.substring(0, 30)
+    }))
   });
 
   return {
