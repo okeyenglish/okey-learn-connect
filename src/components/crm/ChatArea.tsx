@@ -1155,8 +1155,8 @@ export const ChatArea = ({
       <div className={`border-b shrink-0 relative ${isMobile ? 'bg-background sticky top-0 z-20' : 'p-3'}`}>
         {/* Mobile: Compact header with contact info and actions on the same line */}
         {isMobile && (
-          <div className="flex items-center justify-between p-3 bg-background border-b">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="flex items-center justify-between p-2 bg-background">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
               {onBackToList && (
                 <Button 
                   size="sm" 
@@ -1219,42 +1219,42 @@ export const ChatArea = ({
             </div>
             
             {/* Action buttons moved to the right */}
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-1 flex-shrink-0">
               <Button 
                 size="sm" 
                 variant="outline" 
-                className="crm-btn h-10 w-10 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                className="crm-btn h-8 w-8 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                 title="Добавить задачу"
                 onClick={() => (onOpenTaskModal ? onOpenTaskModal() : setShowAddTaskModal(true))}
               >
-                <Plus className="h-5 w-5 stroke-1" />
+                <Plus className="h-4 w-4 stroke-1" />
               </Button>
               <Button 
                 size="sm" 
                 variant="outline" 
-                className="crm-btn h-10 w-10 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                className="crm-btn h-8 w-8 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                 title="Выставить счёт"
                 onClick={() => (onOpenInvoiceModal ? onOpenInvoiceModal() : setShowInvoiceModal(true))}
               >
-                <FileText className="h-5 w-5 stroke-1" />
+                <FileText className="h-4 w-4 stroke-1" />
               </Button>
               <Button 
                 size="sm" 
                 variant="outline"
-                className="crm-btn h-10 w-10 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                className="crm-btn h-8 w-8 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                 title="Поиск в чате"
                 onClick={handleSearchToggle}
               >
-                <Search className="h-5 w-5 stroke-1" />
+                <Search className="h-4 w-4 stroke-1" />
               </Button>
               <Button
                 size="sm" 
                 variant="outline"
-                className="crm-btn h-10 w-10 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                className="crm-btn h-8 w-8 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                 title="Позвонить"
                 onClick={handlePhoneCall}
               >
-                <Phone className="h-5 w-5 stroke-1" />
+                <Phone className="h-4 w-4 stroke-1" />
               </Button>
               <Button 
                 size="sm" 
