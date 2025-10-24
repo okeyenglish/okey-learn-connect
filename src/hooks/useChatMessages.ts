@@ -59,9 +59,8 @@ export const useChatThreads = () => {
       console.log('[useChatThreads] Fetching chat messages...');
       
       // Fetch chat messages
-      const { data: messagesData, error: messagesError } = await supabase
-        .from('chat_messages')
-        .select(`
+      // Try selecting with join to clients; if blocked by RLS, fall back to no-join select
+      const selectWithJoin = `
           client_id,
           message_text,
           created_at,
@@ -72,12 +71,30 @@ export const useChatThreads = () => {
             name,
             phone
           )
-        `)
-        .order('created_at', { ascending: false });
-      
-      if (messagesError) {
-        console.error('[useChatThreads] Error fetching messages:', messagesError);
-        throw messagesError;
+        `;
+
+      let messagesData: any[] | null = null;
+      {
+        const { data, error } = await supabase
+          .from('chat_messages')
+          .select(selectWithJoin)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.warn('[useChatThreads] Join to clients failed, falling back:', error.message);
+          const { data: noJoinData, error: noJoinError } = await supabase
+            .from('chat_messages')
+            .select('client_id, message_text, created_at, is_read, salebot_message_id')
+            .order('created_at', { ascending: false });
+
+          if (noJoinError) {
+            console.error('[useChatThreads] Error fetching messages (no join):', noJoinError);
+            throw noJoinError;
+          }
+          messagesData = noJoinData as any[];
+        } else {
+          messagesData = data as any[];
+        }
       }
       
       console.log('[useChatThreads] Raw messages fetched:', {
@@ -93,10 +110,10 @@ export const useChatThreads = () => {
         }))
       });
 
-      // Fetch call logs
-      const { data: callsData, error: callsError } = await supabase
-        .from('call_logs')
-        .select(`
+      // Fetch call logs with safe fallback when clients join is blocked by RLS
+      let callsData: any[] | null = null;
+      {
+        const selectCallsWithJoin = `
           client_id,
           status,
           direction,
@@ -107,10 +124,25 @@ export const useChatThreads = () => {
             name,
             phone
           )
-        `)
-        .order('started_at', { ascending: false });
-      
-      if (callsError) throw callsError;
+        `;
+        const { data, error } = await supabase
+          .from('call_logs')
+          .select(selectCallsWithJoin)
+          .order('started_at', { ascending: false });
+
+        if (error) {
+          console.warn('[useChatThreads] Calls join failed, falling back:', error.message);
+          const { data: noJoinCalls, error: noJoinCallsError } = await supabase
+            .from('call_logs')
+            .select('client_id, status, direction, started_at, duration_seconds')
+            .order('started_at', { ascending: false });
+
+          if (noJoinCallsError) throw noJoinCallsError;
+          callsData = noJoinCalls as any[];
+        } else {
+          callsData = data as any[];
+        }
+      }
 
       // Group interactions by client
       const threadsMap = new Map<string, ChatThread>();
@@ -149,9 +181,7 @@ export const useChatThreads = () => {
       // Process call logs
       callsData?.forEach((call: any) => {
         const clientId = call.client_id;
-        const client = call.clients;
-        
-        if (!client) return;
+        const client = call.clients || { id: call.client_id, name: '', phone: '' };
         
         const callMessage = `${call.direction === 'incoming' ? '📞 Входящий' : '📱 Исходящий'} звонок (${call.status})`;
         
