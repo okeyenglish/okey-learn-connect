@@ -19,13 +19,13 @@ export const useRealtimeClients = () => {
           console.log('Client data changed:', payload);
           const affectedId = (payload.new && (payload.new as any).id) || (payload.old && (payload.old as any).id);
           
-          // Invalidate all queries that depend on client data
-          queryClient.invalidateQueries({ queryKey: ['clients'] });
-          queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+          // Refetch all queries that depend on client data immediately
+          queryClient.refetchQueries({ queryKey: ['clients'] });
+          queryClient.refetchQueries({ queryKey: ['chat-threads'] });
           
-          // Invalidate specific client query if we have an ID
+          // Refetch specific client query if we have an ID
           if (affectedId) {
-            queryClient.invalidateQueries({ queryKey: ['client', affectedId] });
+            queryClient.refetchQueries({ queryKey: ['client', affectedId] });
           }
         }
       )

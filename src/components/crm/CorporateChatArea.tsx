@@ -107,6 +107,80 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
     loadCustomChats();
   }, []);
 
+  // Real-time обновление списка кастомных чатов при изменении данных клиента
+  useEffect(() => {
+    const channel = supabase
+      .channel('custom-chats-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'clients',
+          filter: `name=ilike.Кастомный чат -%`
+        },
+        async () => {
+          // Перезагружаем список кастомных чатов при любом изменении
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('branch')
+            .eq('id', user.id)
+            .maybeSingle();
+
+          if (!profile?.branch) return;
+
+          const { data: clients, error } = await supabase
+            .from('clients')
+            .select(`
+              id,
+              name,
+              branch,
+              chat_messages!client_id (
+                id,
+                message_text,
+                created_at,
+                is_read
+              )
+            `)
+            .eq('branch', profile.branch)
+            .ilike('name', 'Кастомный чат -%');
+
+          if (error) {
+            console.error('Error loading custom chats:', error);
+            return;
+          }
+
+          const enrichedChats = (clients || []).map((client: any) => {
+            const messages = client.chat_messages || [];
+            const unreadCount = messages.filter((m: any) => !m.is_read && m.message_type === 'client').length;
+            const sortedMessages = messages.sort((a: any, b: any) => 
+              new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            );
+            const lastMsg = sortedMessages[0];
+
+            return {
+              id: client.id,
+              name: client.name.replace('Кастомный чат - ', ''),
+              branch: client.branch,
+              unreadCount,
+              lastMessage: lastMsg?.message_text || 'Нет сообщений',
+              lastMessageTime: lastMsg?.created_at || null
+            };
+          });
+
+          setCustomChats(enrichedChats);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   // Группируем корпоративные чаты по филиалам и добавляем кастомные чаты
   const branchChats = (corporateChats || []).reduce((acc: any, chat: any) => {
     if (!acc[chat.branch]) {

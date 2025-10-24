@@ -82,14 +82,21 @@ export const useSystemChatMessages = () => {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_messages' },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['system-chats'] });
+          queryClient.refetchQueries({ queryKey: ['system-chats'] });
         }
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'chat_messages' },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['system-chats'] });
+          queryClient.refetchQueries({ queryKey: ['system-chats'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'clients' },
+        () => {
+          queryClient.refetchQueries({ queryKey: ['system-chats'] });
         }
       )
       .subscribe();
