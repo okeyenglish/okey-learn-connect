@@ -75,10 +75,31 @@ Deno.serve(async (req) => {
       throw new Error('Не найдена организация');
     }
 
+    // Получаем запись прогресса для управления флагом is_running
+    const { data: progressRecord } = await supabase
+      .from('salebot_import_progress')
+      .select('id')
+      .limit(1)
+      .single();
+
     let totalImported = 0;
     let totalClients = 0;
     let errors: string[] = [];
     const clientBatchSize = limit;
+    
+    // Устанавливаем флаг is_running = true в начале импорта
+    if (progressRecord) {
+      await supabase
+        .from('salebot_import_progress')
+        .update({ 
+          is_running: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', progressRecord.id);
+      console.log('Флаг is_running установлен в true');
+    }
+
+    try {
     
     // Если указан list_id, получаем клиентов из списка Salebot
     if (listId) {
@@ -104,6 +125,18 @@ Deno.serve(async (req) => {
 
       if (salebotClients.length === 0) {
         console.log(`Все клиенты из списка ${listId} обработаны`);
+        
+        // Сбрасываем флаг is_running перед завершением
+        if (progressRecord) {
+          await supabase
+            .from('salebot_import_progress')
+            .update({ 
+              is_running: false,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', progressRecord.id);
+        }
+        
         return new Response(
           JSON.stringify({
             success: true,
@@ -271,13 +304,26 @@ Deno.serve(async (req) => {
         await new Promise(resolve => setTimeout(resolve, 500));
       }
 
+      // Сбрасываем флаг is_running при завершении батча
+      const isCompleted = salebotClients.length < clientBatchSize;
+      if (progressRecord && isCompleted) {
+        await supabase
+          .from('salebot_import_progress')
+          .update({ 
+            is_running: false,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', progressRecord.id);
+        console.log('Импорт завершен, флаг is_running сброшен');
+      }
+
       return new Response(
         JSON.stringify({
           success: true,
           totalImported,
           totalClients,
           nextOffset: offset + limit,
-          completed: salebotClients.length < clientBatchSize,
+          completed: isCompleted,
           errors: errors.slice(0, 10),
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -312,6 +358,18 @@ Deno.serve(async (req) => {
 
     if (clients.length === 0) {
       console.log('Все клиенты обработаны');
+      
+      // Сбрасываем флаг is_running перед завершением
+      if (progressRecord) {
+        await supabase
+          .from('salebot_import_progress')
+          .update({ 
+            is_running: false,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', progressRecord.id);
+      }
+      
       return new Response(
         JSON.stringify({
           success: true,
@@ -544,6 +602,18 @@ Deno.serve(async (req) => {
     const nextOffset = offset + clientBatchSize;
     const hasMore = clients.length === clientBatchSize;
 
+    // Сбрасываем флаг is_running при завершении
+    if (progressRecord && !hasMore) {
+      await supabase
+        .from('salebot_import_progress')
+        .update({ 
+          is_running: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', progressRecord.id);
+      console.log('Импорт завершен, флаг is_running сброшен');
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -557,6 +627,26 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
+    } catch (innerError) {
+      console.error('Ошибка во время импорта:', innerError);
+      throw innerError;
+    } finally {
+      // ГАРАНТИРОВАННЫЙ сброс флага is_running в любом случае
+      if (progressRecord) {
+        try {
+          await supabase
+            .from('salebot_import_progress')
+            .update({ 
+              is_running: false,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', progressRecord.id);
+          console.log('Флаг is_running сброшен в finally блоке');
+        } catch (finallyError) {
+          console.error('Ошибка сброса флага в finally:', finallyError);
+        }
+      }
+    }
   } catch (error) {
     console.error('Ошибка импорта чатов:', error);
     return new Response(
