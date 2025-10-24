@@ -264,7 +264,7 @@ export const ChatArea = ({
         .from('chat_messages')
         .select(`
           *,
-          clients!inner(avatar_url, whatsapp_chat_id)
+          clients(avatar_url, whatsapp_chat_id)
         `)
         .eq('client_id', clientId)
         .order('created_at', { ascending: true });
