@@ -171,6 +171,7 @@ Deno.serve(async (req) => {
       }
 
       console.log(`Загружено ${clients.length} клиентов (offset: ${currentOffset})`);
+    }
 
     // Обработка клиентов из списка Salebot
     if (listId && salebotClients.length > 0) {
@@ -323,7 +324,7 @@ Deno.serve(async (req) => {
         await new Promise(resolve => setTimeout(resolve, 500));
       }
     } else if (!listId) {
-      // Обработка клиентов из нашей базы (старая логика)
+      // Обработка клиентов из нашей базы
       const { data: clients } = await supabase
         .from('clients')
         .select('id, name, phone_numbers:client_phone_numbers(phone)')
