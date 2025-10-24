@@ -98,16 +98,14 @@ Deno.serve(async (req) => {
 
     let totalImported = 0;
     let totalClients = 0;
-    let totalMessages = 0;
     let errors: string[] = progressData.errors || [];
     const clientBatchSize = 20;
     
-    // Устанавливаем start_time и обнуляем счетчик сообщений в начале
+    // Устанавливаем start_time в начале
     await supabase
       .from('salebot_import_progress')
       .update({ 
         start_time: new Date().toISOString(),
-        total_messages_imported: 0,
         updated_at: new Date().toISOString()
       })
       .eq('id', progressData.id);
@@ -313,6 +311,8 @@ Deno.serve(async (req) => {
             const existingIds = new Set((existing || []).map(e => e.salebot_message_id));
             const newMessages = batch.filter(m => !existingIds.has(m.salebot_message_id));
             
+            console.log(`Батч: всего ${batch.length} сообщений, уже существует ${existingIds.size}, новых ${newMessages.length}`);
+            
               if (newMessages.length > 0) {
                 const { error: insertError } = await supabase
                   .from('chat_messages')
@@ -322,24 +322,32 @@ Deno.serve(async (req) => {
                   console.error('Ошибка вставки:', insertError);
                 } else {
                   totalImported += newMessages.length;
-                  totalMessages += newMessages.length;
+                  console.log(`Вставлено ${newMessages.length} новых сообщений, всего: ${totalImported}`);
                 }
+              } else {
+                console.log('Все сообщения в батче уже импортированы (дубликаты)');
               }
             
             await new Promise(resolve => setTimeout(resolve, 200));
           }
 
           totalClients++;
+          console.log(`Клиент обработан. Всего клиентов: ${totalClients}, всего сообщений: ${totalImported}`);
           
           // Обновляем прогресс после каждого клиента
-          await supabase
+          const { error: updateError } = await supabase
             .from('salebot_import_progress')
             .update({ 
-              total_messages_imported: totalMessages,
+              total_messages_imported: totalImported,
               total_clients_processed: totalClients,
+              total_imported: totalImported,
               updated_at: new Date().toISOString()
             })
             .eq('id', progressData.id);
+          
+          if (updateError) {
+            console.error('Ошибка обновления прогресса:', updateError);
+          }
 
         } catch (error: any) {
           console.error(`Ошибка обработки клиента Salebot ID ${salebotClient.id}:`, error);

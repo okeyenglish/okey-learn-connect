@@ -84,7 +84,6 @@ Deno.serve(async (req) => {
 
     let totalImported = 0;
     let totalClients = 0;
-    let totalMessages = 0;
     let errors: string[] = [];
     const clientBatchSize = limit;
     
@@ -95,11 +94,10 @@ Deno.serve(async (req) => {
         .update({ 
           is_running: true,
           start_time: new Date().toISOString(),
-          total_messages_imported: 0,
           updated_at: new Date().toISOString()
         })
         .eq('id', progressRecord.id);
-      console.log('Флаг is_running установлен в true');
+      console.log('Флаг is_running установлен в true, счетчики будут обновляться по ходу импорта');
     }
 
     try {
@@ -282,6 +280,8 @@ Deno.serve(async (req) => {
             const existingIds = new Set((existing || []).map(e => e.salebot_message_id));
             const newMessages = batch.filter(m => !existingIds.has(m.salebot_message_id));
             
+            console.log(`Батч: всего ${batch.length} сообщений, уже существует ${existingIds.size}, новых ${newMessages.length}`);
+            
             if (newMessages.length > 0) {
               const { error: insertError } = await supabase
                 .from('chat_messages')
@@ -291,25 +291,35 @@ Deno.serve(async (req) => {
                 console.error('Ошибка вставки:', insertError);
               } else {
                 totalImported += newMessages.length;
-                totalMessages += newMessages.length;
+                console.log(`Вставлено ${newMessages.length} новых сообщений, всего импортировано: ${totalImported}`);
               }
+            } else {
+              console.log('Все сообщения в батче уже импортированы (дубликаты)');
             }
             
             await new Promise(resolve => setTimeout(resolve, 200));
           }
 
           totalClients++;
+          console.log(`Клиент обработан. Всего клиентов: ${totalClients}, всего сообщений: ${totalImported}`);
           
           // Обновляем прогресс после каждого клиента
           if (progressRecord) {
-            await supabase
+            const { error: updateError } = await supabase
               .from('salebot_import_progress')
               .update({ 
-                total_messages_imported: totalMessages,
+                total_messages_imported: totalImported,
                 total_clients_processed: totalClients,
+                total_imported: totalImported,
                 updated_at: new Date().toISOString()
               })
               .eq('id', progressRecord.id);
+            
+            if (updateError) {
+              console.error('Ошибка обновления прогресса:', updateError);
+            } else {
+              console.log(`Прогресс обновлен: клиентов ${totalClients}, сообщений ${totalImported}`);
+            }
           }
 
         } catch (error: any) {
@@ -322,15 +332,20 @@ Deno.serve(async (req) => {
 
       // Сбрасываем флаг is_running при завершении батча
       const isCompleted = salebotClients.length < clientBatchSize;
-      if (progressRecord && isCompleted) {
+      
+      console.log(`Батч завершен: обработано ${totalClients} клиентов, импортировано ${totalImported} сообщений. Завершен полностью: ${isCompleted}`);
+      
+      // Всегда сбрасываем флаг is_running после завершения батча
+      if (progressRecord) {
         await supabase
           .from('salebot_import_progress')
           .update({ 
             is_running: false,
+            current_offset: offset + salebotClients.length,
             updated_at: new Date().toISOString()
           })
           .eq('id', progressRecord.id);
-        console.log('Импорт завершен, флаг is_running сброшен');
+        console.log('Флаг is_running сброшен после батча');
       }
 
       return new Response(
