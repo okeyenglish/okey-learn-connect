@@ -211,6 +211,25 @@ export const useChatThreads = () => {
         }
       });
 
+      // Refresh client names from clients table to ensure latest display names
+      const clientIds = Array.from(threadsMap.keys());
+      if (clientIds.length > 0) {
+        const { data: freshClients, error: freshClientsError } = await supabase
+          .from('clients')
+          .select('id, name, phone')
+          .in('id', clientIds);
+        if (!freshClientsError && freshClients) {
+          const freshMap = new Map(freshClients.map((c: any) => [c.id, c]));
+          threadsMap.forEach((thread, id) => {
+            const fresh = freshMap.get(id);
+            if (fresh) {
+              thread.client_name = fresh.name ?? thread.client_name;
+              thread.client_phone = fresh.phone ?? thread.client_phone;
+            }
+          });
+        }
+      }
+
       const finalThreads = Array.from(threadsMap.values())
         .sort((a, b) => new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime());
       
