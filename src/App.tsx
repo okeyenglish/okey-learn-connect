@@ -58,6 +58,7 @@ const TestUserCreator = lazy(() => import('./pages/TestUserCreator'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 const SupabaseDiagnostics = lazy(() => import('./pages/SupabaseDiagnostics'));
 const HolihopeImport = lazy(() => import('./pages/HolihopeImport'));
+const SeoManager = lazy(() => import('./pages/SeoManager'));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Loading component for better UX
@@ -347,6 +348,13 @@ const AppContent = () => {
             <ProtectedRoute allowedRoles={['admin']}>
               <Suspense fallback={<LoadingComponent />}>
                 <HolihopeImport />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/seo" element={
+            <ProtectedRoute>
+              <Suspense fallback={<LoadingComponent />}>
+                <SeoManager />
               </Suspense>
             </ProtectedRoute>
           } />
