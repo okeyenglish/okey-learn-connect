@@ -904,15 +904,17 @@ export default function HolihopeImport() {
                 )}
               </div>
             )}
-            <Button
-              onClick={async () => {
-                if (isImportingChats) return;
-                
-                setIsImportingChats(true);
-                
-                // Validate and parse parameters
-                const startOffsetNum = Math.max(0, Number(startOffset) || 0);
-                const batchSizeNum = Math.max(5, Number(batchSize) || 10);
+            
+            <div className="flex gap-2">
+              <Button
+                onClick={async () => {
+                  if (isImportingChats) return;
+                  
+                  setIsImportingChats(true);
+                  
+                  // Validate and parse parameters
+                  const startOffsetNum = Math.max(0, Number(startOffset) || 0);
+                  const batchSizeNum = Math.max(5, Number(batchSize) || 10);
                 
                 let offset = startOffsetNum;
                 let limit = batchSizeNum;
@@ -1028,7 +1030,7 @@ export default function HolihopeImport() {
                 }
               }}
               disabled={isImportingChats || isImporting}
-              className="w-full"
+              className="flex-1"
             >
               {isImportingChats ? (
                 <>
@@ -1042,6 +1044,43 @@ export default function HolihopeImport() {
                 </>
               )}
             </Button>
+            
+            {isImportingChats && (
+              <Button
+                onClick={async () => {
+                  try {
+                    const { data: progress } = await supabase
+                      .from('salebot_import_progress')
+                      .select('id')
+                      .limit(1)
+                      .single();
+                    
+                    if (progress) {
+                      await supabase
+                        .from('salebot_import_progress')
+                        .update({ is_running: false })
+                        .eq('id', progress.id);
+                    }
+                    
+                    setIsImportingChats(false);
+                    setChatImportStatus('Импорт остановлен пользователем');
+                    
+                    toast({
+                      title: 'Импорт остановлен',
+                      description: 'Импорт чатов был остановлен',
+                    });
+                  } catch (error) {
+                    console.error('Ошибка остановки импорта:', error);
+                  }
+                }}
+                variant="destructive"
+                size="icon"
+                className="shrink-0"
+              >
+                <XCircle className="h-4 w-4" />
+              </Button>
+            )}
+            </div>
           </div>
         </CardContent>
       </Card>
