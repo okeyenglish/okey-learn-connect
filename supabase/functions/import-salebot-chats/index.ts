@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     // Получаем параметры из запроса
-    const { offset = 0 } = await req.json().catch(() => ({ offset: 0 }));
+    const { offset = 0, limit = 20 } = await req.json().catch(() => ({ offset: 0, limit: 20 }));
     
     // Проверяем, есть ли list_id в таблице прогресса
     const { data: progressData } = await supabase
@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
     const listId = progressData?.list_id;
     const mode = listId ? `список ${listId}` : 'все клиенты';
     
-    console.log(`Начинаем импорт чатов из Salebot (${mode}, offset: ${offset})...`);
+    console.log(`Начинаем импорт чатов из Salebot (${mode}, offset: ${offset}, limit: ${limit})...`);
 
     // Получаем organization_id (берем первую организацию)
     const { data: orgs } = await supabase.from('organizations').select('id').limit(1);
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
     let totalImported = 0;
     let totalClients = 0;
     let errors: string[] = [];
-    const clientBatchSize = 20;
+    const clientBatchSize = limit;
     
     // Если указан list_id, получаем клиентов из списка Salebot
     if (listId) {
@@ -276,7 +276,7 @@ Deno.serve(async (req) => {
           success: true,
           totalImported,
           totalClients,
-          nextOffset: offset + clientBatchSize,
+          nextOffset: offset + limit,
           completed: salebotClients.length < clientBatchSize,
           errors: errors.slice(0, 10),
         }),
@@ -294,7 +294,7 @@ Deno.serve(async (req) => {
           .from('clients')
           .select('id, name, phone_numbers:client_phone_numbers(phone)')
           .not('phone_numbers', 'is', null)
-          .range(offset, offset + clientBatchSize - 1);
+          .range(offset, offset + limit - 1);
 
         if (error) throw error;
         
