@@ -745,12 +745,12 @@ const CRMContent = () => {
     ...threads
       .filter(thread => {
         const clientData = clients.find(c => c.id === thread.client_id);
+        const nameForCheck = cleanClientName(clientData?.name ?? thread.client_name ?? '');
         return (
-          !!clientData &&
-          !clientData.name?.includes('Корпоративный чат') &&
-          !clientData.name?.includes('Чат педагогов') &&
-          !clientData.name?.includes('Преподаватель:') &&
-          !clientData.name?.includes('Кастомный чат')
+          !nameForCheck.includes('Корпоративный чат') &&
+          !nameForCheck.includes('Чат педагогов') &&
+          !nameForCheck.includes('Преподаватель:') &&
+          !nameForCheck.includes('Кастомный чат')
         );
       })
       .map(thread => {
@@ -761,18 +761,18 @@ const CRMContent = () => {
           : (thread.last_message?.trim?.() || 'Нет сообщений');
           
         // Диагностика для отладки аватаров
-        if (isMobile && clientData) {
-          console.log(`Mobile avatar debug for ${clientData.name}:`, {
-            id: clientData.id,
-            avatar_url: clientData.avatar_url,
-            hasAvatar: !!clientData.avatar_url
+        if (isMobile && (clientData?.name || thread.client_name)) {
+          console.log(`Mobile avatar debug for ${clientData?.name ?? thread.client_name}:`, {
+            id: clientData?.id ?? thread.client_id,
+            avatar_url: clientData?.avatar_url,
+            hasAvatar: !!clientData?.avatar_url
           });
         }
           
         return {
           id: thread.client_id,
-          name: cleanClientName(thread.client_name),
-          phone: thread.client_phone,
+          name: cleanClientName(clientData?.name ?? thread.client_name ?? 'Без имени'),
+          phone: clientData?.phone ?? thread.client_phone,
           lastMessage: lastMsgDisplay,
           time: formatTime(thread.last_message_time),
           unread: thread.unread_count,
