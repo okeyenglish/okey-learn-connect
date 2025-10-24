@@ -63,7 +63,7 @@ export const ChatListItem = React.memo(({
       isArchived={isArchived}
     >
       <button 
-        className={`w-full p-3 text-left rounded-lg transition-all duration-200 relative mb-1.5 border ${
+        className={`w-full p-3 text-left rounded-lg transition-all duration-200 relative mb-2 border ${
           isPinned 
             ? `border-orange-200 bg-gradient-to-r ${
                 isActive 

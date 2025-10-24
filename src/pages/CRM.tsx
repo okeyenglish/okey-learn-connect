@@ -2545,7 +2545,7 @@ const CRMContent = () => {
                 <div className="p-3 flex flex-col h-full relative z-10 pointer-events-auto bg-background">
                   {/* Закрепленные чаты */}
                    {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
-                    <div className="mb-3">
+                    <div className="mb-2">
                       <button 
                         className="w-full flex items-center justify-between px-3 py-1.5 mb-2 hover:bg-accent/50 rounded-lg transition-all duration-200 group"
                         onClick={() => setIsPinnedSectionOpen(!isPinnedSectionOpen)}
@@ -2917,7 +2917,7 @@ const CRMContent = () => {
                 <div className="p-4 flex flex-col h-full">
                   {/* Закрепленные чаты */}
                   {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
-                    <div className="mb-3">
+                    <div className="mb-2">
                       <button 
                         className="w-full flex items-center justify-between px-3 py-1.5 mb-2 hover:bg-accent/50 rounded-lg transition-all duration-200 group"
                         onClick={() => setIsPinnedSectionOpen(!isPinnedSectionOpen)}
