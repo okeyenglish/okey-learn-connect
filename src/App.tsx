@@ -59,6 +59,7 @@ const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 const SupabaseDiagnostics = lazy(() => import('./pages/SupabaseDiagnostics'));
 const HolihopeImport = lazy(() => import('./pages/HolihopeImport'));
 const SeoManager = lazy(() => import('./pages/SeoManager'));
+const CallsForTeachers = lazy(() => import('./pages/CallsForTeachers'));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Loading component for better UX
@@ -357,6 +358,11 @@ const AppContent = () => {
                 <SeoManager />
               </Suspense>
             </ProtectedRoute>
+          } />
+          <Route path="/callsforteachers" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <CallsForTeachers />
+            </Suspense>
           } />
           <Route path="/5000" element={
             <Suspense fallback={<LoadingComponent />}>
