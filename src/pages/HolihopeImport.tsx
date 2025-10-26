@@ -168,7 +168,7 @@ export default function HolihopeImport() {
       
       try {
         const { data, error } = await supabase.functions.invoke('import-holihope', {
-          body,
+          body: JSON.stringify(body),
           headers: {
             'Content-Type': 'application/json',
           },
@@ -613,7 +613,8 @@ export default function HolihopeImport() {
 
     try {
       const { data, error } = await supabase.functions.invoke('import-holihope', {
-        body: { action: 'delete_ed_units_and_schedule' },
+        body: JSON.stringify({ action: 'delete_ed_units_and_schedule' }),
+        headers: { 'Content-Type': 'application/json' },
       });
 
       if (error) throw error;
@@ -647,7 +648,8 @@ export default function HolihopeImport() {
 
     try {
       const { data, error } = await supabase.functions.invoke('import-holihope', {
-        body: { action: 'delete_all_data' },
+        body: JSON.stringify({ action: 'delete_all_data' }),
+        headers: { 'Content-Type': 'application/json' },
       });
 
       if (error) throw error;
@@ -673,7 +675,8 @@ export default function HolihopeImport() {
     
     try {
       const { data, error } = await supabase.functions.invoke('import-holihope', {
-        body: { action: previewAction },
+        body: JSON.stringify({ action: previewAction }),
+        headers: { 'Content-Type': 'application/json' },
       });
 
       if (error) throw error;
