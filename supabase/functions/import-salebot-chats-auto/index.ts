@@ -68,9 +68,26 @@ Deno.serve(async (req) => {
     }
 
     const listId = progressData.list_id;
+    const lastRunAt = progressData.last_run_at ? new Date(progressData.last_run_at) : null;
+    const now = new Date();
 
-    // Если импорт уже запущен, пропускаем
-    if (progressData.is_running) {
+    // Проверка таймаута: если импорт запущен более 15 минут, сбрасываем флаг
+    if (progressData.is_running && lastRunAt) {
+      const minutesElapsed = (now.getTime() - lastRunAt.getTime()) / (1000 * 60);
+      if (minutesElapsed > 15) {
+        console.log(`⚠️ Импорт застрял более 15 минут (${Math.round(minutesElapsed)} мин), сбрасываем флаг is_running...`);
+        await supabase
+          .from('salebot_import_progress')
+          .update({ is_running: false, updated_at: now.toISOString() })
+          .eq('id', progressData.id);
+      } else {
+        console.log(`Импорт уже выполняется (${Math.round(minutesElapsed)} мин), пропускаем...`);
+        return new Response(
+          JSON.stringify({ message: 'Import already running', skipped: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } else if (progressData.is_running) {
       console.log('Импорт уже выполняется, пропускаем...');
       return new Response(
         JSON.stringify({ message: 'Import already running', skipped: true }),
@@ -343,9 +360,9 @@ Deno.serve(async (req) => {
           const { error: updateError } = await supabase
             .from('salebot_import_progress')
             .update({ 
-              total_messages_imported: totalProcessedMessages,
-              total_clients_processed: totalClients,
-              total_imported: totalImported,
+              total_messages_imported: progressData.total_messages_imported + totalProcessedMessages,
+              total_clients_processed: progressData.total_clients_processed + totalClients,
+              total_imported: progressData.total_imported + totalImported,
               updated_at: new Date().toISOString()
             })
             .eq('id', progressData.id);
@@ -353,7 +370,7 @@ Deno.serve(async (req) => {
           if (updateError) {
             console.error('Ошибка обновления прогресса:', updateError);
           } else {
-            console.log(`Прогресс обновлен: клиентов ${totalClients}, обработано сообщений ${totalProcessedMessages}, новых ${totalImported}`);
+            console.log(`Прогресс обновлен: клиентов ${progressData.total_clients_processed + totalClients}, обработано сообщений ${progressData.total_messages_imported + totalProcessedMessages}, новых ${progressData.total_imported + totalImported}`);
           }
 
         } catch (error: any) {
@@ -446,10 +463,11 @@ Deno.serve(async (req) => {
 
             const historyData = await historyResponse.json();
             const messages: SalebotHistoryMessage[] = historyData.result || [];
+            const processedMessages = messages.length;
 
-            console.log(`Получено ${messages.length} сообщений`);
+            console.log(`Получено ${processedMessages} сообщений`);
 
-            if (messages.length === 0) continue;
+            if (processedMessages === 0) continue;
 
             const chatMessages: any[] = [];
             
@@ -508,6 +526,7 @@ Deno.serve(async (req) => {
             }
 
             totalClients++;
+            totalProcessedMessages += processedMessages;
 
           } catch (error: any) {
             console.error(`Ошибка обработки ${client.name}:`, error);
@@ -519,8 +538,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`Батч завершен. Импортировано: ${totalImported}, клиентов: ${totalClients}`);
-
     // Обновляем прогресс
     const nextOffset = currentOffset + clientBatchSize;
     await supabase
@@ -529,11 +546,14 @@ Deno.serve(async (req) => {
         current_offset: nextOffset,
         total_imported: progressData.total_imported + totalImported,
         total_clients_processed: progressData.total_clients_processed + totalClients,
+        total_messages_imported: (progressData.total_messages_imported || 0) + totalProcessedMessages,
         is_running: false,
         errors: errors.slice(-100), // Храним последние 100 ошибок
         updated_at: new Date().toISOString()
       })
       .eq('id', progressData.id);
+
+    console.log(`✅ Батч завершен. Обработано сообщений: ${totalProcessedMessages}, импортировано новых: ${totalImported}, клиентов: ${totalClients}`);
 
     const isCompleted = listId 
       ? salebotClients.length < clientBatchSize 

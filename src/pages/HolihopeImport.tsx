@@ -64,10 +64,8 @@ export default function HolihopeImport() {
     { id: 'lesson_plans', name: '22. Планы занятий', description: 'ДЗ и материалы (текст + ссылки)', action: 'import_lesson_plans', status: 'pending' },
   ]);
 
-  // Poll import progress while importing chats
+  // Poll import progress continuously (to show auto-import status)
   useEffect(() => {
-    if (!isImportingChats) return;
-
     const pollProgress = async () => {
       const { data } = await supabase
         .from('salebot_import_progress')
@@ -87,10 +85,11 @@ export default function HolihopeImport() {
       }
     };
 
+    // Load immediately and then poll every 3 seconds
     pollProgress();
-    const interval = setInterval(pollProgress, 2000);
+    const interval = setInterval(pollProgress, 3000);
     return () => clearInterval(interval);
-  }, [isImportingChats]);
+  }, []); // Run continuously, not just when importing
 
   // Emergency stop via URL param: /holihope-import?stop_salebot=1
   useEffect(() => {
@@ -820,6 +819,139 @@ export default function HolihopeImport() {
             <p className="text-sm text-muted-foreground">
               Этот инструмент загружает историю сообщений WhatsApp из платформы Salebot. Вы можете импортировать чаты для всех клиентов или только для клиентов из определенного списка Salebot.
             </p>
+
+            {importProgress && (
+              <div className="p-4 bg-gradient-to-r from-purple-100/80 to-pink-100/80 dark:from-purple-900/30 dark:to-pink-900/30 rounded-lg border border-purple-300 dark:border-purple-700">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-purple-900 dark:text-purple-100">
+                    Текущий прогресс автоимпорта
+                  </h4>
+                  <div className="flex items-center gap-2">
+                    {importProgress.isRunning ? (
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400">
+                        <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></span>
+                        Запущен
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-400">
+                        <span className="h-2 w-2 bg-gray-400 rounded-full"></span>
+                        Остановлен
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <div className="text-xs text-purple-600 dark:text-purple-400">Клиентов обработано</div>
+                    <div className="text-lg font-bold text-purple-900 dark:text-purple-100">
+                      {importProgress.totalClientsProcessed}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-purple-600 dark:text-purple-400">Сообщений импортировано</div>
+                    <div className="text-lg font-bold text-purple-900 dark:text-purple-100">
+                      {importProgress.totalMessagesImported}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-purple-600 dark:text-purple-400">Текущий offset</div>
+                    <div className="text-lg font-bold text-purple-900 dark:text-purple-100">
+                      {importProgress.currentOffset}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <Button
+                    onClick={async () => {
+                      try {
+                        const { error } = await supabase.functions.invoke('salebot-stop');
+                        if (error) throw error;
+                        toast({
+                          title: 'Импорт остановлен',
+                          description: 'Автоматический импорт Salebot успешно остановлен',
+                        });
+                        // Refresh progress
+                        const { data } = await supabase
+                          .from('salebot_import_progress')
+                          .select('*')
+                          .limit(1)
+                          .single();
+                        if (data) {
+                          setImportProgress({
+                            totalClientsProcessed: data.total_clients_processed || 0,
+                            totalImported: data.total_imported || 0,
+                            totalMessagesImported: data.total_messages_imported || 0,
+                            currentOffset: data.current_offset || 0,
+                            startTime: data.start_time ? new Date(data.start_time) : null,
+                            isRunning: data.is_running || false
+                          });
+                        }
+                      } catch (error: any) {
+                        toast({
+                          title: 'Ошибка',
+                          description: error.message,
+                          variant: 'destructive',
+                        });
+                      }
+                    }}
+                    variant="destructive"
+                    size="sm"
+                    disabled={!importProgress.isRunning}
+                  >
+                    Остановить автоимпорт
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      try {
+                        const { data: progress } = await supabase
+                          .from('salebot_import_progress')
+                          .select('id')
+                          .limit(1)
+                          .single();
+                        
+                        if (progress?.id) {
+                          await supabase
+                            .from('salebot_import_progress')
+                            .update({
+                              current_offset: 0,
+                              total_clients_processed: 0,
+                              total_imported: 0,
+                              total_messages_imported: 0,
+                              is_running: false
+                            })
+                            .eq('id', progress.id);
+                          
+                          toast({
+                            title: 'Прогресс сброшен',
+                            description: 'Счетчики импорта сброшены. Импорт начнется с начала.',
+                          });
+                          
+                          // Refresh progress
+                          setImportProgress({
+                            totalClientsProcessed: 0,
+                            totalImported: 0,
+                            totalMessagesImported: 0,
+                            currentOffset: 0,
+                            startTime: null,
+                            isRunning: false
+                          });
+                        }
+                      } catch (error: any) {
+                        toast({
+                          title: 'Ошибка',
+                          description: error.message,
+                          variant: 'destructive',
+                        });
+                      }
+                    }}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Сбросить прогресс
+                  </Button>
+                </div>
+              </div>
+            )}
             
             <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
               <Label htmlFor="salebot-list-id">ID списка Salebot (опционально)</Label>
