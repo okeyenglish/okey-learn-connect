@@ -3948,6 +3948,62 @@ export type Database = {
         }
         Relationships: []
       }
+      search_console_queries: {
+        Row: {
+          clicks: number | null
+          country: string | null
+          created_at: string
+          ctr: number | null
+          date: string
+          device: string | null
+          id: string
+          impressions: number | null
+          organization_id: string
+          page_url: string
+          position: number | null
+          query: string
+          updated_at: string
+        }
+        Insert: {
+          clicks?: number | null
+          country?: string | null
+          created_at?: string
+          ctr?: number | null
+          date: string
+          device?: string | null
+          id?: string
+          impressions?: number | null
+          organization_id: string
+          page_url: string
+          position?: number | null
+          query: string
+          updated_at?: string
+        }
+        Update: {
+          clicks?: number | null
+          country?: string | null
+          created_at?: string
+          ctr?: number | null
+          date?: string
+          device?: string | null
+          id?: string
+          impressions?: number | null
+          organization_id?: string
+          page_url?: string
+          position?: number | null
+          query?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "search_console_queries_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seo_job_logs: {
         Row: {
           details: Json | null
