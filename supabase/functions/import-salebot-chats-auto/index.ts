@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
     }
 
     const progressId = lock.progress_id;
-    const currentOffset = lock.current_offset || 0;
+    
     
     console.log('Результат блокировки:', JSON.stringify(lock));
     
@@ -100,14 +100,19 @@ Deno.serve(async (req) => {
       );
     }
     
-    // Получаем информацию о list_id
+    // Получаем информацию о прогрессе (list_id и безопасный offset)
     const { data: progressData } = await supabase
       .from('salebot_import_progress')
-      .select('list_id')
+      .select('list_id, current_offset, total_clients_processed')
       .eq('id', progressId)
       .single();
     
     const listId = progressData?.list_id;
+    // Фолбэк: если current_offset = 0, но уже обработаны клиенты, продолжим с этого места
+    let currentOffset = (lock.current_offset ?? 0);
+    if ((!currentOffset || currentOffset === 0) && progressData) {
+      currentOffset = progressData.current_offset ?? progressData.total_clients_processed ?? 0;
+    }
     const mode = listId ? `список ${listId}` : 'все клиенты';
     
     console.log(`🔒 Блокировка получена. Progress ID: ${progressId}`);
