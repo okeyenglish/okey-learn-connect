@@ -70,9 +70,10 @@ export default function HolihopeImport() {
       const { data } = await supabase
         .from('salebot_import_progress')
         .select('*')
+        .order('last_run_at', { ascending: false })
         .limit(1)
         .single();
-      
+    
       if (data) {
         setImportProgress({
           totalClientsProcessed: data.total_clients_processed || 0,
