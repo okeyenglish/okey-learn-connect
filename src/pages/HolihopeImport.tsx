@@ -70,7 +70,7 @@ export default function HolihopeImport() {
       const { data } = await supabase
         .from('salebot_import_progress')
         .select('*')
-        .order('last_run_at', { ascending: false })
+        .order('updated_at', { ascending: false })
         .limit(1)
         .single();
     
@@ -843,19 +843,19 @@ export default function HolihopeImport() {
                 </div>
                 <div className="grid grid-cols-3 gap-3 text-sm">
                   <div>
-                    <div className="text-xs text-purple-600 dark:text-purple-400">Клиентов обработано</div>
+                    <div className="text-xs text-purple-600 dark:text-purple-400">Клиентов (текущий запуск)</div>
                     <div className="text-lg font-bold text-purple-900 dark:text-purple-100">
                       {importProgress.totalClientsProcessed}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-purple-600 dark:text-purple-400">Сообщений импортировано</div>
+                    <div className="text-xs text-purple-600 dark:text-purple-400">Сообщений (текущий запуск)</div>
                     <div className="text-lg font-bold text-purple-900 dark:text-purple-100">
                       {importProgress.totalMessagesImported}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-purple-600 dark:text-purple-400">Текущий offset</div>
+                    <div className="text-xs text-purple-600 dark:text-purple-400">Сквозной offset (для продолжения)</div>
                     <div className="text-lg font-bold text-purple-900 dark:text-purple-100">
                       {importProgress.currentOffset}
                     </div>
@@ -875,7 +875,7 @@ export default function HolihopeImport() {
                         const { data } = await supabase
                           .from('salebot_import_progress')
                           .select('*')
-                          .order('last_run_at', { ascending: false })
+                          .order('updated_at', { ascending: false })
                           .limit(1)
                           .single();
                         if (data) {

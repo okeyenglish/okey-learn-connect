@@ -389,14 +389,23 @@ Deno.serve(async (req) => {
           // Промежуточный коммит каждые 5 клиентов
           if (totalClients % 5 === 0) {
             console.log(`💾 Промежуточный коммит (${totalClients} клиентов)...`);
-            await supabase.rpc('increment_import_progress', {
+            const { error: commitError } = await supabase.rpc('increment_import_progress', {
               p_progress_id: progressId,
               p_clients_count: totalClients,
               p_messages_count: totalProcessedMessages,
               p_imported_count: totalImported,
               p_new_offset: currentOffset + totalClients
             });
-            console.log(`✅ Коммит выполнен: offset ${currentOffset + totalClients}`);
+            if (commitError) {
+              console.error('❌ Ошибка промежуточного коммита:', commitError);
+            } else {
+              const { data: check } = await supabase
+                .from('salebot_import_progress')
+                .select('current_offset, total_clients_processed, total_messages_imported, updated_at')
+                .eq('id', progressId)
+                .single();
+              console.log(`✅ Коммит выполнен: offset ${currentOffset + totalClients}; в БД offset=${check?.current_offset}, clients=${check?.total_clients_processed}, msgs=${check?.total_messages_imported}`);
+            }
           }
 
         } catch (error: any) {
