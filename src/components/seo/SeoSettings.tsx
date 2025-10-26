@@ -19,6 +19,9 @@ const SeoSettings = () => {
   
   const [isFetchingYandex, setIsFetchingYandex] = useState(false);
   const [yandexInfo, setYandexInfo] = useState<{ userId: string; hosts: any[] } | null>(null);
+  
+  const [isCheckingTokens, setIsCheckingTokens] = useState(false);
+  const [tokensCheck, setTokensCheck] = useState<any>(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -162,6 +165,30 @@ const SeoSettings = () => {
       toast.error("Ошибка при получении данных из Яндекс.Вебмастер");
     } finally {
       setIsFetchingYandex(false);
+    }
+  };
+
+  const handleCheckTokens = async () => {
+    setIsCheckingTokens(true);
+    setTokensCheck(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('seo-check-tokens');
+
+      if (error) throw error;
+
+      setTokensCheck(data);
+      
+      if (data.summary.all_tokens_valid) {
+        toast.success("Все токены валидны и работают корректно!");
+      } else {
+        toast.warning("Некоторые токены имеют проблемы, проверьте детали ниже");
+      }
+    } catch (error) {
+      console.error("Tokens check error:", error);
+      toast.error("Ошибка при проверке токенов");
+    } finally {
+      setIsCheckingTokens(false);
     }
   };
 
@@ -327,6 +354,85 @@ const SeoSettings = () => {
 
           <div className="text-xs text-muted-foreground">
             <p>Эти значения необходимо добавить в секреты для работы автоматизации SEO</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Tokens Check */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CheckCircle className="h-5 w-5" />
+            Проверка токенов API
+          </CardTitle>
+          <CardDescription>
+            Проверка корректности всех токенов для работы SEO автоматизации
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Button 
+            onClick={handleCheckTokens} 
+            disabled={isCheckingTokens}
+            className="w-full"
+          >
+            {isCheckingTokens ? "Проверка токенов..." : "Проверить все токены"}
+          </Button>
+
+          {tokensCheck && (
+            <div className="space-y-4">
+              {/* Summary */}
+              <div className={`p-4 rounded-lg ${
+                tokensCheck.summary.all_tokens_valid 
+                  ? "bg-green-50 text-green-900" 
+                  : "bg-yellow-50 text-yellow-900"
+              }`}>
+                <div className="font-semibold mb-2">
+                  {tokensCheck.summary.all_tokens_valid ? "✅ Все токены работают" : "⚠️ Есть проблемы с токенами"}
+                </div>
+                <div className="space-y-1 text-sm">
+                  <div>OAuth Token (Webmaster): {tokensCheck.summary.tokens_status.oauth_token}</div>
+                  <div>Метрика Counter ID: {tokensCheck.summary.tokens_status.metrika_counter}</div>
+                  <div>Webmaster Host ID: {tokensCheck.summary.tokens_status.webmaster_host}</div>
+                  <div>Webmaster User ID: {tokensCheck.summary.tokens_status.webmaster_user}</div>
+                  <div>Direct Token (Wordstat): {tokensCheck.summary.tokens_status.direct_token}</div>
+                </div>
+              </div>
+
+              {/* Details */}
+              <div className="space-y-3">
+                {Object.entries(tokensCheck.details).map(([key, value]: [string, any]) => (
+                  <div key={key} className="p-3 bg-muted rounded-lg">
+                    <div className="font-semibold text-sm mb-1">
+                      {key.replace(/_/g, ' ').toUpperCase()}
+                    </div>
+                    <div className="text-xs space-y-1">
+                      {!value.exists && <div className="text-red-600">❌ Токен не настроен</div>}
+                      {value.exists && value.valid && <div className="text-green-600">✅ Работает корректно</div>}
+                      {value.exists && !value.valid && (
+                        <div className="text-red-600">❌ Ошибка: {value.error}</div>
+                      )}
+                      {value.value && <code className="block mt-1 p-1 bg-background rounded text-xs">{value.value}</code>}
+                      {value.data && (
+                        <pre className="mt-1 p-2 bg-background rounded text-xs overflow-auto max-h-32">
+                          {JSON.stringify(value.data, null, 2)}
+                        </pre>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p><strong>Проверяемые токены:</strong></p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li>YANDEX_OAUTH_TOKEN - доступ к Webmaster API</li>
+              <li>YANDEX_METRIKA_COUNTER_ID - ID счетчика метрики</li>
+              <li>YANDEX_WEBMASTER_HOST_ID - ID хоста в вебмастере</li>
+              <li>YANDEX_WEBMASTER_USER_ID - ID пользователя в вебмастере</li>
+              <li>YANDEX_DIRECT_TOKEN - доступ к Wordstat API</li>
+            </ul>
           </div>
         </CardContent>
       </Card>

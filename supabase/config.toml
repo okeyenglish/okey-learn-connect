@@ -119,3 +119,6 @@ verify_jwt = true
 
 [functions.seo-yandex-info]
 verify_jwt = true
+
+[functions.seo-check-tokens]
+verify_jwt = true
