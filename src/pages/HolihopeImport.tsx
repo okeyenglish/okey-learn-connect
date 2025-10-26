@@ -1045,7 +1045,6 @@ export default function HolihopeImport() {
                         .from('salebot_import_progress')
                         .update({
                           list_id: salebotListId || null,
-                          current_offset: 0,
                           is_running: false
                         })
                         .eq('id', existingProgress.id);
