@@ -55,8 +55,9 @@ serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const collectedKeywords: any[] = [];
-
+const collectedKeywords: any[] = [];
+const errors: any[] = [];
+let accessDenied = false;
     // Собираем данные по каждой локации и базовому запросу
     for (const location of SCHOOL_LOCATIONS) {
       for (const baseQuery of BASE_QUERIES) {
@@ -88,35 +89,48 @@ serve(async (req) => {
             continue;
           }
 
-          const wordstatData = await wordstatResponse.json();
-          console.log('[seo-collect-wordstat] API Response:', JSON.stringify(wordstatData).substring(0, 500));
-          
-          // Парсим результаты
-          if (wordstatData.data) {
-            for (const item of wordstatData.data) {
-              const keyword = item.Phrase || item.phrase || fullQuery;
-              const searchVolume = item.SearchVolume || item.Shows || 0;
-              
-              // Определяем конкуренцию на основе частоты
-              let competition = 'LOW';
-              if (searchVolume > 10000) competition = 'HIGH';
-              else if (searchVolume > 1000) competition = 'MEDIUM';
+const wordstatData = await wordstatResponse.json();
+console.log('[seo-collect-wordstat] API Response:', JSON.stringify(wordstatData).substring(0, 500));
 
-              if (searchVolume > 10) {
-                collectedKeywords.push({
-                  phrase: keyword,
-                  region: location.name,
-                  monthly_searches: searchVolume,
-                  wordstat_competition: competition,
-                  difficulty: competition === 'HIGH' ? 80 : competition === 'MEDIUM' ? 50 : 30,
-                  intent: 'informational',
-                  organization_id: organizationId,
-                  source: 'wordstat_auto',
-                  last_updated: new Date().toISOString(),
-                });
-              }
-            }
-          }
+// Обработка ошибок API Wordstat
+if (wordstatData.error_code) {
+  console.error('[seo-collect-wordstat] Wordstat error object:', wordstatData);
+  errors.push(wordstatData);
+  if (wordstatData.error_code === 58) {
+    accessDenied = true; // Нет доступа к API: требуется одобрение приложения
+  }
+  continue; // Переходим к следующему запросу
+}
+          
+// Парсим результаты
+if (wordstatData.data) {
+  for (const item of wordstatData.data) {
+    const keyword = item.Phrase || item.phrase || fullQuery;
+    const searchVolume = item.SearchVolume || item.Shows || 0;
+    
+    // Определяем конкуренцию на основе частоты
+    let competition = 'LOW';
+    if (searchVolume > 10000) competition = 'HIGH';
+    else if (searchVolume > 1000) competition = 'MEDIUM';
+
+    if (searchVolume > 10) {
+      collectedKeywords.push({
+        phrase: keyword,
+        region: location.name,
+        monthly_searches: searchVolume,
+        wordstat_competition: competition,
+        difficulty: competition === 'HIGH' ? 80 : competition === 'MEDIUM' ? 50 : 30,
+        intent: 'informational',
+        organization_id: organizationId,
+        source: 'wordstat_auto',
+        last_updated: new Date().toISOString(),
+      });
+    }
+  }
+} else {
+  console.warn('[seo-collect-wordstat] Unexpected API payload, no data field');
+}
+
 
           // Задержка между запросами (500мс)
           await new Promise(resolve => setTimeout(resolve, 500));
@@ -127,7 +141,27 @@ serve(async (req) => {
       }
     }
 
-    console.log('[seo-collect-wordstat] Collected', collectedKeywords.length, 'keywords');
+console.log('[seo-collect-wordstat] Collected', collectedKeywords.length, 'keywords');
+
+// Если нет доступа к API и ничего не собрано — логируем и возвращаем понятную ошибку
+if (collectedKeywords.length === 0 && accessDenied) {
+  await supabase.from('seo_job_logs').insert({
+    organization_id: organizationId,
+    job_type: 'collect_wordstat',
+    status: 'error',
+    input_data: { locations: SCHOOL_LOCATIONS.length, base_queries: BASE_QUERIES.length },
+    output_data: { collected_count: 0, reason: 'yandex_direct_access_denied', errors_count: errors.length },
+  });
+
+  return new Response(JSON.stringify({
+    success: false,
+    error: 'YANDEX_DIRECT_ACCESS_REQUIRED',
+    message: 'Яндекс.Директ вернул ошибку доступа (код 58). Необходимо подать заявку на доступ к API в интерфейсе Direct и дождаться подтверждения.',
+  }), {
+    status: 403,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
 
     // Сохраняем ключевые слова в БД
     if (collectedKeywords.length > 0) {

@@ -110,7 +110,8 @@ const SeoSettings = () => {
       toast.success(`Собрано ${data.collected} запросов, создано ${data.clusters_created} кластеров`);
     } catch (error) {
       console.error("Wordstat collection error:", error);
-      toast.error("Ошибка при сборе данных из Яндекс.Вордстат");
+      const msg = (error as any)?.message || (error as any)?.error?.message || "Ошибка при сборе данных из Яндекс.Вордстат";
+      toast.error(msg);
     } finally {
       setIsCollecting(false);
     }
@@ -279,7 +280,7 @@ const SeoSettings = () => {
             {isCollecting ? "Сбор данных..." : "Собрать базовую статистику"}
           </Button>
           
-          {wordstatResult && (
+          {wordstatResult && wordstatResult.collected > 0 && (
             <div className="p-4 bg-muted rounded-lg">
               <p className="text-sm font-semibold mb-2">✅ Статистика собрана</p>
               <p className="text-sm">
