@@ -14,6 +14,8 @@ const SeoSettings = () => {
   const [organizationId, setOrganizationId] = useState<string | null>(null);
 
   const [isCollecting, setIsCollecting] = useState(false);
+  const [isImportingGSC, setIsImportingGSC] = useState(false);
+  const [gscSiteUrl, setGscSiteUrl] = useState("sc-domain:okeyenglish.ru");
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -100,6 +102,44 @@ const SeoSettings = () => {
     }
   };
 
+  const handleImportGSC = async () => {
+    if (!organizationId) {
+      toast.error("Не найдена организация");
+      return;
+    }
+
+    if (!gscSiteUrl) {
+      toast.error("Введите URL сайта в GSC");
+      return;
+    }
+
+    setIsImportingGSC(true);
+
+    try {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 90); // Последние 90 дней
+
+      const { data, error } = await supabase.functions.invoke('seo-import-gsc', {
+        body: {
+          siteUrl: gscSiteUrl,
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+          organizationId
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success(`Импортировано ${data.imported} записей из Google Search Console`);
+    } catch (error) {
+      console.error("GSC import error:", error);
+      toast.error("Ошибка при импорте данных из Google Search Console");
+    } finally {
+      setIsImportingGSC(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -109,10 +149,58 @@ const SeoSettings = () => {
             Конфигурация интеграций и параметров генерации
           </p>
         </div>
-        <Button onClick={handleCollectWordstat} disabled={isCollecting}>
-          {isCollecting ? "Сбор данных..." : "Собрать запросы из Яндекс.Вордстат"}
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleCollectWordstat} disabled={isCollecting} variant="outline">
+            {isCollecting ? "Сбор данных..." : "Собрать Яндекс.Вордстат"}
+          </Button>
+          <Button onClick={handleImportGSC} disabled={isImportingGSC}>
+            {isImportingGSC ? "Импорт..." : "Импорт Google Search Console"}
+          </Button>
+        </div>
       </div>
+
+      {/* Google Search Console Import */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Google Search Console
+          </CardTitle>
+          <CardDescription>
+            Импорт данных о поисковых запросах за последние 90 дней
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="gsc-site-url">URL сайта в GSC</Label>
+            <Input
+              id="gsc-site-url"
+              type="text"
+              placeholder="sc-domain:okeyenglish.ru"
+              value={gscSiteUrl}
+              onChange={(e) => setGscSiteUrl(e.target.value)}
+            />
+          </div>
+
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p><strong>Формат URL:</strong></p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li>Domain property: <code>sc-domain:example.com</code></li>
+              <li>URL prefix: <code>https://example.com/</code></li>
+            </ul>
+            <p className="mt-2"><strong>Service Account:</strong> {gscSiteUrl ? 'lovable@seo-okey.iam.gserviceaccount.com' : 'не настроен'}</p>
+            <p className="text-xs">Добавьте этот email с правами "Viewer" в Google Search Console</p>
+          </div>
+
+          <Button 
+            onClick={handleImportGSC} 
+            disabled={isImportingGSC || !gscSiteUrl}
+            className="w-full"
+          >
+            {isImportingGSC ? "Импортирование..." : "Импортировать данные (90 дней)"}
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* IndexNow Testing */}
       <Card>

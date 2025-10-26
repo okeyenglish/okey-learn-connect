@@ -111,5 +111,8 @@ verify_jwt = true
 [functions.seo-collect-wordstat]
 verify_jwt = true
 
+[functions.seo-import-gsc]
+verify_jwt = true
+
 [functions.seo-analyze-page]
 verify_jwt = true
