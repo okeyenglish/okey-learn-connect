@@ -37,16 +37,20 @@ async function createJWT(serviceAccount: any): Promise<string> {
 
   const signatureInput = `${headerBase64}.${payloadBase64}`;
 
-  // Parse private key
-  const privateKeyPem = serviceAccount.private_key;
-  const pemHeader = "-----BEGIN PRIVATE KEY-----";
-  const pemFooter = "-----END PRIVATE KEY-----";
-  const pemContents = privateKeyPem
-    .substring(pemHeader.length, privateKeyPem.length - pemFooter.length)
+  // Parse private key (handle both real newlines and \n-escaped)
+  let privateKeyPem: string = serviceAccount.private_key;
+  if (privateKeyPem.includes('\\n')) {
+    privateKeyPem = privateKeyPem.replace(/\\n/g, '\n');
+  }
+  // Strip header/footer and normalize
+  const pemBody = privateKeyPem
+    .replace('-----BEGIN PRIVATE KEY-----', '')
+    .replace('-----END PRIVATE KEY-----', '')
+    .replace(/\r?\n/g, '')
     .replace(/\s/g, '');
 
   // Convert to binary
-  const binaryDer = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+  const binaryDer = Uint8Array.from(atob(pemBody), c => c.charCodeAt(0));
 
   // Import key
   const cryptoKey = await crypto.subtle.importKey(
