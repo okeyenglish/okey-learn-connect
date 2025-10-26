@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Sparkles, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getCurrentOrganizationId } from "@/lib/organizationHelpers";
+import { AddClusterDialog } from "./AddClusterDialog";
 
 const SeoKeywordClusters = () => {
   const { toast } = useToast();
@@ -68,10 +69,7 @@ const SeoKeywordClusters = () => {
             Сгруппированные поисковые запросы для генерации контента
           </p>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Добавить кластер
-        </Button>
+        <AddClusterDialog onClusterAdded={refetch} />
       </div>
 
       {!clusters || clusters.length === 0 ? (
