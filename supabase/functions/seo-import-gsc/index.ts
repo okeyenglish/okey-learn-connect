@@ -144,9 +144,30 @@ serve(async (req) => {
     const accessToken = await getAccessToken(serviceAccount);
     console.log("Access token obtained");
 
-    // Call GSC API with fallbacks
+    // Call GSC API with fallbacks + diagnostics
     console.log("Calling GSC API...");
 
+    // 1) List properties available to the service account (helps diagnose permissions)
+    let availableSites: string[] = [];
+    try {
+      const sitesResp = await fetch('https://www.googleapis.com/webmasters/v3/sites', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        }
+      });
+      if (sitesResp.ok) {
+        const sitesData = await sitesResp.json();
+        availableSites = (sitesData.siteEntry || []).map((s: any) => s.siteUrl);
+        console.log('Available GSC properties for SA:', availableSites);
+      } else {
+        console.warn('Failed to list GSC sites:', await sitesResp.text());
+      }
+    } catch (e) {
+      console.warn('Sites list error:', e);
+    }
+
+    // 2) Try candidate property URIs
     const candidates: string[] = (() => {
       const s = siteUrl.trim();
       if (s.startsWith('sc-domain:')) {
@@ -158,7 +179,6 @@ serve(async (req) => {
           `http://${domain}/`,
         ];
       }
-      // URL-prefix given, also try normalized variants
       try {
         const u = new URL(s);
         const domain = u.hostname;
@@ -176,6 +196,7 @@ serve(async (req) => {
 
     let rows: any[] = [];
     let usedProperty = '';
+    let lastError: { status: number; body: string } | null = null;
 
     for (const candidate of candidates) {
       const gscUrl = `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(candidate)}/searchAnalytics/query`;
@@ -199,6 +220,7 @@ serve(async (req) => {
 
       if (!resp.ok) {
         const t = await resp.text();
+        lastError = { status: resp.status, body: t };
         console.warn(`GSC API ${candidate} error:`, t);
         continue;
       }
@@ -214,9 +236,29 @@ serve(async (req) => {
     console.log(`Fetched ${rows.length} rows from GSC${usedProperty ? ' using ' + usedProperty : ''}`);
 
     if (rows.length === 0) {
-      console.log("No data returned from GSC");
+      // If we never had a successful call, bubble up the last API error clearly
+      if (!usedProperty && lastError) {
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            message: 'No accessible GSC property. Grant the service account access to your property.',
+            lastError,
+            availableSites,
+            tried: candidates
+          }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       return new Response(
-        JSON.stringify({ success: true, imported: 0, message: "No data available for the specified period or property", tried: candidates }),
+        JSON.stringify({ 
+          success: true, 
+          imported: 0, 
+          message: "No data available for the specified period or property", 
+          usedProperty,
+          availableSites,
+          tried: candidates 
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
