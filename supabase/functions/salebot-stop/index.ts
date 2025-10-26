@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     // Flip the flag to stop
     const { data: updated, error: updateError } = await supabase
       .from('salebot_import_progress')
-      .update({ is_running: false })
+      .update({ is_running: false, is_paused: true })
       .eq('id', progress.id)
       .select()
       .single();

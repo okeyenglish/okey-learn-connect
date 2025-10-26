@@ -52,6 +52,23 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
+    // Check pause flag to prevent auto-resume
+    const { data: pauseRow } = await supabase
+      .from('salebot_import_progress')
+      .select('id, is_paused')
+      .order('last_run_at', { ascending: false, nullsFirst: false })
+      .order('updated_at', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .single();
+
+    if (pauseRow?.is_paused) {
+      console.log('⏸️ Автоимпорт на паузе (is_paused=true). Выходим.');
+      return new Response(
+        JSON.stringify({ skipped: true, paused: true, message: 'Auto-import paused' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Проверяем и очищаем протухшую блокировку (старше 90 секунд)
     const { data: staleProgress } = await supabase
       .from('salebot_import_progress')

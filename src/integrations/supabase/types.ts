@@ -3868,6 +3868,7 @@ export type Database = {
           errors: Json | null
           estimated_total: number | null
           id: string
+          is_paused: boolean
           is_running: boolean
           last_run_at: string | null
           list_id: string | null
@@ -3883,6 +3884,7 @@ export type Database = {
           errors?: Json | null
           estimated_total?: number | null
           id?: string
+          is_paused?: boolean
           is_running?: boolean
           last_run_at?: string | null
           list_id?: string | null
@@ -3898,6 +3900,7 @@ export type Database = {
           errors?: Json | null
           estimated_total?: number | null
           id?: string
+          is_paused?: boolean
           is_running?: boolean
           last_run_at?: string | null
           list_id?: string | null
