@@ -997,58 +997,6 @@ export default function HolihopeImport() {
                 />
               </div>
             </div>
-            {isImportingChats && importProgress && importProgress.isRunning && (
-              <Card className="mt-4 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 border-purple-200 dark:border-purple-800">
-                <CardContent className="pt-6">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-purple-900 dark:text-purple-100">Прогресс импорта</span>
-                      <Loader2 className="h-4 w-4 animate-spin text-purple-500" />
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <div className="text-xs text-purple-600 dark:text-purple-400">Обработано клиентов</div>
-                        <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
-                          {importProgress.totalClientsProcessed}
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-xs text-purple-600 dark:text-purple-400">Обработано сообщений</div>
-                        <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
-                          {importProgress.totalMessagesImported}
-                        </div>
-                        <div className="text-[10px] text-purple-500 dark:text-purple-400 leading-tight">
-                          {importProgress.totalImported > 0 
-                            ? `${importProgress.totalImported} новых, остальные дубликаты` 
-                            : 'Все уже импортированы ранее'}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-purple-600 dark:text-purple-400">
-                          Offset: {importProgress.currentOffset}
-                        </span>
-                        {importProgress.startTime && (
-                          <span className="text-purple-600 dark:text-purple-400">
-                            ⏱️ {formatElapsedTime(importProgress.startTime)}
-                          </span>
-                        )}
-                      </div>
-                      <Progress value={undefined} className="h-2" />
-                    </div>
-                    
-                    {chatImportStatus && (
-                      <p className="text-xs text-purple-700 dark:text-purple-300 animate-pulse">
-                        {chatImportStatus}
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
             
             {isImportingChats && !importProgress?.isRunning && (
               <div className="space-y-3 mb-4">

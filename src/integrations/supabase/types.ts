@@ -6060,6 +6060,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_import_progress: {
+        Args: {
+          p_clients_count: number
+          p_errors?: string[]
+          p_imported_count: number
+          p_messages_count: number
+          p_new_offset: number
+          p_progress_id: string
+        }
+        Returns: undefined
+      }
       mark_chat_messages_as_read: {
         Args: { p_client_id: string }
         Returns: undefined
@@ -6108,6 +6119,14 @@ export type Database = {
       sync_auto_group_students: {
         Args: { p_group_id: string }
         Returns: undefined
+      }
+      try_acquire_import_lock: {
+        Args: never
+        Returns: {
+          acquired: boolean
+          current_offset: number
+          progress_id: string
+        }[]
       }
       unfreeze_subscription: {
         Args: { _subscription_id: string }

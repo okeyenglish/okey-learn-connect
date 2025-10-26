@@ -52,58 +52,56 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    // Получаем прогресс импорта
-    const { data: progressData, error: progressError } = await supabase
-      .from('salebot_import_progress')
-      .select('*')
-      .limit(1)
-      .single();
-
-    if (progressError || !progressData) {
-      console.error('Ошибка получения прогресса:', progressError);
+    // Пытаемся получить блокировку для запуска импорта через атомарную RPC функцию
+    const { data: lockResult, error: lockError } = await supabase.rpc('try_acquire_import_lock');
+    
+    if (lockError) {
+      console.error('Ошибка получения блокировки:', lockError);
       return new Response(
-        JSON.stringify({ error: 'Не удалось получить прогресс импорта' }),
+        JSON.stringify({ error: `Ошибка получения блокировки импорта: ${lockError.message}` }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const listId = progressData.list_id;
-    const lastRunAt = progressData.last_run_at ? new Date(progressData.last_run_at) : null;
-    const now = new Date();
-
-    // Проверка таймаута: если импорт запущен более 15 минут, сбрасываем флаг
-    if (progressData.is_running && lastRunAt) {
-      const minutesElapsed = (now.getTime() - lastRunAt.getTime()) / (1000 * 60);
-      if (minutesElapsed > 15) {
-        console.log(`⚠️ Импорт застрял более 15 минут (${Math.round(minutesElapsed)} мин), сбрасываем флаг is_running...`);
-        await supabase
-          .from('salebot_import_progress')
-          .update({ is_running: false, updated_at: now.toISOString() })
-          .eq('id', progressData.id);
-      } else {
-        console.log(`Импорт уже выполняется (${Math.round(minutesElapsed)} мин), пропускаем...`);
-        return new Response(
-          JSON.stringify({ message: 'Import already running', skipped: true }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-    } else if (progressData.is_running) {
-      console.log('Импорт уже выполняется, пропускаем...');
+    if (!lockResult || lockResult.length === 0) {
+      console.error('Не удалось получить данные блокировки');
       return new Response(
-        JSON.stringify({ message: 'Import already running', skipped: true }),
+        JSON.stringify({ error: 'Не удалось получить данные блокировки' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const lock = lockResult[0];
+    
+    if (!lock.acquired) {
+      console.log('⏸️ Импорт уже выполняется. Пропускаем запуск.');
+      return new Response(
+        JSON.stringify({ 
+          message: 'Импорт уже выполняется',
+          totalImported: 0,
+          totalClients: 0,
+          completed: false,
+          skipped: true
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const currentOffset = progressData.current_offset;
-    const mode = listId ? `список ${listId}` : 'все клиенты';
-    console.log(`Автоматический импорт (${mode}): начало батча (offset: ${currentOffset})...`);
-
-    // Помечаем, что импорт запущен
-    await supabase
+    const progressId = lock.progress_id;
+    const currentOffset = lock.current_offset;
+    
+    // Получаем информацию о list_id
+    const { data: progressData } = await supabase
       .from('salebot_import_progress')
-      .update({ is_running: true, last_run_at: new Date().toISOString() })
-      .eq('id', progressData.id);
+      .select('list_id')
+      .eq('id', progressId)
+      .single();
+    
+    const listId = progressData?.list_id;
+    const mode = listId ? `список ${listId}` : 'все клиенты';
+    
+    console.log(`🔒 Блокировка получена. Progress ID: ${progressId}`);
+    console.log(`Автоматический импорт (${mode}): начало батча (offset: ${currentOffset})...`);
 
     // Получаем organization_id
     const { data: orgs } = await supabase.from('organizations').select('id').limit(1);
@@ -116,17 +114,8 @@ Deno.serve(async (req) => {
     let totalImported = 0;
     let totalClients = 0;
     let totalProcessedMessages = 0;
-    let errors: string[] = progressData.errors || [];
+    let errors: string[] = [];
     const clientBatchSize = 20;
-    
-    // Устанавливаем start_time в начале
-    await supabase
-      .from('salebot_import_progress')
-      .update({ 
-        start_time: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', progressData.id);
 
     let salebotClients: SalebotClient[] = [];
 
@@ -152,10 +141,13 @@ Deno.serve(async (req) => {
 
       if (salebotClients.length === 0) {
         console.log(`Все клиенты из списка ${listId} обработаны!`);
-        await supabase
-          .from('salebot_import_progress')
-          .update({ is_running: false })
-          .eq('id', progressData.id);
+        await supabase.rpc('increment_import_progress', {
+          p_progress_id: progressId,
+          p_clients_count: 0,
+          p_messages_count: 0,
+          p_imported_count: 0,
+          p_new_offset: currentOffset
+        });
 
         return new Response(
           JSON.stringify({
@@ -538,20 +530,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Обновляем прогресс
+    // Обновляем прогресс атомарно
     const nextOffset = currentOffset + clientBatchSize;
-    await supabase
-      .from('salebot_import_progress')
-      .update({
-        current_offset: nextOffset,
-        total_imported: progressData.total_imported + totalImported,
-        total_clients_processed: progressData.total_clients_processed + totalClients,
-        total_messages_imported: (progressData.total_messages_imported || 0) + totalProcessedMessages,
-        is_running: false,
-        errors: errors.slice(-100), // Храним последние 100 ошибок
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', progressData.id);
+    await supabase.rpc('increment_import_progress', {
+      p_progress_id: progressId,
+      p_clients_count: totalClients,
+      p_messages_count: totalProcessedMessages,
+      p_imported_count: totalImported,
+      p_new_offset: nextOffset,
+      p_errors: errors.length > 0 ? errors.slice(-100) : null
+    });
 
     console.log(`✅ Батч завершен. Обработано сообщений: ${totalProcessedMessages}, импортировано новых: ${totalImported}, клиентов: ${totalClients}`);
 
