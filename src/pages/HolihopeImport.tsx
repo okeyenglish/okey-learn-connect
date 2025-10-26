@@ -37,6 +37,7 @@ export default function HolihopeImport() {
     totalMessagesImported: number;
     currentOffset: number;
     startTime: Date | null;
+    lastRunAt: Date | null;
     isRunning: boolean;
   } | null>(null);
   const [steps, setSteps] = useState<ImportStep[]>([
@@ -97,6 +98,7 @@ export default function HolihopeImport() {
           totalMessagesImported: data.total_messages_imported || 0,
           currentOffset: data.current_offset || 0,
           startTime: data.start_time ? new Date(data.start_time) : null,
+          lastRunAt: data.last_run_at ? new Date(data.last_run_at) : null,
           isRunning: data.is_running || false
         });
       }
@@ -877,6 +879,9 @@ export default function HolihopeImport() {
                     </div>
                   </div>
                 </div>
+                <div className="mt-2 text-xs text-purple-700 dark:text-purple-300">
+                  Последний коммит: {importProgress.lastRunAt ? importProgress.lastRunAt.toLocaleString() : '—'}
+                </div>
                 <div className="mt-3 flex gap-2">
                   <Button
                     onClick={async () => {
@@ -901,6 +906,7 @@ export default function HolihopeImport() {
                             totalMessagesImported: data.total_messages_imported || 0,
                             currentOffset: data.current_offset || 0,
                             startTime: data.start_time ? new Date(data.start_time) : null,
+                            lastRunAt: data.last_run_at ? new Date(data.last_run_at) : null,
                             isRunning: data.is_running || false
                           });
                         }
@@ -976,6 +982,7 @@ export default function HolihopeImport() {
                             totalMessagesImported: 0,
                             currentOffset: 0,
                             startTime: null,
+                            lastRunAt: null,
                             isRunning: false
                           });
                         }

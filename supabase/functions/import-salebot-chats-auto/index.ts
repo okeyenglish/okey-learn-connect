@@ -131,6 +131,11 @@ Deno.serve(async (req) => {
       .single();
     
     const listId = progressData?.list_id;
+    // Базовые значения для точного пересчёта абсолютных метрик
+    const baseClients = progressData?.total_clients_processed ?? 0;
+    const baseMsgs = progressData?.total_messages_imported ?? 0;
+    const baseImported = progressData?.total_imported ?? 0;
+
     // Фолбэк: если current_offset = 0, но уже обработаны клиенты, продолжим с этого места
     let currentOffset = (lock.current_offset ?? 0);
     if ((!currentOffset || currentOffset === 0) && progressData) {
@@ -399,6 +404,24 @@ Deno.serve(async (req) => {
             if (commitError) {
               console.error('❌ Ошибка промежуточного коммита:', commitError);
             } else {
+              // Обновляем явным образом абсолютные значения и heartbeat, чтобы UI видел свежие данные
+              const nowIso = new Date().toISOString();
+              const { error: updErr } = await supabase
+                .from('salebot_import_progress')
+                .update({
+                  total_clients_processed: baseClients + totalClients,
+                  total_messages_imported: baseMsgs + totalProcessedMessages,
+                  total_imported: baseImported + totalImported,
+                  current_offset: currentOffset + totalClients,
+                  last_run_at: nowIso,
+                  updated_at: nowIso,
+                  is_running: true,
+                })
+                .eq('id', progressId);
+              if (updErr) {
+                console.error('❌ Ошибка обновления прогресса:', updErr);
+              }
+
               const { data: check } = await supabase
                 .from('salebot_import_progress')
                 .select('current_offset, total_clients_processed, total_messages_imported, updated_at')
@@ -583,6 +606,22 @@ Deno.serve(async (req) => {
       p_new_offset: nextOffset,
       p_errors: errors.length > 0 ? errors.slice(-100) : null
     });
+
+    // Явно фиксируем абсолютные значения и heartbeat
+    const nowIso = new Date().toISOString();
+    const { error: finalUpdErr } = await supabase
+      .from('salebot_import_progress')
+      .update({
+        total_clients_processed: baseClients + totalClients,
+        total_messages_imported: baseMsgs + totalProcessedMessages,
+        total_imported: baseImported + totalImported,
+        current_offset: nextOffset,
+        last_run_at: nowIso,
+        updated_at: nowIso,
+        is_running: true,
+      })
+      .eq('id', progressId);
+    if (finalUpdErr) console.error('❌ Ошибка финального обновления прогресса:', finalUpdErr);
 
     console.log(`✅ Батч завершен. Клиентов: ${totalClients}, сообщений: ${totalProcessedMessages}, новых: ${totalImported}, nextOffset: ${nextOffset}`);
 
