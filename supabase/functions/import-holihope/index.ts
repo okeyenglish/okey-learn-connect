@@ -60,24 +60,37 @@ Deno.serve(async (req) => {
       .single();
     const orgId = profile?.organization_id || null;
 
-    // Parse request body with error handling
+    // Parse request body with error handling and log diagnostics
     let body: any = {};
     try {
+      const contentType = req.headers.get('content-type') || '';
       const text = await req.text();
+      console.log('Incoming request:', { contentType, textLength: text?.length || 0 });
       if (text) {
-        body = JSON.parse(text);
+        try {
+          body = JSON.parse(text);
+          console.log('Parsed body keys:', Object.keys(body || {}));
+        } catch (parseErr) {
+          console.error('JSON parse error:', parseErr);
+          return new Response(JSON.stringify({ error: 'Invalid JSON in request body' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 400,
+          });
+        }
       }
     } catch (e) {
-      console.error('Error parsing request body:', e);
-      return new Response(JSON.stringify({ error: 'Invalid JSON in request body' }), {
+      console.error('Error reading request body:', e);
+      return new Response(JSON.stringify({ error: 'Failed to read request body' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       });
     }
-    
-    const { action } = body;
-    
+
+    // Resolve action from body or fallback header
+    const action = (body && body.action) ? String(body.action) : (req.headers.get('x-action') || '').toString();
+
     if (!action) {
+      console.warn('Missing action parameter. Headers:', Object.fromEntries(req.headers.entries()));
       return new Response(JSON.stringify({ error: 'Missing action parameter' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
