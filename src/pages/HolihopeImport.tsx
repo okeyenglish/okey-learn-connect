@@ -39,6 +39,7 @@ export default function HolihopeImport() {
     startTime: Date | null;
     lastRunAt: Date | null;
     isRunning: boolean;
+    isPaused: boolean;
   } | null>(null);
   const [steps, setSteps] = useState<ImportStep[]>([
     { id: 'clear', name: '1. Архивация данных', description: 'Пометка существующих данных как неактивных', action: 'clear_data', status: 'pending' },
@@ -99,7 +100,8 @@ export default function HolihopeImport() {
           currentOffset: data.current_offset || 0,
           startTime: data.start_time ? new Date(data.start_time) : null,
           lastRunAt: data.last_run_at ? new Date(data.last_run_at) : null,
-          isRunning: data.is_running || false
+          isRunning: data.is_running || false,
+          isPaused: data.is_paused || false
         });
       }
     };
@@ -907,7 +909,8 @@ export default function HolihopeImport() {
                             currentOffset: data.current_offset || 0,
                             startTime: data.start_time ? new Date(data.start_time) : null,
                             lastRunAt: data.last_run_at ? new Date(data.last_run_at) : null,
-                            isRunning: data.is_running || false
+                            isRunning: data.is_running || false,
+                            isPaused: data.is_paused || false
                           });
                         }
                       } catch (error: any) {
@@ -927,11 +930,29 @@ export default function HolihopeImport() {
                   <Button
                     onClick={async () => {
                       try {
-                        setChatImportStatus('Продолжаем импорт...');
+                        setChatImportStatus('Возобновляем импорт...');
+                        
+                        // Снимаем флаг паузы
+                        const { data: progress } = await supabase
+                          .from('salebot_import_progress')
+                          .select('id')
+                          .order('updated_at', { ascending: false })
+                          .limit(1)
+                          .single();
+                        
+                        if (progress?.id) {
+                          await supabase
+                            .from('salebot_import_progress')
+                            .update({ is_paused: false })
+                            .eq('id', progress.id);
+                        }
+                        
+                        // Запускаем импорт
                         const { error } = await supabase.functions.invoke('import-salebot-chats-auto');
                         if (error) throw error;
+                        
                         toast({
-                          title: 'Импорт продолжен',
+                          title: 'Импорт возобновлён',
                           description: 'Автоматический импорт Salebot успешно возобновлён',
                         });
                       } catch (error: any) {
@@ -944,9 +965,9 @@ export default function HolihopeImport() {
                     }}
                     variant="default"
                     size="sm"
-                    disabled={importProgress.isRunning}
+                    disabled={importProgress.isRunning || !importProgress.isPaused}
                   >
-                    Продолжить импорт
+                    Возобновить импорт
                   </Button>
                   <Button
                     onClick={async () => {
@@ -983,7 +1004,8 @@ export default function HolihopeImport() {
                             currentOffset: 0,
                             startTime: null,
                             lastRunAt: null,
-                            isRunning: false
+                            isRunning: false,
+                            isPaused: false
                           });
                         }
                       } catch (error: any) {
