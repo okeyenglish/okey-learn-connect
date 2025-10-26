@@ -13,37 +13,45 @@ const corsHeaders = {
 
 const ANALYSIS_PROMPT = `Ты - SEO эксперт для языковой школы "O'KEY ENGLISH".
 
-**Данные страницы:**
+**КРИТИЧЕСКИ ВАЖНО:**
+- Анализируй ТОЛЬКО то, что реально есть на странице
+- НЕ выдумывай проблемы, если их нет
+- Если структура хорошая, так и скажи
+- Если title/description/H1 хорошие, не меняй их кардинально
+
+**Фактические данные страницы:**
 URL: {{URL}}
-Текущий контент:
+
+Title: {{TITLE}}
+Meta Description: {{META_DESC}}
+H1: {{H1}}
+H2 теги: {{H2_TAGS}}
+
+Основной контент (первые 1000 символов):
 {{CONTENT}}
 
 **Релевантные запросы из базы:**
 {{KEYWORDS}}
 
 **Задача:**
-Проанализируй страницу и создай план оптимизации для продвижения по этим запросам.
+1. Проверь, есть ли РЕАЛЬНЫЕ проблемы с SEO (пустой title, отсутствие H1, дублирование)
+2. Оцени, насколько текущий контент соответствует целевым запросам
+3. Дай конкретные рекомендации ТОЛЬКО если есть что улучшить
 
 **Верни JSON:**
 {
-  "target_keywords": ["главный запрос 1", "главный запрос 2", ...],
-  "current_issues": ["проблема 1", "проблема 2", ...],
+  "target_keywords": ["2-3 главных запроса из базы, релевантных странице"],
+  "current_issues": ["ТОЛЬКО реальные проблемы, если есть. Например: 'Title дублирует H1', 'Нет meta description', 'H1 отсутствует'"],
   "recommendations": {
-    "title": "Оптимизированный title (до 60 символов)",
-    "meta_description": "Оптимизированное description (до 160 символов)",
-    "h1": "Оптимизированный H1",
-    "content_structure": ["раздел 1", "раздел 2", ...],
-    "internal_links": ["рекомендуемая ссылка 1", "рекомендуемая ссылка 2", ...],
-    "additional_sections": ["FAQ про {{запрос}}", "Преимущества для {{локация}}", ...]
+    "title": "Улучшенный title (только если текущий плохой)",
+    "meta_description": "Улучшенное description (только если текущее плохое)",
+    "h1": "Улучшенный H1 (только если текущий плохой)",
+    "content_structure": ["Конкретные разделы, которых не хватает"],
+    "internal_links": ["Ссылки на другие страницы сайта, которые стоит добавить"],
+    "additional_sections": ["Конкретные блоки контента, которые улучшат страницу"]
   },
-  "priority": "high|medium|low"
-}
-
-Учитывай:
-- Естественность текста (не SEO-спам)
-- Локальную специфику для филиалов
-- Коммерческий intent для страниц услуг
-- Информационный intent для статей`;
+  "priority": "high - если много критичных проблем | medium - если есть что улучшить | low - если все хорошо"
+}`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -60,21 +68,76 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Получаем контент страницы (симуляция - в реальности нужен парсер)
-    const pageContent = `Placeholder content for ${url}`;
+    // Получаем РЕАЛЬНЫЙ HTML страницы
+    const baseUrl = 'https://okeyenglish.ru';
+    const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
+    
+    console.log('[seo-analyze-page] Fetching page:', fullUrl);
+    let pageHtml = '';
+    let title = '';
+    let metaDesc = '';
+    let h1 = '';
+    let h2Tags: string[] = [];
+    let mainContent = '';
+
+    try {
+      const pageResponse = await fetch(fullUrl);
+      if (pageResponse.ok) {
+        pageHtml = await pageResponse.text();
+        
+        // Извлекаем title
+        const titleMatch = pageHtml.match(/<title[^>]*>([^<]+)<\/title>/i);
+        title = titleMatch ? titleMatch[1].trim() : 'Не найден';
+        
+        // Извлекаем meta description
+        const metaMatch = pageHtml.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
+        metaDesc = metaMatch ? metaMatch[1].trim() : 'Не найдена';
+        
+        // Извлекаем H1
+        const h1Match = pageHtml.match(/<h1[^>]*>([^<]+)<\/h1>/i);
+        h1 = h1Match ? h1Match[1].trim().replace(/<[^>]*>/g, '') : 'Не найден';
+        
+        // Извлекаем H2
+        const h2Matches = pageHtml.matchAll(/<h2[^>]*>([^<]+)<\/h2>/gi);
+        h2Tags = Array.from(h2Matches).map(m => m[1].trim().replace(/<[^>]*>/g, ''));
+        
+        // Извлекаем текст из body (упрощенно, убираем скрипты и стили)
+        const bodyMatch = pageHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+        if (bodyMatch) {
+          mainContent = bodyMatch[1]
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .substring(0, 1000);
+        }
+      } else {
+        console.warn('[seo-analyze-page] Failed to fetch page:', pageResponse.status);
+        mainContent = `Не удалось загрузить страницу (статус ${pageResponse.status})`;
+      }
+    } catch (fetchError) {
+      console.error('[seo-analyze-page] Fetch error:', fetchError);
+      mainContent = 'Ошибка при загрузке страницы';
+    }
 
     // Получаем релевантные ключевые слова из базы
     const { data: keywords } = await supabase
       .from('kw_norm')
       .select('query, freq')
+      .eq('organization_id', organizationId)
       .order('freq', { ascending: false })
-      .limit(50);
+      .limit(30);
 
-    const keywordsList = keywords?.map(k => `${k.query} (${k.freq} показов)`).join('\n') || '';
+    const keywordsList = keywords?.map(k => `${k.query} (${k.freq} показов/мес)`).join('\n') || 'Нет данных';
 
     const prompt = ANALYSIS_PROMPT
       .replace('{{URL}}', url)
-      .replace('{{CONTENT}}', pageContent)
+      .replace('{{TITLE}}', title)
+      .replace('{{META_DESC}}', metaDesc)
+      .replace('{{H1}}', h1)
+      .replace('{{H2_TAGS}}', h2Tags.length > 0 ? h2Tags.join(', ') : 'Нет H2')
+      .replace('{{CONTENT}}', mainContent)
       .replace('{{KEYWORDS}}', keywordsList);
 
     console.log('[seo-analyze-page] Calling OpenAI...');
