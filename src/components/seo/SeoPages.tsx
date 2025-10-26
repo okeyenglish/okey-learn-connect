@@ -48,11 +48,23 @@ export function SeoPages() {
   });
 
   const handleAnalyzePage = async (url: string) => {
-    const organizationId = session?.user?.user_metadata?.organization_id;
+    if (!session?.user) {
+      toast({
+        title: "Ошибка",
+        description: "Необходима авторизация",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const organizationId = session.user.user_metadata?.organization_id;
+    console.log('User metadata:', session.user.user_metadata);
+    console.log('Organization ID:', organizationId);
+    
     if (!organizationId) {
       toast({
         title: "Ошибка",
-        description: "Не найдена организация",
+        description: "Organization ID не найден в профиле пользователя. Проверьте настройки аккаунта.",
         variant: "destructive",
       });
       return;
