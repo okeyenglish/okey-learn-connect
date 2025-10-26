@@ -227,10 +227,9 @@ serve(async (req) => {
 
       const data = await resp.json();
       rows = data.rows || [];
-      if (rows.length > 0) {
-        usedProperty = candidate;
-        break;
-      }
+      // Mark this property as accessible even if rows are 0
+      usedProperty = candidate;
+      break;
     }
 
     console.log(`Fetched ${rows.length} rows from GSC${usedProperty ? ' using ' + usedProperty : ''}`);
