@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings, Send, CheckCircle, XCircle } from "lucide-react";
+import { Settings, Send, CheckCircle, XCircle, Sparkles, RefreshCw, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -26,6 +26,8 @@ const SeoSettings = () => {
   const [isEnrichingClusters, setIsEnrichingClusters] = useState(false);
   const [enrichResult, setEnrichResult] = useState<any>(null);
   const [wordstatResult, setWordstatResult] = useState<any>(null);
+  const [isAutoClustering, setIsAutoClustering] = useState(false);
+  const [clusterResult, setClusterResult] = useState<any>(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -140,6 +142,32 @@ const SeoSettings = () => {
     }
   };
 
+  const handleAutoCluster = async () => {
+    if (!organizationId) {
+      toast.error("Не найдена организация");
+      return;
+    }
+
+    setIsAutoClustering(true);
+    setClusterResult(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('seo-auto-cluster', {
+        body: { organizationId }
+      });
+
+      if (error) throw error;
+
+      setClusterResult(data);
+      toast.success(`Создано ${data.clustersCreated} кластеров из ${data.totalKeywords} запросов`);
+    } catch (error) {
+      console.error("Auto clustering error:", error);
+      toast.error("Ошибка при автоматической кластеризации");
+    } finally {
+      setIsAutoClustering(false);
+    }
+  };
+
   const handleImportGSC = async () => {
     if (!organizationId) {
       toast.error("Не найдена организация");
@@ -230,50 +258,97 @@ const SeoSettings = () => {
         <div>
           <h2 className="text-2xl font-semibold">Настройки</h2>
           <p className="text-muted-foreground">
-            Конфигурация интеграций и параметров генерации
+            Автоматизация SEO: сбор данных, кластеризация и аналитика
           </p>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={handleCollectWordstat} disabled={isCollecting} variant="outline">
-            {isCollecting ? "Сбор данных..." : "Собрать базовую статистику"}
-          </Button>
-          <Button onClick={handleEnrichClusters} disabled={isEnrichingClusters} variant="outline">
-            {isEnrichingClusters ? "Обогащение..." : "Обновить кластеры"}
-          </Button>
-          <Button onClick={handleImportGSC} disabled={isImportingGSC}>
-            {isImportingGSC ? "Импорт..." : "Импорт GSC"}
-          </Button>
         </div>
       </div>
 
-      {/* Wordstat Results */}
-      {(wordstatResult || enrichResult) && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Результаты сбора статистики</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {wordstatResult && (
-              <div className="p-4 bg-muted rounded-lg">
-                <p className="text-sm font-semibold mb-2">Базовая статистика Яндекс.Вордстат</p>
-                <p className="text-sm">
-                  Собрано <strong>{wordstatResult.collected}</strong> ключевых слов,
-                  создано <strong>{wordstatResult.clusters_created}</strong> кластеров
-                </p>
-              </div>
-            )}
-            {enrichResult && (
-              <div className="p-4 bg-muted rounded-lg">
-                <p className="text-sm font-semibold mb-2">Обогащение кластеров</p>
-                <p className="text-sm">
-                  Обогащено <strong>{enrichResult.enriched}</strong> из <strong>{enrichResult.total}</strong> кластеров
-                  {enrichResult.errors > 0 && <span className="text-destructive"> ({enrichResult.errors} ошибок)</span>}
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+      {/* Step 1: Wordstat Collection */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">1</span>
+            Сбор данных Яндекс.Вордстат
+          </CardTitle>
+          <CardDescription>
+            Автоматический сбор частотности и конкуренции по ключевым запросам
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Button onClick={handleCollectWordstat} disabled={isCollecting} className="w-full">
+            {isCollecting ? "Сбор данных..." : "Собрать базовую статистику"}
+          </Button>
+          
+          {wordstatResult && (
+            <div className="p-4 bg-muted rounded-lg">
+              <p className="text-sm font-semibold mb-2">✅ Статистика собрана</p>
+              <p className="text-sm">
+                Собрано <strong>{wordstatResult.collected}</strong> ключевых слов
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Step 2: Auto Clustering */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">2</span>
+            Автоматическая кластеризация
+          </CardTitle>
+          <CardDescription>
+            Группировка запросов в кластеры и формирование ядра
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Button onClick={handleAutoCluster} disabled={isAutoClustering} className="w-full" variant="default">
+            {isAutoClustering ? "Создание кластеров..." : "Создать кластеры автоматически"}
+          </Button>
+          
+          {clusterResult && (
+            <div className="p-4 bg-muted rounded-lg space-y-3">
+              <p className="text-sm font-semibold">✅ Кластеры созданы</p>
+              <p className="text-sm">
+                Создано <strong>{clusterResult.clustersCreated}</strong> кластеров из <strong>{clusterResult.totalKeywords}</strong> запросов
+              </p>
+              {clusterResult.clusters?.slice(0, 5).map((c: any, i: number) => (
+                <div key={i} className="text-xs text-muted-foreground pl-4 border-l-2 border-primary/20">
+                  <strong>{c.head_term}</strong> • score: {c.score} • {c.members.length} запросов
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Step 3: Enrich Clusters */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">3</span>
+            Обогащение кластеров
+          </CardTitle>
+          <CardDescription>
+            Обновление статистики Wordstat для существующих кластеров
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Button onClick={handleEnrichClusters} disabled={isEnrichingClusters} variant="outline" className="w-full">
+            {isEnrichingClusters ? "Обогащение..." : "Обновить существующие кластеры"}
+          </Button>
+          
+          {enrichResult && (
+            <div className="p-4 bg-muted rounded-lg">
+              <p className="text-sm font-semibold mb-2">✅ Обогащение завершено</p>
+              <p className="text-sm">
+                Обогащено <strong>{enrichResult.enriched}</strong> из <strong>{enrichResult.total}</strong> кластеров
+                {enrichResult.errors > 0 && <span className="text-destructive"> ({enrichResult.errors} ошибок)</span>}
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Google Search Console Import */}
       <Card>

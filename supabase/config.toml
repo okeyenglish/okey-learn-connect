@@ -129,5 +129,8 @@ verify_jwt = true
 [functions.seo-enrich-clusters]
 verify_jwt = true
 
+[functions.seo-auto-cluster]
+verify_jwt = true
+
 [functions.sitemap]
 verify_jwt = false
