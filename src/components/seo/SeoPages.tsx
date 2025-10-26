@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentOrganizationId } from "@/lib/organizationHelpers";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,10 +32,10 @@ export function SeoPages() {
   });
 
   const { data: pages, refetch, isLoading } = useQuery({
-    queryKey: ['seo-pages', session?.user?.user_metadata?.organization_id],
-    enabled: !!session?.user?.user_metadata?.organization_id,
+    queryKey: ['seo-pages', session?.user?.id],
+    enabled: !!session?.user,
     queryFn: async () => {
-      const organizationId = session?.user?.user_metadata?.organization_id;
+      const organizationId = await getCurrentOrganizationId();
       
       const { data, error } = await supabase
         .from('seo_pages')
@@ -48,31 +49,11 @@ export function SeoPages() {
   });
 
   const handleAnalyzePage = async (url: string) => {
-    if (!session?.user) {
-      toast({
-        title: "Ошибка",
-        description: "Необходима авторизация",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const organizationId = session.user.user_metadata?.organization_id;
-    console.log('User metadata:', session.user.user_metadata);
-    console.log('Organization ID:', organizationId);
-    
-    if (!organizationId) {
-      toast({
-        title: "Ошибка",
-        description: "Organization ID не найден в профиле пользователя. Проверьте настройки аккаунта.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setAnalyzingUrl(url);
 
     try {
+      const organizationId = await getCurrentOrganizationId();
+
       const { data, error } = await supabase.functions.invoke('seo-analyze-page', {
         body: { url, organizationId }
       });
