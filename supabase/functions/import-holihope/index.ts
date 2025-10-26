@@ -60,8 +60,29 @@ Deno.serve(async (req) => {
       .single();
     const orgId = profile?.organization_id || null;
 
-    const body = await req.json();
+    // Parse request body with error handling
+    let body: any = {};
+    try {
+      const text = await req.text();
+      if (text) {
+        body = JSON.parse(text);
+      }
+    } catch (e) {
+      console.error('Error parsing request body:', e);
+      return new Response(JSON.stringify({ error: 'Invalid JSON in request body' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      });
+    }
+    
     const { action } = body;
+    
+    if (!action) {
+      return new Response(JSON.stringify({ error: 'Missing action parameter' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      });
+    }
     
     const progress: ImportProgress[] = [];
 
