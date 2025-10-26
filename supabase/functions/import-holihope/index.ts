@@ -4268,8 +4268,17 @@ Deno.serve(async (req) => {
         // Batch update individual_lessons using upsert
         if (individualLessonsToUpdate.length > 0) {
           console.log(`Updating ${individualLessonsToUpdate.length} individual lessons in batches...`);
-          for (let i = 0; i < individualLessonsToUpdate.length; i += 100) {
-            const batch = individualLessonsToUpdate.slice(i, i + 100);
+          
+          // Deduplicate by id - keep only the last entry for each id
+          const deduplicatedMap = new Map();
+          individualLessonsToUpdate.forEach(item => {
+            deduplicatedMap.set(item.id, item);
+          });
+          const deduplicatedUpdates = Array.from(deduplicatedMap.values());
+          console.log(`After deduplication: ${deduplicatedUpdates.length} unique individual lessons`);
+          
+          for (let i = 0; i < deduplicatedUpdates.length; i += 100) {
+            const batch = deduplicatedUpdates.slice(i, i + 100);
             const { error } = await supabase
               .from('individual_lessons')
               .upsert(batch, { onConflict: 'id', ignoreDuplicates: false });
