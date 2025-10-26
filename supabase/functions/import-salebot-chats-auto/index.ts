@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
     // Получаем информацию о прогрессе (list_id и безопасный offset)
     const { data: progressData } = await supabase
       .from('salebot_import_progress')
-      .select('list_id, current_offset, total_clients_processed')
+      .select('id, list_id, current_offset, total_clients_processed, total_messages_imported, total_imported')
       .eq('id', progressId)
       .single();
     
@@ -363,21 +363,25 @@ Deno.serve(async (req) => {
           totalProcessedMessages += processedMessages;
           console.log(`Клиент обработан. Всего клиентов: ${totalClients}, обработано всего сообщений: ${totalProcessedMessages}, новых: ${totalImported}`);
           
-          // Обновляем прогресс после каждого клиента
+          const baseTotalMessages = (progressData?.total_messages_imported ?? 0);
+          const baseTotalClients = (progressData?.total_clients_processed ?? 0);
+          const baseTotalImported = (progressData?.total_imported ?? 0);
+
           const { error: updateError } = await supabase
             .from('salebot_import_progress')
             .update({ 
-              total_messages_imported: progressData.total_messages_imported + totalProcessedMessages,
-              total_clients_processed: progressData.total_clients_processed + totalClients,
-              total_imported: progressData.total_imported + totalImported,
+              total_messages_imported: baseTotalMessages + totalProcessedMessages,
+              total_clients_processed: baseTotalClients + totalClients,
+              total_imported: baseTotalImported + totalImported,
+              current_offset: currentOffset + totalClients,
               updated_at: new Date().toISOString()
             })
-            .eq('id', progressData.id);
+            .eq('id', progressData!.id);
           
           if (updateError) {
             console.error('Ошибка обновления прогресса:', updateError);
           } else {
-            console.log(`Прогресс обновлен: клиентов ${progressData.total_clients_processed + totalClients}, обработано сообщений ${progressData.total_messages_imported + totalProcessedMessages}, новых ${progressData.total_imported + totalImported}`);
+            console.log(`Прогресс обновлен: клиентов ${baseTotalClients + totalClients}, обработано сообщений ${baseTotalMessages + totalProcessedMessages}, новых ${baseTotalImported + totalImported}, offset ${currentOffset + totalClients}`);
           }
 
         } catch (error: any) {
