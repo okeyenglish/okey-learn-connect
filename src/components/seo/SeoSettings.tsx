@@ -13,6 +13,8 @@ const SeoSettings = () => {
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
 
+  const [isCollecting, setIsCollecting] = useState(false);
+
   useEffect(() => {
     const fetchProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -74,13 +76,42 @@ const SeoSettings = () => {
     }
   };
 
+  const handleCollectWordstat = async () => {
+    if (!organizationId) {
+      toast.error("Не найдена организация");
+      return;
+    }
+
+    setIsCollecting(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('seo-collect-wordstat', {
+        body: { organizationId }
+      });
+
+      if (error) throw error;
+
+      toast.success(`Собрано ${data.collected} запросов, создано ${data.clusters_created} кластеров`);
+    } catch (error) {
+      console.error("Wordstat collection error:", error);
+      toast.error("Ошибка при сборе данных из Яндекс.Вордстат");
+    } finally {
+      setIsCollecting(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-2xl font-semibold">Настройки</h2>
-        <p className="text-muted-foreground">
-          Конфигурация интеграций и параметров генерации
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold">Настройки</h2>
+          <p className="text-muted-foreground">
+            Конфигурация интеграций и параметров генерации
+          </p>
+        </div>
+        <Button onClick={handleCollectWordstat} disabled={isCollecting}>
+          {isCollecting ? "Сбор данных..." : "Собрать запросы из Яндекс.Вордстат"}
+        </Button>
       </div>
 
       {/* IndexNow Testing */}

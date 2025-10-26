@@ -107,3 +107,6 @@ verify_jwt = true
 
 [functions.seo-indexnow]
 verify_jwt = true
+
+[functions.seo-collect-wordstat]
+verify_jwt = true
