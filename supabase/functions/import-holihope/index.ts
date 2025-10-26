@@ -4298,6 +4298,40 @@ Deno.serve(async (req) => {
         const totalProcessed = (allGroups?.length || 0) + (allIndividualLessons?.length || 0);
         progress[0].hasMore = totalProcessed >= take; // If we got full batch, likely more to process
         progress[0].nextSkip = skipParam + take;
+        
+        // Auto-continue if more data exists
+        if (progress[0].hasMore && body.auto_continue !== false) {
+          console.log(`🔄 Auto-continuing to next batch (skip=${progress[0].nextSkip})...`);
+          
+          // Use waitUntil to trigger next batch in background
+          EdgeRuntime.waitUntil((async () => {
+            try {
+              // Small delay to avoid rate limiting
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              
+              console.log(`Invoking next batch with skip=${progress[0].nextSkip}`);
+              const { data, error } = await supabase.functions.invoke('import-holihope', {
+                body: {
+                  action: 'import_ed_unit_students',
+                  skip: progress[0].nextSkip,
+                  take,
+                  batch_mode: true,
+                  auto_continue: true
+                }
+              });
+              
+              if (error) {
+                console.error('Error invoking next batch:', error);
+              } else {
+                console.log('✅ Next batch invoked successfully:', data);
+              }
+            } catch (err) {
+              console.error('Failed to invoke next batch:', err);
+            }
+          })());
+          
+          progress[0].message += ` | 🔄 Auto-continuing to next batch...`;
+        }
       } catch (error) {
         console.error('Error importing ed unit students:', error);
         progress[0].status = 'error';
