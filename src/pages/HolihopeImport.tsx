@@ -875,6 +875,7 @@ export default function HolihopeImport() {
                         const { data } = await supabase
                           .from('salebot_import_progress')
                           .select('*')
+                          .order('last_run_at', { ascending: false })
                           .limit(1)
                           .single();
                         if (data) {
@@ -904,9 +905,34 @@ export default function HolihopeImport() {
                   <Button
                     onClick={async () => {
                       try {
+                        setChatImportStatus('Продолжаем импорт...');
+                        const { error } = await supabase.functions.invoke('import-salebot-chats-auto');
+                        if (error) throw error;
+                        toast({
+                          title: 'Импорт продолжен',
+                          description: 'Автоматический импорт Salebot успешно возобновлён',
+                        });
+                      } catch (error: any) {
+                        toast({
+                          title: 'Ошибка',
+                          description: error.message,
+                          variant: 'destructive',
+                        });
+                      }
+                    }}
+                    variant="default"
+                    size="sm"
+                    disabled={importProgress.isRunning}
+                  >
+                    Продолжить импорт
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      try {
                         const { data: progress } = await supabase
                           .from('salebot_import_progress')
                           .select('id')
+                          .order('last_run_at', { ascending: false })
                           .limit(1)
                           .single();
                         
@@ -954,202 +980,208 @@ export default function HolihopeImport() {
               </div>
             )}
             
-            <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
-              <Label htmlFor="salebot-list-id">ID списка Salebot (опционально)</Label>
-              <Input
-                id="salebot-list-id"
-                type="text"
-                placeholder="Например: 740756"
-                value={salebotListId}
-                onChange={(e) => setSalebotListId(e.target.value)}
-                disabled={isImportingChats}
-              />
-              <p className="text-xs text-muted-foreground">
-                Если указан, импорт будет выполнен только для клиентов из этого списка Salebot. 
-                Клиенты, которых нет в базе, будут автоматически созданы.
-              </p>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="start-offset">Начальный offset</Label>
-                <Input
-                  id="start-offset"
-                  type="number"
-                  min="0"
-                  placeholder="0"
-                  value={startOffset}
-                  onChange={(e) => setStartOffset(e.target.value)}
-                  disabled={isImportingChats}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="batch-size">Размер батча</Label>
-                <Input
-                  id="batch-size"
-                  type="number"
-                  min="5"
-                  max="100"
-                  placeholder="10"
-                  value={batchSize}
-                  onChange={(e) => setBatchSize(e.target.value)}
-                  disabled={isImportingChats}
-                />
-              </div>
-            </div>
-            
-            {isImportingChats && !importProgress?.isRunning && (
-              <div className="space-y-3 mb-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Импорт в процессе...</span>
-                  <Loader2 className="h-4 w-4 animate-spin text-purple-500" />
-                </div>
-                <Progress value={undefined} className="h-2" />
-                {chatImportStatus && (
-                  <p className="text-xs text-muted-foreground animate-pulse">
-                    {chatImportStatus}
+            {/* Настройки для запуска с нуля (только если импорт не запущен) */}
+            {!importProgress?.isRunning && (
+              <>
+                <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
+                  <Label htmlFor="salebot-list-id">ID списка Salebot (опционально)</Label>
+                  <Input
+                    id="salebot-list-id"
+                    type="text"
+                    placeholder="Например: 740756"
+                    value={salebotListId}
+                    onChange={(e) => setSalebotListId(e.target.value)}
+                    disabled={isImportingChats}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Если указан, импорт будет выполнен только для клиентов из этого списка Salebot. 
+                    Клиенты, которых нет в базе, будут автоматически созданы.
                   </p>
-                )}
-              </div>
-            )}
-            <Button
-              onClick={async () => {
-                if (isImportingChats) return;
+                </div>
                 
-                setIsImportingChats(true);
-                
-                // Validate and parse parameters
-                const startOffsetNum = Math.max(0, Number(startOffset) || 0);
-                const batchSizeNum = Math.max(5, Number(batchSize) || 10);
-                
-                let offset = startOffsetNum;
-                let limit = batchSizeNum;
-                let totalImported = 0;
-                let totalClients = 0;
-                let batchCount = 0;
-                
-                const mode = salebotListId ? `список ${salebotListId}` : 'локальные клиенты';
-                setChatImportStatus(`Начинаем импорт чатов (${mode}, offset: ${offset}, limit: ${limit})...`);
-                
-                try {
-                  // Update progress table only if listId is set
-                  if (salebotListId) {
-                    const { data: existingProgress } = await supabase
-                      .from('salebot_import_progress')
-                      .select('id')
-                      .limit(1)
-                      .single();
-
-                    if (existingProgress) {
-                      await supabase
-                        .from('salebot_import_progress')
-                        .update({
-                          list_id: salebotListId || null,
-                          is_running: false
-                        })
-                        .eq('id', existingProgress.id);
-                    }
-                  }
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="start-offset">Начальный offset</Label>
+                    <Input
+                      id="start-offset"
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={startOffset}
+                      onChange={(e) => setStartOffset(e.target.value)}
+                      disabled={isImportingChats}
+                    />
+                  </div>
                   
-                  while (true) {
-                    batchCount++;
-                    setChatImportStatus(`Батч ${batchCount} (${mode}, offset: ${offset}, limit: ${limit})...`);
+                  <div className="space-y-2">
+                    <Label htmlFor="batch-size">Размер батча</Label>
+                    <Input
+                      id="batch-size"
+                      type="number"
+                      min="5"
+                      max="100"
+                      placeholder="10"
+                      value={batchSize}
+                      onChange={(e) => setBatchSize(e.target.value)}
+                      disabled={isImportingChats}
+                    />
+                  </div>
+                </div>
+                
+                {isImportingChats && !importProgress?.isRunning && (
+                  <div className="space-y-3 mb-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Импорт в процессе...</span>
+                      <Loader2 className="h-4 w-4 animate-spin text-purple-500" />
+                    </div>
+                    <Progress value={undefined} className="h-2" />
+                    {chatImportStatus && (
+                      <p className="text-xs text-muted-foreground animate-pulse">
+                        {chatImportStatus}
+                      </p>
+                    )}
+                  </div>
+                )}
+                <Button
+                  onClick={async () => {
+                    if (isImportingChats) return;
                     
-                    // Retry logic with AbortController
-                    let retries = 0;
-                    const maxRetries = 3;
-                    let success = false;
-                    let data: any = null;
+                    setIsImportingChats(true);
                     
-                    while (retries < maxRetries && !success) {
-                      try {
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
-                        
-                        const response = await supabase.functions.invoke('import-salebot-chats', {
-                          body: { offset, limit },
-                          headers: {
-                            'Content-Type': 'application/json',
-                          },
-                        });
-                        
-                        clearTimeout(timeoutId);
-                        
-                        if (response.error) {
-                          throw new Error(response.error.message || 'Ошибка вызова функции');
+                    // Validate and parse parameters
+                    const startOffsetNum = Math.max(0, Number(startOffset) || 0);
+                    const batchSizeNum = Math.max(5, Number(batchSize) || 10);
+                    
+                    let offset = startOffsetNum;
+                    let limit = batchSizeNum;
+                    let totalImported = 0;
+                    let totalClients = 0;
+                    let batchCount = 0;
+                    
+                    const mode = salebotListId ? `список ${salebotListId}` : 'локальные клиенты';
+                    setChatImportStatus(`Начинаем импорт чатов (${mode}, offset: ${offset}, limit: ${limit})...`);
+                    
+                    try {
+                      // Update progress table only if listId is set
+                      if (salebotListId) {
+                        const { data: existingProgress } = await supabase
+                          .from('salebot_import_progress')
+                          .select('id')
+                          .order('last_run_at', { ascending: false })
+                          .limit(1)
+                          .single();
+
+                        if (existingProgress) {
+                          await supabase
+                            .from('salebot_import_progress')
+                            .update({
+                              list_id: salebotListId || null,
+                              is_running: false
+                            })
+                            .eq('id', existingProgress.id);
                         }
+                      }
+                      
+                      while (true) {
+                        batchCount++;
+                        setChatImportStatus(`Батч ${batchCount} (${mode}, offset: ${offset}, limit: ${limit})...`);
                         
-                        data = response.data;
-                        success = true;
+                        // Retry logic with AbortController
+                        let retries = 0;
+                        const maxRetries = 3;
+                        let success = false;
+                        let data: any = null;
                         
-                      } catch (err: any) {
-                        retries++;
-                        
-                        if (err.name === 'AbortError' || err.message?.includes('FunctionsFetchError') || err.message?.includes('Failed to send')) {
-                          if (retries < maxRetries) {
-                            const delay = Math.pow(2, retries - 1) * 1000; // 1s, 2s, 4s
-                            console.warn(`Retry ${retries}/${maxRetries} after ${delay}ms...`);
-                            setChatImportStatus(`Батч ${batchCount} (${mode}) - повтор ${retries}/${maxRetries}...`);
-                            await new Promise(resolve => setTimeout(resolve, delay));
-                            continue;
+                        while (retries < maxRetries && !success) {
+                          try {
+                            const controller = new AbortController();
+                            const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
+                            
+                            const response = await supabase.functions.invoke('import-salebot-chats', {
+                              body: { offset, limit },
+                              headers: {
+                                'Content-Type': 'application/json',
+                              },
+                            });
+                            
+                            clearTimeout(timeoutId);
+                            
+                            if (response.error) {
+                              throw new Error(response.error.message || 'Ошибка вызова функции');
+                            }
+                            
+                            data = response.data;
+                            success = true;
+                            
+                          } catch (err: any) {
+                            retries++;
+                            
+                            if (err.name === 'AbortError' || err.message?.includes('FunctionsFetchError') || err.message?.includes('Failed to send')) {
+                              if (retries < maxRetries) {
+                                const delay = Math.pow(2, retries - 1) * 1000; // 1s, 2s, 4s
+                                console.warn(`Retry ${retries}/${maxRetries} after ${delay}ms...`);
+                                setChatImportStatus(`Батч ${batchCount} (${mode}) - повтор ${retries}/${maxRetries}...`);
+                                await new Promise(resolve => setTimeout(resolve, delay));
+                                continue;
+                              }
+                            }
+                            
+                            throw err;
                           }
                         }
                         
-                        throw err;
+                        if (!success || !data) {
+                          throw new Error('Не удалось выполнить запрос после нескольких попыток');
+                        }
+                        
+                        totalImported += data.totalImported || 0;
+                        totalClients += data.totalClients || 0;
+                        
+                        setChatImportStatus(
+                          `Батч ${batchCount} завершен (${mode}). Всего: ${totalImported} сообщений от ${totalClients} клиентов. Следующий offset: ${data.nextOffset}`
+                        );
+                        
+                        if (data.completed) {
+                          toast({
+                            title: 'Импорт завершен',
+                            description: `Всего импортировано ${totalImported} сообщений от ${totalClients} клиентов`,
+                          });
+                          break;
+                        }
+                        
+                        offset = data.nextOffset || offset + limit;
+                        
+                        await new Promise(resolve => setTimeout(resolve, 1000));
                       }
-                    }
-                    
-                    if (!success || !data) {
-                      throw new Error('Не удалось выполнить запрос после нескольких попыток');
-                    }
-                    
-                    totalImported += data.totalImported || 0;
-                    totalClients += data.totalClients || 0;
-                    
-                    setChatImportStatus(
-                      `Батч ${batchCount} завершен (${mode}). Всего: ${totalImported} сообщений от ${totalClients} клиентов. Следующий offset: ${data.nextOffset}`
-                    );
-                    
-                    if (data.completed) {
+                    } catch (error: any) {
+                      console.error('Ошибка импорта чатов:', error);
                       toast({
-                        title: 'Импорт завершен',
-                        description: `Всего импортировано ${totalImported} сообщений от ${totalClients} клиентов`,
+                        title: 'Ошибка импорта чатов',
+                        description: error.message,
+                        variant: 'destructive',
                       });
-                      break;
+                      setChatImportStatus(`Ошибка: ${error.message}`);
+                    } finally {
+                      setIsImportingChats(false);
                     }
-                    
-                    offset = data.nextOffset || offset + limit;
-                    
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                  }
-                } catch (error: any) {
-                  console.error('Ошибка импорта чатов:', error);
-                  toast({
-                    title: 'Ошибка импорта чатов',
-                    description: error.message,
-                    variant: 'destructive',
-                  });
-                  setChatImportStatus(`Ошибка: ${error.message}`);
-                } finally {
-                  setIsImportingChats(false);
-                }
-              }}
-              disabled={isImportingChats || isImporting}
-              className="w-full"
-            >
-              {isImportingChats ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Импорт чатов...
-                </>
-              ) : (
-                <>
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  Импортировать историю чатов
-                </>
-              )}
-            </Button>
+                  }}
+                  disabled={isImportingChats || isImporting}
+                  className="w-full"
+                >
+                  {isImportingChats ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Импорт чатов...
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      Импортировать историю чатов (ручной режим)
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
