@@ -52,6 +52,29 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
+    // Проверяем и очищаем протухшую блокировку (старше 90 секунд)
+    const { data: staleProgress } = await supabase
+      .from('salebot_import_progress')
+      .select('id, is_running, updated_at')
+      .order('id', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (staleProgress?.is_running) {
+      const lastUpdate = new Date(staleProgress.updated_at);
+      const now = new Date();
+      const ageSeconds = (now.getTime() - lastUpdate.getTime()) / 1000;
+      
+      if (ageSeconds > 90) {
+        console.log(`⏱️ Обнаружена протухшая блокировка (${Math.round(ageSeconds)}s). Сбрасываем...`);
+        await supabase
+          .from('salebot_import_progress')
+          .update({ is_running: false })
+          .eq('id', staleProgress.id);
+        console.log('✅ Stale lock cleared');
+      }
+    }
+
     // Пытаемся получить блокировку для запуска импорта через атомарную RPC функцию
     const { data: lockResult, error: lockError } = await supabase.rpc('try_acquire_import_lock');
     
@@ -130,7 +153,7 @@ Deno.serve(async (req) => {
     let totalClients = 0;
     let totalProcessedMessages = 0;
     let errors: string[] = [];
-    const clientBatchSize = 20;
+    const clientBatchSize = 10; // Уменьшено с 20 до 10 для снижения риска таймаута
 
     let salebotClients: SalebotClient[] = [];
 
@@ -356,32 +379,24 @@ Deno.serve(async (req) => {
                 console.log('Все сообщения в батче уже импортированы (дубликаты)');
               }
             
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise(resolve => setTimeout(resolve, 100)); // Уменьшено с 200ms до 100ms
           }
 
           totalClients++;
           totalProcessedMessages += processedMessages;
           console.log(`Клиент обработан. Всего клиентов: ${totalClients}, обработано всего сообщений: ${totalProcessedMessages}, новых: ${totalImported}`);
           
-          const baseTotalMessages = (progressData?.total_messages_imported ?? 0);
-          const baseTotalClients = (progressData?.total_clients_processed ?? 0);
-          const baseTotalImported = (progressData?.total_imported ?? 0);
-
-          const { error: updateError } = await supabase
-            .from('salebot_import_progress')
-            .update({ 
-              total_messages_imported: baseTotalMessages + totalProcessedMessages,
-              total_clients_processed: baseTotalClients + totalClients,
-              total_imported: baseTotalImported + totalImported,
-              current_offset: currentOffset + totalClients,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', progressData!.id);
-          
-          if (updateError) {
-            console.error('Ошибка обновления прогресса:', updateError);
-          } else {
-            console.log(`Прогресс обновлен: клиентов ${baseTotalClients + totalClients}, обработано сообщений ${baseTotalMessages + totalProcessedMessages}, новых ${baseTotalImported + totalImported}, offset ${currentOffset + totalClients}`);
+          // Промежуточный коммит каждые 5 клиентов
+          if (totalClients % 5 === 0) {
+            console.log(`💾 Промежуточный коммит (${totalClients} клиентов)...`);
+            await supabase.rpc('increment_import_progress', {
+              p_progress_id: progressId,
+              p_clients_count: totalClients,
+              p_messages_count: totalProcessedMessages,
+              p_imported_count: totalImported,
+              p_new_offset: currentOffset + totalClients
+            });
+            console.log(`✅ Коммит выполнен: offset ${currentOffset + totalClients}`);
           }
 
         } catch (error: any) {
@@ -389,7 +404,7 @@ Deno.serve(async (req) => {
           errors.push(`Salebot ID ${salebotClient.id}: ${error.message}`);
         }
 
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 150)); // Уменьшено с 500ms до 150ms
       }
     } else if (!listId) {
       // Обработка клиентов из нашей базы
@@ -533,7 +548,7 @@ Deno.serve(async (req) => {
                 }
               }
               
-              await new Promise(resolve => setTimeout(resolve, 200));
+              await new Promise(resolve => setTimeout(resolve, 100)); // Уменьшено с 200ms до 100ms
             }
 
             totalClients++;
@@ -544,13 +559,13 @@ Deno.serve(async (req) => {
             errors.push(`${client.name}: ${error.message}`);
           }
 
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 150)); // Уменьшено с 500ms до 150ms
         }
       }
     }
 
-    // Обновляем прогресс атомарно
-    const nextOffset = currentOffset + clientBatchSize;
+    // Финальный коммит батча
+    const nextOffset = currentOffset + totalClients;
     await supabase.rpc('increment_import_progress', {
       p_progress_id: progressId,
       p_clients_count: totalClients,
@@ -560,7 +575,7 @@ Deno.serve(async (req) => {
       p_errors: errors.length > 0 ? errors.slice(-100) : null
     });
 
-    console.log(`✅ Батч завершен. Обработано сообщений: ${totalProcessedMessages}, импортировано новых: ${totalImported}, клиентов: ${totalClients}`);
+    console.log(`✅ Батч завершен. Клиентов: ${totalClients}, сообщений: ${totalProcessedMessages}, новых: ${totalImported}, nextOffset: ${nextOffset}`);
 
     const isCompleted = listId 
       ? salebotClients.length < clientBatchSize 
