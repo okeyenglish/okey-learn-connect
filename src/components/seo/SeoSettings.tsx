@@ -16,6 +16,9 @@ const SeoSettings = () => {
   const [isCollecting, setIsCollecting] = useState(false);
   const [isImportingGSC, setIsImportingGSC] = useState(false);
   const [gscSiteUrl, setGscSiteUrl] = useState("sc-domain:okeyenglish.ru");
+  
+  const [isFetchingYandex, setIsFetchingYandex] = useState(false);
+  const [yandexInfo, setYandexInfo] = useState<{ userId: string; hosts: any[] } | null>(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -140,6 +143,28 @@ const SeoSettings = () => {
     }
   };
 
+  const handleFetchYandexInfo = async () => {
+    setIsFetchingYandex(true);
+    setYandexInfo(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('seo-yandex-info');
+
+      if (error) throw error;
+
+      setYandexInfo({
+        userId: data.userId,
+        hosts: data.hosts
+      });
+      toast.success(`Получено: user_id и ${data.hosts.length} хостов`);
+    } catch (error) {
+      console.error("Yandex info fetch error:", error);
+      toast.error("Ошибка при получении данных из Яндекс.Вебмастер");
+    } finally {
+      setIsFetchingYandex(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -253,6 +278,55 @@ const SeoSettings = () => {
               <li>Отправьте тестовый URL выше</li>
               <li>HTTP 200 или 202 = успешно</li>
             </ol>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Yandex Webmaster Info */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Яндекс.Вебмастер - ID параметры
+          </CardTitle>
+          <CardDescription>
+            Получите user_id и host_id для настройки интеграций
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Button 
+            onClick={handleFetchYandexInfo} 
+            disabled={isFetchingYandex}
+            className="w-full"
+          >
+            {isFetchingYandex ? "Получение данных..." : "Получить ID из Яндекс.Вебмастер"}
+          </Button>
+
+          {yandexInfo && (
+            <div className="space-y-4 p-4 bg-muted rounded-lg">
+              <div>
+                <Label className="text-xs font-semibold">YANDEX_WEBMASTER_USER_ID</Label>
+                <code className="block mt-1 p-2 bg-background rounded text-sm">{yandexInfo.userId}</code>
+              </div>
+
+              {yandexInfo.hosts.length > 0 && (
+                <div>
+                  <Label className="text-xs font-semibold">Доступные хосты (YANDEX_WEBMASTER_HOST_ID):</Label>
+                  <div className="space-y-2 mt-2">
+                    {yandexInfo.hosts.map((host: any, idx: number) => (
+                      <div key={idx} className="p-2 bg-background rounded">
+                        <div className="text-sm font-medium">{host.unicode_host_url || host.host_url}</div>
+                        <code className="text-xs text-muted-foreground">{host.host_id}</code>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="text-xs text-muted-foreground">
+            <p>Эти значения необходимо добавить в секреты для работы автоматизации SEO</p>
           </div>
         </CardContent>
       </Card>

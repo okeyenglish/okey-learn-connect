@@ -116,3 +116,6 @@ verify_jwt = true
 
 [functions.seo-analyze-page]
 verify_jwt = true
+
+[functions.seo-yandex-info]
+verify_jwt = true
