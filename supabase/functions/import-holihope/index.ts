@@ -75,7 +75,12 @@ Deno.serve(async (req) => {
       });
     }
     
-    const { action } = body;
+    // Support action from JSON body or fallback header
+    let action = (body && body.action) ? String(body.action) : null;
+    if (!action) {
+      const headerAction = req.headers.get('x-action');
+      if (headerAction) action = headerAction;
+    }
     
     if (!action) {
       return new Response(JSON.stringify({ error: 'Missing action parameter' }), {
