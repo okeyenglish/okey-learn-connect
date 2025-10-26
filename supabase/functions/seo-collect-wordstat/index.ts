@@ -66,22 +66,18 @@ serve(async (req) => {
           // Формируем полный запрос с локацией
           const fullQuery = `${baseQuery} ${location.name}`;
 
-          // Вызываем Yandex.Direct Wordstat API (новый метод)
-          const wordstatResponse = await fetch('https://api.direct.yandex.com/json/v5/keywordsresearch', {
+          // Вызываем Yandex.Direct Wordstat API
+          const wordstatResponse = await fetch('https://api-sandbox.direct.yandex.ru/v4/json/', {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${YANDEX_DIRECT_TOKEN}`,
               'Content-Type': 'application/json',
-              'Accept-Language': 'ru',
             },
             body: JSON.stringify({
-              method: 'get',
-              params: {
-                SelectionCriteria: {
-                  Keywords: [fullQuery],
-                  GeoIds: [location.region_id],
-                },
-                ResultType: 'VOLUME_AND_POSITION',
+              method: 'KeywordsResearch',
+              token: YANDEX_DIRECT_TOKEN,
+              param: {
+                Phrases: [fullQuery],
+                GeoID: [location.region_id],
               }
             }),
           });
@@ -93,13 +89,18 @@ serve(async (req) => {
           }
 
           const wordstatData = await wordstatResponse.json();
+          console.log('[seo-collect-wordstat] API Response:', JSON.stringify(wordstatData).substring(0, 500));
           
-          // Парсим результаты (новый формат API)
-          if (wordstatData.result?.SearchVolume) {
-            for (const item of wordstatData.result.SearchVolume) {
-              const keyword = item.Keyword;
-              const searchVolume = item.SearchVolume || 0;
-              const competition = item.Competition || 'UNKNOWN';
+          // Парсим результаты
+          if (wordstatData.data) {
+            for (const item of wordstatData.data) {
+              const keyword = item.Phrase || item.phrase || fullQuery;
+              const searchVolume = item.SearchVolume || item.Shows || 0;
+              
+              // Определяем конкуренцию на основе частоты
+              let competition = 'LOW';
+              if (searchVolume > 10000) competition = 'HIGH';
+              else if (searchVolume > 1000) competition = 'MEDIUM';
 
               if (searchVolume > 10) {
                 collectedKeywords.push({
@@ -139,16 +140,20 @@ serve(async (req) => {
         return acc;
       }, []);
 
-      const { error: kwError } = await supabase
-        .from('kw_norm')
-        .upsert(uniqueKeywords, {
-          onConflict: 'phrase,region',
-          ignoreDuplicates: true,
-        });
+      // Вставляем ключевые слова по одному (избегаем конфликтов)
+      for (const keyword of uniqueKeywords) {
+        const { error: kwError } = await supabase
+          .from('kw_norm')
+          .upsert(keyword, {
+            onConflict: 'phrase',
+            ignoreDuplicates: false,
+          });
 
-      if (kwError) {
-        console.error('[seo-collect-wordstat] Error saving keywords:', kwError);
+        if (kwError) {
+          console.error('[seo-collect-wordstat] Error saving keyword:', keyword.phrase, kwError);
+        }
       }
+
 
       // Создаем кластеры по базовым запросам
       for (const baseQuery of BASE_QUERIES) {
