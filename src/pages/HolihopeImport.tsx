@@ -67,13 +67,29 @@ export default function HolihopeImport() {
   // Poll import progress continuously (to show auto-import status)
   useEffect(() => {
     const pollProgress = async () => {
-      const { data } = await supabase
+      // 1) Пытаемся получить именно текущий запущенный прогресс
+      let query = supabase
         .from('salebot_import_progress')
         .select('*')
-        .order('updated_at', { ascending: false })
+        .eq('is_running', true)
+        .order('last_run_at', { ascending: false, nullsFirst: false })
+        .order('updated_at', { ascending: false, nullsFirst: false })
         .limit(1)
         .single();
-    
+
+      let { data } = await query;
+
+      // 2) Фолбэк – берём последний по времени обновления
+      if (!data) {
+        const fallback = await supabase
+          .from('salebot_import_progress')
+          .select('*')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .single();
+        data = fallback.data || null;
+      }
+
       if (data) {
         setImportProgress({
           totalClientsProcessed: data.total_clients_processed || 0,
