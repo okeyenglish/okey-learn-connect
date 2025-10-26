@@ -144,39 +144,79 @@ serve(async (req) => {
     const accessToken = await getAccessToken(serviceAccount);
     console.log("Access token obtained");
 
-    // Call GSC API
+    // Call GSC API with fallbacks
     console.log("Calling GSC API...");
-    const gscUrl = `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`;
-    
-    const gscResponse = await fetch(gscUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        startDate,
-        endDate,
-        dimensions: ['query', 'page', 'country', 'device', 'date'],
-        rowLimit: 25000,
-      }),
-    });
 
-    if (!gscResponse.ok) {
-      const errorText = await gscResponse.text();
-      console.error("GSC API error:", errorText);
-      throw new Error(`GSC API error (${gscResponse.status}): ${errorText}`);
+    const candidates: string[] = (() => {
+      const s = siteUrl.trim();
+      if (s.startsWith('sc-domain:')) {
+        const domain = s.replace('sc-domain:', '').replace(/\/$/, '');
+        return [
+          s,
+          `https://${domain}/`,
+          `https://www.${domain}/`,
+          `http://${domain}/`,
+        ];
+      }
+      // URL-prefix given, also try normalized variants
+      try {
+        const u = new URL(s);
+        const domain = u.hostname;
+        return [
+          s.endsWith('/') ? s : `${s}/`,
+          `https://${domain}/`,
+          `https://www.${domain}/`,
+          `http://${domain}/`,
+          `sc-domain:${domain}`,
+        ];
+      } catch {
+        return [s];
+      }
+    })();
+
+    let rows: any[] = [];
+    let usedProperty = '';
+
+    for (const candidate of candidates) {
+      const gscUrl = `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(candidate)}/searchAnalytics/query`;
+      console.log(`Trying property: ${candidate}`);
+
+      const resp = await fetch(gscUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          startDate,
+          endDate,
+          dimensions: ['query', 'page', 'country', 'device', 'date'],
+          searchType: 'web',
+          rowLimit: 25000,
+          dataState: 'final',
+        }),
+      });
+
+      if (!resp.ok) {
+        const t = await resp.text();
+        console.warn(`GSC API ${candidate} error:`, t);
+        continue;
+      }
+
+      const data = await resp.json();
+      rows = data.rows || [];
+      if (rows.length > 0) {
+        usedProperty = candidate;
+        break;
+      }
     }
 
-    const gscData = await gscResponse.json();
-    const rows = gscData.rows || [];
-
-    console.log(`Fetched ${rows.length} rows from GSC`);
+    console.log(`Fetched ${rows.length} rows from GSC${usedProperty ? ' using ' + usedProperty : ''}`);
 
     if (rows.length === 0) {
       console.log("No data returned from GSC");
       return new Response(
-        JSON.stringify({ success: true, imported: 0, message: "No data available for the specified period" }),
+        JSON.stringify({ success: true, imported: 0, message: "No data available for the specified period or property", tried: candidates }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
