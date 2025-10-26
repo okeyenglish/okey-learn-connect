@@ -106,6 +106,11 @@ const SeoSettings = () => {
 
       if (error) throw error;
 
+      if (data && data.success === false) {
+        // Возвращаем читабельное сообщение пользователю
+        throw new Error(data.message || 'Ошибка при сборе данных из Яндекс.Вордстат');
+      }
+
       setWordstatResult(data);
       toast.success(`Собрано ${data.collected} запросов, создано ${data.clusters_created} кластеров`);
     } catch (error) {

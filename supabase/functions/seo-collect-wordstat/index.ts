@@ -155,10 +155,11 @@ if (collectedKeywords.length === 0 && accessDenied) {
 
   return new Response(JSON.stringify({
     success: false,
-    error: 'YANDEX_DIRECT_ACCESS_REQUIRED',
-    message: 'Яндекс.Директ вернул ошибку доступа (код 58). Необходимо подать заявку на доступ к API в интерфейсе Direct и дождаться подтверждения.',
+    code: 'YANDEX_DIRECT_ACCESS_REQUIRED',
+    message: 'Яндекс.Директ вернул ошибку доступа (код 58). Нужно подать заявку на доступ к API в интерфейсе Direct и дождаться подтверждения.',
+    collected: 0,
   }), {
-    status: 403,
+    status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
