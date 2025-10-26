@@ -12,13 +12,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Локации школ O'KEY ENGLISH
+// Локации школ O'KEY ENGLISH (из branches)
 const SCHOOL_LOCATIONS = [
-  { name: 'Одинцово', region_id: 213 }, // Москва
-  { name: 'Звенигород', region_id: 20729 },
-  { name: 'Наро-Фоминск', region_id: 20730 },
-  { name: 'Кузьминки', region_id: 213 },
-  { name: 'Московская область', region_id: 1 },
+  { name: 'Котельники', region_id: 213 }, // Москва
+  { name: 'Новокосино', region_id: 213 }, // Москва (Реутов)
+  { name: 'Окская', region_id: 213 }, // Москва
+  { name: 'Стахановская', region_id: 213 }, // Москва
+  { name: 'Солнцево', region_id: 213 }, // Москва
+  { name: 'Мытищи', region_id: 1 }, // Московская область
+  { name: 'Люберцы', region_id: 1 }, // Московская область
+  { name: 'Красная горка', region_id: 1 }, // Московская область (Люберцы)
 ];
 
 // Базовые запросы для школы
