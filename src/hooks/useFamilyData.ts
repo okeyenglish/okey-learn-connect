@@ -35,7 +35,7 @@ export interface Student {
   phone?: string;
   age: number;
   dateOfBirth?: string;
-  status: 'active' | 'inactive' | 'trial' | 'graduated';
+  status: 'active' | 'inactive' | 'trial' | 'graduated' | 'not_started' | 'on_pause' | 'archived' | 'expelled';
   courses: {
     id: string;
     name: string;

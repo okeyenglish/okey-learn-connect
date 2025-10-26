@@ -6215,7 +6215,15 @@ export type Database = {
         | "workshop"
         | "intensive"
         | "online"
-      student_status: "active" | "inactive" | "trial" | "graduated"
+      student_status:
+        | "active"
+        | "inactive"
+        | "trial"
+        | "graduated"
+        | "not_started"
+        | "on_pause"
+        | "archived"
+        | "expelled"
       subscription_status: "active" | "paused" | "expired" | "cancelled"
       subscription_type: "per_lesson" | "monthly" | "weekly"
     }
@@ -6415,7 +6423,16 @@ export const Constants = {
         "intensive",
         "online",
       ],
-      student_status: ["active", "inactive", "trial", "graduated"],
+      student_status: [
+        "active",
+        "inactive",
+        "trial",
+        "graduated",
+        "not_started",
+        "on_pause",
+        "archived",
+        "expelled",
+      ],
       subscription_status: ["active", "paused", "expired", "cancelled"],
       subscription_type: ["per_lesson", "monthly", "weekly"],
     },
