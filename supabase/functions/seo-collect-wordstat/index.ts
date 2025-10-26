@@ -51,7 +51,14 @@ serve(async (req) => {
     }
 
     if (!YANDEX_DIRECT_TOKEN) {
-      throw new Error('YANDEX_DIRECT_TOKEN not configured');
+      return new Response(JSON.stringify({
+        success: false,
+        code: 'MISSING_YANDEX_DIRECT_TOKEN',
+        message: 'Не настроен секрет YANDEX_DIRECT_TOKEN. Добавьте токен Яндекс.Директ в Supabase → Settings → Functions Secrets и повторите попытку.'
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -240,9 +247,11 @@ if (collectedKeywords.length === 0 && accessDenied) {
     console.error('[seo-collect-wordstat] Error:', error);
 
     return new Response(JSON.stringify({
-      error: error.message
+      success: false,
+      code: 'UNEXPECTED_ERROR',
+      message: error instanceof Error ? error.message : 'Неизвестная ошибка при сборе Wordstat',
     }), {
-      status: 500,
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

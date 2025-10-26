@@ -104,8 +104,6 @@ const SeoSettings = () => {
         body: { organizationId }
       });
 
-      if (error) throw error;
-
       if (data && data.success === false) {
         // Возвращаем читабельное сообщение пользователю
         throw new Error(data.message || 'Ошибка при сборе данных из Яндекс.Вордстат');
@@ -291,6 +289,12 @@ const SeoSettings = () => {
               <p className="text-sm">
                 Собрано <strong>{wordstatResult.collected}</strong> ключевых слов
               </p>
+            </div>
+          )}
+          {wordstatResult && wordstatResult.success === false && (
+            <div className="p-4 rounded-lg bg-destructive/10 text-destructive">
+              <p className="text-sm font-semibold mb-1">⚠️ Ошибка сбора Wordstat</p>
+              <p className="text-sm">{wordstatResult.message}</p>
             </div>
           )}
         </CardContent>
