@@ -13,13 +13,15 @@ const corsHeaders = {
 
 const ANALYSIS_PROMPT = `Ты - SEO эксперт для языковой школы "O'KEY ENGLISH".
 
-**КРИТИЧЕСКИ ВАЖНО:**
-- Анализируй ТОЛЬКО то, что реально есть на странице
-- НЕ выдумывай проблемы, если их нет
-- Если структура хорошая, так и скажи
-- Если title/description/H1 хорошие, не меняй их кардинально
+Контекст: страница может быть SPA (рендерится на клиенте). IS_SPA={{IS_SPA}}
+Если IS_SPA=true и какие-то элементы (H1, meta description) не извлекаются из сырого HTML,
+не делай вывод, что их "нет". Считай, что они могут быть, но не попали в исходный HTML.
+В этом случае в current_issues не пиши "Отсутствует H1" или "Пустая meta description".
+Лучше дай рекомендацию: "Подключить SSR/пререндер для SEO".
 
-**Фактические данные страницы:**
+Анализируй ТОЛЬКО факты, не придумывай проблемы.
+
+Фактические данные страницы:
 URL: {{URL}}
 
 Title: {{TITLE}}
@@ -30,27 +32,27 @@ H2 теги: {{H2_TAGS}}
 Основной контент (первые 1000 символов):
 {{CONTENT}}
 
-**Релевантные запросы из базы:**
+Релевантные запросы из базы:
 {{KEYWORDS}}
 
-**Задача:**
-1. Проверь, есть ли РЕАЛЬНЫЕ проблемы с SEO (пустой title, отсутствие H1, дублирование)
-2. Оцени, насколько текущий контент соответствует целевым запросам
-3. Дай конкретные рекомендации ТОЛЬКО если есть что улучшить
+Задача:
+1) Проверь, есть ли реальные проблемы (пустой title, отсутствует H1, дублирование) — НО только если IS_SPA=false или данные явно пустые.
+2) Оцени соответствие контента целевым запросам.
+3) Дай конкретные рекомендации только при наличии повода.
 
-**Верни JSON:**
+Верни строго JSON:
 {
   "target_keywords": ["2-3 главных запроса из базы, релевантных странице"],
-  "current_issues": ["ТОЛЬКО реальные проблемы, если есть. Например: 'Title дублирует H1', 'Нет meta description', 'H1 отсутствует'"],
+  "current_issues": ["ТОЛЬКО реальные проблемы; при IS_SPA=true не указывай отсутствие тега, если он не извлекся"],
   "recommendations": {
     "title": "Улучшенный title (только если текущий плохой)",
     "meta_description": "Улучшенное description (только если текущее плохое)",
     "h1": "Улучшенный H1 (только если текущий плохой)",
-    "content_structure": ["Конкретные разделы, которых не хватает"],
-    "internal_links": ["Ссылки на другие страницы сайта, которые стоит добавить"],
-    "additional_sections": ["Конкретные блоки контента, которые улучшат страницу"]
+    "content_structure": ["Отсутствующие разделы"],
+    "internal_links": ["Полезные внутренние ссылки"],
+    "additional_sections": ["Конкретные дополнительные блоки"]
   },
-  "priority": "high - если много критичных проблем | medium - если есть что улучшить | low - если все хорошо"
+  "priority": "high|medium|low"
 }`;
 
 serve(async (req) => {
@@ -79,11 +81,15 @@ serve(async (req) => {
     let h1 = '';
     let h2Tags: string[] = [];
     let mainContent = '';
+    let isSPA = false;
 
     try {
       const pageResponse = await fetch(fullUrl);
       if (pageResponse.ok) {
         pageHtml = await pageResponse.text();
+        
+        // Определяем, является ли страница SPA (контент рендерится клиентом)
+        isSPA = /id=["']root["']/i.test(pageHtml) || /<div[^>]+id=["']root["'][^>]*>/i.test(pageHtml);
         
         // Извлекаем title
         const titleMatch = pageHtml.match(/<title[^>]*>([^<]+)<\/title>/i);
@@ -132,6 +138,7 @@ serve(async (req) => {
     const keywordsList = keywords?.map(k => `${k.query} (${k.freq} показов/мес)`).join('\n') || 'Нет данных';
 
     const prompt = ANALYSIS_PROMPT
+      .replace('{{IS_SPA}}', isSPA ? 'true' : 'false')
       .replace('{{URL}}', url)
       .replace('{{TITLE}}', title)
       .replace('{{META_DESC}}', metaDesc)
@@ -170,7 +177,19 @@ serve(async (req) => {
 
     // Очищаем JSON от markdown обертки
     analysisText = analysisText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const analysis = JSON.parse(analysisText);
+    let analysis = JSON.parse(analysisText);
+
+    // Защита от ложных срабатываний на SPA: не считаем отсутствующими H1/description,
+    // если страница рендерится на клиенте и мы их не извлекли из сырого HTML
+    if (isSPA && Array.isArray(analysis.current_issues)) {
+      analysis.current_issues = analysis.current_issues.filter((issue: string) => {
+        const i = issue.toLowerCase();
+        return !(i.includes('h1') || i.includes('meta description') || i.includes('мета') || i.includes('description'));
+      });
+      if (analysis.current_issues.length === 0) {
+        analysis.priority = (analysis.priority === 'high' || analysis.priority === 'medium') ? 'low' : analysis.priority;
+      }
+    }
 
     console.log('[seo-analyze-page] Analysis complete');
 
