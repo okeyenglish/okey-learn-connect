@@ -4046,7 +4046,7 @@ Deno.serve(async (req) => {
       try {
         const batchMode = body.batch_mode === true;
         const skipParam = body.skip || 0;
-        const take = body.take ? Number(body.take) : (batchMode ? 1 : 10); // Smaller batches to avoid timeouts
+        const take = body.take ? Number(body.take) : 100; // Process 100 units per batch (was 10)
 
         // Fetch educational units from DB (both groups and individual lessons) with external_id
         console.log(`Fetching educational units from DB (skip=${skipParam}, take=${take})...`);
@@ -4294,7 +4294,9 @@ Deno.serve(async (req) => {
         progress[0].status = 'completed';
         progress[0].count = groupLinksCount + individualLinksCount;
         progress[0].message = `Linked ${groupLinksCount} students to groups, ${individualLinksCount} to individual lessons (skipped ${skippedCount}: no students=${skippedReasons.noStudentsInResponse}, student not found=${skippedReasons.studentNotFound}, API errors=${skippedReasons.apiError})`;
-        progress[0].hasMore = batchMode && ((allGroups?.length === take) || (allIndividualLessons?.length === take));
+        // Check if there are more units to process
+        const totalProcessed = (allGroups?.length || 0) + (allIndividualLessons?.length || 0);
+        progress[0].hasMore = totalProcessed >= take; // If we got full batch, likely more to process
         progress[0].nextSkip = skipParam + take;
       } catch (error) {
         console.error('Error importing ed unit students:', error);
