@@ -8,6 +8,9 @@ import { Plus, Sparkles, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getCurrentOrganizationId } from "@/lib/organizationHelpers";
 import { AddClusterDialog } from "./AddClusterDialog";
+import { useWordstatData } from "@/hooks/useWordstatData";
+import { WordstatStats } from "./WordstatStats";
+import { Separator } from "@/components/ui/separator";
 
 const SeoKeywordClusters = () => {
   const { toast } = useToast();
@@ -83,45 +86,66 @@ const SeoKeywordClusters = () => {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {clusters.map((cluster) => (
-            <Card key={cluster.id}>
-              <CardHeader>
-                <CardTitle className="text-lg">{cluster.head_term}</CardTitle>
-                <CardDescription>{cluster.slug}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Статус:</span>
-                  <Badge variant="secondary">
-                    {cluster.status}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Приоритет:</span>
-                  <Badge
-                    variant={
-                      cluster.score && cluster.score > 70
-                        ? "default"
-                        : "secondary"
-                    }
-                  >
-                    {cluster.score ? Math.round(cluster.score) : 0}
-                  </Badge>
-                </div>
-                <Button
-                  className="w-full"
-                  variant="outline"
-                  onClick={() => handleGenerateIdeas(cluster.id)}
-                  disabled={isGenerating === cluster.id}
-                >
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  {isGenerating === cluster.id
-                    ? "Генерация..."
-                    : "Сгенерировать идеи"}
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+          {clusters.map((cluster) => {
+            const ClusterCard = () => {
+              const { data: wordstatData, isLoading: isLoadingWordstat } = useWordstatData(cluster.head_term);
+              
+              return (
+                <Card key={cluster.id}>
+                  <CardHeader>
+                    <CardTitle className="text-lg">{cluster.head_term}</CardTitle>
+                    <CardDescription>{cluster.slug}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Статус:</span>
+                      <Badge variant="secondary">
+                        {cluster.status}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Приоритет:</span>
+                      <Badge
+                        variant={
+                          cluster.score && cluster.score > 70
+                            ? "default"
+                            : "secondary"
+                        }
+                      >
+                        {cluster.score ? Math.round(cluster.score) : 0}
+                      </Badge>
+                    </div>
+                    
+                    <Separator />
+                    
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-2 font-medium">
+                        Статистика Яндекс.Вордстат
+                      </p>
+                      <WordstatStats 
+                        data={wordstatData} 
+                        isLoading={isLoadingWordstat}
+                      />
+                    </div>
+                    
+                    <Button
+                      className="w-full"
+                      variant="outline"
+                      onClick={() => handleGenerateIdeas(cluster.id)}
+                      disabled={isGenerating === cluster.id}
+                    >
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      {isGenerating === cluster.id
+                        ? "Генерация..."
+                        : "Сгенерировать идеи"}
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            };
+            
+            return <ClusterCard key={cluster.id} />;
+          })}
         </div>
       )}
     </div>

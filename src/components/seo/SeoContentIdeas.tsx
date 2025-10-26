@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { FileEdit, FileText, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getCurrentOrganizationId } from "@/lib/organizationHelpers";
+import { useWordstatData } from "@/hooks/useWordstatData";
+import { WordstatStats } from "./WordstatStats";
 
 const SeoContentIdeas = () => {
   const { toast } = useToast();
@@ -118,50 +120,68 @@ const SeoContentIdeas = () => {
         </Card>
       ) : (
         <div className="space-y-3">
-          {ideas.map((idea) => (
-            <Card key={idea.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg">{idea.title}</CardTitle>
-                    <CardDescription className="mt-1">
-                      {idea.h1}
-                    </CardDescription>
-                  </div>
-                  {getStatusBadge(idea.status)}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-2">
-                  {idea.status === "pending" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleCreateBrief(idea.id)}
-                      disabled={isProcessing === idea.id}
-                    >
-                      <FileEdit className="h-4 w-4 mr-2" />
-                      {isProcessing === idea.id
-                        ? "Создание..."
-                        : "Создать бриф"}
-                    </Button>
-                  )}
-                  {idea.status === "brief_ready" && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleGenerateContent(idea.id)}
-                      disabled={isProcessing === idea.id}
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      {isProcessing === idea.id
-                        ? "Генерация..."
-                        : "Сгенерировать статью"}
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {ideas.map((idea) => {
+            const IdeaCard = () => {
+              const mainKeyword = idea.h1 || idea.title;
+              const { data: wordstatData, isLoading: isLoadingWordstat } = useWordstatData(mainKeyword);
+              
+              return (
+                <Card key={idea.id}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <CardTitle className="text-lg">{idea.title}</CardTitle>
+                        <CardDescription className="mt-1">
+                          {idea.h1}
+                        </CardDescription>
+                        {mainKeyword && (
+                          <div className="mt-2">
+                            <WordstatStats 
+                              data={wordstatData} 
+                              isLoading={isLoadingWordstat}
+                              compact
+                            />
+                          </div>
+                        )}
+                      </div>
+                      {getStatusBadge(idea.status)}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex gap-2">
+                      {idea.status === "pending" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleCreateBrief(idea.id)}
+                          disabled={isProcessing === idea.id}
+                        >
+                          <FileEdit className="h-4 w-4 mr-2" />
+                          {isProcessing === idea.id
+                            ? "Создание..."
+                            : "Создать бриф"}
+                        </Button>
+                      )}
+                      {idea.status === "brief_ready" && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleGenerateContent(idea.id)}
+                          disabled={isProcessing === idea.id}
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          {isProcessing === idea.id
+                            ? "Генерация..."
+                            : "Сгенерировать статью"}
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            };
+            
+            return <IdeaCard key={idea.id} />;
+          })}
         </div>
       )}
     </div>
