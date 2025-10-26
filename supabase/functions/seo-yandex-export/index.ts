@@ -17,11 +17,15 @@ serve(async (req) => {
   }
 
   try {
-    const { hostId, organizationId } = await req.json();
+    const { organizationId } = await req.json();
+    
+    // Используем правильный host_id для okeyenglish.ru
+    const hostId = 'https:okeyenglish.ru:443';
+    
     console.log('[seo-yandex-export] Starting export for host:', hostId);
 
-    if (!hostId || !organizationId) {
-      throw new Error('hostId and organizationId are required');
+    if (!organizationId) {
+      throw new Error('organizationId is required');
     }
 
     if (!YANDEX_OAUTH_TOKEN) {
