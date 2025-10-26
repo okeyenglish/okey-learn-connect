@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Lightbulb, TrendingUp, Settings, BarChart } from "lucide-react";
+import { FileText, Lightbulb, TrendingUp, Settings, BarChart, Layout } from "lucide-react";
 import SeoKeywordClusters from "@/components/seo/SeoKeywordClusters";
 import SeoContentIdeas from "@/components/seo/SeoContentIdeas";
 import SeoContentDocs from "@/components/seo/SeoContentDocs";
 import SeoMetrics from "@/components/seo/SeoMetrics";
 import SeoSettings from "@/components/seo/SeoSettings";
+import { SeoPages } from "@/components/seo/SeoPages";
 
 const SeoManager = () => {
-  const [activeTab, setActiveTab] = useState("clusters");
+  const [activeTab, setActiveTab] = useState("pages");
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -22,14 +23,18 @@ const SeoManager = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="pages" className="flex items-center gap-2">
+            <Layout className="h-4 w-4" />
+            Страницы
+          </TabsTrigger>
           <TabsTrigger value="clusters" className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4" />
-            Кластеры запросов
+            Кластеры
           </TabsTrigger>
           <TabsTrigger value="ideas" className="flex items-center gap-2">
             <Lightbulb className="h-4 w-4" />
-            Идеи контента
+            Идеи
           </TabsTrigger>
           <TabsTrigger value="content" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
@@ -44,6 +49,10 @@ const SeoManager = () => {
             Настройки
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="pages" className="mt-6">
+          <SeoPages />
+        </TabsContent>
 
         <TabsContent value="clusters" className="mt-6">
           <SeoKeywordClusters />

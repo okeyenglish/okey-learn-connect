@@ -3989,6 +3989,36 @@ export type Database = {
           },
         ]
       }
+      seo_pages: {
+        Row: {
+          analysis: Json | null
+          created_at: string
+          id: string
+          last_analyzed_at: string | null
+          organization_id: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          analysis?: Json | null
+          created_at?: string
+          id?: string
+          last_analyzed_at?: string | null
+          organization_id: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          analysis?: Json | null
+          created_at?: string
+          id?: string
+          last_analyzed_at?: string | null
+          organization_id?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       student_attendance: {
         Row: {
           created_at: string | null
