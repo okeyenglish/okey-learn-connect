@@ -4,6 +4,9 @@ Allow: /
 User-agent: Bingbot
 Allow: /
 
+User-agent: Yandex
+Allow: /
+
 User-agent: Twitterbot
 Allow: /
 
@@ -13,4 +16,5 @@ Allow: /
 User-agent: *
 Allow: /
 
+Sitemap: https://kbojujfwtvmsgudumown.supabase.co/functions/v1/sitemap
 Sitemap: https://okeyenglish.ru/sitemap.xml

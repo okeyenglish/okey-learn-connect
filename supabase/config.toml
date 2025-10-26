@@ -122,3 +122,6 @@ verify_jwt = true
 
 [functions.seo-check-tokens]
 verify_jwt = true
+
+[functions.sitemap]
+verify_jwt = false
