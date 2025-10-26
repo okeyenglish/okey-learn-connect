@@ -2,7 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
 
-const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -94,35 +94,34 @@ serve(async (req) => {
       .replace('{{AVG_FREQ}}', Math.round(avgFreq).toString())
       .replace('{{COMPETITION}}', cluster.competition_level || 'unknown');
 
-    console.log('[seo-suggest-ideas] Calling OpenAI...');
+    console.log('[seo-suggest-ideas] Calling Lovable AI...');
 
-    // Вызываем OpenAI API
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Вызываем Lovable AI Gateway (openai/gpt-5-nano - самая дешевая модель)
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'openai/gpt-5-nano',
         messages: [
           { role: 'system', content: 'Ты эксперт по SEO-контенту для языковых школ.' },
           { role: 'user', content: prompt }
         ],
-        temperature: 0.7,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[seo-suggest-ideas] OpenAI API error:', errorText);
-      throw new Error(`OpenAI API error: ${response.status}`);
+      console.error('[seo-suggest-ideas] Lovable AI error:', errorText);
+      throw new Error(`Lovable AI error: ${response.status}`);
     }
 
     const data = await response.json();
     const generatedText = data.choices[0].message.content;
     
-    console.log('[seo-suggest-ideas] OpenAI response received');
+    console.log('[seo-suggest-ideas] Lovable AI response received');
 
     // Парсим JSON из ответа
     let ideas;
