@@ -183,14 +183,16 @@ Deno.serve(async (req) => {
       salebotClients = clientsData.clients || [];
 
       if (salebotClients.length === 0) {
-        console.log(`Все клиенты из списка ${listId} обработаны!`);
-        await supabase.rpc('increment_import_progress', {
-          p_progress_id: progressId,
-          p_clients_count: 0,
-          p_messages_count: 0,
-          p_imported_count: 0,
-          p_new_offset: currentOffset
-        });
+        const nowIso = new Date().toISOString();
+        await supabase
+          .from('salebot_import_progress')
+          .update({
+            current_offset: currentOffset,
+            last_run_at: nowIso,
+            updated_at: nowIso,
+            is_running: false
+          })
+          .eq('id', progressId);
 
         return new Response(
           JSON.stringify({
@@ -394,41 +396,30 @@ Deno.serve(async (req) => {
           // Промежуточный коммит каждые 5 клиентов
           if (totalClients % 5 === 0) {
             console.log(`💾 Промежуточный коммит (${totalClients} клиентов)...`);
-            const { error: commitError } = await supabase.rpc('increment_import_progress', {
-              p_progress_id: progressId,
-              p_clients_count: totalClients,
-              p_messages_count: totalProcessedMessages,
-              p_imported_count: totalImported,
-              p_new_offset: currentOffset + totalClients
-            });
-            if (commitError) {
-              console.error('❌ Ошибка промежуточного коммита:', commitError);
-            } else {
-              // Обновляем явным образом абсолютные значения и heartbeat, чтобы UI видел свежие данные
-              const nowIso = new Date().toISOString();
-              const { error: updErr } = await supabase
-                .from('salebot_import_progress')
-                .update({
-                  total_clients_processed: baseClients + totalClients,
-                  total_messages_imported: baseMsgs + totalProcessedMessages,
-                  total_imported: baseImported + totalImported,
-                  current_offset: currentOffset + totalClients,
-                  last_run_at: nowIso,
-                  updated_at: nowIso,
-                  is_running: true,
-                })
-                .eq('id', progressId);
-              if (updErr) {
-                console.error('❌ Ошибка обновления прогресса:', updErr);
-              }
-
-              const { data: check } = await supabase
-                .from('salebot_import_progress')
-                .select('current_offset, total_clients_processed, total_messages_imported, updated_at')
-                .eq('id', progressId)
-                .single();
-              console.log(`✅ Коммит выполнен: offset ${currentOffset + totalClients}; в БД offset=${check?.current_offset}, clients=${check?.total_clients_processed}, msgs=${check?.total_messages_imported}`);
+            // Обновляем явным образом абсолютные значения и heartbeat, чтобы UI видел свежие данные
+            const nowIso = new Date().toISOString();
+            const { error: updErr } = await supabase
+              .from('salebot_import_progress')
+              .update({
+                total_clients_processed: baseClients + totalClients,
+                total_messages_imported: baseMsgs + totalProcessedMessages,
+                total_imported: baseImported + totalImported,
+                current_offset: currentOffset + totalClients,
+                last_run_at: nowIso,
+                updated_at: nowIso,
+                is_running: true,
+              })
+              .eq('id', progressId);
+            if (updErr) {
+              console.error('❌ Ошибка обновления прогресса:', updErr);
             }
+
+            const { data: check } = await supabase
+              .from('salebot_import_progress')
+              .select('current_offset, total_clients_processed, total_messages_imported, updated_at')
+              .eq('id', progressId)
+              .single();
+            console.log(`✅ Коммит выполнен: offset ${currentOffset + totalClients}; в БД offset=${check?.current_offset}, clients=${check?.total_clients_processed}, msgs=${check?.total_messages_imported}`);
           }
 
         } catch (error: any) {
@@ -598,14 +589,6 @@ Deno.serve(async (req) => {
 
     // Финальный коммит батча
     const nextOffset = currentOffset + totalClients;
-    await supabase.rpc('increment_import_progress', {
-      p_progress_id: progressId,
-      p_clients_count: totalClients,
-      p_messages_count: totalProcessedMessages,
-      p_imported_count: totalImported,
-      p_new_offset: nextOffset,
-      p_errors: errors.length > 0 ? errors.slice(-100) : null
-    });
 
     // Явно фиксируем абсолютные значения и heartbeat
     const nowIso = new Date().toISOString();
@@ -618,7 +601,7 @@ Deno.serve(async (req) => {
         current_offset: nextOffset,
         last_run_at: nowIso,
         updated_at: nowIso,
-        is_running: true,
+        is_running: false,
       })
       .eq('id', progressId);
     if (finalUpdErr) console.error('❌ Ошибка финального обновления прогресса:', finalUpdErr);
