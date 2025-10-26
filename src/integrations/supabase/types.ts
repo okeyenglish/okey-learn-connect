@@ -3772,6 +3772,7 @@ export type Database = {
           organization_id: string | null
           scheduled_at: string
           status: string | null
+          submitted_at: string | null
         }
         Insert: {
           attempts?: number | null
@@ -3782,6 +3783,7 @@ export type Database = {
           organization_id?: string | null
           scheduled_at: string
           status?: string | null
+          submitted_at?: string | null
         }
         Update: {
           attempts?: number | null
@@ -3792,6 +3794,7 @@ export type Database = {
           organization_id?: string | null
           scheduled_at?: string
           status?: string | null
+          submitted_at?: string | null
         }
         Relationships: [
           {
