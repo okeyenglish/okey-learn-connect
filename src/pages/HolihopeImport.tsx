@@ -171,6 +171,7 @@ export default function HolihopeImport() {
           body,
           headers: {
             'Content-Type': 'application/json',
+            'x-action': body.action,
           },
         });
         
