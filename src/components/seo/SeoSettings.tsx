@@ -22,6 +22,10 @@ const SeoSettings = () => {
   
   const [isCheckingTokens, setIsCheckingTokens] = useState(false);
   const [tokensCheck, setTokensCheck] = useState<any>(null);
+  
+  const [isEnrichingClusters, setIsEnrichingClusters] = useState(false);
+  const [enrichResult, setEnrichResult] = useState<any>(null);
+  const [wordstatResult, setWordstatResult] = useState<any>(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -91,6 +95,7 @@ const SeoSettings = () => {
     }
 
     setIsCollecting(true);
+    setWordstatResult(null);
 
     try {
       const { data, error } = await supabase.functions.invoke('seo-collect-wordstat', {
@@ -99,12 +104,39 @@ const SeoSettings = () => {
 
       if (error) throw error;
 
+      setWordstatResult(data);
       toast.success(`Собрано ${data.collected} запросов, создано ${data.clusters_created} кластеров`);
     } catch (error) {
       console.error("Wordstat collection error:", error);
       toast.error("Ошибка при сборе данных из Яндекс.Вордстат");
     } finally {
       setIsCollecting(false);
+    }
+  };
+
+  const handleEnrichClusters = async () => {
+    if (!organizationId) {
+      toast.error("Не найдена организация");
+      return;
+    }
+
+    setIsEnrichingClusters(true);
+    setEnrichResult(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('seo-enrich-clusters', {
+        body: { organizationId }
+      });
+
+      if (error) throw error;
+
+      setEnrichResult(data);
+      toast.success(`Обогащено ${data.enriched} кластеров из ${data.total}`);
+    } catch (error) {
+      console.error("Cluster enrichment error:", error);
+      toast.error("Ошибка при обогащении кластеров");
+    } finally {
+      setIsEnrichingClusters(false);
     }
   };
 
@@ -203,13 +235,45 @@ const SeoSettings = () => {
         </div>
         <div className="flex gap-2">
           <Button onClick={handleCollectWordstat} disabled={isCollecting} variant="outline">
-            {isCollecting ? "Сбор данных..." : "Собрать Яндекс.Вордстат"}
+            {isCollecting ? "Сбор данных..." : "Собрать базовую статистику"}
+          </Button>
+          <Button onClick={handleEnrichClusters} disabled={isEnrichingClusters} variant="outline">
+            {isEnrichingClusters ? "Обогащение..." : "Обновить кластеры"}
           </Button>
           <Button onClick={handleImportGSC} disabled={isImportingGSC}>
-            {isImportingGSC ? "Импорт..." : "Импорт Google Search Console"}
+            {isImportingGSC ? "Импорт..." : "Импорт GSC"}
           </Button>
         </div>
       </div>
+
+      {/* Wordstat Results */}
+      {(wordstatResult || enrichResult) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Результаты сбора статистики</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {wordstatResult && (
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="text-sm font-semibold mb-2">Базовая статистика Яндекс.Вордстат</p>
+                <p className="text-sm">
+                  Собрано <strong>{wordstatResult.collected}</strong> ключевых слов,
+                  создано <strong>{wordstatResult.clusters_created}</strong> кластеров
+                </p>
+              </div>
+            )}
+            {enrichResult && (
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="text-sm font-semibold mb-2">Обогащение кластеров</p>
+                <p className="text-sm">
+                  Обогащено <strong>{enrichResult.enriched}</strong> из <strong>{enrichResult.total}</strong> кластеров
+                  {enrichResult.errors > 0 && <span className="text-destructive"> ({enrichResult.errors} ошибок)</span>}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Google Search Console Import */}
       <Card>

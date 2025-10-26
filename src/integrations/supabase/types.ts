@@ -2231,36 +2231,48 @@ export type Database = {
           difficulty: number | null
           id: string
           intent: string | null
+          last_updated: string | null
           monthly_searches: number | null
           organization_id: string | null
           phrase: string
           region: string | null
+          related_keywords: Json | null
+          source: string | null
           trend: number | null
           updated_at: string | null
+          wordstat_competition: string | null
         }
         Insert: {
           created_at?: string | null
           difficulty?: number | null
           id?: string
           intent?: string | null
+          last_updated?: string | null
           monthly_searches?: number | null
           organization_id?: string | null
           phrase: string
           region?: string | null
+          related_keywords?: Json | null
+          source?: string | null
           trend?: number | null
           updated_at?: string | null
+          wordstat_competition?: string | null
         }
         Update: {
           created_at?: string | null
           difficulty?: number | null
           id?: string
           intent?: string | null
+          last_updated?: string | null
           monthly_searches?: number | null
           organization_id?: string | null
           phrase?: string
           region?: string | null
+          related_keywords?: Json | null
+          source?: string | null
           trend?: number | null
           updated_at?: string | null
+          wordstat_competition?: string | null
         }
         Relationships: [
           {

@@ -2,8 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
 
-const YANDEX_WORDSTAT_TOKEN = Deno.env.get('YANDEX_WORDSTAT_TOKEN');
-const YANDEX_OAUTH_TOKEN = Deno.env.get('YANDEX_OAUTH_TOKEN');
+const YANDEX_DIRECT_TOKEN = Deno.env.get('YANDEX_DIRECT_TOKEN');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -51,8 +50,8 @@ serve(async (req) => {
       throw new Error('organizationId is required');
     }
 
-    if (!YANDEX_WORDSTAT_TOKEN && !YANDEX_OAUTH_TOKEN) {
-      throw new Error('YANDEX_WORDSTAT_TOKEN or YANDEX_OAUTH_TOKEN not configured');
+    if (!YANDEX_DIRECT_TOKEN) {
+      throw new Error('YANDEX_DIRECT_TOKEN not configured');
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -67,19 +66,22 @@ serve(async (req) => {
           // Формируем полный запрос с локацией
           const fullQuery = `${baseQuery} ${location.name}`;
 
-          // Вызываем Yandex.Wordstat API v5
-          const wordstatResponse = await fetch('https://api-sandbox.direct.yandex.ru/v5/wordstat', {
+          // Вызываем Yandex.Direct Wordstat API (новый метод)
+          const wordstatResponse = await fetch('https://api.direct.yandex.com/json/v5/keywordsresearch', {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${YANDEX_OAUTH_TOKEN || YANDEX_WORDSTAT_TOKEN}`,
+              'Authorization': `Bearer ${YANDEX_DIRECT_TOKEN}`,
               'Content-Type': 'application/json',
+              'Accept-Language': 'ru',
             },
             body: JSON.stringify({
               method: 'get',
               params: {
-                Phrases: [fullQuery],
-                GeoID: [location.region_id],
-                IncludeLemmas: true,
+                SelectionCriteria: {
+                  Keywords: [fullQuery],
+                  GeoIds: [location.region_id],
+                },
+                ResultType: 'VOLUME_AND_POSITION',
               }
             }),
           });
@@ -87,25 +89,29 @@ serve(async (req) => {
           if (!wordstatResponse.ok) {
             const errorText = await wordstatResponse.text();
             console.error('[seo-collect-wordstat] Wordstat API error:', errorText);
-            continue; // Пропускаем эту локацию и переходим к следующей
+            continue;
           }
 
           const wordstatData = await wordstatResponse.json();
           
-          // Парсим результаты
-          if (wordstatData.result?.data) {
-            for (const item of wordstatData.result.data) {
-              const phrase = item.Phrase;
-              const shows = item.Shows || 0;
+          // Парсим результаты (новый формат API)
+          if (wordstatData.result?.SearchVolume) {
+            for (const item of wordstatData.result.SearchVolume) {
+              const keyword = item.Keyword;
+              const searchVolume = item.SearchVolume || 0;
+              const competition = item.Competition || 'UNKNOWN';
 
-              if (shows > 10) { // Собираем только запросы с частотой > 10
+              if (searchVolume > 10) {
                 collectedKeywords.push({
-                  phrase: phrase,
+                  phrase: keyword,
                   region: location.name,
-                  monthly_searches: shows,
-                  difficulty: 50,
+                  monthly_searches: searchVolume,
+                  wordstat_competition: competition,
+                  difficulty: competition === 'HIGH' ? 80 : competition === 'MEDIUM' ? 50 : 30,
                   intent: 'informational',
                   organization_id: organizationId,
+                  source: 'wordstat_auto',
+                  last_updated: new Date().toISOString(),
                 });
               }
             }
