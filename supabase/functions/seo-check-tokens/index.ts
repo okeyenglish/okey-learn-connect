@@ -85,7 +85,23 @@ serve(async (req) => {
             indexing: hostData.indexing_available
           };
         } else {
-          results.webmaster_host_id.error = `HTTP ${hostResponse.status}: ${await hostResponse.text()}`;
+          const errorText = await hostResponse.text();
+          
+          // Проверяем, является ли это ошибкой HOST_NOT_LOADED
+          try {
+            const errorData = JSON.parse(errorText);
+            if (errorData.error_code === 'HOST_NOT_LOADED') {
+              results.webmaster_host_id.error = 'PENDING_LOAD';
+              results.webmaster_host_id.data = {
+                status: 'pending',
+                message: 'Хост добавлен в Вебмастер, но ещё не загружен. Обычно это занимает 1-7 дней.'
+              };
+            } else {
+              results.webmaster_host_id.error = `HTTP ${hostResponse.status}: ${errorText}`;
+            }
+          } catch {
+            results.webmaster_host_id.error = `HTTP ${hostResponse.status}: ${errorText}`;
+          }
         }
       } catch (error) {
         results.webmaster_host_id.error = error.message;
@@ -153,14 +169,22 @@ serve(async (req) => {
 
     // Общая валидация
     const allValid = Object.values(results).every(r => r.exists && r.valid);
+    
+    // Функция для определения статуса
+    const getStatus = (result: any) => {
+      if (result.valid) return '✅ Работает';
+      if (result.error === 'PENDING_LOAD') return '⏳ Ожидает загрузки';
+      return '❌ Ошибка';
+    };
+    
     const summary = {
       all_tokens_valid: allValid,
       tokens_status: {
-        oauth_token: results.oauth_token.valid ? '✅ Работает' : '❌ Ошибка',
-        metrika_counter: results.metrika_counter_id.valid ? '✅ Работает' : '❌ Ошибка',
-        webmaster_host: results.webmaster_host_id.valid ? '✅ Работает' : '❌ Ошибка',
-        webmaster_user: results.webmaster_user_id.valid ? '✅ Работает' : '❌ Ошибка',
-        direct_token: results.direct_token.valid ? '✅ Работает' : '❌ Ошибка'
+        oauth_token: getStatus(results.oauth_token),
+        metrika_counter: getStatus(results.metrika_counter_id),
+        webmaster_host: getStatus(results.webmaster_host_id),
+        webmaster_user: getStatus(results.webmaster_user_id),
+        direct_token: getStatus(results.direct_token)
       }
     };
 

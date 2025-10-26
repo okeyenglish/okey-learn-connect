@@ -408,7 +408,10 @@ const SeoSettings = () => {
                     <div className="text-xs space-y-1">
                       {!value.exists && <div className="text-red-600">❌ Токен не настроен</div>}
                       {value.exists && value.valid && <div className="text-green-600">✅ Работает корректно</div>}
-                      {value.exists && !value.valid && (
+                      {value.exists && !value.valid && value.error === 'PENDING_LOAD' && (
+                        <div className="text-yellow-600">⏳ Ожидает загрузки в Яндекс.Вебмастер (1-7 дней)</div>
+                      )}
+                      {value.exists && !value.valid && value.error !== 'PENDING_LOAD' && (
                         <div className="text-red-600">❌ Ошибка: {value.error}</div>
                       )}
                       {value.value && <code className="block mt-1 p-1 bg-background rounded text-xs">{value.value}</code>}
