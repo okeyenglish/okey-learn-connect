@@ -88,7 +88,17 @@ Deno.serve(async (req) => {
     }
 
     const progressId = lock.progress_id;
-    const currentOffset = lock.current_offset;
+    const currentOffset = lock.current_offset || 0;
+    
+    console.log('Результат блокировки:', JSON.stringify(lock));
+    
+    if (!progressId) {
+      console.error('progress_id не найден в результате блокировки');
+      return new Response(
+        JSON.stringify({ error: 'Не удалось получить progress_id из блокировки' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
     // Получаем информацию о list_id
     const { data: progressData } = await supabase
