@@ -108,7 +108,8 @@ import {
   Palette,
   CreditCard,
   MapPin,
-  Bot
+  Bot,
+  HardDrive
 } from "lucide-react";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
@@ -130,6 +131,7 @@ const ScheduleSection = lazy(() => import("@/components/crm/sections/ScheduleSec
 const DocumentsSection = lazy(() => import("@/components/documents/DocumentsSection").then(m => ({ default: m.DocumentsSection })));
 const AnalyticsSection = lazy(() => import("@/components/analytics/AnalyticsSection").then(m => ({ default: m.AnalyticsSection })));
 const CommunicationsSection = lazy(() => import("@/components/communications/CommunicationsSection").then(m => ({ default: m.CommunicationsSection })));
+const Sheets = lazy(() => import("./Sheets"));
 
 import { OrganizationSettings } from "@/components/settings/OrganizationSettings";
 import { BranchesSettings } from "@/components/settings/BranchesSettings";
@@ -1257,6 +1259,7 @@ const CRMContent = () => {
     // Убираем "Расписание" из меню, так как оно есть в нижней навигации на мобильной версии
     ...(!isMobile ? [{ icon: Calendar, label: "Расписание" }] : []),
     { icon: FolderOpen, label: "Документы" },
+    { icon: HardDrive, label: "Диск" },
     { icon: DollarSign, label: "Финансы" },
     { icon: BarChart3, label: "Отчёты" },
     { icon: MessageCircle, label: "Уведомления" },
@@ -1491,6 +1494,11 @@ const CRMContent = () => {
                           {openModal === item.label && item.label === "Документы" && (
                             <div className="h-full">
                               <DocumentsSection />
+                            </div>
+                          )}
+                          {openModal === item.label && item.label === "Диск" && (
+                            <div className="h-full">
+                              <Sheets />
                             </div>
                           )}
                         {openModal === item.label && item.label === "Мои задачи" && (
