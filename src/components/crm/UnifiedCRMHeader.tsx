@@ -25,7 +25,8 @@ import {
   Target,
   DollarSign,
   UserCheck,
-  Briefcase
+  Briefcase,
+  HardDrive
 } from 'lucide-react';
 
 export const UnifiedCRMHeader = () => {
@@ -152,6 +153,12 @@ export const UnifiedCRMHeader = () => {
           href: '/crm/references',
           icon: Settings,
           roles: ['admin', 'methodist']
+        },
+        {
+          label: 'Диск',
+          href: '/crm/sheets',
+          icon: HardDrive,
+          roles: ['admin', 'manager', 'methodist']
         }
       );
     }

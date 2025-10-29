@@ -5717,6 +5717,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      add_sheet_row: { Args: { p_table_name: string }; Returns: Json }
       calculate_cluster_score: {
         Args: {
           p_business_value?: number
@@ -5829,6 +5830,10 @@ export type Database = {
           p_participant_user_ids?: string[]
         }
         Returns: string
+      }
+      delete_sheet_rows: {
+        Args: { p_row_ids: string[]; p_table_name: string }
+        Returns: undefined
       }
       find_available_teachers: {
         Args: {
@@ -5983,6 +5988,9 @@ export type Database = {
           conflicting_time_range: string
         }[]
       }
+      get_sheet_columns: { Args: { p_sheet_id: string }; Returns: Json }
+      get_sheet_data: { Args: { p_table_name: string }; Returns: Json }
+      get_sheets: { Args: never; Returns: Json }
       get_student_balance: {
         Args: { _student_id: string }
         Returns: {
@@ -6063,6 +6071,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      import_sheet_rows: {
+        Args: { p_rows: Json; p_table_name: string }
+        Returns: Json
+      }
       increment_import_progress: {
         Args: {
           p_clients_count: number
@@ -6134,6 +6146,15 @@ export type Database = {
       unfreeze_subscription: {
         Args: { _subscription_id: string }
         Returns: boolean
+      }
+      update_sheet_cell: {
+        Args: {
+          p_column: string
+          p_row_id: string
+          p_table_name: string
+          p_value: string
+        }
+        Returns: undefined
       }
       user_has_permission:
         | {

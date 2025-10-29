@@ -21,6 +21,7 @@ const FinancesSection = lazy(() => import('@/components/finances/NewFinancesSect
 const StudentsSection = lazy(() => import('@/components/students/StudentsSection'));
 const SubscriptionsSection = lazy(() => import('@/components/subscriptions/SubscriptionsSection'));
 const EmployeesSection = lazy(() => import('@/components/employees/EmployeesSection'));
+const Sheets = lazy(() => import('./Sheets'));
 
 const LoadingComponent = () => (
   <div className="flex items-center justify-center min-h-[400px]">
@@ -224,6 +225,18 @@ export default function UnifiedCRM() {
                 <ProtectedRoute allowedRoles={['admin', 'manager', 'accountant']}>
                   <Suspense fallback={<LoadingComponent />}>
                     <SubscriptionsSection />
+                  </Suspense>
+                </ProtectedRoute>
+              } 
+            />
+
+            {/* Диск (Sheets) */}
+            <Route 
+              path="/sheets" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'methodist']}>
+                  <Suspense fallback={<LoadingComponent />}>
+                    <Sheets />
                   </Suspense>
                 </ProtectedRoute>
               } 
