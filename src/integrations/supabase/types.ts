@@ -5519,6 +5519,7 @@ export type Database = {
           passport_number: string | null
           passport_series: string | null
           phone: string | null
+          profile_id: string | null
           registration_address: string | null
           residential_address: string | null
           snils: string | null
@@ -5544,6 +5545,7 @@ export type Database = {
           passport_number?: string | null
           passport_series?: string | null
           phone?: string | null
+          profile_id?: string | null
           registration_address?: string | null
           residential_address?: string | null
           snils?: string | null
@@ -5569,6 +5571,7 @@ export type Database = {
           passport_number?: string | null
           passport_series?: string | null
           phone?: string | null
+          profile_id?: string | null
           registration_address?: string | null
           residential_address?: string | null
           snils?: string | null

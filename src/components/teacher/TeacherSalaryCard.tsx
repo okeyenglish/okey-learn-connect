@@ -9,7 +9,9 @@ interface TeacherSalaryCardProps {
 }
 
 export const TeacherSalaryCard = ({ teacher }: TeacherSalaryCardProps) => {
-  const { data: rates, isLoading } = useTeacherRates(teacher.id);
+  // Используем profile_id для получения ставок (teacher_rates.teacher_id ссылается на auth.users)
+  const teacherId = (teacher as any).profile_id || teacher.id;
+  const { data: rates, isLoading } = useTeacherRates(teacherId);
 
   if (isLoading) {
     return (
@@ -67,8 +69,10 @@ export const TeacherSalaryCard = ({ teacher }: TeacherSalaryCardProps) => {
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Badge variant={rate.rate_type === 'group' ? 'default' : 'secondary'}>
-                    {rate.rate_type === 'group' ? 'Групповые' : 'Индивидуальные'}
+                  <Badge variant={rate.rate_type === 'personal' ? 'secondary' : 'default'}>
+                    {rate.rate_type === 'personal' ? 'Индивидуальные' : 
+                     rate.rate_type === 'branch' ? 'Групповые' : 
+                     rate.rate_type === 'subject' ? 'По предмету' : 'Общая'}
                   </Badge>
                   {rate.is_active && (
                     <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
