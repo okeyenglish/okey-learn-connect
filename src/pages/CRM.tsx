@@ -139,15 +139,133 @@ import { BrandingSettings } from "@/components/settings/BrandingSettings";
 import { SubscriptionSettings } from "@/components/settings/SubscriptionSettings";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
+import { useCRMModals, useCRMState, useCRMTasks, useCRMSearch } from "@/pages/crm/hooks";
 
 const CRMContent = () => {
   const { user, profile, role, roles, signOut } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
-  // Состояния
-  const [openModal, setOpenModal] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string>("chats");
+  // Custom hooks for state management
+  const modals = useCRMModals();
+  const crmState = useCRMState();
+  const tasks = useCRMTasks();
+  const search = useCRMSearch();
+  
+  // Destructure all states for use in component
+  const {
+    openModal,
+    setOpenModal,
+    showAddTaskModal,
+    setShowAddTaskModal,
+    showEditTaskModal,
+    setShowEditTaskModal,
+    editTaskId,
+    setEditTaskId,
+    showInvoiceModal,
+    setShowInvoiceModal,
+    showGroupsModal,
+    setShowGroupsModal,
+    showIndividualLessonsModal,
+    setShowIndividualLessonsModal,
+    showEducationSubmenu,
+    setShowEducationSubmenu,
+    showNewChatModal,
+    setShowNewChatModal,
+    showScriptsModal,
+    setShowScriptsModal,
+    showDashboardModal,
+    setShowDashboardModal,
+    showScheduleModal,
+    setShowScheduleModal,
+    showAddClientModal,
+    setShowAddClientModal,
+    showAddTeacherModal,
+    setShowAddTeacherModal,
+    showAddStudentModal,
+    setShowAddStudentModal,
+    isManualModalOpen,
+    setIsManualModalOpen,
+  } = modals;
+
+  const {
+    activeTab,
+    setActiveTab,
+    activePhoneId,
+    setActivePhoneId,
+    activeChatId,
+    setActiveChatId,
+    activeChatType,
+    setActiveChatType,
+    selectedTeacherId,
+    setSelectedTeacherId,
+    isPinnedSectionOpen,
+    setIsPinnedSectionOpen,
+    showOnlyUnread,
+    setShowOnlyUnread,
+    activeClientInfo,
+    setActiveClientInfo,
+    activeClientName,
+    setActiveClientName,
+    pinnedTaskClientId,
+    setPinnedTaskClientId,
+    pinnedInvoiceClientId,
+    setPinnedInvoiceClientId,
+    adminActiveSection,
+    setAdminActiveSection,
+    leftSidebarOpen,
+    setLeftSidebarOpen,
+    rightSidebarOpen,
+    setRightSidebarOpen,
+    rightPanelCollapsed,
+    setRightPanelCollapsed,
+    voiceAssistantOpen,
+    setVoiceAssistantOpen,
+  } = crmState;
+
+  const {
+    draggedTask,
+    setDraggedTask,
+    dragOverColumn,
+    setDragOverColumn,
+    personalTasksTab,
+    setPersonalTasksTab,
+    clientTasksTab,
+    setClientTasksTab,
+    showClientTasks,
+    setShowClientTasks,
+    showPersonalTasks,
+    setShowPersonalTasks,
+    allTasksModal,
+    setAllTasksModal,
+    editingTaskId,
+    setEditingTaskId,
+    tasksView,
+    setTasksView,
+  } = tasks;
+
+  const {
+    hasUnsavedChat,
+    setHasUnsavedChat,
+    searchQuery,
+    setSearchQuery,
+    chatSearchQuery,
+    setChatSearchQuery,
+    showSearchResults,
+    setShowSearchResults,
+    globalSearchResults,
+    setGlobalSearchResults,
+    showFilters,
+    setShowFilters,
+    selectedBranch,
+    setSelectedBranch,
+    selectedClientType,
+    setSelectedClientType,
+    bulkSelectMode,
+    setBulkSelectMode,
+    selectedChatIds,
+    setSelectedChatIds,
+  } = search;
   
   // Критичные данные - загружаем сразу
   const { clients, isLoading: clientsLoading } = useClients();
@@ -155,8 +273,8 @@ const CRMContent = () => {
   const { corporateChats, teacherChats, isLoading: systemChatsLoading } = useSystemChatMessages();
   
   // Данные для модальных окон - загружаем только при открытии
-  const studentsEnabled = openModal === "Ученики" || openModal === "Лиды";
-  const tasksEnabled = openModal === "Мои задачи";
+  const studentsEnabled = modals.openModal === "Ученики" || modals.openModal === "Лиды";
+  const tasksEnabled = modals.openModal === "Мои задачи";
   
   const { students, isLoading: studentsLoading } = useStudentsLazy(studentsEnabled);
   const { count: totalStudentsCount } = useStudentsCount();
@@ -207,97 +325,7 @@ const CRMContent = () => {
   const cancelTask = useCancelTask();
   const updateTask = useUpdateTask();
   const { organization } = useOrganization();
-  
-  // Drag and drop state
-  const [draggedTask, setDraggedTask] = useState<string | null>(null);
-  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
-  
-  // Personal tasks tab state
-  const [personalTasksTab, setPersonalTasksTab] = useState<"active" | "overdue">("active");
-  
-  // Client tasks tab state
-  const [clientTasksTab, setClientTasksTab] = useState<"active" | "overdue">("active");
-  
-  // Tasks visibility state
-  const [showClientTasks, setShowClientTasks] = useState(true);
-  const [showPersonalTasks, setShowPersonalTasks] = useState(true);
-  
-  // Tasks modal state
-  const [allTasksModal, setAllTasksModal] = useState<{
-    open: boolean;
-    type: 'today' | 'tomorrow';
-    title: string;
-    tasks: any[];
-  }>({
-    open: false,
-    type: 'today',
-    title: '',
-    tasks: []
-  });
-
-  // Task editing state
-  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
-  
-  // Local view state for tasks section
-  const [tasksView, setTasksView] = useState<"list" | "calendar">("list");
-  const [hasUnsavedChat, setHasUnsavedChat] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [chatSearchQuery, setChatSearchQuery] = useState("");
-  const [showSearchResults, setShowSearchResults] = useState(false);
-  const [globalSearchResults, setGlobalSearchResults] = useState<any[]>([]);
-  
-  // Filter states
-  const [showFilters, setShowFilters] = useState(false);
-  const [selectedBranch, setSelectedBranch] = useState<string>("all");
-  const [selectedClientType, setSelectedClientType] = useState<string>("all");
-  
-  // Bulk actions states
-  const [bulkSelectMode, setBulkSelectMode] = useState(false);
-  const [selectedChatIds, setSelectedChatIds] = useState<Set<string>>(new Set());
-  
-  // Состояния для модальных окон, открываемых голосовым ассистентом
-  const [showAddClientModal, setShowAddClientModal] = useState(false);
-  const [showAddTeacherModal, setShowAddTeacherModal] = useState(false);
-  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
-  // Добавим несколько чатов в закрепленные для демонстрации
-  const [activePhoneId, setActivePhoneId] = useState<string>('1');
-  const [activeChatId, setActiveChatId] = useState<string | null>(null);
-  const [activeChatType, setActiveChatType] = useState<'client' | 'corporate' | 'teachers'>('client');
-  const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
-  const [isPinnedSectionOpen, setIsPinnedSectionOpen] = useState(false);
-  const [showOnlyUnread, setShowOnlyUnread] = useState(false);
-  const [activeClientInfo, setActiveClientInfo] = useState<{ name: string; phone: string; comment: string } | null>(null);
-  
-  // Состояния для модальных окон
-  const [showAddTaskModal, setShowAddTaskModal] = useState(false);
-  const [showEditTaskModal, setShowEditTaskModal] = useState(false);
-  const [editTaskId, setEditTaskId] = useState<string>('');
-  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
-  const [activeClientName, setActiveClientName] = useState('');
-  const [showGroupsModal, setShowGroupsModal] = useState(false);
-  const [showIndividualLessonsModal, setShowIndividualLessonsModal] = useState(false);
-  const [showEducationSubmenu, setShowEducationSubmenu] = useState(false);
-  
-  // Состояния для закрепленных модальных окон
-  const [pinnedTaskClientId, setPinnedTaskClientId] = useState<string>('');
-  const [pinnedInvoiceClientId, setPinnedInvoiceClientId] = useState<string>('');
-  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
-  
-  // Мобильные модальные окна
-  const [showNewChatModal, setShowNewChatModal] = useState(false);
-  const [showScriptsModal, setShowScriptsModal] = useState(false);
-  const [showDashboardModal, setShowDashboardModal] = useState(false);
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
-  
-  // Admin panel state
-  const [adminActiveSection, setAdminActiveSection] = useState("dashboard");
-  
-  // Мобильные состояния для адаптивности
   const isMobile = useIsMobile();
-  const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
-  const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
-  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
-  const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
   
   // Auto-manage right panel state based on screen size
   useEffect(() => {
