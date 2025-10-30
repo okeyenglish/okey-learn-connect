@@ -211,12 +211,12 @@ export const TeacherSalaryManagement = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[50px]">
-                      <input
+                    <input
                         type="checkbox"
-                        checked={selectedAccruals.length === accruals.filter(a => !a.is_paid).length}
+                        checked={selectedAccruals.length === accruals.filter(a => a.status !== 'paid').length}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedAccruals(accruals.filter(a => !a.is_paid).map(a => a.id));
+                            setSelectedAccruals(accruals.filter(a => a.status !== 'paid').map(a => a.id));
                           } else {
                             setSelectedAccruals([]);
                           }
@@ -241,9 +241,9 @@ export const TeacherSalaryManagement = () => {
                     </TableRow>
                   ) : (
                     accruals.map((accrual) => (
-                      <TableRow key={accrual.id} className={accrual.is_paid ? 'opacity-50' : ''}>
+                      <TableRow key={accrual.id} className={accrual.status === 'paid' ? 'opacity-50' : ''}>
                         <TableCell>
-                          {!accrual.is_paid && (
+                          {accrual.status !== 'paid' && (
                             <input
                               type="checkbox"
                               checked={selectedAccruals.includes(accrual.id)}
@@ -252,32 +252,27 @@ export const TeacherSalaryManagement = () => {
                           )}
                         </TableCell>
                         <TableCell className="text-sm">
-                          {format(new Date(accrual.accrual_date), 'dd MMM', { locale: ru })}
+                          {format(new Date(accrual.earning_date), 'dd MMM', { locale: ru })}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={accrual.lesson_type === 'group' ? 'default' : 'secondary'}>
-                            {accrual.lesson_type === 'group' ? 'Группа' : 'Индивид.'}
+                          <Badge variant={accrual.lesson_session_id ? 'default' : 'secondary'}>
+                            {accrual.lesson_session_id ? 'Группа' : 'Индивид.'}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-sm">
-                          {accrual.student_name || accrual.notes || '—'}
+                          {accrual.notes || '—'}
                         </TableCell>
                         <TableCell className="font-medium">
                           {accrual.academic_hours.toFixed(1)} ч
                         </TableCell>
                         <TableCell className="text-sm">
                           {accrual.rate_per_hour.toFixed(0)} ₽/ч
-                          {accrual.coefficient !== 1 && (
-                            <span className="text-xs text-muted-foreground ml-1">
-                              (×{accrual.coefficient})
-                            </span>
-                          )}
                         </TableCell>
                         <TableCell className="font-bold">
                           {accrual.amount.toFixed(0)} ₽
                         </TableCell>
                         <TableCell>
-                          {accrual.is_paid ? (
+                          {accrual.status === 'paid' ? (
                             <Badge variant="outline" className="gap-1">
                               <CheckCircle className="h-3 w-3 text-green-600" />
                               Оплачено

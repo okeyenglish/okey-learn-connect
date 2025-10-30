@@ -258,14 +258,13 @@ export const TeacherProfile = ({ teacher }: TeacherProfileProps) => {
                               <div>
                                 <p className="text-sm text-muted-foreground">За академический час</p>
                                 <p className="text-2xl font-bold text-success">
-                                  {currentRate.rate_per_hour} ₽
+                                  {currentRate.rate_per_academic_hour} ₽
                                 </p>
                               </div>
                               <div>
-                                <p className="text-sm text-muted-foreground">Тип занятий</p>
+                                <p className="text-sm text-muted-foreground">Тип ставки</p>
                                 <Badge variant="outline" className="mt-1">
-                                  {currentRate.lesson_type === 'group' && 'Групповые'}
-                                  {currentRate.lesson_type === 'individual' && 'Индивидуальные'}
+                                  {currentRate.rate_type}
                                 </Badge>
                               </div>
                             </div>

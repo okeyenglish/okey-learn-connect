@@ -33,11 +33,20 @@ export const TeacherRatesModal = ({
 
   const handleSaveRate = async () => {
     if (!editingRate) return;
+    
+    const { rate_type, rate_per_academic_hour, valid_from } = editingRate;
+    if (!rate_type || !rate_per_academic_hour || !valid_from) {
+      alert('Заполните обязательные поля: Тип ставки, Ставка, Действует с');
+      return;
+    }
 
     await upsertRate.mutateAsync({
       ...editingRate,
       teacher_id: teacherId,
-    });
+      rate_type,
+      rate_per_academic_hour,
+      valid_from,
+    } as any);
 
     setEditingRate(null);
     setShowForm(false);
@@ -46,12 +55,13 @@ export const TeacherRatesModal = ({
   const handleNewRate = () => {
     setEditingRate({
       teacher_id: teacherId,
-      lesson_type: 'group',
-      rate_per_hour: 0,
-      effective_from: new Date().toISOString().split('T')[0],
+      rate_type: 'standard',
+      rate_per_academic_hour: 0,
+      valid_from: new Date().toISOString().split('T')[0],
+      currency: 'RUB',
+      is_active: true,
       branch: null,
       subject: null,
-      level: null,
     });
     setShowForm(true);
   };
@@ -96,14 +106,13 @@ export const TeacherRatesModal = ({
                     <TableHead>Действует до</TableHead>
                     <TableHead>Филиал</TableHead>
                     <TableHead>Предмет</TableHead>
-                    <TableHead>Уровень</TableHead>
                     <TableHead className="w-[100px]">Действия</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {rates.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center text-muted-foreground">
                         Нет ставок
                       </TableCell>
                     </TableRow>
@@ -111,22 +120,21 @@ export const TeacherRatesModal = ({
                     rates.map((rate) => (
                       <TableRow key={rate.id}>
                         <TableCell>
-                          <Badge variant={rate.lesson_type === 'group' ? 'default' : 'secondary'}>
-                            {rate.lesson_type === 'group' ? 'Группа' : 'Индивид.'}
+                          <Badge variant={rate.is_active ? 'default' : 'secondary'}>
+                            {rate.rate_type}
                           </Badge>
                         </TableCell>
-                        <TableCell className="font-medium">{rate.rate_per_hour} ₽/ч</TableCell>
+                        <TableCell className="font-medium">{rate.rate_per_academic_hour} {rate.currency}/ч</TableCell>
                         <TableCell>
-                          {format(new Date(rate.effective_from), 'dd MMM yyyy', { locale: ru })}
+                          {format(new Date(rate.valid_from), 'dd MMM yyyy', { locale: ru })}
                         </TableCell>
                         <TableCell>
-                          {rate.effective_until
-                            ? format(new Date(rate.effective_until), 'dd MMM yyyy', { locale: ru })
+                          {rate.valid_until
+                            ? format(new Date(rate.valid_until), 'dd MMM yyyy', { locale: ru })
                             : '∞'}
                         </TableCell>
                         <TableCell>{rate.branch || '—'}</TableCell>
                         <TableCell>{rate.subject || '—'}</TableCell>
-                        <TableCell>{rate.level || '—'}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
                             <Button
@@ -155,32 +163,25 @@ export const TeacherRatesModal = ({
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Тип занятия</Label>
-                  <Select
-                    value={editingRate?.lesson_type}
-                    onValueChange={(value: 'group' | 'individual') =>
-                      setEditingRate({ ...editingRate, lesson_type: value })
+                  <Label>Тип ставки</Label>
+                  <Input
+                    value={editingRate?.rate_type || ''}
+                    onChange={(e) =>
+                      setEditingRate({ ...editingRate, rate_type: e.target.value })
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="group">Групповое</SelectItem>
-                      <SelectItem value="individual">Индивидуальное</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    placeholder="standard, premium, etc."
+                  />
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Ставка (₽/час)</Label>
+                  <Label>Ставка (₽/ч)</Label>
                   <Input
                     type="number"
-                    value={editingRate?.rate_per_hour || ''}
+                    value={editingRate?.rate_per_academic_hour || ''}
                     onChange={(e) =>
                       setEditingRate({
                         ...editingRate,
-                        rate_per_hour: parseFloat(e.target.value) || 0,
+                        rate_per_academic_hour: parseFloat(e.target.value) || 0,
                       })
                     }
                   />
@@ -190,9 +191,9 @@ export const TeacherRatesModal = ({
                   <Label>Действует с</Label>
                   <Input
                     type="date"
-                    value={editingRate?.effective_from || ''}
+                    value={editingRate?.valid_from || ''}
                     onChange={(e) =>
-                      setEditingRate({ ...editingRate, effective_from: e.target.value })
+                      setEditingRate({ ...editingRate, valid_from: e.target.value })
                     }
                   />
                 </div>
@@ -201,9 +202,9 @@ export const TeacherRatesModal = ({
                   <Label>Действует до (опционально)</Label>
                   <Input
                     type="date"
-                    value={editingRate?.effective_until || ''}
+                    value={editingRate?.valid_until || ''}
                     onChange={(e) =>
-                      setEditingRate({ ...editingRate, effective_until: e.target.value || null })
+                      setEditingRate({ ...editingRate, valid_until: e.target.value || null })
                     }
                   />
                 </div>
@@ -225,17 +226,6 @@ export const TeacherRatesModal = ({
                     value={editingRate?.subject || ''}
                     onChange={(e) =>
                       setEditingRate({ ...editingRate, subject: e.target.value || null })
-                    }
-                    placeholder="Оставьте пустым для всех"
-                  />
-                </div>
-
-                <div className="space-y-2 col-span-2">
-                  <Label>Уровень (опционально)</Label>
-                  <Input
-                    value={editingRate?.level || ''}
-                    onChange={(e) =>
-                      setEditingRate({ ...editingRate, level: e.target.value || null })
                     }
                     placeholder="Оставьте пустым для всех"
                   />

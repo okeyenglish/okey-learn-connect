@@ -5,14 +5,16 @@ import { useToast } from '@/hooks/use-toast';
 export interface TeacherRate {
   id: string;
   teacher_id: string;
-  lesson_type: 'group' | 'individual';
-  rate_per_hour: number;
-  effective_from: string;
-  effective_until: string | null;
+  rate_type: string;
   branch: string | null;
   subject: string | null;
-  level: string | null;
+  rate_per_academic_hour: number;
+  currency: string;
+  valid_from: string;
+  valid_until: string | null;
+  is_active: boolean;
   notes: string | null;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -22,22 +24,16 @@ export interface SalaryAccrual {
   teacher_id: string;
   lesson_session_id: string | null;
   individual_lesson_session_id: string | null;
-  accrual_date: string;
+  earning_date: string;
   academic_hours: number;
   rate_per_hour: number;
-  coefficient: number;
   amount: number;
-  lesson_type: 'group' | 'individual';
-  branch: string | null;
-  subject: string | null;
-  level: string | null;
-  group_id: string | null;
-  student_name: string | null;
-  is_paid: boolean;
-  paid_at: string | null;
-  payment_period: string | null;
+  currency: string;
+  status: string;
+  payment_id: string | null;
   notes: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface SalaryStats {
@@ -56,9 +52,9 @@ export const useTeacherRates = (teacherId?: string) => {
     queryKey: ['teacher-rates', teacherId],
     queryFn: async () => {
       let query = supabase
-        .from('teacher_salary_rates' as any)
+        .from('teacher_rates')
         .select('*')
-        .order('effective_from', { ascending: false });
+        .order('valid_from', { ascending: false });
 
       if (teacherId) {
         query = query.eq('teacher_id', teacherId);
@@ -72,21 +68,25 @@ export const useTeacherRates = (teacherId?: string) => {
   });
 };
 
-export const useTeacherAccruals = (teacherId?: string, period?: string) => {
+export const useTeacherAccruals = (teacherId?: string, periodStart?: string, periodEnd?: string) => {
   return useQuery({
-    queryKey: ['teacher-accruals', teacherId, period],
+    queryKey: ['teacher-accruals', teacherId, periodStart, periodEnd],
     queryFn: async () => {
       let query = supabase
-        .from('teacher_salary_accruals' as any)
+        .from('teacher_earnings')
         .select('*')
-        .order('accrual_date', { ascending: false });
+        .order('earning_date', { ascending: false });
 
       if (teacherId) {
         query = query.eq('teacher_id', teacherId);
       }
 
-      if (period) {
-        query = query.eq('payment_period', period);
+      if (periodStart) {
+        query = query.gte('earning_date', periodStart);
+      }
+
+      if (periodEnd) {
+        query = query.lte('earning_date', periodEnd);
       }
 
       const { data, error } = await query;
@@ -125,15 +125,48 @@ export const useUpsertTeacherRate = () => {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (rate: Partial<TeacherRate>) => {
-      const { data, error } = await supabase
-        .from('teacher_salary_rates' as any)
-        .upsert(rate)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+    mutationFn: async (rate: Partial<TeacherRate> & { teacher_id: string; rate_type: string; rate_per_academic_hour: number; valid_from: string }) => {
+      if (rate.id) {
+        // Update existing rate
+        const { data, error } = await supabase
+          .from('teacher_rates')
+          .update({
+            rate_type: rate.rate_type,
+            rate_per_academic_hour: rate.rate_per_academic_hour,
+            valid_from: rate.valid_from,
+            valid_until: rate.valid_until || null,
+            branch: rate.branch || null,
+            subject: rate.subject || null,
+            notes: rate.notes || null,
+            is_active: rate.is_active ?? true,
+          })
+          .eq('id', rate.id)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        return data;
+      } else {
+        // Insert new rate
+        const { data, error } = await supabase
+          .from('teacher_rates')
+          .insert({
+            teacher_id: rate.teacher_id,
+            rate_type: rate.rate_type,
+            rate_per_academic_hour: rate.rate_per_academic_hour,
+            valid_from: rate.valid_from,
+            valid_until: rate.valid_until || null,
+            branch: rate.branch || null,
+            subject: rate.subject || null,
+            notes: rate.notes || null,
+            is_active: rate.is_active ?? true,
+          })
+          .select()
+          .single();
+        
+        if (error) throw error;
+        return data;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teacher-rates'] });
@@ -160,7 +193,7 @@ export const useDeleteTeacherRate = () => {
   return useMutation({
     mutationFn: async (rateId: string) => {
       const { error } = await supabase
-        .from('teacher_salary_rates' as any)
+        .from('teacher_rates')
         .delete()
         .eq('id', rateId);
 
@@ -191,10 +224,9 @@ export const useMarkAccrualsPaid = () => {
   return useMutation({
     mutationFn: async (accrualIds: string[]) => {
       const { error } = await supabase
-        .from('teacher_salary_accruals' as any)
+        .from('teacher_earnings')
         .update({
-          is_paid: true,
-          paid_at: new Date().toISOString(),
+          status: 'paid',
         })
         .in('id', accrualIds);
 
