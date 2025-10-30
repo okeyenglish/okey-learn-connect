@@ -78,10 +78,18 @@ export const CreateLeadDialog = ({
     try {
       const { data: userData } = await supabase.auth.getUser();
       
+      // Get user's organization_id
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("organization_id")
+        .eq("id", userData?.user?.id)
+        .single();
+      
       const { error } = await supabase.from("leads").insert({
         ...formData,
         age: formData.age ? parseInt(formData.age) : null,
         assigned_to: userData?.user?.id,
+        organization_id: profile?.organization_id,
       });
 
       if (error) throw error;

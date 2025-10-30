@@ -295,6 +295,28 @@ serve(async (req) => {
           // Create new client if not found
           console.log('Client not found, creating new client for phone:', selectedPhone);
           
+          // Get default organization (first active organization)
+          const { data: defaultOrg } = await supabase
+            .from('organizations')
+            .select('id')
+            .eq('is_active', true)
+            .limit(1)
+            .single();
+          
+          if (!defaultOrg) {
+            console.error('No active organization found');
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: 'No active organization found'
+              }),
+              {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 500
+              }
+            );
+          }
+          
           // Try to find responsible employee by extension (for incoming calls)
           let responsibleEmployeeId = null;
           if (direction === 'incoming' && rawTo) {
@@ -318,6 +340,7 @@ serve(async (req) => {
               name: clientName,
               phone: selectedPhone,
               branch: 'Окская', // Default branch
+              organization_id: defaultOrg.id,
               notes: `Создан автоматически из звонка ${direction === 'incoming' ? 'входящего' : 'исходящего'} ${new Date().toLocaleDateString('ru-RU')}`
             })
             .select('id')
@@ -340,6 +363,50 @@ serve(async (req) => {
           
           clientId = newClient.id;
           console.log('Created new client with ID:', clientId);
+          
+          // Create lead for incoming calls
+          if (direction === 'incoming') {
+            console.log('Creating lead for incoming call');
+            
+            // Get "New" status
+            const { data: newStatus } = await supabase
+              .from('lead_statuses')
+              .select('id')
+              .eq('slug', 'new')
+              .single();
+            
+            // Get "Phone" source
+            const { data: phoneSource } = await supabase
+              .from('lead_sources')
+              .select('id')
+              .ilike('name', '%телефон%')
+              .limit(1)
+              .single();
+            
+            if (newStatus) {
+              const { data: newLead, error: leadError } = await supabase
+                .from('leads')
+                .insert({
+                  first_name: 'Клиент',
+                  last_name: formatPhoneForSearch(normalizedPhone),
+                  phone: selectedPhone,
+                  branch: 'Окская',
+                  organization_id: defaultOrg.id,
+                  status_id: newStatus.id,
+                  lead_source_id: phoneSource?.id || null,
+                  assigned_to: responsibleEmployeeId,
+                  notes: `Создан автоматически из входящего звонка ${new Date().toLocaleString('ru-RU')}`
+                })
+                .select('id')
+                .single();
+              
+              if (leadError) {
+                console.error('Error creating lead:', leadError);
+              } else {
+                console.log('Created lead with ID:', newLead.id);
+              }
+            }
+          }
           
           // Create chat message about new client
           const systemMessage = direction === 'incoming' 
