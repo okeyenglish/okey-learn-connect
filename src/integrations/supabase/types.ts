@@ -1382,6 +1382,59 @@ export type Database = {
           },
         ]
       }
+      event_bus: {
+        Row: {
+          aggregate_id: string
+          aggregate_type: string
+          created_at: string
+          error_message: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          organization_id: string | null
+          payload: Json | null
+          processed_at: string | null
+          retry_count: number | null
+          status: string
+        }
+        Insert: {
+          aggregate_id: string
+          aggregate_type: string
+          created_at?: string
+          error_message?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          organization_id?: string | null
+          payload?: Json | null
+          processed_at?: string | null
+          retry_count?: number | null
+          status?: string
+        }
+        Update: {
+          aggregate_id?: string
+          aggregate_type?: string
+          created_at?: string
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          organization_id?: string | null
+          payload?: Json | null
+          processed_at?: string | null
+          retry_count?: number | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_bus_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       family_groups: {
         Row: {
           branch: string | null
@@ -6203,6 +6256,29 @@ export type Database = {
         }[]
       }
       normalize_phone: { Args: { phone_input: string }; Returns: string }
+      process_pending_events: {
+        Args: { p_limit?: number }
+        Returns: {
+          aggregate_id: string
+          aggregate_type: string
+          event_id: string
+          event_type: string
+          metadata: Json
+          organization_id: string
+          payload: Json
+        }[]
+      }
+      publish_event: {
+        Args: {
+          p_aggregate_id: string
+          p_aggregate_type: string
+          p_event_type: string
+          p_metadata?: Json
+          p_organization_id?: string
+          p_payload?: Json
+        }
+        Returns: string
+      }
       refund_lesson_to_subscription: {
         Args: {
           _lesson_session_id: string
