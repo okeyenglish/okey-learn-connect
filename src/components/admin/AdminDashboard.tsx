@@ -17,6 +17,8 @@ import { AuditLogViewer } from "@/components/audit/AuditLogViewer";
 import { AuditDashboard } from "@/components/audit/AuditDashboard";
 import { PaymentCompensationPanel } from "@/components/payments/PaymentCompensationPanel";
 import { PendingPaymentsPanel } from "@/components/payments/PendingPaymentsPanel";
+import { SLAMonitoringDashboard } from "@/components/monitoring/SLAMonitoringDashboard";
+import { EventBusMonitor } from "@/components/monitoring/EventBusMonitor";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -63,6 +65,10 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <FamilyMembersRestorer />;
       case "family-reorganizer":
         return <FamilyGroupsReorganizer />;
+      case "sla-monitoring":
+        return <SLAMonitoringDashboard />;
+      case "event-bus":
+        return <EventBusMonitor />;
       case "sync":
         return (
           <Card>
@@ -178,6 +184,22 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 <CardHeader>
                   <CardTitle>Разделение семейных групп</CardTitle>
                   <CardDescription>Разделение студентов на отдельные группы</CardDescription>
+                </CardHeader>
+              </Card>
+              
+              {/* SLA Monitoring */}
+              <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("sla-monitoring")}>
+                <CardHeader>
+                  <CardTitle>SLA Monitoring</CardTitle>
+                  <CardDescription>Monitor service level agreements and metrics</CardDescription>
+                </CardHeader>
+              </Card>
+              
+              {/* Event Bus Monitor */}
+              <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("event-bus")}>
+                <CardHeader>
+                  <CardTitle>Event Bus Monitor</CardTitle>
+                  <CardDescription>Monitor system events and processing</CardDescription>
                 </CardHeader>
               </Card>
               

@@ -12,7 +12,9 @@ import {
   Database,
   History,
   RotateCcw,
-  Clock
+  Clock,
+  Activity,
+  Zap
 } from "lucide-react";
 import {
   Sidebar,
@@ -42,6 +44,8 @@ const adminItems = [
   { title: "Журнал аудита", id: "audit", icon: History },
   { title: "Pending платежи", id: "pending-payments", icon: Clock },
   { title: "Компенсация платежей", id: "compensation", icon: RotateCcw },
+  { title: "SLA мониторинг", id: "sla-monitoring", icon: Activity },
+  { title: "Event Bus", id: "event-bus", icon: Zap },
   { title: "Sync", id: "sync", icon: RefreshCw },
   { title: "Users", id: "users", icon: Users },
   { title: "Settings", id: "settings", icon: Settings },
