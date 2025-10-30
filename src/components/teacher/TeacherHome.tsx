@@ -24,6 +24,7 @@ import { QuickStartLessonModal } from '@/components/teacher/modals/QuickStartLes
 import { SubstitutionRequestModal } from '@/components/teacher/modals/SubstitutionRequestModal';
 import { KpiCard } from '@/components/teacher/ui/KpiCard';
 import { TodayDashboard } from '@/components/teacher/TodayDashboard';
+import { TeacherSalaryCard } from '@/components/teacher/TeacherSalaryCard';
 
 interface TeacherHomeProps {
   teacher: Teacher;
@@ -255,6 +256,9 @@ export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
           onOpenOnline={handleQuickOnline}
           onRequestSubstitution={() => setSubstitutionModal({ open: true, type: 'substitution' })}
         />
+
+        {/* Ставки и зарплата */}
+        <TeacherSalaryCard teacher={teacher} />
 
         {/* Контактная информация */}
         {(teacher.email || teacher.phone) && (
