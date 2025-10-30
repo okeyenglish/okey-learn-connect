@@ -60,6 +60,7 @@ const SupabaseDiagnostics = lazy(() => import('./pages/SupabaseDiagnostics'));
 const HolihopeImport = lazy(() => import('./pages/HolihopeImport'));
 const SeoManager = lazy(() => import('./pages/SeoManager'));
 const CallsForTeachers = lazy(() => import('./pages/CallsForTeachers'));
+const PaymentSystemTest = lazy(() => import('./pages/PaymentSystemTest'));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Loading component for better UX
@@ -363,6 +364,13 @@ const AppContent = () => {
             <Suspense fallback={<LoadingComponent />}>
               <CallsForTeachers />
             </Suspense>
+          } />
+          <Route path="/payment-test" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Suspense fallback={<LoadingComponent />}>
+                <PaymentSystemTest />
+              </Suspense>
+            </ProtectedRoute>
           } />
           <Route path="/5000" element={
             <Suspense fallback={<LoadingComponent />}>

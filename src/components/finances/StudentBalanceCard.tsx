@@ -34,22 +34,20 @@ export const StudentBalanceCard = ({
 
   const getTransactionTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
-      payment: 'Пополнение',
-      lesson_charge: 'Списание за занятие',
+      credit: 'Пополнение',
+      debit: 'Списание за занятие',
+      transfer_in: 'Перевод',
       refund: 'Возврат',
-      bonus: 'Бонус',
-      adjustment: 'Корректировка',
     };
     return labels[type] || type;
   };
 
   const getTransactionTypeColor = (type: string) => {
     const colors: Record<string, string> = {
-      payment: 'text-green-600',
-      lesson_charge: 'text-red-600',
-      refund: 'text-blue-600',
-      bonus: 'text-purple-600',
-      adjustment: 'text-orange-600',
+      credit: 'text-green-600',
+      debit: 'text-red-600',
+      transfer_in: 'text-blue-600',
+      refund: 'text-orange-600',
     };
     return colors[type] || 'text-gray-600';
   };
