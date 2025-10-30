@@ -37,7 +37,7 @@ export const useApps = (teacherId?: string) => {
         .order('updated_at', { ascending: false });
       
       if (error) throw error;
-      return data as CatalogApp[];
+      return (data || []) as unknown as CatalogApp[];
     }
   });
 
@@ -48,21 +48,21 @@ export const useApps = (teacherId?: string) => {
       if (!teacherId) return [];
       
       const { data: teacher } = await supabase
-        .from('teachers')
+        .from('teachers' as any)
         .select('id')
         .eq('user_id', teacherId)
-        .single();
+        .maybeSingle();
       
       if (!teacher) return [];
 
       const { data, error } = await supabase
         .from('apps' as any)
         .select('*')
-        .eq('author_id', teacher.id)
+        .eq('author_id', (teacher as any).id)
         .order('updated_at', { ascending: false });
       
       if (error) throw error;
-      return data as App[];
+      return (data || []) as unknown as App[];
     },
     enabled: !!teacherId
   });
@@ -74,20 +74,20 @@ export const useApps = (teacherId?: string) => {
       if (!teacherId) return [];
       
       const { data: teacher } = await supabase
-        .from('teachers')
+        .from('teachers' as any)
         .select('id')
         .eq('user_id', teacherId)
-        .single();
+        .maybeSingle();
       
       if (!teacher) return [];
 
       const { data, error } = await supabase
         .from('app_installs' as any)
         .select('app_id, installed_at, apps(*)')
-        .eq('teacher_id', teacher.id);
+        .eq('teacher_id', (teacher as any).id);
       
       if (error) throw error;
-      return (data as any).map((i: any) => i.apps) as App[];
+      return ((data || []) as any[]).map((i: any) => i.apps).filter(Boolean) as unknown as App[];
     },
     enabled: !!teacherId
   });

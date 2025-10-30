@@ -5,7 +5,7 @@ import { AppCard } from './AppCard';
 import { AppFilters } from './AppFilters';
 import { AppViewer } from './AppViewer';
 interface Teacher {
-  user_id: string;
+  id: string;
   [key: string]: any;
 }
 
@@ -19,7 +19,7 @@ export const AppCatalog = ({ teacher }: AppCatalogProps) => {
   const [level, setLevel] = useState('all');
   const [selectedApp, setSelectedApp] = useState<{ id: string; url: string } | null>(null);
 
-  const { catalogApps, catalogLoading, installApp, installedApps } = useApps(teacher.user_id);
+  const { catalogApps, catalogLoading, installApp, installedApps } = useApps((teacher as any).user_id || teacher.id);
 
   const filteredApps = catalogApps?.filter(app => {
     const matchesSearch = app.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -66,7 +66,7 @@ export const AppCatalog = ({ teacher }: AppCatalogProps) => {
               key={app.id}
               app={app}
               onOpen={() => setSelectedApp({ id: app.id, url: app.preview_url })}
-              onInstall={() => installApp({ appId: app.id, teacherId: teacher.user_id })}
+              onInstall={() => installApp({ appId: app.id, teacherId: (teacher as any).user_id || teacher.id })}
               isInstalled={installedAppIds.has(app.id)}
             />
           ))}
@@ -79,7 +79,7 @@ export const AppCatalog = ({ teacher }: AppCatalogProps) => {
           previewUrl={selectedApp.url}
           open={!!selectedApp}
           onClose={() => setSelectedApp(null)}
-          teacherId={teacher.user_id}
+          teacherId={(teacher as any).user_id || teacher.id}
         />
       )}
     </div>

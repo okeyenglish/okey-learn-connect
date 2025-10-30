@@ -8,11 +8,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Teacher } from '@/hooks/useTeachers';
 
 interface TeacherMaterialsProps {
-  teacher: Teacher;
+  teacher?: Teacher;
 }
 
 export const TeacherMaterials = ({ teacher }: TeacherMaterialsProps) => {
-  const teacherName = `${teacher.last_name} ${teacher.first_name}`;
+  const teacherName = `${teacher?.last_name || ''} ${teacher?.first_name || ''}`.trim();
 
   // Получаем группы преподавателя с курсами
   const { data: courseGroups, isLoading } = useQuery({

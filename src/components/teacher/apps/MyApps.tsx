@@ -6,7 +6,7 @@ import { useApps } from '@/hooks/useApps';
 import { AppCard } from './AppCard';
 import { AppViewer } from './AppViewer';
 interface Teacher {
-  user_id: string;
+  id: string;
   [key: string]: any;
 }
 
@@ -27,7 +27,7 @@ export const MyApps = ({ teacher, onCreateNew }: MyAppsProps) => {
     publishApp,
     deleteApp,
     isPublishing
-  } = useApps(teacher.user_id);
+  } = useApps((teacher as any).user_id || teacher.id);
 
   const handlePublish = (appId: string) => {
     if (confirm('Опубликовать приложение? Оно станет доступно всем преподавателям.')) {
@@ -116,7 +116,7 @@ export const MyApps = ({ teacher, onCreateNew }: MyAppsProps) => {
                     const url = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/apps/${app.id}/${app.latest_version}/index.html`;
                     setSelectedApp({ id: app.id, url });
                   }}
-                  onUninstall={() => uninstallApp({ appId: app.id, teacherId: teacher.user_id })}
+                  onUninstall={() => uninstallApp({ appId: app.id, teacherId: (teacher as any).user_id || teacher.id })}
                   isInstalled
                 />
               ))}
@@ -131,7 +131,7 @@ export const MyApps = ({ teacher, onCreateNew }: MyAppsProps) => {
           previewUrl={selectedApp.url}
           open={!!selectedApp}
           onClose={() => setSelectedApp(null)}
-          teacherId={teacher.user_id}
+          teacherId={(teacher as any).user_id || teacher.id}
         />
       )}
     </div>

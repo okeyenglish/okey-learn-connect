@@ -10,7 +10,7 @@ import { AppViewer } from './AppViewer';
 import { ImprovementButtons } from './ImprovementButtons';
 import { AppCard } from './AppCard';
 interface Teacher {
-  user_id: string;
+  id: string;
   [key: string]: any;
 }
 
@@ -31,7 +31,7 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
     isGenerating,
     isSuggesting,
     reset 
-  } = useAppGenerator(teacher.user_id);
+  } = useAppGenerator((teacher as any).user_id || teacher.id);
 
   const handleSubmit = () => {
     if (!brief.trim()) return;
@@ -194,7 +194,7 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
           previewUrl={stage.result.preview_url}
           open={viewerOpen}
           onClose={() => setViewerOpen(false)}
-          teacherId={teacher.user_id}
+          teacherId={(teacher as any).user_id || teacher.id}
         />
       )}
     </div>
