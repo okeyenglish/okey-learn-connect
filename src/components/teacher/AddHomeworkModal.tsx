@@ -104,8 +104,37 @@ export const AddHomeworkModal = ({ open, onOpenChange, sessionId, groupId }: Add
 
     setIsSubmitting(true);
     try {
-      // Здесь будет логика сохранения домашнего задания
-      // Пока что просто показываем успешное сообщение
+      // Создаем домашнее задание
+      const { data: homework, error: homeworkError } = await supabase
+        .from('homework')
+        .insert({
+          lesson_session_id: sessionId,
+          group_id: groupId,
+          assignment: formData.assignment,
+          description: formData.description || null,
+          due_date: format(formData.dueDate, 'yyyy-MM-dd'),
+          show_in_student_portal: formData.showInStudentPortal,
+        })
+        .select()
+        .single();
+
+      if (homeworkError) throw homeworkError;
+
+      // Создаем записи для каждого студента
+      if (students && students.length > 0 && homework) {
+        const studentHomeworkRecords = students.map((student: any) => ({
+          homework_id: homework.id,
+          student_id: student.id,
+          status: 'assigned',
+        }));
+
+        const { error: studentError } = await supabase
+          .from('student_homework')
+          .insert(studentHomeworkRecords);
+
+        if (studentError) throw studentError;
+      }
+
       toast({
         title: "Домашнее задание добавлено",
         description: `Задание "${formData.assignment}" добавлено для ${students?.length || 0} студентов`,

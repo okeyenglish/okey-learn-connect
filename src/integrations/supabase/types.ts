@@ -1770,6 +1770,63 @@ export type Database = {
           },
         ]
       }
+      homework: {
+        Row: {
+          assignment: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          due_date: string
+          group_id: string | null
+          id: string
+          lesson_session_id: string | null
+          organization_id: string
+          show_in_student_portal: boolean
+          updated_at: string
+        }
+        Insert: {
+          assignment: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date: string
+          group_id?: string | null
+          id?: string
+          lesson_session_id?: string | null
+          organization_id?: string
+          show_in_student_portal?: boolean
+          updated_at?: string
+        }
+        Update: {
+          assignment?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string
+          group_id?: string | null
+          id?: string
+          lesson_session_id?: string | null
+          organization_id?: string
+          show_in_student_portal?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "homework_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "learning_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "homework_lesson_session_id_fkey"
+            columns: ["lesson_session_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       individual_lesson_history: {
         Row: {
           applied_from_date: string | null
@@ -4391,6 +4448,60 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "student_history_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_homework: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          grade: string | null
+          homework_id: string
+          id: string
+          status: string
+          student_id: string
+          student_notes: string | null
+          teacher_notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          grade?: string | null
+          homework_id: string
+          id?: string
+          status?: string
+          student_id: string
+          student_notes?: string | null
+          teacher_notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          grade?: string | null
+          homework_id?: string
+          id?: string
+          status?: string
+          student_id?: string
+          student_notes?: string | null
+          teacher_notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_homework_homework_id_fkey"
+            columns: ["homework_id"]
+            isOneToOne: false
+            referencedRelation: "homework"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_homework_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
