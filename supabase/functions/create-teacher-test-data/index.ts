@@ -179,7 +179,7 @@ Deno.serve(async (req) => {
         rate_per_hour: 500,
         amount: 1000,
         currency: 'RUB',
-        status: 'pending',
+        status: 'accrued',
         notes: 'Групповое занятие - Английский A1',
         organization_id: '00000000-0000-0000-0000-000000000001'
       };
@@ -188,12 +188,124 @@ Deno.serve(async (req) => {
     const { error: earningsError } = await supabase.from('teacher_earnings').insert(earnings);
     if (earningsError) throw earningsError;
 
+    console.log('Создание домашних заданий...');
+    
+    // 6. Создаем домашние задания для занятий
+    const homeworkData = sessionData.slice(0, 2).map((session, i) => ({
+      lesson_session_id: null, // Будем связывать после создания
+      group_id: 'a1111111-1111-1111-1111-111111111111',
+      assignment: `Учебник стр. ${20 + i * 10}-${30 + i * 10}, упражнения 1-5`,
+      description: 'Выполнить все упражнения письменно, подготовить устные ответы',
+      due_date: new Date(today.getTime() + (i + 2) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      show_in_student_portal: true,
+      organization_id: '00000000-0000-0000-0000-000000000001',
+      created_by: 'c33657a1-9e49-441b-83d4-859cce549860'
+    }));
+    
+    const { data: homeworkRecords, error: homeworkError } = await supabase
+      .from('homework')
+      .insert(homeworkData)
+      .select();
+    
+    if (homeworkError) throw homeworkError;
+
+    console.log('Создание student_homework записей...');
+    
+    // 7. Создаем записи student_homework для каждого студента
+    const studentHomeworkData = homeworkRecords?.flatMap(hw => [
+      {
+        homework_id: hw.id,
+        student_id: 'b1111111-1111-1111-1111-111111111111',
+        status: 'completed',
+        grade: '5',
+        teacher_notes: 'Отлично выполнено!',
+        completed_at: new Date().toISOString()
+      },
+      {
+        homework_id: hw.id,
+        student_id: 'b2222222-2222-2222-2222-222222222222',
+        status: 'in_progress',
+        student_notes: 'Выполняю задание'
+      },
+      {
+        homework_id: hw.id,
+        student_id: 'b3333333-3333-3333-3333-333333333333',
+        status: 'assigned'
+      }
+    ]) || [];
+    
+    const { error: studentHomeworkError } = await supabase
+      .from('student_homework')
+      .insert(studentHomeworkData);
+    
+    if (studentHomeworkError) throw studentHomeworkError;
+
+    console.log('Создание платежей студентов...');
+    
+    // 8. Создаем платежи для студентов
+    const paymentsData = [
+      {
+        student_id: 'b1111111-1111-1111-1111-111111111111',
+        amount: 5000,
+        payment_date: new Date(today.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        payment_method: 'card',
+        status: 'completed',
+        notes: 'Оплата за месяц',
+        organization_id: '00000000-0000-0000-0000-000000000001'
+      },
+      {
+        student_id: 'b2222222-2222-2222-2222-222222222222',
+        amount: 3000,
+        payment_date: new Date(today.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        payment_method: 'cash',
+        status: 'completed',
+        notes: 'Частичная оплата',
+        organization_id: '00000000-0000-0000-0000-000000000001'
+      },
+      {
+        student_id: 'b3333333-3333-3333-3333-333333333333',
+        amount: 4500,
+        payment_date: new Date(today.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        payment_method: 'transfer',
+        status: 'completed',
+        notes: 'Оплата за месяц',
+        organization_id: '00000000-0000-0000-0000-000000000001'
+      }
+    ];
+    
+    const { error: paymentsError } = await supabase.from('payments').insert(paymentsData);
+    if (paymentsError) throw paymentsError;
+
+    console.log('Создание балансов студентов...');
+    
+    // 9. Создаем/обновляем балансы студентов
+    const balancesData = [
+      {
+        student_id: 'b1111111-1111-1111-1111-111111111111',
+        balance: 1000
+      },
+      {
+        student_id: 'b2222222-2222-2222-2222-222222222222',
+        balance: -500
+      },
+      {
+        student_id: 'b3333333-3333-3333-3333-333333333333',
+        balance: 0
+      }
+    ];
+    
+    const { error: balancesError } = await supabase
+      .from('student_balances')
+      .upsert(balancesData, { onConflict: 'student_id' });
+    
+    if (balancesError) throw balancesError;
+
     console.log('Тестовые данные успешно созданы!');
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Тестовые данные учителя созданы: группа с 3 студентами, 4 занятия, 3 начисления (3000₽)' 
+        message: 'Тестовые данные созданы: группа с 3 студентами, 4 занятия, 3 начисления (3000₽), домашние задания, платежи и балансы' 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

@@ -137,3 +137,7 @@ verify_jwt = false
 
 [functions.create-teacher-test-data]
 verify_jwt = false
+
+[functions.create-student-test-data]
+verify_jwt = false
+
