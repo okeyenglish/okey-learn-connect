@@ -15,6 +15,7 @@ import { FamilyMembersRestorer } from "./FamilyMembersRestorer";
 import { FamilyGroupsReorganizer } from "./FamilyGroupsReorganizer";
 import { AuditLogViewer } from "@/components/audit/AuditLogViewer";
 import { PaymentCompensationPanel } from "@/components/payments/PaymentCompensationPanel";
+import { PendingPaymentsPanel } from "@/components/payments/PendingPaymentsPanel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -45,6 +46,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <ReferencesSection />;
       case "audit":
         return <AuditLogViewer />;
+      case "pending-payments":
+        return <PendingPaymentsPanel />;
       case "compensation":
         return <PaymentCompensationPanel />;
       case "family-cleanup":

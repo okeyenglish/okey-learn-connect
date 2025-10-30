@@ -11,7 +11,8 @@ import {
   BookOpen,
   Database,
   History,
-  RotateCcw
+  RotateCcw,
+  Clock
 } from "lucide-react";
 import {
   Sidebar,
@@ -38,6 +39,7 @@ const adminItems = [
   { title: "Textbooks", id: "textbooks", icon: BookOpen },
   { title: "Справочники", id: "references", icon: Database },
   { title: "Журнал аудита", id: "audit", icon: History },
+  { title: "Pending платежи", id: "pending-payments", icon: Clock },
   { title: "Компенсация платежей", id: "compensation", icon: RotateCcw },
   { title: "Sync", id: "sync", icon: RefreshCw },
   { title: "Users", id: "users", icon: Users },
