@@ -93,11 +93,27 @@ export const useUpdateInvoice = () => {
       });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Ошибка обновления счета',
-        description: error.message,
-        variant: 'destructive',
-      });
+      // FSM validation errors
+      const message = error.message;
+      if (message?.includes('transition') || message?.includes('status')) {
+        toast({
+          title: 'Недопустимый переход статуса',
+          description: message,
+          variant: 'destructive',
+        });
+      } else if (message?.includes('amount') && message?.includes('issued')) {
+        toast({
+          title: 'Нельзя изменить сумму',
+          description: 'Сумма счета не может быть изменена после выставления',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Ошибка обновления счета',
+          description: message,
+          variant: 'destructive',
+        });
+      }
     },
   });
 };

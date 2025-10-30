@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
 
 export interface LeadSource {
   id: string;
@@ -207,6 +208,7 @@ export const useCreateLead = () => {
 // Хук для обновления лида
 export const useUpdateLead = () => {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Lead> & { id: string }) => {
@@ -223,6 +225,33 @@ export const useUpdateLead = () => {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       queryClient.invalidateQueries({ queryKey: ['lead', data.id] });
+      toast({
+        title: 'Лид обновлен',
+        description: 'Лид успешно обновлен',
+      });
+    },
+    onError: (error: any) => {
+      const message = error.message;
+      // FSM validation errors
+      if (message?.includes('transition') || (message?.includes('status') && message?.includes('invalid'))) {
+        toast({
+          title: 'Недопустимый переход статуса',
+          description: message,
+          variant: 'destructive',
+        });
+      } else if (message?.includes('lost_reason')) {
+        toast({
+          title: 'Укажите причину отказа',
+          description: 'При переводе в статус "Проигран" необходимо указать причину',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Ошибка обновления лида',
+          description: message,
+          variant: 'destructive',
+        });
+      }
     },
   });
 };
