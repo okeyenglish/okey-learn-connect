@@ -5972,6 +5972,20 @@ export type Database = {
           pin_count: number
         }[]
       }
+      get_cron_jobs: {
+        Args: never
+        Returns: {
+          active: boolean
+          command: string
+          database: string
+          jobid: number
+          jobname: string
+          nodename: string
+          nodeport: number
+          schedule: string
+          username: string
+        }[]
+      }
       get_group_debt_stats: {
         Args: { p_group_id: string }
         Returns: {
