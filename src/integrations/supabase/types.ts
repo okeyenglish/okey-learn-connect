@@ -6156,6 +6156,10 @@ export type Database = {
         }
         Returns: string
       }
+      manual_compensate_payment: {
+        Args: { p_payment_id: string; p_reason?: string }
+        Returns: Json
+      }
       mark_chat_messages_as_read: {
         Args: { p_client_id: string }
         Returns: undefined

@@ -343,29 +343,170 @@ describe('Lead FSM with lost_reason', () => {
 
 ---
 
+## ⚡ Compensating Actions (SAGAS)
+
+### Автоматические компенсации
+
+Система автоматически выполняет компенсирующие действия при критических изменениях:
+
+#### 1. При удалении/отмене платежа
+
+**Триггер:** `compensate_payment_deletion`
+
+**Действия:**
+- Сбрасывает `paid_minutes = 0` для индивидуальных занятий
+- Удаляет `payment_id` из связанных сессий
+- Логирует в `audit_log`
+
+```sql
+-- Автоматически сработает при:
+DELETE FROM payments WHERE id = '...';
+-- или
+UPDATE payments SET status = 'failed' WHERE id = '...';
+UPDATE payments SET status = 'refunded' WHERE id = '...';
+```
+
+#### 2. При отмене счета
+
+**Триггер:** `compensate_invoice_cancellation`
+
+**Действия:**
+- Отменяет все связанные платежи в статусе `pending`
+- Устанавливает `status = 'failed'` для этих платежей
+- Логирует в `audit_log`
+
+```sql
+-- Автоматически сработает при:
+UPDATE invoices SET status = 'cancelled' WHERE id = '...';
+```
+
+#### 3. При исключении студента из группы
+
+**Триггер:** `compensate_student_expulsion`
+
+**Действия:**
+- Отменяет все будущие занятия студента в группе
+- Устанавливает `status = 'cancelled'` для будущих сессий
+- Логирует в `audit_log`
+
+```sql
+-- Автоматически сработает при:
+UPDATE group_students SET status = 'expelled' WHERE id = '...';
+```
+
+#### 4. При отмене индивидуального занятия
+
+**Триггер:** `compensate_individual_lesson_cancellation`
+
+**Действия:**
+- Отменяет все будущие сессии занятия
+- Освобождает преподавателя и кабинет
+- Логирует в `audit_log`
+
+```sql
+-- Автоматически сработает при:
+UPDATE individual_lessons SET status = 'cancelled' WHERE id = '...';
+```
+
+#### 5. При удалении лида
+
+**Триггер:** `compensate_lead_deletion`
+
+**Действия:**
+- Удаляет всю историю статусов лида
+- Логирует в `audit_log`
+
+```sql
+-- Автоматически сработает при:
+DELETE FROM leads WHERE id = '...';
+```
+
+---
+
+### Ручная компенсация
+
+Для критических ситуаций доступна ручная компенсация:
+
+#### SQL
+
+```sql
+-- Откатить платеж и вернуть связанные занятия
+SELECT manual_compensate_payment(
+  p_payment_id := '550e8400-e29b-41d4-a716-446655440000',
+  p_reason := 'Payment was fraudulent'
+);
+
+-- Результат:
+-- {
+--   "success": true,
+--   "sessions_reverted": 5,
+--   "payment_id": "550e8400-e29b-41d4-a716-446655440000"
+-- }
+```
+
+#### TypeScript Hook
+
+```typescript
+import { useCompensatePayment } from '@/hooks/useCompensation';
+
+const PaymentActions = ({ paymentId }: { paymentId: string }) => {
+  const { mutate: compensate, isPending } = useCompensatePayment();
+
+  const handleRollback = () => {
+    compensate({
+      paymentId,
+      reason: 'Customer requested refund'
+    });
+  };
+
+  return (
+    <button onClick={handleRollback} disabled={isPending}>
+      Откатить платеж
+    </button>
+  );
+};
+```
+
+---
+
+### Просмотр истории компенсаций
+
+```typescript
+import { useQuery } from '@tanstack/react-query';
+import { useCompensationHistory } from '@/hooks/useCompensation';
+
+const CompensationLog = ({ paymentId }: { paymentId: string }) => {
+  const { data: history } = useQuery(useCompensationHistory(paymentId));
+
+  return (
+    <div>
+      {history?.map(entry => (
+        <div key={entry.id}>
+          <span>{entry.event_type}</span>
+          <span>{new Date(entry.created_at).toLocaleString()}</span>
+          <pre>{JSON.stringify(entry.new_value, null, 2)}</pre>
+        </div>
+      ))}
+    </div>
+  );
+};
+```
+
+---
+
 ## 🚀 Следующие шаги
 
-### Компенсирующие действия (TODO)
+### Дополнительные компенсации (TODO)
 
-Добавить триггеры для автоматических компенсаций:
-
-1. **При отмене payment:**
-   - Вернуть статусы связанных `lesson_sessions`
-   - Обновить баланс студента
-
-2. **При отмене invoice:**
-   - Удалить связанные `payments`
-   - Обновить `balance_transactions`
-
-3. **При expelled enrollment:**
-   - Архивировать `lesson_sessions`
-   - Пересчитать статистику группы
+- Balance transactions rollback при отмене платежа
+- Bonus account adjustments при компенсации
+- Teacher payment recalculation при отмене занятий
 
 ### Дополнительные FSM (TODO)
 
-- `student_operation_logs`
-- `teacher_substitutions`
-- `bonus_transactions`
+- `student_operation_logs` status transitions
+- `teacher_substitutions` status validation
+- `bonus_transactions` state machine
 
 ---
 
