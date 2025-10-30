@@ -54,13 +54,67 @@ Deno.serve(async (req) => {
     
     if (groupError) throw groupError;
 
+    console.log('Создание семейных групп...');
+    
+    // 2. Создаем семейные группы
+    await supabase.from('family_groups').delete().in('id', [
+      'f1111111-1111-1111-1111-111111111111',
+      'f2222222-2222-2222-2222-222222222222',
+      'f3333333-3333-3333-3333-333333333333'
+    ]);
+    
+    const familyGroupsData = [
+      { id: 'f1111111-1111-1111-1111-111111111111', name: 'Семья Петровых', organization_id: '00000000-0000-0000-0000-000000000001' },
+      { id: 'f2222222-2222-2222-2222-222222222222', name: 'Семья Смирновых', organization_id: '00000000-0000-0000-0000-000000000001' },
+      { id: 'f3333333-3333-3333-3333-333333333333', name: 'Семья Козловых', organization_id: '00000000-0000-0000-0000-000000000001' }
+    ];
+    
+    console.log('Inserting family groups:', JSON.stringify(familyGroupsData));
+    
+    const { error: familyGroupsError } = await supabase.from('family_groups').insert(familyGroupsData);
+    
+    if (familyGroupsError) {
+      console.error('Family groups error:', familyGroupsError);
+      throw familyGroupsError;
+    }
+
     console.log('Создание тестовых студентов...');
     
-    // 2. Создаем студентов
+    // 3. Создаем студентов
     const { error: studentsError } = await supabase.from('students').insert([
-      { id: 'b1111111-1111-1111-1111-111111111111', first_name: 'Анна', last_name: 'Петрова', status: 'active', age: 25, date_of_birth: '1999-05-15' },
-      { id: 'b2222222-2222-2222-2222-222222222222', first_name: 'Иван', last_name: 'Смирнов', status: 'active', age: 28, date_of_birth: '1996-08-20' },
-      { id: 'b3333333-3333-3333-3333-333333333333', first_name: 'Елена', last_name: 'Козлова', status: 'active', age: 23, date_of_birth: '2001-03-10' }
+      { 
+        id: 'b1111111-1111-1111-1111-111111111111', 
+        name: 'Анна Петрова',
+        first_name: 'Анна', 
+        last_name: 'Петрова', 
+        status: 'active', 
+        age: 25, 
+        date_of_birth: '1999-05-15',
+        family_group_id: 'f1111111-1111-1111-1111-111111111111',
+        organization_id: '00000000-0000-0000-0000-000000000001'
+      },
+      { 
+        id: 'b2222222-2222-2222-2222-222222222222', 
+        name: 'Иван Смирнов',
+        first_name: 'Иван', 
+        last_name: 'Смирнов', 
+        status: 'active', 
+        age: 28, 
+        date_of_birth: '1996-08-20',
+        family_group_id: 'f2222222-2222-2222-2222-222222222222',
+        organization_id: '00000000-0000-0000-0000-000000000001'
+      },
+      { 
+        id: 'b3333333-3333-3333-3333-333333333333', 
+        name: 'Елена Козлова',
+        first_name: 'Елена', 
+        last_name: 'Козлова', 
+        status: 'active', 
+        age: 23, 
+        date_of_birth: '2001-03-10',
+        family_group_id: 'f3333333-3333-3333-3333-333333333333',
+        organization_id: '00000000-0000-0000-0000-000000000001'
+      }
     ]);
     
     if (studentsError) throw studentsError;
@@ -103,10 +157,12 @@ Deno.serve(async (req) => {
         end_time: '19:30',
         day_of_week: s.day,
         status: 'scheduled',
-        lesson_number: i + 1
+        lesson_number: i + 1,
+        organization_id: '00000000-0000-0000-0000-000000000001'
       };
     });
     
+    console.log('Inserting sessions:', JSON.stringify(sessionData[0]));
     const { error: sessionsError } = await supabase.from('lesson_sessions').insert(sessionData);
     if (sessionsError) throw sessionsError;
 
@@ -124,7 +180,8 @@ Deno.serve(async (req) => {
         amount: 1000,
         currency: 'RUB',
         status: 'pending',
-        notes: 'Групповое занятие - Английский A1'
+        notes: 'Групповое занятие - Английский A1',
+        organization_id: '00000000-0000-0000-0000-000000000001'
       };
     });
     
