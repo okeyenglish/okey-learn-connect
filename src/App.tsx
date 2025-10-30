@@ -62,6 +62,7 @@ const SeoManager = lazy(() => import('./pages/SeoManager'));
 const CallsForTeachers = lazy(() => import('./pages/CallsForTeachers'));
 const PaymentSystemTest = lazy(() => import('./pages/PaymentSystemTest'));
 const BalanceSystemTest = lazy(() => import('./pages/BalanceSystemTest'));
+const TeacherPortalTest = lazy(() => import('./pages/TeacherPortalTest'));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Loading component for better UX
@@ -377,6 +378,13 @@ const AppContent = () => {
             <ProtectedRoute allowedRoles={['admin']}>
               <Suspense fallback={<LoadingComponent />}>
                 <BalanceSystemTest />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/teacher-portal-test" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Suspense fallback={<LoadingComponent />}>
+                <TeacherPortalTest />
               </Suspense>
             </ProtectedRoute>
           } />

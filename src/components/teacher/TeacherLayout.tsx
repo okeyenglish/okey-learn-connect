@@ -27,26 +27,25 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
 
   // Получаем данные преподавателя
   const { data: teacher, isLoading: teacherLoading } = useQuery({
-    queryKey: ['teacher-by-profile', profile?.first_name, profile?.last_name],
+    queryKey: ['teacher-by-profile', profile?.id],
     queryFn: async () => {
-      if (!profile?.first_name || !profile?.last_name) return null;
+      if (!profile?.id) return null;
       
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('teachers')
         .select('*')
-        .eq('first_name', profile.first_name)
-        .eq('last_name', profile.last_name)
+        .eq('profile_id', profile.id)
         .eq('is_active', true)
-        .limit(1);
+        .maybeSingle();
       
       if (error) {
         console.error('Error fetching teacher:', error);
         return null;
       }
       
-      return data?.[0] || null;
+      return data as Teacher | null;
     },
-    enabled: !!profile?.first_name && !!profile?.last_name,
+    enabled: !!profile?.id,
   });
 
   const handleSignOut = async () => {
