@@ -29,14 +29,16 @@ export interface BalanceTransaction {
   id: string;
   student_id: string;
   amount: number;
-  academic_hours: number;
+  academic_hours: number | null;
   transaction_type: string;
   description: string;
   payment_id: string | null;
   lesson_session_id: string | null;
-  related_group_id?: string | null;
-  related_individual_lesson_id?: string | null;
-  price_per_hour?: number | null;
+  related_group_id: string | null;
+  related_individual_lesson_id: string | null;
+  price_per_hour: number | null;
+  source_student_id: string | null;
+  target_student_id: string | null;
   created_at: string;
 }
 
@@ -111,14 +113,16 @@ export const useAddBalanceTransaction = () => {
     mutationFn: async (transaction: {
       student_id: string;
       amount: number;
-      academic_hours: number;
-      transaction_type: string;
+      academic_hours?: number;
+      transaction_type: any; // расширен enum, типы обновятся после регенерации
       description: string;
       price_per_hour?: number;
       payment_id?: string;
       lesson_session_id?: string;
       related_group_id?: string;
       related_individual_lesson_id?: string;
+      source_student_id?: string;
+      target_student_id?: string;
     }) => {
       const { data, error } = await supabase
         .from('balance_transactions')
@@ -141,6 +145,55 @@ export const useAddBalanceTransaction = () => {
     onError: (error: Error) => {
       toast({
         title: 'Ошибка',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+};
+
+// Перевести средства между студентами
+export const useTransferBetweenStudents = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({
+      fromStudentId,
+      toStudentId,
+      amount,
+      description,
+      viaFamilyLedger = false,
+    }: {
+      fromStudentId: string;
+      toStudentId: string;
+      amount: number;
+      description: string;
+      viaFamilyLedger?: boolean;
+    }) => {
+      const { data, error } = await supabase.rpc('transfer_between_students' as any, {
+        _from_student_id: fromStudentId,
+        _to_student_id: toStudentId,
+        _amount: amount,
+        _description: description,
+        _via_family_ledger: viaFamilyLedger,
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['student-balances'] });
+      queryClient.invalidateQueries({ queryKey: ['balance-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['family-ledger'] });
+      toast({
+        title: 'Успешно',
+        description: 'Средства переведены',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Ошибка перевода',
         description: error.message,
         variant: 'destructive',
       });
