@@ -6299,8 +6299,6 @@ export type Database = {
         }
         Returns: string
       }
-      show_limit: { Args: never; Returns: number }
-      show_trgm: { Args: { "": string }; Returns: string[] }
       sync_auto_group_students: {
         Args: { p_group_id: string }
         Returns: undefined
