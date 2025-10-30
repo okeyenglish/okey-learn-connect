@@ -80,6 +80,59 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_log: {
+        Row: {
+          aggregate_id: string
+          aggregate_type: string
+          changed_by: string | null
+          created_at: string
+          event_type: string
+          id: string
+          ip_address: unknown
+          new_value: Json | null
+          old_value: Json | null
+          organization_id: string
+          request_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          aggregate_id: string
+          aggregate_type: string
+          changed_by?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          ip_address?: unknown
+          new_value?: Json | null
+          old_value?: Json | null
+          organization_id: string
+          request_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          aggregate_id?: string
+          aggregate_type?: string
+          changed_by?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          ip_address?: unknown
+          new_value?: Json | null
+          old_value?: Json | null
+          organization_id?: string
+          request_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       balance_transactions: {
         Row: {
           amount: number
@@ -3340,6 +3393,7 @@ export type Database = {
           external_id: string | null
           group_id: string | null
           id: string
+          idempotency_key: string | null
           individual_lesson_id: string | null
           invoice_id: string | null
           lessons_count: number | null
@@ -3347,6 +3401,7 @@ export type Database = {
           notes: string | null
           organization_id: string
           payment_date: string
+          provider_transaction_id: string | null
           status: Database["public"]["Enums"]["finance_payment_status"]
           student_id: string | null
           transaction_id: string | null
@@ -3360,6 +3415,7 @@ export type Database = {
           external_id?: string | null
           group_id?: string | null
           id?: string
+          idempotency_key?: string | null
           individual_lesson_id?: string | null
           invoice_id?: string | null
           lessons_count?: number | null
@@ -3367,6 +3423,7 @@ export type Database = {
           notes?: string | null
           organization_id?: string
           payment_date?: string
+          provider_transaction_id?: string | null
           status?: Database["public"]["Enums"]["finance_payment_status"]
           student_id?: string | null
           transaction_id?: string | null
@@ -3380,6 +3437,7 @@ export type Database = {
           external_id?: string | null
           group_id?: string | null
           id?: string
+          idempotency_key?: string | null
           individual_lesson_id?: string | null
           invoice_id?: string | null
           lessons_count?: number | null
@@ -3387,6 +3445,7 @@ export type Database = {
           notes?: string | null
           organization_id?: string
           payment_date?: string
+          provider_transaction_id?: string | null
           status?: Database["public"]["Enums"]["finance_payment_status"]
           student_id?: string | null
           transaction_id?: string | null
@@ -6085,6 +6144,17 @@ export type Database = {
           p_progress_id: string
         }
         Returns: undefined
+      }
+      log_audit_event: {
+        Args: {
+          p_aggregate_id: string
+          p_aggregate_type: string
+          p_event_type: string
+          p_new_value?: Json
+          p_old_value?: Json
+          p_request_id?: string
+        }
+        Returns: string
       }
       mark_chat_messages_as_read: {
         Args: { p_client_id: string }
