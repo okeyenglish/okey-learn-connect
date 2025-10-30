@@ -9,7 +9,9 @@ import {
   Menu,
   MessageSquare,
   BookOpen,
-  Database
+  Database,
+  History,
+  RotateCcw
 } from "lucide-react";
 import {
   Sidebar,
@@ -35,6 +37,8 @@ const adminItems = [
   { title: "WhatsApp", id: "whatsapp", icon: MessageSquare },
   { title: "Textbooks", id: "textbooks", icon: BookOpen },
   { title: "Справочники", id: "references", icon: Database },
+  { title: "Журнал аудита", id: "audit", icon: History },
+  { title: "Компенсация платежей", id: "compensation", icon: RotateCcw },
   { title: "Sync", id: "sync", icon: RefreshCw },
   { title: "Users", id: "users", icon: Users },
   { title: "Settings", id: "settings", icon: Settings },

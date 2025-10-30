@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { usePayments } from '@/hooks/usePayments';
+import { useIdempotentPayment } from '@/hooks/useIdempotentPayment';
 import { useAddBalanceTransaction } from '@/hooks/useStudentBalance';
 import { useToast } from '@/hooks/use-toast';
 import { useCoursePrices } from '@/hooks/useCoursePrices';
@@ -79,7 +80,7 @@ export function CreatePaymentModal({
   });
   const [loading, setLoading] = useState(false);
   
-  const { createPayment } = usePayments();
+  const { mutateAsync: createPayment } = useIdempotentPayment();
   const { mutateAsync: addBalanceTransaction } = useAddBalanceTransaction();
   const { toast } = useToast();
   const { data: coursePrices } = useCoursePrices();
@@ -435,6 +436,8 @@ export function CreatePaymentModal({
         });
       } else if (paymentType === 'textbooks') {
         // Оплата учебных пособий
+        const providerTxId = `textbook_${studentId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
         const paymentPayload = {
           student_id: studentId,
           amount,
@@ -442,15 +445,11 @@ export function CreatePaymentModal({
           payment_date: formData.payment_date,
           description: formData.description || 'Оплата учебных пособий',
           notes: formData.notes,
-          lessons_count: 0
+          lessons_count: 0,
+          provider_transaction_id: providerTxId,
         };
         
         await createPayment(paymentPayload);
-        
-        toast({
-          title: "Успех",
-          description: 'Оплата учебных пособий прошла успешно',
-        });
       } else {
         // Оплата занятий
         const lessonsCount = getLessonsCount();
@@ -477,6 +476,7 @@ export function CreatePaymentModal({
         
         const lessonInfo = getSelectedLessonInfo();
         const academicHours = lessonsCount * (lessonInfo?.academicHours || 1);
+        const providerTxId = `lesson_${studentId}_${selectedLesson}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
         const paymentPayload = {
           student_id: studentId,
@@ -487,15 +487,11 @@ export function CreatePaymentModal({
           notes: formData.notes,
           lessons_count: academicHours, // Записываем академические часы, а не количество занятий
           individual_lesson_id: lessonInfo?.type === 'individual' ? selectedLesson : undefined,
-          group_id: lessonInfo?.type === 'group' ? selectedLesson : undefined
+          group_id: lessonInfo?.type === 'group' ? selectedLesson : undefined,
+          provider_transaction_id: providerTxId,
         };
         
         await createPayment(paymentPayload);
-        
-        toast({
-          title: "Успех",
-          description: `Оплачено ${lessonsCount} занятий (${academicHours} ак.ч.)`,
-        });
       }
       
       // Reset form

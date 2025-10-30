@@ -13,6 +13,8 @@ import { FamilyMembersManager } from "./FamilyMembersManager";
 import { FamilyGroupSplitter } from "./FamilyGroupSplitter";
 import { FamilyMembersRestorer } from "./FamilyMembersRestorer";
 import { FamilyGroupsReorganizer } from "./FamilyGroupsReorganizer";
+import { AuditLogViewer } from "@/components/audit/AuditLogViewer";
+import { PaymentCompensationPanel } from "@/components/payments/PaymentCompensationPanel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -41,6 +43,10 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <TextbookManager />;
       case "references":
         return <ReferencesSection />;
+      case "audit":
+        return <AuditLogViewer />;
+      case "compensation":
+        return <PaymentCompensationPanel />;
       case "family-cleanup":
         return <FamilyGroupsCleanup />;
       case "family-members":
