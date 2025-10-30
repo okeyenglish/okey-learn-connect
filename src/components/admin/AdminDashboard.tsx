@@ -14,6 +14,7 @@ import { FamilyGroupSplitter } from "./FamilyGroupSplitter";
 import { FamilyMembersRestorer } from "./FamilyMembersRestorer";
 import { FamilyGroupsReorganizer } from "./FamilyGroupsReorganizer";
 import { AuditLogViewer } from "@/components/audit/AuditLogViewer";
+import { AuditDashboard } from "@/components/audit/AuditDashboard";
 import { PaymentCompensationPanel } from "@/components/payments/PaymentCompensationPanel";
 import { PendingPaymentsPanel } from "@/components/payments/PendingPaymentsPanel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,6 +47,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <ReferencesSection />;
       case "audit":
         return <AuditLogViewer />;
+      case "audit-dashboard":
+        return <AuditDashboard />;
       case "pending-payments":
         return <PendingPaymentsPanel />;
       case "compensation":

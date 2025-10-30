@@ -51,7 +51,8 @@ import {
   Archive,
   ArchiveRestore,
   AlertTriangle,
-  Video
+  Video,
+  History as HistoryIcon
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useStudentDetails, StudentFullDetails } from '@/hooks/useStudentDetails';
@@ -66,6 +67,8 @@ import { LearningGroup } from '@/hooks/useLearningGroups';
 
 import { GroupLessonSchedule } from './GroupLessonSchedule';
 import { CreatePaymentModal } from './CreatePaymentModal';
+import { EntityAuditHistory } from '@/components/audit/EntityAuditHistory';
+import { PaymentHistoryModal } from '@/components/payments/PaymentHistoryModal';
 import { EditIndividualLessonModal } from './EditIndividualLessonModal';
 import { ScheduleSummary } from './ScheduleSummary';
 import { IndividualLessonSchedule } from './IndividualLessonSchedule';
@@ -169,6 +172,8 @@ export function EnhancedStudentCard({
   const [managePayerOpen, setManagePayerOpen] = useState(false);
   const [selectedPayer, setSelectedPayer] = useState<any>(null);
   const [editStudentDialogOpen, setEditStudentDialogOpen] = useState(false);
+  const [paymentHistoryModalOpen, setPaymentHistoryModalOpen] = useState(false);
+  const [selectedPaymentForHistory, setSelectedPaymentForHistory] = useState<string | null>(null);
   
   const { data: studentDetails, isLoading, refetch } = useStudentDetails(student.id);
   const { data: balance } = useStudentBalance(student.id);
@@ -2089,18 +2094,31 @@ export function EnhancedStudentCard({
                                       {payment.status === 'completed' ? 'Оплачено' : 
                                        payment.status === 'pending' ? 'Ожидание' : 'Отменено'}
                                     </Badge>
-                                  </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleDeletePaymentClick(payment)}
-                                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
+                                   </div>
+                                   <div className="flex items-center gap-2">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => {
+                                          setSelectedPaymentForHistory(payment.id);
+                                          setPaymentHistoryModalOpen(true);
+                                        }}
+                                        title="История платежа"
+                                      >
+                                        <HistoryIcon className="h-4 w-4" />
+                                      </Button>
+                                     <Button
+                                       variant="ghost"
+                                       size="icon"
+                                       onClick={() => handleDeletePaymentClick(payment)}
+                                       className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                     >
+                                       <Trash2 className="h-4 w-4" />
+                                     </Button>
+                                   </div>
+                                 </div>
+                               </div>
+                             ))}
                           </div>
                         )}
                       </div>
@@ -2129,17 +2147,25 @@ export function EnhancedStudentCard({
                 </TabsContent>
 
                 <TabsContent value="history" className="mt-0">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>История операций</CardTitle>
-                      <CardDescription>
-                        Хронология всех действий и событий связанных со студентом
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <StudentHistoryTimeline studentId={student.id} />
-                    </CardContent>
-                  </Card>
+                  <div className="space-y-4">
+                    <EntityAuditHistory
+                      entityType="student"
+                      entityId={student.id}
+                      title="История изменений студента"
+                    />
+                    
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>История операций (классика)</CardTitle>
+                        <CardDescription>
+                          Хронология всех действий и событий связанных со студентом
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <StudentHistoryTimeline studentId={student.id} />
+                      </CardContent>
+                    </Card>
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="logs" className="mt-0">
@@ -2448,6 +2474,15 @@ export function EnhancedStudentCard({
           refetch();
         }}
       />
+
+      {/* Модальное окно истории платежа */}
+      {selectedPaymentForHistory && (
+        <PaymentHistoryModal
+          open={paymentHistoryModalOpen}
+          onOpenChange={setPaymentHistoryModalOpen}
+          paymentId={selectedPaymentForHistory}
+        />
+      )}
     </Dialog>
   );
 }
