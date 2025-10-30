@@ -2405,6 +2405,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          organization_id: string
           updated_at: string
         }
         Insert: {
@@ -2413,6 +2414,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          organization_id?: string
           updated_at?: string
         }
         Update: {
@@ -2421,6 +2423,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          organization_id?: string
           updated_at?: string
         }
         Relationships: []
@@ -2540,6 +2543,7 @@ export type Database = {
           level: string | null
           middle_name: string | null
           notes: string | null
+          organization_id: string
           phone: string | null
           pre_enrolled_group_id: string | null
           pre_enrollment_date: string | null
@@ -2571,6 +2575,7 @@ export type Database = {
           level?: string | null
           middle_name?: string | null
           notes?: string | null
+          organization_id?: string
           phone?: string | null
           pre_enrolled_group_id?: string | null
           pre_enrollment_date?: string | null
@@ -2602,6 +2607,7 @@ export type Database = {
           level?: string | null
           middle_name?: string | null
           notes?: string | null
+          organization_id?: string
           phone?: string | null
           pre_enrolled_group_id?: string | null
           pre_enrollment_date?: string | null
