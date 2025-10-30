@@ -22,6 +22,7 @@ const StudentsSection = lazy(() => import('@/components/students/StudentsSection
 const SubscriptionsSection = lazy(() => import('@/components/subscriptions/SubscriptionsSection'));
 const EmployeesSection = lazy(() => import('@/components/employees/EmployeesSection'));
 const Sheets = lazy(() => import('./Sheets'));
+const EventBusMonitor = lazy(() => import('./EventBusMonitor'));
 
 const LoadingComponent = () => (
   <div className="flex items-center justify-center min-h-[400px]">
@@ -237,6 +238,18 @@ export default function UnifiedCRM() {
                 <ProtectedRoute allowedRoles={['admin', 'manager', 'methodist']}>
                   <Suspense fallback={<LoadingComponent />}>
                     <Sheets />
+                  </Suspense>
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Event Bus Monitor */}
+            <Route 
+              path="/events" 
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <Suspense fallback={<LoadingComponent />}>
+                    <EventBusMonitor />
                   </Suspense>
                 </ProtectedRoute>
               } 
