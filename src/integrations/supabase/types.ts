@@ -5165,6 +5165,7 @@ export type Database = {
           individual_lesson_session_id: string | null
           lesson_session_id: string | null
           notes: string | null
+          organization_id: string
           payment_id: string | null
           rate_per_hour: number
           status: string
@@ -5181,6 +5182,7 @@ export type Database = {
           individual_lesson_session_id?: string | null
           lesson_session_id?: string | null
           notes?: string | null
+          organization_id?: string
           payment_id?: string | null
           rate_per_hour: number
           status?: string
@@ -5197,6 +5199,7 @@ export type Database = {
           individual_lesson_session_id?: string | null
           lesson_session_id?: string | null
           notes?: string | null
+          organization_id?: string
           payment_id?: string | null
           rate_per_hour?: number
           status?: string
@@ -5216,6 +5219,13 @@ export type Database = {
             columns: ["lesson_session_id"]
             isOneToOne: false
             referencedRelation: "lesson_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_earnings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
