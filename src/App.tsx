@@ -58,6 +58,7 @@ const TestUserCreator = lazy(() => import('./pages/TestUserCreator'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const TeacherRegistration = lazy(() => import('./pages/auth/TeacherRegistration'));
 const SupabaseDiagnostics = lazy(() => import('./pages/SupabaseDiagnostics'));
 const HolihopeImport = lazy(() => import('./pages/HolihopeImport'));
 const SeoManager = lazy(() => import('./pages/SeoManager'));
@@ -348,6 +349,11 @@ const AppContent = () => {
           <Route path="/auth/reset-password" element={
             <Suspense fallback={<LoadingComponent />}>
               <ResetPassword />
+            </Suspense>
+          } />
+          <Route path="/register/teacher/:token" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <TeacherRegistration />
             </Suspense>
           } />
           <Route path="/diag" element={

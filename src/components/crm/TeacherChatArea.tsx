@@ -19,7 +19,7 @@ import { useTypingStatus } from '@/hooks/useTypingStatus';
 import { usePinCounts } from '@/hooks/usePinCounts';
 import { useWhatsApp } from '@/hooks/useWhatsApp';
 import { supabase } from '@/integrations/supabase/client';
-import { AddTeacherModal } from './AddTeacherModal';
+import { AddTeacherModal } from '@/components/admin/AddTeacherModal';
 
 interface TeacherGroup {
   id: string;

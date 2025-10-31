@@ -3734,6 +3734,8 @@ export type Database = {
           slug: string
           status: string | null
           subscription_ends_at: string | null
+          teacher_registration_enabled: boolean | null
+          teacher_registration_token: string | null
           trial_ends_at: string | null
           updated_at: string
         }
@@ -3751,6 +3753,8 @@ export type Database = {
           slug: string
           status?: string | null
           subscription_ends_at?: string | null
+          teacher_registration_enabled?: boolean | null
+          teacher_registration_token?: string | null
           trial_ends_at?: string | null
           updated_at?: string
         }
@@ -3768,6 +3772,8 @@ export type Database = {
           slug?: string
           status?: string | null
           subscription_ends_at?: string | null
+          teacher_registration_enabled?: boolean | null
+          teacher_registration_token?: string | null
           trial_ends_at?: string | null
           updated_at?: string
         }
