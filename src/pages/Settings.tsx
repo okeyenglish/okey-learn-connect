@@ -9,6 +9,7 @@ import { BranchesSettings } from '@/components/settings/BranchesSettings';
 import { BrandingSettings } from '@/components/settings/BrandingSettings';
 import { SubscriptionSettings } from '@/components/settings/SubscriptionSettings';
 import { UserManagementSettings } from '@/components/settings/UserManagementSettings';
+import { TeacherRegistrationLink } from '@/components/settings/TeacherRegistrationLink';
 import { useAuth } from '@/hooks/useAuth';
 
 const Settings = () => {
@@ -137,6 +138,8 @@ const Settings = () => {
                 <UserManagementSettings />
               </CardContent>
             </Card>
+
+            <TeacherRegistrationLink />
           </TabsContent>
         </Tabs>
       </main>
