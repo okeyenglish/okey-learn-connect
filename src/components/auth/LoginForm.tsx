@@ -165,6 +165,15 @@ export const LoginForm = () => {
                     'Войти'
                   )}
                 </Button>
+                <Button
+                  type="button"
+                  variant="link"
+                  className="w-full"
+                  onClick={() => navigate('/auth/forgot-password')}
+                  disabled={isLoading}
+                >
+                  Забыли пароль?
+                </Button>
               </form>
             </TabsContent>
             

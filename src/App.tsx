@@ -56,6 +56,8 @@ const Auth = lazy(() => import("./pages/Auth"));
 const StudentCourseDetails = lazy(() => import('./pages/CourseDetails'));
 const TestUserCreator = lazy(() => import('./pages/TestUserCreator'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const SupabaseDiagnostics = lazy(() => import('./pages/SupabaseDiagnostics'));
 const HolihopeImport = lazy(() => import('./pages/HolihopeImport'));
 const SeoManager = lazy(() => import('./pages/SeoManager'));
@@ -336,6 +338,16 @@ const AppContent = () => {
           <Route path="/auth/callback" element={
             <Suspense fallback={<LoadingComponent />}>
               <AuthCallback />
+            </Suspense>
+          } />
+          <Route path="/auth/forgot-password" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <ForgotPassword />
+            </Suspense>
+          } />
+          <Route path="/auth/reset-password" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <ResetPassword />
             </Suspense>
           } />
           <Route path="/diag" element={
