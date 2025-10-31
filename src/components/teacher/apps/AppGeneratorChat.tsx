@@ -44,10 +44,13 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
   };
 
   const handleGenerate = () => {
-    if (stage.stage === 'generate' && stage.message) {
-      const prompt = typeof stage.message === 'string' 
-        ? { title: 'New App', type: 'game', brief }
-        : stage;
+    if (stage.stage === 'generate') {
+      const prompt = (stage as any).prompt || { 
+        title: 'New App', 
+        type: 'game', 
+        brief,
+        description: brief 
+      };
       generateApp({ prompt });
     }
   };
