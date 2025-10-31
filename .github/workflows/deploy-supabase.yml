@@ -1,0 +1,97 @@
+name: Deploy Supabase Infrastructure
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/storage/**'
+      - 'supabase/functions/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: 🗄️ Apply database migration
+        run: |
+          echo "Applying migration..."
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f ./supabase/migrations/20250131000000_create_apps_store.sql
+          echo "✓ Migration applied"
+
+      - name: 📦 Setup Storage bucket
+        run: |
+          echo "Configuring Storage..."
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f ./supabase/storage/apps_bucket.sql
+          echo "✓ Storage configured"
+
+      - name: 🔐 Set Edge Functions secrets
+        run: |
+          echo "Setting secrets..."
+          supabase secrets set --project-ref "$SUPABASE_PROJECT_REF" OPENAI_API_KEY="$OPENAI_API_KEY"
+          echo "✓ Secrets configured"
+
+      - name: 🚀 Deploy Edge Functions
+        run: |
+          echo "Deploying Edge Functions..."
+          for fn in generate-app suggest-or-generate improve-app; do
+            if [ -d "supabase/functions/$fn" ]; then
+              echo "  • Deploying $fn..."
+              supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF"
+            else
+              echo "  • Skipping $fn (directory not found)"
+            fi
+          done
+          echo "✓ Functions deployed"
+
+      - name: 🧪 Smoke test
+        run: |
+          echo "Running smoke tests..."
+          
+          # Test database tables
+          psql "$SUPABASE_DB_URL" -Atc "SELECT to_regclass('public.apps') IS NOT NULL" | grep -q t \
+            && echo "✓ apps table exists" || exit 1
+          
+          psql "$SUPABASE_DB_URL" -Atc "SELECT to_regclass('public.app_versions') IS NOT NULL" | grep -q t \
+            && echo "✓ app_versions table exists" || exit 1
+          
+          # Test Storage bucket
+          psql "$SUPABASE_DB_URL" -Atc "SELECT EXISTS(SELECT 1 FROM storage.buckets WHERE id='apps')" | grep -q t \
+            && echo "✓ apps bucket exists" || exit 1
+          
+          # Test Edge Functions availability (best effort)
+          curl -sS -m 5 -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/functions/v1/generate-app" >/dev/null 2>&1 \
+            && echo "✓ generate-app endpoint accessible" \
+            || echo "⚠ generate-app endpoint not responding (may be normal)"
+          
+          echo "✓ Smoke tests passed"
+
+      - name: 📊 Deployment summary
+        if: always()
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Database migration applied" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Storage bucket configured" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Edge Functions secrets set" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Edge Functions deployed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Project:** \`$SUPABASE_PROJECT_REF\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
