@@ -29,17 +29,25 @@ export const QuickStartLessonModal = ({
 
   const startLesson = useMutation({
     mutationFn: async (action: 'start' | 'start_online') => {
-      const table = session.type === 'group' ? 'lesson_sessions' : 'individual_lesson_sessions';
+      console.log('Starting lesson:', { sessionId: session.id, type: session.type, action });
       
-      const { error } = await supabase
+      const table = session.type === 'group' ? 'lesson_sessions' : 'individual_lesson_sessions';
+      console.log('Using table:', table);
+      
+      const { data, error } = await supabase
         .from(table as any)
         .update({ 
           status: 'in_progress',
-          actual_start_time: new Date().toISOString(),
         })
-        .eq('id', session.id);
+        .eq('id', session.id)
+        .select();
 
-      if (error) throw error;
+      console.log('Update result:', { data, error });
+
+      if (error) {
+        console.error('Update error:', error);
+        throw new Error(`Failed to start lesson: ${error.message}`);
+      }
 
       if (action === 'start_online' && session.online_link) {
         window.open(session.online_link, '_blank');
@@ -55,11 +63,12 @@ export const QuickStartLessonModal = ({
       });
       onOpenChange(false);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Error starting lesson:', error);
+      const errorMessage = error?.message || 'Не удалось начать занятие';
       toast({
         title: 'Ошибка',
-        description: 'Не удалось начать занятие',
+        description: errorMessage,
         variant: 'destructive',
       });
     },
