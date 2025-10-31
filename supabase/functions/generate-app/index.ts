@@ -172,8 +172,8 @@ ${prompt.features ? prompt.features.map((f: string) => `- ${f}`).join('\n') : ''
       appData = { id: app_id };
     } else {
       // Create new app
-      const title = meta.title || prompt.title || 'New App';
-      const description = meta.description || prompt.brief || '';
+      const title = meta.title || prompt.title || 'Untitled App';
+      const description = prompt.description || meta.description || prompt.brief || 'No description provided';
       const embedding = await getEmbedding(`${title} ${description}`);
 
       const { data: newApp, error: appError } = await supabase
