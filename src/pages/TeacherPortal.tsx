@@ -38,9 +38,10 @@ export default function TeacherPortal() {
             <TabsContent value="profile">
               {teacher && <TeacherProfile teacher={teacher} />}
             </TabsContent>
-            
-            {/* Плавающая кнопка AI Hub */}
-            {teacher && <TeacherAIHub teacher={teacher} />}
+
+            <TabsContent value="ai-hub">
+              {teacher && <TeacherAIHub teacher={teacher} />}
+            </TabsContent>
           </>
         )}
       </TeacherLayout>

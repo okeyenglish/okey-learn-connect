@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { GraduationCap, LogOut, Home, BookOpen, Calendar, FileText, UserCircle, RefreshCcw, Bell } from 'lucide-react';
+import { GraduationCap, LogOut, Home, BookOpen, Calendar, FileText, UserCircle, RefreshCcw, Bell, Bot } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
@@ -147,6 +147,13 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
               >
                 <RefreshCcw className="h-4 w-4" />
                 <span className="hidden sm:inline">Замены</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="ai-hub" 
+                className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+              >
+                <Bot className="h-4 w-4" />
+                <span className="hidden sm:inline">AI Hub</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="profile" 

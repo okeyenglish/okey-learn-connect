@@ -18,14 +18,7 @@ export const TeacherAIHub = ({ teacher }: TeacherAIHubProps) => {
   const [activeTab, setActiveTab] = React.useState('assistant');
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">AI-Ассистент преподавателя</h1>
-        <p className="text-muted-foreground mt-2">
-          Ваш персональный помощник для подготовки занятий и материалов
-        </p>
-      </div>
-
+    <div className="w-full">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="assistant">
