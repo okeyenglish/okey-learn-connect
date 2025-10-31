@@ -34,6 +34,10 @@ export const GroupAttendanceModal = ({
 
   const saveAttendance = useMutation({
     mutationFn: async () => {
+      console.log('Saving attendance for session:', sessionId);
+      console.log('Attendance data:', attendance);
+      console.log('Notes:', notes);
+
       const updates = Object.entries(attendance).map(([studentId, data]) => ({
         lesson_session_id: sessionId,
         student_id: studentId,
@@ -41,24 +45,45 @@ export const GroupAttendanceModal = ({
         notes: notes[studentId] || null,
       }));
 
+      console.log('Updates to insert:', updates);
+
+      if (updates.length === 0) {
+        throw new Error('Необходимо отметить хотя бы одного студента');
+      }
+
       // Сначала удаляем существующие записи
-      await supabase
+      const { error: deleteError } = await supabase
         .from('student_lesson_sessions')
         .delete()
         .eq('lesson_session_id', sessionId);
 
+      if (deleteError) {
+        console.error('Error deleting existing attendance:', deleteError);
+        throw new Error(`Ошибка при удалении: ${deleteError.message}`);
+      }
+
       // Затем вставляем новые
-      const { error } = await supabase
+      const { error: insertError } = await supabase
         .from('student_lesson_sessions')
         .insert(updates);
 
-      if (error) throw error;
+      if (insertError) {
+        console.error('Error inserting attendance:', insertError);
+        throw new Error(`Ошибка при сохранении: ${insertError.message}`);
+      }
 
       // Обновляем статус сессии на completed
-      await supabase
+      const { error: updateError } = await supabase
         .from('lesson_sessions')
         .update({ status: 'completed' })
         .eq('id', sessionId);
+
+      if (updateError) {
+        console.error('Error updating session status:', updateError);
+        throw new Error(`Ошибка при обновлении статуса: ${updateError.message}`);
+      }
+
+      console.log('Attendance saved successfully');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['group-students-attendance'] });
@@ -70,11 +95,12 @@ export const GroupAttendanceModal = ({
       });
       onOpenChange(false);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Error saving attendance:', error);
+      const errorMessage = error?.message || 'Не удалось сохранить посещаемость';
       toast({
         title: 'Ошибка',
-        description: 'Не удалось сохранить посещаемость',
+        description: errorMessage,
         variant: 'destructive',
       });
     },
