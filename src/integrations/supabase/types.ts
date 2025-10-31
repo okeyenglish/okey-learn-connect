@@ -80,6 +80,279 @@ export type Database = {
         }
         Relationships: []
       }
+      app_flags: {
+        Row: {
+          app_id: string
+          created_at: string | null
+          details: string | null
+          id: string
+          reason: string
+          resolved_at: string | null
+          status: string | null
+          teacher_id: string
+        }
+        Insert: {
+          app_id: string
+          created_at?: string | null
+          details?: string | null
+          id?: string
+          reason: string
+          resolved_at?: string | null
+          status?: string | null
+          teacher_id: string
+        }
+        Update: {
+          app_id?: string
+          created_at?: string | null
+          details?: string | null
+          id?: string
+          reason?: string
+          resolved_at?: string | null
+          status?: string | null
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_flags_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "apps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "app_flags_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      app_installs: {
+        Row: {
+          app_id: string
+          id: string
+          installed_at: string | null
+          teacher_id: string
+        }
+        Insert: {
+          app_id: string
+          id?: string
+          installed_at?: string | null
+          teacher_id: string
+        }
+        Update: {
+          app_id?: string
+          id?: string
+          installed_at?: string | null
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_installs_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "apps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "app_installs_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      app_reviews: {
+        Row: {
+          app_id: string
+          comment: string | null
+          created_at: string | null
+          id: string
+          rating: number
+          teacher_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          app_id: string
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          rating: number
+          teacher_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          app_id?: string
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          rating?: number
+          teacher_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_reviews_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "apps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "app_reviews_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      app_usage: {
+        Row: {
+          app_id: string
+          id: string
+          teacher_id: string
+          used_at: string | null
+        }
+        Insert: {
+          app_id: string
+          id?: string
+          teacher_id: string
+          used_at?: string | null
+        }
+        Update: {
+          app_id?: string
+          id?: string
+          teacher_id?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_usage_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "apps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "app_usage_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      app_versions: {
+        Row: {
+          app_id: string
+          artifact_path: string
+          created_at: string | null
+          id: string
+          meta: Json | null
+          model: string
+          preview_url: string
+          prompt: Json
+          version: number
+        }
+        Insert: {
+          app_id: string
+          artifact_path: string
+          created_at?: string | null
+          id?: string
+          meta?: Json | null
+          model: string
+          preview_url: string
+          prompt: Json
+          version: number
+        }
+        Update: {
+          app_id?: string
+          artifact_path?: string
+          created_at?: string | null
+          id?: string
+          meta?: Json | null
+          model?: string
+          preview_url?: string
+          prompt?: Json
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_versions_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "apps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "app_versions_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      apps: {
+        Row: {
+          author_id: string
+          avg_rating: number | null
+          created_at: string | null
+          description: string | null
+          embedding: string | null
+          fingerprint: string | null
+          id: string
+          install_count: number | null
+          kind: string
+          latest_version: number | null
+          level: string
+          organization_id: string
+          status: string
+          tags: string[] | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          author_id: string
+          avg_rating?: number | null
+          created_at?: string | null
+          description?: string | null
+          embedding?: string | null
+          fingerprint?: string | null
+          id?: string
+          install_count?: number | null
+          kind: string
+          latest_version?: number | null
+          level: string
+          organization_id: string
+          status?: string
+          tags?: string[] | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          author_id?: string
+          avg_rating?: number | null
+          created_at?: string | null
+          description?: string | null
+          embedding?: string | null
+          fingerprint?: string | null
+          id?: string
+          install_count?: number | null
+          kind?: string
+          latest_version?: number | null
+          level?: string
+          organization_id?: string
+          status?: string
+          tags?: string[] | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           aggregate_id: string
@@ -5938,7 +6211,24 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      catalog: {
+        Row: {
+          author_id: string | null
+          avg_rating: number | null
+          created_at: string | null
+          description: string | null
+          id: string | null
+          install_count: number | null
+          kind: string | null
+          latest_version: number | null
+          level: string | null
+          meta: Json | null
+          preview_url: string | null
+          tags: string[] | null
+          title: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       accrue_teacher_earning_for_lesson: {
@@ -5960,6 +6250,10 @@ export type Database = {
         Returns: undefined
       }
       add_sheet_row: { Args: { p_table_name: string }; Returns: Json }
+      app_fingerprint: {
+        Args: { p_description: string; p_kind: string; p_level: string }
+        Returns: string
+      }
       calculate_cluster_score: {
         Args: {
           p_business_value?: number
@@ -6422,6 +6716,21 @@ export type Database = {
           p_reply_to_message_id?: string
         }
         Returns: string
+      }
+      similar_apps: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          description: string
+          id: string
+          kind: string
+          level: string
+          similarity: number
+          title: string
+        }[]
       }
       sync_auto_group_students: {
         Args: { p_group_id: string }
