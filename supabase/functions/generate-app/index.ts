@@ -82,24 +82,35 @@ serve(async (req) => {
 
   try {
     const { teacher_id, prompt, app_id } = await req.json();
+    console.log('Generate app request:', { teacher_id, prompt, app_id });
 
     if (!teacher_id || !prompt) {
+      console.error('Missing required fields:', { teacher_id, prompt });
       return new Response(
         JSON.stringify({ error: 'teacher_id and prompt are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    if (!openAIApiKey) {
+      console.error('OPENAI_API_KEY not configured');
+      return new Response(
+        JSON.stringify({ error: 'OPENAI_API_KEY is not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Get teacher info
-    const { data: teacher } = await supabase
+    const { data: teacher, error: teacherError } = await supabase
       .from('teachers')
       .select('id')
       .eq('user_id', teacher_id)
       .single();
 
-    if (!teacher) {
+    if (teacherError || !teacher) {
+      console.error('Teacher lookup error:', teacherError);
       return new Response(
         JSON.stringify({ error: 'Teacher not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -121,6 +132,7 @@ ${prompt.features ? prompt.features.map((f: string) => `- ${f}`).join('\n') : ''
 Сделайте приложение интересным, интерактивным и полезным для практики английского языка.
 `;
 
+    console.log('Calling OpenAI API...');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -138,8 +150,18 @@ ${prompt.features ? prompt.features.map((f: string) => `- ${f}`).join('\n') : ''
       })
     });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenAI API error:', response.status, errorText);
+      return new Response(
+        JSON.stringify({ error: `OpenAI API error: ${response.status}` }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const aiData = await response.json();
     let html = aiData.choices[0].message?.content || '';
+    console.log('Generated HTML length:', html.length);
 
     // Remove markdown code blocks if present
     html = html.replace(/```html\n?/g, '').replace(/```\n?/g, '');
