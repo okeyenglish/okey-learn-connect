@@ -106,13 +106,21 @@ serve(async (req) => {
     const { data: teacher, error: teacherError } = await supabase
       .from('teachers')
       .select('id')
-      .eq('user_id', teacher_id)
-      .single();
+      .eq('profile_id', teacher_id)
+      .maybeSingle();
 
-    if (teacherError || !teacher) {
+    if (teacherError) {
       console.error('Teacher lookup error:', teacherError);
       return new Response(
-        JSON.stringify({ error: 'Teacher not found' }),
+        JSON.stringify({ error: `Teacher lookup failed: ${teacherError.message}` }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!teacher) {
+      console.error('Teacher not found for profile_id:', teacher_id);
+      return new Response(
+        JSON.stringify({ error: 'Teacher profile not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
