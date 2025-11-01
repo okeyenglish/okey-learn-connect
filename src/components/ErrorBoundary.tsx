@@ -1,6 +1,6 @@
 import React from "react";
 
-interface ErrorBoundaryState { hasError: boolean; error?: Error; }
+interface ErrorBoundaryState { hasError: boolean; error?: Error; componentStack?: string; }
 
 export class ErrorBoundary extends React.Component<React.PropsWithChildren, ErrorBoundaryState> {
   constructor(props: React.PropsWithChildren) {
@@ -14,6 +14,7 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Erro
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error("ErrorBoundary caught error:", error, errorInfo);
+    this.setState({ componentStack: errorInfo.componentStack });
   }
 
   render() {
@@ -24,7 +25,10 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Erro
             <h1 className="text-2xl font-semibold text-primary">Ошибка загрузки страницы</h1>
             <p className="text-muted-foreground">Что-то пошло не так при отображении этой страницы. Попробуйте перезагрузить или вернуться на главную.</p>
             {this.state.error && (
-              <pre className="text-left text-xs bg-muted p-3 rounded-md overflow-auto max-h-48">{this.state.error.message}</pre>
+              <pre className="text-left text-xs bg-muted p-3 rounded-md overflow-auto max-h-48">
+                {this.state.error.message}
+                {this.state.componentStack ? `\n${this.state.componentStack}` : ''}
+              </pre>
             )}
             <a href="/" className="underline text-primary">На главную</a>
           </div>

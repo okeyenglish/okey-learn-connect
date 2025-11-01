@@ -238,17 +238,14 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
             branches,
           })}
         </div>
-
-        {/* Плавающий виджет чата и ассистента */}
-        <FloatingChatWidget
+        {/* Плавающий виджет чата и ассистента временно отключен для стабилизации */}
+        {/* <FloatingChatWidget
           teacherId={teacher.id}
-          context={{
-            page: activeTab,
-          }}
-        />
+          context={{ page: activeTab }}
+        /> */}
 
-        {/* Мобильная навигация */}
-        <MobileTabBar activeTab={activeTab} onTabChange={setActiveTab} />
+        {/* Мобильная навигация временно отключена для стабилизации */}
+        {/* <MobileTabBar activeTab={activeTab} onTabChange={setActiveTab} /> */}
       </div>
     </Tabs>
   );

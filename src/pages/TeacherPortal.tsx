@@ -18,31 +18,45 @@ export default function TeacherPortal() {
         {({ teacher, isLoading, activeTab, setActiveTab, selectedBranchId, branches }) => (
           <>
             <TabsContent value="home">
-              {teacher && <TeacherHome teacher={teacher} selectedBranchId={selectedBranchId} />}
+              {teacher && activeTab === 'home' && (
+                <TeacherHome teacher={teacher} selectedBranchId={selectedBranchId} />
+              )}
             </TabsContent>
 
             <TabsContent value="journal">
-              {teacher && <TeacherJournal teacher={teacher} selectedBranchId={selectedBranchId} />}
+              {teacher && activeTab === 'journal' && (
+                <TeacherJournal teacher={teacher} selectedBranchId={selectedBranchId} />
+              )}
             </TabsContent>
 
             <TabsContent value="materials">
-              {teacher && <TeacherMaterials teacher={teacher} selectedBranchId={selectedBranchId} />}
+              {teacher && activeTab === 'materials' && (
+                <TeacherMaterials teacher={teacher} selectedBranchId={selectedBranchId} />
+              )}
             </TabsContent>
 
             <TabsContent value="schedule">
-              {teacher && <TeacherSchedule teacher={teacher} selectedBranchId={selectedBranchId} />}
+              {teacher && activeTab === 'schedule' && (
+                <TeacherSchedule teacher={teacher} selectedBranchId={selectedBranchId} />
+              )}
             </TabsContent>
 
             <TabsContent value="substitutions">
-              {teacher && <TeacherSubstitutions teacher={teacher} selectedBranchId={selectedBranchId} />}
+              {teacher && activeTab === 'substitutions' && (
+                <TeacherSubstitutions teacher={teacher} selectedBranchId={selectedBranchId} />
+              )}
             </TabsContent>
 
             <TabsContent value="profile">
-              {teacher && <TeacherProfile teacher={teacher} />}
+              {teacher && activeTab === 'profile' && (
+                <TeacherProfile teacher={teacher} />
+              )}
             </TabsContent>
 
             <TabsContent value="ai-hub">
-              {teacher && <TeacherAIHub teacher={teacher} />}
+              {teacher && activeTab === 'ai-hub' && (
+                <TeacherAIHub teacher={teacher} />
+              )}
             </TabsContent>
           </>
         )}
