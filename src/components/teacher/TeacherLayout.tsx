@@ -138,8 +138,13 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
       <div className="min-h-screen bg-background pb-16 md:pb-0">
         <OfflineBanner />
         
-        {/* Sticky Header - не сдвигается */}
-        <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b">
+        {/* Sticky Header - сдвигается когда чат закреплен */}
+        <div 
+          className={`
+            sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b transition-all duration-300
+            ${isChatDocked ? 'md:mr-[20vw]' : ''}
+          `}
+        >
           <div className="container mx-auto max-w-7xl px-6 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -217,18 +222,20 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
         {/* Main Content - сдвигается когда чат закреплен */}
         <div 
           className={`
-            container mx-auto max-w-7xl p-4 md:p-6 transition-all duration-300
+            transition-all duration-300
             ${isChatDocked ? 'md:mr-[20vw]' : ''}
           `}
         >
-          {children({ 
-            teacher, 
-            isLoading: teacherLoading, 
-            activeTab, 
-            setActiveTab,
-            selectedBranchId,
-            branches,
-          })}
+          <div className="container mx-auto max-w-7xl p-4 md:p-6">
+            {children({ 
+              teacher, 
+              isLoading: teacherLoading, 
+              activeTab, 
+              setActiveTab,
+              selectedBranchId,
+              branches,
+            })}
+          </div>
         </div>
         <FloatingChatWidget
           teacherId={teacher.id}

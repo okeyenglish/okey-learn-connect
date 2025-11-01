@@ -108,7 +108,7 @@ export const FloatingChatWidget = ({ teacherId, context, onDockedChange }: Float
             className={`
               bg-background border-l shadow-2xl flex flex-col overflow-hidden transition-all duration-300
               ${isDocked 
-                ? 'fixed top-0 right-0 bottom-0 w-full md:w-[20vw] md:min-w-[320px] z-30' 
+                ? 'fixed top-0 right-0 bottom-0 w-full md:w-[20vw] md:min-w-[320px] z-50' 
                 : 'fixed bottom-0 right-0 md:bottom-24 md:right-6 w-full md:w-[420px] h-full md:h-[600px] md:border md:rounded-2xl z-50'
               }
             `}
