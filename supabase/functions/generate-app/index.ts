@@ -214,7 +214,6 @@ ${prompt.features ? prompt.features.map((f: string) => `- ${f}`).join('\n') : ''
           kind: prompt.type || 'game',
           description,
           level: prompt.level || meta.level || 'A1',
-          lang: 'ru',
           status: 'draft',
           embedding
         })
