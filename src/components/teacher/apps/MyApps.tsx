@@ -75,13 +75,9 @@ export const MyApps = ({ teacher, onCreateNew }: MyAppsProps) => {
         <TabsContent value="created" className="space-y-4">
           {!myApps || myApps.length === 0 ? (
             <div className="text-center p-12 border rounded-lg">
-              <p className="text-muted-foreground mb-4">
+              <p className="text-muted-foreground">
                 У вас пока нет созданных приложений
               </p>
-              <Button onClick={onCreateNew}>
-                <Plus className="h-4 w-4 mr-2" />
-                Создать первое приложение
-              </Button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
