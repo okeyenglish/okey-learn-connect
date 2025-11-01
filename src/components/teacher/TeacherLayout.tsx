@@ -73,6 +73,14 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
     hasMultipleBranches,
   } = useTeacherBranches(teacher?.id);
 
+  // Инициализируем аналитику (всегда вызываем хук, чтобы не нарушать порядок)
+  useEffect(() => {
+    if (teacher?.id) {
+      analytics.init(teacher.id);
+      analytics.track(AnalyticsEvents.DASHBOARD_OPENED);
+    }
+  }, [teacher?.id]);
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -122,13 +130,6 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
     );
   }
 
-  // Инициализируем аналитику
-  useEffect(() => {
-    if (teacher?.id) {
-      analytics.init(teacher.id);
-      analytics.track(AnalyticsEvents.DASHBOARD_OPENED);
-    }
-  }, [teacher?.id]);
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab}>
