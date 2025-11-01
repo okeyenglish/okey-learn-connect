@@ -62,25 +62,25 @@ export const AppViewer = ({ appId, previewUrl, open, onClose, teacherId }: AppVi
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className={isFullscreen ? "max-w-full h-screen m-0 p-0" : "max-w-6xl h-[90vh] p-0"}>
-          <div className="flex items-center justify-end h-9 px-2 border-b bg-background">
-            <div className="flex gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsFullscreen(!isFullscreen)}
-                aria-label={isFullscreen ? "Свернуть" : "Во весь экран"}
-              >
-                {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onClose}
-                aria-label="Закрыть"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+          <div className="absolute top-1 right-1 z-50 flex gap-0.5 bg-background/80 backdrop-blur-sm rounded-md p-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              aria-label={isFullscreen ? "Свернуть" : "Во весь экран"}
+            >
+              {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onClose}
+              aria-label="Закрыть"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
           </div>
 
         {isLoading && (
