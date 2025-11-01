@@ -195,14 +195,7 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
                 <FileText className="h-4 w-4" />
                 <span className="hidden sm:inline">Материалы</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="substitutions" 
-                className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-              >
-                <RefreshCcw className="h-4 w-4" />
-                <span className="hidden sm:inline">Замены</span>
-              </TabsTrigger>
-              <TabsTrigger 
+              <TabsTrigger
                 value="ai-hub" 
                 className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
               >

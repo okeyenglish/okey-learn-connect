@@ -4,7 +4,6 @@ import { TeacherLayout } from '@/components/teacher/TeacherLayout';
 import { TeacherHome } from '@/components/teacher/TeacherHome';
 import { TeacherScheduleJournal } from '@/components/teacher/TeacherScheduleJournal';
 import { TeacherMaterials } from '@/components/teacher/TeacherMaterials';
-import { TeacherSubstitutions } from '@/components/teacher/TeacherSubstitutions';
 import { TeacherProfile } from '@/components/teacher/TeacherProfile';
 import { TeacherAIHub } from '@/components/teacher/TeacherAIHub';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -31,12 +30,6 @@ export default function TeacherPortal() {
             <TabsContent value="materials">
               {teacher && activeTab === 'materials' && (
                 <TeacherMaterials teacher={teacher} selectedBranchId={selectedBranchId} />
-              )}
-            </TabsContent>
-
-            <TabsContent value="substitutions">
-              {teacher && activeTab === 'substitutions' && (
-                <TeacherSubstitutions teacher={teacher} selectedBranchId={selectedBranchId} />
               )}
             </TabsContent>
 
