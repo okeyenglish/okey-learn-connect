@@ -105,7 +105,7 @@ serve(async (req) => {
     // Get teacher info
     const { data: teacher, error: teacherError } = await supabase
       .from('teachers')
-      .select('id')
+      .select('id, organization_id')
       .eq('profile_id', teacher_id)
       .maybeSingle();
 
@@ -210,6 +210,7 @@ ${prompt.features ? prompt.features.map((f: string) => `- ${f}`).join('\n') : ''
         .from('apps')
         .insert({
           author_id: teacher.id,
+          organization_id: teacher.organization_id,
           title,
           kind: prompt.type || 'game',
           description,
