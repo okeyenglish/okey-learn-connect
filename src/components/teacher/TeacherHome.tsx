@@ -74,10 +74,11 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
             subject,
             level,
             capacity,
-            current_students
+            current_students,
+            teacher_id
           )
         `)
-        .eq('teacher_name', teacherName)
+        .eq('learning_groups.teacher_id', teacher.id)
         .eq('lesson_date', today);
 
       // Фильтрация по филиалу
@@ -97,10 +98,10 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
   const { data: groups, isLoading: groupsLoading } = useQuery({
     queryKey: ['teacher-groups', teacher.id, selectedBranchId],
     queryFn: async () => {
-      let query = supabase
+      let query = (supabase as any)
         .from('learning_groups')
         .select('*')
-        .eq('responsible_teacher', teacherName)
+        .eq('teacher_id', teacher.id)
         .eq('is_active', true);
 
       // Фильтрация по филиалу
@@ -118,10 +119,10 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
   const { data: individualLessons, isLoading: individualLoading } = useQuery({
     queryKey: ['teacher-individual-lessons', teacher.id, selectedBranchId],
     queryFn: async () => {
-      let query = supabase
+      let query = (supabase as any)
         .from('individual_lessons')
         .select('*')
-        .eq('teacher_name', teacherName)
+        .eq('teacher_id', teacher.id)
         .eq('is_active', true);
 
       // Фильтрация по филиалу
@@ -150,10 +151,11 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
           learning_groups (
             name,
             subject,
-            level
+            level,
+            teacher_id
           )
         `)
-        .eq('teacher_name', teacherName)
+        .eq('learning_groups.teacher_id', teacher.id)
         .gte('lesson_date', today)
         .lte('lesson_date', nextWeek.toISOString().split('T')[0]);
 
@@ -185,10 +187,11 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
           learning_groups (
             name,
             subject,
-            level
+            level,
+            teacher_id
           )
         `)
-        .eq('teacher_name', teacherName)
+        .eq('learning_groups.teacher_id', teacher.id)
         .gte('lesson_date', today)
         .lte('lesson_date', nextMonth.toISOString().split('T')[0]);
 

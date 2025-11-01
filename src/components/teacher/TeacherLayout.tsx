@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { GraduationCap, LogOut, Home, BookOpen, Calendar, FileText, UserCircle, RefreshCcw, Bell, Bot } from 'lucide-react';
+import { GraduationCap, LogOut, Home, BookOpen, Calendar, FileText, UserCircle, RefreshCcw, Bell, Bot, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
@@ -34,10 +34,15 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
   const [activeTab, setActiveTab] = useState('home');
 
   // Получаем данные преподавателя
-  const { data: teacher, isLoading: teacherLoading } = useQuery({
+  const { data: teacher, isLoading: teacherLoading, error: teacherError } = useQuery({
     queryKey: ['teacher-by-profile', profile?.id],
     queryFn: async () => {
-      if (!profile?.id) return null;
+      if (!profile?.id) {
+        console.warn('[TeacherLayout] No profile ID');
+        return null;
+      }
+      
+      console.log('[TeacherLayout] Fetching teacher for profile:', profile.id);
       
       const { data, error } = await (supabase as any)
         .from('teachers')
@@ -47,8 +52,12 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
         .maybeSingle();
       
       if (error) {
-        console.error('Error fetching teacher:', error);
-        return null;
+        console.error('[TeacherLayout] Error fetching teacher:', error);
+        throw error;
+      }
+      
+      if (!data) {
+        console.warn('[TeacherLayout] No teacher found for profile:', profile.id);
       }
       
       return data as Teacher | null;
@@ -87,11 +96,26 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
     );
   }
 
+  if (teacherError) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
+          <p className="text-lg font-semibold">Ошибка загрузки данных</p>
+          <p className="text-sm text-muted-foreground">{teacherError.message}</p>
+          <Button onClick={() => navigate('/')}>На главную</Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!teacher) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
-          <p className="text-lg">Преподаватель не найден или у вас нет доступа к этому кабинету</p>
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto" />
+          <p className="text-lg font-semibold">Преподаватель не найден</p>
+          <p className="text-sm text-muted-foreground">У вас нет доступа к этому кабинету или ваш профиль не связан с преподавателем</p>
           <Button onClick={() => navigate('/')}>На главную</Button>
         </div>
       </div>

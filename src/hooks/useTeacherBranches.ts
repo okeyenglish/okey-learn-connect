@@ -94,9 +94,9 @@ export const useTeacherBranches = (teacherId?: string) => {
         branches.map(async (branch) => {
           const { count } = await supabase
             .from('lesson_sessions')
-            .select('*', { count: 'exact', head: true })
-            .eq('teacher_name', teacherId) // Will be fixed when we have proper teacher_id
-            .eq('branch', branch.name)
+            .select('*, learning_groups!inner(teacher_id, branch)', { count: 'exact', head: true })
+            .eq('learning_groups.teacher_id', teacherId)
+            .eq('learning_groups.branch', branch.name)
             .gte('lesson_date', format(start, 'yyyy-MM-dd'))
             .lte('lesson_date', format(end, 'yyyy-MM-dd'));
 

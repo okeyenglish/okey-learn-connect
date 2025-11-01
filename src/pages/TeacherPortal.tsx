@@ -8,11 +8,13 @@ import { TeacherSchedule } from '@/components/teacher/TeacherSchedule';
 import { TeacherSubstitutions } from '@/components/teacher/TeacherSubstitutions';
 import { TeacherProfile } from '@/components/teacher/TeacherProfile';
 import { TeacherAIHub } from '@/components/teacher/TeacherAIHub';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export default function TeacherPortal() {
   return (
-    <ProtectedRoute>
-      <TeacherLayout>
+    <ErrorBoundary>
+      <ProtectedRoute>
+        <TeacherLayout>
         {({ teacher, isLoading, activeTab, setActiveTab, selectedBranchId, branches }) => (
           <>
             <TabsContent value="home">
@@ -46,5 +48,6 @@ export default function TeacherPortal() {
         )}
       </TeacherLayout>
     </ProtectedRoute>
+    </ErrorBoundary>
   );
 }
