@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import { Send, Loader2, Sparkles } from 'lucide-react';
+import { Send, Loader2, Sparkles, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useAppGenerator } from '@/hooks/useAppGenerator';
 import { AppViewer } from './AppViewer';
 import { ImprovementButtons } from './ImprovementButtons';
@@ -26,14 +29,20 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
     'wordSearch' | 'fillInBlanks' | 'dragAndDrop' | 'memory' | 'typing'
   >('quiz');
   const [viewerOpen, setViewerOpen] = useState(false);
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [publishTitle, setPublishTitle] = useState('');
+  const [publishDescription, setPublishDescription] = useState('');
+  const [lastPrompt, setLastPrompt] = useState<any>(null);
   
   const { 
     stage, 
     suggestOrGenerate, 
     generateApp, 
     improveApp,
+    publishApp,
     isGenerating,
     isSuggesting,
+    isPublishing,
     reset 
   } = useAppGenerator((teacher as any).profile_id || (teacher as any).user_id || teacher.id);
 
@@ -55,7 +64,28 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
         brief,
         description: brief 
       };
+      setLastPrompt(prompt);
       generateApp({ prompt });
+    }
+  };
+
+  const handleRegenerateWithFormat = () => {
+    if (lastPrompt) {
+      const newPrompt = { ...lastPrompt, type: format };
+      generateApp({ prompt: newPrompt, appId: stage.result?.app_id });
+    }
+  };
+
+  const handlePublish = () => {
+    if (stage.result?.app_id && publishTitle.trim() && publishDescription.trim()) {
+      publishApp({ 
+        appId: stage.result.app_id, 
+        title: publishTitle, 
+        description: publishDescription 
+      });
+      setPublishDialogOpen(false);
+      setPublishTitle('');
+      setPublishDescription('');
     }
   };
 
@@ -230,16 +260,87 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
                       Открыть предпросмотр
                     </Button>
                     <Button 
+                      variant="secondary"
+                      onClick={() => setPublishDialogOpen(true)}
+                      disabled={isPublishing}
+                    >
+                      Опубликовать
+                    </Button>
+                    <Button 
                       variant="outline" 
                       onClick={() => {
                         reset();
                         setBrief('');
                         setAnswers({});
+                        setLastPrompt(null);
                       }}
                     >
                       Создать новое
                     </Button>
                   </div>
+
+                  {lastPrompt && (
+                    <div className="p-3 border rounded-lg bg-muted/50 space-y-2">
+                      <p className="text-sm font-medium">Перегенерировать с другим форматом:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { key: 'quiz', label: 'Квиз', icon: '❓' },
+                          { key: 'crossword', label: 'Кроссворд', icon: '🔤' },
+                          { key: 'flashcards', label: 'Карточки', icon: '🎴' },
+                          { key: 'matching', label: 'Сопоставление', icon: '🔗' },
+                          { key: 'wordSearch', label: 'Поиск слов', icon: '🔍' },
+                          { key: 'fillInBlanks', label: 'Заполни пропуски', icon: '📝' },
+                          { key: 'memory', label: 'Мемори', icon: '🧠' },
+                          { key: 'dragAndDrop', label: 'Перетаскивание', icon: '🎯' },
+                          { key: 'test', label: 'Тест', icon: '📋' },
+                          { key: 'typing', label: 'Тренажер набора', icon: '⌨️' },
+                          { key: 'game', label: 'Игра', icon: '🎮' },
+                        ].map((opt) => (
+                          <Badge
+                            key={opt.key}
+                            variant={format === (opt.key as any) ? "default" : "outline"}
+                            className="cursor-pointer hover:scale-105 transition-transform"
+                            onClick={() => setFormat(opt.key as any)}
+                          >
+                            <span className="mr-1">{opt.icon}</span>
+                            {opt.label}
+                          </Badge>
+                        ))}
+                      </div>
+                      <Button 
+                        onClick={handleRegenerateWithFormat}
+                        disabled={isGenerating}
+                        size="sm"
+                        className="w-full"
+                      >
+                        {isGenerating ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Перегенерация...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Перегенерировать как {
+                              [
+                                { key: 'quiz', label: 'Квиз' },
+                                { key: 'crossword', label: 'Кроссворд' },
+                                { key: 'flashcards', label: 'Карточки' },
+                                { key: 'matching', label: 'Сопоставление' },
+                                { key: 'wordSearch', label: 'Поиск слов' },
+                                { key: 'fillInBlanks', label: 'Заполни пропуски' },
+                                { key: 'memory', label: 'Мемори' },
+                                { key: 'dragAndDrop', label: 'Перетаскивание' },
+                                { key: 'test', label: 'Тест' },
+                                { key: 'typing', label: 'Тренажер набора' },
+                                { key: 'game', label: 'Игра' },
+                              ].find((opt) => opt.key === format)?.label
+                            }
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -261,6 +362,66 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
           teacherId={(teacher as any).user_id || teacher.id}
         />
       )}
+
+      <Dialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Опубликовать приложение</DialogTitle>
+            <DialogDescription>
+              Добавьте название и описание, чтобы опубликовать приложение в каталог
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="title">Название</Label>
+              <Input
+                id="title"
+                placeholder="Например: Игра на закрепление do/does"
+                value={publishTitle}
+                onChange={(e) => setPublishTitle(e.target.value)}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="description">Описание</Label>
+              <Textarea
+                id="description"
+                placeholder="Опишите, что изучает ученик в этом приложении..."
+                value={publishDescription}
+                onChange={(e) => setPublishDescription(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPublishDialogOpen(false);
+                setPublishTitle('');
+                setPublishDescription('');
+              }}
+            >
+              Отмена
+            </Button>
+            <Button
+              onClick={handlePublish}
+              disabled={!publishTitle.trim() || !publishDescription.trim() || isPublishing}
+            >
+              {isPublishing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Публикация...
+                </>
+              ) : (
+                'Опубликовать'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

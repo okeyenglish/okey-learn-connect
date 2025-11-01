@@ -119,6 +119,30 @@ export const useAppGenerator = (teacherId: string) => {
     }
   });
 
+  // Publish app
+  const publishApp = useMutation({
+    mutationFn: async ({ appId, title, description }: { appId: string; title: string; description: string }) => {
+      const { error } = await supabase
+        .from('apps')
+        .update({ 
+          title, 
+          description, 
+          status: 'published',
+          published_at: new Date().toISOString()
+        })
+        .eq('id', appId);
+      if (error) throw error;
+      return { appId };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['apps'] });
+      toast({ title: 'Приложение опубликовано!', description: 'Теперь оно доступно в каталоге' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Ошибка публикации', description: error.message, variant: 'destructive' });
+    }
+  });
+
   const reset = () => {
     setStage({ stage: 'idle' });
   };
@@ -128,8 +152,10 @@ export const useAppGenerator = (teacherId: string) => {
     suggestOrGenerate: suggestOrGenerate.mutate,
     generateApp: generateApp.mutate,
     improveApp: improveApp.mutate,
+    publishApp: publishApp.mutate,
     isGenerating: generateApp.isPending || improveApp.isPending,
     isSuggesting: suggestOrGenerate.isPending,
+    isPublishing: publishApp.isPending,
     reset
   };
 };
