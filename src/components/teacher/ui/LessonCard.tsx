@@ -10,6 +10,7 @@ interface LessonCardProps {
   online?: boolean;
   link?: string;
   status?: string;
+  lessonDate?: string;
   onAttendance?: () => void;
   onHomework?: () => void;
   onOpenLink?: () => void;
@@ -25,6 +26,7 @@ export function LessonCard({
   online,
   link,
   status,
+  lessonDate,
   onAttendance,
   onHomework,
   onOpenLink,
@@ -44,6 +46,9 @@ export function LessonCard({
 
   const isCompleted = status === 'completed';
   const isActive = status === 'scheduled' || status === 'ongoing';
+  
+  // Проверяем, что занятие в прошлом (только для прошедших дат показываем кнопку "Провел")
+  const isPastLesson = lessonDate ? new Date(lessonDate) < new Date(new Date().setHours(0, 0, 0, 0)) : false;
 
   return (
     <div className={`flex items-center justify-between border rounded-xl p-4 transition-all ${
@@ -103,7 +108,7 @@ export function LessonCard({
               <UserX className="w-4 h-4" />
             </IconBtn>
           )}
-          {onStartLesson && (
+          {onStartLesson && isPastLesson && (
             <Button 
               onClick={onStartLesson} 
               size="sm"

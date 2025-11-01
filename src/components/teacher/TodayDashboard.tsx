@@ -259,6 +259,7 @@ export const TodayDashboard = ({
                   online={!!lesson.online_link}
                   link={lesson.online_link}
                   status={lesson.status}
+                  lessonDate={lesson.lesson_date}
                   onAttendance={() => onAttendance(lesson)}
                   onHomework={() => onHomework(lesson)}
                   onOpenLink={() => onOpenOnline(lesson)}
@@ -298,6 +299,7 @@ export const TodayDashboard = ({
                       online={!!lesson.online_link}
                       link={lesson.online_link}
                       status={lesson.status}
+                      lessonDate={lesson.lesson_date}
                       onAttendance={() => onAttendance(lesson)}
                       onHomework={() => onHomework(lesson)}
                       onOpenLink={() => onOpenOnline(lesson)}

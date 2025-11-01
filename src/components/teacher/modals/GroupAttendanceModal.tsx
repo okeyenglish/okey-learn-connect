@@ -45,31 +45,23 @@ export const GroupAttendanceModal = ({
         notes: notes[studentId] || null,
       }));
 
-      console.log('Updates to insert:', updates);
+      console.log('Updates to upsert:', updates);
 
       if (updates.length === 0) {
         throw new Error('Необходимо отметить хотя бы одного студента');
       }
 
-      // Сначала удаляем существующие записи
-      const { error: deleteError } = await supabase
+      // Используем upsert для атомарного обновления/вставки
+      const { error: upsertError } = await supabase
         .from('student_lesson_sessions')
-        .delete()
-        .eq('lesson_session_id', sessionId);
+        .upsert(updates, {
+          onConflict: 'lesson_session_id,student_id',
+          ignoreDuplicates: false
+        });
 
-      if (deleteError) {
-        console.error('Error deleting existing attendance:', deleteError);
-        throw new Error(`Ошибка при удалении: ${deleteError.message}`);
-      }
-
-      // Затем вставляем новые
-      const { error: insertError } = await supabase
-        .from('student_lesson_sessions')
-        .insert(updates);
-
-      if (insertError) {
-        console.error('Error inserting attendance:', insertError);
-        throw new Error(`Ошибка при сохранении: ${insertError.message}`);
+      if (upsertError) {
+        console.error('Error upserting attendance:', upsertError);
+        throw new Error(`Ошибка при сохранении: ${upsertError.message}`);
       }
 
       // Обновляем статус сессии на completed

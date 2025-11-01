@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -29,10 +29,17 @@ export const SubstitutionRequestModal = ({
   sessionDate,
   type 
 }: SubstitutionRequestModalProps) => {
-  const [date, setDate] = useState<Date | undefined>(sessionDate ? new Date(sessionDate) : undefined);
+  const [date, setDate] = useState<Date | undefined>();
   const [reason, setReason] = useState('');
   const createSubstitution = useCreateSubstitution();
   const { toast } = useToast();
+
+  // Предзаполнение даты при открытии модалки
+  useEffect(() => {
+    if (open && sessionDate) {
+      setDate(new Date(sessionDate));
+    }
+  }, [open, sessionDate]);
 
   const handleSubmit = async () => {
     if (!date) {
@@ -99,6 +106,7 @@ export const SubstitutionRequestModal = ({
                   onSelect={setDate}
                   locale={ru}
                   disabled={(date) => date < new Date()}
+                  className="pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>
