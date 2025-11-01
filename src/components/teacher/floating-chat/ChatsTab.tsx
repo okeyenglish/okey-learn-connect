@@ -77,7 +77,7 @@ export const ChatsTab = ({ teacherId }: ChatsTabProps) => {
         .from('teacher_branches')
         .select(`
           teacher_id,
-          teachers (
+          teachers!inner (
             id,
             first_name,
             last_name,
@@ -87,11 +87,14 @@ export const ChatsTab = ({ teacherId }: ChatsTabProps) => {
         .in('branch_id', branchIds)
         .neq('teacher_id', teacherId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching colleagues:', error);
+        return [];
+      }
 
       // Убираем дубликаты
       const uniqueTeachers = new Map();
-      (data || []).forEach(tb => {
+      (data || []).forEach((tb: any) => {
         if (tb.teachers && !uniqueTeachers.has(tb.teachers.id)) {
           uniqueTeachers.set(tb.teachers.id, tb.teachers);
         }
