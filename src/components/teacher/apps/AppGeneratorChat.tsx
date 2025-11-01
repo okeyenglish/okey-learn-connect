@@ -114,9 +114,30 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
                   </div>
                 </div>
               ))}
-              <Button onClick={handleSubmit} disabled={isSuggesting}>
-                Продолжить
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={handleSubmit} disabled={isSuggesting}>
+                  Продолжить
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    // Generate with defaults even without answers
+                    const prompt = {
+                      title: 'New App',
+                      type: 'game',
+                      brief: brief,
+                      description: brief,
+                      level: 'A2',
+                      duration: 10,
+                      features: ['timer', 'results']
+                    };
+                    generateApp({ prompt });
+                  }}
+                  disabled={isGenerating}
+                >
+                  Создать с базовыми настройками
+                </Button>
+              </div>
             </div>
           )}
 
