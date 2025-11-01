@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Users, User, Building2 } from 'lucide-react';
+import { MessageSquare, Users, User, Building2, Search } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 interface ChatsTabProps {
   teacherId: string;
@@ -38,6 +39,7 @@ interface Teacher {
 
 export const ChatsTab = ({ teacherId }: ChatsTabProps) => {
   const [selectedThread, setSelectedThread] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Получаем филиалы преподавателя
   const { data: teacherBranches = [] } = useQuery({
@@ -171,8 +173,43 @@ export const ChatsTab = ({ teacherId }: ChatsTabProps) => {
     console.log('Start chat with branch:', branch);
   };
 
+  // Фильтрация по поисковому запросу
+  const filteredThreads = threads.filter(thread => {
+    const query = searchQuery.toLowerCase();
+    return (
+      thread.title?.toLowerCase().includes(query) ||
+      thread.last_message?.toLowerCase().includes(query)
+    );
+  });
+
+  const filteredBranches = teacherBranches.filter(branch => {
+    const query = searchQuery.toLowerCase();
+    return branch.name?.toLowerCase().includes(query);
+  });
+
+  const filteredColleagues = colleagues.filter(teacher => {
+    const query = searchQuery.toLowerCase();
+    const fullName = `${teacher.first_name} ${teacher.last_name}`.toLowerCase();
+    const subjects = teacher.subjects?.join(' ').toLowerCase() || '';
+    return fullName.includes(query) || subjects.includes(query);
+  });
+
   return (
     <div className="flex flex-col h-full">
+      {/* Поиск */}
+      <div className="p-3 border-b bg-muted/30">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Поиск по чатам, коллегам..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-9"
+          />
+        </div>
+      </div>
+
       <Tabs defaultValue="chats" className="flex flex-col h-full">
         <TabsList className="grid w-full grid-cols-3 mx-2 mt-2">
           <TabsTrigger value="chats" className="text-xs">
@@ -202,18 +239,22 @@ export const ChatsTab = ({ teacherId }: ChatsTabProps) => {
         </TabsList>
 
         <TabsContent value="chats" className="flex-1 mt-0">
-          {threads.length === 0 ? (
+          {filteredThreads.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center h-full">
               <MessageSquare className="h-16 w-16 text-muted-foreground/50 mb-4" />
-              <h3 className="font-semibold text-lg mb-2">Нет активных чатов</h3>
+              <h3 className="font-semibold text-lg mb-2">
+                {searchQuery ? 'Ничего не найдено' : 'Нет активных чатов'}
+              </h3>
               <p className="text-sm text-muted-foreground max-w-[280px]">
-                Начните диалог с коллегами или филиалом
+                {searchQuery 
+                  ? 'Попробуйте изменить поисковый запрос'
+                  : 'Начните диалог с коллегами или филиалом'}
               </p>
             </div>
           ) : (
             <ScrollArea className="h-full">
               <div className="p-2">
-                {threads.map((thread) => (
+                {filteredThreads.map((thread) => (
                   <button
                     key={thread.id}
                     onClick={() => setSelectedThread(thread.id)}
@@ -252,18 +293,22 @@ export const ChatsTab = ({ teacherId }: ChatsTabProps) => {
         </TabsContent>
 
         <TabsContent value="branches" className="flex-1 mt-0">
-          {teacherBranches.length === 0 ? (
+          {filteredBranches.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center h-full">
               <Building2 className="h-16 w-16 text-muted-foreground/50 mb-4" />
-              <h3 className="font-semibold text-lg mb-2">Нет доступных филиалов</h3>
+              <h3 className="font-semibold text-lg mb-2">
+                {searchQuery ? 'Ничего не найдено' : 'Нет доступных филиалов'}
+              </h3>
               <p className="text-sm text-muted-foreground max-w-[280px]">
-                Филиалы появятся после назначения
+                {searchQuery
+                  ? 'Попробуйте изменить поисковый запрос'
+                  : 'Филиалы появятся после назначения'}
               </p>
             </div>
           ) : (
             <ScrollArea className="h-full">
               <div className="p-2">
-                {teacherBranches.map((branch) => (
+                {filteredBranches.map((branch) => (
                   <button
                     key={branch.id}
                     onClick={() => startChatWithBranch(branch)}
@@ -290,18 +335,22 @@ export const ChatsTab = ({ teacherId }: ChatsTabProps) => {
         </TabsContent>
 
         <TabsContent value="teachers" className="flex-1 mt-0">
-          {colleagues.length === 0 ? (
+          {filteredColleagues.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center h-full">
               <Users className="h-16 w-16 text-muted-foreground/50 mb-4" />
-              <h3 className="font-semibold text-lg mb-2">Нет коллег</h3>
+              <h3 className="font-semibold text-lg mb-2">
+                {searchQuery ? 'Ничего не найдено' : 'Нет коллег'}
+              </h3>
               <p className="text-sm text-muted-foreground max-w-[280px]">
-                Список преподавателей из ваших филиалов
+                {searchQuery
+                  ? 'Попробуйте изменить поисковый запрос'
+                  : 'Список преподавателей из ваших филиалов'}
               </p>
             </div>
           ) : (
             <ScrollArea className="h-full">
               <div className="p-2">
-                {colleagues.map((teacher) => (
+                {filteredColleagues.map((teacher) => (
                   <button
                     key={teacher.id}
                     onClick={() => startChatWithTeacher(teacher)}
