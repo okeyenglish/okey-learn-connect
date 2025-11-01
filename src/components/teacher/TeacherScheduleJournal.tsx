@@ -357,70 +357,54 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
+            <CalendarIcon className="h-5 w-5" />
             Расписание и журнал
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8">
-            <div className="animate-pulse">Загрузка...</div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Расписание и журнал
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {/* Выбор периода */}
-          <div className="mb-6 flex flex-wrap items-center gap-3">
-            <div className="flex gap-2">
-              <Button
-                variant={viewMode === 'day' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('day')}
-              >
-                День
-              </Button>
-              <Button
-                variant={viewMode === 'week' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('week')}
-              >
-                Неделя
-              </Button>
-              <Button
-                variant={viewMode === 'month' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('month')}
-              >
-                Месяц
-              </Button>
+          {/* Панель периода/даты и статистики */}
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
+            {/* Переключатель периода */}
+            <div className="flex items-center">
+              <div className="flex gap-2">
+                <Button
+                  variant={viewMode === 'day' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setViewMode('day')}
+                >
+                  День
+                </Button>
+                <Button
+                  variant={viewMode === 'week' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setViewMode('week')}
+                >
+                  Неделя
+                </Button>
+                <Button
+                  variant={viewMode === 'month' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setViewMode('month')}
+                >
+                  Месяц
+                </Button>
+              </div>
             </div>
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <CalendarIcon className="h-4 w-4" />
-                  {viewMode === 'custom' && customRange.to 
-                    ? `${format(customRange.from, 'd MMM', { locale: ru })} - ${format(customRange.to, 'd MMM yyyy', { locale: ru })}`
-                    : format(selectedDate, 'd MMMM yyyy', { locale: ru })
-                  }
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <div className="p-3 border-b">
-                  <p className="text-sm font-medium">Выберите период</p>
-                </div>
-                <div className="p-3">
+            {/* Выбор даты/периода */}
+            <div className="flex justify-center">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2 w-full md:w-auto">
+                    <CalendarIcon className="h-4 w-4" />
+                    <span>
+                      {calendarMode === 'range' && customRange.to
+                        ? `${format(customRange.from, 'd MMM', { locale: ru })} – ${format(customRange.to, 'd MMM yyyy', { locale: ru })}`
+                        : format(selectedDate, 'd MMMM yyyy', { locale: ru })}
+                    </span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="z-50 w-auto p-3" align="start">
                   <div className="flex gap-2 mb-3">
                     <Button
                       variant={calendarMode === 'single' ? 'default' : 'outline'}
@@ -442,7 +426,7 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
                       Период
                     </Button>
                   </div>
-                  
+
                   {calendarMode === 'range' ? (
                     <Calendar
                       mode="range"
@@ -454,7 +438,7 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
                         }
                       }}
                       initialFocus
-                      className={cn("pointer-events-auto")}
+                      className={cn('pointer-events-auto p-1')}
                       locale={ru}
                     />
                   ) : (
@@ -464,21 +448,20 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
                       onSelect={(date) => {
                         if (date) {
                           setSelectedDate(date);
-                          if (viewMode === 'custom') {
-                            setViewMode('day');
-                          }
+                          if (viewMode === 'custom') setViewMode('day');
                         }
                       }}
                       initialFocus
-                      className={cn("pointer-events-auto")}
+                      className={cn('pointer-events-auto p-1')}
                       locale={ru}
                     />
                   )}
-                </div>
-              </PopoverContent>
-            </Popover>
+                </PopoverContent>
+              </Popover>
+            </div>
 
-            <div className="ml-auto flex gap-2">
+            {/* Статистика */}
+            <div className="flex justify-end gap-2">
               <Card className="p-3 bg-brand/5 border-brand/20">
                 <div className="text-xs text-muted-foreground">Уроков</div>
                 <div className="text-xl font-bold text-brand">{stats?.lessonsCount || 0}</div>
@@ -668,11 +651,11 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
                               {lesson.group}
                               {lesson.branch && <BranchBadge branchName={lesson.branch} size="sm" variant="outline" />}
                             </div>
-                            <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="h-3.5 w-3.5" />
-                                {format(new Date(lesson.date), 'd MMM yyyy', { locale: ru })}
-                              </span>
+                             <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
+                               <span className="flex items-center gap-1">
+                                 <CalendarIcon className="h-3.5 w-3.5" />
+                                 {format(new Date(lesson.date), 'd MMM yyyy', { locale: ru })}
+                               </span>
                               <span className="flex items-center gap-1">
                                 <Clock className="h-3.5 w-3.5" />
                                 {lesson.time}
