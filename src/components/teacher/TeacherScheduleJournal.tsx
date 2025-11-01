@@ -207,6 +207,105 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
     },
   });
 
+  // История прошедших занятий
+  const { data: historyLessons, isLoading: historyLoading } = useQuery({
+    queryKey: ['teacher-history-lessons', teacherName, selectedBranchId],
+    queryFn: async () => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Получаем последние 30 дней истории
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(today.getDate() - 30);
+
+      // Получаем групповые занятия
+      let groupQuery = supabase
+        .from('lesson_sessions')
+        .select(`
+          *,
+          learning_groups (
+            id,
+            name,
+            subject,
+            level,
+            current_students
+          )
+        `)
+        .eq('teacher_name', teacherName)
+        .gte('lesson_date', thirtyDaysAgo.toISOString().split('T')[0])
+        .lt('lesson_date', today.toISOString().split('T')[0]);
+
+      if (selectedBranchId !== 'all' && selectedBranch) {
+        groupQuery = groupQuery.eq('branch', selectedBranch.name);
+      }
+
+      const { data: groupSessions, error: groupError } = await groupQuery.order('lesson_date', { ascending: false }).order('start_time', { ascending: false });
+      if (groupError) throw groupError;
+
+      // Получаем индивидуальные занятия
+      let individualQuery = (supabase as any)
+        .from('individual_lesson_sessions')
+        .select(`
+          *,
+          individual_lessons (
+            id,
+            student_id,
+            subject,
+            duration_minutes,
+            students (
+              first_name,
+              last_name
+            )
+          )
+        `)
+        .eq('teacher_name', teacherName)
+        .gte('session_date', thirtyDaysAgo.toISOString().split('T')[0])
+        .lt('session_date', today.toISOString().split('T')[0]);
+
+      const { data: individualSessions, error: individualError } = await individualQuery.order('session_date', { ascending: false }).order('start_time', { ascending: false });
+      if (individualError) throw individualError;
+
+      // Объединяем и форматируем
+      const allLessons = [
+        ...(groupSessions || []).map((lesson: any) => ({
+          ...lesson,
+          lessonType: 'group',
+          date: lesson.lesson_date,
+          group: lesson.learning_groups?.name || 'Группа',
+          subject: lesson.learning_groups?.subject,
+          level: lesson.learning_groups?.level,
+          students: lesson.learning_groups?.current_students || 0,
+          location: lesson.classroom || 'Онлайн',
+          isOnline: !lesson.classroom || lesson.classroom === 'Online',
+          groupId: lesson.group_id,
+          time: `${lesson.start_time?.slice(0, 5)} - ${lesson.end_time?.slice(0, 5)}`,
+        })),
+        ...(individualSessions || []).map((lesson: any) => ({
+          ...lesson,
+          lessonType: 'individual',
+          date: lesson.session_date,
+          group: `${lesson.individual_lessons?.students?.first_name || ''} ${lesson.individual_lessons?.students?.last_name || ''}`,
+          subject: lesson.individual_lessons?.subject,
+          students: 1,
+          location: lesson.location || 'Онлайн',
+          isOnline: !lesson.location || lesson.location === 'Online',
+          groupId: lesson.individual_lesson_id,
+          duration_minutes: lesson.individual_lessons?.duration_minutes || lesson.duration_minutes,
+          time: `${lesson.start_time?.slice(0, 5)} - ${lesson.end_time?.slice(0, 5)}`,
+        })),
+      ];
+
+      // Сортируем по дате (новые первые)
+      allLessons.sort((a, b) => {
+        const dateA = new Date(a.date + ' ' + a.start_time);
+        const dateB = new Date(b.date + ' ' + b.start_time);
+        return dateB.getTime() - dateA.getTime();
+      });
+
+      return allLessons;
+    },
+  });
+
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; variant: any }> = {
       scheduled: { label: 'Запланировано', variant: 'secondary' },
@@ -259,7 +358,7 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
           <Tabs defaultValue="week" className="w-full">
             <TabsList className="mb-4">
               <TabsTrigger value="week">Неделя</TabsTrigger>
-              <TabsTrigger value="month">Месяц</TabsTrigger>
+              <TabsTrigger value="history">История</TabsTrigger>
             </TabsList>
 
             <TabsContent value="week">
@@ -403,14 +502,125 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
               )}
             </TabsContent>
 
-            <TabsContent value="month">
-              <div className="text-center py-12">
-                <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <p className="text-lg font-medium mb-2">Календарь на месяц</p>
-                <p className="text-sm text-muted-foreground">
-                  Здесь будет отображаться календарный вид на месяц
-                </p>
-              </div>
+            <TabsContent value="history">
+              {historyLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-pulse">Загрузка истории...</div>
+                </div>
+              ) : !historyLessons || historyLessons.length === 0 ? (
+                <div className="text-center py-12">
+                  <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <p className="text-lg font-medium mb-2">История занятий пуста</p>
+                  <p className="text-sm text-muted-foreground">
+                    Здесь будут отображаться проведенные занятия за последние 30 дней
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {historyLessons.map((lesson: any, idx: number) => (
+                    <Card key={idx} className="p-4 hover-scale border hover:border-brand transition-colors">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-start gap-3 flex-1">
+                          <div className="p-2 rounded-lg bg-muted">
+                            {lesson.lessonType === 'group' ? (
+                              <Users className="h-5 w-5 text-muted-foreground" />
+                            ) : (
+                              <User className="h-5 w-5 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-semibold mb-1 flex items-center gap-2">
+                              {lesson.group}
+                              {lesson.branch && <BranchBadge branchName={lesson.branch} size="sm" variant="outline" />}
+                            </div>
+                            <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-3.5 w-3.5" />
+                                {format(new Date(lesson.date), 'd MMM yyyy', { locale: ru })}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3.5 w-3.5" />
+                                {lesson.time}
+                              </span>
+                              {lesson.subject && (
+                                <Badge variant="outline" className="text-xs">
+                                  {lesson.subject}
+                                </Badge>
+                              )}
+                              <span className="flex items-center gap-1">
+                                {lesson.isOnline ? (
+                                  <>
+                                    <Video className="h-3.5 w-3.5" />
+                                    Онлайн
+                                  </>
+                                ) : (
+                                  <>
+                                    <MapPin className="h-3.5 w-3.5" />
+                                    {lesson.location}
+                                  </>
+                                )}
+                              </span>
+                              {lesson.status && (
+                                <Badge variant={getStatusBadge(lesson.status).variant} className="text-xs">
+                                  {getStatusBadge(lesson.status).label}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-2 flex-wrap">
+                        {lesson.lessonType === 'group' && (
+                          <>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                setAttendanceModal({
+                                  open: true,
+                                  groupId: lesson.groupId,
+                                  sessionId: lesson.id,
+                                  sessionDate: format(new Date(lesson.date), 'd MMMM yyyy', { locale: ru }),
+                                  isIndividual: false,
+                                });
+                              }}
+                            >
+                              <ClipboardCheck className="h-4 w-4 mr-1" />
+                              Посещаемость
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                setHomeworkModal({
+                                  open: true,
+                                  groupId: lesson.groupId,
+                                  sessionId: lesson.id,
+                                });
+                              }}
+                            >
+                              <BookOpenCheck className="h-4 w-4 mr-1" />
+                              ДЗ
+                            </Button>
+                          </>
+                        )}
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={() => {
+                            setSelectedLesson(lesson);
+                            setDrawerOpen(true);
+                          }}
+                        >
+                          <FileText className="h-4 w-4 mr-1" />
+                          Детали
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>
