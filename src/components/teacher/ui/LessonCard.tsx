@@ -47,6 +47,9 @@ export function LessonCard({
   const isCompleted = status === 'completed';
   const isActive = status === 'scheduled' || status === 'ongoing';
   
+  // Проверяем, что занятие в прошлом или сегодня (для кнопки посещаемости)
+  const canMarkAttendance = lessonDate ? new Date(lessonDate) <= new Date(new Date().setHours(23, 59, 59, 999)) : false;
+  
   // Проверяем, что занятие в прошлом (только для прошедших дат показываем кнопку "Провел")
   const isPastLesson = lessonDate ? new Date(lessonDate) < new Date(new Date().setHours(0, 0, 0, 0)) : false;
 
@@ -93,7 +96,7 @@ export function LessonCard({
               <Video className="w-4 h-4" />
             </IconBtn>
           )}
-          {onAttendance && (
+          {onAttendance && canMarkAttendance && (
             <IconBtn tooltip="Посещаемость" onClick={onAttendance}>
               <ClipboardCheck className="w-4 h-4" />
             </IconBtn>

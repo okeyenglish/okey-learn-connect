@@ -25,6 +25,7 @@ import { SubstitutionRequestModal } from '@/components/teacher/modals/Substituti
 import { KpiCard } from '@/components/teacher/ui/KpiCard';
 import { TodayDashboard } from '@/components/teacher/TodayDashboard';
 import { TeacherSalaryCard } from '@/components/teacher/TeacherSalaryCard';
+import { useToast } from '@/hooks/use-toast';
 
 interface TeacherHomeProps {
   teacher: Teacher;
@@ -32,6 +33,7 @@ interface TeacherHomeProps {
 
 export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [homeworkModalOpen, setHomeworkModalOpen] = useState(false);
@@ -202,12 +204,26 @@ export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
   };
 
   const handleQuickAttendance = (lesson: any) => {
+    // Проверяем что занятие не в будущем
+    const lessonDate = new Date(lesson.lesson_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (lessonDate > today) {
+      toast({
+        title: 'Нельзя отметить посещаемость',
+        description: 'Можно отметить посещаемость только для прошедших занятий',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     if (lesson.group_id) {
       setQuickAttendanceModal({
         open: true,
         groupId: lesson.group_id,
         sessionId: lesson.id,
-        sessionDate: format(new Date(lesson.lesson_date), 'd MMMM yyyy', { locale: ru }),
+        sessionDate: format(lessonDate, 'd MMMM yyyy', { locale: ru }),
       });
     }
   };
