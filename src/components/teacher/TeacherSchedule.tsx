@@ -229,9 +229,12 @@ export const TeacherSchedule = ({ teacher, selectedBranchId }: TeacherSchedulePr
                                         <User className="h-5 w-5 text-brand" />
                                       )}
                                     </div>
-                                    <div className="flex-1">
-                                      <div className="font-semibold mb-1">{lesson.group}</div>
-                                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                     <div className="flex-1">
+                                       <div className="font-semibold mb-1 flex items-center gap-2">
+                                         {lesson.group}
+                                         {lesson.branch && <BranchBadge branchName={lesson.branch} size="sm" variant="outline" />}
+                                       </div>
+                                       <div className="flex items-center gap-3 text-sm text-muted-foreground">
                                         <span className="flex items-center gap-1">
                                           <Clock className="h-3.5 w-3.5" />
                                           {lesson.time}

@@ -8,13 +8,15 @@ export interface Branch {
   name: string;
   address: string;
   phone: string;
+  organization_id?: string;
+  organization_name?: string;
   lessonsCount?: number;
 }
 
 export const useTeacherBranches = (teacherId?: string) => {
   const [selectedBranchId, setSelectedBranchId] = useState<string | 'all'>('all');
 
-  // Загружаем филиалы преподавателя
+  // Загружаем филиалы преподавателя с информацией об организациях
   const { data: branches, isLoading } = useQuery({
     queryKey: ['teacher-branches', teacherId],
     queryFn: async () => {
@@ -28,7 +30,12 @@ export const useTeacherBranches = (teacherId?: string) => {
             id,
             name,
             address,
-            phone
+            phone,
+            organization_id,
+            organizations (
+              id,
+              name
+            )
           )
         `)
         .eq('teacher_id', teacherId);
@@ -39,7 +46,16 @@ export const useTeacherBranches = (teacherId?: string) => {
       }
 
       return (data || [])
-        .map((item: any) => item.organization_branches)
+        .map((item: any) => {
+          const branch = item.organization_branches;
+          if (!branch) return null;
+          
+          return {
+            ...branch,
+            organization_id: branch.organizations?.id,
+            organization_name: branch.organizations?.name,
+          };
+        })
         .filter(Boolean) as Branch[];
     },
     enabled: !!teacherId,
