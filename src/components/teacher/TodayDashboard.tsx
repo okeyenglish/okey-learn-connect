@@ -4,7 +4,7 @@ import { ru } from 'date-fns/locale';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+
 import { LessonCard } from '@/components/teacher/ui/LessonCard';
 import { EmptyState } from '@/components/teacher/ui/EmptyState';
 import { LessonPlanCard } from '@/components/teacher/LessonPlanCard';
@@ -105,13 +105,32 @@ export const TodayDashboard = ({
           </div>
 
           {/* Переключатель периода */}
-          <Tabs value={period} onValueChange={(v) => setPeriod(v as 'day' | 'week' | 'month')}>
-            <TabsList>
-              <TabsTrigger value="day">День</TabsTrigger>
-              <TabsTrigger value="week">Неделя</TabsTrigger>
-              <TabsTrigger value="month">Месяц</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-lg">
+            <Button
+              variant={period === 'day' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setPeriod('day')}
+              className="h-8 px-3"
+            >
+              День
+            </Button>
+            <Button
+              variant={period === 'week' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setPeriod('week')}
+              className="h-8 px-3"
+            >
+              Неделя
+            </Button>
+            <Button
+              variant={period === 'month' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setPeriod('month')}
+              className="h-8 px-3"
+            >
+              Месяц
+            </Button>
+          </div>
         </div>
 
         {/* Статистика для дня */}

@@ -287,12 +287,12 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
   // Рассчитываем следующий урок рано, чтобы хук всегда вызывался на одной позиции
   const nextLessonEarly = todayLessons?.find(l => l.status !== 'completed' && l.status !== 'cancelled');
 
-  // Глобальные горячие клавиши — вызываем ВСЕГДА, а включаем только при наличии данных
+  // Глобальные горячие клавиши — вызываем ВСЕГДА в одном месте
   useGlobalHotkeys({
     onStart: nextLessonEarly ? () => handleQuickStart(nextLessonEarly) : undefined,
     onAttendance: nextLessonEarly ? () => handleQuickAttendance(nextLessonEarly) : undefined,
     onHomework: nextLessonEarly ? () => handleQuickHomework(nextLessonEarly) : undefined,
-    enabled: !!nextLessonEarly && !quickAttendanceModal?.open && !quickHomeworkModal?.open && !quickStartModal?.open,
+    enabled: false, // Отключаем для стабилизации
   });
 
   if (lessonsLoading || groupsLoading || individualLoading) {
@@ -304,17 +304,6 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
   const todayTotal = todayLessons?.length || 0;
   const weekTotal = upcomingLessons?.length || 0;
   const weekCanceled = upcomingLessons?.filter(l => l.status === 'cancelled').length || 0;
-
-  // Найти ближайший урок (статусы: free, paid_skip, free_skip, rescheduled, completed, cancelled)
-  const nextLesson = todayLessons?.find(l => l.status !== 'completed' && l.status !== 'cancelled');
-
-  // ВСЕГДА вызываем useGlobalHotkeys на одной позиции
-  useGlobalHotkeys({
-    onStart: nextLesson ? () => handleQuickStart(nextLesson) : () => {},
-    onAttendance: nextLesson ? () => handleQuickAttendance(nextLesson) : () => {},
-    onHomework: nextLesson ? () => handleQuickHomework(nextLesson) : () => {},
-    enabled: false, // Временно отключаем для стабилизации
-  });
 
   return (
     <>
