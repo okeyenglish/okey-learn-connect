@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Clock, MapPin, Users, User, Video, ClipboardCheck, BookOpenCheck, FileText } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, MapPin, Users, User, Video, ClipboardCheck, BookOpenCheck, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Teacher } from '@/hooks/useTeachers';
 import { LessonDetailsDrawer } from '@/components/teacher/ui/LessonDetailsDrawer';
@@ -14,6 +16,7 @@ import { BranchBadge } from '@/components/teacher/ui/BranchBadge';
 import { useTeacherBranches } from '@/hooks/useTeacherBranches';
 import { GroupAttendanceModal } from './modals/GroupAttendanceModal';
 import { HomeworkModal } from './modals/HomeworkModal';
+import { cn } from '@/lib/utils';
 
 interface TeacherScheduleJournalProps {
   teacher: Teacher;
@@ -24,6 +27,10 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
   const teacherName = `${teacher.last_name} ${teacher.first_name}`;
   const { selectedBranch } = useTeacherBranches(teacher.id);
   const weekDays = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+  
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month' | 'custom'>('week');
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [customRange, setCustomRange] = useState<{ from: Date; to?: Date }>({ from: new Date() });
   
   const [selectedLesson, setSelectedLesson] = useState<any>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -39,17 +46,45 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
     groupId: string; 
     sessionId: string 
   } | null>(null);
+
+  // Вычисляем диапазон дат в зависимости от режима просмотра
+  const getDateRange = () => {
+    switch (viewMode) {
+      case 'day':
+        return {
+          start: startOfDay(selectedDate),
+          end: endOfDay(selectedDate),
+        };
+      case 'week':
+        return {
+          start: startOfWeek(selectedDate, { locale: ru, weekStartsOn: 1 }),
+          end: endOfWeek(selectedDate, { locale: ru, weekStartsOn: 1 }),
+        };
+      case 'month':
+        return {
+          start: startOfMonth(selectedDate),
+          end: endOfMonth(selectedDate),
+        };
+      case 'custom':
+        return {
+          start: startOfDay(customRange.from),
+          end: customRange.to ? endOfDay(customRange.to) : endOfDay(customRange.from),
+        };
+      default:
+        return {
+          start: startOfWeek(selectedDate, { locale: ru, weekStartsOn: 1 }),
+          end: endOfWeek(selectedDate, { locale: ru, weekStartsOn: 1 }),
+        };
+    }
+  };
+
+  const dateRange = getDateRange();
   
-  // Получаем расписание на текущую неделю
+  // Получаем расписание на выбранный период
   const { data: weekSchedule, isLoading } = useQuery({
-    queryKey: ['teacher-schedule-journal-week', teacherName, selectedBranchId],
+    queryKey: ['teacher-schedule-journal', teacherName, selectedBranchId, viewMode, selectedDate, customRange],
     queryFn: async () => {
-      const today = new Date();
-      const startOfWeek = new Date(today);
-      startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Понедельник
-      
-      const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(startOfWeek.getDate() + 6); // Воскресенье
+      const { start, end } = dateRange;
 
       // Получаем групповые занятия
       let groupQuery = supabase
@@ -65,8 +100,8 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
           )
         `)
         .eq('teacher_name', teacherName)
-        .gte('lesson_date', startOfWeek.toISOString().split('T')[0])
-        .lte('lesson_date', endOfWeek.toISOString().split('T')[0]);
+        .gte('lesson_date', start.toISOString().split('T')[0])
+        .lte('lesson_date', end.toISOString().split('T')[0]);
 
       if (selectedBranchId !== 'all' && selectedBranch) {
         groupQuery = groupQuery.eq('branch', selectedBranch.name);
@@ -92,8 +127,8 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
           )
         `)
         .eq('teacher_name', teacherName)
-        .gte('session_date', startOfWeek.toISOString().split('T')[0])
-        .lte('session_date', endOfWeek.toISOString().split('T')[0]);
+        .gte('session_date', start.toISOString().split('T')[0])
+        .lte('session_date', end.toISOString().split('T')[0]);
 
       const { data: individualSessions, error: individualError } = await individualQuery.order('session_date').order('start_time');
       if (individualError) throw individualError;
@@ -344,30 +379,110 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card className="p-4 bg-brand/5 border-brand/20">
-              <div className="text-sm text-muted-foreground mb-1">Уроков на неделе</div>
-              <div className="text-2xl font-bold text-brand">{stats?.lessonsCount || 0}</div>
-            </Card>
-            <Card className="p-4 bg-brand/5 border-brand/20">
-              <div className="text-sm text-muted-foreground mb-1">Часов (академических)</div>
-              <div className="text-2xl font-bold text-brand">{stats?.totalHours || 0}</div>
-            </Card>
+          {/* Выбор периода */}
+          <div className="mb-6 flex flex-wrap items-center gap-3">
+            <div className="flex gap-2">
+              <Button
+                variant={viewMode === 'day' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('day')}
+              >
+                День
+              </Button>
+              <Button
+                variant={viewMode === 'week' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('week')}
+              >
+                Неделя
+              </Button>
+              <Button
+                variant={viewMode === 'month' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('month')}
+              >
+                Месяц
+              </Button>
+            </div>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <CalendarIcon className="h-4 w-4" />
+                  {viewMode === 'custom' && customRange.to 
+                    ? `${format(customRange.from, 'd MMM', { locale: ru })} - ${format(customRange.to, 'd MMM yyyy', { locale: ru })}`
+                    : format(selectedDate, 'd MMMM yyyy', { locale: ru })
+                  }
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <div className="p-3 border-b">
+                  <p className="text-sm font-medium">Выберите период</p>
+                </div>
+                <Tabs defaultValue="single">
+                  <TabsList className="w-full">
+                    <TabsTrigger value="single" className="flex-1">Дата</TabsTrigger>
+                    <TabsTrigger value="range" className="flex-1">Период</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="single" className="p-0">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => {
+                        if (date) {
+                          setSelectedDate(date);
+                          setViewMode(viewMode === 'custom' ? 'day' : viewMode);
+                        }
+                      }}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                      locale={ru}
+                    />
+                  </TabsContent>
+                  <TabsContent value="range" className="p-0">
+                    <Calendar
+                      mode="range"
+                      selected={customRange}
+                      onSelect={(range) => {
+                        if (range?.from) {
+                          setCustomRange(range as { from: Date; to?: Date });
+                          setViewMode('custom');
+                        }
+                      }}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                      locale={ru}
+                    />
+                  </TabsContent>
+                </Tabs>
+              </PopoverContent>
+            </Popover>
+
+            <div className="ml-auto flex gap-2">
+              <Card className="p-3 bg-brand/5 border-brand/20">
+                <div className="text-xs text-muted-foreground">Уроков</div>
+                <div className="text-xl font-bold text-brand">{stats?.lessonsCount || 0}</div>
+              </Card>
+              <Card className="p-3 bg-brand/5 border-brand/20">
+                <div className="text-xs text-muted-foreground">Часов</div>
+                <div className="text-xl font-bold text-brand">{stats?.totalHours || 0}</div>
+              </Card>
+            </div>
           </div>
 
-          <Tabs defaultValue="week" className="w-full">
+          <Tabs defaultValue="schedule" className="w-full">
             <TabsList className="mb-4">
-              <TabsTrigger value="week">Неделя</TabsTrigger>
-              <TabsTrigger value="history">История</TabsTrigger>
+              <TabsTrigger value="schedule">Расписание</TabsTrigger>
+              <TabsTrigger value="history">История (30 дней)</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="week">
+            <TabsContent value="schedule">
               {!weekSchedule || weekSchedule.length === 0 ? (
                 <div className="text-center py-12">
-                  <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <p className="text-lg font-medium mb-2">Нет занятий на этой неделе</p>
+                  <CalendarIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <p className="text-lg font-medium mb-2">Нет занятий в выбранном периоде</p>
                   <p className="text-sm text-muted-foreground">
-                    Расписание на следующую неделю появится позже
+                    Попробуйте выбрать другой период
                   </p>
                 </div>
               ) : (
@@ -509,7 +624,7 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
                 </div>
               ) : !historyLessons || historyLessons.length === 0 ? (
                 <div className="text-center py-12">
-                  <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <CalendarIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                   <p className="text-lg font-medium mb-2">История занятий пуста</p>
                   <p className="text-sm text-muted-foreground">
                     Здесь будут отображаться проведенные занятия за последние 30 дней
