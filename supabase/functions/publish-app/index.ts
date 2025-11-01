@@ -65,6 +65,7 @@ serve(async (req) => {
       .from('apps')
       .update({ 
         status: 'published',
+        published_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
       .eq('id', app_id);

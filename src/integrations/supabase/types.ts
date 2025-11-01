@@ -310,6 +310,7 @@ export type Database = {
           latest_version: number | null
           level: string
           organization_id: string
+          published_at: string | null
           status: string
           tags: string[] | null
           title: string
@@ -328,6 +329,7 @@ export type Database = {
           latest_version?: number | null
           level: string
           organization_id: string
+          published_at?: string | null
           status?: string
           tags?: string[] | null
           title: string
@@ -346,6 +348,7 @@ export type Database = {
           latest_version?: number | null
           level?: string
           organization_id?: string
+          published_at?: string | null
           status?: string
           tags?: string[] | null
           title?: string
