@@ -24,7 +24,6 @@ import { QuickStartLessonModal } from '@/components/teacher/modals/QuickStartLes
 import { SubstitutionRequestModal } from '@/components/teacher/modals/SubstitutionRequestModal';
 import { KpiCard } from '@/components/teacher/ui/KpiCard';
 import { TodayDashboard } from '@/components/teacher/TodayDashboard';
-import { TeacherSalaryCard } from '@/components/teacher/TeacherSalaryCard';
 import { LessonCountdown } from '@/components/teacher/ui/LessonCountdown';
 import { QuickActionsBar } from '@/components/teacher/ui/QuickActionsBar';
 import { useToast } from '@/hooks/use-toast';
@@ -322,9 +321,6 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
           onOpenOnline={handleQuickOnline}
           onRequestSubstitution={() => setSubstitutionModal({ open: true, type: 'substitution' })}
         />
-
-        {/* Ставки и зарплата */}
-        <TeacherSalaryCard teacher={teacher} />
 
         {/* Мои группы и Индивидуальные */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
