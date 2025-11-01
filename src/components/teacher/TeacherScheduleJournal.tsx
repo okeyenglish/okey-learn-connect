@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar as CalendarIcon, Clock, MapPin, Users, User, Video, ClipboardCheck, BookOpenCheck, FileText } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, MapPin, Users, User, Video, ClipboardCheck, BookOpenCheck, FileText, RefreshCcw, Plus, CheckCircle, XCircle, AlertCircle, UserX } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import { BranchBadge } from '@/components/teacher/ui/BranchBadge';
 import { useTeacherBranches } from '@/hooks/useTeacherBranches';
 import { GroupAttendanceModal } from './modals/GroupAttendanceModal';
 import { HomeworkModal } from './modals/HomeworkModal';
+import { SubstitutionRequestModal } from './modals/SubstitutionRequestModal';
 import { cn } from '@/lib/utils';
 
 interface TeacherScheduleJournalProps {
@@ -47,6 +48,7 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
     groupId: string; 
     sessionId: string 
   } | null>(null);
+  const [requestModal, setRequestModal] = useState<{ open: boolean; type: 'substitution' | 'absence' } | null>(null);
 
   // Вычисляем диапазон дат в зависимости от режима просмотра
   const getDateRange = () => {
@@ -477,6 +479,7 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
             <TabsList className="mb-4">
               <TabsTrigger value="schedule">Расписание</TabsTrigger>
               <TabsTrigger value="history">История (30 дней)</TabsTrigger>
+              <TabsTrigger value="substitutions">Замены и отпуска</TabsTrigger>
             </TabsList>
 
             <TabsContent value="schedule">
@@ -740,6 +743,13 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
                 </div>
               )}
             </TabsContent>
+
+            <TabsContent value="substitutions">
+              <SubstitutionsContent 
+                teacherId={teacher.id}
+                onOpenRequestModal={setRequestModal}
+              />
+            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
@@ -781,6 +791,188 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
           sessionId={homeworkModal.sessionId}
         />
       )}
+
+      {requestModal && (
+        <SubstitutionRequestModal
+          open={requestModal.open}
+          onOpenChange={(open) => !open && setRequestModal(null)}
+          teacherId={teacher.id}
+          type={requestModal.type}
+        />
+      )}
     </>
+  );
+};
+
+interface SubstitutionsContentProps {
+  teacherId: string;
+  onOpenRequestModal: (modal: { open: boolean; type: 'substitution' | 'absence' }) => void;
+}
+
+const SubstitutionsContent = ({ teacherId, onOpenRequestModal }: SubstitutionsContentProps) => {
+  const { data: substitutions, isLoading: substitutionsLoading } = useQuery({
+    queryKey: ['teacher-substitutions', teacherId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('teacher_substitutions')
+        .select(`
+          *,
+          lesson_sessions (
+            id,
+            lesson_date,
+            start_time,
+            end_time,
+            learning_groups (name)
+          )
+        `)
+        .or(`original_teacher_id.eq.${teacherId},substitute_teacher_id.eq.${teacherId}`)
+        .order('substitution_date', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const getStatusBadge = (status: string) => {
+    const statusMap = {
+      pending: { label: 'Ожидает', variant: 'outline' as const, icon: AlertCircle },
+      approved: { label: 'Одобрено', variant: 'secondary' as const, icon: CheckCircle },
+      rejected: { label: 'Отклонено', variant: 'destructive' as const, icon: XCircle },
+      completed: { label: 'Выполнено', variant: 'secondary' as const, icon: CheckCircle },
+    };
+
+    const statusInfo = statusMap[status as keyof typeof statusMap] || statusMap.pending;
+    const Icon = statusInfo.icon;
+
+    return (
+      <Badge variant={statusInfo.variant} className="flex items-center gap-1">
+        <Icon className="h-3 w-3" />
+        {statusInfo.label}
+      </Badge>
+    );
+  };
+
+  if (substitutionsLoading) {
+    return (
+      <div className="text-center py-8">
+        <div className="animate-pulse">Загрузка...</div>
+      </div>
+    );
+  }
+
+  return (
+    <Tabs defaultValue="substitutions" className="w-full">
+      <TabsList className="mb-4">
+        <TabsTrigger value="substitutions" className="flex items-center gap-2">
+          <RefreshCcw className="h-4 w-4" />
+          Замены ({substitutions?.length || 0})
+        </TabsTrigger>
+        <TabsTrigger value="absences" className="flex items-center gap-2">
+          <CalendarIcon className="h-4 w-4" />
+          Отпуска
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="substitutions">
+        <div className="mb-4">
+          <Button onClick={() => onOpenRequestModal({ open: true, type: 'substitution' })}>
+            <Plus className="h-4 w-4 mr-2" />
+            Запросить замену
+          </Button>
+        </div>
+
+        {!substitutions || substitutions.length === 0 ? (
+          <div className="text-center py-12">
+            <RefreshCcw className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+            <p className="text-lg font-medium mb-2">Нет заявок на замены</p>
+            <p className="text-sm text-muted-foreground">
+              Создайте заявку, если вам нужна замена
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {substitutions.map((sub: any) => {
+              const isOriginalTeacher = sub.original_teacher_id === teacherId;
+              const groupName = sub.lesson_sessions?.learning_groups?.name || 'Индивидуальное занятие';
+              
+              return (
+                <Card key={sub.id} className="card-elevated hover-scale">
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="font-semibold text-lg">{groupName}</h3>
+                          {getStatusBadge(sub.status)}
+                          {!isOriginalTeacher && (
+                            <Badge variant="outline">Замена за коллегу</Badge>
+                          )}
+                        </div>
+                        <div className="space-y-1 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-2">
+                            <CalendarIcon className="h-4 w-4" />
+                            <span>{format(new Date(sub.substitution_date), 'd MMMM yyyy', { locale: ru })}</span>
+                          </div>
+                          {sub.lesson_sessions && (
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4" />
+                              <span>
+                                {sub.lesson_sessions.start_time.slice(0, 5)} - {sub.lesson_sessions.end_time.slice(0, 5)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {sub.reason && (
+                      <div className="flex items-center justify-between pt-3 border-t">
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Причина: </span>
+                          <span className="font-medium">{sub.reason}</span>
+                        </div>
+                        {sub.status === 'pending' && isOriginalTeacher && (
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline">
+                              Редактировать
+                            </Button>
+                            <Button size="sm" variant="destructive">
+                              Отменить
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {sub.notes && (
+                      <div className="mt-3 pt-3 border-t">
+                        <p className="text-sm text-muted-foreground">{sub.notes}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </TabsContent>
+
+      <TabsContent value="absences">
+        <div className="mb-4">
+          <Button onClick={() => onOpenRequestModal({ open: true, type: 'absence' })}>
+            <Plus className="h-4 w-4 mr-2" />
+            Запросить отпуск
+          </Button>
+        </div>
+
+        <div className="text-center py-12">
+          <CalendarIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+          <p className="text-lg font-medium mb-2">Нет запланированных отпусков</p>
+          <p className="text-sm text-muted-foreground">
+            Запланируйте отпуск заранее
+          </p>
+        </div>
+      </TabsContent>
+    </Tabs>
   );
 };
