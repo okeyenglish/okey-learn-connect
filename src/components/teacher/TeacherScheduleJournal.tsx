@@ -31,6 +31,7 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month' | 'custom'>('week');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [customRange, setCustomRange] = useState<{ from: Date; to?: Date }>({ from: new Date() });
+  const [calendarMode, setCalendarMode] = useState<'single' | 'range'>('single');
   
   const [selectedLesson, setSelectedLesson] = useState<any>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -419,27 +420,30 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
                 <div className="p-3 border-b">
                   <p className="text-sm font-medium">Выберите период</p>
                 </div>
-                <Tabs defaultValue="single">
-                  <TabsList className="w-full">
-                    <TabsTrigger value="single" className="flex-1">Дата</TabsTrigger>
-                    <TabsTrigger value="range" className="flex-1">Период</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="single" className="p-0">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={(date) => {
-                        if (date) {
-                          setSelectedDate(date);
-                          setViewMode(viewMode === 'custom' ? 'day' : viewMode);
-                        }
+                <div className="p-3">
+                  <div className="flex gap-2 mb-3">
+                    <Button
+                      variant={calendarMode === 'single' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setCalendarMode('single')}
+                      className="flex-1"
+                    >
+                      Дата
+                    </Button>
+                    <Button
+                      variant={calendarMode === 'range' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        setCalendarMode('range');
+                        setViewMode('custom');
                       }}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                      locale={ru}
-                    />
-                  </TabsContent>
-                  <TabsContent value="range" className="p-0">
+                      className="flex-1"
+                    >
+                      Период
+                    </Button>
+                  </div>
+                  
+                  {calendarMode === 'range' ? (
                     <Calendar
                       mode="range"
                       selected={customRange}
@@ -450,11 +454,27 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
                         }
                       }}
                       initialFocus
-                      className={cn("p-3 pointer-events-auto")}
+                      className={cn("pointer-events-auto")}
                       locale={ru}
                     />
-                  </TabsContent>
-                </Tabs>
+                  ) : (
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => {
+                        if (date) {
+                          setSelectedDate(date);
+                          if (viewMode === 'custom') {
+                            setViewMode('day');
+                          }
+                        }
+                      }}
+                      initialFocus
+                      className={cn("pointer-events-auto")}
+                      locale={ru}
+                    />
+                  )}
+                </div>
               </PopoverContent>
             </Popover>
 
