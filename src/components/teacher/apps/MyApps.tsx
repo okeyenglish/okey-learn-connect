@@ -62,14 +62,6 @@ export const MyApps = ({ teacher, onCreateNew }: MyAppsProps) => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Мои приложения</h2>
-        <Button onClick={onCreateNew}>
-          <Plus className="h-4 w-4 mr-2" />
-          Создать новое
-        </Button>
-      </div>
-
       <Tabs defaultValue="created">
         <TabsList>
           <TabsTrigger value="created">
