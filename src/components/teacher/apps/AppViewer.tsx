@@ -62,25 +62,26 @@ export const AppViewer = ({ appId, previewUrl, open, onClose, teacherId }: AppVi
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className={isFullscreen ? "max-w-full h-screen m-0 p-0" : "max-w-6xl h-[90vh] p-0"}>
-        <div className="flex items-center justify-between py-2 px-4 border-b bg-background">
-          <h3 className="text-sm font-semibold">Предпросмотр приложения</h3>
-          <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsFullscreen(!isFullscreen)}
-            >
-              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-            >
-              <X className="h-4 w-4" />
-            </Button>
+          <div className="flex items-center justify-end h-9 px-2 border-b bg-background">
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                aria-label={isFullscreen ? "Свернуть" : "Во весь экран"}
+              >
+                {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onClose}
+                aria-label="Закрыть"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-        </div>
 
         {isLoading && (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground">
