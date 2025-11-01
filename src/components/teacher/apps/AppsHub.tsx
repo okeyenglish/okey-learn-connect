@@ -15,13 +15,7 @@ export const AppsHub = ({ teacher }: AppsHubProps) => {
     <div className="space-y-6">
       {/* Генератор AI */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-brand" />
-            Создать приложение с AI
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <AppGeneratorChat teacher={teacher} />
         </CardContent>
       </Card>
