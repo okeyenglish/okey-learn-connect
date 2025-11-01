@@ -62,8 +62,8 @@ export const AppViewer = ({ appId, previewUrl, open, onClose, teacherId }: AppVi
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className={isFullscreen ? "max-w-full h-screen m-0 p-0" : "max-w-6xl h-[90vh] p-0"}>
-        <div className="flex items-center justify-between p-4 border-b bg-background">
-          <h3 className="font-semibold">Предпросмотр приложения</h3>
+        <div className="flex items-center justify-between py-2 px-4 border-b bg-background">
+          <h3 className="text-sm font-semibold">Предпросмотр приложения</h3>
           <div className="flex gap-2">
             <Button
               variant="ghost"
