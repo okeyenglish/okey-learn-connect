@@ -78,6 +78,17 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
     }
   };
 
+  const handleOpenPublishDialog = () => {
+    // Автоматически генерируем название и описание из lastPrompt
+    if (lastPrompt) {
+      const title = lastPrompt.title || 'Новое приложение';
+      const description = lastPrompt.description || lastPrompt.brief || 'Образовательное приложение';
+      setPublishTitle(title);
+      setPublishDescription(description);
+    }
+    setPublishDialogOpen(true);
+  };
+
   const handlePublish = () => {
     if (stage.result?.app_id && publishTitle.trim() && publishDescription.trim()) {
       publishApp({ 
@@ -290,7 +301,7 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
                     </Button>
                     <Button 
                       variant="secondary"
-                      onClick={() => setPublishDialogOpen(true)}
+                      onClick={handleOpenPublishDialog}
                       disabled={isPublishing}
                     >
                       Опубликовать
@@ -397,7 +408,7 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
           <DialogHeader>
             <DialogTitle>Опубликовать приложение</DialogTitle>
             <DialogDescription>
-              Добавьте название и описание, чтобы опубликовать приложение в каталог
+              Проверьте название и описание перед публикацией в каталог
             </DialogDescription>
           </DialogHeader>
           
