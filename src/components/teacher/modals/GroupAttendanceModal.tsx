@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Check, X, DollarSign, Gift, Clock, AlertCircle } from 'lucide-react';
 import { useGroupStudentsAttendance } from '@/hooks/useTeacherJournal';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -29,6 +30,9 @@ export const GroupAttendanceModal = ({
   const { data: students, isLoading } = useGroupStudentsAttendance(groupId, sessionId);
   const [attendance, setAttendance] = useState<Record<string, { status: AttendanceStatus; notes?: string }>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [markAllPresent, setMarkAllPresent] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(0);
+  const firstButtonRef = useRef<HTMLButtonElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -103,7 +107,73 @@ export const GroupAttendanceModal = ({
       ...prev,
       [studentId]: { status },
     }));
+    setMarkAllPresent(false);
   };
+
+  // Отметить всех присутствующими
+  const handleMarkAllPresent = (checked: boolean) => {
+    setMarkAllPresent(checked);
+    if (checked && students) {
+      const allPresent: Record<string, { status: AttendanceStatus }> = {};
+      students.forEach((student: any) => {
+        allPresent[student.id] = { status: 'present' };
+      });
+      setAttendance(allPresent);
+    } else {
+      setAttendance({});
+    }
+  };
+
+  // Горячие клавиши: 1/2/3 для статусов, Tab для навигации, Enter для сохранения
+  useEffect(() => {
+    if (!open || !students) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const currentStudent = students[focusedIndex];
+      if (!currentStudent) return;
+
+      // 1 = Присутствовал
+      if (e.key === '1') {
+        e.preventDefault();
+        toggleAttendance(currentStudent.id, 'present');
+      }
+      // 2 = Отсутствовал (неоплач.)
+      else if (e.key === '2') {
+        e.preventDefault();
+        toggleAttendance(currentStudent.id, 'unpaid_absence');
+      }
+      // 3 = Опоздал / оплач. пропуск
+      else if (e.key === '3') {
+        e.preventDefault();
+        toggleAttendance(currentStudent.id, 'paid_absence');
+      }
+      // Tab = следующий студент
+      else if (e.key === 'Tab' && !e.shiftKey) {
+        e.preventDefault();
+        setFocusedIndex((prev) => Math.min(prev + 1, students.length - 1));
+      }
+      // Shift+Tab = предыдущий студент
+      else if (e.key === 'Tab' && e.shiftKey) {
+        e.preventDefault();
+        setFocusedIndex((prev) => Math.max(prev - 1, 0));
+      }
+      // Enter = сохранить
+      else if (e.key === 'Enter' && Object.keys(attendance).length > 0) {
+        e.preventDefault();
+        saveAttendance.mutate();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, students, focusedIndex, attendance]);
+
+  // Фокус на первом элементе при открытии
+  useEffect(() => {
+    if (open && firstButtonRef.current) {
+      setTimeout(() => firstButtonRef.current?.focus(), 100);
+    }
+  }, [open]);
 
   const getStatusButton = (studentId: string, status: AttendanceStatus, icon: any, label: string, variant: any) => {
     const isActive = attendance[studentId]?.status === status;
@@ -140,9 +210,37 @@ export const GroupAttendanceModal = ({
           <p className="text-sm text-muted-foreground">Занятие: {sessionDate}</p>
         </DialogHeader>
 
+        {/* Чекбокс "Все присутствуют" */}
+        <div className="flex items-center space-x-2 p-4 bg-muted/50 rounded-lg">
+          <Checkbox
+            id="mark-all-present"
+            checked={markAllPresent}
+            onCheckedChange={handleMarkAllPresent}
+          />
+          <label
+            htmlFor="mark-all-present"
+            className="text-sm font-medium leading-none cursor-pointer"
+          >
+            Отметить всех присутствующими
+          </label>
+        </div>
+
+        <div className="text-xs text-muted-foreground px-1">
+          Горячие клавиши: <kbd className="px-1 py-0.5 bg-muted rounded">1</kbd> Был, 
+          <kbd className="px-1 py-0.5 bg-muted rounded ml-1">2</kbd> Пропуск, 
+          <kbd className="px-1 py-0.5 bg-muted rounded ml-1">3</kbd> Оплач., 
+          <kbd className="px-1 py-0.5 bg-muted rounded ml-1">Tab</kbd> Далее, 
+          <kbd className="px-1 py-0.5 bg-muted rounded ml-1">Enter</kbd> Сохранить
+        </div>
+
         <div className="space-y-4">
-          {students?.map((student: any) => (
-            <div key={student.id} className="border rounded-lg p-4 space-y-3">
+          {students?.map((student: any, idx: number) => (
+            <div 
+              key={student.id} 
+              className={`border rounded-lg p-4 space-y-3 transition-colors ${
+                idx === focusedIndex ? 'ring-2 ring-primary' : ''
+              }`}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium">{student.name || `${student.first_name} ${student.last_name}`}</p>
@@ -155,8 +253,17 @@ export const GroupAttendanceModal = ({
               </div>
 
               <div className="flex gap-2">
-                {getStatusButton(student.id, 'present', Check, 'Был', 'default')}
-                {getStatusButton(student.id, 'paid_absence', DollarSign, 'Оплач. пропуск', 'outline')}
+                <Button
+                  ref={idx === 0 ? firstButtonRef : undefined}
+                  size="sm"
+                  variant={attendance[student.id]?.status === 'present' ? 'default' : 'outline'}
+                  onClick={() => toggleAttendance(student.id, 'present')}
+                  className="flex-1"
+                >
+                  <Check className="h-4 w-4 mr-1" />
+                  Был
+                </Button>
+                {getStatusButton(student.id, 'paid_absence', DollarSign, 'Оплач.', 'outline')}
                 {getStatusButton(student.id, 'unpaid_absence', X, 'Пропуск', 'outline')}
                 {getStatusButton(student.id, 'excused', Gift, 'Уважит.', 'outline')}
               </div>

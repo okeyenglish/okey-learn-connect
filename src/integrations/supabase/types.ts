@@ -353,6 +353,30 @@ export type Database = {
         }
         Relationships: []
       }
+      assistant_threads: {
+        Row: {
+          context: Json | null
+          created_at: string | null
+          id: string
+          owner_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string | null
+          id?: string
+          owner_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string | null
+          id?: string
+          owner_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           aggregate_id: string
@@ -831,6 +855,33 @@ export type Database = {
           is_unread?: boolean
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      chat_threads: {
+        Row: {
+          created_at: string | null
+          id: string
+          participants: string[]
+          title: string | null
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          participants?: string[]
+          title?: string | null
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          participants?: string[]
+          title?: string | null
+          type?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -2099,6 +2150,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      homework_templates: {
+        Row: {
+          body: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          level: string | null
+          subject: string | null
+          teacher_id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          body: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          level?: string | null
+          subject?: string | null
+          teacher_id: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          level?: string | null
+          subject?: string | null
+          teacher_id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       individual_lesson_history: {
         Row: {
@@ -3576,6 +3663,42 @@ export type Database = {
           },
         ]
       }
+      messages: {
+        Row: {
+          attachments: Json | null
+          author_id: string | null
+          created_at: string | null
+          id: string
+          role: string
+          status: string
+          text: string | null
+          thread_id: string
+          thread_type: string
+        }
+        Insert: {
+          attachments?: Json | null
+          author_id?: string | null
+          created_at?: string | null
+          id?: string
+          role: string
+          status?: string
+          text?: string | null
+          thread_id: string
+          thread_type: string
+        }
+        Update: {
+          attachments?: Json | null
+          author_id?: string | null
+          created_at?: string | null
+          id?: string
+          role?: string
+          status?: string
+          text?: string | null
+          thread_id?: string
+          thread_type?: string
+        }
+        Relationships: []
+      }
       messenger_settings: {
         Row: {
           created_at: string
@@ -3883,6 +4006,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payroll_monthly: {
+        Row: {
+          amount: number
+          created_at: string | null
+          hours: number
+          lessons: number
+          metadata: Json | null
+          month: string
+          teacher_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          amount?: number
+          created_at?: string | null
+          hours?: number
+          lessons?: number
+          metadata?: Json | null
+          month: string
+          teacher_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          hours?: number
+          lessons?: number
+          metadata?: Json | null
+          month?: string
+          teacher_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       pending_gpt_responses: {
         Row: {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,10 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Teacher } from '@/hooks/useTeachers';
 import { CommandPalette } from '@/components/teacher/ui/CommandPalette';
+import { FloatingChatWidget } from '@/components/teacher/floating-chat/FloatingChatWidget';
+import { MobileTabBar } from '@/components/teacher/ui/MobileTabBar';
+import { OfflineBanner } from '@/components/OfflineBanner';
+import { analytics, AnalyticsEvents } from '@/lib/analytics';
 
 interface TeacherLayoutProps {
   children: (props: {
@@ -82,8 +86,18 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
     );
   }
 
+  // Инициализируем аналитику
+  useEffect(() => {
+    if (teacher?.id) {
+      analytics.init(teacher.id);
+      analytics.track(AnalyticsEvents.DASHBOARD_OPENED);
+    }
+  }, [teacher?.id]);
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-16 md:pb-0">
+      <OfflineBanner />
+      
       {/* Sticky Header */}
       <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b">
         <div className="container mx-auto max-w-7xl px-6 py-3">
@@ -168,12 +182,23 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto max-w-7xl p-6">
+      <div className="container mx-auto max-w-7xl p-4 md:p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           {/* Контент вкладок */}
           {children({ teacher, isLoading: teacherLoading, activeTab, setActiveTab })}
         </Tabs>
       </div>
+
+      {/* Плавающий виджет чата и ассистента */}
+      <FloatingChatWidget
+        teacherId={teacher.id}
+        context={{
+          page: activeTab,
+        }}
+      />
+
+      {/* Мобильная навигация */}
+      <MobileTabBar activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
   );
 };

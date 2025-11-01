@@ -1,14 +1,19 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { DollarSign, TrendingUp, Clock, Calendar } from 'lucide-react';
 import { useTeacherRates } from '@/hooks/useTeacherSalary';
 import { Teacher } from '@/hooks/useTeachers';
+import { PayrollDetailsModal } from './modals/PayrollDetailsModal';
 
 interface TeacherSalaryCardProps {
   teacher: Teacher;
 }
 
 export const TeacherSalaryCard = ({ teacher }: TeacherSalaryCardProps) => {
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  
   // Используем profile_id для получения ставок (teacher_rates.teacher_id ссылается на auth.users)
   const teacherId = (teacher as any).profile_id || teacher.id;
   const { data: rates, isLoading } = useTeacherRates(teacherId);
@@ -120,19 +125,33 @@ export const TeacherSalaryCard = ({ teacher }: TeacherSalaryCardProps) => {
           <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl">
             <div className="flex items-start gap-3">
               <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
-              <div>
+              <div className="flex-1">
                 <p className="font-medium text-blue-900 dark:text-blue-100 mb-1">
                   Расчет зарплаты
                 </p>
-                <p className="text-sm text-blue-700 dark:text-blue-300">
+                <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
                   Зарплата рассчитывается автоматически по проведённым занятиям. 
                   Итоговая сумма зависит от количества академических часов и установленных ставок.
                 </p>
+                <Button
+                  onClick={() => setShowDetailsModal(true)}
+                  variant="outline"
+                  size="sm"
+                  className="bg-white dark:bg-background"
+                >
+                  Детали расчёта
+                </Button>
               </div>
             </div>
           </div>
         </div>
       </CardContent>
+
+      <PayrollDetailsModal
+        open={showDetailsModal}
+        onOpenChange={setShowDetailsModal}
+        teacherId={teacherId}
+      />
     </Card>
   );
 };
