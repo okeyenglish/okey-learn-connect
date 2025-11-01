@@ -30,6 +30,8 @@ import { QuickActionsBar } from '@/components/teacher/ui/QuickActionsBar';
 import { useToast } from '@/hooks/use-toast';
 import { useGlobalHotkeys } from '@/hooks/useGlobalHotkeys';
 import { analytics, AnalyticsEvents } from '@/lib/analytics';
+import { useTeacherBranches } from '@/hooks/useTeacherBranches';
+import { BranchBadge } from './ui/BranchBadge';
 
 interface TeacherHomeProps {
   teacher: Teacher;
@@ -39,6 +41,7 @@ interface TeacherHomeProps {
 export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { branches, selectedBranch } = useTeacherBranches(teacher.id);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [homeworkModalOpen, setHomeworkModalOpen] = useState(false);
@@ -58,11 +61,11 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
 
   // Получаем сегодняшние занятия преподавателя
   const { data: todayLessons, isLoading: lessonsLoading } = useQuery({
-    queryKey: ['teacher-lessons-today', teacherName],
+    queryKey: ['teacher-lessons-today', teacher.id, selectedBranchId],
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('lesson_sessions')
         .select(`
           *,
@@ -75,9 +78,16 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
           )
         `)
         .eq('teacher_name', teacherName)
-        .eq('lesson_date', today)
-        .order('start_time');
+        .eq('lesson_date', today);
+
+      // Фильтрация по филиалу
+      if (selectedBranchId !== 'all' && selectedBranch) {
+        query = query.eq('branch', selectedBranch.name);
+      }
+
+      query = query.order('start_time');
       
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -85,14 +95,20 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
 
   // Получаем группы преподавателя
   const { data: groups, isLoading: groupsLoading } = useQuery({
-    queryKey: ['teacher-groups', teacherName],
+    queryKey: ['teacher-groups', teacher.id, selectedBranchId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('learning_groups')
         .select('*')
         .eq('responsible_teacher', teacherName)
         .eq('is_active', true);
+
+      // Фильтрация по филиалу
+      if (selectedBranchId !== 'all' && selectedBranch) {
+        query = query.eq('branch', selectedBranch.name);
+      }
       
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -100,14 +116,20 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
 
   // Получаем индивидуальные уроки преподавателя
   const { data: individualLessons, isLoading: individualLoading } = useQuery({
-    queryKey: ['teacher-individual-lessons', teacherName],
+    queryKey: ['teacher-individual-lessons', teacher.id, selectedBranchId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('individual_lessons')
         .select('*')
         .eq('teacher_name', teacherName)
         .eq('is_active', true);
+
+      // Фильтрация по филиалу
+      if (selectedBranchId !== 'all' && selectedBranch) {
+        query = query.eq('branch', selectedBranch.name);
+      }
       
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -115,13 +137,13 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
 
   // Получаем все будущие занятия преподавателя (ближайшие 7 дней)
   const { data: upcomingLessons } = useQuery({
-    queryKey: ['teacher-lessons-upcoming', teacherName],
+    queryKey: ['teacher-lessons-upcoming', teacher.id, selectedBranchId],
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
       const nextWeek = new Date();
       nextWeek.setDate(nextWeek.getDate() + 7);
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('lesson_sessions')
         .select(`
           *,
@@ -133,10 +155,16 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
         `)
         .eq('teacher_name', teacherName)
         .gte('lesson_date', today)
-        .lte('lesson_date', nextWeek.toISOString().split('T')[0])
-        .order('lesson_date')
-        .order('start_time');
+        .lte('lesson_date', nextWeek.toISOString().split('T')[0]);
+
+      // Фильтрация по филиалу
+      if (selectedBranchId !== 'all' && selectedBranch) {
+        query = query.eq('branch', selectedBranch.name);
+      }
+
+      query = query.order('lesson_date').order('start_time');
       
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -144,13 +172,13 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
 
   // Получаем занятия на месяц
   const { data: monthLessons } = useQuery({
-    queryKey: ['teacher-lessons-month', teacherName],
+    queryKey: ['teacher-lessons-month', teacher.id, selectedBranchId],
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
       const nextMonth = new Date();
       nextMonth.setDate(nextMonth.getDate() + 30);
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('lesson_sessions')
         .select(`
           *,
@@ -162,10 +190,16 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
         `)
         .eq('teacher_name', teacherName)
         .gte('lesson_date', today)
-        .lte('lesson_date', nextMonth.toISOString().split('T')[0])
-        .order('lesson_date')
-        .order('start_time');
+        .lte('lesson_date', nextMonth.toISOString().split('T')[0]);
+
+      // Фильтрация по филиалу
+      if (selectedBranchId !== 'all' && selectedBranch) {
+        query = query.eq('branch', selectedBranch.name);
+      }
+
+      query = query.order('lesson_date').order('start_time');
       
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -342,7 +376,10 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
                     onClick={() => setSelectedGroupId(group.id)}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-text-primary">{group.name}</h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium text-text-primary">{group.name}</h4>
+                        {group.branch && <BranchBadge branchName={group.branch} size="sm" variant="outline" />}
+                      </div>
                       <Badge variant="outline">{group.level}</Badge>
                     </div>
                     <div className="text-sm text-text-secondary space-y-1">
@@ -380,7 +417,10 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
                     onClick={() => setSelectedLessonId(lesson.id)}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-text-primary">{lesson.student_name}</h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium text-text-primary">{lesson.student_name}</h4>
+                        {lesson.branch && <BranchBadge branchName={lesson.branch} size="sm" variant="outline" />}
+                      </div>
                       <Badge variant="outline">{lesson.level}</Badge>
                     </div>
                     <div className="text-sm text-text-secondary space-y-1">

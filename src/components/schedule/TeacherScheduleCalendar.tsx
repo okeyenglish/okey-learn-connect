@@ -81,6 +81,7 @@ export const TeacherScheduleCalendar = () => {
 
   const { data: lessons = [], isLoading } = useTeacherSchedule(
     selectedTeacherId,
+    'all', // branchId - для этого компонента пока без фильтра
     startDate,
     endDate
   );
@@ -88,6 +89,7 @@ export const TeacherScheduleCalendar = () => {
   // Получаем данные за весь месяц для статистики
   const { data: monthLessons = [] } = useTeacherSchedule(
     selectedTeacherId,
+    'all', // branchId - для этого компонента пока без фильтра
     startOfMonth(currentPeriod),
     endOfMonth(currentPeriod)
   );

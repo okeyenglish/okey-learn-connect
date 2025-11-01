@@ -1,12 +1,14 @@
 import { Calendar, ClipboardCheck, NotebookPen, Video, MapPin, Clock, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { BranchBadge } from './BranchBadge';
 
 interface LessonCardProps {
   start: string;
   end: string;
   title: string;
   room?: string;
+  branch?: string;
   online?: boolean;
   link?: string;
   status?: string;
@@ -23,6 +25,7 @@ export function LessonCard({
   end,
   title,
   room,
+  branch,
   online,
   link,
   status,
@@ -63,6 +66,7 @@ export function LessonCard({
           <span>{formatTime(start)} – {formatTime(end)}</span>
           <span className="text-muted-foreground">•</span>
           <span className="truncate">{title}</span>
+          {branch && <BranchBadge branchName={branch} size="sm" variant="outline" />}
         </div>
         <div className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
           {online ? (

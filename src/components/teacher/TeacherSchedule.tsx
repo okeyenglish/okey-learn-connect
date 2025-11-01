@@ -9,7 +9,9 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Teacher } from '@/hooks/useTeachers';
 import { useState } from 'react';
-import { LessonDetailsDrawer } from '@/components/teacher/drawers/LessonDetailsDrawer';
+import { LessonDetailsDrawer } from '@/components/teacher/ui/LessonDetailsDrawer';
+import { BranchBadge } from '@/components/teacher/ui/BranchBadge';
+import { useTeacherBranches } from '@/hooks/useTeacherBranches';
 
 interface TeacherScheduleProps {
   teacher: Teacher;
@@ -18,13 +20,14 @@ interface TeacherScheduleProps {
 
 export const TeacherSchedule = ({ teacher, selectedBranchId }: TeacherScheduleProps) => {
   const teacherName = `${teacher.last_name} ${teacher.first_name}`;
+  const { selectedBranch } = useTeacherBranches(teacher.id);
   const weekDays = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
   const [selectedLesson, setSelectedLesson] = useState<any>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   
   // Получаем расписание преподавателя на текущую неделю
   const { data: weekSchedule, isLoading } = useQuery({
-    queryKey: ['teacher-schedule-week', teacherName],
+    queryKey: ['teacher-schedule-week', teacherName, selectedBranchId],
     queryFn: async () => {
       const today = new Date();
       const startOfWeek = new Date(today);
@@ -33,7 +36,7 @@ export const TeacherSchedule = ({ teacher, selectedBranchId }: TeacherSchedulePr
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(startOfWeek.getDate() + 6); // Воскресенье
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('lesson_sessions')
         .select(`
           *,
@@ -45,10 +48,16 @@ export const TeacherSchedule = ({ teacher, selectedBranchId }: TeacherSchedulePr
         `)
         .eq('teacher_name', teacherName)
         .gte('lesson_date', startOfWeek.toISOString().split('T')[0])
-        .lte('lesson_date', endOfWeek.toISOString().split('T')[0])
-        .order('lesson_date')
-        .order('start_time');
+        .lte('lesson_date', endOfWeek.toISOString().split('T')[0]);
 
+      // Фильтрация по филиалу
+      if (selectedBranchId !== 'all' && selectedBranch) {
+        query = query.eq('branch', selectedBranch.name);
+      }
+
+      query = query.order('lesson_date').order('start_time');
+
+      const { data, error } = await query;
       if (error) throw error;
 
       // Группируем по дням недели
@@ -294,20 +303,13 @@ export const TeacherSchedule = ({ teacher, selectedBranchId }: TeacherSchedulePr
             title: selectedLesson.group,
             startTime: selectedLesson.start_time,
             endTime: selectedLesson.end_time,
-            date: selectedLesson.lesson_date,
-            room: selectedLesson.location,
+            branch: selectedLesson.branch,
+            location: selectedLesson.location,
             isOnline: selectedLesson.isOnline,
-            onlineLink: selectedLesson.online_link,
-            studentsCount: selectedLesson.students,
-            status: selectedLesson.status || 'scheduled',
+            subject: selectedLesson.learning_groups?.subject,
             level: selectedLesson.learning_groups?.level,
-            groupType: selectedLesson.type,
+            studentsCount: selectedLesson.students,
           }}
-          onStart={() => console.log('Start lesson')}
-          onAttendance={() => console.log('Open attendance')}
-          onHomework={() => console.log('Open homework')}
-          onComplete={() => console.log('Complete lesson')}
-          onJoinClass={selectedLesson.online_link ? () => window.open(selectedLesson.online_link, '_blank') : undefined}
         />
       )}
     </Card>

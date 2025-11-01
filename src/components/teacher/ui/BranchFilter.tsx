@@ -30,11 +30,25 @@ export const BranchFilter = ({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">
-            <span className="font-medium">Все филиалы</span>
+            <div className="flex items-center justify-between gap-3 w-full">
+              <span className="font-medium">Все филиалы</span>
+              {branches.some(b => b.lessonsCount !== undefined) && (
+                <span className="text-xs text-muted-foreground">
+                  {branches.reduce((sum, b) => sum + (b.lessonsCount || 0), 0)} занятий
+                </span>
+              )}
+            </div>
           </SelectItem>
           {branches.map((branch) => (
             <SelectItem key={branch.id} value={branch.id}>
-              {branch.name}
+              <div className="flex items-center justify-between gap-3 w-full">
+                <span>{branch.name}</span>
+                {branch.lessonsCount !== undefined && (
+                  <span className="text-xs text-muted-foreground">
+                    {branch.lessonsCount} занятий
+                  </span>
+                )}
+              </div>
             </SelectItem>
           ))}
         </SelectContent>

@@ -30,11 +30,12 @@ export interface TeacherScheduleStats {
 
 export const useTeacherSchedule = (
   teacherId?: string,
+  branchId?: string | 'all',
   startDate?: Date,
   endDate?: Date
 ) => {
   return useQuery({
-    queryKey: ['teacher-schedule', teacherId, startDate, endDate],
+    queryKey: ['teacher-schedule', teacherId, branchId, startDate, endDate],
     queryFn: async () => {
       if (!teacherId) return [];
 
@@ -42,10 +43,25 @@ export const useTeacherSchedule = (
       const end = endDate || endOfWeek(new Date(), { weekStartsOn: 1 });
 
       // Получаем групповые занятия преподавателя
-      const { data: groupLessonsData } = await supabase
+      let groupQuery = supabase
         .from('learning_groups' as any)
         .select('id, name, subject, level, branch, schedule_time, duration')
         .eq('teacher_id', teacherId);
+
+      // Фильтруем по филиалу, если выбран конкретный
+      if (branchId && branchId !== 'all') {
+        const { data: branchData } = await supabase
+          .from('organization_branches')
+          .select('name')
+          .eq('id', branchId)
+          .single();
+        
+        if (branchData) {
+          groupQuery = groupQuery.eq('branch', branchData.name);
+        }
+      }
+
+      const { data: groupLessonsData } = await groupQuery;
 
       const groupIds = groupLessonsData?.map((g: any) => g.id) || [];
 
@@ -77,10 +93,25 @@ export const useTeacherSchedule = (
       }
 
       // Получаем индивидуальные уроки преподавателя
-      const { data: individualLessonsData } = await supabase
+      let individualQuery = supabase
         .from('individual_lessons' as any)
         .select('id, subject, level, branch, schedule_time, duration, student_name, student_id')
         .eq('teacher_id', teacherId);
+
+      // Фильтруем по филиалу, если выбран конкретный
+      if (branchId && branchId !== 'all') {
+        const { data: branchData } = await supabase
+          .from('organization_branches')
+          .select('name')
+          .eq('id', branchId)
+          .single();
+        
+        if (branchData) {
+          individualQuery = individualQuery.eq('branch', branchData.name);
+        }
+      }
+
+      const { data: individualLessonsData } = await individualQuery;
 
       const lessonIds = individualLessonsData?.map((l: any) => l.id) || [];
 
