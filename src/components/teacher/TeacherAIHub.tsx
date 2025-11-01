@@ -1,13 +1,8 @@
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card } from '@/components/ui/card';
-import { Bot, BookOpen, FileText, MessageSquare, Gamepad2 } from 'lucide-react';
-import { TeacherAssistant } from './TeacherAssistant';
-import { TeacherMaterials } from './TeacherMaterials';
-import { TeacherChat } from './TeacherChat';
-import { AppGeneratorChat } from './apps/AppGeneratorChat';
-import { AppCatalog } from './apps/AppCatalog';
-import { MyApps } from './apps/MyApps';
+import { Gamepad2, BookOpen } from 'lucide-react';
+import { AppsHub } from './apps/AppsHub';
+import { MaterialsHub } from './materials/MaterialsHub';
 import { Teacher } from '@/hooks/useTeachers';
 
 interface TeacherAIHubProps {
@@ -15,23 +10,13 @@ interface TeacherAIHubProps {
 }
 
 export const TeacherAIHub = ({ teacher }: TeacherAIHubProps) => {
-  const [activeAITab, setActiveAITab] = React.useState('generator');
-
   return (
     <div className="w-full">
-      <Tabs value={activeAITab} onValueChange={setActiveAITab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="generator">
+      <Tabs defaultValue="apps" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="apps">
             <Gamepad2 className="h-4 w-4 mr-2" />
-            Генератор игр
-          </TabsTrigger>
-          <TabsTrigger value="catalog">
-            <BookOpen className="h-4 w-4 mr-2" />
-            Каталог
-          </TabsTrigger>
-          <TabsTrigger value="myapps">
-            <FileText className="h-4 w-4 mr-2" />
-            Мои приложения
+            Apps
           </TabsTrigger>
           <TabsTrigger value="materials">
             <BookOpen className="h-4 w-4 mr-2" />
@@ -39,25 +24,12 @@ export const TeacherAIHub = ({ teacher }: TeacherAIHubProps) => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="generator">
-          <Card className="p-6">
-            <AppGeneratorChat teacher={teacher} />
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="catalog">
-          <AppCatalog teacher={teacher} />
-        </TabsContent>
-
-        <TabsContent value="myapps">
-          <MyApps 
-            teacher={teacher} 
-            onCreateNew={() => setActiveAITab('generator')} 
-          />
+        <TabsContent value="apps">
+          <AppsHub teacher={teacher} />
         </TabsContent>
 
         <TabsContent value="materials">
-          <TeacherMaterials teacher={teacher} selectedBranchId="all" />
+          <MaterialsHub teacher={teacher} />
         </TabsContent>
       </Tabs>
     </div>
