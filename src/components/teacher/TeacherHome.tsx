@@ -297,12 +297,12 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
   // Найти ближайший урок (статусы: free, paid_skip, free_skip, rescheduled, completed, cancelled)
   const nextLesson = todayLessons?.find(l => l.status !== 'completed' && l.status !== 'cancelled');
 
-  // Глобальные горячие клавиши для следующего урока
+  // Глобальные горячие клавиши для следующего урока (только если есть следующий урок)
   useGlobalHotkeys({
     onStart: nextLesson ? () => handleQuickStart(nextLesson) : undefined,
     onAttendance: nextLesson ? () => handleQuickAttendance(nextLesson) : undefined,
     onHomework: nextLesson ? () => handleQuickHomework(nextLesson) : undefined,
-    enabled: !quickAttendanceModal?.open && !quickHomeworkModal?.open && !quickStartModal?.open,
+    enabled: !!nextLesson && !quickAttendanceModal?.open && !quickHomeworkModal?.open && !quickStartModal?.open,
   });
 
   return (

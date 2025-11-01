@@ -15,11 +15,11 @@ interface TeacherAIHubProps {
 }
 
 export const TeacherAIHub = ({ teacher }: TeacherAIHubProps) => {
-  const [activeTab, setActiveTab] = React.useState('generator');
+  const [activeAITab, setActiveAITab] = React.useState('generator');
 
   return (
     <div className="w-full">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeAITab} onValueChange={setActiveAITab} className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="generator">
             <Gamepad2 className="h-4 w-4 mr-2" />
@@ -52,12 +52,12 @@ export const TeacherAIHub = ({ teacher }: TeacherAIHubProps) => {
         <TabsContent value="myapps">
           <MyApps 
             teacher={teacher} 
-            onCreateNew={() => setActiveTab('generator')} 
+            onCreateNew={() => setActiveAITab('generator')} 
           />
         </TabsContent>
 
         <TabsContent value="materials">
-          <TeacherMaterials teacher={teacher} />
+          <TeacherMaterials teacher={teacher} selectedBranchId="all" />
         </TabsContent>
       </Tabs>
     </div>
