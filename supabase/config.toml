@@ -156,3 +156,9 @@ verify_jwt = false
 [functions.manage-app]
 verify_jwt = false
 
+[functions.teacher-assistant]
+verify_jwt = true
+
+[functions.homework-suggestions]
+verify_jwt = true
+

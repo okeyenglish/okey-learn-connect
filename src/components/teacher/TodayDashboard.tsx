@@ -8,6 +8,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { LessonCard } from '@/components/teacher/ui/LessonCard';
 import { EmptyState } from '@/components/teacher/ui/EmptyState';
 import { LessonPlanCard } from '@/components/teacher/LessonPlanCard';
+import { QuickActionsBar } from '@/components/teacher/ui/QuickActionsBar';
+import { LessonCountdown } from '@/components/teacher/ui/LessonCountdown';
 import { getLessonNumberForGroup } from '@/utils/lessonCalculator';
 
 interface TodayDashboardProps {
@@ -155,10 +157,13 @@ export const TodayDashboard = ({
 
       {/* Быстрые действия для следующего урока (только для дня) */}
       {period === 'day' && nextLesson && (
-        <div className="mb-6 p-4 bg-brand/5 border border-brand/20 rounded-xl">
+        <div className="mb-6 p-4 bg-primary/5 border border-primary/20 rounded-xl sticky top-20 z-10">
           <div className="flex items-center gap-2 mb-3">
-            <PlayCircle className="h-5 w-5 text-brand" />
+            <PlayCircle className="h-5 w-5 text-primary" />
             <h3 className="font-semibold">Следующее занятие</h3>
+            <LessonCountdown 
+              startTime={`${nextLesson.lesson_date}T${nextLesson.start_time}`}
+            />
           </div>
           
           <div className="space-y-3">
@@ -184,48 +189,14 @@ export const TodayDashboard = ({
               </Badge>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <Button
-                onClick={() => onStartLesson(nextLesson)}
-                size="sm"
-                className="w-full"
-              >
-                <PlayCircle className="h-3.5 w-3.5 mr-1.5" />
-                Начать
-              </Button>
-
-              {nextLesson.online_link && (
-                <Button
-                  onClick={() => onOpenOnline(nextLesson)}
-                  size="sm"
-                  variant="outline"
-                  className="w-full"
-                >
-                  <Video className="h-3.5 w-3.5 mr-1.5" />
-                  Онлайн
-                </Button>
-              )}
-
-              <Button
-                onClick={() => onAttendance(nextLesson)}
-                size="sm"
-                variant="outline"
-                className="w-full"
-              >
-                <ClipboardCheck className="h-3.5 w-3.5 mr-1.5" />
-                Посещ.
-              </Button>
-
-              <Button
-                onClick={() => onHomework(nextLesson)}
-                size="sm"
-                variant="outline"
-                className="w-full"
-              >
-                <BookOpenCheck className="h-3.5 w-3.5 mr-1.5" />
-                ДЗ
-              </Button>
-            </div>
+            <QuickActionsBar
+              onStart={() => onStartLesson(nextLesson)}
+              onAttendance={() => onAttendance(nextLesson)}
+              onHomework={() => onHomework(nextLesson)}
+              onJoinClass={nextLesson.online_link ? () => onOpenOnline(nextLesson) : undefined}
+              showJoinClass={!!nextLesson.online_link}
+              size="sm"
+            />
           </div>
         </div>
       )}

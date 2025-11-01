@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,9 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarIcon, BookOpen, Upload } from 'lucide-react';
+import { CalendarIcon, BookOpen, Upload, Sparkles, Clock, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
@@ -38,7 +41,77 @@ export const HomeworkModal = ({
   const [dueDate, setDueDate] = useState<Date>(existingHomework?.dueDate || new Date());
   const [showInPortal, setShowInPortal] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'create' | 'templates' | 'ai'>('create');
   const { toast } = useToast();
+
+  // Получаем шаблоны ДЗ преподавателя
+  const { data: templates } = useQuery({
+    queryKey: ['homework-templates', sessionId],
+    queryFn: async () => {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.user.id) return [];
+
+      const { data } = await supabase
+        .from('homework_templates')
+        .select('*')
+        .eq('teacher_id', session.session.user.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      return data || [];
+    },
+    enabled: open,
+  });
+
+  // Получаем AI-рекомендации
+  const aiSuggestions = useMutation({
+    mutationFn: async () => {
+      const { data: lessonData } = await supabase
+        .from('lesson_sessions')
+        .select('*, learning_groups(*)')
+        .eq('id', sessionId)
+        .single();
+
+      const response = await fetch(
+        'https://kbojujfwtvmsgudumown.supabase.co/functions/v1/homework-suggestions',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtib2p1amZ3dHZtc2d1ZHVtb3duIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxOTQ5MzksImV4cCI6MjA3Mzc3MDkzOX0.4SZggdlllMM8SYUo9yZKR-fR-nK4fIL4ZMciQW2EaNY`,
+          },
+          body: JSON.stringify({
+            level: lessonData?.learning_groups?.level,
+            subject: lessonData?.learning_groups?.subject,
+            topic: lessonData?.learning_groups?.name || 'текущий урок',
+            lessonNumber: lessonData?.lesson_number,
+          }),
+        }
+      );
+
+      if (!response.ok) throw new Error('Failed to get suggestions');
+      return response.json();
+    },
+    onError: (error) => {
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось получить рекомендации',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const applyTemplate = (template: any) => {
+    setAssignment(template.title);
+    setDescription(template.body);
+    setActiveTab('create');
+  };
+
+  const applySuggestion = (suggestion: any) => {
+    setAssignment(suggestion.title);
+    setDescription(suggestion.description);
+    setActiveTab('create');
+  };
 
   // Получаем студентов группы
   const { data: students } = useQuery({
@@ -145,9 +218,21 @@ export const HomeworkModal = ({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="assignment">Задание *</Label>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="create">Создать</TabsTrigger>
+            <TabsTrigger value="templates">
+              Шаблоны {templates && templates.length > 0 && `(${templates.length})`}
+            </TabsTrigger>
+            <TabsTrigger value="ai">
+              <Sparkles className="h-4 w-4 mr-1" />
+              AI
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="create" className="space-y-4 mt-4">
+            <div>
+              <Label htmlFor="assignment">Задание *</Label>
             <Input
               id="assignment"
               placeholder="Например: Unit 3, Exercise 1-5"
@@ -212,10 +297,92 @@ export const HomeworkModal = ({
             <p className="text-xs text-muted-foreground">
               PDF, изображения, документы (скоро)
             </p>
-          </div>
-        </div>
+            </div>
+          </TabsContent>
 
-        <DialogFooter>
+          <TabsContent value="templates" className="mt-4">
+            <ScrollArea className="h-[400px] pr-4">
+              {!templates || templates.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>Нет сохранённых шаблонов</p>
+                  <p className="text-sm mt-1">Создайте задание и сохраните его как шаблон</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {templates.map((template: any) => (
+                    <div
+                      key={template.id}
+                      className="border rounded-lg p-4 hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => applyTemplate(template)}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <h4 className="font-medium">{template.title}</h4>
+                        <div className="flex gap-1">
+                          {template.level && <Badge variant="outline">{template.level}</Badge>}
+                          {template.subject && <Badge variant="outline">{template.subject}</Badge>}
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{template.body}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </TabsContent>
+
+          <TabsContent value="ai" className="mt-4">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  AI подберёт задания на основе текущего урока и уровня группы
+                </p>
+                <Button
+                  onClick={() => aiSuggestions.mutate()}
+                  disabled={aiSuggestions.isPending}
+                  size="sm"
+                >
+                  {aiSuggestions.isPending ? 'Генерация...' : 'Получить рекомендации'}
+                </Button>
+              </div>
+
+              <ScrollArea className="h-[400px] pr-4">
+                {!aiSuggestions.data ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Sparkles className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p>Нажмите кнопку выше для генерации</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {aiSuggestions.data.suggestions?.map((suggestion: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className="border rounded-lg p-4 hover:bg-muted/50 cursor-pointer transition-colors"
+                        onClick={() => applySuggestion(suggestion)}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <h4 className="font-medium">{suggestion.title}</h4>
+                          <div className="flex gap-1">
+                            {suggestion.type && <Badge variant="outline">{suggestion.type}</Badge>}
+                            {suggestion.estimatedTime && (
+                              <Badge variant="outline" className="gap-1">
+                                <Clock className="h-3 w-3" />
+                                {suggestion.estimatedTime} мин
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{suggestion.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        <DialogFooter className="mt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Отмена
           </Button>

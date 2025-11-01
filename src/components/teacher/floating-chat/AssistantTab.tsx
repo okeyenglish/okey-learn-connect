@@ -76,30 +76,101 @@ export const AssistantTab = ({ teacherId, context }: AssistantTabProps) => {
     enabled: !!thread?.id,
   });
 
-  // Отправка сообщения
+  // Отправка сообщения с потоковым ответом
   const sendMessage = useMutation({
     mutationFn: async (text: string) => {
       if (!thread?.id) throw new Error('Thread not found');
 
       // Сохраняем сообщение пользователя
-      await supabase.from('messages').insert({
+      const { data: userMsg } = await supabase.from('messages').insert({
         thread_id: thread.id,
         thread_type: 'assistant',
         author_id: teacherId,
         role: 'user',
         text,
-      });
+      }).select().single();
 
-      // Здесь должен быть вызов к AI API (OpenAI, Anthropic и т.д.)
-      // Для MVP возвращаем mock-ответ
-      const mockResponse = `Я понял ваш запрос: "${text}". Это функционал в разработке. Скоро здесь будет полноценный AI-ассистент с доступом к контексту уроков, групп и материалов.`;
+      // Получаем все предыдущие сообщения для контекста
+      const { data: prevMessages } = await supabase
+        .from('messages')
+        .select('role, text')
+        .eq('thread_id', thread.id)
+        .order('created_at', { ascending: true });
 
-      // Сохраняем ответ ассистента
+      const allMessages = prevMessages?.map(m => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.text || '',
+      })) || [];
+
+      // Вызываем edge function для стриминга
+      const response = await fetch(
+        'https://kbojujfwtvmsgudumown.supabase.co/functions/v1/teacher-assistant',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtib2p1amZ3dHZtc2d1ZHVtb3duIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxOTQ5MzksImV4cCI6MjA3Mzc3MDkzOX0.4SZggdlllMM8SYUo9yZKR-fR-nK4fIL4ZMciQW2EaNY'}`,
+          },
+          body: JSON.stringify({ messages: allMessages, context }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to get AI response');
+      }
+
+      // Читаем стрим
+      let fullResponse = '';
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (reader) {
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (let line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') continue;
+              
+              try {
+                const parsed = JSON.parse(data);
+                const content = parsed.choices?.[0]?.delta?.content;
+                if (content) {
+                  fullResponse += content;
+                  // Триггерим обновление UI через invalidate
+                  queryClient.setQueryData(
+                    ['assistant-messages', thread.id],
+                    (old: Message[] = []) => {
+                      const last = old[old.length - 1];
+                      if (last?.role === 'assistant' && !last.id) {
+                        return [...old.slice(0, -1), { ...last, text: fullResponse }];
+                      }
+                      return [...old, { role: 'assistant', text: fullResponse, created_at: new Date().toISOString() }];
+                    }
+                  );
+                }
+              } catch (e) {
+                // Игнорируем ошибки парсинга
+              }
+            }
+          }
+        }
+      }
+
+      // Сохраняем финальный ответ
       await supabase.from('messages').insert({
         thread_id: thread.id,
         thread_type: 'assistant',
         role: 'assistant',
-        text: mockResponse,
+        text: fullResponse,
       });
     },
     onSuccess: () => {

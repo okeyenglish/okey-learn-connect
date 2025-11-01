@@ -25,7 +25,11 @@ import { SubstitutionRequestModal } from '@/components/teacher/modals/Substituti
 import { KpiCard } from '@/components/teacher/ui/KpiCard';
 import { TodayDashboard } from '@/components/teacher/TodayDashboard';
 import { TeacherSalaryCard } from '@/components/teacher/TeacherSalaryCard';
+import { LessonCountdown } from '@/components/teacher/ui/LessonCountdown';
+import { QuickActionsBar } from '@/components/teacher/ui/QuickActionsBar';
 import { useToast } from '@/hooks/use-toast';
+import { useGlobalHotkeys } from '@/hooks/useGlobalHotkeys';
+import { analytics, AnalyticsEvents } from '@/lib/analytics';
 
 interface TeacherHomeProps {
   teacher: Teacher;
@@ -188,8 +192,8 @@ export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
     setAttendanceModalOpen(true);
   };
 
-  // Быстрые действия
   const handleQuickStart = (lesson: any) => {
+    analytics.track(AnalyticsEvents.LESSON_STARTED, { lessonId: lesson.id });
     setQuickStartModal({
       open: true,
       session: {
@@ -254,6 +258,14 @@ export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
 
   // Найти ближайший урок (статусы: free, paid_skip, free_skip, rescheduled, completed, cancelled)
   const nextLesson = todayLessons?.find(l => l.status !== 'completed' && l.status !== 'cancelled');
+
+  // Глобальные горячие клавиши для следующего урока
+  useGlobalHotkeys({
+    onStart: nextLesson ? () => handleQuickStart(nextLesson) : undefined,
+    onAttendance: nextLesson ? () => handleQuickAttendance(nextLesson) : undefined,
+    onHomework: nextLesson ? () => handleQuickHomework(nextLesson) : undefined,
+    enabled: !quickAttendanceModal?.open && !quickHomeworkModal?.open && !quickStartModal?.open,
+  });
 
   return (
     <>
