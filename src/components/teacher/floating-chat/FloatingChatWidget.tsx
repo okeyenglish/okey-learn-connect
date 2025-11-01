@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MessageCircle, X } from 'lucide-react';
+import { MessageCircle, X, Maximize2, Minimize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AssistantTab } from './AssistantTab';
@@ -18,6 +18,7 @@ interface FloatingChatWidgetProps {
 
 export const FloatingChatWidget = ({ teacherId, context }: FloatingChatWidgetProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isDocked, setIsDocked] = useState(false);
   const [activeTab, setActiveTab] = useState<'assistant' | 'chats'>('assistant');
 
   // Получаем непрочитанные сообщения
@@ -64,43 +65,74 @@ export const FloatingChatWidget = ({ teacherId, context }: FloatingChatWidgetPro
 
   return (
     <>
-      {/* Кнопка запуска */}
-      <button
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-xl hover:shadow-2xl transition-all duration-200 flex items-center justify-center group"
-        aria-label="Открыть чат и ассистент"
-        title="Чат и AI ассистент (⌘/)"
-      >
-        <MessageCircle className="w-6 h-6" />
-        {(unreadCount ?? 0) > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 bg-destructive text-white text-xs font-medium rounded-full flex items-center justify-center">
-            {unreadCount}
-          </span>
-        )}
-      </button>
+      {/* Кнопка запуска - скрываем в закрепленном режиме */}
+      {!isDocked && (
+        <button
+          onClick={() => setIsOpen(true)}
+          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-xl hover:shadow-2xl transition-all duration-200 flex items-center justify-center group"
+          aria-label="Открыть чат и ассистент"
+          title="Чат и AI ассистент (⌘/)"
+        >
+          <MessageCircle className="w-6 h-6" />
+          {(unreadCount ?? 0) > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 bg-destructive text-white text-xs font-medium rounded-full flex items-center justify-center">
+              {unreadCount}
+            </span>
+          )}
+        </button>
+      )}
 
       {/* Панель чата */}
-      {isOpen && (
+      {(isOpen || isDocked) && (
         <>
-          {/* Overlay для мобильных */}
-          <div 
-            className="fixed inset-0 bg-black/50 z-40 md:hidden"
-            onClick={() => setIsOpen(false)}
-          />
+          {/* Overlay для мобильных (только в плавающем режиме) */}
+          {!isDocked && (
+            <div 
+              className="fixed inset-0 bg-black/50 z-40 md:hidden"
+              onClick={() => setIsOpen(false)}
+            />
+          )}
           
           {/* Сама панель */}
-          <div className="fixed bottom-0 right-0 md:bottom-24 md:right-6 w-full md:w-[420px] h-full md:h-[600px] bg-background border-l md:border md:rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden">
+          <div 
+            className={`
+              fixed bg-background border-l shadow-2xl z-50 flex flex-col overflow-hidden transition-all duration-300
+              ${isDocked 
+                ? 'top-0 right-0 bottom-0 w-full md:w-[20vw] md:min-w-[320px]' 
+                : 'bottom-0 right-0 md:bottom-24 md:right-6 w-full md:w-[420px] h-full md:h-[600px] md:border md:rounded-2xl'
+              }
+            `}
+          >
             {/* Шапка */}
             <div className="flex items-center justify-between p-4 border-b bg-muted/30">
               <h2 className="font-semibold text-lg">AI Помощник и Чаты</h2>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsOpen(false)}
-                className="h-8 w-8"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setIsDocked(!isDocked);
+                    if (isDocked) {
+                      setIsOpen(true);
+                    }
+                  }}
+                  className="h-8 w-8"
+                  title={isDocked ? "Открепить" : "Закрепить справа"}
+                >
+                  {isDocked ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setIsOpen(false);
+                    setIsDocked(false);
+                  }}
+                  className="h-8 w-8"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             {/* Табы */}
