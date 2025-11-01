@@ -182,6 +182,24 @@ export const useApps = (teacherId?: string) => {
     }
   });
 
+  // Unpublish app mutation
+  const unpublishApp = useMutation({
+    mutationFn: async (appId: string) => {
+      const { error } = await supabase
+        .from('apps' as any)
+        .update({ status: 'draft', published_at: null })
+        .eq('id', appId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['apps'] });
+      toast({ title: 'Приложение снято с публикации' });
+    },
+    onError: (error) => {
+      toast({ title: 'Ошибка', description: error.message, variant: 'destructive' });
+    }
+  });
+
   // Delete app mutation
   const deleteApp = useMutation({
     mutationFn: async (appId: string) => {
@@ -211,6 +229,7 @@ export const useApps = (teacherId?: string) => {
     uninstallApp: uninstallApp.mutate,
     rateApp: rateApp.mutate,
     publishApp: publishApp.mutate,
+    unpublishApp: unpublishApp.mutate,
     deleteApp: deleteApp.mutate,
     isInstalling: installApp.isPending,
     isPublishing: publishApp.isPending

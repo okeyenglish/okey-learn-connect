@@ -27,14 +27,19 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get teacher
-    const { data: teacher } = await supabase
+    console.log('Action:', action, 'Teacher ID:', teacher_id, 'App ID:', app_id);
+
+    // Get teacher by profile_id or id
+    const { data: teacher, error: teacherError } = await supabase
       .from('teachers')
-      .select('id')
-      .eq('user_id', teacher_id)
-      .single();
+      .select('id, profile_id')
+      .or(`id.eq.${teacher_id},profile_id.eq.${teacher_id}`)
+      .maybeSingle();
+
+    console.log('Teacher found:', teacher, 'Error:', teacherError);
 
     if (!teacher) {
+      console.error('Teacher not found for id:', teacher_id);
       return new Response(
         JSON.stringify({ error: 'Teacher not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -46,13 +51,18 @@ serve(async (req) => {
     switch (action) {
       case 'install':
         // Install app
+        console.log('Installing app:', app_id, 'for teacher:', teacher.id);
         const { error: installError } = await supabase
           .from('app_installs')
           .upsert({ 
             app_id, 
             teacher_id: teacher.id 
           });
-        if (installError) throw installError;
+        if (installError) {
+          console.error('Install error:', installError);
+          throw installError;
+        }
+        console.log('App installed successfully');
         result = { success: true, message: 'Приложение добавлено в "Мои приложения"' };
         break;
 

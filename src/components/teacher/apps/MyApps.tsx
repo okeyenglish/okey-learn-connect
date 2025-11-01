@@ -25,6 +25,7 @@ export const MyApps = ({ teacher, onCreateNew }: MyAppsProps) => {
     installedLoading,
     uninstallApp,
     publishApp,
+    unpublishApp,
     deleteApp,
     isPublishing
   } = useApps((teacher as any).user_id || teacher.id);
@@ -35,8 +36,18 @@ export const MyApps = ({ teacher, onCreateNew }: MyAppsProps) => {
     }
   };
 
-  const handleDelete = (appId: string) => {
-    if (confirm('Удалить приложение? Это действие нельзя отменить.')) {
+  const handleUnpublish = (appId: string) => {
+    if (confirm('Снять приложение с публикации? Оно исчезнет из каталога.')) {
+      unpublishApp(appId);
+    }
+  };
+
+  const handleDelete = (appId: string, isPublished: boolean) => {
+    const message = isPublished 
+      ? 'Удалить опубликованное приложение? Оно исчезнет из каталога и у всех пользователей.'
+      : 'Удалить приложение? Это действие нельзя отменить.';
+    
+    if (confirm(message)) {
       deleteApp(appId);
     }
   };
@@ -91,7 +102,9 @@ export const MyApps = ({ teacher, onCreateNew }: MyAppsProps) => {
                     const url = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/apps/${app.id}/${app.latest_version}/index.html`;
                     setSelectedApp({ id: app.id, url });
                   }}
-                  onDelete={() => handleDelete(app.id)}
+                  onPublish={() => handlePublish(app.id)}
+                  onUnpublish={() => handleUnpublish(app.id)}
+                  onDelete={() => handleDelete(app.id, app.status === 'published')}
                   isOwner
                 />
               ))}

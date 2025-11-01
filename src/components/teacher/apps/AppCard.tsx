@@ -9,6 +9,8 @@ interface AppCardProps {
   onOpen?: () => void;
   onInstall?: () => void;
   onUninstall?: () => void;
+  onPublish?: () => void;
+  onUnpublish?: () => void;
   onDelete?: () => void;
   isInstalled?: boolean;
   isOwner?: boolean;
@@ -18,7 +20,9 @@ export const AppCard = ({
   app, 
   onOpen, 
   onInstall, 
-  onUninstall, 
+  onUninstall,
+  onPublish,
+  onUnpublish,
   onDelete,
   isInstalled,
   isOwner 
@@ -111,14 +115,40 @@ export const AppCard = ({
           </Button>
         )}
 
-        {isOwner && onDelete && (
-          <Button 
-            onClick={onDelete}
-            variant="destructive"
-            size="sm"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+        {isOwner && (
+          <>
+            {app.status === 'draft' && onPublish && (
+              <Button 
+                onClick={onPublish}
+                variant="outline"
+                size="sm"
+                className="flex-1"
+              >
+                Опубликовать
+              </Button>
+            )}
+            
+            {app.status === 'published' && onUnpublish && (
+              <Button 
+                onClick={onUnpublish}
+                variant="outline"
+                size="sm"
+                className="flex-1"
+              >
+                Снять с публикации
+              </Button>
+            )}
+            
+            {onDelete && (
+              <Button 
+                onClick={onDelete}
+                variant="destructive"
+                size="sm"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </>
         )}
       </CardFooter>
     </Card>
