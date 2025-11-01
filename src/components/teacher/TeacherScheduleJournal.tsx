@@ -352,8 +352,8 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
     return statusMap[status] || { label: status, variant: 'secondary' };
   };
 
-  if (isLoading) {
-    return (
+  return (
+    <>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
