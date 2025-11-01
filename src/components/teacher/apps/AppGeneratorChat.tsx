@@ -58,11 +58,13 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
 
   const handleGenerate = () => {
     if (stage.stage === 'generate') {
-      const prompt = (stage as any).prompt || { 
-        title: 'New App', 
-        type: format, 
-        brief,
-        description: brief 
+      const prompt = {
+        ...((stage as any).prompt || { 
+          title: 'New App', 
+          brief,
+          description: brief 
+        }),
+        type: format // Always use current format
       };
       setLastPrompt(prompt);
       generateApp({ prompt });
