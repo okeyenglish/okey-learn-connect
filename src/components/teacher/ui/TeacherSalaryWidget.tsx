@@ -32,7 +32,6 @@ export const TeacherSalaryWidget = ({ teacherId }: TeacherSalaryWidgetProps) => 
       >
         <Wallet className="h-4 w-4" />
         <div className="flex flex-col items-start">
-          <span className="text-xs text-muted-foreground hidden sm:inline">К выплате</span>
           <span className="text-sm font-semibold">
             {isLoading ? '...' : `${unpaidAmount.toLocaleString('ru-RU')} ₽`}
           </span>
