@@ -253,9 +253,26 @@ serve(async (req) => {
       );
     }
 
+    // Map English types to Russian for better generation
+    const typeMapping: Record<string, string> = {
+      'quiz': 'квиз',
+      'game': 'игру',
+      'flashcards': 'флэш-карточки',
+      'matching': 'игру на сопоставление',
+      'wordSearch': 'игру "поиск слов"',
+      'fillInBlanks': 'упражнение "заполни пропуски"',
+      'memory': 'игру "мемори" (найди пары)',
+      'dragAndDrop': 'упражнение с перетаскиванием',
+      'test': 'тест',
+      'crossword': 'кроссворд',
+      'typing': 'тренажер набора текста'
+    };
+
+    const gameType = typeMapping[prompt.type] || prompt.type || 'игру';
+
     // Generate HTML with OpenAI
     const userPrompt = `
-Создайте ${prompt.type || 'game'} для изучения английского языка:
+Создайте ${gameType} для изучения английского языка:
 
 Название: ${prompt.title || 'Educational App'}
 Уровень: ${prompt.level || 'A1-B1'}
