@@ -14,12 +14,22 @@ interface FloatingChatWidgetProps {
     groupId?: string;
     lessonId?: string;
   };
+  onDockedChange?: (isDocked: boolean) => void;
 }
 
-export const FloatingChatWidget = ({ teacherId, context }: FloatingChatWidgetProps) => {
+export const FloatingChatWidget = ({ teacherId, context, onDockedChange }: FloatingChatWidgetProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isDocked, setIsDocked] = useState(false);
   const [activeTab, setActiveTab] = useState<'assistant' | 'chats'>('assistant');
+
+  const handleDockedToggle = () => {
+    const newDocked = !isDocked;
+    setIsDocked(newDocked);
+    onDockedChange?.(newDocked);
+    if (newDocked) {
+      setIsOpen(true);
+    }
+  };
 
   // Получаем непрочитанные сообщения
   const { data: unreadCount } = useQuery({
@@ -96,10 +106,10 @@ export const FloatingChatWidget = ({ teacherId, context }: FloatingChatWidgetPro
           {/* Сама панель */}
           <div 
             className={`
-              fixed bg-background border-l shadow-2xl z-50 flex flex-col overflow-hidden transition-all duration-300
+              bg-background border-l shadow-2xl flex flex-col overflow-hidden transition-all duration-300
               ${isDocked 
-                ? 'top-0 right-0 bottom-0 w-full md:w-[20vw] md:min-w-[320px]' 
-                : 'bottom-0 right-0 md:bottom-24 md:right-6 w-full md:w-[420px] h-full md:h-[600px] md:border md:rounded-2xl'
+                ? 'fixed top-0 right-0 bottom-0 w-full md:w-[20vw] md:min-w-[320px] z-30' 
+                : 'fixed bottom-0 right-0 md:bottom-24 md:right-6 w-full md:w-[420px] h-full md:h-[600px] md:border md:rounded-2xl z-50'
               }
             `}
           >
@@ -110,12 +120,7 @@ export const FloatingChatWidget = ({ teacherId, context }: FloatingChatWidgetPro
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => {
-                    setIsDocked(!isDocked);
-                    if (isDocked) {
-                      setIsOpen(true);
-                    }
-                  }}
+                  onClick={handleDockedToggle}
                   className="h-8 w-8"
                   title={isDocked ? "Открепить" : "Закрепить справа"}
                 >
@@ -127,6 +132,7 @@ export const FloatingChatWidget = ({ teacherId, context }: FloatingChatWidgetPro
                   onClick={() => {
                     setIsOpen(false);
                     setIsDocked(false);
+                    onDockedChange?.(false);
                   }}
                   className="h-8 w-8"
                 >

@@ -32,6 +32,7 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
   const { signOut, profile } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('home');
+  const [isChatDocked, setIsChatDocked] = useState(false);
 
   // ВАЖНО: порядок хуков должен быть постоянным
 
@@ -137,7 +138,7 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
       <div className="min-h-screen bg-background pb-16 md:pb-0">
         <OfflineBanner />
         
-        {/* Sticky Header */}
+        {/* Sticky Header - не сдвигается */}
         <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b">
           <div className="container mx-auto max-w-7xl px-6 py-3">
             <div className="flex items-center justify-between">
@@ -213,8 +214,13 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="container mx-auto max-w-7xl p-4 md:p-6">
+        {/* Main Content - сдвигается когда чат закреплен */}
+        <div 
+          className={`
+            container mx-auto max-w-7xl p-4 md:p-6 transition-all duration-300
+            ${isChatDocked ? 'md:mr-[20vw]' : ''}
+          `}
+        >
           {children({ 
             teacher, 
             isLoading: teacherLoading, 
@@ -227,6 +233,7 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
         <FloatingChatWidget
           teacherId={teacher.id}
           context={{ page: activeTab }}
+          onDockedChange={setIsChatDocked}
         />
 
         <MobileTabBar activeTab={activeTab} onTabChange={setActiveTab} />
