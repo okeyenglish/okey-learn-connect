@@ -127,10 +127,11 @@ ${currentHtml}
 
     // Save new HTML to storage
     const fileName = `${app_id}/${newVersion}/index.html`;
+    const htmlBlob = new Blob([improvedHtml], { type: 'text/html; charset=utf-8' });
     const { error: uploadError } = await supabase.storage
       .from('apps')
-      .upload(fileName, improvedHtml, {
-        contentType: 'text/html',
+      .upload(fileName, htmlBlob, {
+        contentType: 'text/html; charset=utf-8',
         upsert: true
       });
 

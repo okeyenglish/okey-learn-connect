@@ -250,10 +250,11 @@ ${prompt.features ? prompt.features.map((f: string) => `- ${f}`).join('\n') : ''
 
     // Save HTML to storage
     const fileName = `${appData.id}/${version}/index.html`;
+    const htmlBlob = new Blob([html], { type: 'text/html; charset=utf-8' });
     const { error: uploadError } = await supabase.storage
       .from('apps')
-      .upload(fileName, html, {
-        contentType: 'text/html',
+      .upload(fileName, htmlBlob, {
+        contentType: 'text/html; charset=utf-8',
         upsert: true
       });
 
