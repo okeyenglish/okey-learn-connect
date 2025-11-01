@@ -14,11 +14,7 @@ export const AppsHub = ({ teacher }: AppsHubProps) => {
   return (
     <div className="space-y-6">
       {/* Генератор AI */}
-      <Card>
-        <CardContent className="pt-6">
-          <AppGeneratorChat teacher={teacher} />
-        </CardContent>
-      </Card>
+      <AppGeneratorChat teacher={teacher} />
 
       {/* Мои приложения */}
       <Card>
