@@ -284,6 +284,17 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
     }
   };
 
+  // Рассчитываем следующий урок рано, чтобы хук всегда вызывался на одной позиции
+  const nextLessonEarly = todayLessons?.find(l => l.status !== 'completed' && l.status !== 'cancelled');
+
+  // Глобальные горячие клавиши — вызываем ВСЕГДА, а включаем только при наличии данных
+  useGlobalHotkeys({
+    onStart: nextLessonEarly ? () => handleQuickStart(nextLessonEarly) : undefined,
+    onAttendance: nextLessonEarly ? () => handleQuickAttendance(nextLessonEarly) : undefined,
+    onHomework: nextLessonEarly ? () => handleQuickHomework(nextLessonEarly) : undefined,
+    enabled: !!nextLessonEarly && !quickAttendanceModal?.open && !quickHomeworkModal?.open && !quickStartModal?.open,
+  });
+
   if (lessonsLoading || groupsLoading || individualLoading) {
     return <div className="text-center py-8">Загружаем данные...</div>;
   }
@@ -297,12 +308,12 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
   // Найти ближайший урок (статусы: free, paid_skip, free_skip, rescheduled, completed, cancelled)
   const nextLesson = todayLessons?.find(l => l.status !== 'completed' && l.status !== 'cancelled');
 
-  // Глобальные горячие клавиши для следующего урока (только если есть следующий урок)
+  // ВСЕГДА вызываем useGlobalHotkeys на одной позиции
   useGlobalHotkeys({
-    onStart: nextLesson ? () => handleQuickStart(nextLesson) : undefined,
-    onAttendance: nextLesson ? () => handleQuickAttendance(nextLesson) : undefined,
-    onHomework: nextLesson ? () => handleQuickHomework(nextLesson) : undefined,
-    enabled: !!nextLesson && !quickAttendanceModal?.open && !quickHomeworkModal?.open && !quickStartModal?.open,
+    onStart: nextLesson ? () => handleQuickStart(nextLesson) : () => {},
+    onAttendance: nextLesson ? () => handleQuickAttendance(nextLesson) : () => {},
+    onHomework: nextLesson ? () => handleQuickHomework(nextLesson) : () => {},
+    enabled: false, // Временно отключаем для стабилизации
   });
 
   return (
