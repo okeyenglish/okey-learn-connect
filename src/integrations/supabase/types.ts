@@ -7003,6 +7003,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      user_has_branch: { Args: { _branch: string }; Returns: boolean }
       user_has_permission:
         | {
             Args: { _permission: string; _resource: string; _user_id: string }
