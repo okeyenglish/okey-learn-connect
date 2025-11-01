@@ -13,9 +13,10 @@ import { SubstitutionRequestModal } from './modals/SubstitutionRequestModal';
 
 interface TeacherSubstitutionsProps {
   teacher: Teacher;
+  selectedBranchId: string | 'all';
 }
 
-export const TeacherSubstitutions = ({ teacher }: TeacherSubstitutionsProps) => {
+export const TeacherSubstitutions = ({ teacher, selectedBranchId }: TeacherSubstitutionsProps) => {
   const [requestModal, setRequestModal] = useState<{ open: boolean; type: 'substitution' | 'absence' } | null>(null);
   // Получаем заявки на замены для преподавателя
   const { data: substitutions, isLoading: substitutionsLoading } = useQuery({

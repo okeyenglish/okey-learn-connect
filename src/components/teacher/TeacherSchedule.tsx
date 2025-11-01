@@ -13,9 +13,10 @@ import { LessonDetailsDrawer } from '@/components/teacher/drawers/LessonDetailsD
 
 interface TeacherScheduleProps {
   teacher: Teacher;
+  selectedBranchId: string | 'all';
 }
 
-export const TeacherSchedule = ({ teacher }: TeacherScheduleProps) => {
+export const TeacherSchedule = ({ teacher, selectedBranchId }: TeacherScheduleProps) => {
   const teacherName = `${teacher.last_name} ${teacher.first_name}`;
   const weekDays = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
   const [selectedLesson, setSelectedLesson] = useState<any>(null);

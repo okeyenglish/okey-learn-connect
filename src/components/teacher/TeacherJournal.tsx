@@ -13,9 +13,10 @@ import { HomeworkModal } from './modals/HomeworkModal';
 
 interface TeacherJournalProps {
   teacher: Teacher;
+  selectedBranchId: string | 'all';
 }
 
-export const TeacherJournal = ({ teacher }: TeacherJournalProps) => {
+export const TeacherJournal = ({ teacher, selectedBranchId }: TeacherJournalProps) => {
   const teacherName = `${teacher.last_name} ${teacher.first_name}`;
   const [attendanceModal, setAttendanceModal] = useState<{ open: boolean; groupId: string; sessionId: string; sessionDate: string } | null>(null);
   const [homeworkModal, setHomeworkModal] = useState<{ open: boolean; groupId: string; sessionId: string } | null>(null);

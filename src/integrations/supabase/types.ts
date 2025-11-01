@@ -5698,6 +5698,56 @@ export type Database = {
             referencedRelation: "teachers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "teacher_bbb_rooms_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers_with_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_branches: {
+        Row: {
+          branch_id: string
+          created_at: string
+          id: string
+          teacher_id: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          id?: string
+          teacher_id: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          id?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_branches_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "organization_branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_branches_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_branches_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers_with_branches"
+            referencedColumns: ["id"]
+          },
         ]
       }
       teacher_earnings: {
@@ -6388,6 +6438,36 @@ export type Database = {
           preview_url: string | null
           tags: string[] | null
           title: string | null
+        }
+        Relationships: []
+      }
+      teachers_with_branches: {
+        Row: {
+          birth_place: string | null
+          birthdate: string | null
+          branch: string | null
+          branches: Json | null
+          categories: string[] | null
+          created_at: string | null
+          email: string | null
+          external_id: string | null
+          first_name: string | null
+          holihope_metadata: Json | null
+          id: string | null
+          inn: string | null
+          is_active: boolean | null
+          last_name: string | null
+          passport_issued_by: string | null
+          passport_issued_date: string | null
+          passport_number: string | null
+          passport_series: string | null
+          phone: string | null
+          profile_id: string | null
+          registration_address: string | null
+          residential_address: string | null
+          snils: string | null
+          subjects: string[] | null
+          updated_at: string | null
         }
         Relationships: []
       }

@@ -13,26 +13,26 @@ export default function TeacherPortal() {
   return (
     <ProtectedRoute>
       <TeacherLayout>
-        {({ teacher, isLoading, activeTab, setActiveTab }) => (
+        {({ teacher, isLoading, activeTab, setActiveTab, selectedBranchId, branches }) => (
           <>
             <TabsContent value="home">
-              {teacher && <TeacherHome teacher={teacher} />}
+              {teacher && <TeacherHome teacher={teacher} selectedBranchId={selectedBranchId} />}
             </TabsContent>
 
             <TabsContent value="journal">
-              {teacher && <TeacherJournal teacher={teacher} />}
+              {teacher && <TeacherJournal teacher={teacher} selectedBranchId={selectedBranchId} />}
             </TabsContent>
 
             <TabsContent value="materials">
-              {teacher && <TeacherMaterials teacher={teacher} />}
+              {teacher && <TeacherMaterials teacher={teacher} selectedBranchId={selectedBranchId} />}
             </TabsContent>
 
             <TabsContent value="schedule">
-              {teacher && <TeacherSchedule teacher={teacher} />}
+              {teacher && <TeacherSchedule teacher={teacher} selectedBranchId={selectedBranchId} />}
             </TabsContent>
 
             <TabsContent value="substitutions">
-              {teacher && <TeacherSubstitutions teacher={teacher} />}
+              {teacher && <TeacherSubstitutions teacher={teacher} selectedBranchId={selectedBranchId} />}
             </TabsContent>
 
             <TabsContent value="profile">

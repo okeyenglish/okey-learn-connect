@@ -9,9 +9,10 @@ import { Teacher } from '@/hooks/useTeachers';
 
 interface TeacherMaterialsProps {
   teacher?: Teacher;
+  selectedBranchId?: string | 'all';
 }
 
-export const TeacherMaterials = ({ teacher }: TeacherMaterialsProps) => {
+export const TeacherMaterials = ({ teacher, selectedBranchId = 'all' }: TeacherMaterialsProps) => {
   const teacherName = `${teacher?.last_name || ''} ${teacher?.first_name || ''}`.trim();
 
   // Получаем группы преподавателя с курсами

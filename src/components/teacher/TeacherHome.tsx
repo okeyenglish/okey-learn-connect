@@ -33,9 +33,10 @@ import { analytics, AnalyticsEvents } from '@/lib/analytics';
 
 interface TeacherHomeProps {
   teacher: Teacher;
+  selectedBranchId: string | 'all';
 }
 
-export const TeacherHome = ({ teacher }: TeacherHomeProps) => {
+export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);

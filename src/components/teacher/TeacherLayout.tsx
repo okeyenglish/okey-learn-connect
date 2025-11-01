@@ -13,6 +13,8 @@ import { FloatingChatWidget } from '@/components/teacher/floating-chat/FloatingC
 import { MobileTabBar } from '@/components/teacher/ui/MobileTabBar';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { analytics, AnalyticsEvents } from '@/lib/analytics';
+import { useTeacherBranches } from '@/hooks/useTeacherBranches';
+import { BranchFilter } from '@/components/teacher/ui/BranchFilter';
 
 interface TeacherLayoutProps {
   children: (props: {
@@ -20,6 +22,8 @@ interface TeacherLayoutProps {
     isLoading: boolean;
     activeTab: string;
     setActiveTab: (tab: string) => void;
+    selectedBranchId: string | 'all';
+    branches: any[];
   }) => React.ReactNode;
 }
 
@@ -51,6 +55,14 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
     },
     enabled: !!profile?.id,
   });
+
+  // Управление филиалами
+  const {
+    branches,
+    selectedBranchId,
+    selectBranch,
+    hasMultipleBranches,
+  } = useTeacherBranches(teacher?.id);
 
   const handleSignOut = async () => {
     try {
@@ -109,16 +121,25 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
                 <p className="text-xs text-muted-foreground hidden sm:block">Личный кабинет преподавателя</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              {hasMultipleBranches && (
+                <BranchFilter
+                  branches={branches}
+                  selectedBranchId={selectedBranchId}
+                  onSelectBranch={selectBranch}
+                />
+              )}
+              <div className="flex items-center gap-2">
               <CommandPalette />
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="h-4 w-4" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               </Button>
-              <Button variant="outline" size="sm" onClick={handleSignOut}>
-                <LogOut className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Выйти</span>
-              </Button>
+                <Button variant="outline" size="sm" onClick={handleSignOut}>
+                  <LogOut className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Выйти</span>
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -185,7 +206,14 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
       <div className="container mx-auto max-w-7xl p-4 md:p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           {/* Контент вкладок */}
-          {children({ teacher, isLoading: teacherLoading, activeTab, setActiveTab })}
+          {children({ 
+            teacher, 
+            isLoading: teacherLoading, 
+            activeTab, 
+            setActiveTab,
+            selectedBranchId,
+            branches,
+          })}
         </Tabs>
       </div>
 
