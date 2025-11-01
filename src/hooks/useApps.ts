@@ -50,7 +50,7 @@ export const useApps = (teacherId?: string) => {
       const { data: teacher } = await supabase
         .from('teachers' as any)
         .select('id')
-        .eq('user_id', teacherId)
+        .or(`user_id.eq.${teacherId},id.eq.${teacherId},profile_id.eq.${teacherId}`)
         .maybeSingle();
       
       if (!teacher) return [];
@@ -76,7 +76,7 @@ export const useApps = (teacherId?: string) => {
       const { data: teacher } = await supabase
         .from('teachers' as any)
         .select('id')
-        .eq('user_id', teacherId)
+        .or(`user_id.eq.${teacherId},id.eq.${teacherId},profile_id.eq.${teacherId}`)
         .maybeSingle();
       
       if (!teacher) return [];

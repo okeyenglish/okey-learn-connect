@@ -31,7 +31,7 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
     isGenerating,
     isSuggesting,
     reset 
-  } = useAppGenerator((teacher as any).user_id || teacher.id);
+  } = useAppGenerator((teacher as any).profile_id || (teacher as any).user_id || teacher.id);
 
   const handleSubmit = () => {
     if (!brief.trim()) return;
