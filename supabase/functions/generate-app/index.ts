@@ -179,11 +179,11 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get teacher info
+    // Get teacher info by either teacher.id or profile_id
     const { data: teacher, error: teacherError } = await supabase
       .from('teachers')
       .select('id, profile_id')
-      .eq('profile_id', teacher_id)
+      .or(`id.eq.${teacher_id},profile_id.eq.${teacher_id}`)
       .maybeSingle();
 
     if (teacherError) {
@@ -202,11 +202,11 @@ serve(async (req) => {
       );
     }
 
-    // Get organization_id from profile
+    // Get organization_id from teacher.profile_id
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('organization_id')
-      .eq('id', teacher_id)
+      .eq('id', teacher.profile_id)
       .maybeSingle();
 
     if (profileError) {

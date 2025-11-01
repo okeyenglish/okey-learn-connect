@@ -30,7 +30,7 @@ export const useAppGenerator = (teacherId: string) => {
     const { data, error } = await supabase
       .from('teachers' as any)
       .select('id')
-      .or(`user_id.eq.${teacherId},id.eq.${teacherId},profile_id.eq.${teacherId}`)
+      .or(`id.eq.${teacherId},profile_id.eq.${teacherId}`)
       .maybeSingle();
     if (error) throw error;
     if (!data) {
