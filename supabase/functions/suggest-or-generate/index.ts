@@ -111,31 +111,24 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // 1. Search for similar apps using embeddings
-    const embedding = await getEmbedding(brief);
-    const { data: similarApps, error: similarError } = await supabase.rpc('similar_apps', {
-      p_embedding: embedding,
-      p_top: 6
-    });
+    let similarApps: any[] = [];
+    try {
+      const embedding = await getEmbedding(brief);
+      const { data, error: similarError } = await supabase.rpc('similar_apps', {
+        p_embedding: embedding,
+        p_top: 6
+      });
 
-    if (similarError) {
-      console.error('Similar apps search error:', similarError);
+      if (similarError) {
+        console.error('Similar apps search error:', similarError);
+      } else {
+        similarApps = (data || []).filter((s: any) => s.score >= 0.82);
+      }
+    } catch (e) {
+      console.error('Embedding/search failed:', e);
     }
 
-    const suggestions = (similarApps || []).filter((s: any) => s.score >= 0.86);
-
-    // 2. If found similar apps with high similarity, offer them
-    if (suggestions.length > 0) {
-      return new Response(
-        JSON.stringify({
-          stage: 'offer',
-          message: 'Нашлись готовые варианты, которые могут подойти',
-          suggestions
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // 3. Ask AI to analyze the brief
+    // 2. Ask AI to analyze the brief
     const userMessage = answers 
       ? `Brief: ${brief}\nAnswers: ${JSON.stringify(answers)}`
       : `Brief: ${brief}`;
@@ -170,6 +163,11 @@ serve(async (req) => {
         message: 'Готов создать приложение',
         prompt: { title: 'Generated App', type: 'game', brief }
       };
+    }
+
+    // 3. Add similar apps to the result if found
+    if (similarApps.length > 0) {
+      result.suggestions = similarApps;
     }
 
     return new Response(

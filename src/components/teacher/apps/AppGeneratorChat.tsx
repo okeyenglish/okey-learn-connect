@@ -223,18 +223,45 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
           )}
 
           {stage.stage === 'generate' && (
-            <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
-              <p className="font-medium">{stage.message || 'Готов создать приложение'}</p>
-              <Button onClick={handleGenerate} disabled={isGenerating}>
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Генерация...
-                  </>
-                ) : (
-                  'Создать приложение'
-                )}
-              </Button>
+            <div className="space-y-4">
+              {(stage as any).suggestions && (stage as any).suggestions.length > 0 && (
+                <div className="space-y-3">
+                  <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                      💡 Найдены похожие приложения в каталоге
+                    </p>
+                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                      Возможно, одно из них подойдёт вам?
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {(stage as any).suggestions.slice(0, 4).map((app: any) => (
+                      <AppCard
+                        key={app.id}
+                        app={app}
+                        onOpen={() => window.open(app.preview_url, '_blank')}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              <div className="p-4 border rounded-lg bg-muted/50">
+                <p className="font-medium mb-3">{stage.message || 'Готов создать новое приложение'}</p>
+                <Button onClick={handleGenerate} disabled={isGenerating} className="w-full">
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Генерация...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Создать новое приложение
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           )}
 
