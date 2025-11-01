@@ -21,6 +21,7 @@ interface AppGeneratorChatProps {
 export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
   const [brief, setBrief] = useState('');
   const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [format, setFormat] = useState<'quiz' | 'game' | 'flashcards' | 'matching' | 'test'>('quiz');
   const [viewerOpen, setViewerOpen] = useState(false);
   
   const { 
@@ -37,9 +38,9 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
     if (!brief.trim()) return;
     
     if (stage.stage === 'idle') {
-      suggestOrGenerate({ brief });
+      suggestOrGenerate({ brief, answers: { format } });
     } else if (stage.stage === 'ask') {
-      suggestOrGenerate({ brief, answers });
+      suggestOrGenerate({ brief, answers: { ...answers, format } });
     }
   };
 
@@ -47,7 +48,7 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
     if (stage.stage === 'generate') {
       const prompt = (stage as any).prompt || { 
         title: 'New App', 
-        type: 'game', 
+        type: format, 
         brief,
         description: brief 
       };
@@ -94,6 +95,26 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
             </Button>
           </div>
 
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-muted-foreground">Формат:</span>
+            {[
+              { key: 'quiz', label: 'Квиз' },
+              { key: 'game', label: 'Игра' },
+              { key: 'flashcards', label: 'Карточки' },
+              { key: 'matching', label: 'Сопоставление' },
+              { key: 'test', label: 'Тест' },
+            ].map((opt) => (
+              <Badge
+                key={opt.key}
+                variant={format === (opt.key as any) ? "default" : "outline"}
+                className="cursor-pointer"
+                onClick={() => setFormat(opt.key as any)}
+              >
+                {opt.label}
+              </Badge>
+            ))}
+          </div>
+
           {stage.stage === 'ask' && stage.questions && (
             <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
               <p className="font-medium">{stage.message}</p>
@@ -124,7 +145,7 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
                     // Generate with defaults even without answers
                     const prompt = {
                       title: 'New App',
-                      type: 'game',
+                      type: format,
                       brief: brief,
                       description: brief,
                       level: 'A2',
