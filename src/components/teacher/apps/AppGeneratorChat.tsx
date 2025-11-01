@@ -229,7 +229,14 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
                     <Button onClick={() => setViewerOpen(true)}>
                       Открыть предпросмотр
                     </Button>
-                    <Button variant="outline" onClick={reset}>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        reset();
+                        setBrief('');
+                        setAnswers({});
+                      }}
+                    >
                       Создать новое
                     </Button>
                   </div>
