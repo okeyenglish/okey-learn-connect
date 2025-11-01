@@ -135,17 +135,17 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab}>
-      <div className="min-h-screen bg-background pb-16 md:pb-0">
+      <div 
+        className={`
+          min-h-screen bg-background pb-16 md:pb-0 transition-all duration-300
+          ${isChatDocked ? 'md:pr-[20vw]' : ''}
+        `}
+      >
         <OfflineBanner />
         
-        {/* Sticky Header - сдвигается когда чат закреплен */}
-        <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b transition-all duration-300">
-          <div 
-            className={`
-              container mx-auto px-6 py-3 transition-all duration-300
-              ${isChatDocked ? 'md:max-w-none md:mr-[20vw]' : 'max-w-7xl'}
-            `}
-          >
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b">
+          <div className="container mx-auto max-w-7xl px-6 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <GraduationCap className="h-6 w-6 text-primary" />
@@ -178,12 +178,7 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
           </div>
 
           {/* Sticky Navigation Tabs */}
-          <div 
-            className={`
-              container mx-auto px-6 transition-all duration-300
-              ${isChatDocked ? 'md:max-w-none md:mr-[20vw]' : 'max-w-7xl'}
-            `}
-          >
+          <div className="container mx-auto max-w-7xl px-6">
             <TabsList className="w-full justify-start h-auto p-0 bg-transparent border-0">
               <TabsTrigger 
                 value="home" 
@@ -224,13 +219,8 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
           </div>
         </div>
 
-        {/* Main Content - сдвигается когда чат закреплен */}
-        <div 
-          className={`
-            container mx-auto p-4 md:p-6 transition-all duration-300
-            ${isChatDocked ? 'md:max-w-none md:mr-[20vw]' : 'max-w-7xl'}
-          `}
-        >
+        {/* Main Content */}
+        <div className="container mx-auto max-w-7xl p-4 md:p-6">
           {children({ 
             teacher, 
             isLoading: teacherLoading, 
