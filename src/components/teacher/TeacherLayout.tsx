@@ -134,6 +134,7 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <OfflineBanner />
       
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
       {/* Sticky Header */}
       <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b">
         <div className="container mx-auto max-w-7xl px-6 py-3">
@@ -169,7 +170,6 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
         </div>
 
         {/* Sticky Navigation Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <div className="container mx-auto max-w-7xl px-6">
             <TabsList className="w-full justify-start h-auto p-0 bg-transparent border-0">
               <TabsTrigger 
@@ -223,7 +223,6 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
               </TabsTrigger>
             </TabsList>
           </div>
-        </Tabs>
       </div>
 
       {/* Main Content */}
