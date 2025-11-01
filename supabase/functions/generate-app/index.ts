@@ -105,7 +105,7 @@ serve(async (req) => {
     // Get teacher info
     const { data: teacher, error: teacherError } = await supabase
       .from('teachers')
-      .select('id, organization_id')
+      .select('id, profile_id')
       .eq('profile_id', teacher_id)
       .maybeSingle();
 
@@ -122,6 +122,29 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Teacher profile not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get organization_id from profile
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', teacher_id)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error('Profile lookup error:', profileError);
+      return new Response(
+        JSON.stringify({ error: `Profile lookup failed: ${profileError.message}` }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!profile?.organization_id) {
+      console.error('Organization not found for profile:', teacher_id);
+      return new Response(
+        JSON.stringify({ error: 'Organization not found for profile' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -210,7 +233,7 @@ ${prompt.features ? prompt.features.map((f: string) => `- ${f}`).join('\n') : ''
         .from('apps')
         .insert({
           author_id: teacher.id,
-          organization_id: teacher.organization_id,
+          organization_id: profile.organization_id,
           title,
           kind: prompt.type || 'game',
           description,
