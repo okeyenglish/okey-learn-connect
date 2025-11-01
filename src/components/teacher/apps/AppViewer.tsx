@@ -57,7 +57,7 @@ export const AppViewer = ({ appId, previewUrl, open, onClose, teacherId }: AppVi
     return () => { aborted = true; };
   }, [open, previewUrl, appId]);
 
-  const iframeKey = `${appId}-${isFullscreen}-${htmlContent ? 'doc' : 'url'}`;
+  const iframeKey = `${appId}-${htmlContent ? 'doc' : 'url'}`;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
