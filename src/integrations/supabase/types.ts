@@ -6441,6 +6441,7 @@ export type Database = {
           preview_url: string | null
           tags: string[] | null
           title: string | null
+          updated_at: string | null
         }
         Relationships: []
       }
