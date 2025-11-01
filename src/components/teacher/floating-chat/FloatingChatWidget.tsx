@@ -143,11 +143,11 @@ export const FloatingChatWidget = ({ teacherId, context, onDockedChange }: Float
 
             {/* Табы */}
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 flex flex-col overflow-hidden">
-              <TabsList className="w-full rounded-none border-b bg-transparent h-auto p-0">
-                <TabsTrigger value="assistant" className="flex-1 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
+              <TabsList className="w-full rounded-none bg-transparent h-auto p-0 border-b">
+                <TabsTrigger value="assistant" className="flex-1 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary pb-3">
                   Ассистент
                 </TabsTrigger>
-                <TabsTrigger value="chats" className="flex-1 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary relative">
+                <TabsTrigger value="chats" className="flex-1 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary relative pb-3">
                   Чаты
                   {(unreadCount ?? 0) > 0 && (
                     <span className="ml-2 min-w-[18px] h-[18px] px-1 bg-destructive text-white text-[10px] font-medium rounded-full flex items-center justify-center">

@@ -199,7 +199,7 @@ export const ChatsTab = ({ teacherId }: ChatsTabProps) => {
   return (
     <div className="flex flex-col h-full">
       {/* Поиск и кнопка создания чата */}
-      <div className="p-3 border-b bg-muted/30">
+      <div className="p-3 bg-muted/30">
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
