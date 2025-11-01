@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { GraduationCap, LogOut, Home, Calendar, FileText, UserCircle, RefreshCcw, Bell, Bot, AlertCircle } from 'lucide-react';
+import { GraduationCap, LogOut, Home, Calendar, FileText, UserCircle, RefreshCcw, Bot, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
@@ -164,10 +164,6 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
                 )}
                 <div className="flex items-center gap-2">
                 <CommandPalette teacherId={teacher.id} />
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell className="h-4 w-4" />
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-                </Button>
                   <Button variant="outline" size="sm" onClick={handleSignOut}>
                     <LogOut className="h-4 w-4 sm:mr-2" />
                     <span className="hidden sm:inline">Выйти</span>
