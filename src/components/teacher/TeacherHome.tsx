@@ -292,7 +292,7 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
     onStart: nextLessonEarly ? () => handleQuickStart(nextLessonEarly) : undefined,
     onAttendance: nextLessonEarly ? () => handleQuickAttendance(nextLessonEarly) : undefined,
     onHomework: nextLessonEarly ? () => handleQuickHomework(nextLessonEarly) : undefined,
-    enabled: false, // Отключаем для стабилизации
+    enabled: !!nextLessonEarly && !quickAttendanceModal?.open && !quickHomeworkModal?.open && !quickStartModal?.open,
   });
 
   if (lessonsLoading || groupsLoading || individualLoading) {

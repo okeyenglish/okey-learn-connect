@@ -7,7 +7,7 @@ import { TeacherMaterials } from '@/components/teacher/TeacherMaterials';
 import { TeacherSchedule } from '@/components/teacher/TeacherSchedule';
 import { TeacherSubstitutions } from '@/components/teacher/TeacherSubstitutions';
 import { TeacherProfile } from '@/components/teacher/TeacherProfile';
-import { TeacherAIHubSimple } from '@/components/teacher/TeacherAIHubSimple';
+import { TeacherAIHub } from '@/components/teacher/TeacherAIHub';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export default function TeacherPortal() {
@@ -55,7 +55,7 @@ export default function TeacherPortal() {
 
             <TabsContent value="ai-hub">
               {teacher && activeTab === 'ai-hub' && (
-                <TeacherAIHubSimple teacher={teacher} />
+                <TeacherAIHub teacher={teacher} />
               )}
             </TabsContent>
           </>
