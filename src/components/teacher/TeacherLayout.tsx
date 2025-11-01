@@ -131,45 +131,45 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
   }, [teacher?.id]);
 
   return (
-    <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <OfflineBanner />
-      
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b">
-        <div className="container mx-auto max-w-7xl px-6 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <GraduationCap className="h-6 w-6 text-primary" />
-              <div>
-                <h1 className="text-lg font-bold">{teacher.last_name} {teacher.first_name}</h1>
-                <p className="text-xs text-muted-foreground hidden sm:block">Личный кабинет преподавателя</p>
+    <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <div className="min-h-screen bg-background pb-16 md:pb-0">
+        <OfflineBanner />
+        
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b">
+          <div className="container mx-auto max-w-7xl px-6 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <GraduationCap className="h-6 w-6 text-primary" />
+                <div>
+                  <h1 className="text-lg font-bold">{teacher.last_name} {teacher.first_name}</h1>
+                  <p className="text-xs text-muted-foreground hidden sm:block">Личный кабинет преподавателя</p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {hasMultipleBranches && (
-                <BranchFilter
-                  branches={branches}
-                  selectedBranchId={selectedBranchId}
-                  onSelectBranch={selectBranch}
-                />
-              )}
-              <div className="flex items-center gap-2">
-              <CommandPalette />
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-4 w-4" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </Button>
-                <Button variant="outline" size="sm" onClick={handleSignOut}>
-                  <LogOut className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Выйти</span>
+              <div className="flex items-center gap-3">
+                {hasMultipleBranches && (
+                  <BranchFilter
+                    branches={branches}
+                    selectedBranchId={selectedBranchId}
+                    onSelectBranch={selectBranch}
+                  />
+                )}
+                <div className="flex items-center gap-2">
+                <CommandPalette />
+                <Button variant="ghost" size="icon" className="relative">
+                  <Bell className="h-4 w-4" />
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
                 </Button>
+                  <Button variant="outline" size="sm" onClick={handleSignOut}>
+                    <LogOut className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Выйти</span>
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Sticky Navigation Tabs */}
+          {/* Sticky Navigation Tabs */}
           <div className="container mx-auto max-w-7xl px-6">
             <TabsList className="w-full justify-start h-auto p-0 bg-transparent border-0">
               <TabsTrigger 
@@ -223,12 +223,10 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
               </TabsTrigger>
             </TabsList>
           </div>
-      </div>
+        </div>
 
-      {/* Main Content */}
-      <div className="container mx-auto max-w-7xl p-4 md:p-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          {/* Контент вкладок */}
+        {/* Main Content */}
+        <div className="container mx-auto max-w-7xl p-4 md:p-6">
           {children({ 
             teacher, 
             isLoading: teacherLoading, 
@@ -237,19 +235,19 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
             selectedBranchId,
             branches,
           })}
-        </Tabs>
+        </div>
+
+        {/* Плавающий виджет чата и ассистента */}
+        <FloatingChatWidget
+          teacherId={teacher.id}
+          context={{
+            page: activeTab,
+          }}
+        />
+
+        {/* Мобильная навигация */}
+        <MobileTabBar activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
-
-      {/* Плавающий виджет чата и ассистента */}
-      <FloatingChatWidget
-        teacherId={teacher.id}
-        context={{
-          page: activeTab,
-        }}
-      />
-
-      {/* Мобильная навигация */}
-      <MobileTabBar activeTab={activeTab} onTabChange={setActiveTab} />
-    </div>
+    </Tabs>
   );
 };
