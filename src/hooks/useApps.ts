@@ -84,7 +84,8 @@ export const useApps = (teacherId?: string) => {
       const { data, error } = await supabase
         .from('app_installs' as any)
         .select('app_id, installed_at, apps(*)')
-        .eq('teacher_id', (teacher as any).id);
+        .or(`teacher_id.eq.${(teacher as any).id},teacher_id.eq.${(teacher as any).profile_id}`);
+      
       
       if (error) throw error;
       return ((data || []) as any[]).map((i: any) => i.apps).filter(Boolean) as unknown as App[];

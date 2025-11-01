@@ -56,7 +56,7 @@ serve(async (req) => {
           .from('app_installs')
           .upsert({ 
             app_id, 
-            teacher_id: teacher.id 
+            teacher_id: teacher.profile_id || teacher.id 
           });
         if (installError) {
           console.error('Install error:', installError);
@@ -72,7 +72,7 @@ serve(async (req) => {
           .from('app_installs')
           .delete()
           .eq('app_id', app_id)
-          .eq('teacher_id', teacher.id);
+          .or(`teacher_id.eq.${teacher.id},teacher_id.eq.${teacher.profile_id}`);
         if (uninstallError) throw uninstallError;
         result = { success: true, message: 'Приложение удалено из "Моих приложений"' };
         break;
