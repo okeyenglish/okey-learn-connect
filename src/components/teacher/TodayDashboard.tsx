@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/teacher/ui/EmptyState';
 import { LessonPlanCard } from '@/components/teacher/LessonPlanCard';
 import { QuickActionsBar } from '@/components/teacher/ui/QuickActionsBar';
 import { LessonCountdown } from '@/components/teacher/ui/LessonCountdown';
+import { VirtualizedLessonList } from '@/components/teacher/ui/VirtualizedLessonList';
 import { getLessonNumberForGroup } from '@/utils/lessonCalculator';
 
 interface TodayDashboardProps {
@@ -91,7 +92,7 @@ export const TodayDashboard = ({
   return (
     <div className="card-elevated">
       {/* Шапка с переключателем периода */}
-      <div className="border-b">
+      <div className="border-b p-6">
         <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
           <div>
             <h2 className="text-xl font-semibold text-text-primary flex items-center gap-2 mb-1">
@@ -157,7 +158,7 @@ export const TodayDashboard = ({
 
       {/* Быстрые действия для следующего урока (только для дня) */}
       {period === 'day' && nextLesson && (
-        <div className="mb-6 p-4 bg-primary/5 border border-primary/20 rounded-xl sticky top-20 z-10">
+        <div className="mx-6 mt-6 mb-6 p-4 bg-primary/5 border border-primary/20 rounded-xl sticky top-20 z-10">
           <div className="flex items-center gap-2 mb-3">
             <PlayCircle className="h-5 w-5 text-primary" />
             <h3 className="font-semibold">Следующее занятие</h3>
@@ -203,7 +204,7 @@ export const TodayDashboard = ({
 
       {/* Список занятий */}
       {currentLessons && currentLessons.length > 0 ? (
-        <div className="space-y-4">
+        <div className="px-6 pb-6 space-y-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="font-semibold text-sm text-muted-foreground">
               {period === 'day' ? 'Все занятия' : `Всего занятий: ${currentLessons.length}`}
@@ -219,8 +220,19 @@ export const TodayDashboard = ({
           </div>
           
           {period === 'day' ? (
-            // Просто список для дня
-            currentLessons.map((lesson: any) => (
+            currentLessons.length > 10 ? (
+              // Виртуализированный список для большого количества
+              <VirtualizedLessonList
+                lessons={currentLessons}
+                onAttendance={onAttendance}
+                onHomework={onHomework}
+                onOpenOnline={onOpenOnline}
+                onStartLesson={onStartLesson}
+                onRequestSubstitution={onRequestSubstitution}
+              />
+            ) : (
+              // Обычный список для дня
+              currentLessons.map((lesson: any) => (
               <div key={lesson.id} className="space-y-3">
                 <LessonCard
                   start={lesson.start_time}
@@ -251,7 +263,7 @@ export const TodayDashboard = ({
                   />
                 )}
               </div>
-            ))
+            )))
           ) : (
             // Группировка по дням для недели/месяца
             Object.entries(groupedLessons || {}).map(([date, lessons]: [string, any]) => (
@@ -284,11 +296,13 @@ export const TodayDashboard = ({
           )}
         </div>
       ) : (
-        <EmptyState
-          icon={Calendar}
-          title={`На ${period === 'day' ? 'сегодня' : period === 'week' ? 'эту неделю' : 'этот месяц'} занятий не запланировано`}
-          subtitle="Расписание можно посмотреть в разделе «Расписание»"
-        />
+        <div className="px-6 pb-6">
+          <EmptyState
+            icon={Calendar}
+            title={`На ${period === 'day' ? 'сегодня' : period === 'week' ? 'эту неделю' : 'этот месяц'} занятий не запланировано`}
+            subtitle="Расписание можно посмотреть в разделе «Расписание»"
+          />
+        </div>
       )}
     </div>
   );

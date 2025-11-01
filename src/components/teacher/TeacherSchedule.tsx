@@ -8,6 +8,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Teacher } from '@/hooks/useTeachers';
+import { useState } from 'react';
+import { LessonDetailsDrawer } from '@/components/teacher/drawers/LessonDetailsDrawer';
 
 interface TeacherScheduleProps {
   teacher: Teacher;
@@ -16,6 +18,8 @@ interface TeacherScheduleProps {
 export const TeacherSchedule = ({ teacher }: TeacherScheduleProps) => {
   const teacherName = `${teacher.last_name} ${teacher.first_name}`;
   const weekDays = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+  const [selectedLesson, setSelectedLesson] = useState<any>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   
   // Получаем расписание преподавателя на текущую неделю
   const { data: weekSchedule, isLoading } = useQuery({
@@ -58,6 +62,7 @@ export const TeacherSchedule = ({ teacher }: TeacherScheduleProps) => {
         }
 
         scheduleByDay.get(dayName).push({
+          ...lesson,
           time: `${lesson.start_time.slice(0, 5)} - ${lesson.end_time.slice(0, 5)}`,
           group: lesson.learning_groups?.name || lesson.notes || 'Индивидуальное занятие',
           location: lesson.classroom || 'Онлайн',
@@ -239,8 +244,15 @@ export const TeacherSchedule = ({ teacher }: TeacherScheduleProps) => {
                                         </Badge>
                                       </div>
                                     </div>
-                                  </div>
-                                  <Button size="sm" variant="ghost">
+                                   </div>
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost"
+                                    onClick={() => {
+                                      setSelectedLesson(lesson);
+                                      setDrawerOpen(true);
+                                    }}
+                                  >
                                     Детали
                                   </Button>
                                 </div>
@@ -271,6 +283,32 @@ export const TeacherSchedule = ({ teacher }: TeacherScheduleProps) => {
           </TabsContent>
         </Tabs>
       </CardContent>
+
+      {selectedLesson && (
+        <LessonDetailsDrawer
+          open={drawerOpen}
+          onOpenChange={setDrawerOpen}
+          lesson={{
+            id: selectedLesson.id,
+            title: selectedLesson.group,
+            startTime: selectedLesson.start_time,
+            endTime: selectedLesson.end_time,
+            date: selectedLesson.lesson_date,
+            room: selectedLesson.location,
+            isOnline: selectedLesson.isOnline,
+            onlineLink: selectedLesson.online_link,
+            studentsCount: selectedLesson.students,
+            status: selectedLesson.status || 'scheduled',
+            level: selectedLesson.learning_groups?.level,
+            groupType: selectedLesson.type,
+          }}
+          onStart={() => console.log('Start lesson')}
+          onAttendance={() => console.log('Open attendance')}
+          onHomework={() => console.log('Open homework')}
+          onComplete={() => console.log('Complete lesson')}
+          onJoinClass={selectedLesson.online_link ? () => window.open(selectedLesson.online_link, '_blank') : undefined}
+        />
+      )}
     </Card>
   );
 };
