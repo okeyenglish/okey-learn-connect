@@ -33,6 +33,8 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('home');
 
+  // ВАЖНО: порядок хуков должен быть постоянным
+
   // Получаем данные преподавателя
   const { data: teacher, isLoading: teacherLoading, error: teacherError } = useQuery({
     queryKey: ['teacher-by-profile', profile?.id],
@@ -65,7 +67,7 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
     enabled: !!profile?.id,
   });
 
-  // Управление филиалами
+  // Управление филиалами (всегда вызываем)
   const {
     branches,
     selectedBranchId,
@@ -73,7 +75,7 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
     hasMultipleBranches,
   } = useTeacherBranches(teacher?.id);
 
-  // Инициализируем аналитику (всегда вызываем хук, чтобы не нарушать порядок)
+  // Инициализируем аналитику (всегда вызываем хук в одном порядке)
   useEffect(() => {
     if (teacher?.id) {
       analytics.init(teacher.id);
@@ -129,7 +131,6 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
       </div>
     );
   }
-
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab}>
