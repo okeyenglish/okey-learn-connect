@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { GraduationCap, LogOut, Home, BookOpen, Calendar, FileText, UserCircle, RefreshCcw, Bell, Bot, AlertCircle } from 'lucide-react';
+import { GraduationCap, LogOut, Home, Calendar, FileText, UserCircle, RefreshCcw, Bell, Bot, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
@@ -182,11 +182,11 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
                 <span className="hidden sm:inline">Главная</span>
               </TabsTrigger>
               <TabsTrigger 
-                value="journal" 
+                value="schedule" 
                 className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
               >
-                <BookOpen className="h-4 w-4" />
-                <span className="hidden sm:inline">Журнал</span>
+                <Calendar className="h-4 w-4" />
+                <span className="hidden sm:inline">Расписание</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="materials" 
@@ -194,13 +194,6 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
               >
                 <FileText className="h-4 w-4" />
                 <span className="hidden sm:inline">Материалы</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="schedule" 
-                className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-              >
-                <Calendar className="h-4 w-4" />
-                <span className="hidden sm:inline">Расписание</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="substitutions" 

@@ -2,9 +2,8 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { TabsContent } from '@/components/ui/tabs';
 import { TeacherLayout } from '@/components/teacher/TeacherLayout';
 import { TeacherHome } from '@/components/teacher/TeacherHome';
-import { TeacherJournal } from '@/components/teacher/TeacherJournal';
+import { TeacherScheduleJournal } from '@/components/teacher/TeacherScheduleJournal';
 import { TeacherMaterials } from '@/components/teacher/TeacherMaterials';
-import { TeacherSchedule } from '@/components/teacher/TeacherSchedule';
 import { TeacherSubstitutions } from '@/components/teacher/TeacherSubstitutions';
 import { TeacherProfile } from '@/components/teacher/TeacherProfile';
 import { TeacherAIHub } from '@/components/teacher/TeacherAIHub';
@@ -23,21 +22,15 @@ export default function TeacherPortal() {
               )}
             </TabsContent>
 
-            <TabsContent value="journal">
-              {teacher && activeTab === 'journal' && (
-                <TeacherJournal teacher={teacher} selectedBranchId={selectedBranchId} />
+            <TabsContent value="schedule">
+              {teacher && activeTab === 'schedule' && (
+                <TeacherScheduleJournal teacher={teacher} selectedBranchId={selectedBranchId} />
               )}
             </TabsContent>
 
             <TabsContent value="materials">
               {teacher && activeTab === 'materials' && (
                 <TeacherMaterials teacher={teacher} selectedBranchId={selectedBranchId} />
-              )}
-            </TabsContent>
-
-            <TabsContent value="schedule">
-              {teacher && activeTab === 'schedule' && (
-                <TeacherSchedule teacher={teacher} selectedBranchId={selectedBranchId} />
               )}
             </TabsContent>
 

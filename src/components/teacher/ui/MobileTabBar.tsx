@@ -1,4 +1,4 @@
-import { Home, BookOpen, Calendar, MessageCircle, UserCircle } from 'lucide-react';
+import { Home, Calendar, MessageCircle, UserCircle } from 'lucide-react';
 
 interface MobileTabBarProps {
   activeTab: string;
@@ -8,7 +8,6 @@ interface MobileTabBarProps {
 export const MobileTabBar = ({ activeTab, onTabChange }: MobileTabBarProps) => {
   const tabs = [
     { value: 'home', label: 'Главная', icon: Home },
-    { value: 'journal', label: 'Журнал', icon: BookOpen },
     { value: 'schedule', label: 'Расписание', icon: Calendar },
     { value: 'ai-hub', label: 'AI Hub', icon: MessageCircle },
     { value: 'profile', label: 'Профиль', icon: UserCircle },
@@ -16,7 +15,7 @@ export const MobileTabBar = ({ activeTab, onTabChange }: MobileTabBarProps) => {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t md:hidden">
-      <div className="grid grid-cols-5 h-16">
+      <div className="grid grid-cols-4 h-16">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.value;
