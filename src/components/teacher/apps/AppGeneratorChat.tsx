@@ -21,7 +21,10 @@ interface AppGeneratorChatProps {
 export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
   const [brief, setBrief] = useState('');
   const [answers, setAnswers] = useState<Record<string, any>>({});
-  const [format, setFormat] = useState<'quiz' | 'game' | 'flashcards' | 'matching' | 'test'>('quiz');
+  const [format, setFormat] = useState<
+    'quiz' | 'game' | 'flashcards' | 'matching' | 'test' | 'crossword' | 
+    'wordSearch' | 'fillInBlanks' | 'dragAndDrop' | 'memory' | 'typing'
+  >('quiz');
   const [viewerOpen, setViewerOpen] = useState(false);
   
   const { 
@@ -95,24 +98,33 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
             </Button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-muted-foreground">Формат:</span>
-            {[
-              { key: 'quiz', label: 'Квиз' },
-              { key: 'game', label: 'Игра' },
-              { key: 'flashcards', label: 'Карточки' },
-              { key: 'matching', label: 'Сопоставление' },
-              { key: 'test', label: 'Тест' },
-            ].map((opt) => (
-              <Badge
-                key={opt.key}
-                variant={format === (opt.key as any) ? "default" : "outline"}
-                className="cursor-pointer"
-                onClick={() => setFormat(opt.key as any)}
-              >
-                {opt.label}
-              </Badge>
-            ))}
+          <div className="space-y-2">
+            <span className="text-sm font-medium text-muted-foreground">Формат игры:</span>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: 'quiz', label: 'Квиз', icon: '❓' },
+                { key: 'crossword', label: 'Кроссворд', icon: '🔤' },
+                { key: 'flashcards', label: 'Карточки', icon: '🎴' },
+                { key: 'matching', label: 'Сопоставление', icon: '🔗' },
+                { key: 'wordSearch', label: 'Поиск слов', icon: '🔍' },
+                { key: 'fillInBlanks', label: 'Заполни пропуски', icon: '📝' },
+                { key: 'memory', label: 'Мемори', icon: '🧠' },
+                { key: 'dragAndDrop', label: 'Перетаскивание', icon: '🎯' },
+                { key: 'test', label: 'Тест', icon: '📋' },
+                { key: 'typing', label: 'Тренажер набора', icon: '⌨️' },
+                { key: 'game', label: 'Игра', icon: '🎮' },
+              ].map((opt) => (
+                <Badge
+                  key={opt.key}
+                  variant={format === (opt.key as any) ? "default" : "outline"}
+                  className="cursor-pointer hover:scale-105 transition-transform"
+                  onClick={() => setFormat(opt.key as any)}
+                >
+                  <span className="mr-1">{opt.icon}</span>
+                  {opt.label}
+                </Badge>
+              ))}
+            </div>
           </div>
 
           {stage.stage === 'ask' && stage.questions && (
