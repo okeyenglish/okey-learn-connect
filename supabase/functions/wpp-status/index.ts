@@ -72,10 +72,9 @@ Deno.serve(async (req) => {
 
     // Generate token
     console.log('Generating token for session:', sessionName);
-    const tokenRes = await fetch(
-      `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/${WPP_SECRET}/generate-token`,
-      { method: 'POST' }
-    );
+    const tokenUrl = `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/${WPP_SECRET}/generate-token`;
+    console.log('Token URL:', tokenUrl);
+    const tokenRes = await fetch(tokenUrl, { method: 'POST' });
     
     console.log('Token response status:', tokenRes.status);
     
@@ -106,12 +105,11 @@ Deno.serve(async (req) => {
 
     // Check connection status
     console.log('Checking connection status');
-    const statusRes = await fetch(
-      `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/check-connection-session`,
-      {
-        headers: { 'Authorization': `Bearer ${wppToken}` },
-      }
-    );
+    const statusUrl = `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/check-connection-session`;
+    console.log('Status check URL:', statusUrl);
+    const statusRes = await fetch(statusUrl, {
+      headers: { 'Authorization': `Bearer ${wppToken}` },
+    });
 
     console.log('Status check response status:', statusRes.status);
 
@@ -184,8 +182,9 @@ Deno.serve(async (req) => {
     
     console.log('Starting new session with webhook:', webhookUrl);
     
-    const startRes = await fetch(
-      `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/start-session`,
+    const startUrl = `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/start-session`;
+    console.log('Start session URL:', startUrl);
+    const startRes = await fetch(startUrl,
       {
         method: 'POST',
         headers: {

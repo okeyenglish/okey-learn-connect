@@ -64,10 +64,9 @@ Deno.serve(async (req) => {
 
     // Generate token for this session
     console.log('Generating token for session:', sessionName);
-    const tokenRes = await fetch(
-      `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/${WPP_SECRET}/generate-token`,
-      { method: 'POST' }
-    );
+    const tokenUrl = `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/${WPP_SECRET}/generate-token`;
+    console.log('Token URL:', tokenUrl);
+    const tokenRes = await fetch(tokenUrl, { method: 'POST' });
     
     console.log('Token response status:', tokenRes.status);
     
@@ -100,8 +99,9 @@ Deno.serve(async (req) => {
     const webhookUrl = `${PUBLIC_URL}/functions/v1/wpp-webhook`;
     console.log('Starting session with webhook:', webhookUrl);
     
-    const startRes = await fetch(
-      `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/start-session`,
+    const startUrl = `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/start-session`;
+    console.log('Start session URL:', startUrl);
+    const startRes = await fetch(startUrl,
       {
         method: 'POST',
         headers: {
