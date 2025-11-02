@@ -11,23 +11,66 @@ interface SendMessageParams {
 }
 
 interface WhatsAppSettings {
+  provider: 'greenapi' | 'wpp';
   instanceId: string;
   apiToken: string;
   apiUrl: string;
   webhookUrl: string;
   isEnabled: boolean;
+  // WPP specific
+  wppSession?: string;
 }
 
 export const useWhatsApp = () => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
+  const getMessengerSettings = useCallback(async (): Promise<WhatsAppSettings | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('messenger_settings')
+        .select('*')
+        .eq('messenger_type', 'whatsapp')
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      if (!data) {
+        return null;
+      }
+
+      const settings = data.settings as any;
+      const provider = (data.provider === 'wpp' ? 'wpp' : 'greenapi') as 'greenapi' | 'wpp';
+      
+      return {
+        provider,
+        instanceId: settings?.instanceId || '',
+        apiToken: settings?.apiToken || '',
+        apiUrl: settings?.apiUrl || '',
+        webhookUrl: data.webhook_url || '',
+        isEnabled: data.is_enabled,
+        wppSession: settings?.wppSession || 'default'
+      };
+
+    } catch (error: any) {
+      console.error('Error fetching WhatsApp settings:', error);
+      return null;
+    }
+  }, []);
+
   const sendMessage = useCallback(async (params: SendMessageParams) => {
     setLoading(true);
     try {
       console.log('Sending WhatsApp message:', params);
 
-      const { data, error } = await supabase.functions.invoke('whatsapp-send', {
+      // Получаем настройки для определения провайдера
+      const settings = await getMessengerSettings();
+      const provider = settings?.provider || 'greenapi';
+      const functionName = provider === 'wpp' ? 'wpp-send' : 'whatsapp-send';
+
+      const { data, error } = await supabase.functions.invoke(functionName, {
         body: params
       });
 
@@ -54,7 +97,7 @@ export const useWhatsApp = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, getMessengerSettings]);
 
   const sendTextMessage = useCallback(async (clientId: string, message: string, phoneNumber?: string) => {
     return sendMessage({ clientId, message, phoneNumber });
@@ -76,38 +119,6 @@ export const useWhatsApp = () => {
     });
   }, [sendMessage]);
 
-  const getMessengerSettings = useCallback(async (): Promise<WhatsAppSettings | null> => {
-    try {
-      const { data, error } = await supabase
-        .from('messenger_settings')
-        .select('*')
-        .eq('messenger_type', 'whatsapp')
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        throw error;
-      }
-
-      if (!data) {
-        return null;
-      }
-
-      const settings = data.settings as any;
-      
-      return {
-        instanceId: settings?.instanceId || '',
-        apiToken: settings?.apiToken || '',
-        apiUrl: settings?.apiUrl || '',
-        webhookUrl: data.webhook_url || '',
-        isEnabled: data.is_enabled
-      };
-
-    } catch (error: any) {
-      console.error('Error fetching WhatsApp settings:', error);
-      return null;
-    }
-  }, []);
-
   const updateMessengerSettings = useCallback(async (settings: Partial<WhatsAppSettings>) => {
     setLoading(true);
     try {
@@ -115,11 +126,13 @@ export const useWhatsApp = () => {
         .from('messenger_settings')
         .upsert({
           messenger_type: 'whatsapp',
+          provider: settings.provider || 'greenapi',
           is_enabled: settings.isEnabled ?? false,
           settings: {
             instanceId: settings.instanceId,
             apiToken: settings.apiToken,
             apiUrl: settings.apiUrl,
+            wppSession: settings.wppSession,
           },
           webhook_url: settings.webhookUrl,
           updated_at: new Date().toISOString()
@@ -156,8 +169,13 @@ export const useWhatsApp = () => {
   const testConnection = useCallback(async () => {
     setLoading(true);
     try {
+      // Получаем настройки для определения провайдера
+      const settings = await getMessengerSettings();
+      const provider = settings?.provider || 'greenapi';
+      const functionName = provider === 'wpp' ? 'wpp-send' : 'whatsapp-send';
+
       // Проверяем состояние инстанса через edge функцию
-      const { data, error } = await supabase.functions.invoke('whatsapp-send', {
+      const { data, error } = await supabase.functions.invoke(functionName, {
         body: { action: 'test_connection' }
       });
 
@@ -193,7 +211,7 @@ export const useWhatsApp = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, getMessengerSettings]);
 
   const getWebhookLogs = useCallback(async (limit: number = 50) => {
     try {

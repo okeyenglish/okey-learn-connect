@@ -4098,6 +4098,7 @@ export type Database = {
           is_enabled: boolean
           last_sync_at: string | null
           messenger_type: Database["public"]["Enums"]["messenger_type"]
+          provider: string | null
           settings: Json | null
           updated_at: string
           webhook_url: string | null
@@ -4108,6 +4109,7 @@ export type Database = {
           is_enabled?: boolean
           last_sync_at?: string | null
           messenger_type: Database["public"]["Enums"]["messenger_type"]
+          provider?: string | null
           settings?: Json | null
           updated_at?: string
           webhook_url?: string | null
@@ -4118,6 +4120,7 @@ export type Database = {
           is_enabled?: boolean
           last_sync_at?: string | null
           messenger_type?: Database["public"]["Enums"]["messenger_type"]
+          provider?: string | null
           settings?: Json | null
           updated_at?: string
           webhook_url?: string | null

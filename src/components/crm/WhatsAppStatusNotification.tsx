@@ -18,30 +18,43 @@ export const WhatsAppStatusNotification = () => {
         const settings = await getMessengerSettings();
         
         // Проверяем, есть ли настройки
-        if (!settings || !settings.isEnabled || !settings.instanceId || !settings.apiToken) {
+        if (!settings || !settings.isEnabled) {
           setIsConnected(false);
           setIsLoading(false);
           return;
         }
+
+        const provider = settings.provider || 'greenapi';
         
-        // Проверяем реальное подключение через GreenAPI
-        try {
-          const response = await fetch(
-            `${settings.apiUrl}/waInstance${settings.instanceId}/getStateInstance/${settings.apiToken}`,
-            { method: 'GET' }
-          );
-          
-          if (response.ok) {
-            const data = await response.json();
-            // GreenAPI возвращает stateInstance: 'authorized' когда всё подключено
-            const isAuthorized = data.stateInstance === 'authorized';
-            setIsConnected(isAuthorized);
-          } else {
+        // Проверяем реальное подключение в зависимости от провайдера
+        if (provider === 'greenapi') {
+          if (!settings.instanceId || !settings.apiToken) {
+            setIsConnected(false);
+            setIsLoading(false);
+            return;
+          }
+
+          try {
+            const response = await fetch(
+              `${settings.apiUrl}/waInstance${settings.instanceId}/getStateInstance/${settings.apiToken}`,
+              { method: 'GET' }
+            );
+            
+            if (response.ok) {
+              const data = await response.json();
+              const isAuthorized = data.stateInstance === 'authorized';
+              setIsConnected(isAuthorized);
+            } else {
+              setIsConnected(false);
+            }
+          } catch (apiError) {
+            console.error('Error checking GreenAPI status:', apiError);
             setIsConnected(false);
           }
-        } catch (apiError) {
-          console.error('Error checking GreenAPI status:', apiError);
-          setIsConnected(false);
+        } else {
+          // Для WPP просто проверяем что настройки включены
+          // Детальная проверка будет через edge function
+          setIsConnected(true);
         }
       } catch (error) {
         console.error('Error checking WhatsApp connection:', error);

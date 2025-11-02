@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, MessageSquare, Settings, Zap, AlertCircle, CheckCircle } from 'lucide-react';
 import { useWhatsApp } from '@/hooks/useWhatsApp';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export const WhatsAppSettings: React.FC = () => {
   const { 
@@ -20,11 +21,13 @@ export const WhatsAppSettings: React.FC = () => {
   } = useWhatsApp();
 
   const [settings, setSettings] = useState({
+    provider: 'greenapi' as 'greenapi' | 'wpp',
     instanceId: '',
     apiToken: '',
     apiUrl: 'https://api.green-api.com',
     webhookUrl: '',
-    isEnabled: false
+    isEnabled: false,
+    wppSession: 'default'
   });
 
   const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'connected' | 'error'>('unknown');
@@ -39,12 +42,22 @@ export const WhatsAppSettings: React.FC = () => {
   const loadSettings = async () => {
     const data = await getMessengerSettings();
     if (data) {
-      setSettings(data);
+      setSettings({
+        provider: data.provider,
+        instanceId: data.instanceId,
+        apiToken: data.apiToken,
+        apiUrl: data.apiUrl,
+        webhookUrl: data.webhookUrl,
+        isEnabled: data.isEnabled,
+        wppSession: data.wppSession || 'default'
+      });
     }
     
     // Генерируем webhook URL если его нет
     if (!data?.webhookUrl) {
-      const webhookUrl = 'https://api.academyos.ru/functions/v1/whatsapp-webhook';
+      const provider = data?.provider || 'greenapi';
+      const webhookFn = provider === 'wpp' ? 'wpp-webhook' : 'whatsapp-webhook';
+      const webhookUrl = `https://api.academyos.ru/functions/v1/${webhookFn}`;
       setSettings(prev => ({ ...prev, webhookUrl }));
     }
   };
@@ -86,45 +99,89 @@ export const WhatsAppSettings: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5" />
-            Настройки Green-API
+            Настройки WhatsApp провайдера
           </CardTitle>
           <CardDescription>
-            Настройте подключение к Green-API для отправки и получения WhatsApp сообщений
+            Выберите провайдера и настройте подключение для отправки и получения WhatsApp сообщений
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="instanceId">ID Инстанса</Label>
-              <Input
-                id="instanceId"
-                value={settings.instanceId}
-                onChange={(e) => handleInputChange('instanceId', e.target.value)}
-                placeholder="1101234567"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="apiToken">API Token</Label>
-              <Input
-                id="apiToken"
-                type="password"
-                value={settings.apiToken}
-                onChange={(e) => handleInputChange('apiToken', e.target.value)}
-                placeholder="••••••••••••••••••••••••••••••••"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="provider">Провайдер</Label>
+            <Select 
+              value={settings.provider} 
+              onValueChange={(value) => handleInputChange('provider', value)}
+            >
+              <SelectTrigger id="provider">
+                <SelectValue placeholder="Выберите провайдера" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="greenapi">Green-API</SelectItem>
+                <SelectItem value="wpp">WPP (msg.academyos.ru)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              {settings.provider === 'greenapi' 
+                ? 'Green-API - официальный провайдер WhatsApp Business API' 
+                : 'WPP - собственный сервер WhatsApp Web Protocol'}
+            </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="apiUrl">API URL</Label>
-            <Input
-              id="apiUrl"
-              value={settings.apiUrl}
-              onChange={(e) => handleInputChange('apiUrl', e.target.value)}
-              placeholder="https://api.green-api.com"
-            />
+          <Separator />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {settings.provider === 'greenapi' ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="instanceId">ID Инстанса</Label>
+                  <Input
+                    id="instanceId"
+                    value={settings.instanceId}
+                    onChange={(e) => handleInputChange('instanceId', e.target.value)}
+                    placeholder="1101234567"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="apiToken">API Token</Label>
+                  <Input
+                    id="apiToken"
+                    type="password"
+                    value={settings.apiToken}
+                    onChange={(e) => handleInputChange('apiToken', e.target.value)}
+                    placeholder="••••••••••••••••••••••••••••••••"
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="wppSession">Сессия WPP</Label>
+                  <Input
+                    id="wppSession"
+                    value={settings.wppSession}
+                    onChange={(e) => handleInputChange('wppSession', e.target.value)}
+                    placeholder="default"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Имя сессии для подключения WhatsApp
+                  </p>
+                </div>
+              </>
+            )}
           </div>
+
+          {settings.provider === 'greenapi' && (
+            <div className="space-y-2">
+              <Label htmlFor="apiUrl">API URL</Label>
+              <Input
+                id="apiUrl"
+                value={settings.apiUrl}
+                onChange={(e) => handleInputChange('apiUrl', e.target.value)}
+                placeholder="https://api.green-api.com"
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="webhookUrl">Webhook URL</Label>
@@ -190,43 +247,83 @@ export const WhatsAppSettings: React.FC = () => {
           <CardTitle>Инструкция по настройке</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-3">
-            <div className="flex items-start gap-3">
-              <div className="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
-                1
+          {settings.provider === 'greenapi' ? (
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
+                  1
+                </div>
+                <div>
+                  <h4 className="font-medium">Получите учетные данные Green-API</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Зарегистрируйтесь на green-api.com и получите ID инстанса и API токен
+                  </p>
+                </div>
               </div>
-              <div>
-                <h4 className="font-medium">Получите учетные данные Green-API</h4>
-                <p className="text-sm text-muted-foreground">
-                  Зарегистрируйтесь на green-api.com и получите ID инстанса и API токен
-                </p>
+              
+              <div className="flex items-start gap-3">
+                <div className="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
+                  2
+                </div>
+                <div>
+                  <h4 className="font-medium">Настройте webhook</h4>
+                  <p className="text-sm text-muted-foreground">
+                    В панели Green-API укажите webhook URL из поля выше и включите нужные типы уведомлений
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
+                  3
+                </div>
+                <div>
+                  <h4 className="font-medium">Авторизуйте WhatsApp</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Отсканируйте QR-код в панели Green-API для подключения WhatsApp аккаунта
+                  </p>
+                </div>
               </div>
             </div>
-            
-            <div className="flex items-start gap-3">
-              <div className="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
-                2
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
+                  1
+                </div>
+                <div>
+                  <h4 className="font-medium">Настройте секреты</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Добавьте секреты WPP_BASE_URL, WPP_API_KEY и WPP_WEBHOOK_SECRET в настройках проекта
+                  </p>
+                </div>
               </div>
-              <div>
-                <h4 className="font-medium">Настройте webhook</h4>
-                <p className="text-sm text-muted-foreground">
-                  В панели Green-API укажите webhook URL из поля выше и включите нужные типы уведомлений
-                </p>
+              
+              <div className="flex items-start gap-3">
+                <div className="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
+                  2
+                </div>
+                <div>
+                  <h4 className="font-medium">Настройте webhook в WPP</h4>
+                  <p className="text-sm text-muted-foreground">
+                    В панели WPP укажите webhook URL из поля выше
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
+                  3
+                </div>
+                <div>
+                  <h4 className="font-medium">Авторизуйте сессию</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Отсканируйте QR-код в панели WPP для подключения WhatsApp аккаунта
+                  </p>
+                </div>
               </div>
             </div>
-            
-            <div className="flex items-start gap-3">
-              <div className="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
-                3
-              </div>
-              <div>
-                <h4 className="font-medium">Авторизуйте WhatsApp</h4>
-                <p className="text-sm text-muted-foreground">
-                  Отсканируйте QR-код в панели Green-API для подключения WhatsApp аккаунта
-                </p>
-              </div>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
