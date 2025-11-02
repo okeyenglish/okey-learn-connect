@@ -46,12 +46,12 @@ export const WhatsAppSettings: React.FC = () => {
     const data = await getMessengerSettings();
     if (data) {
       setSettings({
-        provider: data.provider,
-        instanceId: data.instanceId,
-        apiToken: data.apiToken,
-        apiUrl: data.apiUrl,
-        webhookUrl: data.webhookUrl,
-        isEnabled: data.isEnabled,
+        provider: data.provider || 'greenapi',
+        instanceId: data.instanceId || '',
+        apiToken: data.apiToken || '',
+        apiUrl: data.apiUrl || 'https://api.green-api.com',
+        webhookUrl: data.webhookUrl || '',
+        isEnabled: data.isEnabled || false,
         wppSession: data.wppSession || 'default',
         wppBaseUrl: data.wppBaseUrl || '',
         wppApiKey: data.wppApiKey || '',
