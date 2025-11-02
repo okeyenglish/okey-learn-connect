@@ -129,17 +129,78 @@ export function WhatsAppConnector() {
     );
   }
 
+  async function disconnectWhatsApp() {
+    setIsStarting(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) {
+        toast({
+          title: "Ошибка",
+          description: "Необходимо авторизоваться",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('wpp-disconnect', {
+        headers: {
+          Authorization: `Bearer ${session.session.access_token}`,
+        },
+      });
+
+      if (error || !data?.ok) {
+        toast({
+          title: "Ошибка",
+          description: data?.error || "Не удалось отключить WhatsApp",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setStatus('disconnected');
+      toast({
+        title: "Отключено",
+        description: "WhatsApp успешно отключен",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Внутренняя ошибка",
+        variant: "destructive",
+      });
+    } finally {
+      setIsStarting(false);
+    }
+  }
+
   if (status === 'connected') {
     return (
       <Card className="p-6">
-        <div className="flex items-center gap-3">
-          <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse" />
-          <div>
-            <h3 className="font-semibold">WhatsApp подключен</h3>
-            <p className="text-sm text-muted-foreground">
-              Интеграция активна и готова к работе
-            </p>
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse" />
+            <div className="flex-1">
+              <h3 className="font-semibold">WhatsApp подключен</h3>
+              <p className="text-sm text-muted-foreground">
+                Интеграция активна и готова к работе
+              </p>
+            </div>
           </div>
+          <Button 
+            onClick={disconnectWhatsApp} 
+            disabled={isStarting}
+            variant="destructive"
+            className="w-full"
+          >
+            {isStarting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Отключение...
+              </>
+            ) : (
+              'Отключить WhatsApp'
+            )}
+          </Button>
         </div>
       </Card>
     );
