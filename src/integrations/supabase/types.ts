@@ -80,6 +80,149 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_key_provision_jobs: {
+        Row: {
+          attempts: number
+          created_at: string | null
+          entity_name: string
+          id: number
+          last_error: string | null
+          max_attempts: number
+          monthly_limit: number
+          organization_id: string | null
+          provider: string
+          reset_policy: string
+          run_after: string | null
+          status: string
+          teacher_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string | null
+          entity_name: string
+          id?: never
+          last_error?: string | null
+          max_attempts?: number
+          monthly_limit?: number
+          organization_id?: string | null
+          provider: string
+          reset_policy?: string
+          run_after?: string | null
+          status?: string
+          teacher_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          attempts?: number
+          created_at?: string | null
+          entity_name?: string
+          id?: never
+          last_error?: string | null
+          max_attempts?: number
+          monthly_limit?: number
+          organization_id?: string | null
+          provider?: string
+          reset_policy?: string
+          run_after?: string | null
+          status?: string
+          teacher_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_key_provision_jobs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_key_provision_jobs_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_key_provision_jobs_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers_with_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_provider_keys: {
+        Row: {
+          created_at: string | null
+          id: string
+          key_label: string | null
+          key_preview: string | null
+          key_value: string
+          limit_monthly: number | null
+          limit_remaining: number | null
+          organization_id: string | null
+          provider: string
+          reset_policy: string | null
+          status: string
+          teacher_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          key_label?: string | null
+          key_preview?: string | null
+          key_value: string
+          limit_monthly?: number | null
+          limit_remaining?: number | null
+          organization_id?: string | null
+          provider: string
+          reset_policy?: string | null
+          status?: string
+          teacher_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          key_label?: string | null
+          key_preview?: string | null
+          key_value?: string
+          limit_monthly?: number | null
+          limit_remaining?: number | null
+          organization_id?: string | null
+          provider?: string
+          reset_policy?: string | null
+          status?: string
+          teacher_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_provider_keys_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_provider_keys_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_provider_keys_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers_with_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_flags: {
         Row: {
           app_id: string
@@ -6513,6 +6656,73 @@ export type Database = {
         }
         Relationships: []
       }
+      v_ai_provider_keys_public: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          key_label: string | null
+          key_preview: string | null
+          limit_monthly: number | null
+          limit_remaining: number | null
+          organization_id: string | null
+          provider: string | null
+          reset_policy: string | null
+          status: string | null
+          teacher_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          key_label?: string | null
+          key_preview?: string | null
+          limit_monthly?: number | null
+          limit_remaining?: number | null
+          organization_id?: string | null
+          provider?: string | null
+          reset_policy?: string | null
+          status?: string | null
+          teacher_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          key_label?: string | null
+          key_preview?: string | null
+          limit_monthly?: number | null
+          limit_remaining?: number | null
+          organization_id?: string | null
+          provider?: string | null
+          reset_policy?: string | null
+          status?: string | null
+          teacher_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_provider_keys_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_provider_keys_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_provider_keys_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers_with_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       accrue_teacher_earning_for_lesson: {
@@ -6573,6 +6783,7 @@ export type Database = {
           total_hours: number
         }[]
       }
+      can_view_ai_keys: { Args: never; Returns: boolean }
       charge_lesson_from_subscription: {
         Args: {
           _lesson_session_id: string
@@ -6641,6 +6852,7 @@ export type Database = {
       }
       cleanup_old_cron_logs: { Args: never; Returns: undefined }
       cleanup_old_typing_status: { Args: never; Returns: undefined }
+      complete_ai_key_job: { Args: { p_id: number }; Returns: undefined }
       create_internal_group_chat: {
         Args: {
           p_branch?: string
@@ -6653,6 +6865,21 @@ export type Database = {
       }
       delete_sheet_rows: {
         Args: { p_row_ids: string[]; p_table_name: string }
+        Returns: undefined
+      }
+      dequeue_ai_key_job: {
+        Args: never
+        Returns: {
+          entity_name: string
+          id: number
+          monthly_limit: number
+          organization_id: string
+          reset_policy: string
+          teacher_id: string
+        }[]
+      }
+      fail_ai_key_job: {
+        Args: { p_backoff_seconds: number; p_error: string; p_id: number }
         Returns: undefined
       }
       find_available_teachers: {
