@@ -7064,6 +7064,54 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          last_qr_at: string | null
+          last_qr_b64: string | null
+          organization_id: string
+          session_name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_qr_at?: string | null
+          last_qr_b64?: string | null
+          organization_id: string
+          session_name: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_qr_at?: string | null
+          last_qr_b64?: string | null
+          organization_id?: string
+          session_name?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_sessions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_sessions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
+        ]
+      }
     }
     Views: {
       catalog: {
