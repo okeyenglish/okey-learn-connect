@@ -80,7 +80,17 @@ export const WhatsAppSettings: React.FC = () => {
   };
 
   const handleInputChange = (field: string, value: string | boolean) => {
-    setSettings(prev => ({ ...prev, [field]: value }));
+    setSettings(prev => {
+      const updated = { ...prev, [field]: value } as typeof settings;
+      
+      // Автоматически обновляем webhook URL при смене провайдера
+      if (field === 'provider') {
+        const webhookFn = value === 'wpp' ? 'wpp-webhook' : 'whatsapp-webhook';
+        updated.webhookUrl = `https://api.academyos.ru/functions/v1/${webhookFn}`;
+      }
+      
+      return updated;
+    });
   };
 
   return (
