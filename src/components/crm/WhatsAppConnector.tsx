@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Loader2, RefreshCw } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 type WppStatus = 'connected' | 'disconnected' | 'qr_issued' | 'pairing';
 
@@ -11,6 +12,7 @@ export function WhatsAppConnector() {
   const [qr, setQr] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isStarting, setIsStarting] = useState(false);
+  const { toast } = useToast();
 
   async function fetchStatus() {
     try {
@@ -43,7 +45,14 @@ export function WhatsAppConnector() {
     setIsStarting(true);
     try {
       const { data: session } = await supabase.auth.getSession();
-      if (!session.session) return;
+      if (!session.session) {
+        toast({
+          title: "Ошибка",
+          description: "Необходимо авторизоваться",
+          variant: "destructive",
+        });
+        return;
+      }
 
       const { data, error } = await supabase.functions.invoke('wpp-start', {
         headers: {
@@ -53,15 +62,45 @@ export function WhatsAppConnector() {
 
       if (error) {
         console.error('Error starting WPP session:', error);
+        toast({
+          title: "Ошибка",
+          description: `Не удалось запустить сессию: ${error.message}`,
+          variant: "destructive",
+        });
         return;
       }
 
-      if (data?.ok) {
-        setStatus(data.status);
-        setQr(data.qrcode || null);
+      if (!data?.ok) {
+        console.error('WPP start failed:', data);
+        toast({
+          title: "Ошибка",
+          description: data?.error || "Не удалось запустить сессию WhatsApp",
+          variant: "destructive",
+        });
+        return;
       }
-    } catch (error) {
+
+      setStatus(data.status);
+      setQr(data.qrcode || null);
+
+      if (data.qrcode) {
+        toast({
+          title: "Успешно",
+          description: "QR-код для подключения сгенерирован",
+        });
+      } else if (data.status === 'connected') {
+        toast({
+          title: "Подключено",
+          description: "WhatsApp уже подключен",
+        });
+      }
+    } catch (error: any) {
       console.error('Error in startPairing:', error);
+      toast({
+        title: "Ошибка",
+        description: error.message || "Внутренняя ошибка",
+        variant: "destructive",
+      });
     } finally {
       setIsStarting(false);
     }
