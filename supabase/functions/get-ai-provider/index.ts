@@ -16,13 +16,57 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Получаем текущую настройку провайдера из БД
-    const { data: providerData, error: providerError } = await supabase
-      .rpc('get_ai_provider_setting');
+    // Получаем authorization header для определения пользователя
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authorization required' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401 
+        }
+      );
+    }
 
-    if (providerError) {
-      console.error('Error getting AI provider:', providerError);
-      throw providerError;
+    // Создаем клиент с токеном пользователя для получения user_id
+    const token = authHeader.replace('Bearer ', '');
+    const userSupabase = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: userError } = await userSupabase.auth.getUser(token);
+    
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authorization' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401 
+        }
+      );
+    }
+
+    // Получаем organization_id пользователя
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', user.id)
+      .single();
+
+    let providerData = 'gateway'; // default
+
+    if (profile?.organization_id) {
+      // Получаем настройку AI провайдера из БД
+      const { data: settingData } = await supabase
+        .from('system_settings')
+        .select('setting_value')
+        .eq('organization_id', profile.organization_id)
+        .eq('setting_key', 'ai_provider')
+        .maybeSingle();
+
+      if (settingData?.setting_value) {
+        providerData = (settingData.setting_value as any).provider || 'gateway';
+      }
     }
 
     // Проверяем ENV переменную (приоритет выше БД)
