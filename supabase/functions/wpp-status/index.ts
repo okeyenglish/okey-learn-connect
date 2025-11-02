@@ -54,6 +54,13 @@ Deno.serve(async (req) => {
     const WPP_HOST = Deno.env.get('WPP_HOST') || 'https://msg.academyos.ru';
     const WPP_SECRET = Deno.env.get('WPP_SECRET');
 
+    if (!WPP_SECRET) {
+      throw new Error('WPP_SECRET is not configured');
+    }
+    if (!WPP_HOST) {
+      throw new Error('WPP_HOST is not configured');
+    }
+
     console.log('Checking WPP status for session:', sessionName);
 
     // Check existing session in DB first
@@ -78,7 +85,18 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to generate WPP token: ${tokenRes.status} - ${text.substring(0, 200)}`);
     }
     
-    const tokenData = await tokenRes.json();
+    const tokenCt = tokenRes.headers.get('content-type') || '';
+    if (!tokenCt.includes('application/json')) {
+      const text = await tokenRes.text();
+      throw new Error(`Token endpoint returned non-JSON (${tokenCt}): ${text.substring(0, 200)}`);
+    }
+    let tokenData: any;
+    try {
+      tokenData = await tokenRes.json();
+    } catch (e: any) {
+      const text = await tokenRes.text();
+      throw new Error(`Failed to parse token JSON: ${e?.message || e} - ${text.substring(0, 200)}`);
+    }
     
     if (!tokenData?.token) {
       throw new Error('Failed to generate WPP token: no token in response');
@@ -196,7 +214,18 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to start session: ${startRes.status} - ${text.substring(0, 200)}`);
     }
 
-    const startData = await startRes.json();
+    const startCt = startRes.headers.get('content-type') || '';
+    if (!startCt.includes('application/json')) {
+      const text = await startRes.text();
+      throw new Error(`Start session returned non-JSON (${startCt}): ${text.substring(0, 200)}`);
+    }
+    let startData: any;
+    try {
+      startData = await startRes.json();
+    } catch (e: any) {
+      const text = await startRes.text();
+      throw new Error(`Failed to parse start-session JSON: ${e?.message || e} - ${text.substring(0, 200)}`);
+    }
     console.log('Start session data:', startData);
     
     const qrCode = startData?.qrcode || null;
