@@ -1,5 +1,8 @@
 project_id = "kbojujfwtvmsgudumown"
 
+[functions.test-vertex-ai]
+verify_jwt = true
+
 [functions.generate-image]
 verify_jwt = true
 
