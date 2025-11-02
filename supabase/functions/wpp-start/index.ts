@@ -56,20 +56,32 @@ Deno.serve(async (req) => {
     const PUBLIC_URL = Deno.env.get('SUPABASE_URL')?.replace('/rest/v1', '');
 
     // Generate token for this session
+    console.log('Generating token for session:', sessionName);
     const tokenRes = await fetch(
       `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/${WPP_SECRET}/generate-token`,
       { method: 'POST' }
     );
+    
+    console.log('Token response status:', tokenRes.status);
+    
+    if (!tokenRes.ok) {
+      const text = await tokenRes.text();
+      console.error('Token generation failed:', text);
+      throw new Error(`Failed to generate WPP token: ${tokenRes.status} - ${text.substring(0, 200)}`);
+    }
+    
     const tokenData = await tokenRes.json();
     
     if (!tokenData?.token) {
-      throw new Error('Failed to generate WPP token');
+      throw new Error('Failed to generate WPP token: no token in response');
     }
 
     const wppToken = tokenData.token;
 
     // Start session with webhook
     const webhookUrl = `${PUBLIC_URL}/functions/v1/wpp-webhook`;
+    console.log('Starting session with webhook:', webhookUrl);
+    
     const startRes = await fetch(
       `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/start-session`,
       {
@@ -91,6 +103,14 @@ Deno.serve(async (req) => {
         }),
       }
     );
+
+    console.log('Start session response status:', startRes.status);
+    
+    if (!startRes.ok) {
+      const text = await startRes.text();
+      console.error('Start session failed:', text);
+      throw new Error(`Failed to start session: ${startRes.status} - ${text.substring(0, 200)}`);
+    }
 
     const startData = await startRes.json();
     console.log('WPP start-session response:', startData);

@@ -24,7 +24,7 @@ export const WhatsAppStatusNotification = () => {
           .from('profiles')
           .select('organization_id')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
 
         if (!profile?.organization_id) {
           setIsConnected(false);
@@ -36,7 +36,7 @@ export const WhatsAppStatusNotification = () => {
           .from('whatsapp_sessions')
           .select('status')
           .eq('organization_id', profile.organization_id)
-          .single();
+          .maybeSingle();
 
         setIsConnected(wppSession?.status === 'connected');
       } catch (error) {
