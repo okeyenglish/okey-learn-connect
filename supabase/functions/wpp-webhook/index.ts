@@ -127,32 +127,54 @@ serve(async (req) => {
 })
 
 async function handleIncomingMessage(data: any) {
-  const { from, text, media, timestamp, id, body } = data
+  const { from, text, media, timestamp, id, body, fromMe } = data
   
-  if (!from) return
+  if (!from) {
+    console.log('No "from" field in message data')
+    return
+  }
 
   // Extract phone number
   const phone = from.replace('@c.us', '').replace('@s.whatsapp.net', '')
+  const isFromMe = Boolean(fromMe)
+  
+  console.log('Processing message from:', phone, 'isFromMe:', isFromMe)
+  
+  // Find organization from session (assuming session format: org_<uuid>)
+  // We need to get it from the event context
+  // For now, try to find client and infer organization
   
   // Find or create client by phone number
   let { data: client, error: clientError } = await supabase
     .from('clients')
-    .select('*')
-    .eq('phone', `+${phone}`)
-    .single()
+    .select('id, organization_id, first_name, last_name')
+    .eq('phone', phone)
+    .maybeSingle()
 
-  if (!client) {
-    // Create new client
+  if (!client && !isFromMe) {
+    console.log('Creating new client for phone:', phone)
+    // Create new client - need organization_id
+    // Try to get from existing clients or use first organization
+    const { data: anyClient } = await supabase
+      .from('clients')
+      .select('organization_id')
+      .limit(1)
+      .single()
+    
+    if (!anyClient?.organization_id) {
+      console.error('Cannot determine organization_id')
+      return
+    }
+
     const { data: newClient, error: createError } = await supabase
       .from('clients')
       .insert({
-        name: from,
-        phone: `+${phone}`,
-        whatsapp_chat_id: from,
-        lead_status: 'new',
-        last_message_at: new Date(timestamp || Date.now()).toISOString()
+        organization_id: anyClient.organization_id,
+        first_name: phone,
+        phone: phone,
+        lead_status: 'new'
       })
-      .select()
+      .select('id, organization_id, first_name, last_name')
       .single()
 
     if (createError) {
@@ -163,31 +185,69 @@ async function handleIncomingMessage(data: any) {
     client = newClient
   }
 
-  // Save incoming message
+  if (!client) {
+    console.log('No client found and message is from me, skipping')
+    return
+  }
+
+  // Find or create chat thread
+  let { data: thread } = await supabase
+    .from('chat_threads')
+    .select('id')
+    .eq('type', 'client')
+    .contains('participants', [client.id])
+    .single()
+
+  if (!thread) {
+    console.log('Creating new thread for client:', client.id)
+    const { data: newThread, error: threadError } = await supabase
+      .from('chat_threads')
+      .insert({
+        type: 'client',
+        title: `${client.first_name || ''} ${client.last_name || ''}`.trim() || phone,
+        participants: [client.id]
+      })
+      .select('id')
+      .single()
+
+    if (threadError) {
+      console.error('Error creating thread:', threadError)
+      return
+    }
+    
+    thread = newThread
+  }
+
+  // Update thread timestamp
   await supabase
-    .from('chat_messages')
+    .from('chat_threads')
+    .update({ updated_at: new Date().toISOString() })
+    .eq('id', thread.id)
+
+  // Save message to messages table
+  const messageText = text || body || (media ? '[Media]' : '')
+  
+  const { error: messageError } = await supabase
+    .from('messages')
     .insert({
-      client_id: client.id,
-      message_text: text || body || '[Media]',
-      message_type: 'client',
-      messenger_type: 'whatsapp',
-      message_status: 'delivered',
-      green_api_message_id: id,
-      is_outgoing: false,
-      is_read: false,
-      file_url: media?.url,
-      file_name: media?.fileName,
-      file_type: media?.mime ? getFileTypeFromMime(media.mime) : null
+      thread_id: thread.id,
+      thread_type: 'client',
+      author_id: isFromMe ? null : client.id,
+      role: isFromMe ? 'agent' : 'user',
+      text: messageText,
+      status: 'sent',
+      attachments: media ? [{
+        type: media.mime ? getFileTypeFromMime(media.mime) : 'file',
+        url: media.url || null,
+        name: media.fileName || null
+      }] : null
     })
 
-  // Update client last message time
-  await supabase
-    .from('clients')
-    .update({ 
-      last_message_at: new Date(timestamp || Date.now()).toISOString(),
-      whatsapp_chat_id: from
-    })
-    .eq('id', client.id)
+  if (messageError) {
+    console.error('Error saving message:', messageError)
+  } else {
+    console.log('Message saved successfully to thread:', thread.id)
+  }
 }
 
 async function handleMessageStatus(data: any) {
@@ -195,11 +255,10 @@ async function handleMessageStatus(data: any) {
   
   if (!id) return
 
-  // Update message status
-  await supabase
-    .from('chat_messages')
-    .update({ message_status: status })
-    .eq('green_api_message_id', id)
+  console.log('Updating message status:', id, status)
+  
+  // For now, we don't have a way to track message IDs from WPP
+  // This would require storing the WPP message ID when sending
 }
 
 function getFileTypeFromMime(mime: string): string {
