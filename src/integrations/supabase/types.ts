@@ -138,6 +138,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ai_key_provision_jobs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
+          {
             foreignKeyName: "ai_key_provision_jobs_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
@@ -152,6 +159,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_model_mappings: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          model_id: string
+          tier: string
+          use_case: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          model_id: string
+          tier: string
+          use_case: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          model_id?: string
+          tier?: string
+          use_case?: string
+        }
+        Relationships: []
       }
       ai_pricing: {
         Row: {
@@ -200,6 +234,7 @@ export type Database = {
           id: string
           key_label: string | null
           key_preview: string | null
+          key_type: string
           key_value: string
           limit_monthly: number | null
           limit_remaining: number | null
@@ -215,6 +250,7 @@ export type Database = {
           id?: string
           key_label?: string | null
           key_preview?: string | null
+          key_type?: string
           key_value: string
           limit_monthly?: number | null
           limit_remaining?: number | null
@@ -230,6 +266,7 @@ export type Database = {
           id?: string
           key_label?: string | null
           key_preview?: string | null
+          key_type?: string
           key_value?: string
           limit_monthly?: number | null
           limit_remaining?: number | null
@@ -247,6 +284,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_provider_keys_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
           },
           {
             foreignKeyName: "ai_provider_keys_teacher_id_fkey"
@@ -615,6 +659,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "audit_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       balance_transactions: {
@@ -922,6 +973,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "call_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       chat_messages: {
@@ -1002,6 +1060,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
           },
           {
             foreignKeyName: "chat_messages_phone_number_id_fkey"
@@ -1119,6 +1184,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classrooms_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -1306,6 +1378,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "clients_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       content_docs: {
@@ -1359,6 +1438,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_docs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -1423,6 +1509,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "content_ideas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       content_metrics: {
@@ -1482,6 +1575,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_metrics_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -1570,6 +1670,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "course_units_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       courses: {
@@ -1610,6 +1717,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courses_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -1891,6 +2005,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "employees_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       event_bus: {
@@ -1944,6 +2065,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "event_bus_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       family_groups: {
@@ -1978,6 +2106,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "family_groups_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -2492,6 +2627,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "individual_lesson_sessions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
+          {
             foreignKeyName: "individual_lesson_sessions_payment_id_fkey"
             columns: ["payment_id"]
             isOneToOne: false
@@ -2616,6 +2758,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "individual_lessons_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -2801,6 +2950,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "internal_link_graph_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       internal_message_read_status: {
@@ -2933,6 +3089,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "kw_clusters_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       kw_norm: {
@@ -2992,6 +3155,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "kw_norm_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       kw_sources: {
@@ -3023,6 +3193,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kw_sources_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -3495,6 +3672,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "learning_groups_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
+          {
             foreignKeyName: "learning_groups_responsible_manager_id_fkey"
             columns: ["responsible_manager_id"]
             isOneToOne: false
@@ -3547,6 +3731,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_types_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -3655,6 +3846,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lesson_sessions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
+          {
             foreignKeyName: "lesson_sessions_payment_id_fkey"
             columns: ["payment_id"]
             isOneToOne: false
@@ -3710,6 +3908,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lessons_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
           },
           {
             foreignKeyName: "lessons_unit_id_fkey"
@@ -4025,6 +4230,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "organization_balance_transactions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       organization_balances: {
@@ -4072,6 +4284,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_balances_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -4129,6 +4348,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "organization_branches_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       organizations: {
@@ -4146,6 +4372,7 @@ export type Database = {
           slug: string
           status: string | null
           subscription_ends_at: string | null
+          subscription_tier: string
           teacher_registration_enabled: boolean | null
           teacher_registration_token: string | null
           trial_ends_at: string | null
@@ -4165,6 +4392,7 @@ export type Database = {
           slug: string
           status?: string | null
           subscription_ends_at?: string | null
+          subscription_tier?: string
           teacher_registration_enabled?: boolean | null
           teacher_registration_token?: string | null
           trial_ends_at?: string | null
@@ -4184,6 +4412,7 @@ export type Database = {
           slug?: string
           status?: string | null
           subscription_ends_at?: string | null
+          subscription_tier?: string
           teacher_registration_enabled?: boolean | null
           teacher_registration_token?: string | null
           trial_ends_at?: string | null
@@ -4286,6 +4515,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
           },
           {
             foreignKeyName: "payments_student_id_fkey"
@@ -4609,6 +4845,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "proficiency_levels_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       profiles: {
@@ -4671,6 +4914,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       publication_queue: {
@@ -4721,6 +4971,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "publication_queue_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -4916,6 +5173,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "search_console_queries_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       seo_job_logs: {
@@ -4956,6 +5220,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seo_job_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -5441,6 +5712,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "student_segments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       student_statuses: {
@@ -5573,6 +5851,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "students_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       subjects: {
@@ -5619,6 +5904,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -5924,6 +6216,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "system_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       tasks: {
@@ -6150,6 +6449,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_earnings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -6570,6 +6876,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "textbooks_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       typing_status: {
@@ -6851,6 +7164,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ai_provider_keys_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
+          {
             foreignKeyName: "ai_provider_keys_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
@@ -6865,6 +7185,19 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      v_organization_ai_settings: {
+        Row: {
+          ai_limit: number | null
+          key_status: string | null
+          key_type: string | null
+          limit_monthly: number | null
+          limit_remaining: number | null
+          organization_id: string | null
+          organization_name: string | null
+          subscription_tier: string | null
+        }
+        Relationships: []
       }
     }
     Functions: {
@@ -6930,7 +7263,7 @@ export type Database = {
       charge_ai_usage: {
         Args: {
           p_metadata?: Json
-          p_model?: string
+          p_model: string
           p_organization_id: string
           p_provider: string
           p_requests_count?: number
@@ -7145,6 +7478,10 @@ export type Database = {
           user_id: string
           user_name: string
         }[]
+      }
+      get_organization_ai_limit: {
+        Args: { p_organization_id: string }
+        Returns: number
       }
       get_public_schedule:
         | {
@@ -7369,6 +7706,10 @@ export type Database = {
           _subscription_id: string
         }
         Returns: boolean
+      }
+      resolve_ai_model: {
+        Args: { p_organization_id: string; p_use_case?: string }
+        Returns: string
       }
       send_internal_chat_message: {
         Args: {

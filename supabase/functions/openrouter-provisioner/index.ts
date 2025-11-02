@@ -115,7 +115,8 @@ async function createOpenRouterKey(
 
 async function saveProvisionedKey(
   job: ProvisionJob,
-  keyData: OpenRouterKeyResponse["data"]
+  keyData: OpenRouterKeyResponse["data"],
+  keyType: string
 ) {
   // Create masked preview
   const preview = keyData.hash.length > 12
@@ -129,6 +130,7 @@ async function saveProvisionedKey(
     key_label: keyData.name,
     key_value: keyData.hash,
     key_preview: preview,
+    key_type: keyType,
     limit_monthly: keyData.limit,
     limit_remaining: keyData.limit_remaining,
     reset_policy: job.reset_policy,
@@ -142,6 +144,9 @@ async function processJob(job: ProvisionJob): Promise<void> {
 
   console.log(`Processing job ${job.id}: creating key for ${keyName}`);
 
+  // Determine key type based on limit (50 = free, 1000 = byok/paid)
+  const keyType = job.monthly_limit === 50 ? "free" : "byok";
+
   // Create key in OpenRouter
   const keyData = await createOpenRouterKey(
     keyName,
@@ -149,10 +154,10 @@ async function processJob(job: ProvisionJob): Promise<void> {
     job.reset_policy
   );
 
-  console.log(`Created OpenRouter key: ${keyData.name} (${keyData.limit} req/${job.reset_policy})`);
+  console.log(`Created OpenRouter key: ${keyData.name} (${keyData.limit} req/${job.reset_policy}, type: ${keyType})`);
 
   // Save to database
-  await saveProvisionedKey(job, keyData);
+  await saveProvisionedKey(job, keyData, keyType);
 
   console.log(`Saved key to database for job ${job.id}`);
 }

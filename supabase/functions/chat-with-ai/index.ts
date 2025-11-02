@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
     }
 
     // Get request body
-    const { messages, model = 'google/gemini-2.0-flash-exp:free' } = await req.json();
+    const { messages, model, useCase = 'lesson_plan' } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
       throw new Error('Messages array is required');
@@ -49,6 +49,17 @@ Deno.serve(async (req) => {
 
     if (!profile?.organization_id) {
       throw new Error('User has no organization');
+    }
+
+    // Resolve model based on organization tier and use case
+    let resolvedModel = model;
+    if (!model) {
+      const { data: modelData } = await supabaseClient
+        .rpc('resolve_ai_model', {
+          p_organization_id: profile.organization_id,
+          p_use_case: useCase
+        });
+      resolvedModel = modelData || 'google/gemini-2.0-flash-exp:free';
     }
 
     // Try to get organization key first
@@ -124,7 +135,7 @@ Deno.serve(async (req) => {
         'X-Title': 'OKEY English CRM',
       },
       body: JSON.stringify({
-        model,
+        model: resolvedModel,
         messages,
       }),
     });
@@ -142,11 +153,11 @@ Deno.serve(async (req) => {
         .rpc('charge_ai_usage', {
           p_organization_id: profile.organization_id,
           p_provider: 'openrouter',
-          p_model: model,
+          p_model: resolvedModel,
           p_requests_count: 1,
           p_metadata: {
             tokens: data.usage || {},
-            model: model,
+            model: resolvedModel,
             user_id: user.id
           }
         });
