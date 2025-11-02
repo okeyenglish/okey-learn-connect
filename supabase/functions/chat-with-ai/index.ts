@@ -53,6 +53,7 @@ Deno.serve(async (req) => {
 
     // Try to get organization key first
     let apiKey: string | null = null;
+    let shouldChargeBalance = false;
     const { data: orgKey } = await supabaseClient
       .from('ai_provider_keys')
       .select('key_value, limit_remaining')
@@ -63,31 +64,54 @@ Deno.serve(async (req) => {
 
     if (orgKey && orgKey.limit_remaining > 0) {
       apiKey = orgKey.key_value;
-    } else {
-      // Try teacher key
-      const { data: teacher } = await supabaseClient
-        .from('teachers')
-        .select('id')
-        .eq('profile_id', user.id)
+      shouldChargeBalance = false;
+    } else if (orgKey) {
+      // Free limit exhausted, check if org has balance
+      const { data: orgBalance } = await supabaseClient
+        .from('organization_balances')
+        .select('balance')
+        .eq('organization_id', profile.organization_id)
         .single();
 
-      if (teacher) {
-        const { data: teacherKey } = await supabaseClient
-          .from('ai_provider_keys')
-          .select('key_value, limit_remaining')
-          .eq('teacher_id', teacher.id)
-          .eq('provider', 'openrouter')
-          .eq('status', 'active')
+      if (orgBalance && orgBalance.balance > 0) {
+        apiKey = orgKey.key_value;
+        shouldChargeBalance = true;
+      } else {
+        // Try teacher key as fallback
+        const { data: teacher } = await supabaseClient
+          .from('teachers')
+          .select('id')
+          .eq('profile_id', user.id)
           .single();
 
-        if (teacherKey && teacherKey.limit_remaining > 0) {
-          apiKey = teacherKey.key_value;
+        if (teacher) {
+          const { data: teacherKey } = await supabaseClient
+            .from('ai_provider_keys')
+            .select('key_value, limit_remaining')
+            .eq('teacher_id', teacher.id)
+            .eq('provider', 'openrouter')
+            .eq('status', 'active')
+            .single();
+
+          if (teacherKey && teacherKey.limit_remaining > 0) {
+            apiKey = teacherKey.key_value;
+            shouldChargeBalance = false;
+          }
         }
       }
     }
 
     if (!apiKey) {
-      throw new Error('No active API key available. Please contact support.');
+      return new Response(
+        JSON.stringify({
+          error: 'No active API key available. Please top up your organization balance or contact support.',
+          code: 'INSUFFICIENT_BALANCE'
+        }),
+        {
+          status: 402,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     // Make request to OpenRouter
@@ -111,6 +135,27 @@ Deno.serve(async (req) => {
     }
 
     const data = await response.json();
+
+    // If we used paid balance, charge the organization
+    if (shouldChargeBalance) {
+      const { data: charged, error: chargeError } = await supabaseClient
+        .rpc('charge_ai_usage', {
+          p_organization_id: profile.organization_id,
+          p_provider: 'openrouter',
+          p_model: model,
+          p_requests_count: 1,
+          p_metadata: {
+            tokens: data.usage || {},
+            model: model,
+            user_id: user.id
+          }
+        });
+
+      if (chargeError || !charged) {
+        console.error('Failed to charge balance:', chargeError);
+        // Still return the response, but log the error
+      }
+    }
 
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

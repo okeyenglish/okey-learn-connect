@@ -153,6 +153,47 @@ export type Database = {
           },
         ]
       }
+      ai_pricing: {
+        Row: {
+          created_at: string | null
+          currency_id: string | null
+          id: string
+          is_active: boolean | null
+          model_name: string | null
+          price_per_request: number
+          provider: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          currency_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          model_name?: string | null
+          price_per_request: number
+          provider: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          currency_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          model_name?: string | null
+          price_per_request?: number
+          provider?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_pricing_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_provider_keys: {
         Row: {
           created_at: string | null
@@ -3932,6 +3973,108 @@ export type Database = {
         }
         Relationships: []
       }
+      organization_balance_transactions: {
+        Row: {
+          ai_requests_count: number | null
+          amount: number
+          created_at: string | null
+          created_by: string | null
+          currency_id: string | null
+          description: string | null
+          id: string
+          metadata: Json | null
+          organization_id: string
+          transaction_type: string
+        }
+        Insert: {
+          ai_requests_count?: number | null
+          amount: number
+          created_at?: string | null
+          created_by?: string | null
+          currency_id?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id: string
+          transaction_type: string
+        }
+        Update: {
+          ai_requests_count?: number | null
+          amount?: number
+          created_at?: string | null
+          created_by?: string | null
+          currency_id?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id?: string
+          transaction_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_balance_transactions_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_balance_transactions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_balances: {
+        Row: {
+          balance: number
+          created_at: string | null
+          currency_id: string | null
+          id: string
+          organization_id: string
+          total_spent: number
+          total_topped_up: number
+          updated_at: string | null
+        }
+        Insert: {
+          balance?: number
+          created_at?: string | null
+          currency_id?: string | null
+          id?: string
+          organization_id: string
+          total_spent?: number
+          total_topped_up?: number
+          updated_at?: string | null
+        }
+        Update: {
+          balance?: number
+          created_at?: string | null
+          currency_id?: string | null
+          id?: string
+          organization_id?: string
+          total_spent?: number
+          total_topped_up?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_balances_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_balances_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_branches: {
         Row: {
           address: string | null
@@ -6784,6 +6927,16 @@ export type Database = {
         }[]
       }
       can_view_ai_keys: { Args: never; Returns: boolean }
+      charge_ai_usage: {
+        Args: {
+          p_metadata?: Json
+          p_model?: string
+          p_organization_id: string
+          p_provider: string
+          p_requests_count?: number
+        }
+        Returns: boolean
+      }
       charge_lesson_from_subscription: {
         Args: {
           _lesson_session_id: string
@@ -7247,6 +7400,14 @@ export type Database = {
       sync_auto_group_students: {
         Args: { p_group_id: string }
         Returns: undefined
+      }
+      topup_organization_balance: {
+        Args: {
+          p_amount: number
+          p_description?: string
+          p_organization_id: string
+        }
+        Returns: string
       }
       try_acquire_import_lock: {
         Args: never
