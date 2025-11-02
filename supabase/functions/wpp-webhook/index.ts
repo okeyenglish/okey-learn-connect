@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1'
 import { createHmac } from "https://deno.land/std@0.168.0/node/crypto.ts"
 
 const corsHeaders = {
@@ -11,34 +11,20 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-// Получаем webhook secret из настроек
-async function getWebhookSecret(): Promise<string | null> {
-  const { data, error } = await supabase
-    .from('messenger_settings')
-    .select('settings')
-    .eq('messenger_type', 'whatsapp')
-    .eq('provider', 'wpp')
-    .single()
-  
-  if (error || !data) return null
-  
-  const settings = data.settings as any
-  return settings?.wppWebhookSecret || null
-}
+const WPP_SECRET = Deno.env.get('WPP_SECRET')
 
+// Validate webhook signature (optional if WPP supports it)
 async function isValidSignature(signature: string, rawBody: string): Promise<boolean> {
-  const webhookSecret = await getWebhookSecret()
-  if (!webhookSecret) return true; // если не используем подпись
-  
-  const hmac = createHmac('sha256', webhookSecret);
-  hmac.update(rawBody);
-  const calculatedSignature = hmac.digest('hex');
-  
-  try {
-    return signature === calculatedSignature;
-  } catch {
-    return false;
+  if (!WPP_SECRET) {
+    console.warn('No webhook secret configured, skipping signature validation')
+    return true
   }
+
+  const hmac = createHmac('sha256', WPP_SECRET)
+  hmac.update(rawBody)
+  const expectedSignature = hmac.digest('hex')
+  
+  return signature === expectedSignature
 }
 
 serve(async (req) => {
@@ -57,33 +43,70 @@ serve(async (req) => {
 
     const event = JSON.parse(rawBody)
     
-    console.log('WPP Webhook received:', event.type)
+    console.log('WPP Webhook received:', event.type || event.event)
 
-    // Логируем webhook
+    // Log webhook event
     await supabase
       .from('webhook_logs')
       .insert({
         messenger_type: 'whatsapp',
-        event_type: event.type,
+        event_type: event.type || event.event || 'unknown',
         webhook_data: event,
         processed: false
       })
 
-    switch (event.type) {
+    // Handle connection status updates
+    const eventType = String(event.event || event.type || '').toUpperCase()
+    const sessionName = event.session
+
+    if (eventType === 'CONNECTED' && sessionName) {
+      // Extract organization_id from session name (org_<uuid>)
+      const orgMatch = sessionName.match(/^org_([a-f0-9-]+)$/)
+      if (orgMatch) {
+        const organizationId = orgMatch[1]
+        await supabase
+          .from('whatsapp_sessions')
+          .update({
+            status: 'connected',
+            last_qr_b64: null,
+            last_qr_at: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('organization_id', organizationId)
+        
+        console.log(`Session ${sessionName} connected for org ${organizationId}`)
+      }
+    } else if (eventType === 'DISCONNECTED' && sessionName) {
+      const orgMatch = sessionName.match(/^org_([a-f0-9-]+)$/)
+      if (orgMatch) {
+        const organizationId = orgMatch[1]
+        await supabase
+          .from('whatsapp_sessions')
+          .update({
+            status: 'disconnected',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('organization_id', organizationId)
+        
+        console.log(`Session ${sessionName} disconnected for org ${organizationId}`)
+      }
+    }
+
+    // Handle different event types for messages
+    const msgEvent = event.type || event.event
+    switch (msgEvent) {
+      case 'message':
       case 'message_in':
-        await handleIncomingMessage(event.data)
+      case 'messages.upsert':
+        await handleIncomingMessage(event.data || event)
         break
-      
+      case 'message.status':
       case 'message_status':
-        await handleMessageStatus(event.data)
+      case 'messages.update':
+        await handleMessageStatus(event.data || event)
         break
-      
-      case 'session_update':
-        await handleSessionUpdate(event.data)
-        break
-      
       default:
-        console.log('Unknown event type:', event.type)
+        console.log('Event handled:', msgEvent)
     }
 
     return new Response(JSON.stringify({ ok: true }), {
@@ -104,14 +127,14 @@ serve(async (req) => {
 })
 
 async function handleIncomingMessage(data: any) {
-  const { from, text, media, timestamp, id } = data
+  const { from, text, media, timestamp, id, body } = data
   
   if (!from) return
 
-  // Извлекаем номер телефона
+  // Extract phone number
   const phone = from.replace('@c.us', '').replace('@s.whatsapp.net', '')
   
-  // Находим или создаем клиента по номеру телефона
+  // Find or create client by phone number
   let { data: client, error: clientError } = await supabase
     .from('clients')
     .select('*')
@@ -119,7 +142,7 @@ async function handleIncomingMessage(data: any) {
     .single()
 
   if (!client) {
-    // Создаем нового клиента
+    // Create new client
     const { data: newClient, error: createError } = await supabase
       .from('clients')
       .insert({
@@ -127,7 +150,7 @@ async function handleIncomingMessage(data: any) {
         phone: `+${phone}`,
         whatsapp_chat_id: from,
         lead_status: 'new',
-        last_message_at: new Date(timestamp).toISOString()
+        last_message_at: new Date(timestamp || Date.now()).toISOString()
       })
       .select()
       .single()
@@ -140,12 +163,12 @@ async function handleIncomingMessage(data: any) {
     client = newClient
   }
 
-  // Сохраняем входящее сообщение
+  // Save incoming message
   await supabase
     .from('chat_messages')
     .insert({
       client_id: client.id,
-      message_text: text || '[Media]',
+      message_text: text || body || '[Media]',
       message_type: 'client',
       messenger_type: 'whatsapp',
       message_status: 'delivered',
@@ -157,11 +180,11 @@ async function handleIncomingMessage(data: any) {
       file_type: media?.mime ? getFileTypeFromMime(media.mime) : null
     })
 
-  // Обновляем время последнего сообщения
+  // Update client last message time
   await supabase
     .from('clients')
     .update({ 
-      last_message_at: new Date(timestamp).toISOString(),
+      last_message_at: new Date(timestamp || Date.now()).toISOString(),
       whatsapp_chat_id: from
     })
     .eq('id', client.id)
@@ -172,16 +195,11 @@ async function handleMessageStatus(data: any) {
   
   if (!id) return
 
-  // Обновляем статус сообщения
+  // Update message status
   await supabase
     .from('chat_messages')
     .update({ message_status: status })
     .eq('green_api_message_id', id)
-}
-
-async function handleSessionUpdate(data: any) {
-  console.log('Session update:', data)
-  // TODO: можно сохранять состояние сессии в таблицу messenger_settings
 }
 
 function getFileTypeFromMime(mime: string): string {

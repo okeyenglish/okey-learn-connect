@@ -1,5 +1,17 @@
 project_id = "kbojujfwtvmsgudumown"
 
+[functions.wpp-start]
+verify_jwt = true
+
+[functions.wpp-status]
+verify_jwt = true
+
+[functions.wpp-send]
+verify_jwt = true
+
+[functions.wpp-webhook]
+verify_jwt = false
+
 [functions.get-ai-provider]
 verify_jwt = false
 

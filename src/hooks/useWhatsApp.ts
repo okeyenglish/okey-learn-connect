@@ -246,6 +246,50 @@ export const useWhatsApp = () => {
     }
   }, []);
 
+  const checkWppStatus = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      const { data, error } = await supabase.functions.invoke('wpp-status', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+      
+      return data;
+    } catch (error) {
+      console.error('Error checking WPP status:', error);
+      throw error;
+    }
+  }, []);
+
+  const startWppSession = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      const { data, error } = await supabase.functions.invoke('wpp-start', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+      
+      return data;
+    } catch (error) {
+      console.error('Error starting WPP session:', error);
+      throw error;
+    }
+  }, []);
+
   return {
     loading,
     sendTextMessage,
@@ -254,5 +298,7 @@ export const useWhatsApp = () => {
     updateMessengerSettings,
     testConnection,
     getWebhookLogs,
+    checkWppStatus,
+    startWppSession,
   };
 };
