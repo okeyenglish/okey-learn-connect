@@ -54,7 +54,17 @@ async function supabaseRPC(functionName: string, params?: any) {
     throw new Error(`RPC ${functionName} failed: ${text}`);
   }
 
-  return response.json();
+  // Some RPCs (like complete/fail job) return 204 No Content.
+  // Avoid parsing empty bodies which causes "Unexpected end of JSON input".
+  const text = await response.text();
+  if (!text) return null as any;
+
+  try {
+    return JSON.parse(text);
+  } catch (_e) {
+    // If response isn't JSON, return raw text
+    return text as any;
+  }
 }
 
 async function supabaseInsert(table: string, data: any) {
