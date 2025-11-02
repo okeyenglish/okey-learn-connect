@@ -19,6 +19,9 @@ interface WhatsAppSettings {
   isEnabled: boolean;
   // WPP specific
   wppSession?: string;
+  wppBaseUrl?: string;
+  wppApiKey?: string;
+  wppWebhookSecret?: string;
 }
 
 export const useWhatsApp = () => {
@@ -51,7 +54,10 @@ export const useWhatsApp = () => {
         apiUrl: settings?.apiUrl || '',
         webhookUrl: data.webhook_url || '',
         isEnabled: data.is_enabled,
-        wppSession: settings?.wppSession || 'default'
+        wppSession: settings?.wppSession || 'default',
+        wppBaseUrl: settings?.wppBaseUrl || '',
+        wppApiKey: settings?.wppApiKey || '',
+        wppWebhookSecret: settings?.wppWebhookSecret || ''
       };
 
     } catch (error: any) {
@@ -133,6 +139,9 @@ export const useWhatsApp = () => {
             apiToken: settings.apiToken,
             apiUrl: settings.apiUrl,
             wppSession: settings.wppSession,
+            wppBaseUrl: settings.wppBaseUrl,
+            wppApiKey: settings.wppApiKey,
+            wppWebhookSecret: settings.wppWebhookSecret,
           },
           webhook_url: settings.webhookUrl,
           updated_at: new Date().toISOString()

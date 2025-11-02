@@ -6,14 +6,31 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// WPP настройки из environment variables
-const wppBaseUrl = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru'
-const wppApiKey = Deno.env.get('WPP_API_KEY')!
-
 // Создаем клиент Supabase
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+// Получаем настройки WPP из БД
+async function getWppSettings() {
+  const { data, error } = await supabase
+    .from('messenger_settings')
+    .select('settings')
+    .eq('messenger_type', 'whatsapp')
+    .eq('provider', 'wpp')
+    .single()
+  
+  if (error || !data) {
+    throw new Error('WPP settings not configured')
+  }
+  
+  const settings = data.settings as any
+  return {
+    baseUrl: settings?.wppBaseUrl || 'https://msg.academyos.ru',
+    apiKey: settings?.wppApiKey || '',
+    webhookSecret: settings?.wppWebhookSecret || ''
+  }
+}
 
 interface SendMessageRequest {
   clientId: string;
@@ -31,9 +48,9 @@ interface WPPResponse {
   message?: string;
 }
 
-function authHeaders() {
+function authHeaders(apiKey: string) {
   return { 
-    'Authorization': `Bearer ${wppApiKey}`, 
+    'Authorization': `Bearer ${apiKey}`, 
     'Content-Type': 'application/json' 
   };
 }
@@ -48,18 +65,20 @@ serve(async (req) => {
 
     // Test connection
     if (payload?.action === 'test_connection') {
-      if (!wppBaseUrl || !wppApiKey) {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: 'Missing WPP secrets (WPP_BASE_URL, WPP_API_KEY)'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
       try {
-        const healthCheck = await fetch(`${wppBaseUrl}/health`, { 
-          headers: authHeaders() 
+        const wppSettings = await getWppSettings()
+        
+        if (!wppSettings.baseUrl || !wppSettings.apiKey) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            error: 'WPP settings not configured (missing Base URL or API Key)'
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const healthCheck = await fetch(`${wppSettings.baseUrl}/health`, { 
+          headers: authHeaders(wppSettings.apiKey) 
         });
         const isHealthy = healthCheck.ok;
         
@@ -83,6 +102,9 @@ serve(async (req) => {
     const { clientId, message, phoneNumber, fileUrl, fileName, session = 'default' } = payload as SendMessageRequest
     
     console.log('Sending WPP message:', { clientId, message, phoneNumber, fileUrl, fileName })
+
+    // Получаем настройки WPP
+    const wppSettings = await getWppSettings()
 
     // Получаем данные клиента
     const { data: client, error: clientError } = await supabase
@@ -109,9 +131,9 @@ serve(async (req) => {
 
     // Отправляем сообщение или файл
     if (fileUrl) {
-      wppResponse = await sendMediaMessage(to, fileUrl, message, fileName, session)
+      wppResponse = await sendMediaMessage(wppSettings, to, fileUrl, message, fileName, session)
     } else {
-      wppResponse = await sendTextMessage(to, message, session)
+      wppResponse = await sendTextMessage(wppSettings, to, message, session)
     }
 
     console.log('WPP response:', wppResponse)
@@ -173,14 +195,14 @@ serve(async (req) => {
   }
 })
 
-async function sendTextMessage(to: string, text: string, session: string): Promise<WPPResponse> {
-  const url = `${wppBaseUrl}/messages/text`
+async function sendTextMessage(wppSettings: any, to: string, text: string, session: string): Promise<WPPResponse> {
+  const url = `${wppSettings.baseUrl}/messages/text`
   
   console.log('Sending text message to:', to)
   
   const response = await fetch(url, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: authHeaders(wppSettings.apiKey),
     body: JSON.stringify({ to, text, session })
   })
 
@@ -194,19 +216,20 @@ async function sendTextMessage(to: string, text: string, session: string): Promi
 }
 
 async function sendMediaMessage(
+  wppSettings: any,
   to: string, 
   url: string, 
   caption?: string,
   fileName?: string,
   session?: string
 ): Promise<WPPResponse> {
-  const endpoint = `${wppBaseUrl}/messages/media`
+  const endpoint = `${wppSettings.baseUrl}/messages/media`
   
   console.log('Sending media message to:', to, 'File:', url)
   
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: authHeaders(wppSettings.apiKey),
     body: JSON.stringify({ 
       to, 
       url, 

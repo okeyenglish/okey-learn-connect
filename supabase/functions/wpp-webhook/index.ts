@@ -7,16 +7,30 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-wpp-signature',
 }
 
-const WEBHOOK_SECRET = Deno.env.get('WPP_WEBHOOK_SECRET')
-
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-function isValidSignature(signature: string, rawBody: string): boolean {
-  if (!WEBHOOK_SECRET) return true; // если не используем подпись
+// Получаем webhook secret из настроек
+async function getWebhookSecret(): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('messenger_settings')
+    .select('settings')
+    .eq('messenger_type', 'whatsapp')
+    .eq('provider', 'wpp')
+    .single()
   
-  const hmac = createHmac('sha256', WEBHOOK_SECRET);
+  if (error || !data) return null
+  
+  const settings = data.settings as any
+  return settings?.wppWebhookSecret || null
+}
+
+async function isValidSignature(signature: string, rawBody: string): Promise<boolean> {
+  const webhookSecret = await getWebhookSecret()
+  if (!webhookSecret) return true; // если не используем подпись
+  
+  const hmac = createHmac('sha256', webhookSecret);
   hmac.update(rawBody);
   const calculatedSignature = hmac.digest('hex');
   
@@ -36,7 +50,8 @@ serve(async (req) => {
     const rawBody = await req.text()
     const signature = req.headers.get('x-wpp-signature') || ''
     
-    if (!isValidSignature(signature, rawBody)) {
+    const validSignature = await isValidSignature(signature, rawBody)
+    if (!validSignature) {
       return new Response('Invalid signature', { status: 401, headers: corsHeaders })
     }
 

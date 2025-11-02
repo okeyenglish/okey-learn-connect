@@ -27,7 +27,10 @@ export const WhatsAppSettings: React.FC = () => {
     apiUrl: 'https://api.green-api.com',
     webhookUrl: '',
     isEnabled: false,
-    wppSession: 'default'
+    wppSession: 'default',
+    wppBaseUrl: '',
+    wppApiKey: '',
+    wppWebhookSecret: ''
   });
 
   const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'connected' | 'error'>('unknown');
@@ -49,7 +52,10 @@ export const WhatsAppSettings: React.FC = () => {
         apiUrl: data.apiUrl,
         webhookUrl: data.webhookUrl,
         isEnabled: data.isEnabled,
-        wppSession: data.wppSession || 'default'
+        wppSession: data.wppSession || 'default',
+        wppBaseUrl: data.wppBaseUrl || '',
+        wppApiKey: data.wppApiKey || '',
+        wppWebhookSecret: data.wppWebhookSecret || ''
       });
     }
     
@@ -181,6 +187,35 @@ export const WhatsAppSettings: React.FC = () => {
                     Имя сессии для подключения WhatsApp
                   </p>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="wppBaseUrl">WPP Base URL</Label>
+                  <Input
+                    id="wppBaseUrl"
+                    value={settings.wppBaseUrl}
+                    onChange={(e) => handleInputChange('wppBaseUrl', e.target.value)}
+                    placeholder="https://msg.academyos.ru"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="wppApiKey">WPP API Key</Label>
+                  <Input
+                    id="wppApiKey"
+                    type="password"
+                    value={settings.wppApiKey}
+                    onChange={(e) => handleInputChange('wppApiKey', e.target.value)}
+                    placeholder="Ваш API ключ"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="wppWebhookSecret">WPP Webhook Secret</Label>
+                  <Input
+                    id="wppWebhookSecret"
+                    type="password"
+                    value={settings.wppWebhookSecret}
+                    onChange={(e) => handleInputChange('wppWebhookSecret', e.target.value)}
+                    placeholder="Секретный ключ для webhook"
+                  />
+                </div>
               </>
             )}
           </div>
@@ -308,9 +343,9 @@ export const WhatsAppSettings: React.FC = () => {
                   1
                 </div>
                 <div>
-                  <h4 className="font-medium">Настройте секреты</h4>
+                  <h4 className="font-medium">Заполните настройки WPP</h4>
                   <p className="text-sm text-muted-foreground">
-                    Добавьте секреты WPP_BASE_URL, WPP_API_KEY и WPP_WEBHOOK_SECRET в настройках проекта
+                    Укажите URL вашего WPP сервера, API ключ и webhook secret в полях выше
                   </p>
                 </div>
               </div>
