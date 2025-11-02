@@ -1,7 +1,7 @@
 project_id = "kbojujfwtvmsgudumown"
 
 [functions.get-ai-provider]
-verify_jwt = true
+verify_jwt = false
 
 [functions.set-ai-provider]
 verify_jwt = true

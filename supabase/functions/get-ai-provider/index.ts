@@ -4,6 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 serve(async (req) => {
@@ -16,56 +17,45 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Получаем authorization header для определения пользователя
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Authorization required' }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 401 
-        }
-      );
+    // Пытаемся получить пользователя из токена (необязательно)
+    const authHeader = req.headers.get('authorization') || '';
+    let userId: string | null = null;
+
+    if (authHeader) {
+      try {
+        const token = authHeader.replace('Bearer ', '');
+        const userSupabase = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+          global: { headers: { Authorization: authHeader } }
+        });
+        const { data: { user } } = await userSupabase.auth.getUser(token);
+        userId = user?.id ?? null;
+      } catch (_e) {
+        userId = null;
+      }
     }
-
-    // Создаем клиент с токеном пользователя для получения user_id
-    const token = authHeader.replace('Bearer ', '');
-    const userSupabase = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    const { data: { user }, error: userError } = await userSupabase.auth.getUser(token);
-    
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid authorization' }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 401 
-        }
-      );
-    }
-
-    // Получаем organization_id пользователя
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('organization_id')
-      .eq('id', user.id)
-      .single();
 
     let providerData = 'gateway'; // default
 
-    if (profile?.organization_id) {
-      // Получаем настройку AI провайдера из БД
-      const { data: settingData } = await supabase
-        .from('system_settings')
-        .select('setting_value')
-        .eq('organization_id', profile.organization_id)
-        .eq('setting_key', 'ai_provider')
-        .maybeSingle();
+    if (userId) {
+      // Получаем organization_id пользователя
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', userId)
+        .single();
 
-      if (settingData?.setting_value) {
-        providerData = (settingData.setting_value as any).provider || 'gateway';
+      if (profile?.organization_id) {
+        // Получаем настройку AI провайдера из БД
+        const { data: settingData } = await supabase
+          .from('system_settings')
+          .select('setting_value')
+          .eq('organization_id', profile.organization_id)
+          .eq('setting_key', 'ai_provider')
+          .maybeSingle();
+
+        if (settingData?.setting_value) {
+          providerData = (settingData.setting_value as any).provider || 'gateway';
+        }
       }
     }
 
