@@ -7,6 +7,7 @@ import { TextbookManager } from "./TextbookManager";
 import { RoleManager } from "./RoleManager";
 import { UserPermissionsManager } from "./UserPermissionsManager";
 import { AdminCoursePricing } from "./AdminCoursePricing";
+import { AIProviderSettings } from "./AIProviderSettings";
 import ReferencesSection from "@/components/references/ReferencesSection";
 import { FamilyGroupsCleanup } from "./FamilyGroupsCleanup";
 import { FamilyMembersManager } from "./FamilyMembersManager";
@@ -69,6 +70,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <SLAMonitoringDashboard />;
       case "event-bus":
         return <EventBusMonitor />;
+      case "ai-settings":
+        return <AIProviderSettings />;
       case "sync":
         return (
           <Card>
@@ -200,6 +203,14 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 <CardHeader>
                   <CardTitle>Event Bus Monitor</CardTitle>
                   <CardDescription>Monitor system events and processing</CardDescription>
+                </CardHeader>
+              </Card>
+              
+              {/* AI Settings */}
+              <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("ai-settings")}>
+                <CardHeader>
+                  <CardTitle>AI Settings</CardTitle>
+                  <CardDescription>Configure AI provider (Lovable Gateway or Vertex AI)</CardDescription>
                 </CardHeader>
               </Card>
               

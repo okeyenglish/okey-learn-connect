@@ -1,5 +1,11 @@
 project_id = "kbojujfwtvmsgudumown"
 
+[functions.get-ai-provider]
+verify_jwt = true
+
+[functions.set-ai-provider]
+verify_jwt = true
+
 [functions.test-vertex-ai]
 verify_jwt = true
 

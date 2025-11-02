@@ -46,6 +46,7 @@ const adminItems = [
   { title: "Компенсация платежей", id: "compensation", icon: RotateCcw },
   { title: "SLA мониторинг", id: "sla-monitoring", icon: Activity },
   { title: "Event Bus", id: "event-bus", icon: Zap },
+  { title: "AI Settings", id: "ai-settings", icon: Zap },
   { title: "Sync", id: "sync", icon: RefreshCw },
   { title: "Users", id: "users", icon: Users },
   { title: "Settings", id: "settings", icon: Settings },

@@ -5602,6 +5602,44 @@ export type Database = {
           },
         ]
       }
+      system_settings: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          organization_id: string | null
+          setting_key: string
+          setting_value: Json
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          organization_id?: string | null
+          setting_key: string
+          setting_value: Json
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          organization_id?: string | null
+          setting_key?: string
+          setting_value?: Json
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           branch: string | null
@@ -6679,6 +6717,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      get_ai_provider_setting: { Args: never; Returns: string }
       get_campaign_recipients: {
         Args: { p_filters: Json; p_target_audience: string }
         Returns: {

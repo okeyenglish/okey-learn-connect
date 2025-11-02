@@ -394,9 +394,11 @@ export class VertexAdapter implements AIAdapter {
 
 /**
  * Factory function to create AI adapter based on environment
+ * Checks database setting first, then falls back to ENV variable
  */
 export function createAIAdapter(config?: Partial<AIAdapterConfig>): AIAdapter {
-  const provider = (Deno.env.get('AI_PROVIDER') || config?.provider || 'gateway') as AIProvider;
+  // Priority: explicit config > ENV > database (will be checked in edge functions)
+  const provider = (config?.provider || Deno.env.get('AI_PROVIDER') || 'gateway') as AIProvider;
 
   switch (provider) {
     case 'gateway': {
@@ -424,5 +426,23 @@ export function createAIAdapter(config?: Partial<AIAdapterConfig>): AIAdapter {
     
     default:
       throw new Error(`Unknown AI provider: ${provider}`);
+  }
+}
+
+/**
+ * Helper function to get AI provider from database
+ * Should be called from edge functions before creating adapter
+ */
+export async function getProviderFromDatabase(supabase: any): Promise<AIProvider> {
+  try {
+    const { data, error } = await supabase.rpc('get_ai_provider_setting');
+    if (error) {
+      console.error('Error getting AI provider from DB:', error);
+      return 'gateway'; // fallback
+    }
+    return (data || 'gateway') as AIProvider;
+  } catch (e) {
+    console.error('Failed to get provider from database:', e);
+    return 'gateway'; // fallback
   }
 }
