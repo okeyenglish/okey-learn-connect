@@ -118,18 +118,22 @@ export const WhatsAppSettings: React.FC = () => {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="provider">Провайдер</Label>
-            <Select 
-              value={settings.provider} 
-              onValueChange={(value) => handleInputChange('provider', value)}
-            >
-              <SelectTrigger id="provider">
-                <SelectValue placeholder="Выберите провайдера" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="greenapi">Green-API</SelectItem>
-                <SelectItem value="wpp">WPP (msg.academyos.ru)</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2" role="group" aria-label="Выбор провайдера WhatsApp">
+              <Button
+                type="button"
+                variant={settings.provider === 'greenapi' ? 'default' : 'outline'}
+                onClick={() => handleInputChange('provider', 'greenapi')}
+              >
+                Green-API
+              </Button>
+              <Button
+                type="button"
+                variant={settings.provider === 'wpp' ? 'default' : 'outline'}
+                onClick={() => handleInputChange('provider', 'wpp')}
+              >
+                WPP (msg.academyos.ru)
+              </Button>
+            </div>
             <p className="text-sm text-muted-foreground">
               {settings.provider === 'greenapi' 
                 ? 'Green-API - официальный провайдер WhatsApp Business API' 
