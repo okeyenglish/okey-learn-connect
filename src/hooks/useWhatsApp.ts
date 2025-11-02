@@ -166,12 +166,15 @@ export const useWhatsApp = () => {
     }
   }, [toast]);
 
-  const testConnection = useCallback(async () => {
+  const testConnection = useCallback(async (providerOverride?: 'greenapi' | 'wpp') => {
     setLoading(true);
     try {
-      // Получаем настройки для определения провайдера
-      const settings = await getMessengerSettings();
-      const provider = settings?.provider || 'greenapi';
+      // Используем выбранного в UI провайдера, если передан; иначе читаем из БД
+      let provider: 'greenapi' | 'wpp' = providerOverride || 'greenapi';
+      if (!providerOverride) {
+        const dbSettings = await getMessengerSettings();
+        provider = (dbSettings?.provider || 'greenapi') as 'greenapi' | 'wpp';
+      }
       const functionName = provider === 'wpp' ? 'wpp-send' : 'whatsapp-send';
 
       // Проверяем состояние инстанса через edge функцию

@@ -174,3 +174,9 @@ verify_jwt = true
 [functions.homework-suggestions]
 verify_jwt = true
 
+# New WPP functions
+[functions.wpp-send]
+verify_jwt = true
+
+[functions.wpp-webhook]
+verify_jwt = false

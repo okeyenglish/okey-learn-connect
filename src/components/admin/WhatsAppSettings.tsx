@@ -75,7 +75,7 @@ export const WhatsAppSettings: React.FC = () => {
   };
 
   const handleTest = async () => {
-    const result = await testConnection();
+    const result = await testConnection(settings.provider as 'greenapi' | 'wpp');
     setConnectionStatus(result ? 'connected' : 'error');
   };
 
@@ -206,7 +206,9 @@ export const WhatsAppSettings: React.FC = () => {
               placeholder="https://your-project.supabase.co/functions/v1/whatsapp-webhook"
             />
             <p className="text-sm text-muted-foreground">
-              Скопируйте этот URL в настройки вашего инстанса Green-API
+              {settings.provider === 'greenapi' 
+                ? 'Скопируйте этот URL в настройки вашего инстанса Green‑API'
+                : 'Скопируйте этот URL в настройки вашего сервера WPP'}
             </p>
           </div>
 
