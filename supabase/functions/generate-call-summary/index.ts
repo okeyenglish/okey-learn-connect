@@ -1,4 +1,3 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
@@ -19,9 +18,9 @@ serve(async (req) => {
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
-    if (!supabaseUrl || !supabaseServiceKey || !openAIApiKey) {
+    if (!supabaseUrl || !supabaseServiceKey || !LOVABLE_API_KEY) {
       console.error('Missing environment variables');
       return new Response(
         JSON.stringify({ error: 'Configuration error' }),
@@ -82,14 +81,14 @@ serve(async (req) => {
 
 Создай профессиональное резюме звонка длиной 2-3 предложения, которое поможет менеджеру быстро понять суть звонка.`;
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: 'google/gemini-2.5-flash',
           messages: [
             {
               role: 'system',
@@ -100,13 +99,19 @@ serve(async (req) => {
               content: prompt
             }
           ],
-          max_tokens: 200,
-          temperature: 0.7
+          max_completion_tokens: 200,
         }),
       });
 
       if (!response.ok) {
-        console.error('OpenAI API error:', response.status, response.statusText);
+        console.error('AI Gateway error:', response.status, response.statusText);
+        
+        if (response.status === 429) {
+          throw new Error('Превышен лимит запросов к AI. Попробуйте позже.');
+        } else if (response.status === 402) {
+          throw new Error('Недостаточно средств на балансе Lovable AI.');
+        }
+        
         throw new Error('Failed to generate summary');
       }
 

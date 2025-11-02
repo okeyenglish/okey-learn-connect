@@ -1,5 +1,8 @@
 project_id = "kbojujfwtvmsgudumown"
 
+[functions.generate-image]
+verify_jwt = true
+
 [functions.admin-reset-password]
 verify_jwt = true
 

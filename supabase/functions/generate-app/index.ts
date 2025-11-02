@@ -1,8 +1,7 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -163,10 +162,10 @@ window.__GAME_META = {
 Ответьте ТОЛЬКО готовым HTML кодом, без markdown блоков.`;
 
 async function getEmbedding(text: string): Promise<number[]> {
-  const response = await fetch('https://api.openai.com/v1/embeddings', {
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${openAIApiKey}`,
+      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -208,10 +207,10 @@ serve(async (req) => {
       );
     }
 
-    if (!openAIApiKey) {
-      console.error('OPENAI_API_KEY not configured');
+    if (!LOVABLE_API_KEY) {
+      console.error('LOVABLE_API_KEY not configured');
       return new Response(
-        JSON.stringify({ error: 'OPENAI_API_KEY is not configured' }),
+        JSON.stringify({ error: 'LOVABLE_API_KEY is not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -296,29 +295,41 @@ ${prompt.features ? prompt.features.map((f: string) => `- ${f}`).join('\n') : ''
 Сделайте приложение интересным, интерактивным и полезным для практики английского языка.
 `;
 
-    console.log('Calling OpenAI API...');
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    console.log('Calling Lovable AI Gateway (Gemini)...');
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: GENERATION_SYSTEM },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.7,
-        max_tokens: 4000
+        max_completion_tokens: 4000
       })
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error:', response.status, errorText);
+      console.error('AI Gateway error:', response.status, errorText);
+      
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Превышен лимит запросов к AI. Попробуйте позже.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: 'Недостаточно средств на балансе Lovable AI.' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       return new Response(
-        JSON.stringify({ error: `OpenAI API error: ${response.status}` }),
+        JSON.stringify({ error: `AI Gateway error: ${response.status}` }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -405,7 +416,7 @@ ${prompt.features ? prompt.features.map((f: string) => `- ${f}`).join('\n') : ''
         app_id: appData.id,
         version,
         prompt,
-        model: 'gpt-4o',
+        model: 'google/gemini-2.5-flash',
         artifact_path: fileName,
         preview_url: urlData.publicUrl,
         meta

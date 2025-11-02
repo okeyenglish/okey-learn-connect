@@ -1,8 +1,7 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -77,10 +76,10 @@ const MASTER_SYSTEM = `Вы — продакт-дизайнер и генера�
 ВАЖНО: Отвечайте ТОЛЬКО валидным JSON, без дополнительного текста.`;
 
 async function getEmbedding(text: string): Promise<number[]> {
-  const response = await fetch('https://api.openai.com/v1/embeddings', {
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${openAIApiKey}`,
+      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -133,22 +132,43 @@ serve(async (req) => {
       ? `Brief: ${brief}\nAnswers: ${JSON.stringify(answers)}`
       : `Brief: ${brief}`;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: MASTER_SYSTEM },
           { role: 'user', content: userMessage }
         ],
-        temperature: 0.2,
-        max_tokens: 1000
+        max_completion_tokens: 1000
       })
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('AI Gateway error:', errorText);
+      
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: 'Превышен лимит запросов к AI. Попробуйте позже.' }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } else if (response.status === 402) {
+        return new Response(JSON.stringify({ error: 'Недостаточно средств на балансе Lovable AI.' }), {
+          status: 402,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      return new Response(JSON.stringify({ error: errorText }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const aiData = await response.json();
     const content = aiData.choices[0].message?.content || '{}';
