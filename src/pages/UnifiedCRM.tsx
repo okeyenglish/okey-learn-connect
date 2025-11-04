@@ -24,6 +24,7 @@ const EmployeesSection = lazy(() => import('@/components/employees/EmployeesSect
 const Sheets = lazy(() => import('./Sheets'));
 const EventBusMonitor = lazy(() => import('./EventBusMonitor'));
 const MultitenancyTest = lazy(() => import('./MultitenancyTest'));
+const WhatsAppSessions = lazy(() => import('./WhatsAppSessions'));
 
 const LoadingComponent = () => (
   <div className="flex items-center justify-center min-h-[400px]">
@@ -263,6 +264,18 @@ export default function UnifiedCRM() {
                 <ProtectedRoute allowedRoles={['admin']}>
                   <Suspense fallback={<LoadingComponent />}>
                     <MultitenancyTest />
+                  </Suspense>
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* WhatsApp Sessions Management */}
+            <Route 
+              path="/whatsapp-sessions" 
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <Suspense fallback={<LoadingComponent />}>
+                    <WhatsAppSessions />
                   </Suspense>
                 </ProtectedRoute>
               } 
