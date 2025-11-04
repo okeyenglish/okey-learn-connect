@@ -67,6 +67,7 @@ const PaymentSystemTest = lazy(() => import('./pages/PaymentSystemTest'));
 const BalanceSystemTest = lazy(() => import('./pages/BalanceSystemTest'));
 const TeacherPortalTest = lazy(() => import('./pages/TeacherPortalTest'));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const WhatsAppSessions = lazy(() => import("./pages/WhatsAppSessions"));
 
 // Loading component for better UX
 const LoadingComponent = () => (
@@ -403,6 +404,13 @@ const AppContent = () => {
             <ProtectedRoute allowedRoles={['admin']}>
               <Suspense fallback={<LoadingComponent />}>
                 <TeacherPortalTest />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/whatsapp-sessions" element={
+            <ProtectedRoute allowedRoles={['admin', 'manager', 'methodist']}>
+              <Suspense fallback={<LoadingComponent />}>
+                <WhatsAppSessions />
               </Suspense>
             </ProtectedRoute>
           } />

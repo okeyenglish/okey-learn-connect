@@ -78,6 +78,7 @@ import {
   Phone,
   MessageCircle,
   MessageCirclePlus,
+  MessageSquare,
   Pin,
   Building2,
   ChevronDown,
@@ -589,6 +590,12 @@ const CRMContent = () => {
   };
 
   const handleMenuClick = (action: string) => {
+    // Special handling for WhatsApp sessions
+    if (action === "WhatsApp") {
+      navigate('/whatsapp-sessions');
+      return;
+    }
+    
     // Special handling for education modules
     if (action === "Обучение") {
       setShowEducationSubmenu(true);
@@ -1291,6 +1298,7 @@ const CRMContent = () => {
     { icon: DollarSign, label: "Финансы" },
     { icon: BarChart3, label: "Отчёты" },
     { icon: MessageCircle, label: "Уведомления" },
+    { icon: MessageSquare, label: "WhatsApp" },
     { icon: Settings, label: "Настройки" },
     ...(canAccessAdmin ? [{ icon: Shield, label: "Админ-панель" }] : []),
   ];
