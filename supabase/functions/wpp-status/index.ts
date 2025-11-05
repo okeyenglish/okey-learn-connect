@@ -350,19 +350,23 @@ serve(async (req) => {
     }
 
     // Check for cached QR in DB
-    const { data: cachedSession } = await supabase
+    const { data: cachedSession, error: cacheError } = await supabase
       .from('whatsapp_sessions')
-      .select('qr_code, updated_at')
+      .select('last_qr_b64, last_qr_at, updated_at')
       .eq('organization_id', profile.organization_id)
       .single();
 
-    if (cachedSession?.qr_code) {
-      const updatedAt = new Date(cachedSession.updated_at);
-      const ageSeconds = (Date.now() - updatedAt.getTime()) / 1000;
+    if (cacheError) {
+      console.warn('[wpp-status] Error reading cached QR:', cacheError.message);
+    }
+
+    if (cachedSession?.last_qr_b64 && cachedSession?.last_qr_at) {
+      const qrGeneratedAt = new Date(cachedSession.last_qr_at);
+      const ageSeconds = (Date.now() - qrGeneratedAt.getTime()) / 1000;
       if (ageSeconds < 40) {
-        console.info('[wpp-status] Using cached QR');
+        console.info('[wpp-status] Using cached QR (age: ' + ageSeconds.toFixed(1) + 's)');
         return new Response(
-          JSON.stringify({ ok: true, status: 'qr_issued', qrcode: cachedSession.qr_code }),
+          JSON.stringify({ ok: true, status: 'qr_issued', qrcode: cachedSession.last_qr_b64 }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -375,15 +379,20 @@ serve(async (req) => {
     const qr = await pollForQR(sessionName, wppToken);
 
     if (qr) {
-      await supabase
+      const { error: upsertError } = await supabase
         .from('whatsapp_sessions')
         .upsert({
           organization_id: profile.organization_id,
           session_name: sessionName,
           status: 'qr_issued',
-          qr_code: qr,
+          last_qr_b64: qr,
+          last_qr_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         });
+
+      if (upsertError) {
+        console.error('[wpp-status] Error saving QR to DB:', upsertError.message);
+      }
 
       console.info('[wpp-status] Final status: qr_issued');
       return new Response(
@@ -393,7 +402,7 @@ serve(async (req) => {
     }
 
     // No QR yet - return pending
-    await supabase
+    const { error: pendingError } = await supabase
       .from('whatsapp_sessions')
       .upsert({
         organization_id: profile.organization_id,
@@ -401,6 +410,10 @@ serve(async (req) => {
         status: 'qr_pending',
         updated_at: new Date().toISOString(),
       });
+
+    if (pendingError) {
+      console.error('[wpp-status] Error updating status to qr_pending:', pendingError.message);
+    }
 
     console.info('[wpp-status] Final status: qr_pending');
     return new Response(

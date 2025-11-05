@@ -79,9 +79,39 @@ export function WhatsAppConnector() {
       }
 
       setStatus(data.status);
-      setQr(data.qrcode || null);
+      let qrCode = data.qrcode || null;
 
-      if (data.qrcode) {
+      // Fallback: check DB for recent QR if not in response
+      if (!qrCode && data.status !== 'connected') {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('organization_id')
+            .eq('id', user.id)
+            .single();
+
+          if (profile?.organization_id) {
+            const { data: sessionData } = await supabase
+              .from('whatsapp_sessions')
+              .select('last_qr_b64, last_qr_at')
+              .eq('organization_id', profile.organization_id)
+              .single();
+
+            if (sessionData?.last_qr_b64 && sessionData?.last_qr_at) {
+              const qrAge = (Date.now() - new Date(sessionData.last_qr_at).getTime()) / 1000;
+              if (qrAge < 45) {
+                qrCode = sessionData.last_qr_b64;
+                console.log('Using QR from DB (age: ' + qrAge.toFixed(1) + 's)');
+              }
+            }
+          }
+        }
+      }
+
+      setQr(qrCode);
+
+      if (qrCode) {
         toast({
           title: "Успешно",
           description: "QR-код для подключения сгенерирован",

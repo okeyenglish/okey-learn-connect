@@ -335,10 +335,10 @@ const WhatsAppSessions = () => {
     try {
       toast({
         title: "Переподключение...",
-        description: "Запуск сессии...",
+        description: "Запуск новой сессии WhatsApp...",
       });
 
-      const { data, error } = await supabase.functions.invoke('wpp-status');
+      const { data, error } = await supabase.functions.invoke('wpp-start');
 
       if (error) {
         const anyErr: any = error as any;
@@ -346,20 +346,30 @@ const WhatsAppSessions = () => {
         const bodySnippet = anyErr?.context?.body ? `\n${String(anyErr.context.body).slice(0, 200)}` : '';
         toast({
           title: "Ошибка",
-          description: `${anyErr?.message || 'Не удалось переподключить сессию'}${status}${bodySnippet}`,
+          description: `${anyErr?.message || 'Не удалось запустить сессию'}${status}${bodySnippet}`,
           variant: "destructive",
         });
         throw error;
       }
 
-      if (data?.qrcode) {
+      await fetchSessions();
+
+      // Check if we have QR in response or in DB
+      const session = sessions.find(s => s.session_name === sessionName);
+      const qrToShow = data?.qrcode || session?.last_qr_b64;
+
+      if (qrToShow) {
         setQrDialog({ 
           open: true, 
-          qr: data.qrcode, 
+          qr: qrToShow, 
           sessionName,
           isPolling: true 
         });
         startStatusPolling(sessionName);
+        toast({
+          title: "✅ QR получен",
+          description: "Отсканируйте QR-код в WhatsApp",
+        });
       } else if (data?.status === 'connected') {
         toast({
           title: "✅ Уже подключено",
@@ -367,16 +377,12 @@ const WhatsAppSessions = () => {
         });
       } else {
         toast({
-          title: "Нет QR кода",
-          description: "Сервер не вернул QR. Попробуйте еще раз или проверьте логи.",
-          variant: "destructive",
+          title: "Ожидание QR",
+          description: "QR код генерируется, проверьте статус через несколько секунд",
         });
       }
-
-      await fetchSessions();
     } catch (error: any) {
       console.error('Error reconnecting:', error);
-      // already toasted above, but keep a fallback
       if (!error?.context) {
         toast({
           title: "Ошибка",
