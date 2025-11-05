@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
     const organizationId = profile.organization_id;
     const sessionName = `org_${organizationId}`;
     
-    const WPP_HOST = Deno.env.get('WPP_HOST') || 'https://msg.academyos.ru';
+    let WPP_HOST = Deno.env.get('WPP_HOST') || 'https://msg.academyos.ru';
     const WPP_SECRET = Deno.env.get('WPP_SECRET');
     const PUBLIC_URL = Deno.env.get('SUPABASE_URL')?.replace('/rest/v1', '');
 
@@ -60,6 +60,12 @@ Deno.serve(async (req) => {
     }
     if (!WPP_HOST) {
       throw new Error('WPP_HOST is not configured');
+    }
+
+    // Ensure WPP_HOST has a protocol
+    if (!WPP_HOST.startsWith('http://') && !WPP_HOST.startsWith('https://')) {
+      WPP_HOST = `http://${WPP_HOST}`;
+      console.log('Added http:// protocol to WPP_HOST:', WPP_HOST);
     }
 
     // Generate token for this session
