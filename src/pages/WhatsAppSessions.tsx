@@ -107,28 +107,7 @@ const WhatsAppSessions = () => {
       })) || [];
 
       console.log('[fetchSessions] Loaded sessions:', formattedSessions.map(s => ({ name: s.session_name, status: s.status })));
-
-      // Cross-check live status via edge function to avoid stale DB values
-      try {
-        const checks = await Promise.all(
-          formattedSessions.map(async (s) => {
-            const { data: live } = await supabase.functions.invoke('wpp-status', {
-              body: { session_name: s.session_name },
-            });
-            return { name: s.session_name, status: live?.status as WhatsAppSession['status'] | undefined };
-          })
-        );
-        const merged = formattedSessions.map(s => {
-          const live = checks.find(c => c.name === s.session_name);
-          return live?.status && live.status !== s.status
-            ? { ...s, status: live.status }
-            : s;
-        });
-        setSessions(merged);
-      } catch (e) {
-        // If live check fails, fall back to DB values
-        setSessions(formattedSessions);
-      }
+      setSessions(formattedSessions);
     } catch (error: any) {
       console.error('Error fetching sessions:', error);
       toast({
@@ -157,33 +136,40 @@ const WhatsAppSessions = () => {
         (payload) => {
           console.log('[Real-time] Update received:', payload);
           
-          // Refetch sessions when any change occurs
-          fetchSessions();
-          
-          // Show toast notification only for major events (but not during polling)
-          const eventType = payload.eventType;
-          const newStatus = (payload.new as any)?.status;
-          const oldStatus = (payload.old as any)?.status;
-          const sessionName = (payload.new as any)?.session_name || (payload.old as any)?.session_name;
-          
-          if (eventType === 'INSERT') {
+          if (payload.eventType === 'INSERT') {
+            const newRow: any = payload.new;
+            // Add new session to the list if not already present
+            setSessions(prev => {
+              const exists = prev.some(s => s.session_name === newRow.session_name);
+              if (exists) return prev;
+              return [{
+                id: newRow.id,
+                session_name: newRow.session_name,
+                status: newRow.status,
+                organization_id: newRow.organization_id,
+                created_at: newRow.created_at,
+                updated_at: newRow.updated_at,
+                last_qr_b64: newRow.last_qr_b64,
+                last_qr_at: newRow.last_qr_at,
+              }, ...prev];
+            });
             toast({
               title: "Новая сессия",
-              description: `Создана сессия: ${sessionName}`,
+              description: `Создана сессия: ${newRow.session_name}`,
             });
-          } else if (eventType === 'UPDATE' && newStatus === 'connected' && oldStatus !== 'connected') {
-            // Only show toast when status changes TO connected AND dialog is not open (not during polling)
-            if (!qrDialogOpenRef.current) {
-              console.log('[Real-time] Session connected:', sessionName);
-              toast({
-                title: "✅ Сессия подключена",
-                description: `${sessionName} теперь активна`,
-              });
-            }
-          } else if (eventType === 'DELETE') {
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedRow: any = payload.new;
+            setSessions(prev => prev.map(s =>
+              s.session_name === updatedRow.session_name
+                ? { ...s, ...updatedRow }
+                : s
+            ));
+          } else if (payload.eventType === 'DELETE') {
+            const deletedRow: any = payload.old;
+            setSessions(prev => prev.filter(s => s.session_name !== deletedRow.session_name));
             toast({
               title: "Сессия удалена",
-              description: `Сессия ${sessionName} была удалена`,
+              description: `Сессия ${deletedRow.session_name} была удалена`,
             });
           }
         }
@@ -308,6 +294,20 @@ const WhatsAppSessions = () => {
       // Handle different response scenarios
       if (data?.qrcode && data?.session_name) {
         console.log('[createNewSession] QR received, opening dialog');
+        
+        // Optimistically add to list immediately with qr_issued status
+        const newSession: WhatsAppSession = {
+          id: crypto.randomUUID(),
+          session_name: data.session_name,
+          status: 'qr_issued',
+          organization_id: profile.organization_id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          last_qr_b64: data.qrcode,
+          last_qr_at: new Date().toISOString(),
+        };
+        setSessions(prev => [newSession, ...prev]);
+        
         setQrDialog({ 
           open: true, 
           qr: data.qrcode, 
@@ -349,6 +349,24 @@ const WhatsAppSessions = () => {
 
         if (statusData?.qrcode) {
           console.log('[createNewSession] Got QR from status check');
+          
+          // Optimistically add to list
+          const newSession: WhatsAppSession = {
+            id: crypto.randomUUID(),
+            session_name: data.session_name,
+            status: 'qr_issued',
+            organization_id: profile.organization_id,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            last_qr_b64: statusData.qrcode,
+            last_qr_at: new Date().toISOString(),
+          };
+          setSessions(prev => {
+            // Check if already exists to avoid duplicates
+            const exists = prev.some(s => s.session_name === data.session_name);
+            return exists ? prev : [newSession, ...prev];
+          });
+          
           setQrDialog({ 
             open: true, 
             qr: statusData.qrcode, 
