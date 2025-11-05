@@ -107,7 +107,28 @@ const WhatsAppSessions = () => {
       })) || [];
 
       console.log('[fetchSessions] Loaded sessions:', formattedSessions.map(s => ({ name: s.session_name, status: s.status })));
-      setSessions(formattedSessions);
+
+      // Cross-check live status via edge function to avoid stale DB values
+      try {
+        const checks = await Promise.all(
+          formattedSessions.map(async (s) => {
+            const { data: live } = await supabase.functions.invoke('wpp-status', {
+              body: { session_name: s.session_name },
+            });
+            return { name: s.session_name, status: live?.status as WhatsAppSession['status'] | undefined };
+          })
+        );
+        const merged = formattedSessions.map(s => {
+          const live = checks.find(c => c.name === s.session_name);
+          return live?.status && live.status !== s.status
+            ? { ...s, status: live.status }
+            : s;
+        });
+        setSessions(merged);
+      } catch (e) {
+        // If live check fails, fall back to DB values
+        setSessions(formattedSessions);
+      }
     } catch (error: any) {
       console.error('Error fetching sessions:', error);
       toast({
@@ -208,6 +229,14 @@ const WhatsAppSessions = () => {
   };
 
   const showQrCode = (session: WhatsAppSession) => {
+    if (session.status === 'connected') {
+      toast({
+        title: "✅ Уже подключено",
+        description: "Сессия активна, QR не требуется",
+      });
+      return;
+    }
+
     if (session.last_qr_b64) {
       setQrDialog({ 
         open: true, 
@@ -292,6 +321,14 @@ const WhatsAppSessions = () => {
         });
       } else if (data?.status === 'connected' && data?.session_name) {
         console.log('[createNewSession] Session already connected');
+        // Optimistically add/update the session as connected
+        setSessions(prev => {
+          const exists = prev.some(s => s.session_name === data.session_name);
+          const next = exists
+            ? prev.map(s => s.session_name === data.session_name ? { ...s, status: 'connected', last_qr_b64: undefined, last_qr_at: undefined } : s)
+            : [{ id: crypto.randomUUID(), session_name: data.session_name, status: 'connected', organization_id: prev[0]?.organization_id || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as any, ...prev];
+          return next;
+        });
         toast({
           title: "✅ Сессия активна",
           description: "Новая сессия успешно создана и подключена",
@@ -476,6 +513,13 @@ const WhatsAppSessions = () => {
           
           // Close dialog immediately
           setQrDialog({ open: false, isPolling: false });
+
+          // Optimistically update list
+          setSessions(prev => prev.map(s =>
+            s.session_name === sessionName
+              ? { ...s, status: 'connected', last_qr_b64: undefined, last_qr_at: undefined }
+              : s
+          ));
           
           // Force multiple updates to ensure fresh data
           await fetchSessions();
@@ -556,6 +600,12 @@ const WhatsAppSessions = () => {
           description: "Отсканируйте QR-код в WhatsApp",
         });
       } else if (statusData?.status === 'connected') {
+        // Optimistic update
+        setSessions(prev => prev.map(s =>
+          s.session_name === sessionName
+            ? { ...s, status: 'connected', last_qr_b64: undefined, last_qr_at: undefined }
+            : s
+        ));
         toast({
           title: "✅ Уже подключено",
           description: "Сессия уже активна",
