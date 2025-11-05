@@ -1,17 +1,9 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
-
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-const WPP_HOST = Deno.env.get('WPP_HOST') || 'https://msg.academyos.ru'
-const WPP_SECRET = Deno.env.get('WPP_SECRET')!
 
 // Generate WPP token for session
 async function generateWppToken(sessionName: string): Promise<string> {
@@ -58,12 +50,24 @@ interface WPPResponse {
   message?: string
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    const WPP_HOST = Deno.env.get('WPP_HOST') || 'https://msg.academyos.ru'
+    const WPP_SECRET = Deno.env.get('WPP_SECRET')
+    
+    if (!WPP_SECRET) {
+      throw new Error('WPP_SECRET is not configured')
+    }
+
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
