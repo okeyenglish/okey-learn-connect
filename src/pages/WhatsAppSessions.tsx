@@ -53,6 +53,25 @@ const WhatsAppSessions = () => {
   const fetchSessions = async () => {
     try {
       setLoading(true);
+      
+      // Get current user's organization_id
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Пользователь не авторизован');
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) throw profileError;
+      if (!profile?.organization_id) {
+        throw new Error('Организация не найдена');
+      }
+
+      // Fetch sessions only for user's organization
       const { data, error } = await supabase
         .from('whatsapp_sessions')
         .select(`
@@ -66,6 +85,7 @@ const WhatsAppSessions = () => {
           last_qr_at,
           organizations(name)
         `)
+        .eq('organization_id', profile.organization_id)
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
@@ -80,7 +100,7 @@ const WhatsAppSessions = () => {
       console.error('Error fetching sessions:', error);
       toast({
         title: "Ошибка",
-        description: "Не удалось загрузить сессии",
+        description: error.message || "Не удалось загрузить сессии",
         variant: "destructive",
       });
     } finally {
