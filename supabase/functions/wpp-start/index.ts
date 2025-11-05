@@ -5,145 +5,60 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Utilities
 const BASE = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru';
-const SECRET = Deno.env.get('WPP_SECRET')!;
-const TIMEOUT = Number(Deno.env.get('WPP_TIMEOUT_MS') || '120000');
+const SECRET = Deno.env.get('WPP_SECRET') || '';
+const TIMEOUT = 30000;
+
+console.log('[wpp-start] Configuration:', {
+  BASE,
+  SECRET: SECRET ? `${SECRET.substring(0, 4)}***${SECRET.slice(-4)}` : 'MISSING'
+});
 
 function maskSecret(s?: string) {
-  if (!s) return '';
-  if (s.length <= 8) return '***';
-  return s.slice(0, 4) + '***' + s.slice(-4);
+  if (!s || s.length < 8) return '***';
+  return `${s.substring(0, 4)}***${s.slice(-4)}`;
 }
 
-function withTimeout<T>(p: Promise<T>, ms = TIMEOUT) {
+async function withTimeout<T>(promise: Promise<T>, ms = TIMEOUT): Promise<T> {
   return Promise.race([
-    p,
-    new Promise<never>((_, rej) => setTimeout(() => rej(new Error(`timeout ${ms}ms`)), ms)),
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms)
+    )
   ]);
 }
 
-async function http(
-  url: string,
-  init: RequestInit = {},
-  opts?: { expectJson?: boolean; redact?: string[] }
-) {
-  const start = Date.now();
-  const expectJson = opts?.expectJson ?? true;
-  const redact = opts?.redact ?? [];
-
-  const req = new Request(url, init);
-  const res = await withTimeout(fetch(req));
-  const ct = res.headers.get('content-type') || '';
-  const text = await res.text();
-
-  const logUrl = redact.reduce((u, r) => u.replaceAll(r, '***'), url);
-  console.log(
-    `[wpp:http] ${req.method || 'GET'} ${logUrl} -> ${res.status} ${ct} ` +
-      `(${Date.now() - start}ms) body[${text.length}]`
-  );
-
-  if (!res.ok) {
-    return { ok: false, status: res.status, headers: res.headers, bodyText: text };
-  }
-
-  if (expectJson && ct.includes('application/json')) {
-    try {
-      return { ok: true, status: res.status, headers: res.headers, json: JSON.parse(text) };
-    } catch {
-      return { ok: true, status: res.status, headers: res.headers, bodyText: text };
-    }
-  }
-  return { ok: true, status: res.status, headers: res.headers, bodyText: text };
-}
-
-async function getBearerToken(session: string): Promise<string | null> {
-  // 1) POST with body
-  {
-    const r = await http(
-      `${BASE}/api/${encodeURIComponent(session)}/generate-token`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ secretKey: SECRET }),
-      },
-      { expectJson: true, redact: [SECRET] }
-    );
-    if (r.ok) {
-      if ((r as any).json?.token) return (r as any).json.token as string;
-      if ((r as any).bodyText && (r as any).bodyText.trim().length > 0) {
-        return (r as any).bodyText.trim();
-      }
-    }
-  }
-  // 2) GET with query
-  {
-    const r = await http(
-      `${BASE}/api/${encodeURIComponent(session)}/generate-token?secretKey=${encodeURIComponent(SECRET)}`,
-      { method: 'GET' },
-      { expectJson: true, redact: [SECRET] }
-    );
-    if (r.ok) {
-      if ((r as any).json?.token) return (r as any).json.token as string;
-      if ((r as any).bodyText && (r as any).bodyText.trim().length > 0) {
-        return (r as any).bodyText.trim();
-      }
-    }
-  }
-  // 3) Path variant
-  {
-    const r = await http(
-      `${BASE}/api/${encodeURIComponent(session)}/${encodeURIComponent(SECRET)}/generate-token`,
-      { method: 'POST' },
-      { expectJson: true, redact: [SECRET] }
-    );
-    if (r.ok) {
-      if ((r as any).json?.token) return (r as any).json.token as string;
-      if ((r as any).bodyText && (r as any).bodyText.trim().length > 0) {
-        return (r as any).bodyText.trim();
-      }
-    }
-  }
-
-  return null;
-}
-
-async function startViaBearer(session: string, token: string, body: unknown) {
-  return http(
-    `${BASE}/api/${encodeURIComponent(session)}/start-session`,
-    {
+async function generateToken(sessionName: string): Promise<string> {
+  const url = `${BASE}/api/${sessionName}/${SECRET}/generate-token`;
+  console.log('[wpp-start] POST', url.replace(SECRET, '***'));
+  
+  const res = await withTimeout(
+    fetch(url, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-    },
-    { expectJson: true }
+      headers: { 'Content-Type': 'application/json' }
+    })
   );
-}
 
-async function startViaSecretPath(session: string, body: unknown) {
-  return http(
-    `${BASE}/api/${encodeURIComponent(session)}/${encodeURIComponent(SECRET)}/start-session`,
-    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
-    { expectJson: true, redact: [SECRET] }
-  );
-}
-
-function normalizeStatus(payload: any) {
-  const s = (payload?.status || payload?.state || '').toString().toUpperCase();
-  const connected =
-    payload?.isConnected === true ||
-    s === 'CONNECTED' ||
-    s === 'OPEN' ||
-    s === 'READY';
-  return {
-    raw: payload,
-    status: s || (connected ? 'CONNECTED' : 'UNKNOWN'),
-    isConnected: connected,
-    qrcode: payload?.qrcode || payload?.qr || null,
-  };
+  console.log('[wpp-start] Token response:', res.status);
+  
+  if (!res.ok) {
+    throw new Error(`generate-token failed: ${res.status}`);
+  }
+  
+  const text = await res.text();
+  console.log('[wpp-start] Token body:', text.substring(0, 200));
+  
+  if (!text?.trim()) {
+    throw new Error('Empty response from generate-token');
+  }
+  
+  const data = JSON.parse(text);
+  if (!data?.token) {
+    throw new Error('No token in response');
+  }
+  
+  console.log('[wpp-start] ✓ Token obtained');
+  return data.token;
 }
 
 Deno.serve(async (req) => {
@@ -159,7 +74,7 @@ Deno.serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
+      return new Response(JSON.stringify({ error: 'Missing authorization' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -188,99 +103,78 @@ Deno.serve(async (req) => {
       });
     }
 
-    const organizationId = profile.organization_id;
-    const sessionName = `org_${organizationId}`;
+    const orgId = profile.organization_id;
+    const sessionName = `org_${orgId}`;
     const PUBLIC_URL = Deno.env.get('SUPABASE_URL')?.replace('/rest/v1', '');
-    const webhookUrl = `${PUBLIC_URL}/functions/v1/wpp-webhook?session=${sessionName}&secret=${SECRET}`;
+    const webhookUrl = `${PUBLIC_URL}/functions/v1/wpp-webhook`;
 
-    console.log(`[wpp-start] Starting session=${sessionName}, secret=${maskSecret(SECRET)}`);
+    console.log('[wpp-start] Session:', sessionName);
 
-    const startBody = {
-      webhook: { enabled: true, url: webhookUrl, secret: SECRET },
-      waitQrCode: true,
-      useChrome: true,
-      headless: true,
-      browserArgs: ['--no-sandbox', '--disable-dev-shm-usage', '--no-first-run', '--no-zygote'],
-    };
+    // Generate Bearer token
+    const wppToken = await generateToken(sessionName);
 
-    // 1) Try Bearer
-    let wppToken = await getBearerToken(sessionName);
-    if (wppToken) {
-      console.log(`[wpp-start] Attempting bearer auth for ${sessionName}`);
-      const r = await startViaBearer(sessionName, wppToken, startBody);
-      if (r.ok) {
-        console.log(`[wpp-start] bearer OK session=${sessionName}`);
-        const norm = normalizeStatus((r as any).json ?? (r as any).bodyText);
-        
-        await supabaseClient
-          .from('whatsapp_sessions')
-          .upsert({
-            organization_id: organizationId,
-            session_name: sessionName,
-            status: norm.isConnected ? 'connected' : (norm.qrcode ? 'qr_issued' : 'disconnected'),
-            last_qr_b64: norm.qrcode,
-            last_qr_at: norm.qrcode ? new Date().toISOString() : null,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'organization_id' });
-
-        return Response.json({ 
-          ok: true, 
-          method: 'bearer', 
-          session: sessionName,
-          status: norm.isConnected ? 'connected' : (norm.qrcode ? 'qr_issued' : 'disconnected'),
-          qrcode: norm.qrcode,
-          organizationId 
-        }, { headers: corsHeaders });
-      }
-      console.warn(`[wpp-start] bearer FAIL ${sessionName}, fallback to secret-path`);
-    } else {
-      console.warn(`[wpp-start] no token from generate-token (empty body); fallback secret-path`);
-    }
-
-    // 2) Fallback: secret in path
-    console.log(`[wpp-start] Using secret-path auth for ${sessionName}`);
-    const r2 = await startViaSecretPath(sessionName, startBody);
-    if (r2.ok) {
-      console.log(`[wpp-start] secret-path OK session=${sessionName}`);
-      const norm = normalizeStatus((r2 as any).json ?? (r2 as any).bodyText);
-      
-      await supabaseClient
-        .from('whatsapp_sessions')
-        .upsert({
-          organization_id: organizationId,
-          session_name: sessionName,
-          status: norm.isConnected ? 'connected' : (norm.qrcode ? 'qr_issued' : 'disconnected'),
-          last_qr_b64: norm.qrcode,
-          last_qr_at: norm.qrcode ? new Date().toISOString() : null,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'organization_id' });
-
-      return Response.json({ 
-        ok: true, 
-        method: 'secret-path', 
-        session: sessionName,
-        status: norm.isConnected ? 'connected' : (norm.qrcode ? 'qr_issued' : 'disconnected'),
-        qrcode: norm.qrcode,
-        organizationId 
-      }, { headers: corsHeaders });
-    }
-
-    return Response.json(
-      {
-        ok: false,
-        error: 'start failed',
-        detail: {
-          bearerTried: !!wppToken,
-          bearerStatus: wppToken ? (r2 as any).status : undefined,
+    // Start session
+    console.log('[wpp-start] Starting session');
+    const startUrl = `${BASE}/api/${sessionName}/start-session`;
+    const startRes = await withTimeout(
+      fetch(startUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${wppToken}`,
+          'Content-Type': 'application/json'
         },
-      },
-      { status: 502, headers: corsHeaders }
+        body: JSON.stringify({
+          webhook: webhookUrl,
+          waitQrCode: true,
+          useChrome: true,
+          headless: true,
+          browserArgs: ['--no-sandbox', '--disable-dev-shm-usage']
+        })
+      })
     );
-  } catch (e) {
-    console.error('[wpp-start] error:', e);
-    return new Response(JSON.stringify({ ok: false, error: String(e) }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+
+    console.log('[wpp-start] Start response:', startRes.status);
+    
+    if (!startRes.ok) {
+      const errorText = await startRes.text();
+      console.error('[wpp-start] Start failed:', errorText.substring(0, 200));
+      throw new Error(`Failed to start session: ${startRes.status}`);
+    }
+
+    const startText = await startRes.text();
+    console.log('[wpp-start] Start body:', startText.substring(0, 300));
+    
+    let qrCode: string | null = null;
+    let status = 'disconnected';
+    
+    if (startText?.trim()) {
+      const startData = JSON.parse(startText);
+      qrCode = startData?.qrcode || startData?.qr || null;
+      
+      const isConnected = startData?.status === 'CONNECTED' || startData?.state === 'CONNECTED';
+      status = isConnected ? 'connected' : (qrCode ? 'qr_issued' : 'disconnected');
+    }
+
+    await supabaseClient
+      .from('whatsapp_sessions')
+      .upsert({
+        organization_id: orgId,
+        session_name: sessionName,
+        status,
+        last_qr_b64: qrCode,
+        last_qr_at: qrCode ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'organization_id' });
+
+    return new Response(
+      JSON.stringify({ ok: true, status, qrcode: qrCode }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('[wpp-start] Error:', error);
+    return new Response(
+      JSON.stringify({ ok: false, error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 });

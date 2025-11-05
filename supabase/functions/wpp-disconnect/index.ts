@@ -5,14 +5,61 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Utility to mask secrets in logs
-function maskSecret(secret: string): string {
-  if (!secret || secret.length < 8) return '***';
-  return `${secret.substring(0, 4)}***${secret.substring(secret.length - 4)}`;
+const BASE = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru';
+const SECRET = Deno.env.get('WPP_SECRET') || '';
+const TIMEOUT = 30000;
+
+console.log('[wpp-disconnect] Configuration:', {
+  BASE,
+  SECRET: SECRET ? `${SECRET.substring(0, 4)}***${SECRET.slice(-4)}` : 'MISSING'
+});
+
+function maskSecret(s?: string) {
+  if (!s || s.length < 8) return '***';
+  return `${s.substring(0, 4)}***${s.slice(-4)}`;
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms = TIMEOUT): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms)
+    )
+  ]);
+}
+
+async function generateToken(sessionName: string): Promise<string> {
+  const url = `${BASE}/api/${sessionName}/${SECRET}/generate-token`;
+  console.log('[wpp-disconnect] POST', url.replace(SECRET, '***'));
+  
+  const res = await withTimeout(
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    })
+  );
+
+  console.log('[wpp-disconnect] Token response:', res.status);
+  
+  if (!res.ok) {
+    throw new Error(`generate-token failed: ${res.status}`);
+  }
+  
+  const text = await res.text();
+  if (!text?.trim()) {
+    throw new Error('Empty response from generate-token');
+  }
+  
+  const data = JSON.parse(text);
+  if (!data?.token) {
+    throw new Error('No token in response');
+  }
+  
+  console.log('[wpp-disconnect] ✓ Token obtained');
+  return data.token;
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -28,187 +75,72 @@ Deno.serve(async (req) => {
       }
     );
 
-    // Get the user from the auth header
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseClient.auth.getUser();
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
 
     if (authError || !user) {
-      console.error('Auth error:', authError);
       return new Response(
         JSON.stringify({ ok: false, error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('User authenticated:', user.id);
-
-    // Get user's organization
-    const { data: profile, error: profileError } = await supabaseClient
+    const { data: profile } = await supabaseClient
       .from('profiles')
       .select('organization_id')
       .eq('id', user.id)
       .single();
 
-    if (profileError || !profile?.organization_id) {
-      console.error('Profile error:', profileError);
+    if (!profile?.organization_id) {
       return new Response(
         JSON.stringify({ ok: false, error: 'Organization not found' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const organizationId = profile.organization_id;
-    const sessionName = `org_${organizationId}`;
-    console.log('Organization ID:', organizationId, 'Session name:', sessionName);
+    const orgId = profile.organization_id;
+    const sessionName = `org_${orgId}`;
+    console.log('[wpp-disconnect] Session:', sessionName);
 
-    let WPP_BASE_URL = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru';
-    const WPP_AGG_TOKEN = Deno.env.get('WPP_AGG_TOKEN');
-
-    if (!WPP_BASE_URL || !WPP_AGG_TOKEN) {
-      console.error('Missing WPP configuration');
-      return new Response(
-        JSON.stringify({ ok: false, error: 'WPP configuration missing' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Ensure base URL has protocol
-    if (!WPP_BASE_URL.startsWith('http://') && !WPP_BASE_URL.startsWith('https://')) {
-      WPP_BASE_URL = `http://${WPP_BASE_URL}`;
-    }
-    console.log('Final WPP_BASE_URL:', WPP_BASE_URL);
-    console.log('WPP_AGG_TOKEN (masked):', maskSecret(WPP_AGG_TOKEN));
-
-    // Generate token (POST then fallback to GET; accept JSON or plain text)
-    console.log('Generating token for session:', sessionName);
-    const tokenUrl = `${WPP_BASE_URL}/api/${encodeURIComponent(sessionName)}/${WPP_AGG_TOKEN}/generate-token`;
-    console.log('Token URL:', tokenUrl);
-    
-    const parseToken = async (response: Response, label: string): Promise<string | null> => {
-      console.log(`Token response status (${label}):`, response.status);
-      const ct = response.headers.get('content-type') || '';
-      const text = await response.text();
-      console.log(`Token response content-type (${label}):`, ct);
-      console.log(`Token response body (${label}):`, text);
-      if (!response.ok) return null;
-      if (ct.includes('application/json')) {
-        try {
-          const json = JSON.parse(text);
-          if (json?.token && typeof json.token === 'string') return json.token;
-        } catch (e) {
-          console.error('Failed to parse token JSON:', e);
-        }
-      }
-      if (text && text.trim().length > 0) return text.trim();
-      const headerAuth = response.headers.get('authorization') || response.headers.get('Authorization');
-      const headerToken = response.headers.get('x-token') || response.headers.get('X-Token');
-      if (headerAuth) return headerAuth.replace(/^Bearer\s+/i, '').trim();
-      if (headerToken) return headerToken.trim();
-      return null;
-    };
-
-    let tokenRes = await fetch(tokenUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${WPP_AGG_TOKEN}` } });
-    let wppToken = await parseToken(tokenRes, 'POST');
-    if (!wppToken) {
-      console.log('Retry token fetch with GET');
-      tokenRes = await fetch(tokenUrl, { method: 'GET', headers: { 'Authorization': `Bearer ${WPP_AGG_TOKEN}` } });
-      wppToken = await parseToken(tokenRes, 'GET');
-    }
-    if (!wppToken) {
-      console.warn('Falling back to aggregator token for disconnect');
-      wppToken = WPP_AGG_TOKEN as string;
-    }
-
-    if (!wppToken) {
-      console.error('No token in response');
-      return new Response(
-        JSON.stringify({ ok: false, error: 'No token received from WPP' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('Token generated successfully');
+    // Generate Bearer token
+    const wppToken = await generateToken(sessionName);
 
     // Logout session
-    console.log('Logging out session');
-    
-    async function logoutWithBearer(token: string): Promise<Response> {
-      const url = `${WPP_BASE_URL}/api/${encodeURIComponent(sessionName)}/logout-session`;
-      console.log('Logout URL (method=bearer):', url);
-      return await fetch(url, {
+    console.log('[wpp-disconnect] Logging out');
+    const logoutUrl = `${BASE}/api/${sessionName}/logout-session`;
+    const logoutRes = await withTimeout(
+      fetch(logoutUrl, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-    }
-    
-    async function logoutWithSecretPath(): Promise<Response> {
-      const url = `${WPP_BASE_URL}/api/${encodeURIComponent(sessionName)}/${WPP_AGG_TOKEN}/logout-session`;
-      console.log('Logout URL (method=secret-path, masked):', url.replace(WPP_AGG_TOKEN, maskSecret(WPP_AGG_TOKEN)));
-      return await fetch(url, {
-        method: 'POST',
-      });
-    }
+        headers: { Authorization: `Bearer ${wppToken}` }
+      })
+    );
 
-    let logoutRes: Response;
-    let logoutMethod = 'bearer';
-
-    if (wppToken) {
-      logoutRes = await logoutWithBearer(wppToken);
-      console.log('Logout response status (bearer):', logoutRes.status);
-      
-      if (!logoutRes.ok && [400, 401, 403].includes(logoutRes.status)) {
-        console.warn('Bearer auth failed for logout, trying secret-path fallback');
-        logoutRes = await logoutWithSecretPath();
-        logoutMethod = 'secret-path';
-        console.log('Logout response status (secret-path):', logoutRes.status);
-      }
-    } else {
-      console.log('No token available, using secret-path for logout');
-      logoutRes = await logoutWithSecretPath();
-      logoutMethod = 'secret-path';
-      console.log('Logout response status (secret-path):', logoutRes.status);
-    }
+    console.log('[wpp-disconnect] Logout response:', logoutRes.status);
 
     if (!logoutRes.ok) {
       const errorText = await logoutRes.text();
-      console.error(`Failed to logout session (${logoutMethod}):`, logoutRes.status, '-', errorText.substring(0, 200));
-      return new Response(
-        JSON.stringify({ 
-          ok: false, 
-          error: `Failed to logout: ${logoutRes.status}` 
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      console.error('[wpp-disconnect] Logout failed:', errorText.substring(0, 200));
+      throw new Error(`Failed to logout: ${logoutRes.status}`);
     }
 
-    // Update database - mark as disconnected
-    const { error: updateError } = await supabaseClient
+    // Update database
+    await supabaseClient
       .from('whatsapp_sessions')
       .update({ 
         status: 'disconnected',
-        qr_code: null,
+        last_qr_b64: null,
+        last_qr_at: null,
         updated_at: new Date().toISOString()
       })
-      .eq('organization_id', organizationId);
+      .eq('organization_id', orgId);
 
-    if (updateError) {
-      console.error('Failed to update session in DB:', updateError);
-    } else {
-      console.log('Session marked as disconnected in DB');
-    }
+    console.log('[wpp-disconnect] Session marked as disconnected');
 
     return new Response(
-      JSON.stringify({ 
-        ok: true,
-        message: 'WhatsApp disconnected successfully'
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ ok: true, message: 'Disconnected successfully' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
-    console.error('Error in wpp-disconnect:', error);
+    console.error('[wpp-disconnect] Error:', error);
     return new Response(
       JSON.stringify({ ok: false, error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
