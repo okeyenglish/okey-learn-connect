@@ -1,3 +1,23 @@
+// Normalize session name: remove dashes, spaces, transliterate cyrillic
+function normalizeSessionName(raw: string, fallback = 'default'): string {
+  const mapRu: Record<string, string> = {
+    а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'e',ж:'zh',з:'z',и:'i',й:'y',к:'k',л:'l',м:'m',
+    н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'h',ц:'c',ч:'ch',ш:'sh',щ:'sch',
+    ъ:'',ы:'y',ь:'',э:'e',ю:'yu',я:'ya'
+  };
+  
+  let s = (raw || '').trim().toLowerCase();
+  // Remove dashes and spaces
+  s = s.replace(/[-\s]/g, '');
+  // Transliterate cyrillic
+  s = s.replace(/[а-яё]/g, ch => mapRu[ch] ?? '');
+  // Keep only [a-z0-9_.]
+  s = s.replace(/[^a-z0-9_.]/g, '');
+  // Min length 3
+  const allowedRe = /^[a-z0-9_.]{3,64}$/;
+  return allowedRe.test(s) ? s : fallback;
+}
+
 type StartResult =
   | { state: 'connected' }
   | { state: 'qr'; base64: string }
@@ -16,6 +36,7 @@ export interface WppClientOptions {
 export class WppClient {
   private base: string;
   private session: string;
+  private normalizedSession: string;
   private secret: string;
   private timeoutMs: number;
   private pollSeconds: number;
@@ -23,9 +44,15 @@ export class WppClient {
   constructor(o: WppClientOptions) {
     this.base = o.baseUrl.replace(/\/+$/, '');
     this.session = o.session;
+    this.normalizedSession = normalizeSessionName(o.session);
     this.secret = o.secret;
     this.timeoutMs = o.timeoutMs ?? 10_000;
     this.pollSeconds = o.pollSeconds ?? 30;
+    console.log(`[WppClient] Session: "${this.session}" → Normalized: "${this.normalizedSession}"`);
+  }
+
+  getNormalizedSession(): string {
+    return this.normalizedSession;
   }
 
   private maskSecret(s: string): string {
@@ -84,8 +111,8 @@ export class WppClient {
   }
 
   async getToken(): Promise<string> {
-    const pathA = `${this.base}/api/${encodeURIComponent(this.session)}/${encodeURIComponent(this.secret)}/generate-token`;
-    const pathB = `${this.base}/api/${encodeURIComponent(this.session)}/generate-token`;
+    const pathA = `${this.base}/api/${encodeURIComponent(this.normalizedSession)}/${encodeURIComponent(this.secret)}/generate-token`;
+    const pathB = `${this.base}/api/${encodeURIComponent(this.normalizedSession)}/generate-token`;
     const pathC = `${pathB}?secretKey=${encodeURIComponent(this.secret)}`;
 
     console.log('[WppClient] Attempting to generate token...');
@@ -135,7 +162,7 @@ export class WppClient {
   }
 
   async startSession(bearer: string, webhookUrl?: string): Promise<any> {
-    const url = `${this.base}/api/${encodeURIComponent(this.session)}/start-session`;
+    const url = `${this.base}/api/${encodeURIComponent(this.normalizedSession)}/start-session`;
     console.log('[WppClient] Starting session...');
     
     const body: any = {};
@@ -159,7 +186,7 @@ export class WppClient {
   }
 
   async getStatus(bearer: string): Promise<any> {
-    const url = `${this.base}/api/${encodeURIComponent(this.session)}/status-session`;
+    const url = `${this.base}/api/${encodeURIComponent(this.normalizedSession)}/status-session`;
     return await this._fetch(url, {
       expected: 'json',
       headers: { 'Authorization': `Bearer ${bearer}` },
@@ -167,7 +194,7 @@ export class WppClient {
   }
 
   async getQr(bearer: string): Promise<{ base64: string } | null> {
-    const url = `${this.base}/api/${encodeURIComponent(this.session)}/qrcode`;
+    const url = `${this.base}/api/${encodeURIComponent(this.normalizedSession)}/qrcode`;
     console.log('[WppClient] Fetching QR code...');
 
     // Try JSON first
@@ -217,7 +244,7 @@ export class WppClient {
   }
 
   async logout(bearer: string): Promise<void> {
-    const url = `${this.base}/api/${encodeURIComponent(this.session)}/logout-session`;
+    const url = `${this.base}/api/${encodeURIComponent(this.normalizedSession)}/logout-session`;
     console.log('[WppClient] Logging out session...');
     
     await this._fetch(url, {
