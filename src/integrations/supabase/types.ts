@@ -7099,14 +7099,14 @@ export type Database = {
           {
             foreignKeyName: "whatsapp_sessions_organization_id_fkey"
             columns: ["organization_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "whatsapp_sessions_organization_id_fkey"
             columns: ["organization_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "v_organization_ai_settings"
             referencedColumns: ["organization_id"]
           },

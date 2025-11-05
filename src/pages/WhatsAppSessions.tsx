@@ -30,7 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, RefreshCw, QrCode, Trash2, PowerOff } from "lucide-react";
+import { Loader2, RefreshCw, QrCode, Trash2, PowerOff, Plus } from "lucide-react";
 
 type WhatsAppSession = {
   id: string;
@@ -209,6 +209,89 @@ const WhatsAppSessions = () => {
     }
   };
 
+  const createNewSession = async () => {
+    try {
+      setLoading(true);
+      
+      // Get current user's organization_id
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Пользователь не авторизован');
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile?.organization_id) {
+        throw new Error('Организация не найдена');
+      }
+
+      // Generate unique session suffix using timestamp
+      const sessionSuffix = Date.now().toString().slice(-6);
+
+      toast({
+        title: "Создание сессии...",
+        description: "Инициализация новой WhatsApp сессии",
+      });
+
+      const { data, error } = await supabase.functions.invoke('wpp-start', {
+        body: { session_suffix: sessionSuffix },
+      });
+
+      if (error) {
+        const anyErr: any = error;
+        const status = anyErr?.context?.status ? ` (HTTP ${anyErr.context.status})` : '';
+        const bodySnippet = anyErr?.context?.body ? `\n${String(anyErr.context.body).slice(0, 200)}` : '';
+        toast({
+          title: "Ошибка",
+          description: `${anyErr?.message || 'Не удалось создать сессию'}${status}${bodySnippet}`,
+          variant: "destructive",
+        });
+        throw error;
+      }
+
+      await fetchSessions();
+
+      if (data?.qrcode && data?.session_name) {
+        setQrDialog({ 
+          open: true, 
+          qr: data.qrcode, 
+          sessionName: data.session_name,
+          isPolling: true 
+        });
+        startStatusPolling(data.session_name);
+        toast({
+          title: "✅ Сессия создана",
+          description: "Отсканируйте QR-код для подключения",
+        });
+      } else if (data?.status === 'connected') {
+        toast({
+          title: "✅ Сессия активна",
+          description: "Новая сессия успешно создана и подключена",
+        });
+      } else {
+        toast({
+          title: "Сессия создана",
+          description: "Обновите статус для получения QR кода",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error creating session:', error);
+      if (!error?.context) {
+        toast({
+          title: "Ошибка",
+          description: error?.message || "Не удалось создать сессию",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const disconnectSession = async (sessionName: string) => {
     try {
       toast({
@@ -349,10 +432,16 @@ const WhatsAppSessions = () => {
     try {
       toast({
         title: "Переподключение...",
-        description: "Запуск новой сессии WhatsApp...",
+        description: "Запуск сессии WhatsApp...",
       });
 
-      const { data, error } = await supabase.functions.invoke('wpp-start');
+      // Extract suffix from session name if exists (format: org_XXX_SUFFIX)
+      const parts = sessionName.split('_');
+      const sessionSuffix = parts.length > 2 ? parts[parts.length - 1] : undefined;
+
+      const { data, error } = await supabase.functions.invoke('wpp-start', {
+        body: sessionSuffix ? { session_suffix: sessionSuffix } : {},
+      });
 
       if (error) {
         const anyErr: any = error as any;
@@ -500,10 +589,16 @@ const WhatsAppSessions = () => {
     <div className="p-8 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">WhatsApp Sessions Management</h1>
-        <Button onClick={updateAllStatuses} disabled={loading}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Обновить все статусы
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={createNewSession} disabled={loading} variant="default">
+            <Plus className="mr-2 h-4 w-4" />
+            Создать сессию
+          </Button>
+          <Button onClick={updateAllStatuses} disabled={loading} variant="outline">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Обновить статусы
+          </Button>
+        </div>
       </div>
 
       <Card>

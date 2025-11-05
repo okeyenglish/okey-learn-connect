@@ -25,6 +25,10 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // Read request body for custom session suffix
+    const body = await req.json().catch(() => ({}));
+    const sessionSuffix = body?.session_suffix || '';
+
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'Missing authorization' }), {
@@ -58,12 +62,15 @@ Deno.serve(async (req) => {
 
     const orgId = profile.organization_id;
     // Use org-specific session (without dashes for WPP compatibility)
-    const sessionName = `org_${orgId.replace(/-/g, '')}`;
+    // Add optional suffix for multiple sessions per organization
+    const baseSessionName = `org_${orgId.replace(/-/g, '')}`;
+    const sessionName = sessionSuffix ? `${baseSessionName}_${sessionSuffix}` : baseSessionName;
     const PUBLIC_URL = Deno.env.get('SUPABASE_URL')?.replace('/rest/v1', '');
     const webhookUrl = `${PUBLIC_URL}/functions/v1/wpp-webhook`;
 
     console.log('[wpp-start] Org ID:', orgId);
     console.log('[wpp-start] Session:', sessionName);
+    console.log('[wpp-start] Session suffix:', sessionSuffix || 'none');
     console.log('[wpp-start] Webhook URL:', webhookUrl);
 
     // Use WppClient SDK
@@ -86,10 +93,10 @@ Deno.serve(async (req) => {
           last_qr_b64: result.base64,
           last_qr_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'organization_id' });
+        }, { onConflict: 'session_name' });
 
       return new Response(
-        JSON.stringify({ ok: true, status: 'qr_issued', qrcode: result.base64 }),
+        JSON.stringify({ ok: true, status: 'qr_issued', qrcode: result.base64, session_name: sessionName }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -104,10 +111,10 @@ Deno.serve(async (req) => {
           last_qr_b64: null,
           last_qr_at: null,
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'organization_id' });
+        }, { onConflict: 'session_name' });
 
       return new Response(
-        JSON.stringify({ ok: true, status: 'connected' }),
+        JSON.stringify({ ok: true, status: 'connected', session_name: sessionName }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
