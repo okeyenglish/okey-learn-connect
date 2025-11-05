@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableBody,
@@ -46,8 +47,11 @@ type WhatsAppSession = {
 const WhatsAppSessions = () => {
   const [sessions, setSessions] = useState<WhatsAppSession[]>([]);
   const [loading, setLoading] = useState(true);
-  const [qrDialog, setQrDialog] = useState<{ open: boolean; qr?: string; sessionName?: string }>({ open: false });
+  const [qrDialog, setQrDialog] = useState<{ open: boolean; qr?: string; sessionName?: string; isPolling?: boolean }>({ open: false });
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; sessionId?: string }>({ open: false });
+  const [countdown, setCountdown] = useState(120);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
   const fetchSessions = async () => {
@@ -266,6 +270,111 @@ const WhatsAppSessions = () => {
     setLoading(false);
   };
 
+  const stopPolling = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+  };
+
+  const startStatusPolling = (sessionName: string) => {
+    stopPolling(); // Clear any existing polling
+    setCountdown(120); // Reset countdown to 2 minutes
+    setQrDialog(prev => ({ ...prev, isPolling: true }));
+
+    // Start countdown timer
+    countdownIntervalRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          stopPolling();
+          toast({
+            title: "QR код истек",
+            description: "Сгенерируйте новый QR код",
+            variant: "destructive",
+          });
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    // Poll status every 3 seconds
+    pollingIntervalRef.current = setInterval(async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('wpp-status', {
+          body: { session_name: sessionName },
+        });
+
+        if (error) throw error;
+
+        if (data?.status === 'connected') {
+          stopPolling();
+          setQrDialog({ open: false });
+          toast({
+            title: "✅ Подключено!",
+            description: "WhatsApp успешно подключен",
+          });
+          await fetchSessions();
+        }
+      } catch (error: any) {
+        console.error('Polling error:', error);
+      }
+    }, 3000);
+
+    // Stop polling after 2 minutes
+    setTimeout(() => {
+      stopPolling();
+    }, 120000);
+  };
+
+  const reconnectSession = async (sessionName: string) => {
+    try {
+      toast({
+        title: "Переподключение...",
+        description: "Запуск сессии...",
+      });
+
+      const { data, error } = await supabase.functions.invoke('wpp-start');
+
+      if (error) throw error;
+
+      if (data?.qrcode) {
+        setQrDialog({ 
+          open: true, 
+          qr: data.qrcode, 
+          sessionName,
+          isPolling: false 
+        });
+        startStatusPolling(sessionName);
+      } else if (data?.status === 'connected') {
+        toast({
+          title: "✅ Уже подключено",
+          description: "Сессия уже активна",
+        });
+      }
+
+      await fetchSessions();
+    } catch (error: any) {
+      console.error('Error reconnecting:', error);
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось переподключить сессию",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      stopPolling();
+    };
+  }, []);
+
   const getStatusBadge = (status: WhatsAppSession['status']) => {
     switch (status) {
       case 'connected':
@@ -364,6 +473,16 @@ const WhatsAppSessions = () => {
                             <PowerOff className="h-4 w-4" />
                           </Button>
                         )}
+                        {session.status === 'disconnected' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => reconnectSession(session.session_name)}
+                          >
+                            <RefreshCw className="h-4 w-4 mr-1" />
+                            Переподключить
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="destructive"
@@ -382,21 +501,58 @@ const WhatsAppSessions = () => {
       </Card>
 
       {/* QR Code Dialog */}
-      <Dialog open={qrDialog.open} onOpenChange={(open) => setQrDialog({ open })}>
+      <Dialog 
+        open={qrDialog.open} 
+        onOpenChange={(open) => {
+          if (!open) stopPolling();
+          setQrDialog({ open });
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>QR Код для подключения</DialogTitle>
-            <DialogDescription>
-              Отсканируйте этот QR код в WhatsApp: {qrDialog.sessionName}
+            <DialogDescription className="space-y-2">
+              <div>Сессия: <strong>{qrDialog.sessionName}</strong></div>
+              <div className="text-sm">
+                1. Откройте WhatsApp на телефоне<br />
+                2. Перейдите в Настройки → Связанные устройства<br />
+                3. Нажмите "Связать устройство"<br />
+                4. Отсканируйте QR код ниже
+              </div>
             </DialogDescription>
           </DialogHeader>
           {qrDialog.qr && (
-            <div className="flex justify-center py-4">
-              <img 
-                src={qrDialog.qr} 
-                alt="QR Code" 
-                className="max-w-full h-auto border rounded-lg"
-              />
+            <div className="space-y-4">
+              <div className="flex justify-center py-4">
+                <img 
+                  src={qrDialog.qr} 
+                  alt="QR Code" 
+                  className="max-w-full h-auto border rounded-lg shadow-lg"
+                />
+              </div>
+              {qrDialog.isPolling && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Ожидание сканирования...
+                    </span>
+                    <Badge variant="outline">
+                      {Math.floor(countdown / 60)}:{(countdown % 60).toString().padStart(2, '0')}
+                    </Badge>
+                  </div>
+                  <Progress value={(countdown / 120) * 100} />
+                </div>
+              )}
+              {countdown === 0 && (
+                <Button 
+                  onClick={() => qrDialog.sessionName && reconnectSession(qrDialog.sessionName)}
+                  className="w-full"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Сгенерировать новый QR код
+                </Button>
+              )}
             </div>
           )}
         </DialogContent>
