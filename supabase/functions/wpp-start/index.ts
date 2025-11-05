@@ -89,38 +89,79 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Generate token for this session
-    console.log('Generating token for session:', sessionName);
-    const tokenUrl = `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/${WPP_SECRET}/generate-token`;
-    console.log('Token URL:', tokenUrl);
-    const tokenRes = await fetch(tokenUrl, { method: 'POST' });
-    
-    console.log('Token response status:', tokenRes.status);
-    
-    if (!tokenRes.ok) {
-      const text = await tokenRes.text();
-      console.error('Token generation failed:', text);
-      throw new Error(`Failed to generate WPP token: ${tokenRes.status} - ${text.substring(0, 200)}`);
-    }
-    
-    const tokenCt = tokenRes.headers.get('content-type') || '';
-    if (!tokenCt.includes('application/json')) {
-      const text = await tokenRes.text();
-      throw new Error(`Token endpoint returned non-JSON (${tokenCt}): ${text.substring(0, 200)}`);
-    }
-    let tokenData: any;
-    try {
-      tokenData = await tokenRes.json();
-    } catch (e: any) {
-      const text = await tokenRes.text();
-      throw new Error(`Failed to parse token JSON: ${e?.message || e} - ${text.substring(0, 200)}`);
-    }
-    
-    if (!tokenData?.token) {
-      throw new Error('Failed to generate WPP token: no token in response');
+    // Helper function to fetch WPP token (tries POST, then GET)
+    async function fetchWppToken(sessionName: string): Promise<string> {
+      const baseUrl = `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/${WPP_SECRET}/generate-token`;
+      
+      // Try POST first
+      console.log('Trying POST to generate-token:', baseUrl);
+      const postRes = await fetch(baseUrl, { 
+        method: 'POST',
+        headers: { 'Accept': 'application/json' }
+      });
+      console.log('POST status:', postRes.status);
+      
+      const postCt = postRes.headers.get('content-type') || '';
+      console.log('Token CT (POST):', postCt);
+      
+      if (postRes.ok) {
+        if (postCt.includes('application/json')) {
+          try {
+            const data = await postRes.json();
+            if (data?.token) return data.token;
+          } catch (e) {
+            console.warn('Failed to parse POST JSON:', e);
+          }
+        } else {
+          const text = await postRes.text();
+          const trimmed = text.trim();
+          if (trimmed) {
+            console.log(`Token in plain text (POST, len=${trimmed.length})`);
+            return trimmed;
+          }
+        }
+      }
+      
+      // Try GET fallback
+      console.log('Trying GET to generate-token:', baseUrl);
+      const getRes = await fetch(baseUrl, { 
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      console.log('GET status:', getRes.status);
+      
+      const getCt = getRes.headers.get('content-type') || '';
+      console.log('Token CT (GET):', getCt);
+      
+      if (getRes.ok) {
+        if (getCt.includes('application/json')) {
+          try {
+            const data = await getRes.json();
+            if (data?.token) return data.token;
+          } catch (e) {
+            console.warn('Failed to parse GET JSON:', e);
+          }
+        } else {
+          const text = await getRes.text();
+          const trimmed = text.trim();
+          if (trimmed) {
+            console.log(`Token in plain text (GET, len=${trimmed.length})`);
+            return trimmed;
+          }
+        }
+      }
+      
+      // Both attempts failed
+      const postBody = await postRes.text().catch(() => '');
+      const getBody = await getRes.text().catch(() => '');
+      throw new Error(
+        `Failed to get WPP token. POST ${postRes.status} (${postCt}): ${postBody.substring(0, 100)}; GET ${getRes.status} (${getCt}): ${getBody.substring(0, 100)}`
+      );
     }
 
-    const wppToken = tokenData.token;
+    // Generate token for this session
+    console.log('Generating token for session:', sessionName);
+    const wppToken = await fetchWppToken(sessionName);
 
     // Start session with webhook
     const webhookUrl = `${PUBLIC_URL}/functions/v1/wpp-webhook`;
@@ -150,23 +191,27 @@ Deno.serve(async (req) => {
     );
 
     console.log('Start session response status:', startRes.status);
+    const startCt = startRes.headers.get('content-type') || '';
+    console.log('Start session CT:', startCt);
     
     if (!startRes.ok) {
       const text = await startRes.text();
-      console.error('Start session failed:', text);
-      throw new Error(`Failed to start session: ${startRes.status} - ${text.substring(0, 200)}`);
+      console.error('Start session failed:', text.substring(0, 200));
+      throw new Error(`Failed to start session: ${startRes.status} (${startCt}) - ${text.substring(0, 200)}`);
     }
 
-    const startCt = startRes.headers.get('content-type') || '';
     if (!startCt.includes('application/json')) {
       const text = await startRes.text();
+      console.error('Start session returned non-JSON:', text.substring(0, 200));
       throw new Error(`Start session returned non-JSON (${startCt}): ${text.substring(0, 200)}`);
     }
+    
     let startData: any;
     try {
       startData = await startRes.json();
     } catch (e: any) {
       const text = await startRes.text();
+      console.error('Failed to parse start-session JSON:', text.substring(0, 200));
       throw new Error(`Failed to parse start-session JSON: ${e?.message || e} - ${text.substring(0, 200)}`);
     }
     console.log('WPP start-session response:', startData);
