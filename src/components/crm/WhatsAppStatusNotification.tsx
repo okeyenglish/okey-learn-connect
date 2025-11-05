@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, X } from "lucide-react";
@@ -11,46 +11,80 @@ export const WhatsAppStatusNotification = () => {
   const [isDismissed, setIsDismissed] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
 
-  useEffect(() => {
-    const checkConnection = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          setIsLoading(false);
-          return;
-        }
-
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .eq('id', session.user.id)
-          .maybeSingle();
-
-        if (!profile?.organization_id) {
-          setIsConnected(false);
-          setIsLoading(false);
-          return;
-        }
-
-        const { data: wppSession } = await supabase
-          .from('whatsapp_sessions')
-          .select('status')
-          .eq('organization_id', profile.organization_id)
-          .maybeSingle();
-
-        setIsConnected(wppSession?.status === 'connected');
-      } catch (error) {
-        console.error("Error checking WhatsApp connection:", error);
-        setIsConnected(false);
-      } finally {
+  const checkConnection = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
         setIsLoading(false);
+        return;
       }
-    };
 
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (!profile?.organization_id) {
+        setIsConnected(false);
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if ANY session for this org is connected (not just one)
+      const { data: wppSessions } = await supabase
+        .from('whatsapp_sessions')
+        .select('status')
+        .eq('organization_id', profile.organization_id)
+        .eq('status', 'connected');
+
+      const hasConnectedSession = wppSessions && wppSessions.length > 0;
+      console.log('[WhatsAppStatus] Connected sessions:', wppSessions?.length || 0);
+      
+      const wasDisconnected = !isConnected;
+      setIsConnected(hasConnectedSession);
+      
+      // If just connected, close any open dialog and show success
+      if (hasConnectedSession && wasDisconnected && showDialog) {
+        console.log('[WhatsAppStatus] Connection established, closing dialog');
+        setShowDialog(false);
+      }
+    } catch (error) {
+      console.error("[WhatsAppStatus] Error checking connection:", error);
+      setIsConnected(false);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isConnected, showDialog]);
+
+  useEffect(() => {
     checkConnection();
+    
+    // Set up real-time subscription to whatsapp_sessions changes
+    const channel = supabase
+      .channel('whatsapp-status-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'whatsapp_sessions'
+        },
+        (payload) => {
+          console.log('[WhatsAppStatus] Real-time update:', payload);
+          checkConnection();
+        }
+      )
+      .subscribe();
+
+    // Also poll every 10 seconds as fallback
     const interval = setInterval(checkConnection, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
+  }, [checkConnection]);
 
   if (isLoading || isConnected || isDismissed) {
     return null;
@@ -88,7 +122,13 @@ export const WhatsAppStatusNotification = () => {
         </div>
       </div>
 
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+      <Dialog open={showDialog} onOpenChange={(open) => {
+        setShowDialog(open);
+        // If dialog closes, recheck connection status
+        if (!open) {
+          checkConnection();
+        }
+      }}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Подключение WhatsApp</DialogTitle>

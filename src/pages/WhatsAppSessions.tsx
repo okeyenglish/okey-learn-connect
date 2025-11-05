@@ -236,6 +236,7 @@ const WhatsAppSessions = () => {
 
       // Generate unique session suffix using timestamp
       const sessionSuffix = Date.now().toString().slice(-6);
+      console.log('[createNewSession] Creating session with suffix:', sessionSuffix);
 
       toast({
         title: "Создание сессии...",
@@ -245,6 +246,8 @@ const WhatsAppSessions = () => {
       const { data, error } = await supabase.functions.invoke('wpp-start', {
         body: { session_suffix: sessionSuffix },
       });
+
+      console.log('[createNewSession] Response:', { data, error });
 
       if (error) {
         const anyErr: any = error;
@@ -258,9 +261,12 @@ const WhatsAppSessions = () => {
         throw error;
       }
 
+      // Refresh sessions list
       await fetchSessions();
 
+      // Handle different response scenarios
       if (data?.qrcode && data?.session_name) {
+        console.log('[createNewSession] QR received, opening dialog');
         setQrDialog({ 
           open: true, 
           qr: data.qrcode, 
@@ -272,19 +278,54 @@ const WhatsAppSessions = () => {
           title: "✅ Сессия создана",
           description: "Отсканируйте QR-код для подключения",
         });
-      } else if (data?.status === 'connected') {
+      } else if (data?.status === 'connected' && data?.session_name) {
+        console.log('[createNewSession] Session already connected');
         toast({
           title: "✅ Сессия активна",
           description: "Новая сессия успешно создана и подключена",
         });
+      } else if (data?.session_name) {
+        // Session created but QR not yet available - force status check
+        console.log('[createNewSession] Session created, fetching fresh QR');
+        
+        // Wait a moment for WPP to initialize
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const { data: statusData } = await supabase.functions.invoke('wpp-status', {
+          body: { 
+            session_name: data.session_name,
+            force: true 
+          },
+        });
+
+        if (statusData?.qrcode) {
+          console.log('[createNewSession] Got QR from status check');
+          setQrDialog({ 
+            open: true, 
+            qr: statusData.qrcode, 
+            sessionName: data.session_name,
+            isPolling: true 
+          });
+          startStatusPolling(data.session_name);
+          toast({
+            title: "✅ QR получен",
+            description: "Отсканируйте QR-код для подключения",
+          });
+        } else {
+          toast({
+            title: "Сессия создана",
+            description: "Обновите статус для получения QR кода",
+          });
+        }
       } else {
+        console.warn('[createNewSession] Unexpected response:', data);
         toast({
           title: "Сессия создана",
-          description: "Обновите статус для получения QR кода",
+          description: "Обновите список для просмотра новой сессии",
         });
       }
     } catch (error: any) {
-      console.error('Error creating session:', error);
+      console.error('[createNewSession] Error:', error);
       if (!error?.context) {
         toast({
           title: "Ошибка",
