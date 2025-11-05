@@ -289,19 +289,29 @@ serve(async (req) => {
       console.error('[wpp-status] Missing Authorization header');
       throw new Error('Missing Authorization header');
     }
-    console.info(`[wpp-status] Auth header present, length=${authHeader.length}`);
+    console.info(`[wpp-status] Auth header present`);
+
+    // Extract token from "Bearer <token>"
+    const token = authHeader.replace('Bearer ', '').trim();
+    if (!token) {
+      console.error('[wpp-status] Empty token after Bearer extraction');
+      throw new Error('Invalid token format');
+    }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false }
     });
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Pass token explicitly to getUser
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       console.error('[wpp-status] auth.getUser failed:', authError?.message || 'no user');
       throw new Error('Authentication failed');
     }
+    console.info(`[wpp-status] User authenticated: ${user.id}`);
 
     const { data: profile } = await supabase
       .from('profiles')

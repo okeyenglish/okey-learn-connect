@@ -94,13 +94,19 @@ serve(async (req) => {
       throw new Error('Missing Authorization header');
     }
 
+    const token = authHeader.replace('Bearer ', '').trim();
+    if (!token) {
+      throw new Error('Invalid token format');
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false }
     });
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       throw new Error('Authentication failed');
     }
