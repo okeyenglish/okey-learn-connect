@@ -10,6 +10,7 @@ export const WhatsAppStatusNotification = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isDismissed, setIsDismissed] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
+  const [orgId, setOrgId] = useState<string | null>(null);
 
   const checkConnection = useCallback(async () => {
     try {
@@ -30,6 +31,9 @@ export const WhatsAppStatusNotification = () => {
         setIsLoading(false);
         return;
       }
+
+      // Save org id for realtime filtering
+      setOrgId(profile.organization_id);
 
       // Check if ANY session for this org is connected (not just one)
       const { data: wppSessions } = await supabase
@@ -72,6 +76,21 @@ export const WhatsAppStatusNotification = () => {
         },
         (payload) => {
           console.log('[WhatsAppStatus] Real-time update:', payload);
+          const newRow: any = payload.new || {};
+          const oldRow: any = payload.old || {};
+          const changedOrgId = newRow.organization_id || oldRow.organization_id;
+
+          if (orgId && changedOrgId === orgId) {
+            const newStatus = newRow.status;
+            if (newStatus === 'connected') {
+              setIsConnected(true);
+              if (showDialog) setShowDialog(false);
+            } else if (newStatus === 'disconnected') {
+              setIsConnected(false);
+            }
+          }
+
+          // Fallback: verify with a fresh read
           checkConnection();
         }
       )
@@ -84,7 +103,7 @@ export const WhatsAppStatusNotification = () => {
       clearInterval(interval);
       supabase.removeChannel(channel);
     };
-  }, [checkConnection]);
+  }, [checkConnection, orgId, showDialog]);
 
   if (isLoading || isConnected || isDismissed) {
     return null;
