@@ -28,121 +28,123 @@ async function withTimeout<T>(promise: Promise<T>, ms = TIMEOUT): Promise<T> {
   ]);
 }
 
+const standardHeaders = {
+  'Accept': 'application/json',
+  'User-Agent': 'SupabaseEdge/1.0',
+  'Cache-Control': 'no-cache',
+};
+
+function logResponse(label: string, res: Response, body: string) {
+  console.log(`[wpp-status] ${label}:`, {
+    url: res.url,
+    status: res.status,
+    redirected: res.redirected,
+    contentType: res.headers.get('Content-Type'),
+    contentLength: res.headers.get('Content-Length'),
+    location: res.headers.get('Location'),
+    bodyPreview: body.substring(0, 300),
+  });
+}
+
 async function generateToken(sessionName: string): Promise<string | null> {
   console.log('[wpp-status] Attempting to generate token for:', sessionName);
   
-  // Try 1: POST with secret in path
-  try {
-    const url1 = `${BASE}/api/${sessionName}/${SECRET}/generate-token`;
-    console.log('[wpp-status] Try 1: POST with secret in path');
-    
-    const res1 = await withTimeout(
-      fetch(url1, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      })
-    );
+  const variants = [
+    { url: `${BASE}/api/${sessionName}/${SECRET}/generate-token`, method: 'POST', desc: 'POST secret in path' },
+    { url: `${BASE}/api/${sessionName}/${SECRET}/generate-token/`, method: 'POST', desc: 'POST secret in path (trailing /)' },
+    { url: `${BASE}/api/${sessionName}/generate-token`, method: 'POST', body: { secretKey: SECRET }, desc: 'POST secretKey in body' },
+    { url: `${BASE}/api/${sessionName}/generate-token/`, method: 'POST', body: { secretKey: SECRET }, desc: 'POST secretKey in body (trailing /)' },
+    { url: `${BASE}/api/${sessionName}/${SECRET}/generate-token`, method: 'GET', desc: 'GET secret in path' },
+    { url: `${BASE}/api/${sessionName}/${SECRET}/generate-token/`, method: 'GET', desc: 'GET secret in path (trailing /)' },
+    { url: `${BASE}/api/${sessionName}/generate-token?secretKey=${encodeURIComponent(SECRET)}`, method: 'GET', desc: 'GET secretKey query' },
+    { url: `${BASE}/api/${sessionName}/generate-token/?secretKey=${encodeURIComponent(SECRET)}`, method: 'GET', desc: 'GET secretKey query (trailing /)' },
+  ];
 
-    console.log('[wpp-status] Try 1 status:', res1.status);
-    
-    if (res1.ok) {
-      const text1 = await res1.text();
-      console.log('[wpp-status] Try 1 body:', text1.substring(0, 200));
+  for (const variant of variants) {
+    try {
+      console.log(`[wpp-status] Try: ${variant.desc}`);
       
-      if (text1?.trim()) {
-        const data1 = JSON.parse(text1);
-        if (data1?.token) {
-          console.log('[wpp-status] ✓ Token from Try 1');
-          return data1.token;
+      const opts: RequestInit = {
+        method: variant.method,
+        headers: { ...standardHeaders },
+      };
+      
+      if (variant.method === 'POST') {
+        opts.headers = { ...opts.headers, 'Content-Type': 'application/json' };
+        if (variant.body) {
+          opts.body = JSON.stringify(variant.body);
         }
       }
-    }
-  } catch (err) {
-    console.error('[wpp-status] Try 1 failed:', err);
-  }
-
-  // Try 2: POST with secretKey in body
-  try {
-    const url2 = `${BASE}/api/${sessionName}/generate-token`;
-    console.log('[wpp-status] Try 2: POST with secretKey in body');
-    
-    const res2 = await withTimeout(
-      fetch(url2, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ secretKey: SECRET })
-      })
-    );
-
-    console.log('[wpp-status] Try 2 status:', res2.status);
-    
-    if (res2.ok) {
-      const text2 = await res2.text();
-      console.log('[wpp-status] Try 2 body:', text2.substring(0, 200));
       
-      if (text2?.trim()) {
-        const data2 = JSON.parse(text2);
-        if (data2?.token) {
-          console.log('[wpp-status] ✓ Token from Try 2');
-          return data2.token;
+      const res = await withTimeout(fetch(variant.url, opts));
+      const text = await res.text();
+      logResponse(variant.desc, res, text);
+      
+      if (res.ok && text?.trim()) {
+        try {
+          const data = JSON.parse(text);
+          if (data?.token) {
+            console.log(`[wpp-status] ✓ Token from: ${variant.desc}`);
+            return data.token;
+          }
+        } catch (parseErr) {
+          console.warn(`[wpp-status] Parse error for ${variant.desc}:`, parseErr);
         }
       }
+    } catch (err) {
+      console.error(`[wpp-status] ${variant.desc} failed:`, err);
     }
-  } catch (err) {
-    console.error('[wpp-status] Try 2 failed:', err);
-  }
-
-  // Try 3: GET with secret in path
-  try {
-    const url3 = `${BASE}/api/${sessionName}/${SECRET}/generate-token`;
-    console.log('[wpp-status] Try 3: GET with secret in path');
-    
-    const res3 = await withTimeout(fetch(url3));
-
-    console.log('[wpp-status] Try 3 status:', res3.status);
-    
-    if (res3.ok) {
-      const text3 = await res3.text();
-      console.log('[wpp-status] Try 3 body:', text3.substring(0, 200));
-      
-      if (text3?.trim()) {
-        const data3 = JSON.parse(text3);
-        if (data3?.token) {
-          console.log('[wpp-status] ✓ Token from Try 3');
-          return data3.token;
-        }
-      }
-    }
-  } catch (err) {
-    console.error('[wpp-status] Try 3 failed:', err);
-  }
-
-  // Try 4: GET with secretKey query param
-  try {
-    const url4 = `${BASE}/api/${sessionName}/generate-token?secretKey=${encodeURIComponent(SECRET)}`;
-    console.log('[wpp-status] Try 4: GET with secretKey query');
-    
-    const res4 = await withTimeout(fetch(url4));
-
-    console.log('[wpp-status] Try 4 status:', res4.status);
-    
-    if (res4.ok) {
-      const text4 = await res4.text();
-      console.log('[wpp-status] Try 4 body:', text4.substring(0, 200));
-      
-      if (text4?.trim()) {
-        const data4 = JSON.parse(text4);
-        if (data4?.token) {
-          console.log('[wpp-status] ✓ Token from Try 4');
-          return data4.token;
-        }
-      }
-    }
-  } catch (err) {
-    console.error('[wpp-status] Try 4 failed:', err);
   }
 
   console.warn('[wpp-status] All token generation attempts failed - proceeding with secret fallbacks');
+  return null;
+}
+
+async function pollForQR(sessionName: string, wppToken: string | null, maxAttempts = 12, delayMs = 1000): Promise<string | null> {
+  console.log('[wpp-status] Starting QR polling (max 12s)');
+  
+  for (let i = 0; i < maxAttempts; i++) {
+    const variants = wppToken 
+      ? [
+          { url: `${BASE}/api/${sessionName}/qrcode`, headers: { ...standardHeaders, Authorization: `Bearer ${wppToken}` }, desc: 'Bearer token' },
+          { url: `${BASE}/api/${sessionName}/qrcode/`, headers: { ...standardHeaders, Authorization: `Bearer ${wppToken}` }, desc: 'Bearer token (/)' },
+        ]
+      : [
+          { url: `${BASE}/api/${sessionName}/${SECRET}/qrcode`, headers: standardHeaders, desc: 'secret in path' },
+          { url: `${BASE}/api/${sessionName}/${SECRET}/qrcode/`, headers: standardHeaders, desc: 'secret in path (/)' },
+          { url: `${BASE}/api/${sessionName}/qrcode?secretKey=${encodeURIComponent(SECRET)}`, headers: standardHeaders, desc: 'secretKey query' },
+          { url: `${BASE}/api/${sessionName}/qrcode/?secretKey=${encodeURIComponent(SECRET)}`, headers: standardHeaders, desc: 'secretKey query (/)' },
+        ];
+
+    for (const variant of variants) {
+      try {
+        const res = await withTimeout(fetch(variant.url, { headers: variant.headers }));
+        const text = await res.text();
+        logResponse(`QR poll #${i + 1} ${variant.desc}`, res, text);
+        
+        if (res.ok && text?.trim()) {
+          try {
+            const data = JSON.parse(text);
+            const qr = data?.qrcode || data?.qr;
+            if (qr) {
+              console.log(`[wpp-status] ✓ QR found on attempt ${i + 1}`);
+              return qr;
+            }
+          } catch (parseErr) {
+            console.warn(`[wpp-status] QR parse error:`, parseErr);
+          }
+        }
+      } catch (err) {
+        console.warn(`[wpp-status] QR poll #${i + 1} ${variant.desc} error:`, err);
+      }
+    }
+    
+    if (i < maxAttempts - 1) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+  
+  console.log('[wpp-status] QR polling completed without QR');
   return null;
 }
 
@@ -205,32 +207,43 @@ Deno.serve(async (req) => {
 
     // 2) Check connection status
     console.log('[wpp-status] Checking connection');
-    let statusRes: Response | null = null;
-    if (wppToken) {
-      const statusUrl = `${BASE}/api/${sessionName}/status-session`;
-      statusRes = await withTimeout(fetch(statusUrl, { headers: { Authorization: `Bearer ${wppToken}` } }));
-    } else {
-      // Fallback 1: secret in path
-      const statusUrlPath = `${BASE}/api/${sessionName}/${SECRET}/status-session`;
-      statusRes = await withTimeout(fetch(statusUrlPath));
-      if (!statusRes.ok) {
-        // Fallback 2: secretKey as query param
-        const statusUrlQuery = `${BASE}/api/${sessionName}/status-session?secretKey=${encodeURIComponent(SECRET)}`;
-        statusRes = await withTimeout(fetch(statusUrlQuery));
-      }
-    }
-
-    console.log('[wpp-status] Status:', statusRes.status);
     
+    const statusVariants = wppToken
+      ? [
+          { url: `${BASE}/api/${sessionName}/status-session`, headers: { ...standardHeaders, Authorization: `Bearer ${wppToken}` }, desc: 'Bearer' },
+          { url: `${BASE}/api/${sessionName}/status-session/`, headers: { ...standardHeaders, Authorization: `Bearer ${wppToken}` }, desc: 'Bearer (/)' },
+        ]
+      : [
+          { url: `${BASE}/api/${sessionName}/${SECRET}/status-session`, headers: standardHeaders, desc: 'secret in path' },
+          { url: `${BASE}/api/${sessionName}/${SECRET}/status-session/`, headers: standardHeaders, desc: 'secret in path (/)' },
+          { url: `${BASE}/api/${sessionName}/status-session?secretKey=${encodeURIComponent(SECRET)}`, headers: standardHeaders, desc: 'secretKey query' },
+          { url: `${BASE}/api/${sessionName}/status-session/?secretKey=${encodeURIComponent(SECRET)}`, headers: standardHeaders, desc: 'secretKey query (/)' },
+        ];
+
     let connected = false;
-    if (statusRes.ok) {
-      const statusText = await statusRes.text();
-      console.log('[wpp-status] Status body:', statusText.substring(0, 300));
-      
-      if (statusText?.trim()) {
-        const statusData = JSON.parse(statusText);
-        connected = statusData?.status === 'CONNECTED' || statusData?.state === 'CONNECTED';
-        console.log('[wpp-status] Connected:', connected);
+    let statusFound = false;
+    
+    for (const variant of statusVariants) {
+      try {
+        const res = await withTimeout(fetch(variant.url, { headers: variant.headers }));
+        const text = await res.text();
+        logResponse(`Status ${variant.desc}`, res, text);
+        
+        if (res.ok && text?.trim()) {
+          try {
+            const data = JSON.parse(text);
+            connected = data?.status === 'CONNECTED' || data?.state === 'CONNECTED';
+            statusFound = true;
+            console.log('[wpp-status] Connected:', connected);
+            break;
+          } catch (parseErr) {
+            console.warn('[wpp-status] Status parse error:', parseErr);
+          }
+        } else if (res.ok && !text?.trim()) {
+          console.warn('[wpp-status] Status returned 200 but empty body - treating as unknown');
+        }
+      } catch (err) {
+        console.warn(`[wpp-status] Status ${variant.desc} error:`, err);
       }
     }
 
@@ -272,101 +285,92 @@ Deno.serve(async (req) => {
 
     // 4) Start session to get new QR
     console.log('[wpp-status] Starting session');
-    let startRes: Response | null = null;
-    if (wppToken) {
-      const startUrl = `${BASE}/api/${sessionName}/start-session`;
-      startRes = await withTimeout(
-        fetch(startUrl, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${wppToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            webhook: webhookUrl,
-            waitQrCode: true
-          })
-        })
-      );
-    } else {
-      // Fallback A: secret in path
-      const startUrlPath = `${BASE}/api/${sessionName}/${SECRET}/start-session`;
-      startRes = await withTimeout(
-        fetch(startUrlPath, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            webhook: webhookUrl,
-            waitQrCode: true
-          })
-        })
-      );
-      if (!startRes.ok) {
-        // Fallback B: secretKey in body
-        const startUrlBody = `${BASE}/api/${sessionName}/start-session`;
-        startRes = await withTimeout(
-          fetch(startUrlBody, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              webhook: webhookUrl,
-              waitQrCode: true,
-              secretKey: SECRET
-            })
-          })
-        );
-      }
-    }
-
-    console.log('[wpp-status] Start response:', startRes.status);
     
-    let qrCode: string | null = null;
-    if (startRes.ok) {
-      const startText = await startRes.text();
-      console.log('[wpp-status] Start body:', startText.substring(0, 300));
-      
-      if (startText?.trim()) {
-        const startData = JSON.parse(startText);
-        qrCode = startData?.qrcode || startData?.qr || null;
-      }
-    }
+    const startVariants = wppToken
+      ? [
+          { 
+            url: `${BASE}/api/${sessionName}/start-session`, 
+            headers: { ...standardHeaders, Authorization: `Bearer ${wppToken}`, 'Content-Type': 'application/json' },
+            body: { webhook: webhookUrl, waitQrCode: true },
+            desc: 'Bearer'
+          },
+          { 
+            url: `${BASE}/api/${sessionName}/start-session/`, 
+            headers: { ...standardHeaders, Authorization: `Bearer ${wppToken}`, 'Content-Type': 'application/json' },
+            body: { webhook: webhookUrl, waitQrCode: true },
+            desc: 'Bearer (/)'
+          },
+        ]
+      : [
+          { 
+            url: `${BASE}/api/${sessionName}/${SECRET}/start-session`,
+            headers: { ...standardHeaders, 'Content-Type': 'application/json' },
+            body: { webhook: webhookUrl, waitQrCode: true },
+            desc: 'secret in path'
+          },
+          { 
+            url: `${BASE}/api/${sessionName}/${SECRET}/start-session/`,
+            headers: { ...standardHeaders, 'Content-Type': 'application/json' },
+            body: { webhook: webhookUrl, waitQrCode: true },
+            desc: 'secret in path (/)'
+          },
+          { 
+            url: `${BASE}/api/${sessionName}/start-session`,
+            headers: { ...standardHeaders, 'Content-Type': 'application/json' },
+            body: { webhook: webhookUrl, waitQrCode: true, secretKey: SECRET },
+            desc: 'secretKey in body'
+          },
+          { 
+            url: `${BASE}/api/${sessionName}/start-session/`,
+            headers: { ...standardHeaders, 'Content-Type': 'application/json' },
+            body: { webhook: webhookUrl, waitQrCode: true, secretKey: SECRET },
+            desc: 'secretKey in body (/)'
+          },
+        ];
 
-    // 5) Try qrcode endpoint if no QR yet
-    if (!qrCode) {
-      console.log('[wpp-status] Trying qrcode endpoint');
-      let qrRes: Response | null = null;
-      if (wppToken) {
-        const qrUrl = `${BASE}/api/${sessionName}/qrcode`;
-        qrRes = await withTimeout(
-          fetch(qrUrl, {
-            headers: { Authorization: `Bearer ${wppToken}` }
+    let sessionStarted = false;
+    let qrCode: string | null = null;
+    
+    for (const variant of startVariants) {
+      try {
+        const res = await withTimeout(
+          fetch(variant.url, {
+            method: 'POST',
+            headers: variant.headers,
+            body: JSON.stringify(variant.body)
           })
         );
-      } else {
-        // Fallback: secret in path
-        const qrUrlPath = `${BASE}/api/${sessionName}/${SECRET}/qrcode`;
-        qrRes = await withTimeout(fetch(qrUrlPath));
-        if (!qrRes.ok) {
-          // Fallback: secretKey as query param
-          const qrUrlQuery = `${BASE}/api/${sessionName}/qrcode?secretKey=${encodeURIComponent(SECRET)}`;
-          qrRes = await withTimeout(fetch(qrUrlQuery));
-        }
-      }
-
-      console.log('[wpp-status] QR response:', qrRes.status);
-      
-      if (qrRes.ok) {
-        const qrText = await qrRes.text();
-        console.log('[wpp-status] QR body:', qrText.substring(0, 300));
         
-        if (qrText?.trim()) {
-          const qrData = JSON.parse(qrText);
-          qrCode = qrData?.qrcode || qrData?.qr || null;
+        const text = await res.text();
+        logResponse(`Start ${variant.desc}`, res, text);
+        
+        if (res.ok) {
+          sessionStarted = true;
+          if (text?.trim()) {
+            try {
+              const data = JSON.parse(text);
+              qrCode = data?.qrcode || data?.qr || null;
+              if (qrCode) {
+                console.log('[wpp-status] ✓ QR from start-session');
+                break;
+              }
+            } catch (parseErr) {
+              console.warn('[wpp-status] Start parse error:', parseErr);
+            }
+          }
+          break; // Session started successfully, even if no QR yet
         }
+      } catch (err) {
+        console.warn(`[wpp-status] Start ${variant.desc} error:`, err);
       }
     }
 
-    const status = qrCode ? 'qr_issued' : 'disconnected';
+    // 5) Poll for QR code if session started but no QR yet
+    if (sessionStarted && !qrCode) {
+      qrCode = await pollForQR(sessionName, wppToken);
+    }
+
+    const status = qrCode ? 'qr_issued' : (sessionStarted ? 'qr_pending' : 'disconnected');
     console.log('[wpp-status] Final status:', status);
 
     await supabaseClient
