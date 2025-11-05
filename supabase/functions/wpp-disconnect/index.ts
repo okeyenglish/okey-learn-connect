@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
     const sessionName = `org_${organizationId}`;
     console.log('Organization ID:', organizationId, 'Session name:', sessionName);
 
-    const WPP_BASE_URL = Deno.env.get('WPP_BASE_URL');
+    let WPP_BASE_URL = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru';
     const WPP_AGG_TOKEN = Deno.env.get('WPP_AGG_TOKEN');
 
     if (!WPP_BASE_URL || !WPP_AGG_TOKEN) {
@@ -67,6 +67,12 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Ensure base URL has protocol
+    if (!WPP_BASE_URL.startsWith('http://') && !WPP_BASE_URL.startsWith('https://')) {
+      WPP_BASE_URL = `http://${WPP_BASE_URL}`;
+    }
+    console.log('Final WPP_BASE_URL:', WPP_BASE_URL);
 
     // Generate token (POST then fallback to GET; accept JSON or plain text)
     console.log('Generating token for session:', sessionName);

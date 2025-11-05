@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
     const organizationId = profile.organization_id;
     const sessionName = `org_${organizationId}`;
     
-    const WPP_BASE_URL = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru';
+    let WPP_BASE_URL = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru';
     const WPP_AGG_TOKEN = Deno.env.get('WPP_AGG_TOKEN');
 
     if (!WPP_AGG_TOKEN) {
@@ -60,6 +60,12 @@ Deno.serve(async (req) => {
     if (!WPP_BASE_URL) {
       throw new Error('WPP_BASE_URL is not configured');
     }
+
+    // Ensure base URL has protocol
+    if (!WPP_BASE_URL.startsWith('http://') && !WPP_BASE_URL.startsWith('https://')) {
+      WPP_BASE_URL = `http://${WPP_BASE_URL}`;
+    }
+    console.log('Final WPP_BASE_URL:', WPP_BASE_URL);
 
     console.log('Checking WPP status for session:', sessionName);
 

@@ -340,14 +340,24 @@ const WhatsAppSessions = () => {
 
       const { data, error } = await supabase.functions.invoke('wpp-start');
 
-      if (error) throw error;
+      if (error) {
+        const anyErr: any = error as any;
+        const status = anyErr?.context?.status ? ` (HTTP ${anyErr.context.status})` : '';
+        const bodySnippet = anyErr?.context?.body ? `\n${String(anyErr.context.body).slice(0, 200)}` : '';
+        toast({
+          title: "Ошибка",
+          description: `${anyErr?.message || 'Не удалось переподключить сессию'}${status}${bodySnippet}`,
+          variant: "destructive",
+        });
+        throw error;
+      }
 
       if (data?.qrcode) {
         setQrDialog({ 
           open: true, 
           qr: data.qrcode, 
           sessionName,
-          isPolling: false 
+          isPolling: true 
         });
         startStatusPolling(sessionName);
       } else if (data?.status === 'connected') {
@@ -355,16 +365,25 @@ const WhatsAppSessions = () => {
           title: "✅ Уже подключено",
           description: "Сессия уже активна",
         });
+      } else {
+        toast({
+          title: "Нет QR кода",
+          description: "Сервер не вернул QR. Попробуйте еще раз или проверьте логи.",
+          variant: "destructive",
+        });
       }
 
       await fetchSessions();
     } catch (error: any) {
       console.error('Error reconnecting:', error);
-      toast({
-        title: "Ошибка",
-        description: error.message || "Не удалось переподключить сессию",
-        variant: "destructive",
-      });
+      // already toasted above, but keep a fallback
+      if (!error?.context) {
+        toast({
+          title: "Ошибка",
+          description: error?.message || "Не удалось переподключить сессию",
+          variant: "destructive",
+        });
+      }
     }
   };
 

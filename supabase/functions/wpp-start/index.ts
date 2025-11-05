@@ -67,6 +67,27 @@ Deno.serve(async (req) => {
       WPP_HOST = `http://${WPP_HOST}`;
       console.log('Added http:// protocol to WPP_HOST:', WPP_HOST);
     }
+    console.log('Final WPP_HOST:', WPP_HOST);
+
+    // Optional health check (non-fatal if endpoint is missing but fatal on network/timeout)
+    try {
+      const healthUrl = `${WPP_HOST}/health`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const healthRes = await fetch(healthUrl, { method: 'GET', signal: controller.signal }).catch((e) => {
+        console.error('Health check fetch error:', e?.message || e);
+        throw e;
+      });
+      clearTimeout(timeoutId);
+      console.log('Health check status:', healthRes.status);
+      // If the server responds (even 404), we consider host reachable. Only network errors/timeout are fatal.
+    } catch (e) {
+      console.error('WPP host health check failed');
+      return new Response(
+        JSON.stringify({ ok: false, error: 'WPP host unreachable. Please verify WPP_HOST and network connectivity.' }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Generate token for this session
     console.log('Generating token for session:', sessionName);
