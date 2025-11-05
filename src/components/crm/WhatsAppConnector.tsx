@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-type WppStatus = 'connected' | 'disconnected' | 'qr_issued' | 'qr_pending' | 'pairing';
+type WppStatus = 'connected' | 'disconnected' | 'qr_issued' | 'qr_pending' | 'pairing' | 'syncing';
 
 export function WhatsAppConnector() {
   const [status, setStatus] = useState<WppStatus>('disconnected');
@@ -137,12 +137,12 @@ export function WhatsAppConnector() {
   useEffect(() => {
     fetchStatus();
     
-    // Poll status every 3 seconds if not connected
+    // Poll status every 2 seconds if not connected or syncing
     const interval = setInterval(() => {
-      if (status !== 'connected') {
+      if (status !== 'connected' && status !== 'syncing') {
         fetchStatus();
       }
-    }, 3000);
+    }, 2000);
 
     return () => clearInterval(interval);
   }, [status]);
@@ -333,6 +333,7 @@ export function WhatsAppConnector() {
             <div className="flex justify-center">
               <img 
                 src={qr} 
+                key={qr.slice(-16)}
                 alt="WhatsApp QR Code"
                 className="w-64 h-64 border-2 border-border rounded-lg"
                 style={{ imageRendering: 'pixelated' }}
