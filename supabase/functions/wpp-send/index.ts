@@ -7,28 +7,42 @@ const corsHeaders = {
 
 // Generate WPP token for session
 async function generateWppToken(sessionName: string, wppHost: string, wppSecret: string): Promise<string> {
-  const tokenRes = await fetch(
-    `${wppHost}/api/${encodeURIComponent(sessionName)}/${wppSecret}/generate-token`,
-    { method: 'POST' }
-  )
+  const tokenUrl = `${wppHost}/api/${encodeURIComponent(sessionName)}/${wppSecret}/generate-token`
+  console.log('Requesting WPP token:', tokenUrl)
+  
+  const tokenRes = await fetch(tokenUrl, { method: 'POST' })
+  
+  console.log('WPP token response status:', tokenRes.status)
+  console.log('WPP token response headers:', Object.fromEntries(tokenRes.headers.entries()))
   
   if (!tokenRes.ok) {
     const errorText = await tokenRes.text()
+    console.error('WPP token generation failed:', errorText)
     throw new Error(`Failed to generate WPP token: ${tokenRes.status} - ${errorText}`)
   }
   
-  const contentType = tokenRes.headers.get('content-type')
-  if (!contentType?.includes('application/json')) {
-    const text = await tokenRes.text()
-    throw new Error(`WPP API returned non-JSON response: ${text.substring(0, 200)}`)
+  const contentType = tokenRes.headers.get('content-type') || ''
+  const responseText = await tokenRes.text()
+  
+  console.log('WPP token response content-type:', contentType)
+  console.log('WPP token response body:', responseText)
+  
+  if (!contentType.includes('application/json')) {
+    throw new Error(`WPP API returned non-JSON response (content-type: ${contentType}): ${responseText.substring(0, 200)}`)
   }
   
-  const tokenData = await tokenRes.json()
+  if (!responseText || responseText.trim() === '') {
+    throw new Error('WPP API returned empty response')
+  }
+  
+  const tokenData = JSON.parse(responseText)
   
   if (!tokenData?.token) {
+    console.error('No token in WPP response:', tokenData)
     throw new Error('Failed to generate WPP token: no token in response')
   }
   
+  console.log('Successfully generated WPP token')
   return tokenData.token
 }
 
