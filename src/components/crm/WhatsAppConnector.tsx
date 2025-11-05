@@ -40,7 +40,7 @@ export function WhatsAppConnector() {
         return;
       }
 
-      if (data?.ok) {
+      if (data) {
         setStatus(data.status);
         setQr(data.qrcode || null);
         setError(null);

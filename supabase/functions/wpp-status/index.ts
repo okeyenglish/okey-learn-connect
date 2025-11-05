@@ -71,11 +71,11 @@ Deno.serve(async (req) => {
       .eq('organization_id', orgId)
       .single();
 
-    // If we have a recent QR (< 2 minutes old) and status is qr_issued, return it
+    // If we have a recent QR (< 25s) and status is qr_issued, return it to avoid hammering WPP
     if (session?.status === 'qr_issued' && session.last_qr_b64 && session.last_qr_at) {
       const qrAge = Date.now() - new Date(session.last_qr_at).getTime();
-      if (qrAge < 2 * 60 * 1000) {
-        console.log('[wpp-status] Returning cached QR');
+      if (qrAge < 25 * 1000) {
+        console.log('[wpp-status] Returning cached QR (age', Math.round(qrAge/1000), 's)');
         return new Response(
           JSON.stringify({ status: 'qr_issued', qrcode: session.last_qr_b64 }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
