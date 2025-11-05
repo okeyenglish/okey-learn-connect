@@ -11,16 +11,16 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-const WPP_SECRET = Deno.env.get('WPP_SECRET')
+const EXPECTED_SECRET = Deno.env.get('WPP_AGG_TOKEN') || Deno.env.get('WPP_SECRET') || ''
 
 // Validate webhook signature (optional if WPP supports it)
 async function isValidSignature(signature: string, rawBody: string): Promise<boolean> {
-  if (!WPP_SECRET) {
+  if (!EXPECTED_SECRET) {
     console.warn('No webhook secret configured, skipping signature validation')
     return true
   }
 
-  const hmac = createHmac('sha256', WPP_SECRET)
+  const hmac = createHmac('sha256', EXPECTED_SECRET)
   hmac.update(rawBody)
   const expectedSignature = hmac.digest('hex')
   
@@ -34,11 +34,19 @@ serve(async (req) => {
 
   try {
     const rawBody = await req.text()
-    const signature = req.headers.get('x-wpp-signature') || ''
-    
-    const validSignature = await isValidSignature(signature, rawBody)
-    if (!validSignature) {
-      return new Response('Invalid signature', { status: 401, headers: corsHeaders })
+    const url = new URL(req.url)
+
+    // Validate via query/header secret first (preferred by our start-session config)
+    const secretParam = url.searchParams.get('secret') || req.headers.get('x-webhook-secret') || ''
+    if (secretParam && EXPECTED_SECRET && secretParam === EXPECTED_SECRET) {
+      console.log('Webhook secret validated via query/header')
+    } else {
+      // Fallback to signature validation if provided
+      const signature = req.headers.get('x-wpp-signature') || ''
+      const validSignature = await isValidSignature(signature, rawBody)
+      if (!validSignature) {
+        return new Response('Invalid signature', { status: 401, headers: corsHeaders })
+      }
     }
 
     const event = JSON.parse(rawBody)
@@ -55,15 +63,29 @@ serve(async (req) => {
         processed: false
       })
 
-    // Handle connection status updates
+    // Handle connection and QR updates
     const eventType = String(event.event || event.type || '').toUpperCase()
     const sessionName = event.session
+    const qrCode = event.qrcode || event.qr || event?.data?.qrcode || null
 
-    if (eventType === 'CONNECTED' && sessionName) {
-      // Extract organization_id from session name (org_<uuid>)
-      const orgMatch = sessionName.match(/^org_([a-f0-9-]+)$/)
-      if (orgMatch) {
-        const organizationId = orgMatch[1]
+    // Extract organization_id from session name (org_<uuid>)
+    const orgMatch = sessionName ? String(sessionName).match(/^org_([a-f0-9-]+)$/) : null
+    const organizationId = orgMatch ? orgMatch[1] : null
+
+    if (organizationId) {
+      if (qrCode) {
+        await supabase
+          .from('whatsapp_sessions')
+          .upsert({
+            organization_id: organizationId,
+            session_name: sessionName,
+            status: 'qr_issued',
+            last_qr_b64: qrCode,
+            last_qr_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'organization_id' })
+        console.log(`QR received for ${sessionName} (org ${organizationId})`)
+      } else if (eventType === 'CONNECTED' || eventType === 'READY') {
         await supabase
           .from('whatsapp_sessions')
           .update({
@@ -73,13 +95,8 @@ serve(async (req) => {
             updated_at: new Date().toISOString(),
           })
           .eq('organization_id', organizationId)
-        
         console.log(`Session ${sessionName} connected for org ${organizationId}`)
-      }
-    } else if (eventType === 'DISCONNECTED' && sessionName) {
-      const orgMatch = sessionName.match(/^org_([a-f0-9-]+)$/)
-      if (orgMatch) {
-        const organizationId = orgMatch[1]
+      } else if (eventType === 'DISCONNECTED' || eventType === 'LOGOUT') {
         await supabase
           .from('whatsapp_sessions')
           .update({
@@ -87,7 +104,6 @@ serve(async (req) => {
             updated_at: new Date().toISOString(),
           })
           .eq('organization_id', organizationId)
-        
         console.log(`Session ${sessionName} disconnected for org ${organizationId}`)
       }
     }
