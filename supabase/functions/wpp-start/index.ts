@@ -274,6 +274,59 @@ Deno.serve(async (req) => {
       status = 'disconnected';
     }
 
+    // If async initialization, poll for status
+    if (status === 'disconnected' && !isConnected && !qrCode) {
+      console.log('Async initialization detected, starting polling...');
+      
+      async function pollStatus(attempts: number = 6): Promise<{ status: string, qrCode: string | null }> {
+        for (let i = 0; i < attempts; i++) {
+          await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+          
+          try {
+            const checkUrl = `${WPP_HOST}/api/${sessionName}/${WPP_SECRET}/check-connection-session`;
+            console.log(`Polling attempt ${i + 1}/${attempts}:`, checkUrl.replace(WPP_SECRET, maskSecret(WPP_SECRET)));
+            
+            const checkRes = await fetch(checkUrl, { method: 'GET' });
+            
+            if (!checkRes.ok) {
+              console.warn(`Poll attempt ${i + 1} failed: status=${checkRes.status}`);
+              continue;
+            }
+            
+            const checkBody = await checkRes.text();
+            const checkCt = checkRes.headers.get('content-type') || '';
+            
+            if (checkCt.includes('application/json') && checkBody) {
+              const data = JSON.parse(checkBody);
+              console.log(`Poll attempt ${i + 1} data:`, data);
+              
+              const connected = data?.status === 'CONNECTED' || data?.state === 'CONNECTED';
+              const qr = data?.qrcode || data?.qr || null;
+              
+              if (connected) {
+                console.log('🟢 Connection detected via polling');
+                return { status: 'connected', qrCode: null };
+              }
+              
+              if (qr) {
+                console.log('📱 QR code received via polling');
+                return { status: 'qr_issued', qrCode: qr };
+              }
+            }
+          } catch (e) {
+            console.error(`Poll attempt ${i + 1} error:`, e);
+          }
+        }
+        
+        console.log('Polling completed, no status change detected');
+        return { status: 'disconnected', qrCode: null };
+      }
+      
+      const polledResult = await pollStatus();
+      status = polledResult.status;
+      qrCode = polledResult.qrCode;
+    }
+
     // Upsert session in database
     const { data: session } = await supabaseClient
       .from('whatsapp_sessions')
