@@ -29,36 +29,120 @@ async function withTimeout<T>(promise: Promise<T>, ms = TIMEOUT): Promise<T> {
 }
 
 async function generateToken(sessionName: string): Promise<string> {
-  const url = `${BASE}/api/${sessionName}/${SECRET}/generate-token`;
-  console.log('[wpp-start] POST', url.replace(SECRET, '***'));
+  console.log('[wpp-start] Attempting to generate token for:', sessionName);
   
-  const res = await withTimeout(
-    fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    })
-  );
+  // Try 1: POST with secret in path
+  try {
+    const url1 = `${BASE}/api/${sessionName}/${SECRET}/generate-token`;
+    console.log('[wpp-start] Try 1: POST with secret in path');
+    
+    const res1 = await withTimeout(
+      fetch(url1, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+    );
 
-  console.log('[wpp-start] Token response:', res.status);
-  
-  if (!res.ok) {
-    throw new Error(`generate-token failed: ${res.status}`);
+    console.log('[wpp-start] Try 1 status:', res1.status);
+    
+    if (res1.ok) {
+      const text1 = await res1.text();
+      console.log('[wpp-start] Try 1 body:', text1.substring(0, 200));
+      
+      if (text1?.trim()) {
+        const data1 = JSON.parse(text1);
+        if (data1?.token) {
+          console.log('[wpp-start] ✓ Token from Try 1');
+          return data1.token;
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[wpp-start] Try 1 failed:', err);
   }
-  
-  const text = await res.text();
-  console.log('[wpp-start] Token body:', text.substring(0, 200));
-  
-  if (!text?.trim()) {
-    throw new Error('Empty response from generate-token');
+
+  // Try 2: POST with secretKey in body
+  try {
+    const url2 = `${BASE}/api/${sessionName}/generate-token`;
+    console.log('[wpp-start] Try 2: POST with secretKey in body');
+    
+    const res2 = await withTimeout(
+      fetch(url2, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secretKey: SECRET })
+      })
+    );
+
+    console.log('[wpp-start] Try 2 status:', res2.status);
+    
+    if (res2.ok) {
+      const text2 = await res2.text();
+      console.log('[wpp-start] Try 2 body:', text2.substring(0, 200));
+      
+      if (text2?.trim()) {
+        const data2 = JSON.parse(text2);
+        if (data2?.token) {
+          console.log('[wpp-start] ✓ Token from Try 2');
+          return data2.token;
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[wpp-start] Try 2 failed:', err);
   }
-  
-  const data = JSON.parse(text);
-  if (!data?.token) {
-    throw new Error('No token in response');
+
+  // Try 3: GET with secret in path
+  try {
+    const url3 = `${BASE}/api/${sessionName}/${SECRET}/generate-token`;
+    console.log('[wpp-start] Try 3: GET with secret in path');
+    
+    const res3 = await withTimeout(fetch(url3));
+
+    console.log('[wpp-start] Try 3 status:', res3.status);
+    
+    if (res3.ok) {
+      const text3 = await res3.text();
+      console.log('[wpp-start] Try 3 body:', text3.substring(0, 200));
+      
+      if (text3?.trim()) {
+        const data3 = JSON.parse(text3);
+        if (data3?.token) {
+          console.log('[wpp-start] ✓ Token from Try 3');
+          return data3.token;
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[wpp-start] Try 3 failed:', err);
   }
-  
-  console.log('[wpp-start] ✓ Token obtained');
-  return data.token;
+
+  // Try 4: GET with secretKey query param
+  try {
+    const url4 = `${BASE}/api/${sessionName}/generate-token?secretKey=${encodeURIComponent(SECRET)}`;
+    console.log('[wpp-start] Try 4: GET with secretKey query');
+    
+    const res4 = await withTimeout(fetch(url4));
+
+    console.log('[wpp-start] Try 4 status:', res4.status);
+    
+    if (res4.ok) {
+      const text4 = await res4.text();
+      console.log('[wpp-start] Try 4 body:', text4.substring(0, 200));
+      
+      if (text4?.trim()) {
+        const data4 = JSON.parse(text4);
+        if (data4?.token) {
+          console.log('[wpp-start] ✓ Token from Try 4');
+          return data4.token;
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[wpp-start] Try 4 failed:', err);
+  }
+
+  throw new Error('All token generation attempts failed - server returns empty responses');
 }
 
 Deno.serve(async (req) => {
