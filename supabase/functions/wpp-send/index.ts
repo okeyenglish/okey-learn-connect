@@ -6,9 +6,9 @@ const corsHeaders = {
 }
 
 // Generate WPP token for session
-async function generateWppToken(sessionName: string): Promise<string> {
+async function generateWppToken(sessionName: string, wppHost: string, wppSecret: string): Promise<string> {
   const tokenRes = await fetch(
-    `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/${WPP_SECRET}/generate-token`,
+    `${wppHost}/api/${encodeURIComponent(sessionName)}/${wppSecret}/generate-token`,
     { method: 'POST' }
   )
   const tokenData = await tokenRes.json()
@@ -21,8 +21,8 @@ async function generateWppToken(sessionName: string): Promise<string> {
 }
 
 // Get organization's session name from user
-async function getOrgSessionName(userId: string): Promise<string> {
-  const { data: profile, error } = await supabase
+async function getOrgSessionName(userId: string, supabaseClient: any): Promise<string> {
+  const { data: profile, error } = await supabaseClient
     .from('profiles')
     .select('organization_id')
     .eq('id', userId)
@@ -61,8 +61,13 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const WPP_HOST = Deno.env.get('WPP_HOST') || 'https://msg.academyos.ru'
+    let WPP_HOST = Deno.env.get('WPP_HOST') || 'https://msg.academyos.ru'
     const WPP_SECRET = Deno.env.get('WPP_SECRET')
+    
+    // Ensure WPP_HOST has protocol
+    if (!WPP_HOST.startsWith('http://') && !WPP_HOST.startsWith('https://')) {
+      WPP_HOST = `http://${WPP_HOST}`;
+    }
     
     if (!WPP_SECRET) {
       throw new Error('WPP_SECRET is not configured')
@@ -93,8 +98,8 @@ Deno.serve(async (req) => {
       console.log('Testing WPP connection...')
       
       try {
-        const sessionName = await getOrgSessionName(user.id)
-        const wppToken = await generateWppToken(sessionName)
+        const sessionName = await getOrgSessionName(user.id, supabase)
+        const wppToken = await generateWppToken(sessionName, WPP_HOST, WPP_SECRET)
         
         const healthUrl = `${WPP_HOST}/health`
         console.log('Testing connection to:', healthUrl)
@@ -141,8 +146,8 @@ Deno.serve(async (req) => {
     console.log('Sending WPP message:', { clientId, message, phoneNumber, fileUrl, fileName })
 
     // Get organization session
-    const sessionName = await getOrgSessionName(user.id)
-    const wppToken = await generateWppToken(sessionName)
+    const sessionName = await getOrgSessionName(user.id, supabase)
+    const wppToken = await generateWppToken(sessionName, WPP_HOST, WPP_SECRET)
 
     // Get client data
     const { data: client, error: clientError } = await supabase
@@ -175,6 +180,7 @@ Deno.serve(async (req) => {
         sessionName,
         to,
         fileUrl,
+        WPP_HOST,
         fileName,
         message
       )
@@ -184,7 +190,8 @@ Deno.serve(async (req) => {
         wppToken,
         sessionName,
         to,
-        message
+        message,
+        WPP_HOST
       )
     }
 
@@ -252,9 +259,10 @@ async function sendTextMessage(
   wppToken: string,
   sessionName: string,
   to: string,
-  text: string
+  text: string,
+  wppHost: string
 ): Promise<WPPResponse> {
-  const url = `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/send-message`
+  const url = `${wppHost}/api/${encodeURIComponent(sessionName)}/send-message`
   
   console.log('Sending text message to WPP:', url)
   
@@ -285,10 +293,11 @@ async function sendMediaMessage(
   sessionName: string,
   to: string,
   fileUrl: string,
+  wppHost: string,
   fileName?: string,
   caption?: string
 ): Promise<WPPResponse> {
-  const url = `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/send-file-base64`
+  const url = `${wppHost}/api/${encodeURIComponent(sessionName)}/send-file-base64`
   
   console.log('Sending media message to WPP:', url)
   

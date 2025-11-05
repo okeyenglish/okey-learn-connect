@@ -51,8 +51,13 @@ Deno.serve(async (req) => {
     const organizationId = profile.organization_id;
     const sessionName = `org_${organizationId}`;
     
-    const WPP_HOST = Deno.env.get('WPP_HOST') || 'https://msg.academyos.ru';
+    let WPP_HOST = Deno.env.get('WPP_HOST') || 'https://msg.academyos.ru';
     const WPP_SECRET = Deno.env.get('WPP_SECRET');
+
+    // Ensure WPP_HOST has protocol
+    if (!WPP_HOST.startsWith('http://') && !WPP_HOST.startsWith('https://')) {
+      WPP_HOST = `http://${WPP_HOST}`;
+    }
 
     if (!WPP_SECRET) {
       throw new Error('WPP_SECRET is not configured');
