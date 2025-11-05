@@ -121,20 +121,22 @@ Deno.serve(async (req) => {
     });
 
     console.log('Status check response status:', statusRes.status);
+    console.log('Status check response headers:', Object.fromEntries(statusRes.headers.entries()));
 
-    let statusData;
-    try {
-      if (!statusRes.ok) {
-        const text = await statusRes.text();
-        console.error('Status check failed:', text);
-        statusData = { status: false };
-      } else {
-        statusData = await statusRes.json();
-        console.log('Status data:', statusData);
+    let statusData: any = { status: false };
+    const statusCt = statusRes.headers.get('content-type') || '';
+    const statusText = await statusRes.text();
+    console.log('Status check content-type:', statusCt);
+    console.log('Status check response body:', statusText);
+    
+    if (statusRes.ok && statusText && statusText.trim().length > 0) {
+      try {
+        statusData = JSON.parse(statusText);
+        console.log('Parsed status data:', statusData);
+      } catch (err) {
+        console.error('Failed to parse status response:', err);
+        // Keep default statusData = { status: false }
       }
-    } catch (err) {
-      console.error('Failed to parse status response:', err);
-      statusData = { status: false };
     }
 
     const isConnected = statusData?.status === true || statusData?.state === 'CONNECTED';
@@ -215,28 +217,33 @@ Deno.serve(async (req) => {
     );
 
     console.log('Start session response status:', startRes.status);
+    console.log('Start session response headers:', Object.fromEntries(startRes.headers.entries()));
+    
+    const startCt = startRes.headers.get('content-type') || '';
+    const startText = await startRes.text();
+    console.log('Start session content-type:', startCt);
+    console.log('Start session response body:', startText);
     
     if (!startRes.ok) {
-      const text = await startRes.text();
-      console.error('Start session failed:', text);
-      throw new Error(`Failed to start session: ${startRes.status} - ${text.substring(0, 200)}`);
+      console.error('Start session failed:', startText);
+      throw new Error(`Failed to start session: ${startRes.status} - ${startText.substring(0, 200)}`);
     }
 
-    const startCt = startRes.headers.get('content-type') || '';
-    if (!startCt.includes('application/json')) {
-      const text = await startRes.text();
-      throw new Error(`Start session returned non-JSON (${startCt}): ${text.substring(0, 200)}`);
-    }
-    let startData: any;
-    try {
-      startData = await startRes.json();
-    } catch (e: any) {
-      const text = await startRes.text();
-      throw new Error(`Failed to parse start-session JSON: ${e?.message || e} - ${text.substring(0, 200)}`);
-    }
-    console.log('Start session data:', startData);
+    let startData: any = {};
     
-    const qrCode = startData?.qrcode || null;
+    // Try to parse JSON if content-type suggests it
+    if (startCt.includes('application/json') && startText && startText.trim().length > 0) {
+      try {
+        startData = JSON.parse(startText);
+        console.log('Parsed start session data:', startData);
+      } catch (e: any) {
+        console.error('Failed to parse start-session JSON:', e);
+      }
+    }
+    
+    // If we got an empty response but status was 200, treat as success without QR
+    // (the session might be starting in the background)
+    const qrCode = startData?.qrcode || startData?.qr || null;
     const status = qrCode ? 'qr_issued' : 'disconnected';
 
     // Update DB with new QR
