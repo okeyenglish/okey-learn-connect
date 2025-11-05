@@ -159,8 +159,10 @@ Deno.serve(async (req) => {
     console.log('Starting WhatsApp session...');
     
     async function startSessionWithBearer(token: string): Promise<Response> {
+      const webhookUrl = `${PUBLIC_URL}/functions/v1/wpp-webhook?session=${sessionName}&secret=${WPP_SECRET}`;
       const url = `${WPP_HOST}/api/${sessionName}/start-session`;
       console.log('Start session URL (method=bearer):', url);
+      console.log('Webhook URL (masked):', webhookUrl.replace(WPP_SECRET, maskSecret(WPP_SECRET)));
       
       return await fetch(url, {
         method: 'POST',
@@ -171,7 +173,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           webhook: {
             enabled: true,
-            url: `${PUBLIC_URL}/functions/v1/wpp-webhook`,
+            url: webhookUrl,
             secret: WPP_SECRET,
           },
           waitQrCode: true,
@@ -183,8 +185,10 @@ Deno.serve(async (req) => {
     }
     
     async function startSessionWithSecretPath(): Promise<Response> {
+      const webhookUrl = `${PUBLIC_URL}/functions/v1/wpp-webhook?session=${sessionName}&secret=${WPP_SECRET}`;
       const url = `${WPP_HOST}/api/${sessionName}/${WPP_SECRET}/start-session`;
       console.log('Start session URL (method=secret-path, masked):', url.replace(WPP_SECRET, maskSecret(WPP_SECRET)));
+      console.log('Webhook URL (masked):', webhookUrl.replace(WPP_SECRET, maskSecret(WPP_SECRET)));
       
       return await fetch(url, {
         method: 'POST',
@@ -194,7 +198,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           webhook: {
             enabled: true,
-            url: `${PUBLIC_URL}/functions/v1/wpp-webhook`,
+            url: webhookUrl,
             secret: WPP_SECRET,
           },
           waitQrCode: true,
