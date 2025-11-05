@@ -53,7 +53,13 @@ const WhatsAppSessions = () => {
   const [refreshingQr, setRefreshingQr] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const qrDialogOpenRef = useRef(false);
   const { toast } = useToast();
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    qrDialogOpenRef.current = qrDialog.open;
+  }, [qrDialog.open]);
 
   const fetchSessions = async () => {
     try {
@@ -132,7 +138,7 @@ const WhatsAppSessions = () => {
           // Refetch sessions when any change occurs
           fetchSessions();
           
-          // Show toast notification only for major events
+          // Show toast notification only for major events (but not during polling)
           const eventType = payload.eventType;
           const newStatus = (payload.new as any)?.status;
           const oldStatus = (payload.old as any)?.status;
@@ -144,12 +150,14 @@ const WhatsAppSessions = () => {
               description: `Создана сессия: ${sessionName}`,
             });
           } else if (eventType === 'UPDATE' && newStatus === 'connected' && oldStatus !== 'connected') {
-            // Only show toast when status changes TO connected
-            console.log('[Real-time] Session connected:', sessionName);
-            toast({
-              title: "✅ Сессия подключена",
-              description: `${sessionName} теперь активна`,
-            });
+            // Only show toast when status changes TO connected AND dialog is not open (not during polling)
+            if (!qrDialogOpenRef.current) {
+              console.log('[Real-time] Session connected:', sessionName);
+              toast({
+                title: "✅ Сессия подключена",
+                description: `${sessionName} теперь активна`,
+              });
+            }
           } else if (eventType === 'DELETE') {
             toast({
               title: "Сессия удалена",
@@ -444,6 +452,8 @@ const WhatsAppSessions = () => {
 
         if (error) throw error;
 
+        console.log('[startStatusPolling] Status check:', data?.status);
+
         // Update QR if it changed
         if (data?.qrcode && data?.status === 'qr_issued') {
           setQrDialog(prev => {
@@ -457,14 +467,17 @@ const WhatsAppSessions = () => {
 
         // Handle connected status
         if (data?.status === 'connected') {
-          console.log('[startStatusPolling] Connected! Closing dialog and refreshing...');
+          console.log('[startStatusPolling] Connected! Stopping polling and updating...');
           stopPolling();
           
-          // First close dialog
-          setQrDialog({ open: false, isPolling: false });
-          
-          // Then fetch sessions to update status
+          // First update sessions data
           await fetchSessions();
+          
+          // Wait a bit for React to update the UI
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
+          // Then close dialog (this ensures fresh data is loaded)
+          setQrDialog({ open: false, isPolling: false });
           
           // Show success toast
           toast({
