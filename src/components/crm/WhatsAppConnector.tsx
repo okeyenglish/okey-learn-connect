@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -14,7 +14,12 @@ export function WhatsAppConnector() {
   const [isStarting, setIsStarting] = useState(false);
   const [isDiagnosing, setIsDiagnosing] = useState(false);
   const [diagnostics, setDiagnostics] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Backoff для обработки ошибок
+  const backoffRef = useRef(2000);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   async function fetchStatus() {
     try {
@@ -29,15 +34,23 @@ export function WhatsAppConnector() {
 
       if (error) {
         console.error('Error fetching WPP status:', error);
+        setError(error.message);
+        // Exponential backoff on error
+        backoffRef.current = Math.min(backoffRef.current * 1.5, 10000);
         return;
       }
 
       if (data?.ok) {
         setStatus(data.status);
         setQr(data.qrcode || null);
+        setError(null);
+        // Reset backoff on success
+        backoffRef.current = 2000;
       }
     } catch (error) {
       console.error('Error in fetchStatus:', error);
+      setError(error instanceof Error ? error.message : 'Unknown error');
+      backoffRef.current = Math.min(backoffRef.current * 1.5, 10000);
     } finally {
       setIsLoading(false);
     }
@@ -137,14 +150,29 @@ export function WhatsAppConnector() {
   useEffect(() => {
     fetchStatus();
     
-    // Poll status every 2 seconds if not connected or syncing
-    const interval = setInterval(() => {
-      if (status !== 'connected' && status !== 'syncing') {
-        fetchStatus();
-      }
-    }, 2000);
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    
+    // Stop polling if connected or syncing
+    if (status === 'connected' || status === 'syncing') {
+      console.log('Status is connected/syncing, stopping poll');
+      return;
+    }
+    
+    // Poll with current backoff interval
+    intervalRef.current = setInterval(() => {
+      fetchStatus();
+    }, backoffRef.current);
 
-    return () => clearInterval(interval);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
   }, [status]);
 
   if (isLoading) {
@@ -328,13 +356,19 @@ export function WhatsAppConnector() {
           </Button>
         </div>
 
+        {error && (
+          <div className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+            <span className="font-medium">Ошибка:</span> {error}
+          </div>
+        )}
+
         {qr && (
           <div className="space-y-3 pt-4 border-t">
             <div className="flex justify-center">
               <div className="relative">
                 <img 
                   src={qr} 
-                  key={qr.slice(-16)}
+                  key={qr.slice(-24)}
                   alt="WhatsApp QR Code"
                   className="w-64 h-64 border-2 border-border rounded-lg"
                   style={{ imageRendering: 'pixelated' }}
