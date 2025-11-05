@@ -529,6 +529,29 @@ const WhatsAppSessions = () => {
           console.log('[startStatusPolling] Connected! Stopping polling and updating...');
           stopPolling();
           
+          // CRITICAL: Force DB update to ensure status is persisted
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('organization_id')
+              .eq('id', user.id)
+              .single();
+            
+            if (profile?.organization_id) {
+              await supabase
+                .from('whatsapp_sessions')
+                .upsert({
+                  session_name: sessionName,
+                  organization_id: profile.organization_id,
+                  status: 'connected',
+                  last_qr_b64: null,
+                  last_qr_at: null,
+                  updated_at: new Date().toISOString(),
+                }, { onConflict: 'session_name' });
+            }
+          }
+          
           // Close dialog immediately
           setQrDialog({ open: false, isPolling: false });
 
@@ -539,11 +562,7 @@ const WhatsAppSessions = () => {
               : s
           ));
           
-          // Force multiple updates to ensure fresh data
-          await fetchSessions();
-          
-          // Wait and fetch again to ensure DB has committed
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // Force refresh from DB
           await fetchSessions();
           
           // Show success toast
