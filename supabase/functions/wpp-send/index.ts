@@ -11,10 +11,22 @@ async function generateWppToken(sessionName: string, wppHost: string, wppSecret:
     `${wppHost}/api/${encodeURIComponent(sessionName)}/${wppSecret}/generate-token`,
     { method: 'POST' }
   )
+  
+  if (!tokenRes.ok) {
+    const errorText = await tokenRes.text()
+    throw new Error(`Failed to generate WPP token: ${tokenRes.status} - ${errorText}`)
+  }
+  
+  const contentType = tokenRes.headers.get('content-type')
+  if (!contentType?.includes('application/json')) {
+    const text = await tokenRes.text()
+    throw new Error(`WPP API returned non-JSON response: ${text.substring(0, 200)}`)
+  }
+  
   const tokenData = await tokenRes.json()
   
   if (!tokenData?.token) {
-    throw new Error('Failed to generate WPP token')
+    throw new Error('Failed to generate WPP token: no token in response')
   }
   
   return tokenData.token

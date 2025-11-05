@@ -88,6 +88,21 @@ Deno.serve(async (req) => {
       );
     }
 
+    const contentType = tokenRes.headers.get('content-type') || '';
+    console.log('Token response content-type:', contentType);
+    
+    if (!contentType.includes('application/json')) {
+      const text = await tokenRes.text();
+      console.error('Token response is not JSON:', text.substring(0, 200));
+      return new Response(
+        JSON.stringify({ 
+          ok: false, 
+          error: `WPP API returned non-JSON response: ${text.substring(0, 200)}` 
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const tokenData = await tokenRes.json();
     const wppToken = tokenData.token;
 

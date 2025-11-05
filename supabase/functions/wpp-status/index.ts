@@ -85,19 +85,26 @@ Deno.serve(async (req) => {
     }
     
     const tokenCt = tokenRes.headers.get('content-type') || '';
+    console.log('Token response content-type:', tokenCt);
+    
     if (!tokenCt.includes('application/json')) {
       const text = await tokenRes.text();
+      console.error('Token response is not JSON:', text.substring(0, 200));
       throw new Error(`Token endpoint returned non-JSON (${tokenCt}): ${text.substring(0, 200)}`);
     }
+    
     let tokenData: any;
     try {
-      tokenData = await tokenRes.json();
+      const responseText = await tokenRes.text();
+      console.log('Token response body:', responseText.substring(0, 200));
+      tokenData = JSON.parse(responseText);
     } catch (e: any) {
-      const text = await tokenRes.text();
-      throw new Error(`Failed to parse token JSON: ${e?.message || e} - ${text.substring(0, 200)}`);
+      console.error('Failed to parse token JSON:', e);
+      throw new Error(`Failed to parse token JSON: ${e?.message || e}`);
     }
     
     if (!tokenData?.token) {
+      console.error('No token in response:', tokenData);
       throw new Error('Failed to generate WPP token: no token in response');
     }
 
