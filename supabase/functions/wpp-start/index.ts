@@ -61,7 +61,7 @@ async function getBearerToken(session: string): Promise<string | null> {
   // 1) POST with body
   {
     const r = await http(
-      `${BASE}/wpp/api/${encodeURIComponent(session)}/generate-token`,
+      `${BASE}/api/${encodeURIComponent(session)}/generate-token`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -79,7 +79,7 @@ async function getBearerToken(session: string): Promise<string | null> {
   // 2) GET with query
   {
     const r = await http(
-      `${BASE}/wpp/api/${encodeURIComponent(session)}/generate-token?secretKey=${encodeURIComponent(SECRET)}`,
+      `${BASE}/api/${encodeURIComponent(session)}/generate-token?secretKey=${encodeURIComponent(SECRET)}`,
       { method: 'GET' },
       { expectJson: true, redact: [SECRET] }
     );
@@ -93,7 +93,7 @@ async function getBearerToken(session: string): Promise<string | null> {
   // 3) Path variant
   {
     const r = await http(
-      `${BASE}/wpp/api/${encodeURIComponent(session)}/${encodeURIComponent(SECRET)}/generate-token`,
+      `${BASE}/api/${encodeURIComponent(session)}/${encodeURIComponent(SECRET)}/generate-token`,
       { method: 'POST' },
       { expectJson: true, redact: [SECRET] }
     );
@@ -110,7 +110,7 @@ async function getBearerToken(session: string): Promise<string | null> {
 
 async function startViaBearer(session: string, token: string, body: unknown) {
   return http(
-    `${BASE}/wpp/api/${encodeURIComponent(session)}/start-session`,
+    `${BASE}/api/${encodeURIComponent(session)}/start-session`,
     {
       method: 'POST',
       headers: {
@@ -125,7 +125,7 @@ async function startViaBearer(session: string, token: string, body: unknown) {
 
 async function startViaSecretPath(session: string, body: unknown) {
   return http(
-    `${BASE}/wpp/api/${encodeURIComponent(session)}/${encodeURIComponent(SECRET)}/start-session`,
+    `${BASE}/api/${encodeURIComponent(session)}/${encodeURIComponent(SECRET)}/start-session`,
     { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     { expectJson: true, redact: [SECRET] }
   );
