@@ -57,14 +57,13 @@ Deno.serve(async (req) => {
     }
 
     const orgId = profile.organization_id;
-    // TEMPORARY: Use 'default' session until WPP server is configured for multi-session
-    // TODO: Configure WPP server to auto-create sessions, then use `org_${orgId}`
-    const sessionName = 'default';
+    // Use org-specific session (without dashes for WPP compatibility)
+    const sessionName = `org_${orgId.replace(/-/g, '')}`;
     const PUBLIC_URL = Deno.env.get('SUPABASE_URL')?.replace('/rest/v1', '');
     const webhookUrl = `${PUBLIC_URL}/functions/v1/wpp-webhook`;
 
     console.log('[wpp-start] Org ID:', orgId);
-    console.log('[wpp-start] Session:', sessionName, '(using default until multi-session configured)');
+    console.log('[wpp-start] Session:', sessionName);
     console.log('[wpp-start] Webhook URL:', webhookUrl);
 
     // Use WppClient SDK

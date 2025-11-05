@@ -57,11 +57,11 @@ Deno.serve(async (req) => {
     }
 
     const orgId = profile.organization_id;
-    // TEMPORARY: Use 'default' session (matching wpp-start)
-    const sessionName = 'default';
+    // Use org-specific session (without dashes for WPP compatibility)
+    const sessionName = `org_${orgId.replace(/-/g, '')}`;
 
     console.log('[wpp-disconnect] Org ID:', orgId);
-    console.log('[wpp-disconnect] Session:', sessionName, '(using default)');
+    console.log('[wpp-disconnect] Session:', sessionName);
 
     // Use WppClient SDK
     const wpp = new WppClient({
