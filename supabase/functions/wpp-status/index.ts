@@ -194,17 +194,30 @@ Deno.serve(async (req) => {
 
     console.log('[wpp-status] Session:', sessionName);
 
-    // 1) Generate Bearer token
-    const wppToken = await generateToken(sessionName);
+    // 1) Generate Bearer token (with graceful fallback)
+    let wppToken: string | null = null;
+    try {
+      wppToken = await generateToken(sessionName);
+    } catch (e) {
+      console.warn('[wpp-status] Token generation failed, using secret fallbacks:', (e as Error)?.message || e);
+    }
 
     // 2) Check connection status
     console.log('[wpp-status] Checking connection');
-    const statusUrl = `${BASE}/api/${sessionName}/status-session`;
-    const statusRes = await withTimeout(
-      fetch(statusUrl, {
-        headers: { Authorization: `Bearer ${wppToken}` }
-      })
-    );
+    let statusRes: Response | null = null;
+    if (wppToken) {
+      const statusUrl = `${BASE}/api/${sessionName}/status-session`;
+      statusRes = await withTimeout(fetch(statusUrl, { headers: { Authorization: `Bearer ${wppToken}` } }));
+    } else {
+      // Fallback 1: secret in path
+      const statusUrlPath = `${BASE}/api/${sessionName}/${SECRET}/status-session`;
+      statusRes = await withTimeout(fetch(statusUrlPath));
+      if (!statusRes.ok) {
+        // Fallback 2: secretKey as query param
+        const statusUrlQuery = `${BASE}/api/${sessionName}/status-session?secretKey=${encodeURIComponent(SECRET)}`;
+        statusRes = await withTimeout(fetch(statusUrlQuery));
+      }
+    }
 
     console.log('[wpp-status] Status:', statusRes.status);
     
@@ -258,20 +271,51 @@ Deno.serve(async (req) => {
 
     // 4) Start session to get new QR
     console.log('[wpp-status] Starting session');
-    const startUrl = `${BASE}/api/${sessionName}/start-session`;
-    const startRes = await withTimeout(
-      fetch(startUrl, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${wppToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          webhook: webhookUrl,
-          waitQrCode: true
+    let startRes: Response | null = null;
+    if (wppToken) {
+      const startUrl = `${BASE}/api/${sessionName}/start-session`;
+      startRes = await withTimeout(
+        fetch(startUrl, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${wppToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            webhook: webhookUrl,
+            waitQrCode: true
+          })
         })
-      })
-    );
+      );
+    } else {
+      // Fallback A: secret in path
+      const startUrlPath = `${BASE}/api/${sessionName}/${SECRET}/start-session`;
+      startRes = await withTimeout(
+        fetch(startUrlPath, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            webhook: webhookUrl,
+            waitQrCode: true
+          })
+        })
+      );
+      if (!startRes.ok) {
+        // Fallback B: secretKey in body
+        const startUrlBody = `${BASE}/api/${sessionName}/start-session`;
+        startRes = await withTimeout(
+          fetch(startUrlBody, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              webhook: webhookUrl,
+              waitQrCode: true,
+              secretKey: SECRET
+            })
+          })
+        );
+      }
+    }
 
     console.log('[wpp-status] Start response:', startRes.status);
     
@@ -289,12 +333,24 @@ Deno.serve(async (req) => {
     // 5) Try qrcode endpoint if no QR yet
     if (!qrCode) {
       console.log('[wpp-status] Trying qrcode endpoint');
-      const qrUrl = `${BASE}/api/${sessionName}/qrcode`;
-      const qrRes = await withTimeout(
-        fetch(qrUrl, {
-          headers: { Authorization: `Bearer ${wppToken}` }
-        })
-      );
+      let qrRes: Response | null = null;
+      if (wppToken) {
+        const qrUrl = `${BASE}/api/${sessionName}/qrcode`;
+        qrRes = await withTimeout(
+          fetch(qrUrl, {
+            headers: { Authorization: `Bearer ${wppToken}` }
+          })
+        );
+      } else {
+        // Fallback: secret in path
+        const qrUrlPath = `${BASE}/api/${sessionName}/${SECRET}/qrcode`;
+        qrRes = await withTimeout(fetch(qrUrlPath));
+        if (!qrRes.ok) {
+          // Fallback: secretKey as query param
+          const qrUrlQuery = `${BASE}/api/${sessionName}/qrcode?secretKey=${encodeURIComponent(SECRET)}`;
+          qrRes = await withTimeout(fetch(qrUrlQuery));
+        }
+      }
 
       console.log('[wpp-status] QR response:', qrRes.status);
       
