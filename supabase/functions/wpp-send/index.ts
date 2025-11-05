@@ -11,7 +11,7 @@ async function generateWppToken(sessionName: string, wppHost: string, wppSecret:
   console.log('Requesting WPP token:', tokenUrl)
   
   // First attempt: POST
-  let res = await fetch(tokenUrl, { method: 'POST' })
+  let res = await fetch(tokenUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${wppSecret}` } })
   console.log('WPP token response status (POST):', res.status)
   console.log('WPP token response headers (POST):', Object.fromEntries(res.headers.entries()))
 
@@ -55,7 +55,7 @@ async function generateWppToken(sessionName: string, wppHost: string, wppSecret:
   // Second attempt: GET if POST failed to yield token
   if (!token) {
     console.log('Retrying WPP token request with GET')
-    res = await fetch(tokenUrl, { method: 'GET' })
+    res = await fetch(tokenUrl, { method: 'GET', headers: { 'Authorization': `Bearer ${wppSecret}` } })
     console.log('WPP token response status (GET):', res.status)
     token = await parseToken(res, 'GET')
   }
@@ -142,7 +142,13 @@ Deno.serve(async (req) => {
       
       try {
         const sessionName = await getOrgSessionName(user.id, supabase)
-        const wppToken = await generateWppToken(sessionName, WPP_BASE_URL, WPP_AGG_TOKEN)
+        let wppToken: string
+        try {
+          wppToken = await generateWppToken(sessionName, WPP_BASE_URL, WPP_AGG_TOKEN as string)
+        } catch (e) {
+          console.warn('Falling back to aggregator token for health check')
+          wppToken = WPP_AGG_TOKEN as string
+        }
         
         const healthUrl = `${WPP_BASE_URL}/health`
         console.log('Testing connection to:', healthUrl)
@@ -190,7 +196,13 @@ Deno.serve(async (req) => {
 
     // Get organization session
     const sessionName = await getOrgSessionName(user.id, supabase)
-    const wppToken = await generateWppToken(sessionName, WPP_BASE_URL, WPP_AGG_TOKEN)
+    let wppToken: string
+    try {
+      wppToken = await generateWppToken(sessionName, WPP_BASE_URL, WPP_AGG_TOKEN as string)
+    } catch (e) {
+      console.warn('Falling back to aggregator token for send')
+      wppToken = WPP_AGG_TOKEN as string
+    }
 
     // Get client data
     const { data: client, error: clientError } = await supabase

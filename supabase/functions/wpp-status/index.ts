@@ -100,15 +100,16 @@ Deno.serve(async (req) => {
       return null;
     };
 
-    let tokenRes = await fetch(tokenUrl, { method: 'POST' });
+    let tokenRes = await fetch(tokenUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${WPP_AGG_TOKEN}` } });
     let wppToken = await parseToken(tokenRes, 'POST');
     if (!wppToken) {
       console.log('Retry token fetch with GET');
-      tokenRes = await fetch(tokenUrl, { method: 'GET' });
+      tokenRes = await fetch(tokenUrl, { method: 'GET', headers: { 'Authorization': `Bearer ${WPP_AGG_TOKEN}` } });
       wppToken = await parseToken(tokenRes, 'GET');
     }
     if (!wppToken) {
-      throw new Error('Failed to generate WPP token: empty or non-parseable response');
+      console.warn('Falling back to aggregator token for status');
+      wppToken = WPP_AGG_TOKEN as string;
     }
 
     // Check connection status
