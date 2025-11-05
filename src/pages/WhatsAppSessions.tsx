@@ -90,7 +90,51 @@ const WhatsAppSessions = () => {
 
   useEffect(() => {
     fetchSessions();
-  }, []);
+
+    // Subscribe to real-time changes on whatsapp_sessions table
+    const channel = supabase
+      .channel('whatsapp-sessions-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'whatsapp_sessions'
+        },
+        (payload) => {
+          console.log('Real-time update received:', payload);
+          // Refetch sessions when any change occurs
+          fetchSessions();
+          
+          // Show toast notification
+          const eventType = payload.eventType;
+          const sessionName = (payload.new as any)?.session_name || (payload.old as any)?.session_name;
+          
+          if (eventType === 'INSERT') {
+            toast({
+              title: "Новая сессия",
+              description: `Создана сессия: ${sessionName}`,
+            });
+          } else if (eventType === 'UPDATE') {
+            toast({
+              title: "Обновление сессии",
+              description: `Статус сессии ${sessionName} изменен`,
+            });
+          } else if (eventType === 'DELETE') {
+            toast({
+              title: "Сессия удалена",
+              description: `Сессия ${sessionName} была удалена`,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription on unmount
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [toast]);
 
   const updateSessionStatus = async (sessionName: string) => {
     try {
