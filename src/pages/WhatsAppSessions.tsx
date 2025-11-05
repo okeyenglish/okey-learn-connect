@@ -10,8 +10,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Loader2, RefreshCw, ExternalLink, ChevronDown, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const ENV_BASE: string | undefined = import.meta.env.VITE_WPP_BASE_URL;
-const ENV_AGG: string | undefined = import.meta.env.VITE_WPP_AGG_TOKEN;
+const BASE = import.meta.env.VITE_WPP_BASE_URL || "";
+const AGG_TOKEN = import.meta.env.VITE_WPP_AGG_TOKEN || "";
 
 type AllResp = { ok: boolean; total?: number; items?: { session: string }[]; error?: string };
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -34,65 +34,48 @@ export default function WhatsAppSessions() {
   const [runnerResp, setRunnerResp] = useState<string>("");
   const [runnerLoading, setRunnerLoading] = useState(false);
 
-  // Local settings with fallback to env and localStorage
-  const [base, setBase] = useState<string>(() => ENV_BASE || localStorage.getItem('wpp.base_url') || '');
-  const [aggToken, setAggToken] = useState<string>(() => ENV_AGG || localStorage.getItem('wpp.agg_token') || '');
-
-  useEffect(() => {
-    document.title = 'WhatsApp Sessions — CRM';
-  }, []);
-
-  // Helper to persist settings locally
-  function saveSettings() {
-    localStorage.setItem('wpp.base_url', base.trim());
-    localStorage.setItem('wpp.agg_token', aggToken.trim());
-    toast({ title: 'Сохранено', description: 'Настройки сохранены локально.' });
-  }
-
-  const swaggerUrl = base ? `${base}/wpp/api-docs/` : '#';
+  const swaggerUrl = `${BASE}/wpp/api-docs/`;
 
   async function fetchHealth() {
-    if (!base) {
+    if (!BASE) {
       setHealth('fail');
-      setErr('WPP_BASE_URL не настроен');
-      toast({ title: 'Ошибка', description: 'WPP_BASE_URL не настроен', variant: 'destructive' });
       return;
     }
     try {
-      const r = await fetch(`${base}/wpp/healthz`, { method: 'GET' });
+      const r = await fetch(`${BASE}/wpp/healthz`, { method: "GET" });
       const t = await r.text();
-      setHealth(t.trim() === 'ok' ? 'ok' : 'fail');
+      setHealth(t.trim() === "ok" ? "ok" : "fail");
     } catch {
-      setHealth('fail');
+      setHealth("fail");
     }
   }
 
   async function fetchAll() {
-    if (!base) {
-      setErr('WPP_BASE_URL не настроен');
-      toast({ title: 'Ошибка', description: 'WPP_BASE_URL не настроен', variant: 'destructive' });
+    if (!BASE) {
+      setErr("WPP_BASE_URL не настроен");
+      toast({ title: "Ошибка", description: "WPP_BASE_URL не настроен", variant: "destructive" });
       return;
     }
-    if (!aggToken) {
-      setErr('WPP_AGG_TOKEN не настроен');
-      toast({ title: 'Ошибка', description: 'WPP_AGG_TOKEN не настроен', variant: 'destructive' });
+    if (!AGG_TOKEN) {
+      setErr("WPP_AGG_TOKEN не настроен");
+      toast({ title: "Ошибка", description: "WPP_AGG_TOKEN не настроен", variant: "destructive" });
       return;
     }
     setLoading(true);
     setErr(null);
     try {
-      const r = await fetch(`${base}/wpp/_all`, {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${aggToken}` }
+      const r = await fetch(`${BASE}/wpp/_all`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${AGG_TOKEN}` }
       });
       const j: AllResp = await r.json();
-      if (!j.ok) throw new Error(j.error || 'unknown error');
+      if (!j.ok) throw new Error(j.error || "unknown error");
       setSessions((j.items ?? []).map(i => i.session));
-      toast({ title: 'Успешно', description: `Загружено ${j.items?.length || 0} сессий` });
+      toast({ title: "Успешно", description: `Загружено ${j.items?.length || 0} сессий` });
     } catch (e: any) {
-      setErr(e?.message || 'Fetch error');
+      setErr(e?.message || "Fetch error");
       setSessions([]);
-      toast({ title: 'Ошибка', description: e?.message || 'Ошибка загрузки', variant: 'destructive' });
+      toast({ title: "Ошибка", description: e?.message || "Ошибка загрузки", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -104,23 +87,18 @@ export default function WhatsAppSessions() {
   }, []);
 
   async function runArbitrary() {
-    setRunnerResp('');
+    setRunnerResp("");
     setRunnerLoading(true);
-    if (!base) {
-      setRunnerResp('BASE не настроен');
-      setRunnerLoading(false);
-      return;
-    }
-    const url = `${base}${runnerPath}`;
+    const url = `${BASE}${runnerPath}`;
     const headers: Record<string, string> = {};
     
-    if (runnerPath.startsWith('/wpp/_all')) {
-      if (!aggToken) {
-        setRunnerResp('AGG_TOKEN не настроен');
+    if (runnerPath.startsWith("/wpp/_all")) {
+      if (!AGG_TOKEN) {
+        setRunnerResp("AGG_TOKEN не настроен");
         setRunnerLoading(false);
         return;
       }
-      headers['Authorization'] = `Bearer ${aggToken}`;
+      headers["Authorization"] = `Bearer ${AGG_TOKEN}`;
     }
     
     for (const { k, v } of runnerHeaders) {
@@ -132,27 +110,27 @@ export default function WhatsAppSessions() {
       try {
         body = runnerBody ? JSON.stringify(JSON.parse(runnerBody)) : undefined;
       } catch {
-        setRunnerResp('Body должен быть валидным JSON');
+        setRunnerResp("Body должен быть валидным JSON");
         setRunnerLoading(false);
         return;
       }
-      headers['Content-Type'] = 'application/json';
+      headers["Content-Type"] = "application/json";
     }
     
     try {
       const r = await fetch(url, { method: runnerMethod, headers, body });
-      const ct = r.headers.get('content-type') || '';
-      if (ct.includes('application/json')) {
+      const ct = r.headers.get("content-type") || "";
+      if (ct.includes("application/json")) {
         const j = await r.json();
         setRunnerResp(jsonPretty(j));
       } else {
         const t = await r.text();
         setRunnerResp(t);
       }
-      toast({ title: 'Запрос выполнен', description: `${runnerMethod} ${runnerPath}` });
+      toast({ title: "Запрос выполнен", description: `${runnerMethod} ${runnerPath}` });
     } catch (e: any) {
-      setRunnerResp(e?.message || 'Request failed');
-      toast({ title: 'Ошибка', description: e?.message || 'Ошибка запроса', variant: 'destructive' });
+      setRunnerResp(e?.message || "Request failed");
+      toast({ title: "Ошибка", description: e?.message || "Ошибка запроса", variant: "destructive" });
     } finally {
       setRunnerLoading(false);
     }
@@ -164,36 +142,13 @@ export default function WhatsAppSessions() {
         <div>
           <h1 className="text-3xl font-bold">WhatsApp Sessions</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            BASE: <code className="bg-muted px-1 py-0.5 rounded">{base || "(не настроен)"}</code>
+            BASE: <code className="bg-muted px-1 py-0.5 rounded">{BASE || "(не настроен)"}</code>
           </p>
         </div>
         <Button variant="outline" size="icon" onClick={() => window.open(swaggerUrl, "_blank")}>
           <ExternalLink className="h-4 w-4" />
         </Button>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Настройки</CardTitle>
-          <CardDescription>Сохраняются локально в браузере. Значения из VITE_* (если заданы) можно применить кнопкой ниже.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm font-medium mb-1 block">WPP Base URL</label>
-              <Input placeholder="https://your-wpp-host" value={base} onChange={(e) => setBase(e.target.value)} />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Aggregator Token</label>
-              <Input type="password" placeholder="token" value={aggToken} onChange={(e) => setAggToken(e.target.value)} />
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => { setBase(ENV_BASE || ''); setAggToken(ENV_AGG || ''); toast({ title: 'Сброшено', description: 'Значения взяты из VITE_*' }); }}>Сбросить к .env</Button>
-            <Button onClick={saveSettings}>Сохранить</Button>
-          </div>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
