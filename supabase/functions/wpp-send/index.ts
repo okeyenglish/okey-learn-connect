@@ -10,40 +10,62 @@ async function generateWppToken(sessionName: string, wppHost: string, wppSecret:
   const tokenUrl = `${wppHost}/api/${encodeURIComponent(sessionName)}/${wppSecret}/generate-token`
   console.log('Requesting WPP token:', tokenUrl)
   
-  const tokenRes = await fetch(tokenUrl, { method: 'POST' })
-  
-  console.log('WPP token response status:', tokenRes.status)
-  console.log('WPP token response headers:', Object.fromEntries(tokenRes.headers.entries()))
-  
-  if (!tokenRes.ok) {
-    const errorText = await tokenRes.text()
-    console.error('WPP token generation failed:', errorText)
-    throw new Error(`Failed to generate WPP token: ${tokenRes.status} - ${errorText}`)
+  // First attempt: POST
+  let res = await fetch(tokenUrl, { method: 'POST' })
+  console.log('WPP token response status (POST):', res.status)
+  console.log('WPP token response headers (POST):', Object.fromEntries(res.headers.entries()))
+
+  // Helper to extract token from a response
+  const parseToken = async (response: Response, label: string): Promise<string | null> => {
+    const ct = response.headers.get('content-type') || ''
+    const bodyText = await response.text()
+    console.log(`WPP token response content-type (${label}):`, ct)
+    console.log(`WPP token response body (${label}):`, bodyText)
+
+    if (!response.ok) {
+      console.error(`WPP token generation failed (${label}):`, bodyText)
+      return null
+    }
+
+    if (ct.includes('application/json')) {
+      try {
+        const json = JSON.parse(bodyText)
+        if (json?.token && typeof json.token === 'string') return json.token
+      } catch (e) {
+        console.error('Failed to parse JSON token:', e)
+      }
+    }
+
+    // Fallback: plain text token
+    if (bodyText && bodyText.trim().length > 0) {
+      return bodyText.trim()
+    }
+
+    // Fallback: headers
+    const headerAuth = response.headers.get('authorization') || response.headers.get('Authorization')
+    const headerToken = response.headers.get('x-token') || response.headers.get('X-Token')
+    if (headerAuth) return headerAuth.replace(/^Bearer\s+/i, '').trim()
+    if (headerToken) return headerToken.trim()
+
+    return null
   }
-  
-  const contentType = tokenRes.headers.get('content-type') || ''
-  const responseText = await tokenRes.text()
-  
-  console.log('WPP token response content-type:', contentType)
-  console.log('WPP token response body:', responseText)
-  
-  if (!contentType.includes('application/json')) {
-    throw new Error(`WPP API returned non-JSON response (content-type: ${contentType}): ${responseText.substring(0, 200)}`)
+
+  let token = await parseToken(res, 'POST')
+
+  // Second attempt: GET if POST failed to yield token
+  if (!token) {
+    console.log('Retrying WPP token request with GET')
+    res = await fetch(tokenUrl, { method: 'GET' })
+    console.log('WPP token response status (GET):', res.status)
+    token = await parseToken(res, 'GET')
   }
-  
-  if (!responseText || responseText.trim() === '') {
-    throw new Error('WPP API returned empty response')
+
+  if (!token) {
+    throw new Error('Failed to generate WPP token: empty or unrecognized response')
   }
-  
-  const tokenData = JSON.parse(responseText)
-  
-  if (!tokenData?.token) {
-    console.error('No token in WPP response:', tokenData)
-    throw new Error('Failed to generate WPP token: no token in response')
-  }
-  
-  console.log('Successfully generated WPP token')
-  return tokenData.token
+
+  console.log('Successfully obtained WPP token')
+  return token
 }
 
 // Get organization's session name from user

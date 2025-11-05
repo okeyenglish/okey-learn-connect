@@ -70,45 +70,46 @@ Deno.serve(async (req) => {
       .eq('organization_id', organizationId)
       .maybeSingle();
 
-    // Generate token
+    // Generate token (POST then fallback to GET; accept JSON or plain text)
     console.log('Generating token for session:', sessionName);
     const tokenUrl = `${WPP_BASE_URL}/api/${encodeURIComponent(sessionName)}/${WPP_AGG_TOKEN}/generate-token`;
     console.log('Token URL:', tokenUrl);
-    const tokenRes = await fetch(tokenUrl, { method: 'POST' });
-    
-    console.log('Token response status:', tokenRes.status);
-    
-    if (!tokenRes.ok) {
-      const text = await tokenRes.text();
-      console.error('Token generation failed:', text);
-      throw new Error(`Failed to generate WPP token: ${tokenRes.status} - ${text.substring(0, 200)}`);
-    }
-    
-    const tokenCt = tokenRes.headers.get('content-type') || '';
-    console.log('Token response content-type:', tokenCt);
-    
-    if (!tokenCt.includes('application/json')) {
-      const text = await tokenRes.text();
-      console.error('Token response is not JSON:', text.substring(0, 200));
-      throw new Error(`Token endpoint returned non-JSON (${tokenCt}): ${text.substring(0, 200)}`);
-    }
-    
-    let tokenData: any;
-    try {
-      const responseText = await tokenRes.text();
-      console.log('Token response body:', responseText.substring(0, 200));
-      tokenData = JSON.parse(responseText);
-    } catch (e: any) {
-      console.error('Failed to parse token JSON:', e);
-      throw new Error(`Failed to parse token JSON: ${e?.message || e}`);
-    }
-    
-    if (!tokenData?.token) {
-      console.error('No token in response:', tokenData);
-      throw new Error('Failed to generate WPP token: no token in response');
-    }
 
-    const wppToken = tokenData.token;
+    const parseToken = async (response: Response, label: string): Promise<string | null> => {
+      console.log(`Token response status (${label}):`, response.status);
+      const ct = response.headers.get('content-type') || '';
+      const text = await response.text();
+      console.log(`Token response content-type (${label}):`, ct);
+      console.log(`Token response body (${label}):`, text);
+
+      if (!response.ok) return null;
+
+      if (ct.includes('application/json')) {
+        try {
+          const json = JSON.parse(text);
+          if (json?.token && typeof json.token === 'string') return json.token;
+        } catch (e) {
+          console.error('Failed to parse token JSON:', e);
+        }
+      }
+      if (text && text.trim().length > 0) return text.trim();
+      const headerAuth = response.headers.get('authorization') || response.headers.get('Authorization');
+      const headerToken = response.headers.get('x-token') || response.headers.get('X-Token');
+      if (headerAuth) return headerAuth.replace(/^Bearer\s+/i, '').trim();
+      if (headerToken) return headerToken.trim();
+      return null;
+    };
+
+    let tokenRes = await fetch(tokenUrl, { method: 'POST' });
+    let wppToken = await parseToken(tokenRes, 'POST');
+    if (!wppToken) {
+      console.log('Retry token fetch with GET');
+      tokenRes = await fetch(tokenUrl, { method: 'GET' });
+      wppToken = await parseToken(tokenRes, 'GET');
+    }
+    if (!wppToken) {
+      throw new Error('Failed to generate WPP token: empty or non-parseable response');
+    }
 
     // Check connection status
     console.log('Checking connection status');
