@@ -5,6 +5,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Utility to mask secrets in logs
+function maskSecret(secret: string): string {
+  if (!secret || secret.length < 8) return '***';
+  return `${secret.substring(0, 4)}***${secret.substring(secret.length - 4)}`;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -73,6 +79,7 @@ Deno.serve(async (req) => {
       WPP_BASE_URL = `http://${WPP_BASE_URL}`;
     }
     console.log('Final WPP_BASE_URL:', WPP_BASE_URL);
+    console.log('WPP_AGG_TOKEN (masked):', maskSecret(WPP_AGG_TOKEN));
 
     // Generate token (POST then fallback to GET; accept JSON or plain text)
     console.log('Generating token for session:', sessionName);
@@ -126,18 +133,47 @@ Deno.serve(async (req) => {
 
     // Logout session
     console.log('Logging out session');
-    const logoutUrl = `${WPP_BASE_URL}/api/${encodeURIComponent(sessionName)}/logout-session`;
-    console.log('Logout URL:', logoutUrl);
-    const logoutRes = await fetch(logoutUrl, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${wppToken}` },
-    });
+    
+    async function logoutWithBearer(token: string): Promise<Response> {
+      const url = `${WPP_BASE_URL}/api/${encodeURIComponent(sessionName)}/logout-session`;
+      console.log('Logout URL (method=bearer):', url);
+      return await fetch(url, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+    }
+    
+    async function logoutWithSecretPath(): Promise<Response> {
+      const url = `${WPP_BASE_URL}/api/${encodeURIComponent(sessionName)}/${WPP_AGG_TOKEN}/logout-session`;
+      console.log('Logout URL (method=secret-path, masked):', url.replace(WPP_AGG_TOKEN, maskSecret(WPP_AGG_TOKEN)));
+      return await fetch(url, {
+        method: 'POST',
+      });
+    }
 
-    console.log('Logout response status:', logoutRes.status);
+    let logoutRes: Response;
+    let logoutMethod = 'bearer';
+
+    if (wppToken) {
+      logoutRes = await logoutWithBearer(wppToken);
+      console.log('Logout response status (bearer):', logoutRes.status);
+      
+      if (!logoutRes.ok && [400, 401, 403].includes(logoutRes.status)) {
+        console.warn('Bearer auth failed for logout, trying secret-path fallback');
+        logoutRes = await logoutWithSecretPath();
+        logoutMethod = 'secret-path';
+        console.log('Logout response status (secret-path):', logoutRes.status);
+      }
+    } else {
+      console.log('No token available, using secret-path for logout');
+      logoutRes = await logoutWithSecretPath();
+      logoutMethod = 'secret-path';
+      console.log('Logout response status (secret-path):', logoutRes.status);
+    }
 
     if (!logoutRes.ok) {
       const errorText = await logoutRes.text();
-      console.error('Failed to logout session:', logoutRes.status, '-', errorText);
+      console.error(`Failed to logout session (${logoutMethod}):`, logoutRes.status, '-', errorText.substring(0, 200));
       return new Response(
         JSON.stringify({ 
           ok: false, 

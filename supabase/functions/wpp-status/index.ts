@@ -5,6 +5,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Utility to mask secrets in logs
+function maskSecret(secret: string): string {
+  if (!secret || secret.length < 8) return '***';
+  return `${secret.substring(0, 4)}***${secret.substring(secret.length - 4)}`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -66,6 +72,7 @@ Deno.serve(async (req) => {
       WPP_BASE_URL = `http://${WPP_BASE_URL}`;
     }
     console.log('Final WPP_BASE_URL:', WPP_BASE_URL);
+    console.log('WPP_AGG_TOKEN (masked):', maskSecret(WPP_AGG_TOKEN));
 
     console.log('Checking WPP status for session:', sessionName);
 
@@ -120,20 +127,46 @@ Deno.serve(async (req) => {
 
     // Check connection status
     console.log('Checking connection status');
-    const statusUrl = `${WPP_BASE_URL}/api/${encodeURIComponent(sessionName)}/check-connection-session`;
-    console.log('Status check URL:', statusUrl);
-    const statusRes = await fetch(statusUrl, {
-      headers: { 'Authorization': `Bearer ${wppToken}` },
-    });
+    
+    async function checkStatusWithBearer(token: string): Promise<Response> {
+      const url = `${WPP_BASE_URL}/api/${encodeURIComponent(sessionName)}/check-connection-session`;
+      console.log('Status check URL (method=bearer):', url);
+      return await fetch(url, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+    }
+    
+    async function checkStatusWithSecretPath(): Promise<Response> {
+      const url = `${WPP_BASE_URL}/api/${encodeURIComponent(sessionName)}/${WPP_AGG_TOKEN}/check-connection-session`;
+      console.log('Status check URL (method=secret-path, masked):', url.replace(WPP_AGG_TOKEN, maskSecret(WPP_AGG_TOKEN)));
+      return await fetch(url);
+    }
 
-    console.log('Status check response status:', statusRes.status);
-    console.log('Status check response headers:', Object.fromEntries(statusRes.headers.entries()));
+    let statusRes: Response;
+    let statusMethod = 'bearer';
+
+    if (wppToken) {
+      statusRes = await checkStatusWithBearer(wppToken);
+      console.log('Status check response status (bearer):', statusRes.status);
+      
+      if (!statusRes.ok && [400, 401, 403].includes(statusRes.status)) {
+        console.warn('Bearer auth failed for status, trying secret-path fallback');
+        statusRes = await checkStatusWithSecretPath();
+        statusMethod = 'secret-path';
+        console.log('Status check response status (secret-path):', statusRes.status);
+      }
+    } else {
+      console.log('No token available, using secret-path for status');
+      statusRes = await checkStatusWithSecretPath();
+      statusMethod = 'secret-path';
+      console.log('Status check response status (secret-path):', statusRes.status);
+    }
 
     let statusData: any = { status: false };
     const statusCt = statusRes.headers.get('content-type') || '';
     const statusText = await statusRes.text();
-    console.log('Status check content-type:', statusCt);
-    console.log('Status check response body:', statusText);
+    console.log(`Status check CT (${statusMethod}):`, statusCt);
+    console.log(`Status check body (${statusMethod}):`, statusText.substring(0, 200));
     
     if (statusRes.ok && statusText && statusText.trim().length > 0) {
       try {
@@ -199,13 +232,13 @@ Deno.serve(async (req) => {
     
     console.log('Starting new session with webhook:', webhookUrl);
     
-    const startUrl = `${WPP_BASE_URL}/api/${encodeURIComponent(sessionName)}/start-session`;
-    console.log('Start session URL:', startUrl);
-    const startRes = await fetch(startUrl,
-      {
+    async function startSessionWithBearer(token: string): Promise<Response> {
+      const url = `${WPP_BASE_URL}/api/${encodeURIComponent(sessionName)}/start-session`;
+      console.log('Start session URL (method=bearer):', url);
+      return await fetch(url, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${wppToken}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -219,20 +252,59 @@ Deno.serve(async (req) => {
           headless: true,
           browserArgs: ['--no-sandbox', '--disable-dev-shm-usage', '--no-first-run', '--no-zygote'],
         }),
-      }
-    );
+      });
+    }
+    
+    async function startSessionWithSecretPath(): Promise<Response> {
+      const url = `${WPP_BASE_URL}/api/${encodeURIComponent(sessionName)}/${WPP_AGG_TOKEN}/start-session`;
+      console.log('Start session URL (method=secret-path, masked):', url.replace(WPP_AGG_TOKEN, maskSecret(WPP_AGG_TOKEN)));
+      return await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          webhook: {
+            enabled: true,
+            url: webhookUrl,
+            secret: WPP_AGG_TOKEN,
+          },
+          waitQrCode: true,
+          useChrome: true,
+          headless: true,
+          browserArgs: ['--no-sandbox', '--disable-dev-shm-usage', '--no-first-run', '--no-zygote'],
+        }),
+      });
+    }
 
-    console.log('Start session response status:', startRes.status);
-    console.log('Start session response headers:', Object.fromEntries(startRes.headers.entries()));
+    let startRes: Response;
+    let startMethod = 'bearer';
+
+    if (wppToken) {
+      startRes = await startSessionWithBearer(wppToken);
+      console.log('Start session response status (bearer):', startRes.status);
+      
+      if (!startRes.ok && [400, 401, 403].includes(startRes.status)) {
+        console.warn('Bearer auth failed for start-session, trying secret-path fallback');
+        startRes = await startSessionWithSecretPath();
+        startMethod = 'secret-path';
+        console.log('Start session response status (secret-path):', startRes.status);
+      }
+    } else {
+      console.log('No token available, using secret-path for start-session');
+      startRes = await startSessionWithSecretPath();
+      startMethod = 'secret-path';
+      console.log('Start session response status (secret-path):', startRes.status);
+    }
     
     const startCt = startRes.headers.get('content-type') || '';
     const startText = await startRes.text();
-    console.log('Start session content-type:', startCt);
-    console.log('Start session response body:', startText);
+    console.log(`Start session CT (${startMethod}):`, startCt);
+    console.log(`Start session body (${startMethod}):`, startText.substring(0, 200));
     
     if (!startRes.ok) {
-      console.error('Start session failed:', startText);
-      throw new Error(`Failed to start session: ${startRes.status} - ${startText.substring(0, 200)}`);
+      console.error(`Start session failed (${startMethod}):`, startText.substring(0, 200));
+      throw new Error(`Failed to start session: ${startRes.status}`);
     }
 
     let startData: any = {};

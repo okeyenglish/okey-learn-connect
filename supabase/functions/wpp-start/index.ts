@@ -5,6 +5,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Utility to mask secrets in logs
+function maskSecret(secret: string): string {
+  if (!secret || secret.length < 8) return '***';
+  return `${secret.substring(0, 4)}***${secret.substring(secret.length - 4)}`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -68,6 +74,7 @@ Deno.serve(async (req) => {
       console.log('Added http:// protocol to WPP_HOST:', WPP_HOST);
     }
     console.log('Final WPP_HOST:', WPP_HOST);
+    console.log('WPP_SECRET (masked):', maskSecret(WPP_SECRET));
 
     // Optional health check (non-fatal if endpoint is missing but fatal on network/timeout)
     try {
@@ -89,97 +96,82 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Helper function to fetch WPP token (tries POST, then GET)
-    async function fetchWppToken(sessionName: string): Promise<string> {
-      const baseUrl = `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/${WPP_SECRET}/generate-token`;
-      
-      // Try POST first
-      console.log('Trying POST to generate-token:', baseUrl);
-      const postRes = await fetch(baseUrl, { 
-        method: 'POST',
-        headers: { 'Accept': 'application/json' }
-      });
-      console.log('POST status:', postRes.status);
-      
-      const postCt = postRes.headers.get('content-type') || '';
-      console.log('Token CT (POST):', postCt);
-      
-      if (postRes.ok) {
-        if (postCt.includes('application/json')) {
-          try {
-            const data = await postRes.json();
-            if (data?.token) return data.token;
-          } catch (e) {
-            console.warn('Failed to parse POST JSON:', e);
+    // Fetch token from WPP (attempt POST, then GET; handle JSON or plain text response)
+    async function fetchWppToken(session: string): Promise<string | null> {
+      const tokenEndpoint = `${WPP_HOST}/api/${session}/${WPP_SECRET}/generate-token`;
+      console.log('Token endpoint (masked):', tokenEndpoint.replace(WPP_SECRET, maskSecret(WPP_SECRET)));
+
+      async function tryFetch(method: string): Promise<string | null> {
+        try {
+          const resp = await fetch(tokenEndpoint, {
+            method,
+            headers: { Accept: 'application/json' },
+          });
+
+          const ct = resp.headers.get('content-type') || '';
+          console.log(`Token CT (${method}):`, ct);
+
+          if (!resp.ok) {
+            console.warn(`Token ${method} failed: status=${resp.status}`);
+            return null;
           }
-        } else {
-          const text = await postRes.text();
+
+          const text = await resp.text();
+          if (ct.includes('application/json') && text) {
+            try {
+              const json = JSON.parse(text);
+              if (json?.token && typeof json.token === 'string') {
+                console.log(`Token obtained via ${method} (JSON)`);
+                return json.token;
+              }
+            } catch (e) {
+              console.error(`Failed to parse token JSON (${method}):`, e);
+            }
+          }
+
           const trimmed = text.trim();
-          if (trimmed) {
-            console.log(`Token in plain text (POST, len=${trimmed.length})`);
+          if (trimmed.length > 0) {
+            console.log(`Token in plain text (${method}, len=${trimmed.length})`);
             return trimmed;
           }
+
+          return null;
+        } catch (err) {
+          console.error(`Token ${method} error:`, err);
+          return null;
         }
       }
-      
-      // Try GET fallback
-      console.log('Trying GET to generate-token:', baseUrl);
-      const getRes = await fetch(baseUrl, { 
-        method: 'GET',
-        headers: { 'Accept': 'application/json' }
-      });
-      console.log('GET status:', getRes.status);
-      
-      const getCt = getRes.headers.get('content-type') || '';
-      console.log('Token CT (GET):', getCt);
-      
-      if (getRes.ok) {
-        if (getCt.includes('application/json')) {
-          try {
-            const data = await getRes.json();
-            if (data?.token) return data.token;
-          } catch (e) {
-            console.warn('Failed to parse GET JSON:', e);
-          }
-        } else {
-          const text = await getRes.text();
-          const trimmed = text.trim();
-          if (trimmed) {
-            console.log(`Token in plain text (GET, len=${trimmed.length})`);
-            return trimmed;
-          }
-        }
-      }
-      
-      // Both attempts failed
-      const postBody = await postRes.text().catch(() => '');
-      const getBody = await getRes.text().catch(() => '');
-      throw new Error(
-        `Failed to get WPP token. POST ${postRes.status} (${postCt}): ${postBody.substring(0, 100)}; GET ${getRes.status} (${getCt}): ${getBody.substring(0, 100)}`
-      );
+
+      let token = await tryFetch('POST');
+      if (token) return token;
+
+      token = await tryFetch('GET');
+      if (token) return token;
+
+      console.warn('Could not obtain token from generate-token endpoint');
+      return null;
     }
 
-    // Generate token for this session
-    console.log('Generating token for session:', sessionName);
     const wppToken = await fetchWppToken(sessionName);
+    console.log('WPP Token obtained:', wppToken ? 'yes' : 'no');
 
-    // Start session with webhook
-    const webhookUrl = `${PUBLIC_URL}/functions/v1/wpp-webhook`;
-    console.log('Starting session with webhook:', webhookUrl);
+    // Start session and get QR code
+    console.log('Starting WhatsApp session...');
     
-    const startUrl = `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/start-session`;
-    console.log('Start session URL:', startUrl);
-    const startRes = await fetch(startUrl,
-      {
+    async function startSessionWithBearer(token: string): Promise<Response> {
+      const url = `${WPP_HOST}/api/${sessionName}/start-session`;
+      console.log('Start session URL (method=bearer):', url);
+      
+      return await fetch(url, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${wppToken}`,
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           webhook: {
             enabled: true,
-            url: webhookUrl,
+            url: `${PUBLIC_URL}/functions/v1/wpp-webhook`,
             secret: WPP_SECRET,
           },
           waitQrCode: true,
@@ -187,38 +179,75 @@ Deno.serve(async (req) => {
           headless: true,
           browserArgs: ['--no-sandbox', '--disable-dev-shm-usage', '--no-first-run', '--no-zygote'],
         }),
-      }
-    );
-
-    console.log('Start session response status:', startRes.status);
-    const startCt = startRes.headers.get('content-type') || '';
-    console.log('Start session CT:', startCt);
+      });
+    }
     
-    if (!startRes.ok) {
-      const text = await startRes.text();
-      console.error('Start session failed:', text.substring(0, 200));
-      throw new Error(`Failed to start session: ${startRes.status} (${startCt}) - ${text.substring(0, 200)}`);
+    async function startSessionWithSecretPath(): Promise<Response> {
+      const url = `${WPP_HOST}/api/${sessionName}/${WPP_SECRET}/start-session`;
+      console.log('Start session URL (method=secret-path, masked):', url.replace(WPP_SECRET, maskSecret(WPP_SECRET)));
+      
+      return await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          webhook: {
+            enabled: true,
+            url: `${PUBLIC_URL}/functions/v1/wpp-webhook`,
+            secret: WPP_SECRET,
+          },
+          waitQrCode: true,
+          useChrome: true,
+          headless: true,
+          browserArgs: ['--no-sandbox', '--disable-dev-shm-usage', '--no-first-run', '--no-zygote'],
+        }),
+      });
+    }
+
+    let startResponse: Response;
+    let authMethod = 'bearer';
+
+    if (wppToken) {
+      startResponse = await startSessionWithBearer(wppToken);
+      console.log('Start session response status (bearer):', startResponse.status);
+      
+      // If bearer auth fails with 400/401/403, try secret-path fallback
+      if (!startResponse.ok && [400, 401, 403].includes(startResponse.status)) {
+        console.warn('Bearer auth failed, trying secret-path fallback');
+        startResponse = await startSessionWithSecretPath();
+        authMethod = 'secret-path';
+        console.log('Start session response status (secret-path):', startResponse.status);
+      }
+    } else {
+      // No token obtained, go directly to secret-path
+      console.log('No token available, using secret-path');
+      startResponse = await startSessionWithSecretPath();
+      authMethod = 'secret-path';
+      console.log('Start session response status (secret-path):', startResponse.status);
+    }
+
+    const startCt = startResponse.headers.get('content-type') || '';
+    console.log(`Start session CT (${authMethod}):`, startCt);
+
+    if (!startResponse.ok) {
+      const startBody = await startResponse.text();
+      console.error(`Start session failed (${authMethod}):`, startResponse.status, startCt, 'body:', startBody.substring(0, 200));
+      throw new Error(`Failed to start session: ${startResponse.status}`);
     }
 
     if (!startCt.includes('application/json')) {
-      const text = await startRes.text();
-      console.error('Start session returned non-JSON:', text.substring(0, 200));
-      throw new Error(`Start session returned non-JSON (${startCt}): ${text.substring(0, 200)}`);
+      const startBody = await startResponse.text();
+      console.error(`Start session returned non-JSON (${authMethod}):`, startCt, 'body:', startBody.substring(0, 200));
+      throw new Error('Start session returned non-JSON response');
     }
-    
-    let startData: any;
-    try {
-      startData = await startRes.json();
-    } catch (e: any) {
-      const text = await startRes.text();
-      console.error('Failed to parse start-session JSON:', text.substring(0, 200));
-      throw new Error(`Failed to parse start-session JSON: ${e?.message || e} - ${text.substring(0, 200)}`);
-    }
-    console.log('WPP start-session response:', startData);
+
+    const responseData = await startResponse.json();
+    console.log(`Start session data (${authMethod}):`, responseData);
 
     // Determine status
-    const isConnected = startData?.status === 'CONNECTED' || startData?.state === 'CONNECTED';
-    const qrCode = startData?.qrcode || null;
+    const isConnected = responseData?.status === 'CONNECTED' || responseData?.state === 'CONNECTED';
+    const qrCode = responseData?.qrcode || null;
     const status = isConnected ? 'connected' : (qrCode ? 'qr_issued' : 'disconnected');
 
     // Upsert session in database
