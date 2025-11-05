@@ -18,12 +18,16 @@ export function WhatsAppConnector() {
 
   async function fetchStatus() {
     try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) return;
+      // Refresh session to ensure valid token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        console.log('No valid session, skipping status fetch');
+        return;
+      }
 
       const { data, error } = await supabase.functions.invoke('wpp-status', {
         headers: {
-          Authorization: `Bearer ${session.session.access_token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
 
@@ -46,8 +50,8 @@ export function WhatsAppConnector() {
   async function startPairing() {
     setIsStarting(true);
     try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
         toast({
           title: "Ошибка",
           description: "Необходимо авторизоваться",
@@ -58,7 +62,7 @@ export function WhatsAppConnector() {
 
       const { data, error } = await supabase.functions.invoke('wpp-status', {
         headers: {
-          Authorization: `Bearer ${session.session.access_token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
 
@@ -134,8 +138,8 @@ export function WhatsAppConnector() {
   async function disconnectWhatsApp() {
     setIsStarting(true);
     try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
         toast({
           title: "Ошибка",
           description: "Необходимо авторизоваться",
@@ -146,7 +150,7 @@ export function WhatsAppConnector() {
 
       const { data, error } = await supabase.functions.invoke('wpp-disconnect', {
         headers: {
-          Authorization: `Bearer ${session.session.access_token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
 
@@ -179,8 +183,8 @@ export function WhatsAppConnector() {
     setIsDiagnosing(true);
     setDiagnostics(null);
     try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
         toast({
           title: "Ошибка",
           description: "Необходимо авторизоваться",
@@ -191,7 +195,7 @@ export function WhatsAppConnector() {
 
       const { data, error } = await supabase.functions.invoke('wpp-diagnostics', {
         headers: {
-          Authorization: `Bearer ${session.session.access_token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
 
