@@ -26,6 +26,11 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // Read request body to get force flag
+    const body = await req.json().catch(() => ({}));
+    const force = body?.force === true;
+    console.log('[wpp-status] Force refresh:', force);
+
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'Missing authorization' }), {
@@ -72,13 +77,14 @@ Deno.serve(async (req) => {
       .single();
 
     // If we have a recent QR (< 25s) and status is qr_issued, return it to avoid hammering WPP
-    if (session?.status === 'qr_issued' && session.last_qr_b64 && session.last_qr_at) {
+    // Skip cache if force flag is set
+    if (!force && session?.status === 'qr_issued' && session.last_qr_b64 && session.last_qr_at) {
       const qrAge = Date.now() - new Date(session.last_qr_at).getTime();
       if (qrAge < 25 * 1000) {
         console.log('[wpp-status] Returning cached QR (age', Math.round(qrAge/1000), 's)');
         return new Response(
           JSON.stringify({ status: 'qr_issued', qrcode: session.last_qr_b64 }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
         );
       }
     }
@@ -88,7 +94,7 @@ Deno.serve(async (req) => {
       console.log('[wpp-status] Already connected');
       return new Response(
         JSON.stringify({ status: 'connected' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
       );
     }
 
@@ -115,8 +121,12 @@ Deno.serve(async (req) => {
         }, { onConflict: 'organization_id' });
 
       return new Response(
-        JSON.stringify({ status: 'qr_issued', qrcode: result.base64 }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          status: 'qr_issued', 
+          qrcode: result.base64,
+          last_qr_at: new Date().toISOString()
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
       );
     }
 
@@ -134,21 +144,21 @@ Deno.serve(async (req) => {
 
       return new Response(
         JSON.stringify({ status: 'connected' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
       );
     }
 
     // timeout or error
     return new Response(
       JSON.stringify({ status: 'qr_pending', message: 'QR code not ready yet' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
     );
 
   } catch (error: any) {
     console.error('[wpp-status] Error:', error);
     return new Response(
       JSON.stringify({ ok: false, error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
     );
   }
 });

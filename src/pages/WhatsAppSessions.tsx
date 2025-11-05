@@ -50,6 +50,7 @@ const WhatsAppSessions = () => {
   const [qrDialog, setQrDialog] = useState<{ open: boolean; qr?: string; sessionName?: string; isPolling?: boolean }>({ open: false });
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; sessionId?: string }>({ open: false });
   const [countdown, setCountdown] = useState(120);
+  const [refreshingQr, setRefreshingQr] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
@@ -194,8 +195,11 @@ const WhatsAppSessions = () => {
       setQrDialog({ 
         open: true, 
         qr: session.last_qr_b64, 
-        sessionName: session.session_name 
+        sessionName: session.session_name,
+        isPolling: true 
       });
+      // Start polling immediately when opening QR dialog
+      startStatusPolling(session.session_name);
     } else {
       toast({
         title: "QR код недоступен",
@@ -302,7 +306,7 @@ const WhatsAppSessions = () => {
       });
     }, 1000);
 
-    // Poll status every 3 seconds
+    // Poll status every 2 seconds
     pollingIntervalRef.current = setInterval(async () => {
       try {
         const { data, error } = await supabase.functions.invoke('wpp-status', {
@@ -310,6 +314,16 @@ const WhatsAppSessions = () => {
         });
 
         if (error) throw error;
+
+        // Update QR if it changed
+        if (data?.qrcode) {
+          setQrDialog(prev => {
+            if (prev.qr !== data.qrcode) {
+              return { ...prev, qr: data.qrcode };
+            }
+            return prev;
+          });
+        }
 
         if (data?.status === 'connected') {
           stopPolling();
@@ -323,7 +337,7 @@ const WhatsAppSessions = () => {
       } catch (error: any) {
         console.error('Polling error:', error);
       }
-    }, 3000);
+    }, 2000);
 
     // Stop polling after 2 minutes
     setTimeout(() => {
@@ -354,14 +368,20 @@ const WhatsAppSessions = () => {
 
       await fetchSessions();
 
-      // Check if we have QR in response or in DB
-      const session = sessions.find(s => s.session_name === sessionName);
-      const qrToShow = data?.qrcode || session?.last_qr_b64;
+      // Force fresh QR code on reconnect
+      const { data: statusData, error: statusError } = await supabase.functions.invoke('wpp-status', {
+        body: { 
+          session_name: sessionName,
+          force: true 
+        },
+      });
 
-      if (qrToShow) {
+      if (statusError) throw statusError;
+
+      if (statusData?.qrcode) {
         setQrDialog({ 
           open: true, 
-          qr: qrToShow, 
+          qr: statusData.qrcode, 
           sessionName,
           isPolling: true 
         });
@@ -370,7 +390,7 @@ const WhatsAppSessions = () => {
           title: "✅ QR получен",
           description: "Отсканируйте QR-код в WhatsApp",
         });
-      } else if (data?.status === 'connected') {
+      } else if (statusData?.status === 'connected') {
         toast({
           title: "✅ Уже подключено",
           description: "Сессия уже активна",
@@ -390,6 +410,59 @@ const WhatsAppSessions = () => {
           variant: "destructive",
         });
       }
+    }
+  };
+
+  const refreshQrCode = async (sessionName: string) => {
+    try {
+      setRefreshingQr(true);
+      
+      const { data, error } = await supabase.functions.invoke('wpp-status', {
+        body: { 
+          session_name: sessionName,
+          force: true 
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.qrcode) {
+        setQrDialog(prev => ({ 
+          ...prev, 
+          qr: data.qrcode 
+        }));
+        
+        // Reset countdown when QR is refreshed
+        setCountdown(120);
+        
+        toast({
+          title: "✅ QR обновлен",
+          description: "Новый QR код получен",
+        });
+      } else if (data?.status === 'connected') {
+        stopPolling();
+        setQrDialog({ open: false });
+        toast({
+          title: "✅ Уже подключено",
+          description: "WhatsApp уже подключен",
+        });
+        await fetchSessions();
+      } else {
+        toast({
+          title: "⚠️ QR недоступен",
+          description: `Статус: ${data?.status || 'неизвестно'}`,
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error refreshing QR:', error);
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось обновить QR код",
+        variant: "destructive",
+      });
+    } finally {
+      setRefreshingQr(false);
     }
   };
 
@@ -550,7 +623,8 @@ const WhatsAppSessions = () => {
             <div className="space-y-4">
               <div className="flex justify-center py-4">
                 <img 
-                  src={qrDialog.qr} 
+                  src={qrDialog.qr}
+                  key={qrDialog.qr?.slice(-24)}
                   alt="QR Code" 
                   className="max-w-full h-auto border rounded-lg shadow-lg"
                 />
@@ -567,6 +641,27 @@ const WhatsAppSessions = () => {
                     </Badge>
                   </div>
                   <Progress value={(countdown / 120) * 100} />
+                  
+                  {/* Refresh QR button */}
+                  <Button 
+                    onClick={() => qrDialog.sessionName && refreshQrCode(qrDialog.sessionName)}
+                    disabled={refreshingQr}
+                    variant="outline"
+                    className="w-full"
+                    size="sm"
+                  >
+                    {refreshingQr ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Обновление...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Обновить QR сейчас
+                      </>
+                    )}
+                  </Button>
                 </div>
               )}
               {countdown === 0 && (
