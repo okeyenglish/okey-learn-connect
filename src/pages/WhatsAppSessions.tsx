@@ -9,9 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Loader2, RefreshCw, ExternalLink, ChevronDown, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
-const BASE = import.meta.env.VITE_WPP_BASE_URL || "";
-const AGG_TOKEN = import.meta.env.VITE_WPP_AGG_TOKEN || "";
+const BASE = ""; // no longer used on client
+const AGG_TOKEN = ""; // no longer used on client
+
 
 type AllResp = { ok: boolean; total?: number; items?: { session: string }[]; error?: string };
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -34,48 +36,61 @@ export default function WhatsAppSessions() {
   const [runnerResp, setRunnerResp] = useState<string>("");
   const [runnerLoading, setRunnerLoading] = useState(false);
 
-  const swaggerUrl = `${BASE}/wpp/api-docs/`;
+  const swaggerUrl = '#';
 
   async function fetchHealth() {
-    if (!BASE) {
-      setHealth('fail');
-      return;
-    }
     try {
-      const r = await fetch(`${BASE}/wpp/healthz`, { method: "GET" });
-      const t = await r.text();
-      setHealth(t.trim() === "ok" ? "ok" : "fail");
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) {
+        setHealth('fail');
+        toast({ title: 'Ошибка', description: 'Необходимо авторизоваться', variant: 'destructive' });
+        return;
+      }
+      const { data, error } = await supabase.functions.invoke('wpp-send', {
+        body: { action: 'test_connection' },
+        headers: { Authorization: `Bearer ${session.session.access_token}` },
+      });
+      if (error) {
+        setHealth('fail');
+      } else {
+        setHealth(data?.success ? 'ok' : 'fail');
+      }
     } catch {
-      setHealth("fail");
+      setHealth('fail');
     }
   }
 
   async function fetchAll() {
-    if (!BASE) {
-      setErr("WPP_BASE_URL не настроен");
-      toast({ title: "Ошибка", description: "WPP_BASE_URL не настроен", variant: "destructive" });
-      return;
-    }
-    if (!AGG_TOKEN) {
-      setErr("WPP_AGG_TOKEN не настроен");
-      toast({ title: "Ошибка", description: "WPP_AGG_TOKEN не настроен", variant: "destructive" });
-      return;
-    }
     setLoading(true);
     setErr(null);
     try {
-      const r = await fetch(`${BASE}/wpp/_all`, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${AGG_TOKEN}` }
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) {
+        setErr('Необходимо авторизоваться');
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('wpp-status', {
+        headers: { Authorization: `Bearer ${session.session.access_token}` },
       });
-      const j: AllResp = await r.json();
-      if (!j.ok) throw new Error(j.error || "unknown error");
-      setSessions((j.items ?? []).map(i => i.session));
-      toast({ title: "Успешно", description: `Загружено ${j.items?.length || 0} сессий` });
+
+      if (error || !data?.ok) {
+        throw new Error(error?.message || data?.error || 'Не удалось получить статус');
+      }
+
+      const label = data.status === 'connected'
+        ? 'Текущая сессия организации: CONNECTED'
+        : data.status === 'qr_issued'
+          ? 'Текущая сессия: требуется скан QR'
+          : 'Текущая сессия: DISCONNECTED';
+
+      setSessions([label]);
+      toast({ title: 'Успешно', description: 'Статус сессии обновлен' });
     } catch (e: any) {
-      setErr(e?.message || "Fetch error");
+      setErr(e?.message || 'Fetch error');
       setSessions([]);
-      toast({ title: "Ошибка", description: e?.message || "Ошибка загрузки", variant: "destructive" });
+      toast({ title: 'Ошибка', description: e?.message || 'Ошибка загрузки', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
