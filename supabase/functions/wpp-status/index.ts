@@ -58,9 +58,11 @@ Deno.serve(async (req) => {
     }
 
     const orgId = profile.organization_id;
-    const sessionName = `org_${orgId}`;
+    // TEMPORARY: Use 'default' session (matching wpp-start)
+    const sessionName = 'default';
 
-    console.log('[wpp-status] Session:', sessionName);
+    console.log('[wpp-status] Org ID:', orgId);
+    console.log('[wpp-status] Session:', sessionName, '(using default)');
 
     // Check cached QR from DB
     const { data: session } = await supabaseClient
