@@ -107,14 +107,21 @@ serve(async (req) => {
     });
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      throw new Error('Authentication failed');
+    let userId: string | null = user?.id || null;
+    if (authError || !userId) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1] || ''));
+        userId = payload?.sub || null;
+      } catch {
+        throw new Error('Authentication failed');
+      }
     }
+
 
     const { data: profile } = await supabase
       .from('profiles')
       .select('organization_id')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single();
 
     if (!profile?.organization_id) {

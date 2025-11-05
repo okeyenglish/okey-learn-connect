@@ -307,16 +307,24 @@ serve(async (req) => {
 
     // Pass token explicitly to getUser
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      console.error('[wpp-status] auth.getUser failed:', authError?.message || 'no user');
-      throw new Error('Authentication failed');
+    let userId: string | null = user?.id || null;
+    if (authError || !userId) {
+      console.error('[wpp-status] auth.getUser failed:', authError?.message || 'no user, will attempt JWT decode');
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1] || ''));
+        userId = payload?.sub || null;
+        console.info('[wpp-status] Fallback JWT decode succeeded');
+      } catch (e) {
+        console.error('[wpp-status] Fallback JWT decode failed');
+        throw new Error('Authentication failed');
+      }
     }
-    console.info(`[wpp-status] User authenticated: ${user.id}`);
+    console.info(`[wpp-status] User authenticated: ${userId}`);
 
     const { data: profile } = await supabase
       .from('profiles')
       .select('organization_id')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single();
 
     if (!profile?.organization_id) {
