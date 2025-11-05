@@ -236,19 +236,39 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to start session: ${startResponse.status}`);
     }
 
-    if (!startCt.includes('application/json')) {
-      const startBody = await startResponse.text();
-      console.error(`Start session returned non-JSON (${authMethod}):`, startCt, 'body:', startBody.substring(0, 200));
-      throw new Error('Start session returned non-JSON response');
+    const startBody = await startResponse.text();
+    console.log(`Start session body (${authMethod}):`, startBody.substring(0, 300));
+
+    let responseData: any = {};
+    let isConnected = false;
+    let qrCode: string | null = null;
+    let status = 'disconnected';
+
+    // If we got a response body, try to parse it
+    if (startBody && startBody.trim().length > 0) {
+      if (startCt.includes('application/json')) {
+        try {
+          responseData = JSON.parse(startBody);
+          console.log(`Start session data (${authMethod}):`, responseData);
+          
+          isConnected = responseData?.status === 'CONNECTED' || responseData?.state === 'CONNECTED';
+          qrCode = responseData?.qrcode || null;
+          status = isConnected ? 'connected' : (qrCode ? 'qr_issued' : 'disconnected');
+        } catch (e: any) {
+          console.error(`Failed to parse start-session JSON (${authMethod}):`, e);
+          // Empty response with 200 - session is initializing asynchronously
+          status = 'disconnected';
+        }
+      } else {
+        console.warn(`Start session returned non-JSON (${authMethod}):`, startCt, 'treating as async initialization');
+        // Empty or non-JSON response with 200 - session is initializing
+        status = 'disconnected';
+      }
+    } else {
+      console.info(`Start session returned empty body (${authMethod}) - session initializing asynchronously`);
+      // Empty response with 200 - session is initializing via webhook
+      status = 'disconnected';
     }
-
-    const responseData = await startResponse.json();
-    console.log(`Start session data (${authMethod}):`, responseData);
-
-    // Determine status
-    const isConnected = responseData?.status === 'CONNECTED' || responseData?.state === 'CONNECTED';
-    const qrCode = responseData?.qrcode || null;
-    const status = isConnected ? 'connected' : (qrCode ? 'qr_issued' : 'disconnected');
 
     // Upsert session in database
     const { data: session } = await supabaseClient
