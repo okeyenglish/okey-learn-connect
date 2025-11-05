@@ -194,26 +194,50 @@ export class WppClient {
   }
 
   async getQr(bearer: string): Promise<{ base64: string } | null> {
-    const url = `${this.base}/api/${encodeURIComponent(this.normalizedSession)}/qrcode`;
-    console.log('[WppClient] Fetching QR code (JSON with Bearer)...');
+    console.log('[WppClient] Fetching QR code...');
 
     try {
-      const j = await this._fetch(url, {
+      // 1) Reliable path: get QR from status-session
+      const statusUrl = `${this.base}/api/${encodeURIComponent(this.normalizedSession)}/status-session`;
+      console.log('[WppClient] Trying status-session endpoint...');
+      
+      const statusData = await this._fetch(statusUrl, {
+        expected: 'json',
+        headers: { 
+          'Authorization': `Bearer ${bearer}`,
+          'Accept': 'application/json'
+        },
+      });
+
+      if (statusData && typeof statusData === 'object') {
+        const st = statusData as any;
+        if (st.qrcode) {
+          const base64 = st.qrcode.startsWith('data:image') ? st.qrcode : `data:image/png;base64,${st.qrcode}`;
+          console.log('[WppClient] ✓ QR retrieved from status-session');
+          return { base64 };
+        }
+      }
+
+      // 2) Fallback: try legacy qr-code endpoint
+      console.log('[WppClient] Trying legacy qr-code endpoint...');
+      const qrUrl = `${this.base}/session/${encodeURIComponent(this.normalizedSession)}/qr-code`;
+      
+      const qrData = await this._fetch(qrUrl, {
         expected: 'json',
         headers: { 'Authorization': `Bearer ${bearer}` },
       });
 
-      if (j && typeof j === 'object') {
-        const d = j as any;
-        const s = (d.qrcode || d.base64 || d.image) as string | undefined;
-        if (s) {
-          const base64 = s.startsWith('data:image') ? s : `data:image/png;base64,${s}`;
-          console.log('[WppClient] ✓ QR retrieved successfully');
+      if (qrData && typeof qrData === 'object') {
+        const q = qrData as any;
+        const data = q.qrcode || q.qrCode || q.qr;
+        if (data) {
+          const base64 = data.startsWith('data:image') ? data : `data:image/png;base64,${data}`;
+          console.log('[WppClient] ✓ QR retrieved from legacy endpoint');
           return { base64 };
         }
       }
       
-      console.log('[WppClient] ⚠ QR response has no qrcode field');
+      console.log('[WppClient] ⚠ QR not available in any endpoint');
       return null;
     } catch (e) {
       console.log(`[WppClient] ✗ QR request failed: ${e}`);
