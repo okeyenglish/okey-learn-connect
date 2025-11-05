@@ -127,12 +127,15 @@ const WhatsAppSessions = () => {
           table: 'whatsapp_sessions'
         },
         (payload) => {
-          console.log('Real-time update received:', payload);
+          console.log('[Real-time] Update received:', payload);
+          
           // Refetch sessions when any change occurs
           fetchSessions();
           
-          // Show toast notification
+          // Show toast notification only for major events
           const eventType = payload.eventType;
+          const newStatus = (payload.new as any)?.status;
+          const oldStatus = (payload.old as any)?.status;
           const sessionName = (payload.new as any)?.session_name || (payload.old as any)?.session_name;
           
           if (eventType === 'INSERT') {
@@ -140,10 +143,12 @@ const WhatsAppSessions = () => {
               title: "Новая сессия",
               description: `Создана сессия: ${sessionName}`,
             });
-          } else if (eventType === 'UPDATE') {
+          } else if (eventType === 'UPDATE' && newStatus === 'connected' && oldStatus !== 'connected') {
+            // Only show toast when status changes TO connected
+            console.log('[Real-time] Session connected:', sessionName);
             toast({
-              title: "Обновление сессии",
-              description: `Статус сессии ${sessionName} изменен`,
+              title: "✅ Сессия подключена",
+              description: `${sessionName} теперь активна`,
             });
           } else if (eventType === 'DELETE') {
             toast({
@@ -399,23 +404,32 @@ const WhatsAppSessions = () => {
         if (error) throw error;
 
         // Update QR if it changed
-        if (data?.qrcode) {
+        if (data?.qrcode && data?.status === 'qr_issued') {
           setQrDialog(prev => {
             if (prev.qr !== data.qrcode) {
+              console.log('[startStatusPolling] QR updated');
               return { ...prev, qr: data.qrcode };
             }
             return prev;
           });
         }
 
+        // Handle connected status
         if (data?.status === 'connected') {
+          console.log('[startStatusPolling] Connected! Closing dialog and refreshing...');
           stopPolling();
-          setQrDialog({ open: false });
+          
+          // First close dialog
+          setQrDialog({ open: false, isPolling: false });
+          
+          // Then fetch sessions to update status
+          await fetchSessions();
+          
+          // Show success toast
           toast({
             title: "✅ Подключено!",
             description: "WhatsApp успешно подключен",
           });
-          await fetchSessions();
         }
       } catch (error: any) {
         console.error('Polling error:', error);
@@ -424,7 +438,10 @@ const WhatsAppSessions = () => {
 
     // Stop polling after 2 minutes
     setTimeout(() => {
-      stopPolling();
+      if (pollingIntervalRef.current) {
+        console.log('[startStatusPolling] Timeout reached, stopping polling');
+        stopPolling();
+      }
     }, 120000);
   };
 
@@ -649,21 +666,24 @@ const WhatsAppSessions = () => {
                         >
                           <RefreshCw className="h-4 w-4" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => showQrCode(session)}
-                          disabled={!session.last_qr_b64}
-                        >
-                          <QrCode className="h-4 w-4" />
-                        </Button>
-                        {session.status === 'connected' && (
+                        {session.status === 'connected' ? (
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => disconnectSession(session.session_name)}
+                            title="Отключить сессию"
                           >
                             <PowerOff className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => showQrCode(session)}
+                            disabled={!session.last_qr_b64}
+                            title="Показать QR код"
+                          >
+                            <QrCode className="h-4 w-4" />
                           </Button>
                         )}
                         {session.status === 'disconnected' && (
