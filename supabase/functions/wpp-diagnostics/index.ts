@@ -10,6 +10,23 @@ const BASE = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru';
 const SECRET = Deno.env.get('WPP_SECRET_KEY') || 'THISISMYSECURETOKEN';
 const TIMEOUT = 12000;
 
+// Standard headers for all requests
+const standardHeaders = {
+  'Accept': 'application/json',
+  'Content-Type': 'application/json',
+  'User-Agent': 'SupabaseEdge/1.0',
+  'Cache-Control': 'no-cache',
+  'Pragma': 'no-cache',
+};
+
+const standardHeadersAny = {
+  'Accept': '*/*',
+  'Content-Type': 'application/json',
+  'User-Agent': 'SupabaseEdge/1.0',
+  'Cache-Control': 'no-cache',
+  'Pragma': 'no-cache',
+};
+
 function maskSecret(str: string): string {
   if (!str || str.length < 8) return '***';
   return str.slice(0, 4) + '***' + str.slice(-4);
@@ -93,9 +110,11 @@ serve(async (req) => {
     if (!authHeader) {
       throw new Error('Missing Authorization header');
     }
+    console.info(`[wpp-diagnostics] Auth header present, length: ${authHeader.length}`);
 
-    const token = authHeader.replace('Bearer ', '').trim();
-    if (!token) {
+    // Extract JWT token from "Bearer <token>"
+    const jwtToken = authHeader.replace('Bearer ', '').trim();
+    if (!jwtToken) {
       throw new Error('Invalid token format');
     }
 
@@ -106,11 +125,13 @@ serve(async (req) => {
       auth: { persistSession: false }
     });
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    // Pass JWT token explicitly to getUser
+    const { data: { user }, error: authError } = await supabase.auth.getUser(jwtToken);
     let userId: string | null = user?.id || null;
     if (authError || !userId) {
+      console.warn('[wpp-diagnostics] auth.getUser failed, attempting JWT decode');
       try {
-        const payload = JSON.parse(atob(token.split('.')[1] || ''));
+        const payload = JSON.parse(atob(jwtToken.split('.')[1] || ''));
         userId = payload?.sub || null;
       } catch {
         throw new Error('Authentication failed');
@@ -133,7 +154,7 @@ serve(async (req) => {
     console.info('[wpp-diagnostics] Starting diagnostics for:', sessionName);
 
     const tests: any[] = [];
-    let token: string | null = null;
+    let wppToken: string | null = null;
 
     // First, try to generate token
     const tokenTests = [
@@ -146,20 +167,20 @@ serve(async (req) => {
     for (const test of tokenTests) {
       const result = await testEndpoint(test);
       tests.push(result);
-      if (result.hasToken && !token) {
-        token = result.bodyPreview?.match(/"token":\s*"([^"]+)"/)?.[1] || null;
+      if (result.hasToken && !wppToken) {
+        wppToken = result.bodyPreview?.match(/"token":\s*"([^"]+)"/)?.[1] || null;
       }
     }
 
-    // Status tests with and without token
+    // Status tests with and without WPP token
     const statusTests = [];
     for (const headers of [standardHeaders, standardHeadersAny]) {
-      const authHeaders = token ? { ...headers, 'Authorization': `Bearer ${token}` } : headers;
+      const authHeaders = wppToken ? { ...headers, 'Authorization': `Bearer ${wppToken}` } : headers;
       const acceptLabel = headers.Accept === '*/*' ? 'ANY' : 'JSON';
       statusTests.push(
-        { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/status-session`, headers: authHeaders, label: `Status: secret (${acceptLabel}${token ? '+token' : ''})` },
-        { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/check-connection-session`, headers: authHeaders, label: `Check: secret (${acceptLabel}${token ? '+token' : ''})` },
-        { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/status-session?json=true`, headers: authHeaders, label: `Status: json flag (${acceptLabel}${token ? '+token' : ''})` }
+        { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/status-session`, headers: authHeaders, label: `Status: secret (${acceptLabel}${wppToken ? '+token' : ''})` },
+        { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/check-connection-session`, headers: authHeaders, label: `Check: secret (${acceptLabel}${wppToken ? '+token' : ''})` },
+        { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/status-session?json=true`, headers: authHeaders, label: `Status: json flag (${acceptLabel}${wppToken ? '+token' : ''})` }
       );
     }
 
@@ -168,15 +189,15 @@ serve(async (req) => {
       tests.push(result);
     }
 
-    // QR code tests with and without token
+    // QR code tests with and without WPP token
     const qrTests = [];
     for (const headers of [standardHeaders, standardHeadersAny]) {
-      const authHeaders = token ? { ...headers, 'Authorization': `Bearer ${token}` } : headers;
+      const authHeaders = wppToken ? { ...headers, 'Authorization': `Bearer ${wppToken}` } : headers;
       const acceptLabel = headers.Accept === '*/*' ? 'ANY' : 'JSON';
       qrTests.push(
-        { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/qrcode`, headers: authHeaders, label: `QR: /qrcode (${acceptLabel}${token ? '+token' : ''})` },
-        { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/qr-code`, headers: authHeaders, label: `QR: /qr-code (${acceptLabel}${token ? '+token' : ''})` },
-        { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/qrcode?json=true`, headers: authHeaders, label: `QR: json flag (${acceptLabel}${token ? '+token' : ''})` }
+        { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/qrcode`, headers: authHeaders, label: `QR: /qrcode (${acceptLabel}${wppToken ? '+token' : ''})` },
+        { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/qr-code`, headers: authHeaders, label: `QR: /qr-code (${acceptLabel}${wppToken ? '+token' : ''})` },
+        { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/qrcode?json=true`, headers: authHeaders, label: `QR: json flag (${acceptLabel}${wppToken ? '+token' : ''})` }
       );
     }
 
@@ -189,11 +210,11 @@ serve(async (req) => {
     const webhookUrl = `${supabaseUrl}/functions/v1/wpp-webhook`;
     const startTests = [];
     for (const headers of [standardHeaders, standardHeadersAny]) {
-      const authHeaders = token ? { ...headers, 'Authorization': `Bearer ${token}` } : headers;
+      const authHeaders = wppToken ? { ...headers, 'Authorization': `Bearer ${wppToken}` } : headers;
       const acceptLabel = headers.Accept === '*/*' ? 'ANY' : 'JSON';
       startTests.push(
-        { method: 'POST', url: `${BASE}/api/${sessionName}/${SECRET}/start-session`, headers: authHeaders, body: { webhook: webhookUrl, waitQrCode: true }, label: `Start: secret (${acceptLabel}${token ? '+token' : ''})` },
-        { method: 'POST', url: `${BASE}/api/${sessionName}/${SECRET}/start-session?json=true`, headers: authHeaders, body: { webhook: webhookUrl, waitQrCode: true }, label: `Start: json flag (${acceptLabel}${token ? '+token' : ''})` }
+        { method: 'POST', url: `${BASE}/api/${sessionName}/${SECRET}/start-session`, headers: authHeaders, body: { webhook: webhookUrl, waitQrCode: true }, label: `Start: secret (${acceptLabel}${wppToken ? '+token' : ''})` },
+        { method: 'POST', url: `${BASE}/api/${sessionName}/${SECRET}/start-session?json=true`, headers: authHeaders, body: { webhook: webhookUrl, waitQrCode: true }, label: `Start: json flag (${acceptLabel}${wppToken ? '+token' : ''})` }
       );
     }
 
@@ -223,7 +244,7 @@ serve(async (req) => {
         sessionName,
         baseUrl: BASE,
         secretMasked: maskSecret(SECRET),
-        tokenFound: !!token,
+        tokenFound: !!wppToken,
         summary,
         results: tests,
       }),

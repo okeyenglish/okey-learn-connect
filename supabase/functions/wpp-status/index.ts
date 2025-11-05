@@ -69,7 +69,7 @@ async function logResponse(label: string, res: Response): Promise<void> {
 }`);
 }
 
-// Generate token with multiple variants
+// Generate WPP API token with multiple variants
 async function generateToken(sessionName: string): Promise<string | null> {
   console.info(`[wpp-status] Attempting to generate token for: ${sessionName}`);
 
@@ -123,21 +123,21 @@ async function generateToken(sessionName: string): Promise<string | null> {
     }
   }
 
-  console.warning('[wpp-status] All token generation attempts failed - proceeding with secret fallbacks');
+  console.warn('[wpp-status] All token generation attempts failed - proceeding with secret fallbacks');
   return null;
 }
 
 // Check connection status with multiple variants
-async function checkConnection(sessionName: string, token: string | null): Promise<any> {
+async function checkConnection(sessionName: string, wppToken: string | null): Promise<any> {
   console.info('[wpp-status] Checking connection');
 
   const endpoints = ['status-session', 'check-connection-session'];
   const variants: any[] = [];
 
   for (const endpoint of endpoints) {
-    if (token) {
-      variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/${endpoint}`, headers: { ...standardHeaders, Authorization: `Bearer ${token}` }, label: `Status Bearer token (${endpoint})` });
-      variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/${endpoint}/`, headers: { ...standardHeaders, Authorization: `Bearer ${token}` }, label: `Status Bearer token+/ (${endpoint})` });
+    if (wppToken) {
+      variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/${endpoint}`, headers: { ...standardHeaders, Authorization: `Bearer ${wppToken}` }, label: `Status Bearer token (${endpoint})` });
+      variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/${endpoint}/`, headers: { ...standardHeaders, Authorization: `Bearer ${wppToken}` }, label: `Status Bearer token+/ (${endpoint})` });
     }
     variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/${endpoint}`, headers: standardHeaders, label: `Status secret in path (${endpoint})` });
     variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/${endpoint}/`, headers: standardHeaders, label: `Status secret in path+/ (${endpoint})` });
@@ -164,7 +164,7 @@ async function checkConnection(sessionName: string, token: string | null): Promi
             return data;
           } catch {}
         } else {
-          console.warning(`[wpp-status] Status returned 200 but empty body - treating as unknown`);
+          console.warn(`[wpp-status] Status returned 200 but empty body - treating as unknown`);
         }
       }
     } catch (err: any) {
@@ -176,15 +176,15 @@ async function checkConnection(sessionName: string, token: string | null): Promi
 }
 
 // Start session
-async function startSession(sessionName: string, webhookUrl: string, token: string | null): Promise<any> {
+async function startSession(sessionName: string, webhookUrl: string, wppToken: string | null): Promise<any> {
   console.info('[wpp-status] Starting session');
 
   const body = { webhook: webhookUrl, waitQrCode: true };
   const variants: any[] = [];
 
-  if (token) {
-    variants.push({ method: 'POST', url: `${BASE}/api/${sessionName}/start-session`, headers: { ...standardHeaders, Authorization: `Bearer ${token}` }, body, label: 'Start Bearer token' });
-    variants.push({ method: 'POST', url: `${BASE}/api/${sessionName}/start-session/`, headers: { ...standardHeaders, Authorization: `Bearer ${token}` }, body, label: 'Start Bearer token (/)' });
+  if (wppToken) {
+    variants.push({ method: 'POST', url: `${BASE}/api/${sessionName}/start-session`, headers: { ...standardHeaders, Authorization: `Bearer ${wppToken}` }, body, label: 'Start Bearer token' });
+    variants.push({ method: 'POST', url: `${BASE}/api/${sessionName}/start-session/`, headers: { ...standardHeaders, Authorization: `Bearer ${wppToken}` }, body, label: 'Start Bearer token (/)' });
   }
   variants.push({ method: 'POST', url: `${BASE}/api/${sessionName}/${SECRET}/start-session`, headers: standardHeaders, body, label: 'Start secret in path' });
   variants.push({ method: 'POST', url: `${BASE}/api/${sessionName}/${SECRET}/start-session/`, headers: standardHeaders, body, label: 'Start secret in path (/)' });
@@ -226,7 +226,7 @@ async function startSession(sessionName: string, webhookUrl: string, token: stri
 }
 
 // Poll for QR code (up to 60 seconds)
-async function pollForQR(sessionName: string, token: string | null): Promise<string | null> {
+async function pollForQR(sessionName: string, wppToken: string | null): Promise<string | null> {
   console.info('[wpp-status] Starting QR polling (max 60s)');
 
   const maxAttempts = 60;
@@ -235,8 +235,8 @@ async function pollForQR(sessionName: string, token: string | null): Promise<str
   for (let i = 1; i <= maxAttempts; i++) {
     const variants: any[] = [];
 
-    if (token) {
-      variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/qrcode`, headers: { ...standardHeaders, Authorization: `Bearer ${token}` }, label: `QR poll #${i} Bearer token` });
+    if (wppToken) {
+      variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/qrcode`, headers: { ...standardHeaders, Authorization: `Bearer ${wppToken}` }, label: `QR poll #${i} Bearer token` });
     }
     variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/qrcode`, headers: standardHeaders, label: `QR poll #${i} secret in path` });
     variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/qrcode/`, headers: standardHeaders, label: `QR poll #${i} secret in path (/)` });
@@ -289,11 +289,11 @@ serve(async (req) => {
       console.error('[wpp-status] Missing Authorization header');
       throw new Error('Missing Authorization header');
     }
-    console.info(`[wpp-status] Auth header present`);
+    console.info(`[wpp-status] Auth header present, length: ${authHeader.length}`);
 
-    // Extract token from "Bearer <token>"
-    const token = authHeader.replace('Bearer ', '').trim();
-    if (!token) {
+    // Extract JWT token from "Bearer <token>"
+    const jwtToken = authHeader.replace('Bearer ', '').trim();
+    if (!jwtToken) {
       console.error('[wpp-status] Empty token after Bearer extraction');
       throw new Error('Invalid token format');
     }
@@ -305,13 +305,13 @@ serve(async (req) => {
       auth: { persistSession: false }
     });
 
-    // Pass token explicitly to getUser
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    // Pass JWT token explicitly to getUser
+    const { data: { user }, error: authError } = await supabase.auth.getUser(jwtToken);
     let userId: string | null = user?.id || null;
     if (authError || !userId) {
       console.error('[wpp-status] auth.getUser failed:', authError?.message || 'no user, will attempt JWT decode');
       try {
-        const payload = JSON.parse(atob(token.split('.')[1] || ''));
+        const payload = JSON.parse(atob(jwtToken.split('.')[1] || ''));
         userId = payload?.sub || null;
         console.info('[wpp-status] Fallback JWT decode succeeded');
       } catch (e) {
@@ -336,11 +336,11 @@ serve(async (req) => {
 
     console.info('[wpp-status] Session: ' + sessionName);
 
-    // Try to generate token
-    const token = await generateToken(sessionName);
+    // Try to generate WPP API token
+    const wppToken = await generateToken(sessionName);
 
     // Check connection
-    const statusData = await checkConnection(sessionName, token);
+    const statusData = await checkConnection(sessionName, wppToken);
     if (statusData.connected) {
       console.info('[wpp-status] Final status: connected');
       return new Response(
@@ -369,10 +369,10 @@ serve(async (req) => {
     }
 
     // Start session
-    await startSession(sessionName, webhookUrl, token);
+    await startSession(sessionName, webhookUrl, wppToken);
 
     // Poll for QR
-    const qr = await pollForQR(sessionName, token);
+    const qr = await pollForQR(sessionName, wppToken);
 
     if (qr) {
       await supabase
