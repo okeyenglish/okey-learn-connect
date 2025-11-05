@@ -286,8 +286,10 @@ serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('[wpp-status] Missing Authorization header');
       throw new Error('Missing Authorization header');
     }
+    console.info(`[wpp-status] Auth header present, length=${authHeader.length}`);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -297,6 +299,7 @@ serve(async (req) => {
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
+      console.error('[wpp-status] auth.getUser failed:', authError?.message || 'no user');
       throw new Error('Authentication failed');
     }
 

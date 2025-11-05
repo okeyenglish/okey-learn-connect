@@ -25,11 +25,7 @@ export function WhatsAppConnector() {
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke('wpp-status', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
+      const { data, error } = await supabase.functions.invoke('wpp-status');
 
       if (error) {
         console.error('Error fetching WPP status:', error);
@@ -60,11 +56,7 @@ export function WhatsAppConnector() {
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke('wpp-status', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
+      const { data, error } = await supabase.functions.invoke('wpp-status');
 
       if (error) {
         console.error('Error starting WPP session:', error);
@@ -148,11 +140,7 @@ export function WhatsAppConnector() {
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke('wpp-disconnect', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
+      const { data, error } = await supabase.functions.invoke('wpp-disconnect');
 
       if (error || !data?.ok) {
         toast({
@@ -193,11 +181,7 @@ export function WhatsAppConnector() {
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke('wpp-diagnostics', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
+      const { data, error } = await supabase.functions.invoke('wpp-diagnostics');
 
       if (error || !data?.ok) {
         toast({
