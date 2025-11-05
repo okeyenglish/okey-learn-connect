@@ -69,41 +69,31 @@ async function logResponse(label: string, res: Response): Promise<void> {
 }`);
 }
 
-// Generate WPP API token with multiple variants
+// Generate WPP API token - simplified to 2 most reliable variants
 async function generateToken(sessionName: string): Promise<string | null> {
   console.info(`[wpp-status] Attempting to generate token for: ${sessionName}`);
 
   const variants = [
-    // POST secret in path
     { method: 'POST', url: `${BASE}/api/${sessionName}/${SECRET}/generate-token`, label: 'POST secret in path' },
-    { method: 'POST', url: `${BASE}/api/${sessionName}/${SECRET}/generate-token/`, label: 'POST secret in path (/)' },
-    // POST secretKey in body
-    { method: 'POST', url: `${BASE}/api/${sessionName}/generate-token`, body: { secretKey: SECRET }, label: 'POST secretKey in body' },
-    { method: 'POST', url: `${BASE}/api/${sessionName}/generate-token/`, body: { secretKey: SECRET }, label: 'POST secretKey in body (/)' },
-    // GET secret in path
     { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/generate-token`, label: 'GET secret in path' },
-    { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/generate-token/`, label: 'GET secret in path (/)' },
-    // GET secretKey query
-    { method: 'GET', url: `${BASE}/api/${sessionName}/generate-token?secretKey=${SECRET}`, label: 'GET secretKey query' },
-    { method: 'GET', url: `${BASE}/api/${sessionName}/generate-token/?secretKey=${SECRET}`, label: 'GET secretKey query (/)' },
-    // With ?json=true flag
-    { method: 'POST', url: `${BASE}/api/${sessionName}/${SECRET}/generate-token?json=true`, label: 'POST secret+json flag' },
-    { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/generate-token?json=true`, label: 'GET secret+json flag' },
   ];
 
   for (const variant of variants) {
     try {
       console.info(`[wpp-status] Try: ${variant.label}`);
+      console.info(`[wpp-status] Request: ${variant.method} ${maskSensitiveData(variant.url)}`);
+      
       const res = await withTimeout(
         fetch(variant.url, {
           method: variant.method,
           headers: standardHeaders,
-          body: variant.body ? JSON.stringify(variant.body) : undefined,
         }),
         TIMEOUT
       );
       
-      await logResponse(`[wpp-status] ${variant.label}`, res);
+      console.info(`[wpp-status] Response: ${res.status} ${res.statusText}`);
+      console.info(`[wpp-status] Response Content-Type:`, res.headers.get('content-type'));
+      console.info(`[wpp-status] Response Content-Length:`, res.headers.get('content-length'));
       
       if (res.ok) {
         const text = await res.text();
@@ -112,10 +102,12 @@ async function generateToken(sessionName: string): Promise<string | null> {
             const data = JSON.parse(text);
             const token = data?.token || data?.access_token || data?.result?.token;
             if (token) {
-              console.info(`[wpp-status] Token generated via ${variant.label}`);
+              console.info(`[wpp-status] ✓ Token generated via ${variant.label}`);
               return token;
             }
-          } catch {}
+          } catch (e) {
+            console.warn(`[wpp-status] ${variant.label} non-JSON response:`, text.substring(0, 100));
+          }
         }
       }
     } catch (err: any) {
@@ -127,29 +119,37 @@ async function generateToken(sessionName: string): Promise<string | null> {
   return null;
 }
 
-// Check connection status with multiple variants
+// Check connection status - simplified with Bearer token
 async function checkConnection(sessionName: string, wppToken: string | null): Promise<any> {
   console.info('[wpp-status] Checking connection');
 
-  const endpoints = ['status-session', 'check-connection-session'];
   const variants: any[] = [];
 
-  for (const endpoint of endpoints) {
-    if (wppToken) {
-      variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/${endpoint}`, headers: { ...standardHeaders, Authorization: `Bearer ${wppToken}` }, label: `Status Bearer token (${endpoint})` });
-      variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/${endpoint}/`, headers: { ...standardHeaders, Authorization: `Bearer ${wppToken}` }, label: `Status Bearer token+/ (${endpoint})` });
-    }
-    variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/${endpoint}`, headers: standardHeaders, label: `Status secret in path (${endpoint})` });
-    variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/${endpoint}/`, headers: standardHeaders, label: `Status secret in path+/ (${endpoint})` });
-    variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/${endpoint}?secretKey=${SECRET}`, headers: standardHeaders, label: `Status secretKey query (${endpoint})` });
-    variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/${endpoint}/?secretKey=${SECRET}`, headers: standardHeaders, label: `Status secretKey query+/ (${endpoint})` });
-    variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/${endpoint}?secretKey=${SECRET}&json=true`, headers: standardHeaders, label: `Status secretKey+json (${endpoint})` });
+  if (wppToken) {
+    variants.push({ 
+      method: 'GET', 
+      url: `${BASE}/api/${sessionName}/status-session`, 
+      headers: { ...standardHeaders, Authorization: `Bearer ${wppToken}` }, 
+      label: 'Status with Bearer token' 
+    });
   }
+  
+  variants.push({ 
+    method: 'GET', 
+    url: `${BASE}/api/${sessionName}/${SECRET}/status-session`, 
+    headers: standardHeaders, 
+    label: 'Status with secret in path' 
+  });
 
   for (const variant of variants) {
     try {
+      console.info(`[wpp-status] Request: ${variant.method} ${maskSensitiveData(variant.url)}`);
+      console.info(`[wpp-status] Headers:`, Object.keys(variant.headers));
+      
       const res = await withTimeout(fetch(variant.url, { method: variant.method, headers: variant.headers }), TIMEOUT);
-      await logResponse(`[wpp-status] ${variant.label}`, res);
+      
+      console.info(`[wpp-status] Response: ${res.status} ${res.statusText}`);
+      console.info(`[wpp-status] Response Content-Type:`, res.headers.get('content-type'));
       
       if (res.ok) {
         const text = await res.text();
@@ -158,13 +158,15 @@ async function checkConnection(sessionName: string, wppToken: string | null): Pr
             const data = JSON.parse(text);
             const connected = data?.connected || data?.result?.connected || data?.status === 'CONNECTED' || data?.state === 'CONNECTED';
             if (connected) {
-              console.info(`[wpp-status] Connected via ${variant.label}`);
+              console.info(`[wpp-status] ✓ Connected via ${variant.label}`);
               return { connected: true };
             }
             return data;
-          } catch {}
+          } catch (e) {
+            console.warn(`[wpp-status] ${variant.label} non-JSON response:`, text.substring(0, 100));
+          }
         } else {
-          console.warn(`[wpp-status] Status returned 200 but empty body - treating as unknown`);
+          console.warn(`[wpp-status] Status returned 200 but empty body`);
         }
       }
     } catch (err: any) {
@@ -175,7 +177,7 @@ async function checkConnection(sessionName: string, wppToken: string | null): Pr
   return { connected: false };
 }
 
-// Start session
+// Start session - simplified with Bearer token
 async function startSession(sessionName: string, webhookUrl: string, wppToken: string | null): Promise<any> {
   console.info('[wpp-status] Starting session');
 
@@ -183,17 +185,28 @@ async function startSession(sessionName: string, webhookUrl: string, wppToken: s
   const variants: any[] = [];
 
   if (wppToken) {
-    variants.push({ method: 'POST', url: `${BASE}/api/${sessionName}/start-session`, headers: { ...standardHeaders, Authorization: `Bearer ${wppToken}` }, body, label: 'Start Bearer token' });
-    variants.push({ method: 'POST', url: `${BASE}/api/${sessionName}/start-session/`, headers: { ...standardHeaders, Authorization: `Bearer ${wppToken}` }, body, label: 'Start Bearer token (/)' });
+    variants.push({ 
+      method: 'POST', 
+      url: `${BASE}/api/${sessionName}/start-session`, 
+      headers: { ...standardHeaders, Authorization: `Bearer ${wppToken}` }, 
+      body, 
+      label: 'Start with Bearer token' 
+    });
   }
-  variants.push({ method: 'POST', url: `${BASE}/api/${sessionName}/${SECRET}/start-session`, headers: standardHeaders, body, label: 'Start secret in path' });
-  variants.push({ method: 'POST', url: `${BASE}/api/${sessionName}/${SECRET}/start-session/`, headers: standardHeaders, body, label: 'Start secret in path (/)' });
-  variants.push({ method: 'POST', url: `${BASE}/api/${sessionName}/start-session?secretKey=${SECRET}`, headers: standardHeaders, body, label: 'Start secretKey query' });
-  variants.push({ method: 'POST', url: `${BASE}/api/${sessionName}/start-session/?secretKey=${SECRET}`, headers: standardHeaders, body, label: 'Start secretKey query (/)' });
-  variants.push({ method: 'POST', url: `${BASE}/api/${sessionName}/start-session?secretKey=${SECRET}&json=true`, headers: standardHeaders, body, label: 'Start secretKey+json' });
+  
+  variants.push({ 
+    method: 'POST', 
+    url: `${BASE}/api/${sessionName}/${SECRET}/start-session`, 
+    headers: standardHeaders, 
+    body, 
+    label: 'Start with secret in path' 
+  });
 
   for (const variant of variants) {
     try {
+      console.info(`[wpp-status] Request: ${variant.method} ${maskSensitiveData(variant.url)}`);
+      console.info(`[wpp-status] Headers:`, Object.keys(variant.headers));
+      
       const res = await withTimeout(
         fetch(variant.url, {
           method: variant.method,
@@ -203,16 +216,19 @@ async function startSession(sessionName: string, webhookUrl: string, wppToken: s
         TIMEOUT
       );
 
-      await logResponse(`[wpp-status] ${variant.label}`, res);
+      console.info(`[wpp-status] Response: ${res.status} ${res.statusText}`);
+      console.info(`[wpp-status] Response Content-Type:`, res.headers.get('content-type'));
 
       if (res.ok) {
         const text = await res.text();
         if (text) {
           try {
             const data = JSON.parse(text);
-            console.info(`[wpp-status] Session started via ${variant.label}`);
+            console.info(`[wpp-status] ✓ Session started via ${variant.label}`);
             return data;
-          } catch {}
+          } catch (e) {
+            console.warn(`[wpp-status] ${variant.label} non-JSON response:`, text.substring(0, 100));
+          }
         }
         console.info(`[wpp-status] Start returned 200 (empty) via ${variant.label}`);
         return { started: true };
@@ -225,7 +241,7 @@ async function startSession(sessionName: string, webhookUrl: string, wppToken: s
   throw new Error('Failed to start session with all variants');
 }
 
-// Poll for QR code (up to 60 seconds)
+// Poll for QR code with proper Content-Type handling
 async function pollForQR(sessionName: string, wppToken: string | null): Promise<string | null> {
   console.info('[wpp-status] Starting QR polling (max 60s)');
 
@@ -236,32 +252,59 @@ async function pollForQR(sessionName: string, wppToken: string | null): Promise<
     const variants: any[] = [];
 
     if (wppToken) {
-      variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/qrcode`, headers: { ...standardHeaders, Authorization: `Bearer ${wppToken}` }, label: `QR poll #${i} Bearer token` });
+      variants.push({ 
+        method: 'GET', 
+        url: `${BASE}/api/${sessionName}/qrcode`, 
+        headers: { ...standardHeadersAny, Authorization: `Bearer ${wppToken}` }, 
+        label: `QR #${i} Bearer` 
+      });
     }
-    variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/qrcode`, headers: standardHeaders, label: `QR poll #${i} secret in path` });
-    variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/qrcode/`, headers: standardHeaders, label: `QR poll #${i} secret in path (/)` });
-    variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/qrcode?secretKey=${SECRET}`, headers: standardHeaders, label: `QR poll #${i} secretKey query` });
-    variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/qrcode/?secretKey=${SECRET}`, headers: standardHeaders, label: `QR poll #${i} secretKey query (/)` });
-    variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/qrcode?secretKey=${SECRET}&json=true`, headers: standardHeaders, label: `QR poll #${i} secretKey+json` });
-    variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/qr-code`, headers: standardHeaders, label: `QR poll #${i} qr-code variant` });
-    variants.push({ method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/get-qr-code`, headers: standardHeaders, label: `QR poll #${i} get-qr-code variant` });
+    
+    variants.push({ 
+      method: 'GET', 
+      url: `${BASE}/api/${sessionName}/${SECRET}/qrcode`, 
+      headers: standardHeadersAny, 
+      label: `QR #${i} secret` 
+    });
 
     for (const variant of variants) {
       try {
         const res = await withTimeout(fetch(variant.url, { method: variant.method, headers: variant.headers }), TIMEOUT);
-        await logResponse(`[wpp-status] ${variant.label}`, res);
-
+        
         if (res.ok) {
+          const contentType = res.headers.get('content-type') || '';
+          console.info(`[wpp-status] ${variant.label} Content-Type: ${contentType}`);
+
+          // 1. Raw PNG/JPEG image
+          if (contentType.includes('image/')) {
+            console.info(`[wpp-status] ${variant.label} detected raw image`);
+            const buffer = await res.arrayBuffer();
+            const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+            const qr = `data:${contentType};base64,${base64}`;
+            console.info(`[wpp-status] ✓ QR found as raw image via ${variant.label}`);
+            return qr;
+          }
+
+          // 2. Text response (data URI or JSON)
           const text = await res.text();
-          if (text) {
-            try {
-              const data = JSON.parse(text);
-              const qr = data?.qrcode || data?.qr || data?.base64 || data?.image || data?.data?.qrcode || data?.data?.qr || data?.result?.qrcode || data?.result?.qr;
-              if (qr) {
-                console.info(`[wpp-status] QR found via ${variant.label}`);
-                return qr;
-              }
-            } catch {}
+          if (!text) continue;
+
+          // 2a. Data URI directly
+          if (text.startsWith('data:image/')) {
+            console.info(`[wpp-status] ✓ QR found as data URI via ${variant.label}`);
+            return text;
+          }
+
+          // 2b. JSON wrapper
+          try {
+            const data = JSON.parse(text);
+            const qr = data?.qrcode || data?.qr || data?.base64 || data?.image;
+            if (qr) {
+              console.info(`[wpp-status] ✓ QR found in JSON via ${variant.label}`);
+              return qr.startsWith('data:') ? qr : `data:image/png;base64,${qr}`;
+            }
+          } catch (e) {
+            console.warn(`[wpp-status] ${variant.label} non-JSON response (first 100 chars):`, text.substring(0, 100));
           }
         }
       } catch (err: any) {
