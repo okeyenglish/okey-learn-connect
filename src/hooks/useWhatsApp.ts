@@ -275,7 +275,7 @@ export const useWhatsApp = () => {
         throw new Error('Not authenticated');
       }
 
-      const { data, error } = await supabase.functions.invoke('wpp-status', {
+      const { data, error } = await supabase.functions.invoke('wpp-start', {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },

@@ -56,7 +56,7 @@ export function WhatsAppConnector() {
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke('wpp-status');
+      const { data, error } = await supabase.functions.invoke('wpp-start');
 
       if (error) {
         console.error('Error starting WPP session:', error);
