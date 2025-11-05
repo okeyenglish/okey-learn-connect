@@ -106,6 +106,7 @@ const WhatsAppSessions = () => {
         organization_name: session.organizations?.name,
       })) || [];
 
+      console.log('[fetchSessions] Loaded sessions:', formattedSessions.map(s => ({ name: s.session_name, status: s.status })));
       setSessions(formattedSessions);
     } catch (error: any) {
       console.error('Error fetching sessions:', error);
@@ -182,11 +183,14 @@ const WhatsAppSessions = () => {
       });
 
       const { data, error } = await supabase.functions.invoke('wpp-status', {
-        body: { session_name: sessionName },
+        body: { session_name: sessionName, force: true },
       });
 
       if (error) throw error;
 
+      console.log('[updateSessionStatus] Status from wpp-status:', data);
+      
+      // Force refresh sessions
       await fetchSessions();
       
       toast({
@@ -470,14 +474,15 @@ const WhatsAppSessions = () => {
           console.log('[startStatusPolling] Connected! Stopping polling and updating...');
           stopPolling();
           
-          // First update sessions data
+          // Close dialog immediately
+          setQrDialog({ open: false, isPolling: false });
+          
+          // Force multiple updates to ensure fresh data
           await fetchSessions();
           
-          // Wait a bit for React to update the UI
-          await new Promise(resolve => setTimeout(resolve, 300));
-          
-          // Then close dialog (this ensures fresh data is loaded)
-          setQrDialog({ open: false, isPolling: false });
+          // Wait and fetch again to ensure DB has committed
+          await new Promise(resolve => setTimeout(resolve, 500));
+          await fetchSessions();
           
           // Show success toast
           toast({
