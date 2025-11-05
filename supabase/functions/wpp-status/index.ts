@@ -51,19 +51,14 @@ Deno.serve(async (req) => {
     const organizationId = profile.organization_id;
     const sessionName = `org_${organizationId}`;
     
-    let WPP_HOST = Deno.env.get('WPP_HOST') || 'https://msg.academyos.ru';
-    const WPP_SECRET = Deno.env.get('WPP_SECRET');
+    const WPP_BASE_URL = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru';
+    const WPP_AGG_TOKEN = Deno.env.get('WPP_AGG_TOKEN');
 
-    // Ensure WPP_HOST has protocol
-    if (!WPP_HOST.startsWith('http://') && !WPP_HOST.startsWith('https://')) {
-      WPP_HOST = `http://${WPP_HOST}`;
+    if (!WPP_AGG_TOKEN) {
+      throw new Error('WPP_AGG_TOKEN is not configured');
     }
-
-    if (!WPP_SECRET) {
-      throw new Error('WPP_SECRET is not configured');
-    }
-    if (!WPP_HOST) {
-      throw new Error('WPP_HOST is not configured');
+    if (!WPP_BASE_URL) {
+      throw new Error('WPP_BASE_URL is not configured');
     }
 
     console.log('Checking WPP status for session:', sessionName);
@@ -77,7 +72,7 @@ Deno.serve(async (req) => {
 
     // Generate token
     console.log('Generating token for session:', sessionName);
-    const tokenUrl = `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/${WPP_SECRET}/generate-token`;
+    const tokenUrl = `${WPP_BASE_URL}/api/${encodeURIComponent(sessionName)}/${WPP_AGG_TOKEN}/generate-token`;
     console.log('Token URL:', tokenUrl);
     const tokenRes = await fetch(tokenUrl, { method: 'POST' });
     
@@ -110,7 +105,7 @@ Deno.serve(async (req) => {
 
     // Check connection status
     console.log('Checking connection status');
-    const statusUrl = `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/check-connection-session`;
+    const statusUrl = `${WPP_BASE_URL}/api/${encodeURIComponent(sessionName)}/check-connection-session`;
     console.log('Status check URL:', statusUrl);
     const statusRes = await fetch(statusUrl, {
       headers: { 'Authorization': `Bearer ${wppToken}` },
@@ -187,7 +182,7 @@ Deno.serve(async (req) => {
     
     console.log('Starting new session with webhook:', webhookUrl);
     
-    const startUrl = `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/start-session`;
+    const startUrl = `${WPP_BASE_URL}/api/${encodeURIComponent(sessionName)}/start-session`;
     console.log('Start session URL:', startUrl);
     const startRes = await fetch(startUrl,
       {
@@ -200,7 +195,7 @@ Deno.serve(async (req) => {
           webhook: {
             enabled: true,
             url: webhookUrl,
-            secret: WPP_SECRET,
+            secret: WPP_AGG_TOKEN,
           },
           waitQrCode: true,
           useChrome: true,

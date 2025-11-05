@@ -57,10 +57,10 @@ Deno.serve(async (req) => {
     const sessionName = `org_${organizationId}`;
     console.log('Organization ID:', organizationId, 'Session name:', sessionName);
 
-    const WPP_HOST = Deno.env.get('WPP_HOST');
-    const WPP_SECRET = Deno.env.get('WPP_SECRET');
+    const WPP_BASE_URL = Deno.env.get('WPP_BASE_URL');
+    const WPP_AGG_TOKEN = Deno.env.get('WPP_AGG_TOKEN');
 
-    if (!WPP_HOST || !WPP_SECRET) {
+    if (!WPP_BASE_URL || !WPP_AGG_TOKEN) {
       console.error('Missing WPP configuration');
       return new Response(
         JSON.stringify({ ok: false, error: 'WPP configuration missing' }),
@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
 
     // Generate token
     console.log('Generating token for session:', sessionName);
-    const tokenUrl = `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/${WPP_SECRET}/generate-token`;
+    const tokenUrl = `${WPP_BASE_URL}/api/${encodeURIComponent(sessionName)}/${WPP_AGG_TOKEN}/generate-token`;
     console.log('Token URL:', tokenUrl);
     const tokenRes = await fetch(tokenUrl, { method: 'POST' });
     
@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
 
     // Logout session
     console.log('Logging out session');
-    const logoutUrl = `${WPP_HOST}/api/${encodeURIComponent(sessionName)}/logout-session`;
+    const logoutUrl = `${WPP_BASE_URL}/api/${encodeURIComponent(sessionName)}/logout-session`;
     console.log('Logout URL:', logoutUrl);
     const logoutRes = await fetch(logoutUrl, {
       method: 'POST',

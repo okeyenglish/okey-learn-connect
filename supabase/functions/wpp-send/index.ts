@@ -61,16 +61,11 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    let WPP_HOST = Deno.env.get('WPP_HOST') || 'https://msg.academyos.ru'
-    const WPP_SECRET = Deno.env.get('WPP_SECRET')
+    const WPP_BASE_URL = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru'
+    const WPP_AGG_TOKEN = Deno.env.get('WPP_AGG_TOKEN')
     
-    // Ensure WPP_HOST has protocol
-    if (!WPP_HOST.startsWith('http://') && !WPP_HOST.startsWith('https://')) {
-      WPP_HOST = `http://${WPP_HOST}`;
-    }
-    
-    if (!WPP_SECRET) {
-      throw new Error('WPP_SECRET is not configured')
+    if (!WPP_AGG_TOKEN) {
+      throw new Error('WPP_AGG_TOKEN is not configured')
     }
 
     const authHeader = req.headers.get('Authorization')
@@ -99,9 +94,9 @@ Deno.serve(async (req) => {
       
       try {
         const sessionName = await getOrgSessionName(user.id, supabase)
-        const wppToken = await generateWppToken(sessionName, WPP_HOST, WPP_SECRET)
+        const wppToken = await generateWppToken(sessionName, WPP_BASE_URL, WPP_AGG_TOKEN)
         
-        const healthUrl = `${WPP_HOST}/health`
+        const healthUrl = `${WPP_BASE_URL}/health`
         console.log('Testing connection to:', healthUrl)
         
         const response = await fetch(healthUrl, {
@@ -147,7 +142,7 @@ Deno.serve(async (req) => {
 
     // Get organization session
     const sessionName = await getOrgSessionName(user.id, supabase)
-    const wppToken = await generateWppToken(sessionName, WPP_HOST, WPP_SECRET)
+    const wppToken = await generateWppToken(sessionName, WPP_BASE_URL, WPP_AGG_TOKEN)
 
     // Get client data
     const { data: client, error: clientError } = await supabase
@@ -180,7 +175,7 @@ Deno.serve(async (req) => {
         sessionName,
         to,
         fileUrl,
-        WPP_HOST,
+        WPP_BASE_URL,
         fileName,
         message
       )
@@ -191,7 +186,7 @@ Deno.serve(async (req) => {
         sessionName,
         to,
         message,
-        WPP_HOST
+        WPP_BASE_URL
       )
     }
 
