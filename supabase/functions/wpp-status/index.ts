@@ -8,11 +8,19 @@ const corsHeaders = {
 
 const BASE = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru';
 const SECRET = Deno.env.get('WPP_SECRET_KEY') || 'THISISMYSECURETOKEN';
-const TIMEOUT = 8000;
+const TIMEOUT = 12000;
 
 // Standard headers for all requests
 const standardHeaders = {
   'Accept': 'application/json',
+  'Content-Type': 'application/json',
+  'User-Agent': 'SupabaseEdge/1.0',
+  'Cache-Control': 'no-cache',
+  'Pragma': 'no-cache',
+};
+
+const standardHeadersAny = {
+  'Accept': '*/*',
   'Content-Type': 'application/json',
   'User-Agent': 'SupabaseEdge/1.0',
   'Cache-Control': 'no-cache',

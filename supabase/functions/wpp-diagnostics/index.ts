@@ -8,7 +8,7 @@ const corsHeaders = {
 
 const BASE = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru';
 const SECRET = Deno.env.get('WPP_SECRET_KEY') || 'THISISMYSECURETOKEN';
-const TIMEOUT = 5000;
+const TIMEOUT = 12000;
 
 function maskSecret(str: string): string {
   if (!str || str.length < 8) return '***';
@@ -61,13 +61,9 @@ async function testEndpoint(config: {
       statusText: res.statusText,
       ok: res.ok,
       redirected: res.redirected,
-      headers: {
-        contentType: res.headers.get('Content-Type'),
-        contentLength: res.headers.get('Content-Length'),
-        location: res.headers.get('Location'),
-        server: res.headers.get('Server'),
-        xPoweredBy: res.headers.get('X-Powered-By'),
-      },
+      contentType: res.headers.get('Content-Type'),
+      contentLength: res.headers.get('Content-Length'),
+      serverHeader: res.headers.get('Server') || res.headers.get('X-Powered-By'),
       bodyLength: bodyText.length,
       bodyPreview: maskSensitiveData(bodyText.slice(0, 200)),
       parsedKeys: parsedData ? Object.keys(parsedData) : null,
@@ -123,67 +119,87 @@ serve(async (req) => {
 
     console.info('[wpp-diagnostics] Starting diagnostics for:', sessionName);
 
-    const standardHeaders = {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      'User-Agent': 'SupabaseEdge/1.0',
-      'Cache-Control': 'no-cache',
-    };
-
     const tests: any[] = [];
+    let token: string | null = null;
 
-    // Generate token endpoints
+    // First, try to generate token
     const tokenTests = [
-      { method: 'POST', url: `${BASE}/api/${sessionName}/${SECRET}/generate-token`, headers: standardHeaders, label: 'Token: POST secret in path' },
-      { method: 'POST', url: `${BASE}/api/${sessionName}/${SECRET}/generate-token/`, headers: standardHeaders, label: 'Token: POST secret in path (/)' },
-      { method: 'POST', url: `${BASE}/api/${sessionName}/generate-token`, headers: standardHeaders, body: { secretKey: SECRET }, label: 'Token: POST secretKey in body' },
-      { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/generate-token`, headers: standardHeaders, label: 'Token: GET secret in path' },
-      { method: 'GET', url: `${BASE}/api/${sessionName}/generate-token?secretKey=${SECRET}`, headers: standardHeaders, label: 'Token: GET secretKey query' },
-      { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/generate-token?json=true`, headers: standardHeaders, label: 'Token: GET secret+json flag' },
+      { method: 'POST', url: `${BASE}/api/${sessionName}/${SECRET}/generate-token`, headers: standardHeaders, label: 'Token: POST secret (JSON)' },
+      { method: 'POST', url: `${BASE}/api/${sessionName}/${SECRET}/generate-token`, headers: standardHeadersAny, label: 'Token: POST secret (ANY)' },
+      { method: 'POST', url: `${BASE}/api/${sessionName}/${SECRET}/generate-token?json=true`, headers: standardHeaders, label: 'Token: POST json flag (JSON)' },
+      { method: 'POST', url: `${BASE}/api/${sessionName}/${SECRET}/generate-token?json=true`, headers: standardHeadersAny, label: 'Token: POST json flag (ANY)' },
     ];
 
-    // Status endpoints
-    const statusTests = [
-      { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/status-session`, headers: standardHeaders, label: 'Status: GET secret in path' },
-      { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/status-session/`, headers: standardHeaders, label: 'Status: GET secret in path (/)' },
-      { method: 'GET', url: `${BASE}/api/${sessionName}/status-session?secretKey=${SECRET}`, headers: standardHeaders, label: 'Status: GET secretKey query' },
-      { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/check-connection-session`, headers: standardHeaders, label: 'Status: GET check-connection' },
-      { method: 'GET', url: `${BASE}/api/${sessionName}/status-session?secretKey=${SECRET}&json=true`, headers: standardHeaders, label: 'Status: GET secretKey+json' },
-    ];
+    for (const test of tokenTests) {
+      const result = await testEndpoint(test);
+      tests.push(result);
+      if (result.hasToken && !token) {
+        token = result.bodyPreview?.match(/"token":\s*"([^"]+)"/)?.[1] || null;
+      }
+    }
 
-    // QR code endpoints
-    const qrTests = [
-      { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/qrcode`, headers: standardHeaders, label: 'QR: GET secret in path' },
-      { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/qrcode/`, headers: standardHeaders, label: 'QR: GET secret in path (/)' },
-      { method: 'GET', url: `${BASE}/api/${sessionName}/qrcode?secretKey=${SECRET}`, headers: standardHeaders, label: 'QR: GET secretKey query' },
-      { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/qr-code`, headers: standardHeaders, label: 'QR: GET qr-code variant' },
-      { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/get-qr-code`, headers: standardHeaders, label: 'QR: GET get-qr-code variant' },
-      { method: 'GET', url: `${BASE}/api/${sessionName}/qrcode?secretKey=${SECRET}&json=true`, headers: standardHeaders, label: 'QR: GET secretKey+json' },
-    ];
+    // Status tests with and without token
+    const statusTests = [];
+    for (const headers of [standardHeaders, standardHeadersAny]) {
+      const authHeaders = token ? { ...headers, 'Authorization': `Bearer ${token}` } : headers;
+      const acceptLabel = headers.Accept === '*/*' ? 'ANY' : 'JSON';
+      statusTests.push(
+        { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/status-session`, headers: authHeaders, label: `Status: secret (${acceptLabel}${token ? '+token' : ''})` },
+        { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/check-connection-session`, headers: authHeaders, label: `Check: secret (${acceptLabel}${token ? '+token' : ''})` },
+        { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/status-session?json=true`, headers: authHeaders, label: `Status: json flag (${acceptLabel}${token ? '+token' : ''})` }
+      );
+    }
 
-    // Start session endpoint
-    const startTests = [
-      { method: 'POST', url: `${BASE}/api/${sessionName}/${SECRET}/start-session`, headers: standardHeaders, body: { webhook: `${supabaseUrl}/functions/v1/wpp-webhook`, waitQrCode: true }, label: 'Start: POST secret in path' },
-      { method: 'POST', url: `${BASE}/api/${sessionName}/start-session?secretKey=${SECRET}`, headers: standardHeaders, body: { webhook: `${supabaseUrl}/functions/v1/wpp-webhook`, waitQrCode: true }, label: 'Start: POST secretKey query' },
-    ];
-
-    // Run all tests
-    const allTests = [...tokenTests, ...statusTests, ...qrTests, ...startTests];
-    
-    for (const test of allTests) {
+    for (const test of statusTests) {
       const result = await testEndpoint(test);
       tests.push(result);
     }
 
-    // Summary
+    // QR code tests with and without token
+    const qrTests = [];
+    for (const headers of [standardHeaders, standardHeadersAny]) {
+      const authHeaders = token ? { ...headers, 'Authorization': `Bearer ${token}` } : headers;
+      const acceptLabel = headers.Accept === '*/*' ? 'ANY' : 'JSON';
+      qrTests.push(
+        { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/qrcode`, headers: authHeaders, label: `QR: /qrcode (${acceptLabel}${token ? '+token' : ''})` },
+        { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/qr-code`, headers: authHeaders, label: `QR: /qr-code (${acceptLabel}${token ? '+token' : ''})` },
+        { method: 'GET', url: `${BASE}/api/${sessionName}/${SECRET}/qrcode?json=true`, headers: authHeaders, label: `QR: json flag (${acceptLabel}${token ? '+token' : ''})` }
+      );
+    }
+
+    for (const test of qrTests) {
+      const result = await testEndpoint(test);
+      tests.push(result);
+    }
+
+    // Start session tests
+    const webhookUrl = `${supabaseUrl}/functions/v1/wpp-webhook`;
+    const startTests = [];
+    for (const headers of [standardHeaders, standardHeadersAny]) {
+      const authHeaders = token ? { ...headers, 'Authorization': `Bearer ${token}` } : headers;
+      const acceptLabel = headers.Accept === '*/*' ? 'ANY' : 'JSON';
+      startTests.push(
+        { method: 'POST', url: `${BASE}/api/${sessionName}/${SECRET}/start-session`, headers: authHeaders, body: { webhook: webhookUrl, waitQrCode: true }, label: `Start: secret (${acceptLabel}${token ? '+token' : ''})` },
+        { method: 'POST', url: `${BASE}/api/${sessionName}/${SECRET}/start-session?json=true`, headers: authHeaders, body: { webhook: webhookUrl, waitQrCode: true }, label: `Start: json flag (${acceptLabel}${token ? '+token' : ''})` }
+      );
+    }
+
+    for (const test of startTests) {
+      const result = await testEndpoint(test);
+      tests.push(result);
+    }
+
+    // Enhanced summary
     const summary = {
-      totalTests: tests.length,
+      total: tests.length,
       successful: tests.filter((t) => t.ok).length,
       errors: tests.filter((t) => t.error).length,
-      emptyResponses: tests.filter((t) => t.ok && t.bodyLength === 0).length,
+      okButEmpty: tests.filter((t) => t.ok && t.bodyLength === 0).length,
       withQR: tests.filter((t) => t.hasQR).length,
       withToken: tests.filter((t) => t.hasToken).length,
       withStatus: tests.filter((t) => t.hasStatus).length,
+      contentTypes: [...new Set(tests.map((t) => t.contentType).filter(Boolean))],
+      servers: [...new Set(tests.map((t) => t.serverHeader).filter(Boolean))],
     };
 
     console.info('[wpp-diagnostics] Completed:', summary);
@@ -194,8 +210,9 @@ serve(async (req) => {
         sessionName,
         baseUrl: BASE,
         secretMasked: maskSecret(SECRET),
+        tokenFound: !!token,
         summary,
-        tests,
+        results: tests,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
