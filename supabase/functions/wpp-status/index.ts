@@ -28,7 +28,7 @@ async function withTimeout<T>(promise: Promise<T>, ms = TIMEOUT): Promise<T> {
   ]);
 }
 
-async function generateToken(sessionName: string): Promise<string> {
+async function generateToken(sessionName: string): Promise<string | null> {
   console.log('[wpp-status] Attempting to generate token for:', sessionName);
   
   // Try 1: POST with secret in path
@@ -142,7 +142,8 @@ async function generateToken(sessionName: string): Promise<string> {
     console.error('[wpp-status] Try 4 failed:', err);
   }
 
-  throw new Error('All token generation attempts failed - server returns empty responses');
+  console.warn('[wpp-status] All token generation attempts failed - proceeding with secret fallbacks');
+  return null;
 }
 
 Deno.serve(async (req) => {
