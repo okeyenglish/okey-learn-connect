@@ -338,7 +338,7 @@ const WhatsAppSessions = () => {
         description: "Запуск сессии...",
       });
 
-      const { data, error } = await supabase.functions.invoke('wpp-start');
+      const { data, error } = await supabase.functions.invoke('wpp-status');
 
       if (error) {
         const anyErr: any = error as any;

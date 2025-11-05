@@ -54,7 +54,7 @@ export function WhatsAppConnector() {
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke('wpp-start', {
+      const { data, error } = await supabase.functions.invoke('wpp-status', {
         headers: {
           Authorization: `Bearer ${session.session.access_token}`,
         },
