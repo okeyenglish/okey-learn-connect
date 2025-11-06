@@ -139,6 +139,7 @@ import { OrganizationSettings } from "@/components/settings/OrganizationSettings
 import { BranchesSettings } from "@/components/settings/BranchesSettings";
 import { BrandingSettings } from "@/components/settings/BrandingSettings";
 import { SubscriptionSettings } from "@/components/settings/SubscriptionSettings";
+import { WppTestPanel } from "@/components/crm/WppTestPanel";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { useCRMModals, useCRMState, useCRMTasks, useCRMSearch } from "@/pages/crm/hooks";
@@ -2332,7 +2333,7 @@ const CRMContent = () => {
                         
                         {openModal === item.label && item.label === "Настройки" && (
                           <Tabs defaultValue="organization" className="space-y-6">
-                            <TabsList className="grid w-full grid-cols-5">
+                            <TabsList className="grid w-full grid-cols-6">
                               <TabsTrigger value="organization" className="gap-2">
                                 <Building2 className="h-4 w-4" />
                                 <span className="hidden sm:inline">Организация</span>
@@ -2352,6 +2353,10 @@ const CRMContent = () => {
                               <TabsTrigger value="users" className="gap-2">
                                 <Users className="h-4 w-4" />
                                 <span className="hidden sm:inline">Пользователи</span>
+                              </TabsTrigger>
+                              <TabsTrigger value="wpp-test" className="gap-2">
+                                <MessageSquare className="h-4 w-4" />
+                                <span className="hidden sm:inline">WPP Тест</span>
                               </TabsTrigger>
                             </TabsList>
 
@@ -2373,6 +2378,10 @@ const CRMContent = () => {
 
                             <TabsContent value="users" className="space-y-4">
                               <UserPermissionsManager />
+                            </TabsContent>
+
+                            <TabsContent value="wpp-test" className="space-y-4">
+                              <WppTestPanel />
                             </TabsContent>
                           </Tabs>
                         )}
