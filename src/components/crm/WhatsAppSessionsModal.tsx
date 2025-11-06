@@ -33,6 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Loader2, RefreshCw, QrCode, Trash2, PowerOff, Plus, Pause, Play } from "lucide-react";
+import { WhatsAppDebugPanel } from "./WhatsAppDebugPanel";
 
 type WhatsAppSession = {
   id: string;
@@ -1015,6 +1016,8 @@ export const WhatsAppSessionsModal = ({ open, onOpenChange }: WhatsAppSessionsMo
               )}
             </CardContent>
           </Card>
+
+          <WhatsAppDebugPanel />
         </DialogContent>
       </Dialog>
 
