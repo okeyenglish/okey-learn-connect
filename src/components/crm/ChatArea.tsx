@@ -122,7 +122,7 @@ export const ChatArea = ({
 
   const MAX_MESSAGE_LENGTH = 4000;
 
-  const { sendTextMessage, sendFileMessage, loading } = useWhatsApp();
+  const { sendTextMessage, sendFileMessage, loading, deleteMessage, editMessage } = useWhatsApp();
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
@@ -268,7 +268,7 @@ export const ChatArea = ({
     fileName: msg.file_name,
     fileType: msg.file_type,
     whatsappChatId: msg.whatsapp_chat_id,
-    greenApiMessageId: msg.green_api_message_id
+    externalMessageId: msg.external_message_id
   });
 
   // Load messages from database with pagination
@@ -1023,81 +1023,38 @@ export const ChatArea = ({
 
   // Функция для редактирования сообщения
   const handleEditMessage = async (messageId: string, newMessage: string) => {
-    try {
-      // Попытка удалить старое сообщение и отправить новое через Green API
-      const { data, error } = await supabase.functions.invoke('edit-whatsapp-message', {
-        body: { 
-          messageId, 
-          newMessage, 
-          clientId 
-        }
-      })
-
-      if (error) {
-        throw new Error(error.message)
-      }
-
-      if (data.success) {
-        let description = "Сообщение обновлено в WhatsApp"
-        if (data.deleteSuccess) {
-          description = "Старое сообщение удалено, новое отправлено"
-        } else if (data.deleteError) {
-          description = `Не удалось удалить старое сообщение (${data.deleteError}), но новое отправлено`
-        }
-
-        toast({
-          title: "Сообщение отредактировано",
-          description,
-        });
-        
-        // Обновляем локальное состояние сообщений
-        setMessages(prev => 
-          prev.map(msg => 
-            msg.id === messageId
-              ? { ...msg, message: newMessage, isEdited: true, editedTime: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) }
-              : msg
-          )
-        );
-      } else {
-        throw new Error(data.error || "Не удалось отредактировать сообщение")
-      }
-    } catch (error: any) {
+    const result = await editMessage(messageId, newMessage, clientId);
+    
+    if (result.success) {
       toast({
-        title: "Ошибка редактирования", 
-        description: error.message || "Не удалось отредактировать сообщение",
-        variant: "destructive",
+        title: "Сообщение отредактировано",
+        description: "Сообщение обновлено в WhatsApp",
       });
+      
+      // Обновляем локальное состояние сообщений
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.id === messageId
+            ? { ...msg, message: newMessage, isEdited: true, editedTime: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) }
+            : msg
+        )
+      );
     }
   };
 
   // Функция для удаления сообщения
   const handleDeleteMessage = async (messageId: string) => {
-    try {
-      const { data, error } = await supabase.functions.invoke('delete-whatsapp-message', {
-        body: { 
-          messageId, 
-          clientId 
-        }
-      })
-
-      if (error) {
-        throw new Error(error.message)
-      }
-
-      if (data.success) {
-        // Обновляем локальное состояние сообщений
-        setMessages(prev => 
-          prev.map(msg => 
-            msg.id === messageId
-              ? { ...msg, message: '[Сообщение удалено]', isDeleted: true }
-              : msg
-          )
-        );
-      } else {
-        throw new Error(data.error || "Не удалось удалить сообщение")
-      }
-    } catch (error: any) {
-      console.error('Error deleting message:', error);
+    const result = await deleteMessage(messageId, clientId);
+    
+    if (result.success) {
+      // Обновляем локальное состояние сообщений
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.id === messageId
+            ? { ...msg, message: '[Сообщение удалено]', isDeleted: true }
+            : msg
+        )
+      );
     }
   };
 
@@ -1552,7 +1509,7 @@ export const ChatArea = ({
                         fileName={msg.fileName}
                         fileType={msg.fileType}
                         whatsappChatId={msg.whatsappChatId}
-                        greenApiMessageId={msg.greenApiMessageId}
+                        externalMessageId={msg.externalMessageId}
                         showAvatar={showAvatar}
                         showName={showName}
                         isLastInGroup={isLastInGroup}

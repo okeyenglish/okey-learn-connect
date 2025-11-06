@@ -9,8 +9,30 @@ export const useWhatsAppFile = () => {
   const downloadFile = async (chatId: string, messageId: string): Promise<string | null> => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('download-whatsapp-file', {
-        body: { chatId, idMessage: messageId }
+      // Get provider settings from messenger_settings
+      const { data: settingsData } = await supabase
+        .from('messenger_settings')
+        .select('provider')
+        .eq('messenger_type', 'whatsapp')
+        .single();
+
+      const provider = settingsData?.provider || 'greenapi';
+      const functionName = provider === 'wpp' ? 'wpp-download' : 'download-whatsapp-file';
+
+      // Get organization_id from profile
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', user?.id)
+        .single();
+
+      const body = provider === 'wpp' 
+        ? { messageId, organizationId: profile?.organization_id }
+        : { chatId, idMessage: messageId };
+
+      const { data, error } = await supabase.functions.invoke(functionName, {
+        body
       });
 
       if (error) {

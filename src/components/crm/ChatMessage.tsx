@@ -34,7 +34,7 @@ interface ChatMessageProps {
   fileName?: string;
   fileType?: string;
   whatsappChatId?: string;
-  greenApiMessageId?: string;
+  externalMessageId?: string;
   showAvatar?: boolean;
   showName?: boolean;
   isLastInGroup?: boolean;
@@ -42,7 +42,7 @@ interface ChatMessageProps {
   onEnterSelectionMode?: () => void;
 }
 
-const ChatMessageComponent = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, whatsappChatId, greenApiMessageId, showAvatar = true, showName = true, isLastInGroup = true, onForwardMessage, onEnterSelectionMode }: ChatMessageProps) => {
+const ChatMessageComponent = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, whatsappChatId, externalMessageId, showAvatar = true, showName = true, isLastInGroup = true, onForwardMessage, onEnterSelectionMode }: ChatMessageProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message);
 
@@ -376,7 +376,7 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                       type={fileType}
                       className="max-w-xs"
                       chatId={whatsappChatId}
-                      messageId={greenApiMessageId}
+                      messageId={externalMessageId}
                     />
                   </div>
                 )}

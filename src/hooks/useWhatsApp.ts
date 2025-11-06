@@ -290,6 +290,98 @@ export const useWhatsApp = () => {
     }
   }, []);
 
+  const deleteMessage = useCallback(async (messageId: string, clientId: string) => {
+    setLoading(true);
+    try {
+      // Get provider settings
+      const settings = await getMessengerSettings();
+      const provider = settings?.provider || 'greenapi';
+      const functionName = provider === 'wpp' ? 'wpp-delete' : 'delete-whatsapp-message';
+
+      const { data, error } = await supabase.functions.invoke(functionName, {
+        body: { messageId, clientId }
+      });
+
+      if (error) throw error;
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to delete message');
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error deleting message:', error);
+      toast({
+        title: "Ошибка удаления",
+        description: error.message || "Не удалось удалить сообщение",
+        variant: "destructive",
+      });
+      return { success: false, error: error.message };
+    } finally {
+      setLoading(false);
+    }
+  }, [toast, getMessengerSettings]);
+
+  const editMessage = useCallback(async (messageId: string, newMessage: string, clientId: string) => {
+    setLoading(true);
+    try {
+      // Get provider settings
+      const settings = await getMessengerSettings();
+      const provider = settings?.provider || 'greenapi';
+      const functionName = provider === 'wpp' ? 'wpp-edit' : 'edit-whatsapp-message';
+
+      const { data, error } = await supabase.functions.invoke(functionName, {
+        body: { messageId, newMessage, clientId }
+      });
+
+      if (error) throw error;
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to edit message');
+      }
+
+      return { success: true, data };
+    } catch (error: any) {
+      console.error('Error editing message:', error);
+      toast({
+        title: "Ошибка редактирования",
+        description: error.message || "Не удалось отредактировать сообщение",
+        variant: "destructive",
+      });
+      return { success: false, error: error.message };
+    } finally {
+      setLoading(false);
+    }
+  }, [toast, getMessengerSettings]);
+
+  const downloadFile = useCallback(async (messageId: string, organizationId: string) => {
+    setLoading(true);
+    try {
+      // Get provider settings
+      const settings = await getMessengerSettings();
+      const provider = settings?.provider || 'greenapi';
+      const functionName = provider === 'wpp' ? 'wpp-download' : 'download-whatsapp-file';
+
+      const { data, error } = await supabase.functions.invoke(functionName, {
+        body: { messageId, organizationId }
+      });
+
+      if (error) throw error;
+
+      return data;
+    } catch (error: any) {
+      console.error('Error downloading file:', error);
+      toast({
+        title: "Ошибка скачивания",
+        description: error.message || "Не удалось скачать файл",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [toast, getMessengerSettings]);
+
   return {
     loading,
     sendTextMessage,
@@ -300,5 +392,8 @@ export const useWhatsApp = () => {
     getWebhookLogs,
     checkWppStatus,
     startWppSession,
+    deleteMessage,
+    editMessage,
+    downloadFile,
   };
 };

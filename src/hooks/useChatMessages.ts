@@ -15,7 +15,7 @@ export interface ChatMessage {
   file_url?: string;
   file_name?: string;
   file_type?: string;
-  green_api_message_id?: string;
+  external_message_id?: string;
   whatsapp_chat_id?: string;
 }
 
