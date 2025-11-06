@@ -13,6 +13,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { formatDistanceToNow } from "date-fns";
+import { ru } from "date-fns/locale";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +50,7 @@ const WhatsAppSessions = () => {
   const [sessions, setSessions] = useState<WhatsAppSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncingSessions, setSyncingSessions] = useState<Set<string>>(new Set());
+  const [lastSyncTimes, setLastSyncTimes] = useState<Record<string, Date>>({});
   const [qrDialog, setQrDialog] = useState<{ open: boolean; qr?: string; sessionName?: string; isPolling?: boolean }>({ open: false });
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; sessionId?: string }>({ open: false });
   const [countdown, setCountdown] = useState(120);
@@ -199,6 +202,12 @@ const WhatsAppSessions = () => {
       if (error) throw error;
 
       console.log('[updateSessionStatus] Status from wpp-status:', data);
+      
+      // Update last sync time on successful sync
+      setLastSyncTimes(prev => ({
+        ...prev,
+        [sessionName]: new Date()
+      }));
       
       // Force refresh sessions
       await fetchSessions();
@@ -757,6 +766,39 @@ const WhatsAppSessions = () => {
     });
   };
 
+  const getSyncFreshnessIndicator = (sessionName: string) => {
+    const lastSync = lastSyncTimes[sessionName];
+    if (!lastSync) {
+      return {
+        color: 'text-muted-foreground',
+        text: 'Никогда',
+        badge: '⚫'
+      };
+    }
+
+    const minutesAgo = (Date.now() - lastSync.getTime()) / 1000 / 60;
+    
+    if (minutesAgo < 5) {
+      return {
+        color: 'text-[hsl(var(--success-600))]',
+        text: formatDistanceToNow(lastSync, { addSuffix: true, locale: ru }),
+        badge: '🟢'
+      };
+    } else if (minutesAgo < 30) {
+      return {
+        color: 'text-[hsl(var(--warning-600))]',
+        text: formatDistanceToNow(lastSync, { addSuffix: true, locale: ru }),
+        badge: '🟡'
+      };
+    } else {
+      return {
+        color: 'text-destructive',
+        text: formatDistanceToNow(lastSync, { addSuffix: true, locale: ru }),
+        badge: '🔴'
+      };
+    }
+  };
+
   return (
     <div className="p-8 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-8">
@@ -801,25 +843,34 @@ const WhatsAppSessions = () => {
                   <TableHead>Организация</TableHead>
                   <TableHead>Имя сессии</TableHead>
                   <TableHead>Статус</TableHead>
+                  <TableHead>Последняя синхронизация</TableHead>
                   <TableHead>Создано</TableHead>
                   <TableHead>Обновлено</TableHead>
                   <TableHead className="text-right">Действия</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sessions.map((session) => (
-                  <TableRow key={session.id}>
-                    <TableCell className="font-medium">
-                      {session.organization_name || session.organization_id}
-                    </TableCell>
-                    <TableCell>{session.session_name}</TableCell>
-                    <TableCell>{getStatusBadge(session.status)}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(session.created_at)}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(session.updated_at)}
-                    </TableCell>
+                {sessions.map((session) => {
+                  const syncIndicator = getSyncFreshnessIndicator(session.session_name);
+                  return (
+                    <TableRow key={session.id}>
+                      <TableCell className="font-medium">
+                        {session.organization_name || session.organization_id}
+                      </TableCell>
+                      <TableCell>{session.session_name}</TableCell>
+                      <TableCell>{getStatusBadge(session.status)}</TableCell>
+                      <TableCell className={`text-sm font-medium ${syncIndicator.color}`}>
+                        <div className="flex items-center gap-2">
+                          <span>{syncIndicator.badge}</span>
+                          <span>{syncIndicator.text}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDate(session.created_at)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDate(session.updated_at)}
+                      </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button
@@ -874,7 +925,8 @@ const WhatsAppSessions = () => {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}
