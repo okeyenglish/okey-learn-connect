@@ -192,3 +192,12 @@ verify_jwt = true
 
 [functions.wpp-webhook]
 verify_jwt = false
+
+[functions.wpp-delete]
+verify_jwt = true
+
+[functions.wpp-edit]
+verify_jwt = true
+
+[functions.wpp-download]
+verify_jwt = true

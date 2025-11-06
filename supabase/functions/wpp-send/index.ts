@@ -263,7 +263,7 @@ Deno.serve(async (req) => {
         message_type: 'manager',
         messenger_type: 'whatsapp',
         message_status: messageStatus,
-        green_api_message_id: wppResponse.id,
+        external_message_id: wppResponse.id,
         is_outgoing: true,
         is_read: true,
         file_url: fileUrl,

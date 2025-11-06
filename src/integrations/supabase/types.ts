@@ -987,10 +987,10 @@ export type Database = {
           call_duration: string | null
           client_id: string
           created_at: string
+          external_message_id: string | null
           file_name: string | null
           file_type: string | null
           file_url: string | null
-          green_api_message_id: string | null
           id: string
           is_outgoing: boolean | null
           is_read: boolean
@@ -1008,10 +1008,10 @@ export type Database = {
           call_duration?: string | null
           client_id: string
           created_at?: string
+          external_message_id?: string | null
           file_name?: string | null
           file_type?: string | null
           file_url?: string | null
-          green_api_message_id?: string | null
           id?: string
           is_outgoing?: boolean | null
           is_read?: boolean
@@ -1029,10 +1029,10 @@ export type Database = {
           call_duration?: string | null
           client_id?: string
           created_at?: string
+          external_message_id?: string | null
           file_name?: string | null
           file_type?: string | null
           file_url?: string | null
-          green_api_message_id?: string | null
           id?: string
           is_outgoing?: boolean | null
           is_read?: boolean
@@ -7078,7 +7078,7 @@ export type Database = {
       whatsapp_sessions: {
         Row: {
           created_at: string
-          green_api_instance_id: string | null
+          external_instance_id: string | null
           id: string
           last_qr_at: string | null
           last_qr_b64: string | null
@@ -7089,7 +7089,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          green_api_instance_id?: string | null
+          external_instance_id?: string | null
           id?: string
           last_qr_at?: string | null
           last_qr_b64?: string | null
@@ -7100,7 +7100,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          green_api_instance_id?: string | null
+          external_instance_id?: string | null
           id?: string
           last_qr_at?: string | null
           last_qr_b64?: string | null

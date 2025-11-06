@@ -154,7 +154,7 @@ serve(async (req) => {
         message_type: 'manager',
         messenger_type: 'whatsapp',
         message_status: messageStatus,
-        green_api_message_id: greenApiResponse.idMessage,
+        external_message_id: greenApiResponse.idMessage,
         is_outgoing: true,
         is_read: true,
         file_url: fileUrl,

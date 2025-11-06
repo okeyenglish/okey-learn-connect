@@ -35,7 +35,7 @@ serve(async (req) => {
     // Получаем информацию о сообщении из базы данных
     const { data: messageData, error: fetchError } = await supabase
       .from('chat_messages')
-      .select('green_api_message_id, client_id')
+      .select('external_message_id, client_id')
       .eq('id', messageId)
       .single()
 
@@ -50,9 +50,9 @@ serve(async (req) => {
       )
     }
 
-    if (!messageData.green_api_message_id) {
+    if (!messageData.external_message_id) {
       return new Response(
-        JSON.stringify({ success: false, error: 'No Green API message ID found' }),
+        JSON.stringify({ success: false, error: 'No external message ID found' }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 400 
@@ -122,7 +122,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             chatId: chatId,
-            idMessage: messageData.green_api_message_id,
+            idMessage: messageData.external_message_id,
             onlySenderDelete: onlySenderDelete
           })
         }
@@ -155,7 +155,7 @@ serve(async (req) => {
           .from('chat_messages')
           .update({ 
             message_text: '[Сообщение удалено]',
-            green_api_message_id: null
+            external_message_id: null
           })
           .eq('id', messageId)
 
