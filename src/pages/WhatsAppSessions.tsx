@@ -47,6 +47,7 @@ type WhatsAppSession = {
 const WhatsAppSessions = () => {
   const [sessions, setSessions] = useState<WhatsAppSession[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncingSessions, setSyncingSessions] = useState<Set<string>>(new Set());
   const [qrDialog, setQrDialog] = useState<{ open: boolean; qr?: string; sessionName?: string; isPolling?: boolean }>({ open: false });
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; sessionId?: string }>({ open: false });
   const [countdown, setCountdown] = useState(120);
@@ -184,6 +185,8 @@ const WhatsAppSessions = () => {
 
   const updateSessionStatus = async (sessionName: string) => {
     try {
+      setSyncingSessions(prev => new Set(prev).add(sessionName));
+      
       toast({
         title: "Обновление статуса...",
         description: `Проверка статуса сессии ${sessionName}`,
@@ -210,6 +213,12 @@ const WhatsAppSessions = () => {
         title: "Ошибка",
         description: error.message || "Не удалось обновить статус",
         variant: "destructive",
+      });
+    } finally {
+      setSyncingSessions(prev => {
+        const next = new Set(prev);
+        next.delete(sessionName);
+        return next;
       });
     }
   };
@@ -754,11 +763,19 @@ const WhatsAppSessions = () => {
         <h1 className="text-3xl font-bold">WhatsApp Sessions Management</h1>
         <div className="flex gap-2">
           <Button onClick={createNewSession} disabled={loading} variant="default">
-            <Plus className="mr-2 h-4 w-4" />
+            {loading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="mr-2 h-4 w-4" />
+            )}
             Создать сессию
           </Button>
           <Button onClick={updateAllStatuses} disabled={loading} variant="outline">
-            <RefreshCw className="mr-2 h-4 w-4" />
+            {loading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-2 h-4 w-4" />
+            )}
             Обновить статусы
           </Button>
         </div>
@@ -809,8 +826,13 @@ const WhatsAppSessions = () => {
                           size="sm"
                           variant="outline"
                           onClick={() => updateSessionStatus(session.session_name)}
+                          disabled={syncingSessions.has(session.session_name)}
                         >
-                          <RefreshCw className="h-4 w-4" />
+                          {syncingSessions.has(session.session_name) ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4" />
+                          )}
                         </Button>
                         {session.status === 'connected' ? (
                           <Button
