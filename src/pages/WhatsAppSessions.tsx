@@ -53,6 +53,7 @@ const WhatsAppSessions = () => {
   const [lastSyncTimes, setLastSyncTimes] = useState<Record<string, Date>>({});
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
   const [nextAutoRefresh, setNextAutoRefresh] = useState<number>(30);
+  const [notifiedStaleSessions, setNotifiedStaleSessions] = useState<Set<string>>(new Set());
   const [qrDialog, setQrDialog] = useState<{ open: boolean; qr?: string; sessionName?: string; isPolling?: boolean }>({ open: false });
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; sessionId?: string }>({ open: false });
   const [countdown, setCountdown] = useState(120);
@@ -61,7 +62,9 @@ const WhatsAppSessions = () => {
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const autoRefreshCountdownRef = useRef<NodeJS.Timeout | null>(null);
+  const staleCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const qrDialogOpenRef = useRef(false);
+  const previousSessionsRef = useRef<WhatsAppSession[]>([]);
   const { toast } = useToast();
 
   // Keep ref in sync with state
@@ -167,6 +170,17 @@ const WhatsAppSessions = () => {
             });
           } else if (payload.eventType === 'UPDATE') {
             const updatedRow: any = payload.new;
+            const oldRow: any = payload.old;
+            
+            // Check if status changed to disconnected
+            if (oldRow.status === 'connected' && updatedRow.status === 'disconnected') {
+              toast({
+                title: "⚠️ Сессия отключена",
+                description: `Сессия ${updatedRow.session_name} потеряла соединение`,
+                variant: "destructive",
+              });
+            }
+            
             setSessions(prev => prev.map(s =>
               s.session_name === updatedRow.session_name
                 ? { ...s, ...updatedRow }
@@ -539,18 +553,75 @@ const WhatsAppSessions = () => {
     }
   };
 
+  const checkStaleData = () => {
+    const now = Date.now();
+    const staleThreshold = 30 * 60 * 1000; // 30 minutes in milliseconds
+    
+    sessions.forEach(session => {
+      const lastSync = lastSyncTimes[session.session_name];
+      
+      // Only check if we have a sync time and session is connected
+      if (lastSync && session.status === 'connected') {
+        const timeSinceSync = now - lastSync.getTime();
+        
+        // If data is stale and we haven't notified yet
+        if (timeSinceSync > staleThreshold && !notifiedStaleSessions.has(session.session_name)) {
+          toast({
+            title: "⚠️ Устаревшие данные синхронизации",
+            description: `Сессия ${session.session_name} не обновлялась более 30 минут`,
+            variant: "destructive",
+          });
+          
+          setNotifiedStaleSessions(prev => new Set(prev).add(session.session_name));
+        }
+      }
+      
+      // Reset notification flag if data was refreshed
+      if (lastSync && notifiedStaleSessions.has(session.session_name)) {
+        const timeSinceSync = now - lastSync.getTime();
+        if (timeSinceSync < staleThreshold) {
+          setNotifiedStaleSessions(prev => {
+            const next = new Set(prev);
+            next.delete(session.session_name);
+            return next;
+          });
+        }
+      }
+    });
+  };
+
+  const startStaleDataMonitoring = () => {
+    if (staleCheckIntervalRef.current) {
+      clearInterval(staleCheckIntervalRef.current);
+    }
+    
+    // Check every minute for stale data
+    staleCheckIntervalRef.current = setInterval(() => {
+      checkStaleData();
+    }, 60000);
+  };
+
+  const stopStaleDataMonitoring = () => {
+    if (staleCheckIntervalRef.current) {
+      clearInterval(staleCheckIntervalRef.current);
+      staleCheckIntervalRef.current = null;
+    }
+  };
+
   const toggleAutoRefresh = () => {
     const newState = !autoRefreshEnabled;
     setAutoRefreshEnabled(newState);
     
     if (newState) {
       startAutoRefresh();
+      startStaleDataMonitoring();
       toast({
         title: "Авто-обновление включено",
         description: "Статусы будут обновляться каждые 30 секунд",
       });
     } else {
       stopAutoRefresh();
+      stopStaleDataMonitoring();
       toast({
         title: "Авто-обновление отключено",
         description: "Используйте кнопку для ручного обновления",
@@ -806,18 +877,31 @@ const WhatsAppSessions = () => {
     }
   };
 
-  // Start auto-refresh when sessions are loaded
+  // Start auto-refresh and stale monitoring when sessions are loaded
   useEffect(() => {
-    if (sessions.length > 0 && autoRefreshEnabled && !autoRefreshIntervalRef.current) {
-      startAutoRefresh();
+    if (sessions.length > 0 && autoRefreshEnabled) {
+      if (!autoRefreshIntervalRef.current) {
+        startAutoRefresh();
+      }
+      if (!staleCheckIntervalRef.current) {
+        startStaleDataMonitoring();
+      }
     }
   }, [sessions.length, autoRefreshEnabled]);
 
-  // Cleanup polling and auto-refresh on unmount
+  // Check for stale data whenever lastSyncTimes changes
+  useEffect(() => {
+    if (Object.keys(lastSyncTimes).length > 0) {
+      checkStaleData();
+    }
+  }, [lastSyncTimes, sessions]);
+
+  // Cleanup polling, auto-refresh, and monitoring on unmount
   useEffect(() => {
     return () => {
       stopPolling();
       stopAutoRefresh();
+      stopStaleDataMonitoring();
     };
   }, []);
 
