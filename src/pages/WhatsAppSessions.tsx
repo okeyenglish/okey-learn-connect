@@ -32,7 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, RefreshCw, QrCode, Trash2, PowerOff, Plus } from "lucide-react";
+import { Loader2, RefreshCw, QrCode, Trash2, PowerOff, Plus, Pause, Play } from "lucide-react";
 
 type WhatsAppSession = {
   id: string;
@@ -51,12 +51,16 @@ const WhatsAppSessions = () => {
   const [loading, setLoading] = useState(true);
   const [syncingSessions, setSyncingSessions] = useState<Set<string>>(new Set());
   const [lastSyncTimes, setLastSyncTimes] = useState<Record<string, Date>>({});
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  const [nextAutoRefresh, setNextAutoRefresh] = useState<number>(30);
   const [qrDialog, setQrDialog] = useState<{ open: boolean; qr?: string; sessionName?: string; isPolling?: boolean }>({ open: false });
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; sessionId?: string }>({ open: false });
   const [countdown, setCountdown] = useState(120);
   const [refreshingQr, setRefreshingQr] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const autoRefreshCountdownRef = useRef<NodeJS.Timeout | null>(null);
   const qrDialogOpenRef = useRef(false);
   const { toast } = useToast();
 
@@ -480,12 +484,78 @@ const WhatsAppSessions = () => {
     }
   };
 
-  const updateAllStatuses = async () => {
-    setLoading(true);
+  const updateAllStatuses = async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
+    
     for (const session of sessions) {
       await updateSessionStatus(session.session_name);
     }
-    setLoading(false);
+    
+    if (!silent) {
+      setLoading(false);
+    }
+  };
+
+  const startAutoRefresh = () => {
+    // Clear any existing intervals
+    if (autoRefreshIntervalRef.current) {
+      clearInterval(autoRefreshIntervalRef.current);
+    }
+    if (autoRefreshCountdownRef.current) {
+      clearInterval(autoRefreshCountdownRef.current);
+    }
+
+    // Reset countdown
+    setNextAutoRefresh(30);
+
+    // Start countdown timer
+    autoRefreshCountdownRef.current = setInterval(() => {
+      setNextAutoRefresh(prev => {
+        if (prev <= 1) {
+          return 30;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    // Start auto-refresh interval
+    autoRefreshIntervalRef.current = setInterval(async () => {
+      console.log('[Auto-refresh] Updating all session statuses...');
+      await updateAllStatuses(true);
+      setNextAutoRefresh(30);
+    }, 30000);
+  };
+
+  const stopAutoRefresh = () => {
+    if (autoRefreshIntervalRef.current) {
+      clearInterval(autoRefreshIntervalRef.current);
+      autoRefreshIntervalRef.current = null;
+    }
+    if (autoRefreshCountdownRef.current) {
+      clearInterval(autoRefreshCountdownRef.current);
+      autoRefreshCountdownRef.current = null;
+    }
+  };
+
+  const toggleAutoRefresh = () => {
+    const newState = !autoRefreshEnabled;
+    setAutoRefreshEnabled(newState);
+    
+    if (newState) {
+      startAutoRefresh();
+      toast({
+        title: "Авто-обновление включено",
+        description: "Статусы будут обновляться каждые 30 секунд",
+      });
+    } else {
+      stopAutoRefresh();
+      toast({
+        title: "Авто-обновление отключено",
+        description: "Используйте кнопку для ручного обновления",
+      });
+    }
   };
 
   const stopPolling = () => {
@@ -736,10 +806,18 @@ const WhatsAppSessions = () => {
     }
   };
 
-  // Cleanup polling on unmount
+  // Start auto-refresh when sessions are loaded
+  useEffect(() => {
+    if (sessions.length > 0 && autoRefreshEnabled && !autoRefreshIntervalRef.current) {
+      startAutoRefresh();
+    }
+  }, [sessions.length, autoRefreshEnabled]);
+
+  // Cleanup polling and auto-refresh on unmount
   useEffect(() => {
     return () => {
       stopPolling();
+      stopAutoRefresh();
     };
   }, []);
 
@@ -802,8 +880,32 @@ const WhatsAppSessions = () => {
   return (
     <div className="p-8 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">WhatsApp Sessions Management</h1>
+        <div>
+          <h1 className="text-3xl font-bold">WhatsApp Sessions Management</h1>
+          {autoRefreshEnabled && sessions.length > 0 && (
+            <p className="text-sm text-muted-foreground mt-1">
+              Следующее обновление через: {nextAutoRefresh}с
+            </p>
+          )}
+        </div>
         <div className="flex gap-2">
+          <Button 
+            onClick={toggleAutoRefresh} 
+            variant={autoRefreshEnabled ? "default" : "outline"}
+            size="sm"
+          >
+            {autoRefreshEnabled ? (
+              <>
+                <Pause className="mr-2 h-4 w-4" />
+                Остановить авто-обновление
+              </>
+            ) : (
+              <>
+                <Play className="mr-2 h-4 w-4" />
+                Включить авто-обновление
+              </>
+            )}
+          </Button>
           <Button onClick={createNewSession} disabled={loading} variant="default">
             {loading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -812,7 +914,7 @@ const WhatsAppSessions = () => {
             )}
             Создать сессию
           </Button>
-          <Button onClick={updateAllStatuses} disabled={loading} variant="outline">
+          <Button onClick={() => updateAllStatuses(false)} disabled={loading} variant="outline">
             {loading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
