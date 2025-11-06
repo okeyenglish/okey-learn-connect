@@ -88,8 +88,34 @@ serve(async (req) => {
     let chatId = client.whatsapp_chat_id
     
     if (!chatId) {
-      // Создаем chat ID из номера телефона
-      const phone = phoneNumber || client.phone
+      // Получаем номер телефона
+      let phone = phoneNumber || client.phone
+      
+      // Если номера нет, ищем в client_phone_numbers
+      if (!phone) {
+        const { data: phoneNumbers } = await supabase
+          .from('client_phone_numbers')
+          .select('phone_number')
+          .eq('client_id', clientId)
+          .eq('whatsapp_enabled', true)
+          .limit(1)
+          .single()
+        
+        if (!phoneNumbers?.phone_number) {
+          // Пробуем получить любой номер
+          const { data: anyPhone } = await supabase
+            .from('client_phone_numbers')
+            .select('phone_number')
+            .eq('client_id', clientId)
+            .limit(1)
+            .single()
+          
+          phone = anyPhone?.phone_number
+        } else {
+          phone = phoneNumbers.phone_number
+        }
+      }
+      
       if (!phone) {
         throw new Error('No phone number available for client')
       }
