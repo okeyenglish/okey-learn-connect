@@ -38,6 +38,7 @@ import { ClientsList } from "@/components/crm/ClientsList";
 import { NewChatModal } from "@/components/crm/NewChatModal";
 import { PinnedModalTabs } from "@/components/crm/PinnedModalTabs";
 import { WhatsAppStatusNotification } from "@/components/crm/WhatsAppStatusNotification";
+import { WhatsAppSessionsModal } from "@/components/crm/WhatsAppSessionsModal";
 import { AddTaskModal } from "@/components/crm/AddTaskModal";
 import { EditTaskModal } from "@/components/crm/EditTaskModal";
 import { TaskCalendar } from "@/components/crm/TaskCalendar";
@@ -187,6 +188,8 @@ const CRMContent = () => {
     setShowAddStudentModal,
     isManualModalOpen,
     setIsManualModalOpen,
+    showWhatsAppSessionsModal,
+    setShowWhatsAppSessionsModal,
   } = modals;
 
   const {
@@ -592,7 +595,7 @@ const CRMContent = () => {
   const handleMenuClick = (action: string) => {
     // Special handling for WhatsApp sessions
     if (action === "WhatsApp") {
-      navigate('/whatsapp-sessions');
+      setShowWhatsAppSessionsModal(true);
       return;
     }
     
@@ -3414,6 +3417,12 @@ const CRMContent = () => {
       <DashboardModal
         open={showDashboardModal}
         onOpenChange={setShowDashboardModal}
+      />
+
+      {/* Модальное окно WhatsApp Sessions */}
+      <WhatsAppSessionsModal
+        open={showWhatsAppSessionsModal}
+        onOpenChange={setShowWhatsAppSessionsModal}
       />
 
       {/* Модальное окно нового чата */}
