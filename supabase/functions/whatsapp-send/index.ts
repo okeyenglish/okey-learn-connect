@@ -149,6 +149,7 @@ serve(async (req) => {
       .from('chat_messages')
       .insert({
         client_id: clientId,
+        organization_id: client.organization_id,
         message_text: message,
         message_type: 'manager',
         messenger_type: 'whatsapp',
