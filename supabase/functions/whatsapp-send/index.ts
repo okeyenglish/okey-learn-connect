@@ -214,7 +214,15 @@ async function sendTextMessage(chatId: string, message: string): Promise<GreenAP
     })
   })
 
-  const result = await response.json()
+  const text = await response.text()
+  let result: any
+  
+  try {
+    result = JSON.parse(text)
+  } catch (e) {
+    console.error('Green-API returned non-JSON response:', text.substring(0, 200))
+    return { error: `Invalid API response: ${text.substring(0, 100)}` }
+  }
   
   if (!response.ok) {
     console.error('Green-API error:', result)
@@ -242,7 +250,15 @@ async function sendFileMessage(chatId: string, fileUrl: string, fileName?: strin
     })
   })
 
-  const result = await response.json()
+  const text = await response.text()
+  let result: any
+  
+  try {
+    result = JSON.parse(text)
+  } catch (e) {
+    console.error('Green-API returned non-JSON response:', text.substring(0, 200))
+    return { error: `Invalid API response: ${text.substring(0, 100)}` }
+  }
   
   if (!response.ok) {
     console.error('Green-API error:', result)
