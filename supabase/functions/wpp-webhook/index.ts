@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1'
 import { createHmac } from "https://deno.land/std@0.168.0/node/crypto.ts"
+import { extractOrgIdFromSession } from './helpers.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -143,54 +144,71 @@ serve(async (req) => {
 })
 
 async function handleIncomingMessage(data: any) {
-  const { from, text, media, timestamp, id, body, fromMe } = data
+  const { from, text, media, timestamp, id, body, fromMe, session } = data
   
   if (!from) {
     console.log('No "from" field in message data')
     return
   }
 
-  // Extract phone number
+  // Extract phone number from WhatsApp format
   const phone = from.replace('@c.us', '').replace('@s.whatsapp.net', '')
   const isFromMe = Boolean(fromMe)
   
   console.log('Processing message from:', phone, 'isFromMe:', isFromMe)
   
-  // Find organization from session (assuming session format: org_<uuid>)
-  // We need to get it from the event context
-  // For now, try to find client and infer organization
+  // Determine organization_id from event context
+  let organizationId = extractOrgIdFromSession(session || data.sessionName)
   
-  // Find or create client by phone number
+  // Try to find by Green-API instance ID
+  if (!organizationId && data.instanceData?.idInstance) {
+    console.log('Looking up organization by idInstance:', data.instanceData.idInstance)
+    const { data: settings } = await supabase
+      .from('messenger_settings')
+      .select('organization_id')
+      .eq('green_api_instance_id', data.instanceData.idInstance)
+      .maybeSingle()
+    organizationId = settings?.organization_id
+  }
+  
+  // Fallback: find any connected WhatsApp session
+  if (!organizationId) {
+    console.log('Fallback: looking for connected session')
+    const { data: sessionData } = await supabase
+      .from('whatsapp_sessions')
+      .select('organization_id')
+      .eq('status', 'connected')
+      .limit(1)
+      .maybeSingle()
+    organizationId = sessionData?.organization_id
+  }
+  
+  if (!organizationId) {
+    console.error('Cannot determine organization_id for message from:', phone)
+    return
+  }
+  
+  console.log('Using organization_id:', organizationId)
+  
+  // Find or create client by phone number WITH organization_id
   let { data: client, error: clientError } = await supabase
     .from('clients')
-    .select('id, organization_id, first_name, last_name')
+    .select('id, organization_id, name')
     .eq('phone', phone)
+    .eq('organization_id', organizationId)
     .maybeSingle()
 
   if (!client && !isFromMe) {
-    console.log('Creating new client for phone:', phone)
-    // Create new client - need organization_id
-    // Try to get from existing clients or use first organization
-    const { data: anyClient } = await supabase
-      .from('clients')
-      .select('organization_id')
-      .limit(1)
-      .single()
+    console.log('Creating new client for phone:', phone, 'in organization:', organizationId)
     
-    if (!anyClient?.organization_id) {
-      console.error('Cannot determine organization_id')
-      return
-    }
-
     const { data: newClient, error: createError } = await supabase
       .from('clients')
       .insert({
-        organization_id: anyClient.organization_id,
-        first_name: phone,
+        organization_id: organizationId,
+        name: phone,
         phone: phone,
-        lead_status: 'new'
       })
-      .select('id, organization_id, first_name, last_name')
+      .select('id, organization_id, name')
       .single()
 
     if (createError) {
@@ -206,63 +224,34 @@ async function handleIncomingMessage(data: any) {
     return
   }
 
-  // Find or create chat thread
-  let { data: thread } = await supabase
-    .from('chat_threads')
-    .select('id')
-    .eq('type', 'client')
-    .contains('participants', [client.id])
-    .single()
-
-  if (!thread) {
-    console.log('Creating new thread for client:', client.id)
-    const { data: newThread, error: threadError } = await supabase
-      .from('chat_threads')
-      .insert({
-        type: 'client',
-        title: `${client.first_name || ''} ${client.last_name || ''}`.trim() || phone,
-        participants: [client.id]
-      })
-      .select('id')
-      .single()
-
-    if (threadError) {
-      console.error('Error creating thread:', threadError)
-      return
-    }
-    
-    thread = newThread
-  }
-
-  // Update thread timestamp
-  await supabase
-    .from('chat_threads')
-    .update({ updated_at: new Date().toISOString() })
-    .eq('id', thread.id)
-
-  // Save message to messages table
+  // Save message to chat_messages table (CRM messages)
   const messageText = text || body || (media ? '[Media]' : '')
   
+  // Update client's last_message_at
+  await supabase
+    .from('clients')
+    .update({ last_message_at: new Date().toISOString() })
+    .eq('id', client.id)
+  
   const { error: messageError } = await supabase
-    .from('messages')
+    .from('chat_messages')
     .insert({
-      thread_id: thread.id,
-      thread_type: 'client',
-      author_id: isFromMe ? null : client.id,
-      role: isFromMe ? 'agent' : 'user',
-      text: messageText,
-      status: 'sent',
-      attachments: media ? [{
-        type: media.mime ? getFileTypeFromMime(media.mime) : 'file',
-        url: media.url || null,
-        name: media.fileName || null
-      }] : null
+      client_id: client.id,
+      message_text: messageText,
+      message_type: isFromMe ? 'manager' : 'client',
+      is_read: false,
+      is_outgoing: isFromMe,
+      messenger_type: 'whatsapp',
+      file_url: media?.url || null,
+      file_name: media?.fileName || null,
+      file_type: media?.mime ? getFileTypeFromMime(media.mime) : null,
+      webhook_id: id || null,
     })
 
   if (messageError) {
     console.error('Error saving message:', messageError)
   } else {
-    console.log('Message saved successfully to thread:', thread.id)
+    console.log('Message saved successfully for client:', client.id)
   }
 }
 

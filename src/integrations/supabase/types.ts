@@ -1112,6 +1112,7 @@ export type Database = {
       }
       chat_threads: {
         Row: {
+          client_id: string | null
           created_at: string | null
           id: string
           participants: string[]
@@ -1120,6 +1121,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          client_id?: string | null
           created_at?: string | null
           id?: string
           participants?: string[]
@@ -1128,6 +1130,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          client_id?: string | null
           created_at?: string | null
           id?: string
           participants?: string[]
@@ -1135,7 +1138,15 @@ export type Database = {
           type?: string
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "chat_threads_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       classrooms: {
         Row: {
@@ -7067,6 +7078,7 @@ export type Database = {
       whatsapp_sessions: {
         Row: {
           created_at: string
+          green_api_instance_id: string | null
           id: string
           last_qr_at: string | null
           last_qr_b64: string | null
@@ -7077,6 +7089,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          green_api_instance_id?: string | null
           id?: string
           last_qr_at?: string | null
           last_qr_b64?: string | null
@@ -7087,6 +7100,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          green_api_instance_id?: string | null
           id?: string
           last_qr_at?: string | null
           last_qr_b64?: string | null
