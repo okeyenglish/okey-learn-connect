@@ -30,16 +30,34 @@ export const useWhatsApp = () => {
 
   const getMessengerSettings = useCallback(async (): Promise<WhatsAppSettings | null> => {
     try {
-      const { data, error } = await supabase
-        .from('messenger_settings')
-        .select('*')
-        .eq('messenger_type', 'whatsapp')
+      // Get user's organization_id
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) throw new Error('Пользователь не авторизован');
+
+      const profileQuery = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', userData.user.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
-        throw error;
+      const profile: any = profileQuery.data;
+      if (!profile?.organization_id) throw new Error('Organization ID не найден');
+
+      // Query messenger_settings with organization_id filter
+      const settingsResult = await supabase
+        .from('messenger_settings')
+        .select('*')
+        .match({ 
+          messenger_type: 'whatsapp',
+          organization_id: profile.organization_id 
+        })
+        .maybeSingle();
+
+      if (settingsResult.error) {
+        throw settingsResult.error;
       }
 
+      const data = settingsResult.data;
       if (!data) {
         return null;
       }
@@ -128,9 +146,22 @@ export const useWhatsApp = () => {
   const updateMessengerSettings = useCallback(async (settings: Partial<WhatsAppSettings>) => {
     setLoading(true);
     try {
+      // Get user's organization_id
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) throw new Error('Пользователь не авторизован');
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', userData.user.id)
+        .single();
+
+      if (!profile?.organization_id) throw new Error('Organization ID не найден');
+
       const { error } = await supabase
         .from('messenger_settings')
         .upsert({
+          organization_id: profile.organization_id,
           messenger_type: 'whatsapp',
           provider: settings.provider || 'greenapi',
           is_enabled: settings.isEnabled ?? false,
@@ -146,7 +177,7 @@ export const useWhatsApp = () => {
           webhook_url: settings.webhookUrl,
           updated_at: new Date().toISOString()
         }, {
-          onConflict: 'messenger_type'
+          onConflict: 'messenger_type,organization_id'
         });
 
       if (error) {
