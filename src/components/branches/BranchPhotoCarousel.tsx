@@ -151,15 +151,6 @@ export function BranchPhotoCarousel({ branchId }: BranchPhotoCarouselProps) {
       <Dialog open={selectedIndex !== null} onOpenChange={() => setSelectedIndex(null)}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/90">
           <div className="relative w-full h-full flex items-center justify-center">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-4 right-4 z-50 text-white hover:bg-white/20"
-              onClick={() => setSelectedIndex(null)}
-            >
-              <X className="w-6 h-6" />
-            </Button>
-
             {selectedIndex !== null && (
               <>
                 {selectedIndex > 0 && (
