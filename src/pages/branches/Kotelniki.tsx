@@ -8,6 +8,7 @@ import SEOHead from "@/components/SEOHead";
 import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
 import OptimizedImage from "@/components/OptimizedImage";
 import { TeachersSection } from "@/components/TeachersSection";
+import { BranchPhotoGallery } from "@/components/branches/BranchPhotoGallery";
 import classroomImage from "@/assets/kotelniki-classroom.png";
 import kotelnikiImage from "@/assets/kotelniki-branch.jpg";
 
@@ -48,6 +49,12 @@ export default function LocationKotelniki() {
             <MapPin className="w-5 h-5 text-primary" />
             <span>2-й Покровский проезд, 14к2</span>
           </div>
+        </div>
+
+        {/* Branch Photo Gallery */}
+        <div className="mb-16">
+          <h2 className="text-3xl font-bold text-center mb-8">Фотографии филиала</h2>
+          <BranchPhotoGallery branchId="Котельники" />
         </div>
 
         {/* Branch Info */}

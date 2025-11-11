@@ -6,6 +6,7 @@ import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
 import { TeachersSection } from "@/components/TeachersSection";
+import { BranchPhotoGallery } from "@/components/branches/BranchPhotoGallery";
 import krasnayaGorkaImage from "@/assets/krasnaya-gorka-branch.jpg";
 import SEOHead from "@/components/SEOHead";
 import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
@@ -48,17 +49,10 @@ export default function LocationLyubertsy2() {
           </div>
         </div>
 
-        {/* Branch Photo */}
+        {/* Branch Photo Gallery */}
         <div className="mb-16">
-          <Card className="overflow-hidden">
-            <CardContent className="p-0">
-              <img 
-                src={krasnayaGorkaImage} 
-                alt="Коридор филиала O'KEY English в Красной горке с брендингом Cambridge и зоной ожидания"
-                className="w-full h-[400px] object-cover"
-              />
-            </CardContent>
-          </Card>
+          <h2 className="text-3xl font-bold text-center mb-8">Фотографии филиала</h2>
+          <BranchPhotoGallery branchId="Красная горка" />
         </div>
 
         {/* Branch Info */}

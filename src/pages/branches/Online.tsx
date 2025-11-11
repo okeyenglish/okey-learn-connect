@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Globe, Monitor, Headphones, Clock, Users, Award } from "lucide-react";
 import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
+import { BranchPhotoGallery } from "@/components/branches/BranchPhotoGallery";
 import onlineSchoolImage from "@/assets/online-learning-new.png";
 import SEOHead from "@/components/SEOHead";
 import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
@@ -37,17 +38,10 @@ const LocationOnline = () => {
           </p>
         </div>
 
-        {/* Hero Image */}
+        {/* Photo Gallery */}
         <div className="mb-16">
-          <Card className="overflow-hidden">
-            <CardContent className="p-0">
-              <img 
-                src={onlineSchoolImage} 
-                alt="Онлайн обучение английскому языку - студенты занимаются дома за компьютерами"
-                className="w-full h-[400px] object-cover"
-              />
-            </CardContent>
-          </Card>
+          <h2 className="text-3xl font-bold text-center mb-8">Фотографии онлайн школы</h2>
+          <BranchPhotoGallery branchId="Онлайн школа" />
         </div>
 
         {/* Features Grid */}

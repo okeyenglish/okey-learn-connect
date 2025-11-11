@@ -5,6 +5,7 @@ import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
 import { TeachersSection } from "@/components/TeachersSection";
+import { BranchPhotoGallery } from "@/components/branches/BranchPhotoGallery";
 import SEOHead from "@/components/SEOHead";
 import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
 import novokosinoImage from "@/assets/novokosino-branch.jpg";
@@ -47,17 +48,10 @@ export default function LocationNovokosino() {
           </div>
         </div>
 
-        {/* Branch Photo */}
+        {/* Branch Photo Gallery */}
         <div className="mb-16">
-          <Card className="overflow-hidden">
-            <CardContent className="p-0">
-              <img 
-                src={novokosinoImage} 
-                alt="Интерьер филиала O'KEY English в Новокосино - учебная зона с мировой картой и современным оборудованием"
-                className="w-full h-[400px] object-cover"
-              />
-            </CardContent>
-          </Card>
+          <h2 className="text-3xl font-bold text-center mb-8">Фотографии филиала</h2>
+          <BranchPhotoGallery branchId="Новокосино" />
         </div>
 
         {/* Branch Info */}
