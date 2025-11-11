@@ -10,7 +10,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ChatBot from "@/components/ChatBot";
 import ScrollToTop from "@/components/ScrollToTop";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
 // Immediate load for critical pages
@@ -78,9 +78,6 @@ const LoadingComponent = () => (
     </div>
   </div>
 );
-
-// Оптимизированный Query Client для лучшей производительности
-const queryClient = createOptimizedQueryClient();
 
 const AppContent = () => {
   const location = useLocation();
@@ -432,21 +429,26 @@ const AppContent = () => {
   );
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <LanguageProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <ScrollToTop />
-            <AppContent />
-          </BrowserRouter>
-        </TooltipProvider>
-      </LanguageProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  // Создаем queryClient внутри компонента для корректной работы с React
+  const queryClient = useMemo(() => createOptimizedQueryClient(), []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <LanguageProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <ScrollToTop />
+              <AppContent />
+            </BrowserRouter>
+          </TooltipProvider>
+        </LanguageProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

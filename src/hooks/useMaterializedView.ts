@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useEffect } from 'react';
 
 /**
  * Хуки для работы с материализованными представлениями
@@ -190,8 +191,6 @@ export function useRefreshMaterializedViews() {
 /**
  * Hook для автоматического обновления материализованных представлений по расписанию
  */
-import { useEffect } from 'react';
-
 export function useAutoRefreshMaterializedViews(intervalMinutes: number = 5) {
   const { mutate: refresh } = useRefreshMaterializedViews();
   
