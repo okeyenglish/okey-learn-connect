@@ -12,6 +12,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { getBranchesForSelect } from '@/lib/branches';
+import imageCompression from 'browser-image-compression';
 
 interface BranchPhoto {
   id: string;
@@ -174,13 +175,38 @@ export function BranchPhotosManager() {
     }
   };
 
+  const optimizeImage = async (file: File): Promise<File> => {
+    const options = {
+      maxSizeMB: 1, // Максимальный размер 1MB
+      maxWidthOrHeight: 1920, // Максимальная ширина/высота 1920px
+      useWebWorker: true, // Использовать Web Worker для лучшей производительности
+      fileType: 'image/jpeg', // Конвертировать в JPEG для лучшего сжатия
+      initialQuality: 0.85, // Начальное качество 85%
+    };
+
+    try {
+      console.log('[Image Optimization] Original size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
+      const compressedFile = await imageCompression(file, options);
+      console.log('[Image Optimization] Compressed size:', (compressedFile.size / 1024 / 1024).toFixed(2), 'MB');
+      console.log('[Image Optimization] Compression ratio:', ((1 - compressedFile.size / file.size) * 100).toFixed(1), '%');
+      
+      return compressedFile;
+    } catch (error) {
+      console.error('[Image Optimization] Failed, using original file:', error);
+      return file;
+    }
+  };
+
   const uploadToStorage = async (file: File): Promise<string> => {
-    const fileExt = file.name.split('.').pop();
+    // Optimize image before upload
+    const optimizedFile = await optimizeImage(file);
+    
+    const fileExt = optimizedFile.name.split('.').pop() || 'jpg';
     const fileName = `${selectedBranchId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
 
     const { error: uploadError, data } = await supabase.storage
       .from('branch-photos')
-      .upload(fileName, file, {
+      .upload(fileName, optimizedFile, {
         cacheControl: '3600',
         upsert: false
       });
@@ -274,7 +300,7 @@ export function BranchPhotosManager() {
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
         
-        // Upload to storage
+        // Optimize and upload to storage
         const imageUrl = await uploadToStorage(file);
         
         // Save to database
@@ -290,12 +316,14 @@ export function BranchPhotosManager() {
 
         if (error) throw error;
 
-        setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 100));
+        const progress = Math.round(((i + 1) / selectedFiles.length) * 100);
+        setUploadProgress(progress);
+        console.log(`[Upload Progress] ${i + 1}/${selectedFiles.length} files uploaded (${progress}%)`);
       }
 
       toast({
         title: 'Успешно',
-        description: `${selectedFiles.length} фото загружено`,
+        description: `${selectedFiles.length} фото оптимизировано и загружено`,
       });
 
       setSelectedFiles([]);
@@ -566,6 +594,9 @@ export function BranchPhotosManager() {
                 </div>
                 <p className="text-xs text-muted-foreground">
                   JPG, PNG, WEBP до 5MB
+                </p>
+                <p className="text-xs text-primary font-medium">
+                  ✨ Автоматическая оптимизация изображений
                 </p>
               </div>
             </div>
