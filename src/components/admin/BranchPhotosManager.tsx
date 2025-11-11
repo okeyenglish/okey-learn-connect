@@ -12,6 +12,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { getBranchesForSelect } from '@/lib/branches';
+import { normalizeBranchName } from '@/lib/branchNameMap';
 import imageCompression from 'browser-image-compression';
 
 interface BranchPhoto {
@@ -152,7 +153,7 @@ export function BranchPhotosManager() {
       const { data: branchData } = await supabase
         .from('organization_branches')
         .select('id')
-        .eq('name', selectedBranch.label)
+.eq('name', normalizeBranchName(selectedBranch.label))
         .eq('is_active', true)
         .order('created_at', { ascending: true })
         .limit(1);
@@ -282,7 +283,7 @@ export function BranchPhotosManager() {
       const { data: branchData, error: branchError } = await supabase
         .from('organization_branches')
         .select('id')
-        .eq('name', selectedBranch.label)
+.eq('name', normalizeBranchName(selectedBranch.label))
         .eq('is_active', true)
         .order('created_at', { ascending: true })
         .limit(1);
@@ -363,7 +364,7 @@ export function BranchPhotosManager() {
       const { data: branchData, error: branchError } = await supabase
         .from('organization_branches')
         .select('id')
-        .eq('name', selectedBranch.label)
+        .eq('name', normalizeBranchName(selectedBranch.label))
         .eq('is_active', true)
         .order('created_at', { ascending: true })
         .limit(1);
