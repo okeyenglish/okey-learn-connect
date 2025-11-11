@@ -450,11 +450,17 @@ export function BranchPhotosManager() {
 
   const handleSetMainPhoto = async (id: string) => {
     try {
-      // Unset current main photo
+      // Get the photo to find its branch_id
+      const photo = photos.find(p => p.id === id);
+      if (!photo) {
+        throw new Error('Фото не найдено');
+      }
+
+      // Unset current main photo for this branch
       await supabase
         .from('branch_photos')
         .update({ is_main: false })
-        .eq('branch_id', selectedBranchId)
+        .eq('branch_id', photo.branch_id)
         .eq('is_main', true);
 
       // Set new main photo
