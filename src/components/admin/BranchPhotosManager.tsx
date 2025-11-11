@@ -11,6 +11,7 @@ import { Upload, Trash2, Star, GripVertical, X, Image as ImageIcon } from 'lucid
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { getBranchesForSelect } from '@/lib/branches';
 
 interface BranchPhoto {
   id: string;
@@ -21,8 +22,9 @@ interface BranchPhoto {
 }
 
 interface Branch {
-  id: string;
-  name: string;
+  value: string;
+  label: string;
+  address: string;
 }
 
 function SortablePhoto({ photo, onDelete, onSetMain }: { 
@@ -110,7 +112,8 @@ export function BranchPhotosManager() {
 
   useEffect(() => {
     fetchOrganizationId();
-    fetchBranches();
+    const branchesFromSite = getBranchesForSelect();
+    setBranches(branchesFromSite);
   }, []);
 
   useEffect(() => {
@@ -134,25 +137,6 @@ export function BranchPhotosManager() {
     }
   };
 
-  const fetchBranches = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('organization_branches')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setBranches(data || []);
-    } catch (error) {
-      console.error('Error fetching branches:', error);
-      toast({
-        title: 'Ошибка',
-        description: 'Не удалось загрузить филиалы',
-        variant: 'destructive',
-      });
-    }
-  };
 
   const fetchPhotos = async () => {
     try {
@@ -465,8 +449,8 @@ export function BranchPhotosManager() {
             </SelectTrigger>
             <SelectContent>
               {branches.map((branch) => (
-                <SelectItem key={branch.id} value={branch.id}>
-                  {branch.name}
+                <SelectItem key={branch.value} value={branch.value}>
+                  {branch.label}
                 </SelectItem>
               ))}
             </SelectContent>
