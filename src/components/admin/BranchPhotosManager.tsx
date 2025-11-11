@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Trash2, Star, GripVertical } from 'lucide-react';
+import { Upload, Trash2, Star, GripVertical, X, Image as ImageIcon } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -96,6 +97,9 @@ export function BranchPhotosManager() {
   const [imageUrl, setImageUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [organizationId, setOrganizationId] = useState<string>('');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -165,7 +169,125 @@ export function BranchPhotosManager() {
     }
   };
 
-  const handleAddPhoto = async () => {
+  const uploadToStorage = async (file: File): Promise<string> => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${selectedBranchId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+    const { error: uploadError, data } = await supabase.storage
+      .from('branch-photos')
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('branch-photos')
+      .getPublicUrl(fileName);
+
+    return publicUrl;
+  };
+
+  const handleFileSelect = (files: FileList | File[]) => {
+    const fileArray = Array.from(files);
+    const imageFiles = fileArray.filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length === 0) {
+      toast({
+        title: 'Ошибка',
+        description: 'Выберите изображения',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSelectedFiles(imageFiles);
+  };
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFileSelect(e.dataTransfer.files);
+    }
+  }, []);
+
+  const handleUploadFiles = async () => {
+    if (selectedFiles.length === 0 || !selectedBranchId || !organizationId) {
+      toast({
+        title: 'Ошибка',
+        description: 'Выберите файлы и филиал',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    setUploadProgress(0);
+
+    try {
+      const maxSortOrder = photos.length > 0 
+        ? Math.max(...photos.map(p => p.sort_order)) 
+        : -1;
+
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        
+        // Upload to storage
+        const imageUrl = await uploadToStorage(file);
+        
+        // Save to database
+        const { error } = await supabase
+          .from('branch_photos')
+          .insert({
+            organization_id: organizationId,
+            branch_id: selectedBranchId,
+            image_url: imageUrl,
+            is_main: photos.length === 0 && i === 0,
+            sort_order: maxSortOrder + i + 1,
+          });
+
+        if (error) throw error;
+
+        setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 100));
+      }
+
+      toast({
+        title: 'Успешно',
+        description: `${selectedFiles.length} фото загружено`,
+      });
+
+      setSelectedFiles([]);
+      setUploadProgress(0);
+      fetchPhotos();
+    } catch (error) {
+      console.error('Error uploading photos:', error);
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось загрузить фото',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddPhotoUrl = async () => {
     if (!imageUrl || !selectedBranchId || !organizationId) {
       toast({
         title: 'Ошибка',
@@ -214,12 +336,25 @@ export function BranchPhotosManager() {
 
   const handleDeletePhoto = async (id: string) => {
     try {
+      const photo = photos.find(p => p.id === id);
+      
+      // Delete from database
       const { error } = await supabase
         .from('branch_photos')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
+
+      // Delete from storage if it's a storage URL
+      if (photo?.image_url.includes('branch-photos')) {
+        const urlParts = photo.image_url.split('/branch-photos/');
+        if (urlParts[1]) {
+          await supabase.storage
+            .from('branch-photos')
+            .remove([urlParts[1]]);
+        }
+      }
 
       toast({
         title: 'Успешно',
@@ -338,11 +473,105 @@ export function BranchPhotosManager() {
           </Select>
         </div>
 
-        {/* Add Photo Form */}
+        {/* Upload Photos Section */}
         {selectedBranchId && (
-          <div className="space-y-4 p-4 border rounded-lg">
-            <div className="space-y-2">
-              <Label htmlFor="imageUrl">URL фотографии</Label>
+          <div className="space-y-4">
+            {/* Drag and Drop Zone */}
+            <div
+              className={`p-8 border-2 border-dashed rounded-lg transition-colors ${
+                isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
+              }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <div className="text-center space-y-4">
+                <div className="flex justify-center">
+                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+                    <ImageIcon className="w-8 h-8 text-primary" />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-lg font-medium">
+                    Перетащите изображения сюда
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    или выберите файлы с компьютера
+                  </p>
+                </div>
+                <div>
+                  <Input
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                    multiple
+                    onChange={(e) => e.target.files && handleFileSelect(e.target.files)}
+                    className="hidden"
+                    id="file-upload"
+                  />
+                  <Label htmlFor="file-upload">
+                    <Button asChild variant="outline">
+                      <span className="cursor-pointer">
+                        <Upload className="w-4 h-4 mr-2" />
+                        Выбрать файлы
+                      </span>
+                    </Button>
+                  </Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  JPG, PNG, WEBP до 5MB
+                </p>
+              </div>
+            </div>
+
+            {/* Selected Files Preview */}
+            {selectedFiles.length > 0 && (
+              <div className="space-y-4 p-4 border rounded-lg">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold">
+                    Выбрано файлов: {selectedFiles.length}
+                  </h4>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedFiles([])}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {selectedFiles.map((file, index) => (
+                    <div key={index} className="relative aspect-square">
+                      <img
+                        src={URL.createObjectURL(file)}
+                        alt={file.name}
+                        className="w-full h-full object-cover rounded"
+                      />
+                    </div>
+                  ))}
+                </div>
+                {uploadProgress > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Загрузка...</span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <Progress value={uploadProgress} />
+                  </div>
+                )}
+                <Button
+                  onClick={handleUploadFiles}
+                  disabled={isLoading}
+                  className="w-full"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Загрузить {selectedFiles.length} фото
+                </Button>
+              </div>
+            )}
+
+            {/* URL Upload Alternative */}
+            <div className="p-4 border rounded-lg space-y-2">
+              <Label htmlFor="imageUrl">Или добавить по URL</Label>
               <div className="flex gap-2">
                 <Input
                   id="imageUrl"
@@ -350,7 +579,7 @@ export function BranchPhotosManager() {
                   onChange={(e) => setImageUrl(e.target.value)}
                   placeholder="https://example.com/image.jpg"
                 />
-                <Button onClick={handleAddPhoto} disabled={isLoading}>
+                <Button onClick={handleAddPhotoUrl} disabled={isLoading} variant="outline">
                   <Upload className="w-4 h-4 mr-2" />
                   Добавить
                 </Button>
