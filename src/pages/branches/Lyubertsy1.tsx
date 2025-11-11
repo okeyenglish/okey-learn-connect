@@ -6,7 +6,7 @@ import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
 import { TeachersSection } from "@/components/TeachersSection";
-import { BranchPhotoGallery } from "@/components/branches/BranchPhotoGallery";
+import { BranchPhotoCarousel } from "@/components/branches/BranchPhotoCarousel";
 import lyubertsyImage from "@/assets/lyubertsy-branch.jpg";
 import SEOHead from "@/components/SEOHead";
 import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
@@ -49,10 +49,10 @@ export default function LocationLyubertsy1() {
           </div>
         </div>
 
-        {/* Branch Photo Gallery */}
+        {/* Branch Photo Carousel */}
         <div className="mb-16">
-          <h2 className="text-3xl font-bold text-center mb-8">Фотографии филиала</h2>
-          <BranchPhotoGallery branchId="Люберцы" />
+          <h2 className="text-3xl font-bold text-center mb-8">Наш филиал</h2>
+          <BranchPhotoCarousel branchId="Люберцы" />
         </div>
 
         {/* Branch Info */}

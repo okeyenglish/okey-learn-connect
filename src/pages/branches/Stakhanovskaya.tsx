@@ -5,7 +5,7 @@ import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
 import { TeachersSection } from "@/components/TeachersSection";
-import { BranchPhotoGallery } from "@/components/branches/BranchPhotoGallery";
+import { BranchPhotoCarousel } from "@/components/branches/BranchPhotoCarousel";
 import SEOHead from "@/components/SEOHead";
 import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
 import stakhanovskayaImage from "@/assets/stakhanovskaya-branch-new.webp";
@@ -48,10 +48,10 @@ export default function LocationStakhanovskaya() {
           </div>
         </div>
 
-        {/* Branch Photo Gallery */}
+        {/* Branch Photo Carousel */}
         <div className="mb-16">
-          <h2 className="text-3xl font-bold text-center mb-8">Фотографии филиала</h2>
-          <BranchPhotoGallery branchId="Стахановская" />
+          <h2 className="text-3xl font-bold text-center mb-8">Наш филиал</h2>
+          <BranchPhotoCarousel branchId="Стахановская" />
         </div>
 
         {/* Branch Info */}
