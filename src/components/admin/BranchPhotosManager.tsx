@@ -1,0 +1,398 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
+import { Upload, Trash2, Star, GripVertical } from 'lucide-react';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+interface BranchPhoto {
+  id: string;
+  branch_id: string;
+  image_url: string;
+  is_main: boolean;
+  sort_order: number;
+}
+
+interface Branch {
+  id: string;
+  name: string;
+}
+
+function SortablePhoto({ photo, onDelete, onSetMain }: { 
+  photo: BranchPhoto; 
+  onDelete: (id: string) => void;
+  onSetMain: (id: string) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: photo.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-4 p-4 bg-muted rounded-lg"
+    >
+      <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+        <GripVertical className="w-5 h-5 text-muted-foreground" />
+      </div>
+      
+      <img
+        src={photo.image_url}
+        alt="Branch photo"
+        className="w-20 h-20 object-cover rounded"
+      />
+      
+      <div className="flex-1">
+        <p className="text-sm truncate">{photo.image_url}</p>
+        {photo.is_main && (
+          <span className="text-xs text-primary font-semibold">Главное фото</span>
+        )}
+      </div>
+      
+      <div className="flex gap-2">
+        <Button
+          variant={photo.is_main ? "default" : "outline"}
+          size="icon"
+          onClick={() => onSetMain(photo.id)}
+          title="Сделать главным"
+        >
+          <Star className={`w-4 h-4 ${photo.is_main ? 'fill-current' : ''}`} />
+        </Button>
+        <Button
+          variant="destructive"
+          size="icon"
+          onClick={() => onDelete(photo.id)}
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export function BranchPhotosManager() {
+  const { toast } = useToast();
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('');
+  const [photos, setPhotos] = useState<BranchPhoto[]>([]);
+  const [imageUrl, setImageUrl] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [organizationId, setOrganizationId] = useState<string>('');
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  useEffect(() => {
+    fetchOrganizationId();
+    fetchBranches();
+  }, []);
+
+  useEffect(() => {
+    if (selectedBranchId) {
+      fetchPhotos();
+    }
+  }, [selectedBranchId]);
+
+  const fetchOrganizationId = async () => {
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) return;
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', userData.user.id)
+      .single();
+
+    if (profile?.organization_id) {
+      setOrganizationId(profile.organization_id);
+    }
+  };
+
+  const fetchBranches = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('organization_branches')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      setBranches(data || []);
+    } catch (error) {
+      console.error('Error fetching branches:', error);
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось загрузить филиалы',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const fetchPhotos = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('branch_photos')
+        .select('*')
+        .eq('branch_id', selectedBranchId)
+        .order('sort_order');
+
+      if (error) throw error;
+      setPhotos(data || []);
+    } catch (error) {
+      console.error('Error fetching photos:', error);
+    }
+  };
+
+  const handleAddPhoto = async () => {
+    if (!imageUrl || !selectedBranchId || !organizationId) {
+      toast({
+        title: 'Ошибка',
+        description: 'Заполните все поля',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const maxSortOrder = photos.length > 0 
+        ? Math.max(...photos.map(p => p.sort_order)) 
+        : -1;
+
+      const { error } = await supabase
+        .from('branch_photos')
+        .insert({
+          organization_id: organizationId,
+          branch_id: selectedBranchId,
+          image_url: imageUrl,
+          is_main: photos.length === 0,
+          sort_order: maxSortOrder + 1,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Успешно',
+        description: 'Фото добавлено',
+      });
+
+      setImageUrl('');
+      fetchPhotos();
+    } catch (error) {
+      console.error('Error adding photo:', error);
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось добавить фото',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeletePhoto = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('branch_photos')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Успешно',
+        description: 'Фото удалено',
+      });
+
+      fetchPhotos();
+    } catch (error) {
+      console.error('Error deleting photo:', error);
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось удалить фото',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleSetMainPhoto = async (id: string) => {
+    try {
+      // Unset current main photo
+      await supabase
+        .from('branch_photos')
+        .update({ is_main: false })
+        .eq('branch_id', selectedBranchId)
+        .eq('is_main', true);
+
+      // Set new main photo
+      const { error } = await supabase
+        .from('branch_photos')
+        .update({ is_main: true })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Успешно',
+        description: 'Главное фото обновлено',
+      });
+
+      fetchPhotos();
+    } catch (error) {
+      console.error('Error setting main photo:', error);
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось установить главное фото',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const oldIndex = photos.findIndex((p) => p.id === active.id);
+    const newIndex = photos.findIndex((p) => p.id === over.id);
+
+    const newPhotos = arrayMove(photos, oldIndex, newIndex);
+    setPhotos(newPhotos);
+
+    // Update sort_order in database
+    try {
+      const updates = newPhotos.map((photo, index) => ({
+        id: photo.id,
+        sort_order: index,
+      }));
+
+      for (const update of updates) {
+        await supabase
+          .from('branch_photos')
+          .update({ sort_order: update.sort_order })
+          .eq('id', update.id);
+      }
+
+      toast({
+        title: 'Успешно',
+        description: 'Порядок фото обновлен',
+      });
+    } catch (error) {
+      console.error('Error updating sort order:', error);
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось обновить порядок фото',
+        variant: 'destructive',
+      });
+      fetchPhotos();
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Управление фотографиями филиалов</CardTitle>
+        <CardDescription>
+          Добавляйте и управляйте фотографиями для каждого филиала. Перетаскивайте для изменения порядка.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Branch Selection */}
+        <div className="space-y-2">
+          <Label htmlFor="branch">Филиал</Label>
+          <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
+            <SelectTrigger id="branch">
+              <SelectValue placeholder="Выберите филиал" />
+            </SelectTrigger>
+            <SelectContent>
+              {branches.map((branch) => (
+                <SelectItem key={branch.id} value={branch.id}>
+                  {branch.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Add Photo Form */}
+        {selectedBranchId && (
+          <div className="space-y-4 p-4 border rounded-lg">
+            <div className="space-y-2">
+              <Label htmlFor="imageUrl">URL фотографии</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="imageUrl"
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="https://example.com/image.jpg"
+                />
+                <Button onClick={handleAddPhoto} disabled={isLoading}>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Добавить
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Photos List */}
+        {selectedBranchId && photos.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="font-semibold">Фотографии ({photos.length})</h3>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={photos.map(p => p.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-2">
+                  {photos.map((photo) => (
+                    <SortablePhoto
+                      key={photo.id}
+                      photo={photo}
+                      onDelete={handleDeletePhoto}
+                      onSetMain={handleSetMainPhoto}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          </div>
+        )}
+
+        {selectedBranchId && photos.length === 0 && (
+          <div className="text-center py-8 text-muted-foreground">
+            Нет фотографий для этого филиала
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

@@ -812,6 +812,61 @@ export type Database = {
           },
         ]
       }
+      branch_photos: {
+        Row: {
+          branch_id: string
+          created_at: string
+          id: string
+          image_url: string
+          is_main: boolean
+          organization_id: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          id?: string
+          image_url: string
+          is_main?: boolean
+          organization_id: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          id?: string
+          image_url?: string
+          is_main?: boolean
+          organization_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branch_photos_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "organization_branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_photos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_photos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
+        ]
+      }
       broadcast_campaigns: {
         Row: {
           completed_at: string | null

@@ -20,6 +20,7 @@ import { PaymentCompensationPanel } from "@/components/payments/PaymentCompensat
 import { PendingPaymentsPanel } from "@/components/payments/PendingPaymentsPanel";
 import { SLAMonitoringDashboard } from "@/components/monitoring/SLAMonitoringDashboard";
 import { EventBusMonitor } from "@/components/monitoring/EventBusMonitor";
+import { BranchPhotosManager } from "./BranchPhotosManager";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -72,6 +73,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <EventBusMonitor />;
       case "ai-settings":
         return <AIProviderSettings />;
+      case "branch-photos":
+        return <BranchPhotosManager />;
       case "sync":
         return (
           <Card>

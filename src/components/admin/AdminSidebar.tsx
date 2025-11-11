@@ -14,7 +14,8 @@ import {
   RotateCcw,
   Clock,
   Activity,
-  Zap
+  Zap,
+  Image
 } from "lucide-react";
 import {
   Sidebar,
@@ -40,6 +41,7 @@ const adminItems = [
   { title: "WhatsApp", id: "whatsapp", icon: MessageSquare },
   { title: "Textbooks", id: "textbooks", icon: BookOpen },
   { title: "Справочники", id: "references", icon: Database },
+  { title: "Фото филиалов", id: "branch-photos", icon: Image },
   { title: "Dashboard аудита", id: "audit-dashboard", icon: BarChart3 },
   { title: "Журнал аудита", id: "audit", icon: History },
   { title: "Pending платежи", id: "pending-payments", icon: Clock },

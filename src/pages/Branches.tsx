@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { branches, BranchWithSchedule } from "@/lib/branches";
+import { BranchPhotoGallery } from "@/components/branches/BranchPhotoGallery";
 import { 
   MapPin, 
   Clock, 
@@ -253,15 +254,7 @@ export default function Locations() {
             <Card key={branch.id} className="card-elevated hover:border-primary/50 transition-all overflow-hidden">
               <Link to={`/branches/${branch.id}`} className="block">
                 <div className="aspect-[16/9] bg-gradient-subtle flex items-center justify-center overflow-hidden cursor-pointer hover:opacity-90 transition-opacity">
-                  {branch.image ? (
-                    <img 
-                      src={branch.image} 
-                      alt={`Интерьер филиала O'KEY English ${branch.name}`}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-muted-foreground">Фото филиала {branch.name}</span>
-                  )}
+                  <BranchPhotoGallery branchId={branch.id} showMainOnly />
                 </div>
               </Link>
               
