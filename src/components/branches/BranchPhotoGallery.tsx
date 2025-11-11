@@ -4,6 +4,7 @@ import OptimizedImage from '@/components/OptimizedImage';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { normalizeBranchName } from '@/lib/branchNameMap';
 
 interface BranchPhoto {
   id: string;
@@ -32,7 +33,7 @@ export function BranchPhotoGallery({ branchId, showMainOnly = false }: BranchPho
       const { data: branchData } = await supabase
         .from('organization_branches')
         .select('id')
-        .eq('name', branchId)
+        .eq('name', normalizeBranchName(branchId))
         .eq('is_active', true)
         .order('created_at', { ascending: true })
         .limit(1);
