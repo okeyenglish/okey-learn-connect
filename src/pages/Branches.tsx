@@ -289,7 +289,7 @@ export default function Locations() {
                   <h4 className="font-semibold mb-3">Доступные языки:</h4>
                   <div className="flex flex-wrap gap-2">
                     {languages.map((language, index) => (
-                      <div key={index} className="flex items-center gap-1 bg-muted px-2 py-1 rounded-full text-xs">
+                      <div key={index} className="flex items-center gap-1 bg-muted px-3 py-1.5 rounded-lg text-xs">
                         <span className="text-sm">{language.icon}</span>
                         <span>{language.name}</span>
                       </div>
