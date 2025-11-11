@@ -140,10 +140,28 @@ export function BranchPhotosManager() {
 
   const fetchPhotos = async () => {
     try {
+      // Find branch in organization_branches by name
+      const selectedBranch = branches.find(b => b.value === selectedBranchId);
+      if (!selectedBranch) {
+        setPhotos([]);
+        return;
+      }
+
+      const { data: branchData } = await supabase
+        .from('organization_branches')
+        .select('id')
+        .eq('name', selectedBranch.label)
+        .single();
+
+      if (!branchData) {
+        setPhotos([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('branch_photos')
         .select('*')
-        .eq('branch_id', selectedBranchId)
+        .eq('branch_id', branchData.id)
         .order('sort_order');
 
       if (error) throw error;
@@ -225,6 +243,22 @@ export function BranchPhotosManager() {
     setUploadProgress(0);
 
     try {
+      // Find branch in organization_branches by name
+      const selectedBranch = branches.find(b => b.value === selectedBranchId);
+      if (!selectedBranch) {
+        throw new Error('Филиал не найден');
+      }
+
+      const { data: branchData, error: branchError } = await supabase
+        .from('organization_branches')
+        .select('id')
+        .eq('name', selectedBranch.label)
+        .single();
+
+      if (branchError || !branchData) {
+        throw new Error(`Филиал "${selectedBranch.label}" не найден в базе данных`);
+      }
+
       const maxSortOrder = photos.length > 0 
         ? Math.max(...photos.map(p => p.sort_order)) 
         : -1;
@@ -240,7 +274,7 @@ export function BranchPhotosManager() {
           .from('branch_photos')
           .insert({
             organization_id: organizationId,
-            branch_id: selectedBranchId,
+            branch_id: branchData.id,
             image_url: imageUrl,
             is_main: photos.length === 0 && i === 0,
             sort_order: maxSortOrder + i + 1,
@@ -283,6 +317,22 @@ export function BranchPhotosManager() {
 
     setIsLoading(true);
     try {
+      // Find branch in organization_branches by name
+      const selectedBranch = branches.find(b => b.value === selectedBranchId);
+      if (!selectedBranch) {
+        throw new Error('Филиал не найден');
+      }
+
+      const { data: branchData, error: branchError } = await supabase
+        .from('organization_branches')
+        .select('id')
+        .eq('name', selectedBranch.label)
+        .single();
+
+      if (branchError || !branchData) {
+        throw new Error(`Филиал "${selectedBranch.label}" не найден в базе данных`);
+      }
+
       const maxSortOrder = photos.length > 0 
         ? Math.max(...photos.map(p => p.sort_order)) 
         : -1;
@@ -291,7 +341,7 @@ export function BranchPhotosManager() {
         .from('branch_photos')
         .insert({
           organization_id: organizationId,
-          branch_id: selectedBranchId,
+          branch_id: branchData.id,
           image_url: imageUrl,
           is_main: photos.length === 0,
           sort_order: maxSortOrder + 1,
