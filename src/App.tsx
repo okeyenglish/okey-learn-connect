@@ -1,16 +1,16 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { LanguageProvider } from "@/hooks/useLanguage";
-import { createOptimizedQueryClient } from "@/lib/queryConfig";
+import { queryConfig } from "@/lib/queryConfig";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ChatBot from "@/components/ChatBot";
 import ScrollToTop from "@/components/ScrollToTop";
-import { lazy, Suspense, useMemo } from "react";
+import { lazy, Suspense } from "react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
 // Immediate load for critical pages
@@ -78,6 +78,11 @@ const LoadingComponent = () => (
     </div>
   </div>
 );
+
+// Создаем Query Client один раз на верхнем уровне модуля
+const queryClient = new QueryClient({
+  defaultOptions: queryConfig,
+});
 
 const AppContent = () => {
   const location = useLocation();
@@ -429,26 +434,21 @@ const AppContent = () => {
   );
 };
 
-const App = () => {
-  // Создаем queryClient внутри компонента для корректной работы с React
-  const queryClient = useMemo(() => createOptimizedQueryClient(), []);
-
-  return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <LanguageProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <ScrollToTop />
-              <AppContent />
-            </BrowserRouter>
-          </TooltipProvider>
-        </LanguageProvider>
-      </AuthProvider>
-    </QueryClientProvider>
-  );
-};
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <AuthProvider>
+      <LanguageProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <ScrollToTop />
+            <AppContent />
+          </BrowserRouter>
+        </TooltipProvider>
+      </LanguageProvider>
+    </AuthProvider>
+  </QueryClientProvider>
+);
 
 export default App;
