@@ -6,11 +6,8 @@ import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
 import SEOHead from "@/components/SEOHead";
 import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
-import OptimizedImage from "@/components/OptimizedImage";
 import { TeachersSection } from "@/components/TeachersSection";
-import { BranchPhotoGallery } from "@/components/branches/BranchPhotoGallery";
-import classroomImage from "@/assets/kotelniki-classroom.png";
-import kotelnikiImage from "@/assets/kotelniki-branch.jpg";
+import { BranchPhotoCarousel } from "@/components/branches/BranchPhotoCarousel";
 
 export default function LocationKotelniki() {
   const seoData = branchSEOData.kotelniki;
@@ -49,12 +46,6 @@ export default function LocationKotelniki() {
             <MapPin className="w-5 h-5 text-primary" />
             <span>2-й Покровский проезд, 14к2</span>
           </div>
-        </div>
-
-        {/* Branch Photo Gallery */}
-        <div className="mb-16">
-          <h2 className="text-3xl font-bold text-center mb-8">Фотографии филиала</h2>
-          <BranchPhotoGallery branchId="Котельники" />
         </div>
 
         {/* Branch Info */}
@@ -129,33 +120,10 @@ export default function LocationKotelniki() {
           </Card>
         </div>
 
-        {/* Photo Gallery */}
+        {/* Branch Photo Carousel */}
         <div className="mb-16">
           <h2 className="text-3xl font-bold text-center mb-8">Наш филиал</h2>
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card>
-              <CardContent className="p-0">
-                <OptimizedImage
-                  src={kotelnikiImage} 
-                  alt="Интерьер филиала O'KEY English в Котельниках - зона ресепшн с брендингом" 
-                  width={400}
-                  height={384}
-                  className="w-full h-96 object-cover rounded-lg"
-                />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-0">
-                <OptimizedImage
-                  src={classroomImage} 
-                  alt="Учебный класс в филиале Котельники" 
-                  width={400}
-                  height={384}
-                  className="w-full h-96 object-cover rounded-lg"
-                />
-              </CardContent>
-            </Card>
-          </div>
+          <BranchPhotoCarousel branchId="Котельники" />
         </div>
 
         {/* Teachers Section */}
