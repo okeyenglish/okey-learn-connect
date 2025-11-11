@@ -28,13 +28,16 @@ export function BranchPhotoGallery({ branchId, showMainOnly = false }: BranchPho
 
   const fetchPhotos = async () => {
     try {
+      // Use limit(1) to handle potential duplicates
       const { data: branchData } = await supabase
         .from('organization_branches')
         .select('id')
         .eq('name', branchId)
-        .single();
+        .eq('is_active', true)
+        .order('created_at', { ascending: true })
+        .limit(1);
 
-      if (!branchData) {
+      if (!branchData || branchData.length === 0) {
         setIsLoading(false);
         return;
       }
@@ -42,7 +45,7 @@ export function BranchPhotoGallery({ branchId, showMainOnly = false }: BranchPho
       let query = supabase
         .from('branch_photos')
         .select('*')
-        .eq('branch_id', branchData.id);
+        .eq('branch_id', branchData[0].id);
 
       if (showMainOnly) {
         query = query.eq('is_main', true);
