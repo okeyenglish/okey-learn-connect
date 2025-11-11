@@ -16,9 +16,10 @@ interface BranchPhoto {
 interface BranchPhotoGalleryProps {
   branchId: string;
   showMainOnly?: boolean;
+  fallbackImage?: string;
 }
 
-export function BranchPhotoGallery({ branchId, showMainOnly = false }: BranchPhotoGalleryProps) {
+export function BranchPhotoGallery({ branchId, showMainOnly = false, fallbackImage }: BranchPhotoGalleryProps) {
   const [photos, setPhotos] = useState<BranchPhoto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -83,8 +84,23 @@ export function BranchPhotoGallery({ branchId, showMainOnly = false }: BranchPho
     );
   }
 
-  if (photos.length === 0) {
+  if (photos.length === 0 && !fallbackImage) {
     return null;
+  }
+
+  // Show fallback image if no photos from database
+  if (photos.length === 0 && fallbackImage && showMainOnly) {
+    return (
+      <div className="aspect-[16/9] overflow-hidden rounded-lg">
+        <OptimizedImage
+          src={fallbackImage}
+          alt="Фото филиала"
+          className="w-full h-full object-cover"
+          loading="eager"
+          priority
+        />
+      </div>
+    );
   }
 
   if (showMainOnly && photos.length > 0) {

@@ -254,7 +254,7 @@ export default function Locations() {
             <Card key={branch.id} className="card-elevated hover:border-primary/50 transition-all overflow-hidden">
               <Link to={`/branches/${branch.id}`} className="block">
                 <div className="aspect-[16/9] bg-gradient-subtle flex items-center justify-center overflow-hidden cursor-pointer hover:opacity-90 transition-opacity">
-                  <BranchPhotoGallery branchId={branch.name} showMainOnly />
+                  <BranchPhotoGallery branchId={branch.name} showMainOnly fallbackImage={branch.image} />
                 </div>
               </Link>
               
