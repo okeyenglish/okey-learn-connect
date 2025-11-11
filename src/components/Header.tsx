@@ -55,17 +55,17 @@ export default function Header() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-18 min-h-[72px]">
             {/* Logo */}
-            <Link to="/" className="relative flex items-center flex-shrink-0 min-w-0 z-50">
+            <Link to="/" className="relative flex items-center flex-shrink-0 min-w-0 z-50 cursor-pointer">
               <OptimizedImage
                 src={logoImage} 
                 alt="O'KEY ENGLISH - Школа английского языка" 
                 width={105}
                 height={105}
                 priority={true}
-                className="h-[105px] w-[105px] rounded-full object-cover border-2 border-white shadow-lg absolute left-0 top-0"
+                className="h-[105px] w-[105px] rounded-full object-cover border-2 border-white shadow-lg absolute left-0 top-0 pointer-events-auto"
               />
               {/* Invisible spacer to maintain layout space */}
-              <div className="h-16 w-[105px]"></div>
+              <div className="h-16 w-[105px] pointer-events-none"></div>
             </Link>
 
             {/* Desktop Navigation */}

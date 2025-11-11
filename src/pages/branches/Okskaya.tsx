@@ -5,7 +5,7 @@ import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
 import { TeachersSection } from "@/components/TeachersSection";
-import { BranchPhotoCarousel } from "@/components/branches/BranchPhotoCarousel";
+import { BranchPhotoGallery } from "@/components/branches/BranchPhotoGallery";
 import SEOHead from "@/components/SEOHead";
 import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
 import okskayaImage from "@/assets/okskaya-branch.jpg";
@@ -48,10 +48,10 @@ export default function LocationOkskaya() {
           </div>
         </div>
 
-        {/* Branch Photo Carousel */}
+        {/* Branch Photo Gallery */}
         <div className="mb-16">
           <h2 className="text-3xl font-bold text-center mb-8">Наш филиал</h2>
-          <BranchPhotoCarousel branchId="Окская" />
+          <BranchPhotoGallery branchId="Окская" />
         </div>
 
         {/* Branch Info */}
