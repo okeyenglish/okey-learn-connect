@@ -30,11 +30,14 @@ export function BranchPhotoGallery({ branchId, showMainOnly = false, fallbackIma
 
   const fetchPhotos = async () => {
     try {
+      const normalizedName = normalizeBranchName(branchId);
+      
       // Get all branches with this name to handle duplicates
+      // Use ilike for case-insensitive search
       const { data: branchData } = await supabase
         .from('organization_branches')
         .select('id')
-        .eq('name', normalizeBranchName(branchId))
+        .ilike('name', normalizedName)
         .eq('is_active', true)
         .order('created_at', { ascending: true });
 
