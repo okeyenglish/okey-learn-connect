@@ -30,35 +30,48 @@ export function BranchPhotoGallery({ branchId, showMainOnly = false, fallbackIma
 
   const fetchPhotos = async () => {
     try {
-      // Use limit(1) to handle potential duplicates
+      // Get all branches with this name to handle duplicates
       const { data: branchData } = await supabase
         .from('organization_branches')
         .select('id')
         .eq('name', normalizeBranchName(branchId))
         .eq('is_active', true)
-        .order('created_at', { ascending: true })
-        .limit(1);
+        .order('created_at', { ascending: true });
 
       if (!branchData || branchData.length === 0) {
         setIsLoading(false);
         return;
       }
 
-      let query = supabase
-        .from('branch_photos')
-        .select('*')
-        .eq('branch_id', branchData[0].id);
+      // Try to find photos for any of the branch IDs (in case of duplicates)
+      let allPhotos: BranchPhoto[] = [];
+      
+      for (const branch of branchData) {
+        let query = supabase
+          .from('branch_photos')
+          .select('*')
+          .eq('branch_id', branch.id);
 
-      if (showMainOnly) {
-        query = query.eq('is_main', true);
+        if (showMainOnly) {
+          query = query.eq('is_main', true);
+        }
+
+        query = query.order('sort_order', { ascending: true });
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error('Error fetching branch photos:', error);
+          continue;
+        }
+
+        if (data && data.length > 0) {
+          allPhotos = data;
+          break; // Found photos, stop searching
+        }
       }
 
-      query = query.order('sort_order', { ascending: true });
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setPhotos(data || []);
+      setPhotos(allPhotos);
     } catch (error) {
       console.error('Error fetching branch photos:', error);
     } finally {
