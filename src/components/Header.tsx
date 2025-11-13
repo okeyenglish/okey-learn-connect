@@ -54,8 +54,16 @@ export default function Header() {
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-18 min-h-[72px]">
-            {/* Logo */}
-            <Link to="/" className="relative flex items-center flex-shrink-0 min-w-0 z-50 cursor-pointer">
+            <Link 
+              to="/" 
+              className="relative flex items-center flex-shrink-0 min-w-0 z-50 cursor-pointer"
+              onClick={(e) => {
+                if (location.pathname === '/') {
+                  e.preventDefault();
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              }}
+            >
               <OptimizedImage
                 src={logoImage} 
                 alt="O'KEY ENGLISH - Школа английского языка" 

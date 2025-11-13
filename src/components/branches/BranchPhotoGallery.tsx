@@ -37,7 +37,7 @@ export function BranchPhotoGallery({ branchId, showMainOnly = false, fallbackIma
       const { data: branchData } = await supabase
         .from('organization_branches')
         .select('id')
-        .ilike('name', normalizedName)
+        .ilike('name', `%${normalizedName}%`)
         .eq('is_active', true)
         .order('created_at', { ascending: true });
 

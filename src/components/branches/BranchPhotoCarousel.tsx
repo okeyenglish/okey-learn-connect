@@ -35,27 +35,38 @@ export function BranchPhotoCarousel({ branchId }: BranchPhotoCarouselProps) {
 
   const fetchPhotos = async () => {
     try {
+      const normalizedName = normalizeBranchName(branchId);
       const { data: branchData } = await supabase
         .from('organization_branches')
         .select('id')
-        .eq('name', normalizeBranchName(branchId))
+        .ilike('name', `%${normalizedName}%`)
         .eq('is_active', true)
-        .order('created_at', { ascending: true })
-        .limit(1);
+        .order('created_at', { ascending: true });
 
       if (!branchData || branchData.length === 0) {
         setIsLoading(false);
         return;
       }
 
-      const { data, error } = await supabase
-        .from('branch_photos')
-        .select('*')
-        .eq('branch_id', branchData[0].id)
-        .order('sort_order', { ascending: true });
+      let foundPhotos: BranchPhoto[] = [];
+      for (const branch of branchData) {
+        const { data, error } = await supabase
+          .from('branch_photos')
+          .select('*')
+          .eq('branch_id', branch.id)
+          .order('sort_order', { ascending: true });
 
-      if (error) throw error;
-      setPhotos(data || []);
+        if (error) {
+          console.error('Error fetching branch photos:', error);
+          continue;
+        }
+        if (data && data.length > 0) {
+          foundPhotos = data;
+          break;
+        }
+      }
+
+      setPhotos(foundPhotos);
     } catch (error) {
       console.error('Error fetching branch photos:', error);
     } finally {
