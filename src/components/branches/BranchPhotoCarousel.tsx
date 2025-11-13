@@ -36,17 +36,28 @@ export function BranchPhotoCarousel({ branchId }: BranchPhotoCarouselProps) {
   const fetchPhotos = async () => {
     try {
       const normalizedName = normalizeBranchName(branchId);
-      const { data: branchData } = await supabase
+      console.log(`[BranchPhotoCarousel] Fetching photos for branch: "${branchId}" (normalized: "${normalizedName}")`);
+      
+      const { data: branchData, error: branchError } = await supabase
         .from('organization_branches')
-        .select('id')
+        .select('id, name')
         .ilike('name', `%${normalizedName}%`)
         .eq('is_active', true)
         .order('created_at', { ascending: true });
 
-      if (!branchData || branchData.length === 0) {
+      if (branchError) {
+        console.error(`[BranchPhotoCarousel] Error fetching branch data:`, branchError);
         setIsLoading(false);
         return;
       }
+
+      if (!branchData || branchData.length === 0) {
+        console.warn(`[BranchPhotoCarousel] No branch found for: "${branchId}" (normalized: "${normalizedName}")`);
+        setIsLoading(false);
+        return;
+      }
+
+      console.log(`[BranchPhotoCarousel] Found ${branchData.length} branch(es):`, branchData.map(b => ({ id: b.id, name: b.name })));
 
       let foundPhotos: BranchPhoto[] = [];
       for (const branch of branchData) {
@@ -57,18 +68,26 @@ export function BranchPhotoCarousel({ branchId }: BranchPhotoCarouselProps) {
           .order('sort_order', { ascending: true });
 
         if (error) {
-          console.error('Error fetching branch photos:', error);
+          console.error(`[BranchPhotoCarousel] Error fetching photos for branch_id ${branch.id}:`, error);
           continue;
         }
+        
+        console.log(`[BranchPhotoCarousel] Branch "${branch.name}" (${branch.id}): ${data?.length || 0} photo(s) found`);
+        
         if (data && data.length > 0) {
+          console.log(`[BranchPhotoCarousel] Photos URLs:`, data.map(p => ({ url: p.image_url, is_main: p.is_main, sort: p.sort_order })));
           foundPhotos = data;
           break;
         }
       }
 
+      if (foundPhotos.length === 0) {
+        console.warn(`[BranchPhotoCarousel] No photos found for any branch: "${branchId}"`);
+      }
+
       setPhotos(foundPhotos);
     } catch (error) {
-      console.error('Error fetching branch photos:', error);
+      console.error('[BranchPhotoCarousel] Unexpected error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -96,12 +115,25 @@ export function BranchPhotoCarousel({ branchId }: BranchPhotoCarouselProps) {
 
   if (isLoading) {
     return (
-      <div className="h-64 bg-muted animate-pulse rounded-lg" />
+      <div className="h-64 bg-muted animate-pulse rounded-lg relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
+        <div className="absolute bottom-2 left-2 text-xs text-muted-foreground opacity-50">
+          Загрузка карусели фото...
+        </div>
+      </div>
     );
   }
 
   if (photos.length === 0) {
-    return null;
+    console.warn(`[BranchPhotoCarousel] No photos to display for: ${branchId}`);
+    return (
+      <div className="h-64 bg-muted/30 rounded-lg flex items-center justify-center border-2 border-dashed border-muted">
+        <div className="text-center text-muted-foreground p-4">
+          <div className="text-sm">Фотогалерея филиала скоро появится</div>
+          <div className="text-xs mt-1 opacity-70">{branchId}</div>
+        </div>
+      </div>
+    );
   }
 
   return (

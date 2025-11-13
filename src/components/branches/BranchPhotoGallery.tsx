@@ -31,20 +31,31 @@ export function BranchPhotoGallery({ branchId, showMainOnly = false, fallbackIma
   const fetchPhotos = async () => {
     try {
       const normalizedName = normalizeBranchName(branchId);
+      console.log(`[BranchPhotoGallery] Fetching photos for branch: "${branchId}" (normalized: "${normalizedName}", showMainOnly: ${showMainOnly})`);
       
       // Get all branches with this name to handle duplicates
       // Use ilike for case-insensitive search
-      const { data: branchData } = await supabase
+      const { data: branchData, error: branchError } = await supabase
         .from('organization_branches')
-        .select('id')
+        .select('id, name')
         .ilike('name', `%${normalizedName}%`)
         .eq('is_active', true)
         .order('created_at', { ascending: true });
 
-      if (!branchData || branchData.length === 0) {
+      if (branchError) {
+        console.error(`[BranchPhotoGallery] Error fetching branch data:`, branchError);
         setIsLoading(false);
         return;
       }
+
+      if (!branchData || branchData.length === 0) {
+        console.warn(`[BranchPhotoGallery] No branch found for: "${branchId}" (normalized: "${normalizedName}")`);
+        console.log(`[BranchPhotoGallery] Fallback image available: ${!!fallbackImage}`);
+        setIsLoading(false);
+        return;
+      }
+
+      console.log(`[BranchPhotoGallery] Found ${branchData.length} branch(es):`, branchData.map(b => ({ id: b.id, name: b.name })));
 
       // Try to find photos for any of the branch IDs (in case of duplicates)
       let allPhotos: BranchPhoto[] = [];
@@ -64,19 +75,26 @@ export function BranchPhotoGallery({ branchId, showMainOnly = false, fallbackIma
         const { data, error } = await query;
 
         if (error) {
-          console.error('Error fetching branch photos:', error);
+          console.error(`[BranchPhotoGallery] Error fetching photos for branch_id ${branch.id}:`, error);
           continue;
         }
 
+        console.log(`[BranchPhotoGallery] Branch "${branch.name}" (${branch.id}): ${data?.length || 0} photo(s) found`);
+        
         if (data && data.length > 0) {
+          console.log(`[BranchPhotoGallery] Photos URLs:`, data.map(p => ({ url: p.image_url, is_main: p.is_main, sort: p.sort_order })));
           allPhotos = data;
           break; // Found photos, stop searching
         }
       }
 
+      if (allPhotos.length === 0) {
+        console.warn(`[BranchPhotoGallery] No photos found for any branch. Will use fallback: ${!!fallbackImage}`);
+      }
+
       setPhotos(allPhotos);
     } catch (error) {
-      console.error('Error fetching branch photos:', error);
+      console.error('[BranchPhotoGallery] Unexpected error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -96,18 +114,32 @@ export function BranchPhotoGallery({ branchId, showMainOnly = false, fallbackIma
 
   if (isLoading) {
     return (
-      <div className="aspect-[16/9] bg-muted animate-pulse rounded-lg" />
+      <div className="aspect-[16/9] bg-muted animate-pulse rounded-lg relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
+        <div className="absolute bottom-2 left-2 text-xs text-muted-foreground opacity-50">
+          Загрузка фото...
+        </div>
+      </div>
     );
   }
 
   if (photos.length === 0 && !fallbackImage) {
-    return null;
+    console.warn(`[BranchPhotoGallery] No photos and no fallback for: ${branchId}`);
+    return (
+      <div className="aspect-[16/9] bg-muted/30 rounded-lg flex items-center justify-center border-2 border-dashed border-muted">
+        <div className="text-center text-muted-foreground p-4">
+          <div className="text-sm">Фото филиала скоро появится</div>
+          <div className="text-xs mt-1 opacity-70">{branchId}</div>
+        </div>
+      </div>
+    );
   }
 
   // Show fallback image if no photos from database
   if (photos.length === 0 && fallbackImage && showMainOnly) {
+    console.log(`[BranchPhotoGallery] Using fallback image for: ${branchId}`);
     return (
-      <div className="aspect-[16/9] overflow-hidden rounded-lg">
+      <div className="aspect-[16/9] overflow-hidden rounded-lg relative">
         <OptimizedImage
           src={fallbackImage}
           alt="Фото филиала"
@@ -115,6 +147,9 @@ export function BranchPhotoGallery({ branchId, showMainOnly = false, fallbackIma
           loading="eager"
           priority
         />
+        <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+          Резервное фото
+        </div>
       </div>
     );
   }

@@ -343,4 +343,18 @@ img[alt*="avatar"],
   .bg-gradient-hero {
     @apply bg-gradient-to-r from-brand via-purple-600 to-blue-600;
   }
+
+  /* === Skeleton Loading Animation === */
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s infinite;
+  }
 }
