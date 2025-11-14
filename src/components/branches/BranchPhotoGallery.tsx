@@ -23,6 +23,7 @@ export function BranchPhotoGallery({ branchId, showMainOnly = false, fallbackIma
   const [photos, setPhotos] = useState<BranchPhoto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     fetchPhotos();
@@ -114,10 +115,9 @@ export function BranchPhotoGallery({ branchId, showMainOnly = false, fallbackIma
 
   if (isLoading) {
     return (
-      <div className="aspect-[16/9] bg-muted animate-pulse rounded-lg relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
-        <div className="absolute bottom-2 left-2 text-xs text-muted-foreground opacity-50">
-          Загрузка фото...
+      <div className="relative aspect-[16/9] bg-muted animate-shimmer rounded-lg overflow-hidden">
+        <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded z-10">
+          DBG: Loading... ({branchId})
         </div>
       </div>
     );
@@ -126,29 +126,33 @@ export function BranchPhotoGallery({ branchId, showMainOnly = false, fallbackIma
   if (photos.length === 0 && !fallbackImage) {
     console.warn(`[BranchPhotoGallery] No photos and no fallback for: ${branchId}`);
     return (
-      <div className="aspect-[16/9] bg-muted/30 rounded-lg flex items-center justify-center border-2 border-dashed border-muted">
+      <div className="relative aspect-[16/9] bg-muted/30 rounded-lg flex items-center justify-center border-2 border-dashed border-muted">
         <div className="text-center text-muted-foreground p-4">
           <div className="text-sm">Фото филиала скоро появится</div>
           <div className="text-xs mt-1 opacity-70">{branchId}</div>
+        </div>
+        <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded z-10">
+          DBG: No photos ({branchId})
         </div>
       </div>
     );
   }
 
-  // Show fallback image if no photos from database
-  if (photos.length === 0 && fallbackImage && showMainOnly) {
+  // Show fallback image if no photos from database or if image error
+  if ((photos.length === 0 || imageError) && fallbackImage && showMainOnly) {
     console.log(`[BranchPhotoGallery] Using fallback image for: ${branchId}`);
     return (
-      <div className="aspect-[16/9] overflow-hidden rounded-lg relative">
+      <div className="relative aspect-[16/9] overflow-hidden rounded-lg">
         <OptimizedImage
           src={fallbackImage}
           alt="Фото филиала"
           className="w-full h-full object-cover"
           loading="eager"
           priority
+          onError={() => setImageError(true)}
         />
-        <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
-          Резервное фото
+        <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded z-10">
+          DBG: Fallback
         </div>
       </div>
     );
@@ -156,7 +160,7 @@ export function BranchPhotoGallery({ branchId, showMainOnly = false, fallbackIma
 
   if (showMainOnly && photos.length > 0) {
     return (
-      <div className="aspect-[16/9] overflow-hidden rounded-lg">
+      <div className="relative aspect-[16/9] overflow-hidden rounded-lg">
         <OptimizedImage
           src={photos[0].image_url}
           alt="Фото филиала"
@@ -164,14 +168,18 @@ export function BranchPhotoGallery({ branchId, showMainOnly = false, fallbackIma
           loading="eager"
           priority
           onClick={() => setSelectedIndex(0)}
+          onError={() => setImageError(true)}
         />
+        <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded z-10">
+          DBG: DB main
+        </div>
       </div>
     );
   }
 
   return (
     <>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="relative grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {photos.map((photo, index) => (
           <div
             key={photo.id}
@@ -183,6 +191,7 @@ export function BranchPhotoGallery({ branchId, showMainOnly = false, fallbackIma
               alt={`Фото филиала ${index + 1}`}
               className="w-full h-full object-cover"
               loading="lazy"
+              onError={() => console.warn('[BranchPhotoGallery] Image error:', photo.image_url)}
             />
             {photo.is_main && (
               <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded text-xs font-semibold">
@@ -191,6 +200,9 @@ export function BranchPhotoGallery({ branchId, showMainOnly = false, fallbackIma
             )}
           </div>
         ))}
+        <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded z-10">
+          DBG: DB gallery ({photos.length})
+        </div>
       </div>
 
       <Dialog open={selectedIndex !== null} onOpenChange={() => setSelectedIndex(null)}>

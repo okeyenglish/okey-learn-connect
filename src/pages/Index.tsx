@@ -554,7 +554,7 @@ export default function Index() {
               branchesWithSchedule.map((branch) => (
                 <Card key={branch.slug} className="card-elevated hover:border-primary/50 transition-all overflow-hidden">
                   <Link to={`/branches/${branch.slug}`} className="block">
-                    <div className="aspect-[16/9] bg-gradient-subtle flex items-center justify-center overflow-hidden cursor-pointer hover:opacity-90 transition-opacity">
+                    <div className="rounded-xl overflow-hidden bg-gradient-subtle">
                       <BranchPhotoGallery branchId={branch.name} showMainOnly fallbackImage={branch.image} />
                     </div>
                   </Link>
