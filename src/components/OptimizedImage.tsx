@@ -11,6 +11,8 @@ interface OptimizedImageProps {
   sizes?: string;
   srcSet?: string;
   onClick?: () => void;
+  onLoad?: () => void;
+  onError?: () => void;
 }
 
 const OptimizedImage: React.FC<OptimizedImageProps> = ({
@@ -24,10 +26,21 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
   sizes,
   srcSet,
   onClick,
+  onLoad,
+  onError,
 }) => {
-  // For critical images above the fold, use eager loading and fetchpriority
-  const fetchPriority = priority ? 'high' : 'auto';
+  // For critical images above the fold, use eager loading
   const loadingAttr = priority ? 'eager' : loading;
+
+  const handleLoad = () => {
+    console.log('[OptimizedImage] ✅ Loaded:', src);
+    onLoad?.();
+  };
+
+  const handleError = () => {
+    console.warn('[OptimizedImage] ❌ Error:', src);
+    onError?.();
+  };
 
   return (
     <img
@@ -37,10 +50,11 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
       height={height}
       className={className}
       loading={loadingAttr}
-      fetchPriority={fetchPriority as any}
       sizes={sizes}
       srcSet={srcSet}
       onClick={onClick}
+      onLoad={handleLoad}
+      onError={handleError}
       style={width && height ? { aspectRatio: `${width}/${height}` } : undefined}
     />
   );

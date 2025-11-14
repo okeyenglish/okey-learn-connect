@@ -22,6 +22,7 @@ export function BranchPhotoCarousel({ branchId }: BranchPhotoCarouselProps) {
   const [photos, setPhotos] = useState<BranchPhoto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
   const [emblaRef, emblaApi] = useEmblaCarousel({ 
     loop: false, 
     align: 'start',
@@ -113,12 +114,16 @@ export function BranchPhotoCarousel({ branchId }: BranchPhotoCarouselProps) {
     }
   };
 
+  const handleImageError = (url: string) => {
+    console.warn('[BranchPhotoCarousel] Image error:', url);
+    setImageErrors(prev => new Set(prev).add(url));
+  };
+
   if (isLoading) {
     return (
-      <div className="h-64 bg-muted animate-pulse rounded-lg relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
-        <div className="absolute bottom-2 left-2 text-xs text-muted-foreground opacity-50">
-          Загрузка карусели фото...
+      <div className="relative h-64 bg-muted animate-shimmer rounded-lg overflow-hidden">
+        <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded z-10">
+          DBG: Loading carousel... ({branchId})
         </div>
       </div>
     );
@@ -127,10 +132,13 @@ export function BranchPhotoCarousel({ branchId }: BranchPhotoCarouselProps) {
   if (photos.length === 0) {
     console.warn(`[BranchPhotoCarousel] No photos to display for: ${branchId}`);
     return (
-      <div className="h-64 bg-muted/30 rounded-lg flex items-center justify-center border-2 border-dashed border-muted">
+      <div className="relative h-64 bg-muted/30 rounded-lg flex items-center justify-center border-2 border-dashed border-muted">
         <div className="text-center text-muted-foreground p-4">
           <div className="text-sm">Фотогалерея филиала скоро появится</div>
           <div className="text-xs mt-1 opacity-70">{branchId}</div>
+        </div>
+        <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded z-10">
+          DBG: No photos (branch={branchId})
         </div>
       </div>
     );
@@ -155,6 +163,8 @@ export function BranchPhotoCarousel({ branchId }: BranchPhotoCarouselProps) {
                     alt={`Фото филиала ${index + 1}`}
                     className="w-full h-full object-cover"
                     loading="lazy"
+                    onLoad={() => console.log('[BranchPhotoCarousel] ✅ Thumbnail loaded:', photo.image_url)}
+                    onError={() => handleImageError(photo.image_url)}
                   />
                   {photo.is_main && (
                     <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded text-xs font-semibold">
@@ -165,6 +175,10 @@ export function BranchPhotoCarousel({ branchId }: BranchPhotoCarouselProps) {
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded z-10">
+          DBG: Carousel ({photos.length} photos)
         </div>
 
         {/* Navigation Buttons */}
@@ -211,6 +225,8 @@ export function BranchPhotoCarousel({ branchId }: BranchPhotoCarouselProps) {
                   src={photos[selectedIndex].image_url}
                   alt={`Фото филиала ${selectedIndex + 1}`}
                   className="max-w-full max-h-[95vh] object-contain"
+                  onLoad={() => console.log('[BranchPhotoCarousel] ✅ Fullscreen loaded:', photos[selectedIndex].image_url)}
+                  onError={() => handleImageError(photos[selectedIndex].image_url)}
                 />
 
                 {selectedIndex < photos.length - 1 && (
