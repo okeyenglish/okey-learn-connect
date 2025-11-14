@@ -121,11 +121,7 @@ export function BranchPhotoCarousel({ branchId }: BranchPhotoCarouselProps) {
 
   if (isLoading) {
     return (
-      <div className="relative h-64 bg-muted animate-shimmer rounded-lg overflow-hidden">
-        <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded z-10">
-          DBG: Loading carousel... ({branchId})
-        </div>
-      </div>
+      <div className="relative h-64 bg-muted animate-shimmer rounded-lg overflow-hidden" />
     );
   }
 
@@ -135,10 +131,6 @@ export function BranchPhotoCarousel({ branchId }: BranchPhotoCarouselProps) {
       <div className="relative h-64 bg-muted/30 rounded-lg flex items-center justify-center border-2 border-dashed border-muted">
         <div className="text-center text-muted-foreground p-4">
           <div className="text-sm">Фотогалерея филиала скоро появится</div>
-          <div className="text-xs mt-1 opacity-70">{branchId}</div>
-        </div>
-        <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded z-10">
-          DBG: No photos (branch={branchId})
         </div>
       </div>
     );
@@ -175,10 +167,6 @@ export function BranchPhotoCarousel({ branchId }: BranchPhotoCarouselProps) {
               </div>
             ))}
           </div>
-        </div>
-
-        <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded z-10">
-          DBG: Carousel ({photos.length} photos)
         </div>
 
         {/* Navigation Buttons */}
