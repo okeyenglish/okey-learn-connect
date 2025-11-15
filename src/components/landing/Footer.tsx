@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 
 export default function Footer() {
   return (
-    <footer className="bg-card border-t border-border py-12">
+    <footer className="bg-gradient-to-br from-primary/5 to-background border-t border-border py-16">
       <div className="container mx-auto px-4 sm:px-6">
         <div className="grid md:grid-cols-4 gap-8">
           <div>

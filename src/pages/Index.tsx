@@ -1,9 +1,13 @@
 import Hero from '@/components/landing/Hero';
+import TrustIndicators from '@/components/landing/TrustIndicators';
 import HowItWorks from '@/components/landing/HowItWorks';
 import ForSchools from '@/components/landing/ForSchools';
 import ForTeachers from '@/components/landing/ForTeachers';
 import ForParents from '@/components/landing/ForParents';
 import Features from '@/components/landing/Features';
+import Testimonials from '@/components/landing/Testimonials';
+import HowToStart from '@/components/landing/HowToStart';
+import Integrations from '@/components/landing/Integrations';
 import WhoIsItFor from '@/components/landing/WhoIsItFor';
 import Pricing from '@/components/landing/Pricing';
 import FAQ from '@/components/landing/FAQ';
@@ -17,11 +21,15 @@ export default function Index() {
       <Header />
       <main>
         <Hero />
+        <TrustIndicators />
         <HowItWorks />
         <ForSchools />
         <ForTeachers />
         <ForParents />
         <Features />
+        <Testimonials />
+        <HowToStart />
+        <Integrations />
         <WhoIsItFor />
         <Pricing />
         <FAQ />

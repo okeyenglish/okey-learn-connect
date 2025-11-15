@@ -10,7 +10,7 @@ export default function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/80 shadow-sm">
       <div className="container mx-auto px-4 sm:px-6">
         <div className="flex h-16 items-center justify-between">
           <Link to="/" className="flex items-center space-x-2">
@@ -51,7 +51,9 @@ export default function Header() {
               Цены
             </button>
             <Link to="/auth">
-              <Button variant="default">Войти</Button>
+              <Button variant="default" size="lg" className="shadow-md hover:shadow-lg transition-all">
+                Попробовать бесплатно
+              </Button>
             </Link>
           </nav>
 

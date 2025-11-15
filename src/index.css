@@ -45,15 +45,15 @@ img[alt*="avatar"],
     --popover-foreground: 220 15% 20%;
     
     /* === Brand Colors === */
-    --brand: 0 84% 60%;
-    --brand-600: 0 84% 52%;
-    --brand-500: 0 84% 60%;
-    --brand-100: 0 84% 96%;
+    --brand: 217 91% 60%;
+    --brand-600: 217 91% 52%;
+    --brand-500: 217 91% 60%;
+    --brand-100: 217 91% 96%;
     
     /* Primary stays same for compatibility */
-    --primary: 0 84% 60%;
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 0 84% 52%;
+    --primary-hover: 217 91% 52%;
     
     /* === Status Colors === */
     --success: 142 76% 36%;
@@ -147,14 +147,14 @@ img[alt*="avatar"],
     --popover-foreground: 220 15% 95%;
     
     /* === Brand Colors === */
-    --brand: 0 84% 60%;
-    --brand-600: 0 84% 52%;
-    --brand-500: 0 84% 60%;
-    --brand-100: 0 84% 20%;
+    --brand: 217 91% 60%;
+    --brand-600: 217 91% 52%;
+    --brand-500: 217 91% 60%;
+    --brand-100: 217 91% 20%;
     
-    --primary: 0 84% 60%;
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 0 84% 52%;
+    --primary-hover: 217 91% 52%;
     
     /* === Status Colors === */
     --success: 142 76% 45%;
