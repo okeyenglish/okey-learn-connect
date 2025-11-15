@@ -44,10 +44,10 @@ export default function Testimonials() {
   ];
 
   return (
-    <section className="py-20 bg-gradient-subtle">
+    <section id="testimonials" className="py-20 bg-gradient-subtle" aria-labelledby="testimonials-heading">
       <div className="container mx-auto px-4 sm:px-6">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
+          <h2 id="testimonials-heading" className="text-3xl md:text-4xl font-bold mb-4">
             Что говорят наши пользователи
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -77,8 +77,9 @@ export default function Testimonials() {
                 <div className="flex items-center gap-4">
                   <img 
                     src={testimonial.avatar} 
-                    alt={testimonial.name}
+                    alt={`${testimonial.name} - ${testimonial.role} в ${testimonial.company}`}
                     className="w-14 h-14 rounded-full object-cover"
+                    loading="lazy"
                   />
                   <div>
                     <div className="font-semibold">{testimonial.name}</div>

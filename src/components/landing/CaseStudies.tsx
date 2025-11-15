@@ -82,8 +82,9 @@ export default function CaseStudies() {
                   <div className="flex items-center gap-4 mb-6">
                     <img
                       src={study.logo}
-                      alt={`${study.company} logo`}
+                      alt={`Логотип ${study.company}, ${study.location}`}
                       className="w-20 h-20 rounded-xl object-cover shadow-md"
+                      loading="lazy"
                     />
                     <div>
                       <h3 className="text-2xl font-bold">{study.company}</h3>
@@ -94,8 +95,9 @@ export default function CaseStudies() {
                   <div className="flex items-start gap-4 bg-background/50 backdrop-blur-sm rounded-xl p-6 border border-border/50">
                     <img
                       src={study.directorPhoto}
-                      alt={study.director}
+                      alt={`Фото ${study.director}, директор ${study.company}`}
                       className="w-16 h-16 rounded-full object-cover shadow-md flex-shrink-0"
+                      loading="lazy"
                     />
                     <div>
                       <p className="text-lg italic mb-2">"{study.quote}"</p>

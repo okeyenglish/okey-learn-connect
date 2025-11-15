@@ -38,8 +38,9 @@ export default function VideoDemo() {
                 <div className="absolute inset-0">
                   <img
                     src="https://images.unsplash.com/photo-1551434678-e076c223a692?w=1200&h=675&fit=crop"
-                    alt="Video thumbnail"
+                    alt="Превью демо-видео платформы Академиус - интерфейс CRM системы для школ"
                     className="w-full h-full object-cover"
+                    loading="lazy"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                 </div>

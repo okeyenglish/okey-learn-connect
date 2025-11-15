@@ -1,3 +1,4 @@
+import SEO from '@/components/SEO';
 import Hero from '@/components/landing/Hero';
 import TrustIndicators from '@/components/landing/TrustIndicators';
 import ClientLogos from '@/components/landing/ClientLogos';
@@ -23,11 +24,13 @@ import FloatingChat from '@/components/landing/FloatingChat';
 
 export default function Index() {
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <StickyCTA />
-      <FloatingChat />
-      <main>
+    <>
+      <SEO />
+      <div className="min-h-screen bg-background">
+        <Header />
+        <StickyCTA />
+        <FloatingChat />
+        <main>
         <Hero />
         <TrustIndicators />
         <ClientLogos />
@@ -46,8 +49,9 @@ export default function Index() {
         <Comparison />
         <FAQ />
         <FinalCTA />
-      </main>
-      <Footer />
-    </div>
+        </main>
+        <Footer />
+      </div>
+    </>
   );
 }
