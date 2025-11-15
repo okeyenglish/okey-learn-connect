@@ -13,31 +13,91 @@ export default function Pricing() {
           </p>
 
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-card p-8 rounded-lg border border-border">
-              <h3 className="text-xl font-bold mb-2">Для школ</h3>
-              <p className="text-sm text-muted-foreground mb-6">
+            <div className="bg-card p-8 rounded-xl border border-border hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+              <h3 className="text-2xl font-bold mb-3">Для школ</h3>
+              <p className="text-muted-foreground mb-6">
                 Помесячная подписка за центр или филиал
               </p>
-              <Button className="w-full">Узнать стоимость</Button>
+              <ul className="space-y-3 mb-8 text-sm">
+                <li className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    ✓
+                  </div>
+                  <span>Полный CRM функционал</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    ✓
+                  </div>
+                  <span>Расписание и группы</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    ✓
+                  </div>
+                  <span>Финансы и отчеты</span>
+                </li>
+              </ul>
+              <Button className="w-full shadow-lg hover:shadow-xl transition-all">Узнать стоимость</Button>
             </div>
 
-            <div className="bg-card p-8 rounded-lg border-2 border-primary">
-              <div className="inline-block bg-primary text-primary-foreground text-xs px-3 py-1 rounded-full mb-4">
+            <div className="bg-gradient-to-br from-primary/10 to-primary/5 p-8 rounded-xl border-2 border-primary shadow-xl relative transform md:scale-105">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-sm font-bold px-6 py-2 rounded-full shadow-lg">
                 Популярно
               </div>
-              <h3 className="text-xl font-bold mb-2">Для педагогов</h3>
-              <p className="text-sm text-muted-foreground mb-6">
+              <h3 className="text-2xl font-bold mb-3">Для педагогов</h3>
+              <p className="text-muted-foreground mb-6">
                 Бесплатно при работе через школу на Академиус
               </p>
-              <Button className="w-full">Начать работу</Button>
+              <ul className="space-y-3 mb-8 text-sm">
+                <li className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                    ✓
+                  </div>
+                  <span>Личный кабинет</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                    ✓
+                  </div>
+                  <span>AI-помощник</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                    ✓
+                  </div>
+                  <span>Журнал и ДЗ</span>
+                </li>
+              </ul>
+              <Button className="w-full shadow-lg hover:shadow-xl transition-all">Начать работу</Button>
             </div>
 
-            <div className="bg-card p-8 rounded-lg border border-border">
-              <h3 className="text-xl font-bold mb-2">Для родителей</h3>
-              <p className="text-sm text-muted-foreground mb-6">
+            <div className="bg-card p-8 rounded-xl border border-border hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+              <h3 className="text-2xl font-bold mb-3">Для родителей</h3>
+              <p className="text-muted-foreground mb-6">
                 Бесплатно — оплачиваются только занятия
               </p>
-              <Button variant="outline" className="w-full">Скачать приложение</Button>
+              <ul className="space-y-3 mb-8 text-sm">
+                <li className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-success/10 flex items-center justify-center flex-shrink-0">
+                    ✓
+                  </div>
+                  <span>Единый дневник</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-success/10 flex items-center justify-center flex-shrink-0">
+                    ✓
+                  </div>
+                  <span>Онлайн-оплата</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-success/10 flex items-center justify-center flex-shrink-0">
+                    ✓
+                  </div>
+                  <span>Уведомления</span>
+                </li>
+              </ul>
+              <Button variant="outline" className="w-full hover:bg-primary hover:text-primary-foreground transition-all">Скачать приложение</Button>
             </div>
           </div>
 
