@@ -15,15 +15,16 @@ export default function AuthCallback() {
       if (session?.user) {
         try {
           const { data: role } = await supabase.rpc('get_user_role', { _user_id: session.user.id });
-          if (role === 'student') navigate('/student-portal', { replace: true });
-          else if (role === 'teacher') navigate('/teacher-portal', { replace: true });
-          else if (role === 'admin') navigate('/admin', { replace: true });
-          else navigate('/crm', { replace: true });
+          const roleStr = role as string;
+          if (roleStr === 'student') navigate('/student-portal', { replace: true });
+          else if (roleStr === 'teacher') navigate('/teacher-portal', { replace: true });
+          else if (roleStr === 'admin') navigate('/admin', { replace: true });
+          else if (roleStr === 'parent') navigate('/parent-portal', { replace: true });
+          else navigate('/crm/main', { replace: true });
         } catch {
-          navigate('/crm', { replace: true });
+          navigate('/crm/main', { replace: true });
         }
       } else {
-        // If no session yet, go to auth page
         navigate('/auth', { replace: true });
       }
     })();
