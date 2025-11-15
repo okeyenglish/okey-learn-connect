@@ -1,5 +1,6 @@
 import Hero from '@/components/landing/Hero';
 import TrustIndicators from '@/components/landing/TrustIndicators';
+import ClientLogos from '@/components/landing/ClientLogos';
 import HowItWorks from '@/components/landing/HowItWorks';
 import ForSchools from '@/components/landing/ForSchools';
 import ForTeachers from '@/components/landing/ForTeachers';
@@ -22,6 +23,7 @@ export default function Index() {
       <main>
         <Hero />
         <TrustIndicators />
+        <ClientLogos />
         <HowItWorks />
         <ForSchools />
         <ForTeachers />

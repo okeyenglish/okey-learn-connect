@@ -1,28 +1,13 @@
 import { Button } from '@/components/ui/button';
-import { Smartphone, BookOpen, CreditCard, Users } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 
 export default function ForParents() {
   const features = [
-    {
-      icon: Smartphone,
-      title: 'Единое приложение для обучения',
-      description: 'Расписание, предметы, преподаватели и филиалы — всё в одном месте'
-    },
-    {
-      icon: BookOpen,
-      title: 'Домашние задания и комментарии',
-      description: 'Понимание, что задают, что уже сделано, какие есть успехи и зоны роста'
-    },
-    {
-      icon: CreditCard,
-      title: 'Онлайн-оплата и напоминания',
-      description: 'Удобная оплата и уведомления, чтобы ничего не пропустить'
-    },
-    {
-      icon: Users,
-      title: 'Несколько детей и школ — один кабинет',
-      description: 'Если у ребёнка несколько кружков/центров, Академиус собирает всё в едином семейном профиле'
-    }
+    { pain: '❌ Не знаете, что происходит на занятиях?', solution: '✅ Комментарии педагога и прогресс ребенка в реальном времени', metric: 'Полная прозрачность', icon: CheckCircle2 },
+    { pain: '❌ Забываете про домашние задания?', solution: '✅ ДЗ автоматически приходит в приложение с уведомлениями', metric: 'Всё под контролем', icon: CheckCircle2 },
+    { pain: '❌ Звоните в школу, чтобы узнать расписание?', solution: '✅ Актуальное расписание всегда в телефоне', metric: 'Никаких звонков', icon: CheckCircle2 },
+    { pain: '❌ Несколько детей в разных школах — хаос?', solution: '✅ Один семейный кабинет для всех детей и школ', metric: 'Порядок во всем', icon: CheckCircle2 },
+    { pain: '❌ Забываете оплатить занятия вовремя?', solution: '✅ Онлайн-оплата и напоминания о просрочках', metric: 'Удобно и быстро', icon: CheckCircle2 }
   ];
 
   return (
@@ -33,40 +18,37 @@ export default function ForParents() {
             <div className="inline-flex items-center gap-2 bg-primary/10 px-4 py-2 rounded-full mb-4">
               <span className="text-sm font-medium text-primary">Для семей</span>
             </div>
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              Для родителей и семей
-            </h2>
+            <h2 className="text-4xl md:text-5xl font-bold mb-6">Для родителей и семей</h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Академиус превращает занятия ребёнка в понятный путь: виден прогресс, расписание и оплата — 
-              без потока сообщений в мессенджерах
+              Академиус превращает занятия ребёнка в понятный путь: виден прогресс, расписание и оплата — без потока сообщений в мессенджерах
             </p>
           </div>
-
-          <div className="grid md:grid-cols-2 gap-6 mb-12">
+          <div className="space-y-4 mb-12">
             {features.map((feature, index) => {
               const Icon = feature.icon;
               return (
-                <div 
-                  key={index} 
-                  className="bg-card p-8 rounded-xl border border-border hover:shadow-xl hover:border-primary/50 transition-all duration-300 group hover:-translate-y-1"
-                >
-                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-success/20 to-success/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <Icon className="h-7 w-7 text-success" />
+                <div key={index} className="bg-card p-6 rounded-xl border border-border hover:shadow-xl hover:border-primary/50 transition-all duration-300 group">
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                      <Icon className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm text-muted-foreground mb-2">{feature.pain}</p>
+                      <p className="font-semibold mb-2 group-hover:text-primary transition-colors">{feature.solution}</p>
+                      <span className="inline-block text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium">{feature.metric}</span>
+                    </div>
                   </div>
-                  <h3 className="text-lg font-bold mb-3 group-hover:text-primary transition-colors">{feature.title}</h3>
-                  <p className="text-muted-foreground">{feature.description}</p>
                 </div>
               );
             })}
           </div>
-
-          <div className="text-center bg-gradient-to-r from-success/10 via-success/5 to-success/10 p-8 rounded-2xl border border-success/20">
-            <Button size="lg" className="text-lg px-8 py-6 bg-success hover:bg-success-600 shadow-lg hover:shadow-xl hover:scale-105 transition-all">
-              Узнать о приложении для родителей
-            </Button>
-            <p className="text-sm text-muted-foreground mt-4 max-w-xl mx-auto">
-              Покажем, как будет выглядеть обучение вашего ребенка в Академиус
-            </p>
+          <div className="bg-gradient-subtle p-8 rounded-2xl border border-border">
+            <div className="max-w-2xl mx-auto text-center">
+              <Button size="lg" className="text-lg px-8 py-6 bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl hover:scale-105 transition-all mb-4">
+                Узнать о приложении для родителей
+              </Button>
+              <p className="text-sm text-muted-foreground">Покажем, как будет выглядеть обучение вашего ребенка в Академиус</p>
+            </div>
           </div>
         </div>
       </div>

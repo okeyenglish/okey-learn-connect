@@ -1,100 +1,97 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Users, GraduationCap, Heart } from 'lucide-react';
+import { ArrowRight, Play } from 'lucide-react';
+import HeroImage from './HeroImage';
+import DemoModal from './DemoModal';
+import VideoModal from './VideoModal';
+
+const scrollToSection = (id: string) => {
+  const element = document.getElementById(id);
+  if (element) {
+    element.scrollIntoView({ behavior: 'smooth' });
+  }
+};
 
 export default function Hero() {
-  const scrollToSection = (id: string) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
+  const [isDemoOpen, setIsDemoOpen] = useState(false);
+  const [isVideoOpen, setIsVideoOpen] = useState(false);
 
   return (
-    <section className="relative py-24 md:py-32 overflow-hidden">
-      {/* Animated background */}
+    <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden py-20">
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-primary/5" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(59,130,246,0.1),transparent_50%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_60%,rgba(139,92,246,0.08),transparent_50%)]" />
+      <div className="absolute inset-0 bg-grid-pattern opacity-[0.02]" />
       
-      <div className="container mx-auto px-4 sm:px-6 relative z-10">
-        <div className="text-center max-w-5xl mx-auto">
-          {/* Trust badge */}
-          <div className="inline-flex items-center gap-2 bg-success/10 text-success px-4 py-2 rounded-full mb-6 text-sm font-medium animate-fade-in">
-            ✓ Более 500 школ уже используют Академиус
+      <div className="container relative mx-auto px-4 sm:px-6">
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div className="text-left">
+            <div className="inline-flex items-center gap-2 bg-primary/10 px-4 py-2 rounded-full mb-8">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+              </span>
+              <span className="text-sm font-semibold text-primary">✓ Более 500 школ уже используют Академиус</span>
+            </div>
+
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
+              Прекратите терять учеников и деньги в таблицах Excel
+            </h1>
+
+            <p className="text-lg md:text-xl text-muted-foreground mb-8">
+              Академиус — CRM для школ, которая экономит 20+ часов в месяц на рутине и увеличивает конверсию заявок на 40%
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-4 mb-8">
+              <Button 
+                size="lg" 
+                className="text-lg px-8 py-6 bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                onClick={() => setIsDemoOpen(true)}
+              >
+                Получить демо за 15 минут
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+              <Button 
+                size="lg" 
+                variant="outline"
+                className="text-lg px-8 py-6"
+                onClick={() => setIsVideoOpen(true)}
+              >
+                <Play className="mr-2 h-5 w-5" />
+                Посмотреть видео (2 мин)
+              </Button>
+            </div>
+
+            <div className="flex flex-wrap gap-3 text-sm">
+              <button 
+                onClick={() => scrollToSection('for-schools')}
+                className="text-muted-foreground hover:text-primary transition-colors underline"
+              >
+                Для школ
+              </button>
+              <span className="text-muted-foreground">•</span>
+              <button 
+                onClick={() => scrollToSection('for-teachers')}
+                className="text-muted-foreground hover:text-primary transition-colors underline"
+              >
+                Для педагогов
+              </button>
+              <span className="text-muted-foreground">•</span>
+              <button 
+                onClick={() => scrollToSection('for-parents')}
+                className="text-muted-foreground hover:text-primary transition-colors underline"
+              >
+                Для родителей
+              </button>
+            </div>
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-            <span className="bg-gradient-to-r from-primary via-purple-600 to-primary bg-clip-text text-transparent">
-              CRM и суперприложение
-            </span>
-            <br />
-            <span className="text-foreground">для образования</span>
-          </h1>
-          
-          <p className="text-xl md:text-2xl text-muted-foreground mb-12 leading-relaxed max-w-3xl mx-auto">
-            Академиус объединяет управление школой, работу преподавателя и прогресс ребёнка в одной системе — от первого звонка до результата на занятиях
-          </p>
-
-          <div className="flex flex-wrap justify-center gap-4 mb-16">
-            <Button 
-              size="lg" 
-              onClick={() => scrollToSection('for-schools')}
-              className="text-lg px-8 py-6 shadow-lg hover:shadow-xl hover:scale-105 transition-all"
-            >
-              <Users className="mr-2 h-5 w-5" />
-              Я — школа
-            </Button>
-            <Button 
-              size="lg" 
-              variant="outline" 
-              onClick={() => scrollToSection('for-teachers')}
-              className="text-lg px-8 py-6 hover:bg-primary hover:text-primary-foreground transition-all"
-            >
-              <GraduationCap className="mr-2 h-5 w-5" />
-              Я — педагог
-            </Button>
-            <Button 
-              size="lg" 
-              variant="outline" 
-              onClick={() => scrollToSection('for-parents')}
-              className="text-lg px-8 py-6 hover:bg-primary hover:text-primary-foreground transition-all"
-            >
-              <Heart className="mr-2 h-5 w-5" />
-              Я — родитель
-            </Button>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8 text-left">
-            <div className="bg-card p-8 rounded-xl border border-border hover:shadow-xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-1">
-              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                <Users className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="text-xl font-bold mb-3">Школам</h3>
-              <p className="text-muted-foreground">
-                CRM, расписание, финансы и отчеты
-              </p>
-            </div>
-            <div className="bg-card p-8 rounded-xl border border-border hover:shadow-xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-1">
-              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                <GraduationCap className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="text-xl font-bold mb-3">Педагогам</h3>
-              <p className="text-muted-foreground">
-                Удобный кабинет и AI-ассистент
-              </p>
-            </div>
-            <div className="bg-card p-8 rounded-xl border border-border hover:shadow-xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-1">
-              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                <Heart className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="text-xl font-bold mb-3">Родителям</h3>
-              <p className="text-muted-foreground">
-                Одно приложение для всех кружков и оплат
-              </p>
-            </div>
+          <div className="hidden lg:block">
+            <HeroImage />
           </div>
         </div>
       </div>
+
+      <DemoModal open={isDemoOpen} onOpenChange={setIsDemoOpen} />
+      <VideoModal open={isVideoOpen} onOpenChange={setIsVideoOpen} />
     </section>
   );
 }

@@ -1,33 +1,23 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { CheckCircle2 } from 'lucide-react';
 
 export default function FinalCTA() {
   const { toast } = useToast();
-  const [formData, setFormData] = useState({
-    role: '',
-    name: '',
-    contact: '',
-    email: '',
-    comment: ''
-  });
+  const [formData, setFormData] = useState({ name: '', email: '', role: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Заявка отправлена!",
-      description: "Мы свяжемся с вами в ближайшее время",
-    });
-    setFormData({ role: '', name: '', contact: '', email: '', comment: '' });
+    setIsSubmitting(true);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    toast({ title: "Заявка отправлена!", description: "Мы свяжемся с вами в течение 15 минут в рабочее время." });
+    setFormData({ name: '', email: '', role: '' });
+    setIsSubmitting(false);
   };
 
   return (
@@ -40,58 +30,40 @@ export default function FinalCTA() {
           <p className="text-xl text-white/90 mb-12">
             Оставьте заявку — мы разберем ваш текущий процесс и покажем, как его собрать в одну систему
           </p>
-
-          <form onSubmit={handleSubmit} className="space-y-4 bg-white p-8 rounded-2xl shadow-2xl">
-            <Select
-              value={formData.role}
-              onValueChange={(value) => setFormData({ ...formData, role: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Выберите вашу роль" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="school">Школа / Учебный центр</SelectItem>
-                <SelectItem value="teacher">Педагог</SelectItem>
-                <SelectItem value="parent">Родитель</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <div className="grid md:grid-cols-2 gap-4">
-              <Input
-                placeholder="Ваше имя"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-                className="text-base"
-              />
-
-              <Input
-                type="email"
-                placeholder="E-mail"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
-                className="text-base"
-              />
-            </div>
-
-            <Input
-              placeholder="Телефон / WhatsApp"
-              value={formData.contact}
-              onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
-              required
-              className="text-base"
-            />
-
-            <Button type="submit" size="lg" className="w-full text-lg py-6 bg-success hover:bg-success-600 shadow-lg hover:shadow-xl transition-all">
-              Получить демо бесплатно
-            </Button>
-
-            <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
-              <span className="inline-block w-2 h-2 rounded-full bg-success animate-pulse"></span>
-              Ответим за 15 минут • Настроим за 1 день
-            </p>
-          </form>
+          <div className="max-w-md mx-auto bg-card p-8 rounded-2xl border border-border shadow-xl">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="name">Ваше имя *</Label>
+                <Input id="name" placeholder="Иван Иванов" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email *</Label>
+                <Input id="email" type="email" placeholder="ivan@school.ru" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="role">Ваша роль *</Label>
+                <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })} required>
+                  <SelectTrigger><SelectValue placeholder="Выберите роль" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="school">Директор школы</SelectItem>
+                    <SelectItem value="admin">Администратор</SelectItem>
+                    <SelectItem value="teacher">Преподаватель</SelectItem>
+                    <SelectItem value="other">Другое</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="submit" size="lg" className="w-full text-lg bg-green-600 hover:bg-green-700" disabled={isSubmitting}>
+                {isSubmitting ? 'Отправка...' : 'Получить бесплатную консультацию'}
+              </Button>
+              <div className="text-center space-y-2">
+                <div className="flex items-center justify-center gap-2 text-green-600">
+                  <CheckCircle2 className="h-5 w-5" />
+                  <span className="text-sm font-medium">Ответим за 15 минут в рабочее время</span>
+                </div>
+                <p className="text-xs text-muted-foreground">Никакого спама. Только полезные материалы.</p>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     </section>
