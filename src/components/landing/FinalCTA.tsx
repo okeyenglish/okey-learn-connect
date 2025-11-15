@@ -42,7 +42,7 @@ export default function FinalCTA() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="role">Ваша роль *</Label>
-                <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })} required>
+                <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
                   <SelectTrigger><SelectValue placeholder="Выберите роль" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="school">Директор школы</SelectItem>
@@ -52,7 +52,12 @@ export default function FinalCTA() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button type="submit" size="lg" className="w-full text-lg bg-green-600 hover:bg-green-700" disabled={isSubmitting}>
+              <Button 
+                type="submit" 
+                size="lg" 
+                className="w-full text-lg bg-green-600 hover:bg-green-700" 
+                disabled={isSubmitting || !formData.name || !formData.email || !formData.role}
+              >
                 {isSubmitting ? 'Отправка...' : 'Получить бесплатную консультацию'}
               </Button>
               <div className="text-center space-y-2">

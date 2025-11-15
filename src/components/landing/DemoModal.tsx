@@ -108,9 +108,9 @@ export default function DemoModal({ open, onOpenChange }: DemoModalProps) {
 
               <Button 
                 type="submit" 
+                size="lg" 
                 className="w-full" 
-                size="lg"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !formData.name || !formData.email || !formData.role}
               >
                 {isSubmitting ? 'Отправка...' : 'Получить бесплатную консультацию'}
               </Button>
