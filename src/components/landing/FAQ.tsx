@@ -30,10 +30,10 @@ export default function FAQ() {
   ];
 
   return (
-    <section className="py-20 bg-background">
+    <section id="faq" className="py-20 bg-background" aria-labelledby="faq-heading">
       <div className="container mx-auto px-4 sm:px-6">
         <div className="max-w-3xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">
+          <h2 id="faq-heading" className="text-3xl md:text-4xl font-bold mb-12 text-center">
             Частые вопросы
           </h2>
 
