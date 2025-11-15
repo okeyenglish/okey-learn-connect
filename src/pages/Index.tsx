@@ -16,12 +16,14 @@ import FinalCTA from '@/components/landing/FinalCTA';
 import Header from '@/components/landing/Header';
 import Footer from '@/components/landing/Footer';
 import StickyCTA from '@/components/landing/StickyCTA';
+import FloatingChat from '@/components/landing/FloatingChat';
 
 export default function Index() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <StickyCTA />
+      <FloatingChat />
       <main>
         <Hero />
         <TrustIndicators />
