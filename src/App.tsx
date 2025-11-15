@@ -9,11 +9,13 @@ import { queryConfig } from "@/lib/queryConfig";
 import { lazy, Suspense } from "react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
-// Lazy load CRM and admin pages
+// Lazy load pages
+const Index = lazy(() => import("./pages/Index"));
 const Admin = lazy(() => import("./pages/Admin"));
 const UnifiedCRM = lazy(() => import("./pages/UnifiedCRM"));
 const StudentPortal = lazy(() => import("./pages/StudentPortal"));
 const TeacherPortal = lazy(() => import("./pages/TeacherPortal"));
+const ParentPortal = lazy(() => import("./pages/ParentPortal"));
 const GroupDetailView = lazy(() => import("./components/teacher/GroupDetailView"));
 const OnlineLesson = lazy(() => import("./pages/OnlineLesson"));
 const Auth = lazy(() => import("./pages/Auth"));
@@ -75,8 +77,12 @@ const AppContent = () => {
 
   return (
     <Routes>
-      {/* Redirect root to CRM */}
-      <Route path="/" element={<Navigate to="/crm/main" replace />} />
+      {/* Landing page */}
+      <Route path="/" element={
+        <Suspense fallback={<LoadingComponent />}>
+          <Index />
+        </Suspense>
+      } />
       
       {/* CRM Routes */}
       <Route path="/crm/*" element={
@@ -118,6 +124,13 @@ const AppContent = () => {
       <Route path="/register/teacher/:token" element={
         <Suspense fallback={<LoadingComponent />}>
           <TeacherRegistration />
+        </Suspense>
+      } />
+      
+      {/* Portals */}
+      <Route path="/parent-portal" element={
+        <Suspense fallback={<LoadingComponent />}>
+          <ParentPortal />
         </Suspense>
       } />
       
