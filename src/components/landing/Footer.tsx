@@ -3,12 +3,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send } from 'lucide-react';
 import { useState } from 'react';
+import usePageAnalytics from '@/hooks/usePageAnalytics';
 
 export default function Footer() {
   const [email, setEmail] = useState('');
+  const { trackFormSubmit } = usePageAnalytics();
 
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
+    trackFormSubmit('newsletter_footer');
     // Здесь будет логика подписки на newsletter
     console.log('Subscribe:', email);
     setEmail('');

@@ -1,7 +1,11 @@
 import { MessageCircle } from 'lucide-react';
+import usePageAnalytics from '@/hooks/usePageAnalytics';
 
 export default function FloatingChat() {
+  const { trackCTA } = usePageAnalytics();
+
   const handleWhatsAppClick = () => {
+    trackCTA('whatsapp_floating', 'floating_button');
     const phoneNumber = '79161234567'; // Замените на реальный номер
     const message = encodeURIComponent('Здравствуйте! Хочу узнать подробнее про Академиус');
     window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
