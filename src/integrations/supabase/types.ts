@@ -814,7 +814,9 @@ export type Database = {
       }
       branch_photos: {
         Row: {
+          alt_text: string | null
           branch_id: string
+          caption: string | null
           created_at: string
           id: string
           image_url: string
@@ -824,7 +826,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          alt_text?: string | null
           branch_id: string
+          caption?: string | null
           created_at?: string
           id?: string
           image_url: string
@@ -834,7 +838,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          alt_text?: string | null
           branch_id?: string
+          caption?: string | null
           created_at?: string
           id?: string
           image_url?: string
@@ -844,13 +850,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "branch_photos_branch_id_fkey"
-            columns: ["branch_id"]
-            isOneToOne: false
-            referencedRelation: "organization_branches"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "branch_photos_organization_id_fkey"
             columns: ["organization_id"]
@@ -4706,6 +4705,81 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      placement_test_results: {
+        Row: {
+          accuracy_percent: number | null
+          age_or_grade: string | null
+          answers: Json
+          completed_at: string
+          correct_answers: number
+          created_at: string | null
+          email: string | null
+          final_level: string
+          id: string
+          ip_address: string | null
+          name: string
+          phone: string | null
+          started_at: string
+          status: string
+          time_spent_seconds: number
+          total_questions: number
+          track: string
+          updated_at: string | null
+          user_agent: string | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+        }
+        Insert: {
+          accuracy_percent?: number | null
+          age_or_grade?: string | null
+          answers?: Json
+          completed_at: string
+          correct_answers: number
+          created_at?: string | null
+          email?: string | null
+          final_level: string
+          id?: string
+          ip_address?: string | null
+          name: string
+          phone?: string | null
+          started_at: string
+          status?: string
+          time_spent_seconds: number
+          total_questions: number
+          track: string
+          updated_at?: string | null
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Update: {
+          accuracy_percent?: number | null
+          age_or_grade?: string | null
+          answers?: Json
+          completed_at?: string
+          correct_answers?: number
+          created_at?: string | null
+          email?: string | null
+          final_level?: string
+          id?: string
+          ip_address?: string | null
+          name?: string
+          phone?: string | null
+          started_at?: string
+          status?: string
+          time_spent_seconds?: number
+          total_questions?: number
+          track?: string
+          updated_at?: string | null
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
         }
         Relationships: []
       }

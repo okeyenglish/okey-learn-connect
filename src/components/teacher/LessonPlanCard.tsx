@@ -3,7 +3,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Clock, Target, FileText, Home, BookOpen, Music, Video, Gamepad2 } from "lucide-react";
-import { getLessonInfoByNumber } from "@/pages/programs/KidsBox1";
 import { useCourseUnitsWithLessons, getLessonByCourseAndNumber } from "@/hooks/useCourseUnitsWithLessons";
 
 interface LessonPlanCardProps {
@@ -15,7 +14,6 @@ interface LessonPlanCardProps {
 
 export function LessonPlanCard({ lessonNumber, groupName, level, subject }: LessonPlanCardProps) {
   // Определяем курс для получения данных
-  const isKidsBox1 = subject === "Английский" && level === "Kid's Box 1";
   const isSuperSafari = subject === "Английский" && (level === "Super Safari 1" || level === "Super Safari");
   
   // Получаем данные для Super Safari из базы данных
@@ -26,23 +24,7 @@ export function LessonPlanCard({ lessonNumber, groupName, level, subject }: Less
   // Получаем информацию об уроке
   let lessonInfo = null;
   
-  if (isKidsBox1 && lessonNumber) {
-    // Для Kid's Box 1 используем статические данные
-    const kidsBoxLesson = getLessonInfoByNumber(lessonNumber);
-    if (kidsBoxLesson) {
-      lessonInfo = {
-        title: kidsBoxLesson.title,
-        unit: kidsBoxLesson.unit,
-        objectives: kidsBoxLesson.goals,
-        homework: kidsBoxLesson.homework,
-        materials: kidsBoxLesson.materials,
-        lesson_structure: Object.entries(kidsBoxLesson.structure)
-          .map(([time, activity]) => `${time}: ${activity}`)
-          .join('; '),
-        date: kidsBoxLesson.date
-      };
-    }
-  } else if (isSuperSafari && lessonNumber && superSafariUnits) {
+  if (isSuperSafari && lessonNumber && superSafariUnits) {
     // Для Super Safari получаем данные из базы
     const dbLesson = getLessonByCourseAndNumber(superSafariUnits, lessonNumber);
     if (dbLesson) {
@@ -65,7 +47,7 @@ export function LessonPlanCard({ lessonNumber, groupName, level, subject }: Less
           <p className="text-sm text-muted-foreground text-center">
             {isSuperSafari ? 
               'Загружаем план урока Super Safari...' :
-              'Планирование доступно для курсов Kid\'s Box 1 и Super Safari'
+              'Планирование доступно для курса Super Safari'
             }
           </p>
         </CardContent>
@@ -177,19 +159,9 @@ export function LessonPlanCard({ lessonNumber, groupName, level, subject }: Less
                     Поминутная структура урока:
                   </h4>
                   <div className="space-y-3">
-                    {isKidsBox1 && typeof lessonInfo.lesson_structure === 'object' ? 
-                      Object.entries(lessonInfo.lesson_structure).map(([timeRange, activity]) => (
-                        <div key={timeRange} className="flex gap-3 p-3 border rounded-lg">
-                          <Badge variant="secondary" className="min-w-[5rem] justify-center">
-                            {timeRange}′
-                          </Badge>
-                          <p className="text-sm">{String(activity)}</p>
-                        </div>
-                      )) :
-                      <div className="p-3 border rounded-lg">
-                        <p className="text-sm whitespace-pre-line">{lessonInfo.lesson_structure}</p>
-                      </div>
-                    }
+                    <div className="p-3 border rounded-lg">
+                      <p className="text-sm whitespace-pre-line">{String(lessonInfo.lesson_structure)}</p>
+                    </div>
                   </div>
                 </div>
               )}
