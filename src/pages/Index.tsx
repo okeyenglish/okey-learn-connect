@@ -1,4 +1,5 @@
 import SEO from '@/components/SEO';
+import { useSmoothScroll } from '@/hooks/useSmoothScroll';
 import Hero from '@/components/landing/Hero';
 import TrustIndicators from '@/components/landing/TrustIndicators';
 import ClientLogos from '@/components/landing/ClientLogos';
@@ -21,8 +22,11 @@ import Header from '@/components/landing/Header';
 import Footer from '@/components/landing/Footer';
 import StickyCTA from '@/components/landing/StickyCTA';
 import FloatingChat from '@/components/landing/FloatingChat';
+import ScrollToTop from '@/components/landing/ScrollToTop';
 
 export default function Index() {
+  useSmoothScroll();
+
   return (
     <>
       <SEO />
@@ -30,6 +34,7 @@ export default function Index() {
         <Header />
         <StickyCTA />
         <FloatingChat />
+        <ScrollToTop />
         <main>
         <Hero />
         <TrustIndicators />
