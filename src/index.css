@@ -26,9 +26,9 @@ img[alt*="avatar"],
   :root {
     /* === Surfaces & Backgrounds === */
     --bg: 0 0% 100%;
-    --bg-soft: 220 20% 98%;
+    --bg-soft: 210 20% 98%;
     --surface: 0 0% 100%;
-    --surface-alt: 220 20% 97%;
+    --surface-alt: 210 20% 97%;
     
     /* Backward compatibility */
     --background: 0 0% 100%;
@@ -36,55 +36,55 @@ img[alt*="avatar"],
     --popover: 0 0% 100%;
     
     /* === Text Colors === */
-    --text-primary: 220 15% 20%;
-    --text-secondary: 220 10% 45%;
-    --text-muted: 220 8% 60%;
+    --text-primary: 215 20% 25%;
+    --text-secondary: 215 15% 45%;
+    --text-muted: 215 10% 55%;
     
-    --foreground: 220 15% 20%;
-    --card-foreground: 220 15% 20%;
-    --popover-foreground: 220 15% 20%;
+    --foreground: 215 20% 25%;
+    --card-foreground: 215 20% 25%;
+    --popover-foreground: 215 20% 25%;
     
-    /* === Brand Colors === */
-    --brand: 217 91% 60%;
-    --brand-600: 217 91% 52%;
-    --brand-500: 217 91% 60%;
-    --brand-100: 217 91% 96%;
+    /* === Brand Colors - Softer, more modern === */
+    --brand: 212 85% 58%;
+    --brand-600: 212 85% 50%;
+    --brand-500: 212 85% 58%;
+    --brand-100: 212 85% 96%;
     
     /* Primary stays same for compatibility */
-    --primary: 217 91% 60%;
+    --primary: 212 85% 58%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 217 91% 52%;
+    --primary-hover: 212 85% 50%;
     
-    /* === Status Colors === */
-    --success: 142 76% 36%;
-    --success-600: 142 76% 36%;
-    --success-100: 142 76% 95%;
+    /* === Status Colors - Softer, more approachable === */
+    --success: 152 69% 42%;
+    --success-600: 152 69% 42%;
+    --success-100: 152 69% 95%;
     
-    --warning: 38 92% 50%;
-    --warning-600: 38 92% 50%;
-    --warning-100: 38 92% 95%;
+    --warning: 38 85% 55%;
+    --warning-600: 38 85% 55%;
+    --warning-100: 38 85% 95%;
     
-    --danger: 0 84% 60%;
-    --danger-600: 0 84% 60%;
-    --danger-100: 0 84% 96%;
+    --danger: 0 72% 58%;
+    --danger-600: 0 72% 58%;
+    --danger-100: 0 72% 96%;
     
-    --info: 217 91% 60%;
-    --info-600: 217 91% 60%;
-    --info-100: 217 91% 96%;
+    --info: 212 85% 58%;
+    --info-600: 212 85% 58%;
+    --info-100: 212 85% 96%;
     
-    --neutral: 220 10% 50%;
-    --neutral-500: 220 10% 50%;
-    --neutral-100: 220 10% 95%;
+    --neutral: 215 12% 50%;
+    --neutral-500: 215 12% 50%;
+    --neutral-100: 215 12% 95%;
     
     /* === Secondary & Accent === */
-    --secondary: 220 20% 96%;
-    --secondary-foreground: 220 15% 20%;
+    --secondary: 210 20% 96%;
+    --secondary-foreground: 215 20% 25%;
     
-    --accent: 220 15% 94%;
-    --accent-foreground: 220 15% 20%;
+    --accent: 210 20% 94%;
+    --accent-foreground: 215 20% 25%;
     
-    --muted: 220 15% 96%;
-    --muted-foreground: 220 10% 45%;
+    --muted: 210 18% 96%;
+    --muted-foreground: 215 15% 45%;
     
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
