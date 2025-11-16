@@ -22,6 +22,42 @@ img[alt*="avatar"],
 
 /* O'KEY ENGLISH Design System - All colors MUST be HSL */
 
+/* Ripple Effect */
+@keyframes ripple {
+  0% { transform: scale(0); opacity: 1; }
+  100% { transform: scale(4); opacity: 0; }
+}
+
+/* Particle Burst */
+@keyframes burst {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+}
+
+.animate-burst {
+  animation: burst 1s ease-out forwards;
+}
+
+/* Hover Scale */
+.hover-scale {
+  transition: all 0.3s ease;
+}
+
+.hover-scale:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 20px 60px rgba(99, 102, 241, 0.3);
+}
+
+/* Scale In Animation */
+@keyframes scale-in {
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.3s ease-out;
+}
+
 @layer base {
   :root {
     /* === Surfaces & Backgrounds === */
