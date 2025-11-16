@@ -100,6 +100,13 @@ export default {
           blue: "hsl(var(--glow-blue))",
           pink: "hsl(var(--glow-pink))",
         },
+        category: {
+          crm: "hsl(var(--category-crm))",
+          finance: "hsl(var(--category-finance))",
+          education: "hsl(var(--category-education))",
+          tech: "hsl(var(--category-tech))",
+          parent: "hsl(var(--category-parent))",
+        },
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",

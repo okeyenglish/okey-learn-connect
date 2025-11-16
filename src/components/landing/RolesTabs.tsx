@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, AlertCircle, TrendingUp, Clock, Zap, Target } from 'lucide-react';
 
 type Role = 'schools' | 'teachers' | 'parents';
 
@@ -133,33 +133,71 @@ export default function RolesTabs() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-16 mb-20">
-            <div className="space-y-10">
-              <h3 className="text-2xl font-semibold text-muted-foreground">Было</h3>
+          <div className="grid md:grid-cols-2 gap-8 mb-20">
+            {/* Pain Points */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 mb-8">
+                <AlertCircle className="h-8 w-8 text-red-500" />
+                <h3 className="text-2xl font-bold text-foreground">Было</h3>
+              </div>
               {content.features.map((feature, index) => (
-                <p key={index} className="text-muted-foreground text-xl leading-relaxed">{feature.pain}</p>
+                <div 
+                  key={index} 
+                  className="comparison-card bg-red-50 dark:bg-red-950/20 border-l-4 border-red-500 animate-fade-in"
+                  style={{ 
+                    animationDelay: `${index * 100}ms`,
+                    color: 'hsl(0, 72%, 58%)'
+                  }}
+                >
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 flex-shrink-0 mt-1 text-red-500" />
+                    <p className="text-lg text-foreground leading-relaxed">{feature.pain}</p>
+                  </div>
+                </div>
               ))}
             </div>
-            <div className="space-y-10">
-              <h3 className="text-2xl font-semibold">Стало с Академиус</h3>
+
+            {/* Solutions */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 mb-8">
+                <CheckCircle2 className="h-8 w-8 text-green-500" />
+                <h3 className="text-2xl font-bold text-foreground">Стало с Академиус</h3>
+              </div>
               {content.features.map((feature, index) => (
-                <div key={index} className="space-y-3">
-                  <div className="flex items-start gap-4">
-                    <CheckCircle2 className="h-6 w-6 text-success flex-shrink-0 mt-1" />
-                    <p className="text-xl leading-relaxed">{feature.solution}</p>
+                <div 
+                  key={index} 
+                  className="comparison-card bg-green-50 dark:bg-green-950/20 border-l-4 border-green-500 space-y-3 animate-fade-in"
+                  style={{ 
+                    animationDelay: `${index * 150}ms`,
+                    color: 'hsl(152, 69%, 42%)'
+                  }}
+                >
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0 mt-1" />
+                    <p className="text-lg text-foreground leading-relaxed">{feature.solution}</p>
                   </div>
-                  <p className="text-base font-semibold text-success ml-10">{feature.metric}</p>
+                  <div className="flex items-center gap-2 ml-8">
+                    <TrendingUp className="h-4 w-4 text-green-600" />
+                    <p className="text-base font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                      {feature.metric}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="bg-accent/50 p-12 rounded-3xl border border-border/50">
-            <div className="max-w-2xl mx-auto text-center space-y-4">
-              <Button size="lg" className="text-lg px-10 py-7 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/25 transition-all">
+          <div className="glass-card p-12 rounded-3xl border-2 border-primary/20 shadow-2xl relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="max-w-2xl mx-auto text-center space-y-6 relative z-10">
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <Zap className="h-8 w-8 text-primary" />
+                <Target className="h-8 w-8 text-primary" />
+              </div>
+              <Button size="lg" className="glow-button text-lg px-12 py-8 bg-gradient-to-r from-primary via-purple-600 to-pink-600 hover:shadow-2xl transition-all duration-300">
                 {content.cta.text}
               </Button>
-              <p className="text-base text-muted-foreground">{content.cta.description}</p>
+              <p className="text-base text-muted-foreground font-medium">{content.cta.description}</p>
             </div>
           </div>
         </div>

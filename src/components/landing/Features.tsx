@@ -8,52 +8,72 @@ export default function Features() {
     { 
       icon: Users, 
       title: 'CRM и воронка продаж',
-      description: 'Собирайте заявки из всех каналов и ведите их до покупки'
+      description: 'Собирайте заявки из всех каналов и ведите их до покупки',
+      category: 'crm',
+      gradient: 'from-[hsl(var(--category-crm))] to-[hsl(var(--accent-purple))]'
     },
     { 
       icon: Database, 
       title: 'База учеников и семей',
-      description: 'Вся информация о клиентах в одном месте'
+      description: 'Вся информация о клиентах в одном месте',
+      category: 'crm',
+      gradient: 'from-[hsl(var(--category-crm))] to-[hsl(var(--accent-pink))]'
     },
     { 
       icon: Calendar, 
       title: 'Расписание и посещаемость',
-      description: 'Отмечайте присутствие одним кликом'
+      description: 'Отмечайте присутствие одним кликом',
+      category: 'education',
+      gradient: 'from-[hsl(var(--category-education))] to-[hsl(var(--accent-cyan))]'
     },
     { 
       icon: FileText, 
       title: 'Домашние задания и материалы',
-      description: 'Выдавайте ДЗ и делитесь материалами с учениками'
+      description: 'Выдавайте ДЗ и делитесь материалами с учениками',
+      category: 'education',
+      gradient: 'from-[hsl(var(--category-education))] to-[hsl(var(--glow-blue))]'
     },
     { 
       icon: DollarSign, 
       title: 'Финансы и выручка',
-      description: 'Видите деньги в реальном времени по всем филиалам'
+      description: 'Видите деньги в реальном времени по всем филиалам',
+      category: 'finance',
+      gradient: 'from-[hsl(var(--category-finance))] to-emerald-500'
     },
     { 
       icon: CreditCard, 
       title: 'Начисление зарплат',
-      description: 'Автоматический расчет зарплат преподавателей'
+      description: 'Автоматический расчет зарплат преподавателей',
+      category: 'finance',
+      gradient: 'from-[hsl(var(--category-finance))] to-green-500'
     },
     { 
       icon: GraduationCap, 
       title: 'Личный кабинет педагога',
-      description: 'Всё для работы в одном месте'
+      description: 'Всё для работы в одном месте',
+      category: 'education',
+      gradient: 'from-[hsl(var(--category-education))] to-[hsl(var(--brand))]'
     },
     { 
       icon: Smartphone, 
       title: 'Приложение для родителей',
-      description: 'Прогресс ребёнка и оплата в приложении'
+      description: 'Прогресс ребёнка и оплата в приложении',
+      category: 'parent',
+      gradient: 'from-[hsl(var(--category-parent))] to-[hsl(var(--accent-pink))]'
     },
     { 
       icon: Sparkles, 
       title: 'AI-инструменты для контента',
-      description: 'Генерация планов уроков и упражнений'
+      description: 'Генерация планов уроков и упражнений',
+      category: 'tech',
+      gradient: 'from-[hsl(var(--category-tech))] to-amber-500'
     },
     { 
       icon: Plug, 
       title: 'Интеграции',
-      description: 'Телефония, мессенджеры, платёжные системы'
+      description: 'Телефония, мессенджеры, платёжные системы',
+      category: 'tech',
+      gradient: 'from-[hsl(var(--category-tech))] to-orange-500'
     }
   ];
 
@@ -76,19 +96,36 @@ export default function Features() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-6 max-w-6xl mx-auto">
           {features.map((feature, index) => {
             const Icon = feature.icon;
+            const categoryColor = `hsl(var(--category-${feature.category}))`;
             return (
               <div 
                 key={index} 
-                className="bg-card p-6 rounded-xl border border-border text-center hover:shadow-xl hover:border-primary/50 hover:-translate-y-2 transition-all duration-300 group cursor-pointer relative overflow-hidden animate-fade-in"
-                style={{ animationDelay: `${index * 50}ms` }}
+                className="feature-card glass-card p-6 rounded-xl border border-border/50 text-center cursor-pointer animate-fade-in group"
+                style={{ 
+                  animationDelay: `${index * 50}ms`,
+                  color: categoryColor
+                }}
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative">
-                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                    <Icon className="h-7 w-7 text-primary" />
+                  <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-2xl transition-all duration-300 icon-glow`}>
+                    <Icon className="h-8 w-8 text-white" strokeWidth={2.5} />
                   </div>
-                  <p className="text-sm font-semibold mb-2 group-hover:text-primary transition-colors">{feature.title}</p>
-                  <p className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{feature.description}</p>
+                  <div className="absolute -inset-1 rounded-2xl opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-300"
+                       style={{ 
+                         background: `linear-gradient(135deg, ${categoryColor}, transparent)`,
+                         top: 0,
+                         left: '50%',
+                         transform: 'translateX(-50%)',
+                         width: '80px',
+                         height: '80px'
+                       }} />
+                  <h3 className="text-sm font-bold mb-2 text-foreground group-hover:text-[var(--category-color)] transition-colors" 
+                      style={{ '--category-color': categoryColor } as React.CSSProperties}>
+                    {feature.title}
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {feature.description}
+                  </p>
                 </div>
               </div>
             );
