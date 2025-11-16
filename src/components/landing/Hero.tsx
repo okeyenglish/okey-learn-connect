@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Play } from 'lucide-react';
+import { Building2, GraduationCap, Users } from 'lucide-react';
 import HeroImage from './HeroImage';
 import DemoModal from './DemoModal';
 import VideoModal from './VideoModal';
+
+type Role = 'school' | 'teacher' | 'parent';
 
 const scrollToSection = (id: string) => {
   const element = document.getElementById(id);
@@ -15,72 +17,127 @@ const scrollToSection = (id: string) => {
 export default function Hero() {
   const [isDemoOpen, setIsDemoOpen] = useState(false);
   const [isVideoOpen, setIsVideoOpen] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<Role>('school');
+
+  const roleContent = {
+    school: {
+      icon: Building2,
+      title: 'CRM и управление',
+      items: [
+        'Принимайте заявки и ведите базу учеников',
+        'Формируйте группы и расписание',
+        'Контролируйте выручку и загрузку филиалов'
+      ]
+    },
+    teacher: {
+      icon: GraduationCap,
+      title: 'Личный кабинет и AI',
+      items: [
+        'Ведите журнал и выдавайте домашние задания',
+        'Видите своё расписание и список учеников',
+        'Получайте прозрачный расчёт зарплаты'
+      ]
+    },
+    parent: {
+      icon: Users,
+      title: 'Приложение и оплаты',
+      items: [
+        'Получайте расписание и напоминания',
+        'Видите домашние задания и прогресс ребёнка',
+        'Оплачивайте занятия онлайн в пару кликов'
+      ]
+    }
+  };
+
+  const RoleIcon = roleContent[selectedRole].icon;
 
   return (
     <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden py-20">
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-primary/5" />
       <div className="absolute inset-0 bg-grid-pattern opacity-[0.02]" />
       
-      <div className="container relative mx-auto px-4 sm:px-6">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="text-left">
-            <div className="inline-flex items-center gap-2 bg-primary/10 px-4 py-2 rounded-full mb-8">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-              </span>
-              <span className="text-sm font-semibold text-primary">✓ Более 500 школ уже используют Академиус</span>
-            </div>
-
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
-              Прекратите терять учеников и деньги в таблицах Excel
+      <div className="container relative mx-auto px-4 sm:px-6 max-w-7xl">
+        <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div className="text-left space-y-8">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
+              Платформа, которая соединяет школу, преподавателя и родителя
             </h1>
 
-            <p className="text-lg md:text-xl text-muted-foreground mb-8">
-              Академиус — CRM для школ, которая экономит 20+ часов в месяц на рутине и увеличивает конверсию заявок на 40%
+            <p className="text-lg md:text-xl text-muted-foreground">
+              Академиус — CRM и суперприложение для управления школой, работой преподавателя и контролем прогресса ребёнка
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 mb-8">
+            {/* Role Selector */}
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-3">
+                <button 
+                  onClick={() => setSelectedRole('school')}
+                  className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                    selectedRole === 'school' 
+                      ? 'bg-primary text-primary-foreground shadow-lg' 
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}
+                >
+                  Я представляю школу
+                </button>
+                <button 
+                  onClick={() => setSelectedRole('teacher')}
+                  className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                    selectedRole === 'teacher' 
+                      ? 'bg-primary text-primary-foreground shadow-lg' 
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}
+                >
+                  Я преподаватель
+                </button>
+                <button 
+                  onClick={() => setSelectedRole('parent')}
+                  className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                    selectedRole === 'parent' 
+                      ? 'bg-primary text-primary-foreground shadow-lg' 
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}
+                >
+                  Я родитель
+                </button>
+              </div>
+
+              {/* Role Content */}
+              <div className="bg-card border border-border rounded-xl p-6 min-h-[200px]">
+                <div className="flex items-center gap-3 mb-4">
+                  <RoleIcon className="h-6 w-6 text-primary" />
+                  <h3 className="text-xl font-semibold">{roleContent[selectedRole].title}</h3>
+                </div>
+                <ul className="space-y-3">
+                  {roleContent[selectedRole].items.map((item, idx) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <span className="text-primary mt-1">✓</span>
+                      <span className="text-muted-foreground">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4">
               <Button 
                 size="lg" 
-                className="text-lg px-8 py-6 bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                className="text-lg px-8 py-6 bg-green-600 hover:bg-green-700 text-white"
                 onClick={() => setIsDemoOpen(true)}
               >
                 Получить демо за 15 минут
-                <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
-              <Button 
-                size="lg" 
-                variant="outline"
-                className="text-lg px-8 py-6"
+              <button 
                 onClick={() => setIsVideoOpen(true)}
+                className="text-primary hover:underline text-lg font-medium"
               >
-                <Play className="mr-2 h-5 w-5" />
-                Посмотреть видео (2 мин)
-              </Button>
+                Посмотреть видео (2 мин) →
+              </button>
             </div>
 
-            <div className="flex flex-wrap gap-3 text-sm">
-              <button 
-                onClick={() => scrollToSection('for-schools')}
-                className="text-muted-foreground hover:text-primary transition-colors underline"
-              >
-                Для школ
-              </button>
-              <span className="text-muted-foreground">•</span>
-              <button 
-                onClick={() => scrollToSection('for-teachers')}
-                className="text-muted-foreground hover:text-primary transition-colors underline"
-              >
-                Для педагогов
-              </button>
-              <span className="text-muted-foreground">•</span>
-              <button 
-                onClick={() => scrollToSection('for-parents')}
-                className="text-muted-foreground hover:text-primary transition-colors underline"
-              >
-                Для родителей
-              </button>
+            {/* Single Stats Line */}
+            <div className="text-sm text-muted-foreground">
+              9 филиалов • 110+ активных групп • 1000+ учеников
             </div>
           </div>
 

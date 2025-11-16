@@ -37,7 +37,6 @@ export default function Index() {
         <ScrollToTop />
         <main>
         <Hero />
-        <TrustIndicators />
         <ClientLogos />
         <HowItWorks />
         <VideoDemo />

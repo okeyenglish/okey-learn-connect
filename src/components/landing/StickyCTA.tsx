@@ -12,17 +12,17 @@ export default function StickyCTA() {
     const dismissed = localStorage.getItem('stickyCTADismissed');
     if (dismissed) {
       setIsDismissed(true);
+      return;
     }
 
     const handleScroll = () => {
-      const heroSection = document.querySelector('section');
-      if (heroSection) {
-        const heroBottom = heroSection.getBoundingClientRect().bottom;
-        setIsVisible(heroBottom < 0 && !isDismissed);
-      }
+      const scrollPercentage = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
+      setIsVisible(scrollPercentage > 50 && !isDismissed);
     };
 
     window.addEventListener('scroll', handleScroll);
+    handleScroll();
+
     return () => window.removeEventListener('scroll', handleScroll);
   }, [isDismissed]);
 
