@@ -83,7 +83,7 @@ export default function Testimonials() {
               Что говорят наши клиенты
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-8">
-              Более 1,200 школ уже используют Академиус
+              Более 10,000 школ уже используют Академиус
             </p>
             <div className="flex justify-center gap-2 flex-wrap">
               {['all', 'directors', 'teachers'].map((f) => (

@@ -2,8 +2,8 @@ import { Shield, Award, MessageCircle, TrendingUp, Users, Zap } from 'lucide-rea
 
 export default function ClientLogos() {
   const stats = [
-    { value: '347', label: 'школ', gradient: 'from-[hsl(var(--category-crm))] to-purple-600' },
-    { value: '8,432', label: 'учеников', gradient: 'from-[hsl(var(--category-education))] to-blue-600' },
+    { value: '10,000+', label: 'школ', gradient: 'from-[hsl(var(--category-crm))] to-purple-600' },
+    { value: '3M+', label: 'учеников', gradient: 'from-[hsl(var(--category-education))] to-blue-600' },
     { value: '9/10', label: 'рейтинг', gradient: 'from-[hsl(var(--category-tech))] to-amber-500' }
   ];
 
