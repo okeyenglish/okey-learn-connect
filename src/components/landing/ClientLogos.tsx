@@ -2,53 +2,50 @@ export default function ClientLogos() {
   const stats = [
     { value: '347', label: 'школ' },
     { value: '8,432', label: 'учеников' },
-    { value: '18', label: 'часов экономии' },
-    { value: '9/10', label: 'оценка' }
+    { value: '9/10', label: 'рейтинг' }
   ];
 
   const clients = [
-    { name: 'Полиглот', color: 'from-blue-500 to-cyan-500' },
-    { name: 'Умники', color: 'from-purple-500 to-pink-500' },
-    { name: 'CodeKids', color: 'from-green-500 to-emerald-500' },
-    { name: 'Эрудит', color: 'from-orange-500 to-red-500' },
-    { name: 'Знайка', color: 'from-indigo-500 to-blue-500' }
+    { name: 'Полиглот', initial: 'П' },
+    { name: 'Умники', initial: 'У' },
+    { name: 'CodeKids', initial: 'C' },
+    { name: 'Эрудит', initial: 'Э' },
+    { name: 'Знайка', initial: 'З' }
   ];
 
   return (
-    <section className="py-16 bg-muted/30">
+    <section className="py-24 bg-muted/20">
       <div className="container mx-auto px-4 sm:px-6">
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12 max-w-4xl mx-auto">
+        <div className="grid grid-cols-3 gap-12 mb-20 max-w-3xl mx-auto">
           {stats.map((stat, index) => (
             <div key={index} className="text-center">
-              <div className="text-3xl md:text-4xl font-bold text-foreground mb-2">
+              <div className="text-5xl md:text-6xl font-bold text-foreground mb-3">
                 {stat.value}
               </div>
-              <div className="text-sm text-muted-foreground">{stat.label}</div>
+              <div className="text-base text-muted-foreground">{stat.label}</div>
             </div>
           ))}
         </div>
 
         {/* Client Logos */}
-        <div className="text-center mb-6">
-          <p className="text-sm text-muted-foreground">
+        <div className="text-center mb-10">
+          <p className="text-lg text-muted-foreground">
             Нам доверяют ведущие образовательные центры
           </p>
         </div>
-        <div className="grid grid-cols-3 md:grid-cols-5 gap-6 items-center max-w-3xl mx-auto">
+        <div className="flex flex-wrap justify-center items-center gap-8 max-w-4xl mx-auto">
           {clients.map((client, index) => (
             <div 
               key={index}
-              className="flex items-center justify-center grayscale hover:grayscale-0 transition-all duration-300 opacity-60 hover:opacity-100"
+              className="flex flex-col items-center justify-center transition-all duration-300 hover:scale-105"
             >
-              <div className="text-center">
-                <div className={`w-14 h-14 rounded-lg bg-gradient-to-br ${client.color} flex items-center justify-center mx-auto shadow-md`}>
-                  <span className="text-white font-bold text-lg">
-                    {client.name.charAt(0)}
-                  </span>
-                </div>
-                <span className="text-xs font-medium mt-2 block">{client.name}</span>
+              <div className="w-16 h-16 rounded-2xl bg-primary/8 border border-primary/10 flex items-center justify-center shadow-sm hover:shadow-md hover:bg-primary/12 transition-all">
+                <span className="text-primary font-bold text-xl">
+                  {client.initial}
+                </span>
               </div>
+              <span className="text-sm font-medium mt-3 text-foreground">{client.name}</span>
             </div>
           ))}
         </div>

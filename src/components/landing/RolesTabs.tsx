@@ -88,37 +88,37 @@ export default function RolesTabs() {
   const content = rolesContent[activeRole];
 
   return (
-    <section className="py-20 bg-gradient-to-br from-background via-primary/5 to-background">
+    <section className="py-32 bg-gradient-to-br from-background via-primary/3 to-background">
       <div className="container mx-auto px-4 sm:px-6">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           {/* Tabs */}
-          <div className="flex justify-center gap-4 mb-12 flex-wrap">
+          <div className="flex justify-center gap-4 mb-16 flex-wrap">
             <button
               onClick={() => setActiveRole('schools')}
-              className={`px-6 py-3 rounded-lg font-medium transition-all ${
+              className={`px-8 py-4 rounded-xl font-medium transition-all ${
                 activeRole === 'schools'
-                  ? 'bg-primary text-primary-foreground shadow-lg'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
+                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
               }`}
             >
               Для школ
             </button>
             <button
               onClick={() => setActiveRole('teachers')}
-              className={`px-6 py-3 rounded-lg font-medium transition-all ${
+              className={`px-8 py-4 rounded-xl font-medium transition-all ${
                 activeRole === 'teachers'
-                  ? 'bg-primary text-primary-foreground shadow-lg'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
+                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
               }`}
             >
               Для преподавателей
             </button>
             <button
               onClick={() => setActiveRole('parents')}
-              className={`px-6 py-3 rounded-lg font-medium transition-all ${
+              className={`px-8 py-4 rounded-xl font-medium transition-all ${
                 activeRole === 'parents'
-                  ? 'bg-primary text-primary-foreground shadow-lg'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
+                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
               }`}
             >
               Для родителей
@@ -126,40 +126,40 @@ export default function RolesTabs() {
           </div>
 
           {/* Content */}
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">{content.title}</h2>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+          <div className="text-center mb-20">
+            <h2 className="text-5xl md:text-6xl font-bold mb-8 leading-tight">{content.title}</h2>
+            <p className="text-2xl text-muted-foreground max-w-4xl mx-auto leading-relaxed">
               {content.subtitle}
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-12 mb-16">
-            <div className="space-y-8">
-              <h3 className="text-xl font-semibold text-muted-foreground">Было</h3>
+          <div className="grid md:grid-cols-2 gap-16 mb-20">
+            <div className="space-y-10">
+              <h3 className="text-2xl font-semibold text-muted-foreground">Было</h3>
               {content.features.map((feature, index) => (
-                <p key={index} className="text-muted-foreground text-lg">{feature.pain}</p>
+                <p key={index} className="text-muted-foreground text-xl leading-relaxed">{feature.pain}</p>
               ))}
             </div>
-            <div className="space-y-8">
-              <h3 className="text-xl font-semibold">Стало с Академиус</h3>
+            <div className="space-y-10">
+              <h3 className="text-2xl font-semibold">Стало с Академиус</h3>
               {content.features.map((feature, index) => (
-                <div key={index} className="space-y-2">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0 mt-1" />
-                    <p className="text-lg">{feature.solution}</p>
+                <div key={index} className="space-y-3">
+                  <div className="flex items-start gap-4">
+                    <CheckCircle2 className="h-6 w-6 text-success flex-shrink-0 mt-1" />
+                    <p className="text-xl leading-relaxed">{feature.solution}</p>
                   </div>
-                  <p className="text-sm font-semibold text-primary ml-8">{feature.metric}</p>
+                  <p className="text-base font-semibold text-success ml-10">{feature.metric}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="bg-gradient-subtle p-8 rounded-2xl border border-border">
-            <div className="max-w-2xl mx-auto text-center">
-              <Button size="lg" className="text-lg px-8 py-6 bg-green-600 hover:bg-green-700">
+          <div className="bg-accent/50 p-12 rounded-3xl border border-border/50">
+            <div className="max-w-2xl mx-auto text-center space-y-4">
+              <Button size="lg" className="text-lg px-10 py-7 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/25 transition-all">
                 {content.cta.text}
               </Button>
-              <p className="text-sm text-muted-foreground mt-4">{content.cta.description}</p>
+              <p className="text-base text-muted-foreground">{content.cta.description}</p>
             </div>
           </div>
         </div>

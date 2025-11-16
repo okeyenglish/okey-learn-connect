@@ -92,13 +92,13 @@ export default function DemoModal({ open, onOpenChange }: DemoModalProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="role">Ваша роль *</Label>
+                <Label htmlFor="role">Кто вы? *</Label>
                 <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Выберите роль" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="school">Директор школы</SelectItem>
+                    <SelectItem value="school">Представляю школу / учебный центр</SelectItem>
                     <SelectItem value="admin">Администратор</SelectItem>
                     <SelectItem value="teacher">Преподаватель</SelectItem>
                     <SelectItem value="other">Другое</SelectItem>
