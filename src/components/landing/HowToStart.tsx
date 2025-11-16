@@ -45,9 +45,9 @@ export default function HowToStart() {
                 )}
                 
                 <div className="text-center">
-                  <div className="relative inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-primary to-primary/70 mb-6 shadow-lg">
+                  <div className="relative inline-flex items-center justify-center w-20 h-20 rounded-xl bg-gradient-to-br from-primary to-primary/70 mb-6 shadow-lg">
                     <Icon className="h-10 w-10 text-primary-foreground" />
-                    <div className="absolute -top-2 -right-2 w-10 h-10 rounded-full bg-success flex items-center justify-center text-white font-bold text-sm">
+                    <div className="absolute -top-2 -right-2 w-10 h-10 rounded-lg bg-success flex items-center justify-center text-white font-bold text-sm">
                       {step.number}
                     </div>
                   </div>

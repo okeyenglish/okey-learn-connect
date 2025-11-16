@@ -118,7 +118,7 @@ export default function Testimonials() {
                   ) : (
                     <div className="bg-card p-6 rounded-lg border border-border hover-scale h-full flex flex-col">
                       <div className="flex items-center gap-4 mb-4">
-                        <img src={testimonial.avatar} alt={testimonial.name} className="w-12 h-12 rounded-full object-cover" />
+                        <img src={testimonial.avatar} alt={testimonial.name} className="w-12 h-12 rounded-xl object-cover" />
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <h3 className="font-semibold">{testimonial.name}</h3>

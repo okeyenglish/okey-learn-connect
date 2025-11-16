@@ -92,7 +92,7 @@ export default function Hero() {
                   }}
                 >
                   <div className="mt-0.5 flex-shrink-0">
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary via-purple-500 to-primary flex items-center justify-center group-hover:scale-110 group-hover:rotate-12 transition-all duration-300 shadow-lg">
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary via-purple-500 to-primary flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 shadow-lg">
                       <Sparkles className="w-4 h-4 text-white" />
                     </div>
                   </div>
@@ -127,7 +127,7 @@ export default function Hero() {
                 onClick={() => setIsVideoOpen(true)}
                 className="group gap-2 border-2 hover:border-primary/50 hover:bg-primary/10 backdrop-blur-sm text-lg px-10 py-7 transition-all duration-300"
               >
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center group-hover:bg-primary/30 group-hover:scale-110 transition-all">
+                <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center group-hover:bg-primary/30 group-hover:scale-110 transition-all">
                   <Play className="w-5 h-5" />
                 </div>
                 Смотреть видео

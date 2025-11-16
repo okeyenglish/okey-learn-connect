@@ -12,7 +12,7 @@ export default function VideoModal({ open, onOpenChange }: VideoModalProps) {
         <div className="aspect-video bg-black rounded-lg overflow-hidden">
           <div className="w-full h-full flex items-center justify-center text-white">
             <div className="text-center p-8">
-              <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-4">
+              <div className="w-20 h-20 rounded-xl bg-white/10 flex items-center justify-center mx-auto mb-4">
                 <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M8 5v14l11-7z"/>
                 </svg>

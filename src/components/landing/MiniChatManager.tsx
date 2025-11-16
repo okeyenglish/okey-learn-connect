@@ -73,7 +73,7 @@ function MiniChatItem({ chat, isActive, delay }: { chat: Chat; isActive: boolean
           : 'bg-white/60 dark:bg-surface/60 hover:bg-white/80 dark:hover:bg-surface/80'
       }`}
     >
-      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[hsl(var(--accent-purple))] to-[hsl(var(--brand))] flex items-center justify-center text-[7px] text-white font-semibold flex-shrink-0">
+      <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-[hsl(var(--accent-purple))] to-[hsl(var(--brand))] flex items-center justify-center text-[7px] text-white font-semibold flex-shrink-0">
         {chat.avatar}
       </div>
       <div className="flex-1 min-w-0">
@@ -98,7 +98,7 @@ function MiniChatItem({ chat, isActive, delay }: { chat: Chat; isActive: boolean
 function MiniChatHeader({ chat }: { chat: Chat }) {
   return (
     <div className="flex items-center gap-1 p-1.5 border-b border-border/40">
-      <div className="w-5 h-5 rounded-full bg-gradient-to-br from-[hsl(var(--accent-purple))] to-[hsl(var(--brand))] flex items-center justify-center text-[7px] text-white font-semibold">
+      <div className="w-5 h-5 rounded-lg bg-gradient-to-br from-[hsl(var(--accent-purple))] to-[hsl(var(--brand))] flex items-center justify-center text-[7px] text-white font-semibold">
         {chat.avatar}
       </div>
       <div className="flex-1 min-w-0">
@@ -114,7 +114,7 @@ function MiniChatMessages({ delay }: { delay: number }) {
     <div className="flex-1 p-2 space-y-2 overflow-hidden">
       {/* Сообщение собеседника */}
       <div className="flex gap-1 items-start">
-        <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[hsl(var(--accent-purple))] to-[hsl(var(--brand))] flex-shrink-0" />
+        <div className="w-4 h-4 rounded-md bg-gradient-to-br from-[hsl(var(--accent-purple))] to-[hsl(var(--brand))] flex-shrink-0" />
         <div className="bg-muted/80 rounded-lg px-2 py-1 text-[7px] text-foreground max-w-[75%]">
           Когда следующее занятие?
         </div>

@@ -70,9 +70,9 @@ export default function Roadmap() {
                   <div key={qIndex} className="relative">
                     {/* Quarter marker */}
                     <div className="flex items-center justify-center mb-8">
-                      <div className="bg-background border-2 border-primary px-6 py-3 rounded-full shadow-lg">
+                      <div className="bg-background border-2 border-primary px-6 py-3 rounded-xl shadow-lg">
                         <span className="font-bold text-lg">{quarter.quarter}</span>
-                        <span className={`ml-3 text-sm px-3 py-1 rounded-full ${badge.bg}`}>
+                        <span className={`ml-3 text-sm px-3 py-1 rounded-lg ${badge.bg}`}>
                           {badge.text}
                         </span>
                       </div>
@@ -88,7 +88,7 @@ export default function Roadmap() {
                             key={iIndex}
                             className="bg-card p-6 rounded-xl border border-border hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
                           >
-                            <div className={`inline-flex items-center justify-center w-12 h-12 rounded-full mb-4 ${
+                            <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl mb-4 ${
                               quarter.status === 'completed' ? 'bg-success/10' :
                               quarter.status === 'in-progress' ? 'bg-primary/10' :
                               'bg-muted'

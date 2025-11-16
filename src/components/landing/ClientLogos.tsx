@@ -18,7 +18,7 @@ export default function ClientLogos() {
       name: 'Умники', 
       icon: Award,
       gradient: 'from-blue-500 to-cyan-500',
-      shape: 'rounded-full'
+      shape: 'rounded-xl'
     },
     { 
       name: 'CodeKids', 
@@ -36,7 +36,7 @@ export default function ClientLogos() {
       name: 'Знайка', 
       icon: Users,
       gradient: 'from-indigo-500 to-purple-500',
-      shape: 'rounded-full'
+      shape: 'rounded-xl'
     }
   ];
 

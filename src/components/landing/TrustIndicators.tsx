@@ -22,7 +22,7 @@ export default function TrustIndicators() {
             const Icon = stat.icon;
             return (
               <div key={index} className="text-center">
-                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-3">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 mb-3">
                   <Icon className="h-6 w-6 text-primary" />
                 </div>
                 <div className="text-3xl md:text-4xl font-bold text-primary mb-1">
