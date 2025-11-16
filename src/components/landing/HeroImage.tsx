@@ -1,21 +1,17 @@
 import { useState, useEffect } from 'react';
 import { Monitor, Tablet, Smartphone, CheckCircle2 } from 'lucide-react';
 import MiniChatManager from './MiniChatManager';
-
 export default function HeroImage() {
   const [isVisible, setIsVisible] = useState(false);
-
   useEffect(() => {
     const timer = setTimeout(() => setIsVisible(true), 100);
     return () => clearTimeout(timer);
   }, []);
-
-  return (
-    <div className={`transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+  return <div className={`transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
       {/* Header Section */}
       <div className="text-center mb-8 space-y-3">
         <h3 className="text-2xl sm:text-3xl font-bold text-foreground">
-          Работает плавно на любом устройстве
+          Работает полноценно на любом устройстве
         </h3>
         <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
           Веб-версия, планшет и мобильное приложение всегда синхронизированы: откройте платформу там, где удобно — всё уже на месте.
@@ -26,32 +22,17 @@ export default function HeroImage() {
       <div className="relative">
         <div className="flex flex-col sm:flex-row gap-6 sm:gap-3 items-center justify-center">
           {/* Desktop */}
-          <DeviceFrame 
-            icon={<Monitor className="w-5 h-5" />}
-            label="Ноутбук"
-            className="w-full sm:w-72"
-            animationDelay="0s"
-          >
+          <DeviceFrame icon={<Monitor className="w-5 h-5" />} label="Ноутбук" className="w-full sm:w-72" animationDelay="0s">
             <MiniChatManager delay={0} />
           </DeviceFrame>
 
           {/* Tablet */}
-          <DeviceFrame 
-            icon={<Tablet className="w-4 h-4" />}
-            label="Планшет"
-            className="w-full sm:w-56 sm:scale-95"
-            animationDelay="0.3s"
-          >
+          <DeviceFrame icon={<Tablet className="w-4 h-4" />} label="Планшет" className="w-full sm:w-56 sm:scale-95" animationDelay="0.3s">
             <MiniChatManager delay={0.3} />
           </DeviceFrame>
 
           {/* Mobile */}
-          <DeviceFrame 
-            icon={<Smartphone className="w-3 h-3" />}
-            label="Телефон"
-            className="w-full sm:w-44 sm:scale-90"
-            animationDelay="0.6s"
-          >
+          <DeviceFrame icon={<Smartphone className="w-3 h-3" />} label="Телефон" className="w-full sm:w-44 sm:scale-90" animationDelay="0.6s">
             <MiniChatManager delay={0.6} />
           </DeviceFrame>
         </div>
@@ -76,17 +57,15 @@ export default function HeroImage() {
           </div>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 }
-
-function DeviceFrame({ 
-  children, 
-  icon, 
-  label, 
+function DeviceFrame({
+  children,
+  icon,
+  label,
   className = "",
   animationDelay = "0s"
-}: { 
+}: {
   children: React.ReactNode;
   icon: React.ReactNode;
   label: string;
@@ -94,26 +73,17 @@ function DeviceFrame({
   animationDelay?: string;
 }) {
   const [isHovered, setIsHovered] = useState(false);
-
-  return (
-    <div 
-      className={`relative ${className}`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
+  return <div className={`relative ${className}`} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
       {/* Tooltip */}
-      {isHovered && (
-        <div className="absolute -top-12 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-foreground text-background text-xs font-medium rounded-lg whitespace-nowrap z-10 animate-fade-in">
+      {isHovered && <div className="absolute -top-12 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-foreground text-background text-xs font-medium rounded-lg whitespace-nowrap z-10 animate-fade-in">
           {label}
           <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-foreground rotate-45" />
-        </div>
-      )}
+        </div>}
 
       {/* Device Frame */}
-      <div 
-        className="rounded-[20px] sm:rounded-[28px] bg-white/80 dark:bg-surface/80 backdrop-blur-xl shadow-xl border border-white/60 dark:border-white/20 p-3 sm:p-4 transition-all duration-300 hover:shadow-2xl"
-        style={{ animationDelay }}
-      >
+      <div className="rounded-[20px] sm:rounded-[28px] bg-white/80 dark:bg-surface/80 backdrop-blur-xl shadow-xl border border-white/60 dark:border-white/20 p-3 sm:p-4 transition-all duration-300 hover:shadow-2xl" style={{
+      animationDelay
+    }}>
         {/* Browser Bar */}
         <div className="h-2 sm:h-3 flex gap-1 mb-3">
           <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-red-400" />
@@ -132,7 +102,5 @@ function DeviceFrame({
           <span>{label}</span>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 }
-
