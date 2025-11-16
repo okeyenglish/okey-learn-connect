@@ -1,54 +1,32 @@
-import { Award, TrendingUp, Users, Globe, Clock, DollarSign } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { TrendingUp } from 'lucide-react';
 
 export default function ProofBar() {
-  const [isVisible, setIsVisible] = useState(true);
-
-  const proofItems = [
-    { icon: Award, text: '⭐ 4.9/5 средний рейтинг' },
-    { icon: Award, text: '🏆 Лучшая EdTech платформа 2024' },
-    { icon: Users, text: '10,000+ школ доверяют Академиус' },
-    { icon: TrendingUp, text: '98% остаются после trial' },
-    { icon: Users, text: '3M+ учеников обучаются' },
-    { icon: Clock, text: '2M+ часов сэкономлено' },
-    { icon: Globe, text: 'Работаем в 87 регионах России' },
-    { icon: DollarSign, text: '₽100B+ обработано платежей' },
+  const stats = [
+    { label: "Активных школ", value: "2,500+", growth: "+35% каждый месяц" },
+    { label: "Учеников обучается", value: "150,000+", growth: "+40% больше записей" },
+    { label: "Преподавателей работают", value: "12,000+", growth: "−70% админ-времени" },
+    { label: "Занятий проведено", value: "5M+", growth: "+30% повторных продаж" }
   ];
-
-  useEffect(() => {
-    const hidden = localStorage.getItem('proofBarHidden');
-    if (hidden === 'true') {
-      setIsVisible(false);
-    }
-  }, []);
-
-  const handleClose = () => {
-    setIsVisible(false);
-    localStorage.setItem('proofBarHidden', 'true');
-  };
-
-  if (!isVisible) return null;
 
   return (
     <div className="sticky top-[60px] z-40 bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 border-b border-border/50 backdrop-blur-sm">
-      <div className="relative overflow-hidden py-3">
-        <div className="flex animate-marquee gap-8 items-center whitespace-nowrap">
-          {[...proofItems, ...proofItems].map((item, index) => (
-            <div key={index} className="flex items-center gap-2 text-sm font-medium">
-              <span>{item.text}</span>
-              {index < proofItems.length * 2 - 1 && (
-                <span className="text-primary">•</span>
-              )}
+      <div className="container mx-auto px-4 py-4">
+        <div className="flex flex-wrap justify-center gap-8">
+          {stats.map((stat, index) => (
+            <div key={index} className="text-center">
+              <div className="text-2xl md:text-3xl font-bold mb-1 bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                {stat.value}
+              </div>
+              <div className="text-sm text-muted-foreground mb-1">
+                {stat.label}
+              </div>
+              <div className="flex items-center justify-center gap-1 text-xs text-primary font-medium">
+                <TrendingUp className="w-3 h-3" />
+                {stat.growth}
+              </div>
             </div>
           ))}
         </div>
-        <button
-          onClick={handleClose}
-          className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-          aria-label="Закрыть"
-        >
-          ✕
-        </button>
       </div>
     </div>
   );

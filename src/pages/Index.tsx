@@ -30,6 +30,9 @@ const WhoIsItFor = lazy(() => import('@/components/landing/WhoIsItFor'));
 const MultiChannelSection = lazy(() => import('@/components/landing/MultiChannelSection').then(m => ({ default: m.MultiChannelSection })));
 const MarketingToolsSection = lazy(() => import('@/components/landing/MarketingToolsSection').then(m => ({ default: m.MarketingToolsSection })));
 const BrandedAppSection = lazy(() => import('@/components/landing/BrandedAppSection').then(m => ({ default: m.BrandedAppSection })));
+const WidgetCustomizerSection = lazy(() => import('@/components/landing/WidgetCustomizerSection').then(m => ({ default: m.WidgetCustomizerSection })));
+const LoyaltyProgramSection = lazy(() => import('@/components/landing/LoyaltyProgramSection').then(m => ({ default: m.LoyaltyProgramSection })));
+const ElectronicJournalSection = lazy(() => import('@/components/landing/ElectronicJournalSection').then(m => ({ default: m.ElectronicJournalSection })));
 const Pricing = lazy(() => import('@/components/landing/Pricing'));
 const Roadmap = lazy(() => import('@/components/landing/Roadmap'));
 const Comparison = lazy(() => import('@/components/landing/Comparison'));
@@ -132,6 +135,24 @@ export default function Index() {
           <LazySection fallback={<LoadingPlaceholder />}>
             <Suspense fallback={<LoadingPlaceholder />}>
               <WhoIsItFor />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <WidgetCustomizerSection />
+            </Suspense>
+          </LazySection>
+
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <ElectronicJournalSection />
+            </Suspense>
+          </LazySection>
+
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <LoyaltyProgramSection />
             </Suspense>
           </LazySection>
           
