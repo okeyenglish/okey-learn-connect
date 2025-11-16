@@ -4,6 +4,7 @@ import { Building2, GraduationCap, Users } from 'lucide-react';
 import HeroImage from './HeroImage';
 import DemoModal from './DemoModal';
 import VideoModal from './VideoModal';
+import AnimatedBackground from '../effects/AnimatedBackground';
 
 type Role = 'school' | 'teacher' | 'parent';
 
@@ -62,7 +63,8 @@ export default function Hero() {
 
   return (
     <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden py-20 md:py-32">
-      <div className="absolute inset-0 bg-gradient-to-br from-surface-elevated/30 via-background to-surface-elevated/20" />
+      {/* Animated Background */}
+      <AnimatedBackground />
       
       <div className="container relative mx-auto px-4 sm:px-6 max-w-7xl">
         <div className="grid lg:grid-cols-2 gap-16 items-center">
@@ -103,13 +105,25 @@ export default function Hero() {
 
             {/* Динамический контент по роли */}
             <div className="space-y-6 animate-fade-in" key={selectedRole}>
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight">
-                {roleContent[selectedRole].title}
-              </h1>
-
-              <p className="text-lg md:text-xl text-text-secondary leading-relaxed">
-                {roleContent[selectedRole].subtitle}
-              </p>
+              {/* Dynamic Title with Icon */}
+              <div className="space-y-4">
+                <div className="inline-flex items-center gap-3 px-4 py-2 glass-card">
+                  <RoleIcon className="w-5 h-5 text-[hsl(var(--accent-purple))]" />
+                  <span className="text-sm font-medium gradient-text">
+                    {selectedRole === 'school' ? 'Для школ' : selectedRole === 'teacher' ? 'Для преподавателей' : 'Для родителей'}
+                  </span>
+                </div>
+                
+                <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-tight gradient-text" style={{
+                  textShadow: '0 0 40px rgba(139, 92, 246, 0.3), 0 0 80px rgba(59, 130, 246, 0.2)'
+                }}>
+                  {roleContent[selectedRole].title}
+                </h1>
+                
+                <p className="text-xl text-muted-foreground max-w-2xl">
+                  {roleContent[selectedRole].subtitle}
+                </p>
+              </div>
             </div>
 
             {/* Преимущества */}
@@ -128,22 +142,28 @@ export default function Hero() {
 
             {/* Метрика */}
             <div 
-              className="inline-flex items-center gap-2 bg-status-success/10 px-4 py-2 rounded-lg border border-status-success/20 animate-fade-in hover:scale-105 transition-transform duration-200"
+              className="inline-flex items-center gap-2 px-4 py-2 glass-card animate-fade-in hover:scale-105 transition-all duration-200"
               key={`metric-${selectedRole}`}
+              style={{
+                boxShadow: '0 0 20px rgba(16, 185, 129, 0.3)'
+              }}
             >
-              <span className="text-sm font-semibold text-status-success">{roleContent[selectedRole].metric}</span>
+              <div className="w-2 h-2 rounded-full bg-gradient-to-r from-[hsl(152,69%,42%)] to-[hsl(189,94%,43%)] animate-pulse" />
+              <span className="text-sm font-medium bg-gradient-to-r from-[hsl(152,69%,42%)] to-[hsl(189,94%,43%)] bg-clip-text text-transparent">
+                {roleContent[selectedRole].metric}
+              </span>
             </div>
 
             {/* CTA */}
             <div className="flex flex-col sm:flex-row gap-4">
               <Button 
-                size="lg" 
-                className="text-base px-8 py-6 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300"
+                size="lg"
                 onClick={() => setIsDemoOpen(true)}
+                className="text-lg px-8 py-6 glow-button hover:scale-105 transition-all duration-300 bg-gradient-to-r from-[hsl(212,85%,58%)] via-[hsl(262,83%,68%)] to-[hsl(330,81%,60%)] text-white border-0"
               >
                 {roleContent[selectedRole].cta}
               </Button>
-              <button 
+              <button
                 onClick={() => setIsVideoOpen(true)}
                 className="text-text-secondary hover:text-primary text-base font-medium transition-all duration-300 group inline-flex items-center justify-center sm:justify-start gap-2 hover:gap-3"
               >
