@@ -44,7 +44,7 @@ export default function HowItWorks() {
         {/* Header */}
         <div className="text-center mb-16 space-y-6 animate-fade-in">
           <div className="inline-flex items-center gap-3 px-5 py-2.5 glass-card backdrop-blur-xl border border-primary/20">
-            <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+            <div className="w-2 h-2 bg-primary rounded-sm animate-pulse" />
             <span className="text-sm font-semibold bg-gradient-to-r from-primary via-purple-500 to-primary bg-clip-text text-transparent">
               Простая интеграция за 4 шага
             </span>
@@ -74,7 +74,7 @@ export default function HowItWorks() {
               {/* Card */}
               <div className="glass-card p-8 rounded-2xl hover:scale-105 transition-all duration-300 h-full relative overflow-hidden">
                 {/* Step number */}
-                <div className="absolute -top-4 -left-4 w-14 h-14 rounded-full bg-gradient-to-br from-primary via-purple-500 to-primary flex items-center justify-center shadow-xl group-hover:scale-110 group-hover:rotate-12 transition-all duration-300">
+                <div className="absolute -top-4 -left-4 w-14 h-14 rounded-xl bg-gradient-to-br from-primary via-purple-500 to-primary flex items-center justify-center shadow-xl group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
                   <span className="text-2xl font-bold text-white">{index + 1}</span>
                 </div>
 

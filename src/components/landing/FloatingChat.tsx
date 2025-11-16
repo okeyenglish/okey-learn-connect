@@ -18,18 +18,18 @@ export default function FloatingChat() {
       aria-label="Написать в WhatsApp"
     >
       <div className="relative">
-        {/* Пульсирующие круги */}
-        <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75" />
-        <div className="absolute inset-0 bg-green-500 rounded-full animate-pulse opacity-50" />
+        {/* Пульсирующие прямоугольники */}
+        <div className="absolute inset-0 bg-green-500 rounded-xl animate-ping opacity-75" />
+        <div className="absolute inset-0 bg-green-500 rounded-xl animate-pulse opacity-50" />
         
         {/* Основная кнопка */}
-        <div className="relative bg-green-500 hover:bg-green-600 text-white p-4 rounded-full shadow-2xl transition-all duration-300 group-hover:scale-110">
+        <div className="relative bg-green-500 hover:bg-green-600 text-white p-4 rounded-xl shadow-2xl transition-all duration-300 group-hover:scale-110">
           <MessageCircle className="w-6 h-6" />
         </div>
 
         {/* Badge "Онлайн" */}
-        <div className="absolute -top-1 -right-1 bg-green-400 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg flex items-center gap-1">
-          <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+        <div className="absolute -top-1 -right-1 bg-green-400 text-white text-xs font-bold px-2 py-0.5 rounded-md shadow-lg flex items-center gap-1">
+          <span className="w-1.5 h-1.5 bg-white rounded-sm animate-pulse" />
           Онлайн
         </div>
       </div>

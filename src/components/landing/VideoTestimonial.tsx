@@ -24,7 +24,7 @@ export default function VideoTestimonial({ videoUrl, thumbnail, name, role }: Vi
           className="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-105"
         />
         <div className="absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity group-hover:bg-black/50">
-          <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center transition-transform group-hover:scale-110">
+          <div className="w-16 h-16 rounded-xl bg-primary flex items-center justify-center transition-transform group-hover:scale-110">
             <Play className="w-8 h-8 text-primary-foreground ml-1" fill="currentColor" />
           </div>
         </div>

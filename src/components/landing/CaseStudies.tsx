@@ -96,7 +96,7 @@ export default function CaseStudies() {
                     <img
                       src={study.directorPhoto}
                       alt={`Фото ${study.director}, директор ${study.company}`}
-                      className="w-16 h-16 rounded-full object-cover shadow-md flex-shrink-0"
+                      className="w-16 h-16 rounded-xl object-cover shadow-md flex-shrink-0"
                       loading="lazy"
                     />
                     <div>

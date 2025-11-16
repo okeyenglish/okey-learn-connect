@@ -205,7 +205,7 @@ export default function FAQ() {
           <ScrollReveal delay={400}>
             <div className="mt-12 p-6 bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg border border-primary/20">
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
                   <MessageCircle className="w-6 h-6 text-primary" />
                 </div>
                 <div className="flex-1">

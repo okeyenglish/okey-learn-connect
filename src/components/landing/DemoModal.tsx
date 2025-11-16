@@ -51,7 +51,7 @@ export default function DemoModal({ open, onOpenChange }: DemoModalProps) {
       <DialogContent className="sm:max-w-[500px]">
         {isSuccess ? (
           <div className="flex flex-col items-center justify-center py-8">
-            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4 animate-in zoom-in">
+            <div className="w-16 h-16 rounded-xl bg-green-100 flex items-center justify-center mb-4 animate-in zoom-in">
               <CheckCircle2 className="h-8 w-8 text-green-600" />
             </div>
             <h3 className="text-2xl font-bold mb-2">Заявка отправлена!</h3>

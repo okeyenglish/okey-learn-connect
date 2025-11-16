@@ -283,8 +283,8 @@ const LiveStats = () => {
 
       <div className="container mx-auto px-4 relative z-10">
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-6">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg glass-card mb-6">
+            <div className="w-2 h-2 bg-green-500 rounded-sm animate-pulse" />
             <span className="text-sm font-medium">Live данные • обновляется в реальном времени</span>
           </div>
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
@@ -309,8 +309,8 @@ const LiveStats = () => {
               {stat.pulse && (
                 <div className="absolute top-4 right-4">
                   <div className="relative w-3 h-3">
-                    <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75" />
-                    <div className="absolute inset-0 bg-green-500 rounded-full" />
+                    <div className="absolute inset-0 bg-green-500 rounded-sm animate-ping opacity-75" />
+                    <div className="absolute inset-0 bg-green-500 rounded-sm" />
                   </div>
                 </div>
               )}

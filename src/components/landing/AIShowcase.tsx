@@ -79,13 +79,13 @@ const AIShowcase = () => {
             
             <div className="relative">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-category-tech to-category-crm flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-category-tech to-category-crm flex items-center justify-center">
                   <Brain className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <h3 className="font-semibold">AI Ассистент</h3>
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                    <div className="w-2 h-2 bg-green-500 rounded-sm animate-pulse" />
                     <span className="text-xs text-muted-foreground">Онлайн</span>
                   </div>
                 </div>
@@ -100,7 +100,7 @@ const AIShowcase = () => {
 
               {/* AI response with typing effect */}
               <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-category-tech to-category-crm flex items-center justify-center flex-shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-category-tech to-category-crm flex items-center justify-center flex-shrink-0">
                   <Sparkles className="w-4 h-4 text-white" />
                 </div>
                 <div className="glass-card px-4 py-3 rounded-2xl rounded-tl-sm flex-1">

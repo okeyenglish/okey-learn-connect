@@ -1,19 +1,19 @@
-/* Ensure all avatar images are circular */
+/* Avatar styles - use rounded corners instead of full circles */
 img[alt*="avatar"], 
 .avatar img,
 [class*="avatar"] img {
-  border-radius: 50% !important;
+  border-radius: 0.75rem !important; /* rounded-xl */
 }
 
-/* Ensure all avatar containers are circular */
+/* Avatar containers - use rounded corners */
 .avatar,
 [class*="avatar"] {
-  border-radius: 50%;
+  border-radius: 0.75rem; /* rounded-xl */
 }
 
-/* Ensure rounded-full class is always circular */
+/* Override rounded-full for better design consistency */
 .rounded-full {
-  border-radius: 50% !important;
+  border-radius: 0.75rem !important; /* rounded-xl instead of full circle */
 }
 
 @tailwind base;
