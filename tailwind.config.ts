@@ -95,10 +95,6 @@ export default {
           orange: "hsl(var(--accent-orange))",
           cyan: "hsl(var(--accent-cyan))",
         },
-        purple: {
-          start: "hsl(var(--purple-start))",
-          end: "hsl(var(--purple-end))",
-        },
         glow: {
           purple: "hsl(var(--glow-purple))",
           blue: "hsl(var(--glow-blue))",

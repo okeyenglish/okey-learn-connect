@@ -13,17 +13,30 @@ import { lazy, Suspense } from 'react';
 // Above the fold - load immediately
 // Hero, Header, ProofBar, StickyCTA already imported
 
-// Below the fold - lazy load (according to TZ structure)
-const HowItWorksSection = lazy(() => import('@/components/landing/HowItWorksSection').then(m => ({ default: m.HowItWorksSection })));
-const AIAssistantSection = lazy(() => import('@/components/landing/AIAssistantSection').then(m => ({ default: m.AIAssistantSection })));
-const BeforeAfterSection = lazy(() => import('@/components/landing/BeforeAfterSection').then(m => ({ default: m.BeforeAfterSection })));
-const CapabilitiesSection = lazy(() => import('@/components/landing/CapabilitiesSection').then(m => ({ default: m.CapabilitiesSection })));
-const SecuritySection = lazy(() => import('@/components/landing/SecuritySection').then(m => ({ default: m.SecuritySection })));
-const FAQSection = lazy(() => import('@/components/landing/FAQSection').then(m => ({ default: m.FAQSection })));
-
-// Existing sections
+// Below the fold - lazy load
+const CrossPlatformSection = lazy(() => import('@/components/landing/CrossPlatformSection'));
+const AIShowcase = lazy(() => import('@/components/landing/AIShowcase'));
+const LiveStats = lazy(() => import('@/components/landing/LiveStats'));
+const TechStack = lazy(() => import('@/components/landing/TechStack'));
+const ClientLogos = lazy(() => import('@/components/landing/ClientLogos'));
+const HowItWorks = lazy(() => import('@/components/landing/HowItWorks'));
+const RolesTabs = lazy(() => import('@/components/landing/RolesTabs'));
+const Features = lazy(() => import('@/components/landing/Features'));
 const Testimonials = lazy(() => import('@/components/landing/Testimonials'));
+const CaseStudies = lazy(() => import('@/components/landing/CaseStudies'));
+const HowToStart = lazy(() => import('@/components/landing/HowToStart'));
+const Integrations = lazy(() => import('@/components/landing/Integrations'));
+const WhoIsItFor = lazy(() => import('@/components/landing/WhoIsItFor'));
+const MultiChannelSection = lazy(() => import('@/components/landing/MultiChannelSection').then(m => ({ default: m.MultiChannelSection })));
+const MarketingToolsSection = lazy(() => import('@/components/landing/MarketingToolsSection').then(m => ({ default: m.MarketingToolsSection })));
+const BrandedAppSection = lazy(() => import('@/components/landing/BrandedAppSection').then(m => ({ default: m.BrandedAppSection })));
+const WidgetCustomizerSection = lazy(() => import('@/components/landing/WidgetCustomizerSection').then(m => ({ default: m.WidgetCustomizerSection })));
+const LoyaltyProgramSection = lazy(() => import('@/components/landing/LoyaltyProgramSection').then(m => ({ default: m.LoyaltyProgramSection })));
+const ElectronicJournalSection = lazy(() => import('@/components/landing/ElectronicJournalSection').then(m => ({ default: m.ElectronicJournalSection })));
 const Pricing = lazy(() => import('@/components/landing/Pricing'));
+const Roadmap = lazy(() => import('@/components/landing/Roadmap'));
+const Comparison = lazy(() => import('@/components/landing/Comparison'));
+const FAQ = lazy(() => import('@/components/landing/FAQ'));
 const FinalCTA = lazy(() => import('@/components/landing/FinalCTA'));
 
 const LoadingPlaceholder = () => (
@@ -40,72 +53,151 @@ export default function Index() {
       <SEO />
       <div className="min-h-screen bg-background">
         <Header />
+        <ProofBar />
         <StickyCTA />
         <FloatingChat />
         <ScrollToTop />
         <main>
           <Hero />
           
-          {/* 2. Блок доверия и масштаб */}
-          <ProofBar />
-          
-          {/* 4. Как это работает - пошаговый процесс */}
           <LazySection fallback={<LoadingPlaceholder />}>
             <Suspense fallback={<LoadingPlaceholder />}>
-              <HowItWorksSection />
+              <CrossPlatformSection />
             </Suspense>
           </LazySection>
           
-          {/* 5. AI-ассистент (тёмный фон) */}
           <LazySection fallback={<LoadingPlaceholder />}>
             <Suspense fallback={<LoadingPlaceholder />}>
-              <AIAssistantSection />
+              <AIShowcase />
             </Suspense>
           </LazySection>
           
-          {/* 7. Возможности Академиус */}
           <LazySection fallback={<LoadingPlaceholder />}>
             <Suspense fallback={<LoadingPlaceholder />}>
-              <CapabilitiesSection />
+              <LiveStats />
             </Suspense>
           </LazySection>
           
-          {/* 8. Было/Стало с переключателем ролей */}
           <LazySection fallback={<LoadingPlaceholder />}>
             <Suspense fallback={<LoadingPlaceholder />}>
-              <BeforeAfterSection />
+              <HowItWorks />
             </Suspense>
           </LazySection>
           
-          {/* 9. Лицензии, технологии и безопасность */}
           <LazySection fallback={<LoadingPlaceholder />}>
             <Suspense fallback={<LoadingPlaceholder />}>
-              <SecuritySection />
+              <ClientLogos />
             </Suspense>
           </LazySection>
           
-          {/* 10. Кейсы и отзывы */}
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <TechStack />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <RolesTabs />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <Features />
+            </Suspense>
+          </LazySection>
+          
           <LazySection fallback={<LoadingPlaceholder />}>
             <Suspense fallback={<LoadingPlaceholder />}>
               <Testimonials />
             </Suspense>
           </LazySection>
           
-          {/* 11. Тарифы */}
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <CaseStudies />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <HowToStart />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <Integrations />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <WhoIsItFor />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <WidgetCustomizerSection />
+            </Suspense>
+          </LazySection>
+
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <ElectronicJournalSection />
+            </Suspense>
+          </LazySection>
+
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <LoyaltyProgramSection />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <MultiChannelSection />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <MarketingToolsSection />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <BrandedAppSection />
+            </Suspense>
+          </LazySection>
+          
           <LazySection fallback={<LoadingPlaceholder />}>
             <Suspense fallback={<LoadingPlaceholder />}>
               <Pricing />
             </Suspense>
           </LazySection>
           
-          {/* 12. FAQ */}
           <LazySection fallback={<LoadingPlaceholder />}>
             <Suspense fallback={<LoadingPlaceholder />}>
-              <FAQSection />
+              <Roadmap />
             </Suspense>
           </LazySection>
           
-          {/* Финальный CTA */}
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <Comparison />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <FAQ />
+            </Suspense>
+          </LazySection>
+          
           <LazySection fallback={<LoadingPlaceholder />}>
             <Suspense fallback={<LoadingPlaceholder />}>
               <FinalCTA />
