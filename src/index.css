@@ -38,6 +38,23 @@ img[alt*="avatar"],
   animation: burst 1s ease-out forwards;
 }
 
+/* Synchronized Pulse for Device Showcase */
+@keyframes pulse-sync {
+  0%, 100% { 
+    transform: scale(1);
+    box-shadow: 0 10px 30px rgba(99, 102, 241, 0.15);
+  }
+  50% { 
+    transform: scale(1.05);
+    box-shadow: 0 20px 50px rgba(99, 102, 241, 0.35);
+  }
+}
+
+.animate-pulse-sync {
+  animation: pulse-sync 2s ease-in-out infinite;
+  will-change: transform;
+}
+
 /* Hover Scale */
 .hover-scale {
   transition: all 0.3s ease;
