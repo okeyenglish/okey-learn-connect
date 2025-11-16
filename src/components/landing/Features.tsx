@@ -81,7 +81,7 @@ export default function Features() {
     <section id="features" className="py-20 bg-gradient-subtle">
       <div className="container mx-auto px-4 sm:px-6">
         <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 bg-primary/10 px-4 py-2 rounded-full mb-4">
+          <div className="inline-flex items-center gap-2 bg-primary/10 px-6 py-2 rounded-xl mb-4">
             <Sparkles className="h-4 w-4 text-primary" />
             <span className="text-sm font-medium text-primary">Возможности</span>
           </div>
