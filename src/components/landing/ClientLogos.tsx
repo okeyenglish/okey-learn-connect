@@ -13,6 +13,12 @@ export default function ClientLogos() {
     { name: 'Знайка', initial: 'З' }
   ];
 
+  const badges = [
+    { text: '100% безопасность данных', icon: '🔒' },
+    { text: 'Резервное копирование 24/7', icon: '💾' },
+    { text: 'Поддержка на русском', icon: '💬' }
+  ];
+
   return (
     <section className="py-24 bg-muted/20">
       <div className="container mx-auto px-4 sm:px-6">
@@ -34,7 +40,7 @@ export default function ClientLogos() {
             Нам доверяют ведущие образовательные центры
           </p>
         </div>
-        <div className="flex flex-wrap justify-center items-center gap-8 max-w-4xl mx-auto">
+        <div className="flex flex-wrap justify-center items-center gap-8 max-w-4xl mx-auto mb-12">
           {clients.map((client, index) => (
             <div 
               key={index}
@@ -46,6 +52,16 @@ export default function ClientLogos() {
                 </span>
               </div>
               <span className="text-sm font-medium mt-3 text-foreground">{client.name}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Trust Badges */}
+        <div className="flex flex-wrap justify-center gap-6 text-sm text-muted-foreground">
+          {badges.map((badge, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <span className="text-lg">{badge.icon}</span>
+              <span>{badge.text}</span>
             </div>
           ))}
         </div>

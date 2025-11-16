@@ -140,7 +140,7 @@ export default function Hero() {
             </div>
 
             {/* Single Stats Line */}
-            <div className="inline-flex items-center gap-3 bg-primary/8 px-5 py-3 rounded-full border border-primary/10">
+            <div className="inline-flex items-center gap-3 bg-card/50 backdrop-blur-sm px-6 py-3 rounded-full border border-border/50 shadow-sm">
               <span className="text-sm font-medium text-foreground">347 школ уже работают в Академиус</span>
             </div>
           </div>
