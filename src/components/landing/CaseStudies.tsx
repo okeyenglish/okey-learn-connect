@@ -113,7 +113,7 @@ export default function CaseStudies() {
                 <div className="space-y-6">
                   {/* Problem */}
                   <div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-destructive/10 text-destructive text-sm font-semibold mb-3">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-destructive/10 text-destructive text-sm font-semibold mb-3">
                       ❌ Проблема
                     </div>
                     <p className="text-muted-foreground">{study.problem}</p>
@@ -121,7 +121,7 @@ export default function CaseStudies() {
 
                   {/* Solution */}
                   <div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-semibold mb-3">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-primary/10 text-primary text-sm font-semibold mb-3">
                       <CheckCircle2 className="w-4 h-4" />
                       Решение
                     </div>
@@ -130,7 +130,7 @@ export default function CaseStudies() {
 
                   {/* Metrics */}
                   <div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-sm font-semibold mb-4">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-green-500/10 text-green-600 dark:text-green-400 text-sm font-semibold mb-4">
                       <TrendingUp className="w-4 h-4" />
                       Результаты
                     </div>

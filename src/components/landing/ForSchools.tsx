@@ -25,7 +25,7 @@ export default function ForSchools() {
       <div className="container mx-auto px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 bg-primary/10 px-4 py-2 rounded-full mb-4">
+            <div className="inline-flex items-center gap-2 bg-primary/10 px-6 py-2 rounded-xl mb-4">
               <span className="text-sm font-medium text-primary">Для бизнеса</span>
             </div>
             <h2 className="text-4xl md:text-5xl font-bold mb-6">Для школ и учебных центров</h2>
