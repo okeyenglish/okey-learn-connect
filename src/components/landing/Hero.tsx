@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Play } from 'lucide-react';
-import HeroImage from './HeroImage';
 import DemoModal from './DemoModal';
 import VideoModal from './VideoModal';
 
@@ -55,8 +54,8 @@ export default function Hero() {
       </div>
       
       <div className="container relative mx-auto px-4 sm:px-6 max-w-7xl">
-        <div className="grid lg:grid-cols-2 gap-16 items-center">
-          <div className="text-left space-y-8 animate-fade-in">
+        <div className="flex flex-col items-center justify-center">
+          <div className="text-center max-w-4xl space-y-8 animate-fade-in">
             <div className="space-y-6">
               <div className="inline-flex items-center gap-3 px-4 py-2 glass-card">
                 <Sparkles className="w-5 h-5 text-[hsl(var(--accent-purple))]" />
@@ -128,11 +127,6 @@ export default function Hero() {
                 </div>
               </Button>
             </div>
-          </div>
-
-          {/* Right: Enhanced Image Section */}
-          <div className="relative lg:block">
-            <HeroImage />
           </div>
         </div>
       </div>
