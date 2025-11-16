@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Users, BookOpen, CreditCard, Zap, Globe } from 'lucide-react';
 
 const LiveStats = () => {
@@ -8,6 +8,9 @@ const LiveStats = () => {
     paymentsToday: 2847291,
     aiRequests: 1204
   });
+
+  const mapRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -20,6 +23,87 @@ const LiveStats = () => {
     }, 2000);
 
     return () => clearInterval(interval);
+  }, []);
+
+  // Initialize Yandex Map
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://api-maps.yandex.ru/2.1/?apikey=&lang=ru_RU';
+    script.async = true;
+    
+    script.onload = () => {
+      // @ts-ignore
+      ymaps.ready(() => {
+        // @ts-ignore
+        const map = new ymaps.Map('yandex-map', {
+          center: [64.5, 95.0],
+          zoom: 3,
+          controls: ['zoomControl'],
+          behaviors: ['drag', 'dblClickZoom', 'multiTouch']
+        });
+
+        mapRef.current = map;
+
+        // Major Russian cities coordinates (from Kaliningrad to Petropavlovsk-Kamchatsky)
+        const cities = [
+          [55.7558, 37.6173], // Moscow
+          [59.9343, 30.3351], // Saint Petersburg
+          [56.8389, 60.6057], // Yekaterinburg
+          [55.0084, 82.9357], // Novosibirsk
+          [56.0153, 92.8932], // Krasnoyarsk
+          [43.1155, 131.8855], // Vladivostok
+          [53.0202, 158.6436], // Petropavlovsk-Kamchatsky
+          [54.7104, 20.4522], // Kaliningrad
+          [48.7072, 44.5169], // Volgograd
+          [51.5331, 46.0342], // Saratov
+          [53.1959, 50.1002], // Samara
+          [55.7963, 49.1089], // Kazan
+          [56.3287, 44.0020], // Nizhny Novgorod
+          [54.1838, 45.1749], // Penza
+          [51.6606, 39.2006], // Voronezh
+          [47.2357, 39.7015], // Rostov-on-Don
+          [45.0355, 38.9753], // Krasnodar
+          [43.5855, 39.7231], // Sochi
+          [57.1522, 65.5272], // Tyumen
+          [55.1644, 61.4368], // Chelyabinsk
+          [54.9885, 73.3242], // Omsk
+          [53.3606, 83.7636], // Barnaul
+          [51.8279, 107.6059], // Ulan-Ude
+          [52.2897, 104.2806], // Irkutsk
+          [62.0355, 129.6755], // Yakutsk
+          [59.2239, 39.8843], // Vologda
+          [58.0105, 56.2502], // Perm
+          [61.2500, 73.3967], // Surgut
+          [66.0834, 76.6796], // Novy Urengoy
+          [67.5094, 64.0569], // Salekhard
+        ];
+
+        // Add pulsating markers
+        cities.forEach((coords, index) => {
+          setTimeout(() => {
+            // @ts-ignore
+            const placemark = new ymaps.Placemark(coords, {}, {
+              iconLayout: 'default#image',
+              iconImageHref: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI2IiBmaWxsPSIjNjM2NmYxIiBvcGFjaXR5PSIwLjgiPgogICAgPGFuaW1hdGUgYXR0cmlidXRlTmFtZT0iciIgdmFsdWVzPSI0OzY7NCIgZHVyPSIyLjVzIiByZXBlYXRDb3VudD0iaW5kZWZpbml0ZSIvPgogICAgPGFuaW1hdGUgYXR0cmlidXRlTmFtZT0ib3BhY2l0eSIgdmFsdWVzPSIwLjg7MTswLjgiIGR1cj0iMi41cyIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiLz4KICA8L2NpcmNsZT4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjNjM2NmYxIi8+CiAgPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iOCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjM2NmYxIiBzdHJva2Utd2lkdGg9IjEiIG9wYWNpdHk9IjAuNCI+CiAgICA8YW5pbWF0ZSBhdHRyaWJ1dGVOYW1lPSJyIiB2YWx1ZXM9Ijg7MTI7OCIgZHVyPSIyLjVzIiByZXBlYXRDb3VudD0iaW5kZWZpbml0ZSIvPgogICAgPGFuaW1hdGUgYXR0cmlidXRlTmFtZT0ib3BhY2l0eSIgdmFsdWVzPSIwLjQ7MDswLjQiIGR1cj0iMi41cyIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiLz4KICA8L2NpcmNsZT4KPC9zdmc+',
+              iconImageSize: [24, 24],
+              iconImageOffset: [-12, -12]
+            });
+            
+            map.geoObjects.add(placemark);
+            markersRef.current.push(placemark);
+          }, index * 100);
+        });
+      });
+    };
+
+    document.head.appendChild(script);
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.destroy();
+      }
+      markersRef.current = [];
+    };
   }, []);
 
   const formatNumber = (num: number) => {
@@ -120,12 +204,12 @@ const LiveStats = () => {
           ))}
         </div>
 
-        {/* World Map with Active Users */}
+        {/* Russia Map with Active Users */}
         <div className="mt-16 glass-card p-8 max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <Globe className="w-6 h-6 text-category-tech" />
-              <h3 className="text-xl font-semibold">Активность по всему миру</h3>
+              <h3 className="text-xl font-semibold">Активность по всей России</h3>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-category-tech rounded-full animate-pulse" />
@@ -133,30 +217,15 @@ const LiveStats = () => {
             </div>
           </div>
 
-          {/* Simplified world map visualization */}
-          <div className="relative h-48 bg-gradient-to-br from-background to-muted/20 rounded-xl overflow-hidden">
-            {/* Animated dots representing active users */}
-            {[...Array(30)].map((_, i) => (
-              <div
-                key={i}
-                className="absolute w-2 h-2 rounded-full animate-pulse"
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`,
-                  backgroundColor: `hsl(${Math.random() * 360}, 70%, 60%)`,
-                  animationDelay: `${Math.random() * 2}s`,
-                  animationDuration: `${2 + Math.random() * 3}s`
-                }}
-              />
-            ))}
-
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-4xl font-bold mb-2 bg-gradient-to-r from-category-tech to-category-crm bg-clip-text text-transparent">
-                  87 стран
-                </div>
-                <p className="text-sm text-muted-foreground">используют Академиус</p>
+          {/* Yandex Map */}
+          <div className="relative h-96 rounded-xl overflow-hidden">
+            <div id="yandex-map" className="w-full h-full" />
+            
+            <div className="absolute top-4 left-4 glass-card px-4 py-2 z-10">
+              <div className="text-2xl font-bold mb-1 bg-gradient-to-r from-category-tech to-category-crm bg-clip-text text-transparent">
+                700+ городов
               </div>
+              <p className="text-xs text-muted-foreground">активны прямо сейчас</p>
             </div>
           </div>
         </div>
