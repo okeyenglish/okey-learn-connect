@@ -9,7 +9,7 @@ export default function StickyCTA() {
   const [isDemoOpen, setIsDemoOpen] = useState(false);
 
   useEffect(() => {
-    const dismissed = localStorage.getItem('stickyCTADismissed');
+    const dismissed = sessionStorage.getItem('stickyCTADismissed');
     if (dismissed) {
       setIsDismissed(true);
       return;
@@ -28,7 +28,7 @@ export default function StickyCTA() {
 
   const handleDismiss = () => {
     setIsDismissed(true);
-    localStorage.setItem('stickyCTADismissed', 'true');
+    sessionStorage.setItem('stickyCTADismissed', 'true');
   };
 
   if (!isVisible || isDismissed) return null;
@@ -40,20 +40,20 @@ export default function StickyCTA() {
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1">
               <p className="font-semibold text-sm sm:text-base">Готовы попробовать Академиус?</p>
-              <p className="text-xs sm:text-sm opacity-90 hidden sm:block">14 дней бесплатно, без привязки карты</p>
+              <p className="text-xs sm:text-sm opacity-90 hidden sm:block">Начните бесплатный тур по платформе</p>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
               <Button 
                 size="lg" 
                 variant="secondary"
                 onClick={() => setIsDemoOpen(true)}
-                className="text-sm sm:text-base"
+                className="text-sm sm:text-base hover:scale-105 transition-transform duration-200"
               >
-                Получить демо
+                Получить тур
               </Button>
               <button
                 onClick={handleDismiss}
-                className="p-2 hover:bg-primary-foreground/10 rounded-full transition-colors"
+                className="p-2 hover:bg-primary-foreground/10 rounded-full transition-all duration-200 hover:scale-110"
                 aria-label="Закрыть"
               >
                 <X className="h-5 w-5" />

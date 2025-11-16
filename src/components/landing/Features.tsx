@@ -79,7 +79,8 @@ export default function Features() {
             return (
               <div 
                 key={index} 
-                className="bg-card p-6 rounded-xl border border-border text-center hover:shadow-xl hover:border-primary/50 hover:-translate-y-2 transition-all duration-300 group cursor-pointer relative overflow-hidden"
+                className="bg-card p-6 rounded-xl border border-border text-center hover:shadow-xl hover:border-primary/50 hover:-translate-y-2 transition-all duration-300 group cursor-pointer relative overflow-hidden animate-fade-in"
+                style={{ animationDelay: `${index * 50}ms` }}
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative">

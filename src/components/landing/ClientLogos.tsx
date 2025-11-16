@@ -44,9 +44,10 @@ export default function ClientLogos() {
           {clients.map((client, index) => (
             <div 
               key={index}
-              className="flex flex-col items-center justify-center transition-all duration-300 hover:scale-105"
+              className="flex flex-col items-center justify-center transition-all duration-300 hover:scale-110 animate-fade-in cursor-pointer"
+              style={{ animationDelay: `${index * 100}ms` }}
             >
-              <div className="w-16 h-16 rounded-2xl bg-primary/8 border border-primary/10 flex items-center justify-center shadow-sm hover:shadow-md hover:bg-primary/12 transition-all">
+              <div className="w-16 h-16 rounded-2xl bg-primary/8 border border-primary/10 flex items-center justify-center shadow-sm hover:shadow-lg hover:bg-primary/15 transition-all duration-300">
                 <span className="text-primary font-bold text-xl">
                   {client.initial}
                 </span>
