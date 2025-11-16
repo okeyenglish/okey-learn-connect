@@ -1,30 +1,43 @@
 import SEO from '@/components/SEO';
 import { useSmoothScroll } from '@/hooks/useSmoothScroll';
 import Hero from '@/components/landing/Hero';
-import CrossPlatformSection from '@/components/landing/CrossPlatformSection';
-import AIShowcase from '@/components/landing/AIShowcase';
-import LiveStats from '@/components/landing/LiveStats';
-import TechStack from '@/components/landing/TechStack';
-import ClientLogos from '@/components/landing/ClientLogos';
-import HowItWorks from '@/components/landing/HowItWorks';
-import RolesTabs from '@/components/landing/RolesTabs';
-import Features from '@/components/landing/Features';
-import Testimonials from '@/components/landing/Testimonials';
-import CaseStudies from '@/components/landing/CaseStudies';
-import HowToStart from '@/components/landing/HowToStart';
-import Integrations from '@/components/landing/Integrations';
-import WhoIsItFor from '@/components/landing/WhoIsItFor';
-import Pricing from '@/components/landing/Pricing';
-import Comparison from '@/components/landing/Comparison';
-import FAQ from '@/components/landing/FAQ';
-import FinalCTA from '@/components/landing/FinalCTA';
 import Header from '@/components/landing/Header';
 import Footer from '@/components/landing/Footer';
 import StickyCTA from '@/components/landing/StickyCTA';
 import FloatingChat from '@/components/landing/FloatingChat';
 import ScrollToTop from '@/components/landing/ScrollToTop';
 import ProofBar from '@/components/landing/ProofBar';
-import Roadmap from '@/components/landing/Roadmap';
+import { LazySection } from '@/components/common/LazyLoadWrapper';
+import { lazy, Suspense } from 'react';
+
+// Above the fold - load immediately
+// Hero, Header, ProofBar, StickyCTA already imported
+
+// Below the fold - lazy load
+const CrossPlatformSection = lazy(() => import('@/components/landing/CrossPlatformSection'));
+const AIShowcase = lazy(() => import('@/components/landing/AIShowcase'));
+const LiveStats = lazy(() => import('@/components/landing/LiveStats'));
+const TechStack = lazy(() => import('@/components/landing/TechStack'));
+const ClientLogos = lazy(() => import('@/components/landing/ClientLogos'));
+const HowItWorks = lazy(() => import('@/components/landing/HowItWorks'));
+const RolesTabs = lazy(() => import('@/components/landing/RolesTabs'));
+const Features = lazy(() => import('@/components/landing/Features'));
+const Testimonials = lazy(() => import('@/components/landing/Testimonials'));
+const CaseStudies = lazy(() => import('@/components/landing/CaseStudies'));
+const HowToStart = lazy(() => import('@/components/landing/HowToStart'));
+const Integrations = lazy(() => import('@/components/landing/Integrations'));
+const WhoIsItFor = lazy(() => import('@/components/landing/WhoIsItFor'));
+const Pricing = lazy(() => import('@/components/landing/Pricing'));
+const Roadmap = lazy(() => import('@/components/landing/Roadmap'));
+const Comparison = lazy(() => import('@/components/landing/Comparison'));
+const FAQ = lazy(() => import('@/components/landing/FAQ'));
+const FinalCTA = lazy(() => import('@/components/landing/FinalCTA'));
+
+const LoadingPlaceholder = () => (
+  <div className="min-h-[400px] flex items-center justify-center">
+    <div className="animate-pulse text-muted-foreground">Загрузка...</div>
+  </div>
+);
 
 export default function Index() {
   useSmoothScroll();
@@ -39,25 +52,115 @@ export default function Index() {
         <FloatingChat />
         <ScrollToTop />
         <main>
-        <Hero />
-        <CrossPlatformSection />
-        <AIShowcase />
-        <LiveStats />
-        <HowItWorks />
-        <ClientLogos />
-        <TechStack />
-        <RolesTabs />
-        <Features />
-        <Testimonials />
-        <CaseStudies />
-        <HowToStart />
-        <Integrations />
-        <WhoIsItFor />
-        <Pricing />
-        <Roadmap />
-        <Comparison />
-        <FAQ />
-        <FinalCTA />
+          <Hero />
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <CrossPlatformSection />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <AIShowcase />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <LiveStats />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <HowItWorks />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <ClientLogos />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <TechStack />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <RolesTabs />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <Features />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <Testimonials />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <CaseStudies />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <HowToStart />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <Integrations />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <WhoIsItFor />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <Pricing />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <Roadmap />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <Comparison />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <FAQ />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <FinalCTA />
+            </Suspense>
+          </LazySection>
         </main>
         <Footer />
       </div>
