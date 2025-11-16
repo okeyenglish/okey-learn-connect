@@ -2,24 +2,90 @@ import { useEffect, useState, useRef } from 'react';
 import { Users, BookOpen, CreditCard, Zap, Globe } from 'lucide-react';
 
 const LiveStats = () => {
-  const [stats, setStats] = useState({
-    studentsOnline: 12543,
-    lessonsNow: 347,
-    paymentsToday: 2847291,
-    aiRequests: 1204
-  });
+  // Calculate initial values based on Moscow time
+  const getMoscowHour = () => {
+    const now = new Date();
+    const moscowOffset = 3 * 60; // Moscow is UTC+3
+    const localOffset = now.getTimezoneOffset();
+    const moscowTime = new Date(now.getTime() + (moscowOffset + localOffset) * 60000);
+    return moscowTime.getHours();
+  };
 
+  const getInitialStats = () => {
+    const hour = getMoscowHour();
+    
+    // Students online: night 150-450, morning starts at 2500, evening 30000+
+    let studentsOnline;
+    if (hour >= 0 && hour < 6) {
+      studentsOnline = 150 + Math.floor(Math.random() * 300); // 150-450
+    } else if (hour >= 6 && hour < 9) {
+      studentsOnline = 2500 + Math.floor(Math.random() * 3000); // 2500-5500
+    } else if (hour >= 9 && hour < 18) {
+      studentsOnline = 15000 + Math.floor(Math.random() * 10000); // 15000-25000
+    } else {
+      studentsOnline = 30000 + Math.floor(Math.random() * 5000); // 30000-35000
+    }
+
+    // Lessons now: night 30-50, day 20000+
+    let lessonsNow;
+    if (hour >= 0 && hour < 6) {
+      lessonsNow = 30 + Math.floor(Math.random() * 20); // 30-50
+    } else if (hour >= 6 && hour < 9) {
+      lessonsNow = 5000 + Math.floor(Math.random() * 5000); // 5000-10000
+    } else if (hour >= 9 && hour < 21) {
+      lessonsNow = 20000 + Math.floor(Math.random() * 5000); // 20000-25000
+    } else {
+      lessonsNow = 1000 + Math.floor(Math.random() * 2000); // 1000-3000
+    }
+
+    // Payments: reset at 00:00, reach 250-350M by 23:59
+    const minutes = new Date().getMinutes();
+    const totalMinutesInDay = 24 * 60;
+    const currentMinute = hour * 60 + minutes;
+    const dayProgress = currentMinute / totalMinutesInDay;
+    const targetAmount = 250000000 + Math.floor(Math.random() * 100000000); // 250-350M
+    const paymentsToday = Math.floor(targetAmount * dayProgress);
+
+    // AI requests: active during working hours
+    let aiRequests;
+    if (hour >= 0 && hour < 6) {
+      aiRequests = 100 + Math.floor(Math.random() * 200); // 100-300
+    } else if (hour >= 6 && hour < 9) {
+      aiRequests = 500 + Math.floor(Math.random() * 500); // 500-1000
+    } else {
+      aiRequests = 1200 + Math.floor(Math.random() * 800); // 1200-2000
+    }
+
+    return {
+      studentsOnline,
+      lessonsNow,
+      paymentsToday,
+      aiRequests
+    };
+  };
+
+  const [stats, setStats] = useState(getInitialStats());
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setStats(prev => ({
-        studentsOnline: prev.studentsOnline + Math.floor(Math.random() * 10) - 5,
-        lessonsNow: prev.lessonsNow + Math.floor(Math.random() * 6) - 3,
-        paymentsToday: prev.paymentsToday + Math.floor(Math.random() * 5000),
-        aiRequests: prev.aiRequests + Math.floor(Math.random() * 20)
-      }));
+      setStats(prev => {
+        const hour = getMoscowHour();
+        
+        // Dynamic increments based on time of day
+        const studentsIncrement = hour >= 9 && hour < 21 ? Math.floor(Math.random() * 50) - 20 : Math.floor(Math.random() * 10) - 5;
+        const lessonsIncrement = hour >= 9 && hour < 21 ? Math.floor(Math.random() * 100) - 40 : Math.floor(Math.random() * 6) - 3;
+        const paymentsIncrement = hour >= 9 && hour < 21 ? Math.floor(Math.random() * 500000) : Math.floor(Math.random() * 50000);
+        const aiIncrement = hour >= 9 && hour < 21 ? Math.floor(Math.random() * 50) : Math.floor(Math.random() * 20);
+        
+        return {
+          studentsOnline: Math.max(150, prev.studentsOnline + studentsIncrement),
+          lessonsNow: Math.max(30, prev.lessonsNow + lessonsIncrement),
+          paymentsToday: prev.paymentsToday + paymentsIncrement,
+          aiRequests: Math.max(100, prev.aiRequests + aiIncrement)
+        };
+      });
     }, 2000);
 
     return () => clearInterval(interval);
@@ -224,7 +290,7 @@ const LiveStats = () => {
             Сейчас в Академиусе
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Тысячи школ по всей России доверяют нашей платформе каждый день
+            Более 10 000 школ, 50 000 преподавателей и 3 миллиона учеников по всей России
           </p>
         </div>
 
