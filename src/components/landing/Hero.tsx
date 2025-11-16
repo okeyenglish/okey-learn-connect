@@ -141,7 +141,7 @@ export default function Hero() {
                 className="group relative overflow-hidden bg-gradient-to-r from-primary via-purple-500 to-primary hover:shadow-2xl hover:shadow-primary/50 text-primary-foreground text-lg px-10 py-7 transition-all duration-300 hover:scale-105"
               >
                 <span className="relative z-10 flex items-center gap-2">
-                  Попробовать бесплатно
+                  Настроить за 10 минут
                   <Sparkles className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
                 </span>
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -158,6 +158,17 @@ export default function Hero() {
                 </div>
                 Смотреть видео
               </Button>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mt-4">
+              <span className="inline-flex items-center gap-1">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                Бесплатно навсегда
+              </span>
+              <span>•</span>
+              <span>Без карты</span>
+              <span>•</span>
+              <span>Готово за 10 минут</span>
             </div>
           </div>
         </div>

@@ -27,6 +27,9 @@ const CaseStudies = lazy(() => import('@/components/landing/CaseStudies'));
 const HowToStart = lazy(() => import('@/components/landing/HowToStart'));
 const Integrations = lazy(() => import('@/components/landing/Integrations'));
 const WhoIsItFor = lazy(() => import('@/components/landing/WhoIsItFor'));
+const MultiChannelSection = lazy(() => import('@/components/landing/MultiChannelSection').then(m => ({ default: m.MultiChannelSection })));
+const MarketingToolsSection = lazy(() => import('@/components/landing/MarketingToolsSection').then(m => ({ default: m.MarketingToolsSection })));
+const BrandedAppSection = lazy(() => import('@/components/landing/BrandedAppSection').then(m => ({ default: m.BrandedAppSection })));
 const Pricing = lazy(() => import('@/components/landing/Pricing'));
 const Roadmap = lazy(() => import('@/components/landing/Roadmap'));
 const Comparison = lazy(() => import('@/components/landing/Comparison'));
@@ -129,6 +132,24 @@ export default function Index() {
           <LazySection fallback={<LoadingPlaceholder />}>
             <Suspense fallback={<LoadingPlaceholder />}>
               <WhoIsItFor />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <MultiChannelSection />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <MarketingToolsSection />
+            </Suspense>
+          </LazySection>
+          
+          <LazySection fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <BrandedAppSection />
             </Suspense>
           </LazySection>
           
