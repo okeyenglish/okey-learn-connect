@@ -44,8 +44,26 @@ const LiveStats = () => {
 
         mapRef.current = map;
 
-        // Major Russian cities coordinates (from Kaliningrad to Petropavlovsk-Kamchatsky)
-        const cities = [
+        // Generate cities across Russia (700+ cities)
+        // Using clusterer for better performance
+        // @ts-ignore - Yandex Maps API
+        const clusterer = new ymaps.Clusterer({
+          preset: 'islands#invertedVioletClusterIcons',
+          clusterDisableClickZoom: false,
+          clusterOpenBalloonOnClick: false,
+          // @ts-ignore
+          clusterBalloonContentLayout: 'cluster#balloonCarousel',
+          clusterBalloonPagerSize: 5,
+          // @ts-ignore
+          clusterIconContentLayout: ymaps.templateLayoutFactory.createClass(
+            '<div style="color: #fff; font-weight: bold;">{{ properties.geoObjects.length }}</div>'
+          ),
+          gridSize: 80,
+          groupByCoordinates: false,
+        });
+
+        // Major cities (always visible, larger size)
+        const majorCities = [
           [55.7558, 37.6173], // Moscow
           [59.9343, 30.3351], // Saint Petersburg
           [56.8389, 60.6057], // Yekaterinburg
@@ -54,45 +72,93 @@ const LiveStats = () => {
           [43.1155, 131.8855], // Vladivostok
           [53.0202, 158.6436], // Petropavlovsk-Kamchatsky
           [54.7104, 20.4522], // Kaliningrad
-          [48.7072, 44.5169], // Volgograd
-          [51.5331, 46.0342], // Saratov
-          [53.1959, 50.1002], // Samara
-          [55.7963, 49.1089], // Kazan
-          [56.3287, 44.0020], // Nizhny Novgorod
-          [54.1838, 45.1749], // Penza
-          [51.6606, 39.2006], // Voronezh
-          [47.2357, 39.7015], // Rostov-on-Don
-          [45.0355, 38.9753], // Krasnodar
-          [43.5855, 39.7231], // Sochi
-          [57.1522, 65.5272], // Tyumen
-          [55.1644, 61.4368], // Chelyabinsk
-          [54.9885, 73.3242], // Omsk
-          [53.3606, 83.7636], // Barnaul
-          [51.8279, 107.6059], // Ulan-Ude
-          [52.2897, 104.2806], // Irkutsk
-          [62.0355, 129.6755], // Yakutsk
-          [59.2239, 39.8843], // Vologda
-          [58.0105, 56.2502], // Perm
-          [61.2500, 73.3967], // Surgut
-          [66.0834, 76.6796], // Novy Urengoy
-          [67.5094, 64.0569], // Salekhard
         ];
 
-        // Add pulsating markers
-        cities.forEach((coords, index) => {
-          setTimeout(() => {
-            // @ts-ignore
-            const placemark = new ymaps.Placemark(coords, {}, {
-              iconLayout: 'default#image',
-              iconImageHref: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI2IiBmaWxsPSIjNjM2NmYxIiBvcGFjaXR5PSIwLjgiPgogICAgPGFuaW1hdGUgYXR0cmlidXRlTmFtZT0iciIgdmFsdWVzPSI0OzY7NCIgZHVyPSIyLjVzIiByZXBlYXRDb3VudD0iaW5kZWZpbml0ZSIvPgogICAgPGFuaW1hdGUgYXR0cmlidXRlTmFtZT0ib3BhY2l0eSIgdmFsdWVzPSIwLjg7MTswLjgiIGR1cj0iMi41cyIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiLz4KICA8L2NpcmNsZT4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjNjM2NmYxIi8+CiAgPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iOCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjM2NmYxIiBzdHJva2Utd2lkdGg9IjEiIG9wYWNpdHk9IjAuNCI+CiAgICA8YW5pbWF0ZSBhdHRyaWJ1dGVOYW1lPSJyIiB2YWx1ZXM9Ijg7MTI7OCIgZHVyPSIyLjVzIiByZXBlYXRDb3VudD0iaW5kZWZpbml0ZSIvPgogICAgPGFuaW1hdGUgYXR0cmlidXRlTmFtZT0ib3BhY2l0eSIgdmFsdWVzPSIwLjQ7MDswLjQiIGR1cj0iMi41cyIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiLz4KICA8L2NpcmNsZT4KPC9zdmc+',
-              iconImageSize: [24, 24],
-              iconImageOffset: [-12, -12]
-            });
-            
-            map.geoObjects.add(placemark);
-            markersRef.current.push(placemark);
-          }, index * 100);
+        // Generate points across all Russia territory
+        const generateCitiesAcrossRussia = () => {
+          const cities = [];
+          
+          // European Russia (West)
+          for (let i = 0; i < 150; i++) {
+            cities.push([
+              43 + Math.random() * 25, // lat: 43-68
+              27 + Math.random() * 33  // lon: 27-60
+            ]);
+          }
+          
+          // Urals region
+          for (let i = 0; i < 100; i++) {
+            cities.push([
+              51 + Math.random() * 18, // lat: 51-69
+              56 + Math.random() * 10  // lon: 56-66
+            ]);
+          }
+          
+          // Western Siberia
+          for (let i = 0; i < 120; i++) {
+            cities.push([
+              49 + Math.random() * 22, // lat: 49-71
+              66 + Math.random() * 24  // lon: 66-90
+            ]);
+          }
+          
+          // Eastern Siberia
+          for (let i = 0; i < 150; i++) {
+            cities.push([
+              50 + Math.random() * 25, // lat: 50-75
+              90 + Math.random() * 50  // lon: 90-140
+            ]);
+          }
+          
+          // Far East
+          for (let i = 0; i < 180; i++) {
+            cities.push([
+              42 + Math.random() * 30, // lat: 42-72
+              130 + Math.random() * 50 // lon: 130-180
+            ]);
+          }
+          
+          return cities;
+        };
+
+        const allCities = generateCitiesAcrossRussia();
+        const placemarks: any[] = [];
+
+        // Add major cities with larger pulsating icons
+        majorCities.forEach((coords) => {
+          // @ts-ignore
+          const placemark = new ymaps.Placemark(coords, {}, {
+            iconLayout: 'default#image',
+            iconImageHref: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSI4IiBmaWxsPSIjNjM2NmYxIiBvcGFjaXR5PSIwLjkiPgogICAgPGFuaW1hdGUgYXR0cmlidXRlTmFtZT0iciIgdmFsdWVzPSI2Ozg7NiIgZHVyPSIyLjVzIiByZXBlYXRDb3VudD0iaW5kZWZpbml0ZSIvPgogICAgPGFuaW1hdGUgYXR0cmlidXRlTmFtZT0ib3BhY2l0eSIgdmFsdWVzPSIwLjk7MTswLjkiIGR1cj0iMi41cyIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiLz4KICA8L2NpcmNsZT4KICA8Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSI1IiBmaWxsPSIjNjM2NmYxIi8+CiAgPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTIiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzYzNjZmMSIgc3Ryb2tlLXdpZHRoPSIxLjUiIG9wYWNpdHk9IjAuNSI+CiAgICA8YW5pbWF0ZSBhdHRyaWJ1dGVOYW1lPSJyIiB2YWx1ZXM9IjEyOzE2OzEyIiBkdXI9IjIuNXMiIHJlcGVhdENvdW50PSJpbmRlZmluaXRlIi8+CiAgICA8YW5pbWF0ZSBhdHRyaWJ1dGVOYW1lPSJvcGFjaXR5IiB2YWx1ZXM9IjAuNTswOzAuNSIgZHVyPSIyLjVzIiByZXBlYXRDb3VudD0iaW5kZWZpbml0ZSIvPgogIDwvY2lyY2xlPgo8L3N2Zz4=',
+            iconImageSize: [32, 32],
+            iconImageOffset: [-16, -16],
+            zIndex: 1000
+          });
+          
+          map.geoObjects.add(placemark);
+          markersRef.current.push(placemark);
         });
+
+        // Add all other cities with smaller icons (clustered)
+        allCities.forEach((coords) => {
+          // @ts-ignore
+          const placemark = new ymaps.Placemark(coords, {
+            clusterCaption: 'Активная точка'
+          }, {
+            iconLayout: 'default#image',
+            iconImageHref: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSI4IiBjeT0iOCIgcj0iNCIgZmlsbD0iIzYzNjZmMSIgb3BhY2l0eT0iMC43Ij4KICAgIDxhbmltYXRlIGF0dHJpYnV0ZU5hbWU9InIiIHZhbHVlcz0iMzs0OzMiIGR1cj0iMy41cyIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiLz4KICAgIDxhbmltYXRlIGF0dHJpYnV0ZU5hbWU9Im9wYWNpdHkiIHZhbHVlcz0iMC43OzAuOTswLjciIGR1cj0iMy41cyIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiLz4KICA8L2NpcmNsZT4KICA8Y2lyY2xlIGN4PSI4IiBjeT0iOCIgcj0iMiIgZmlsbD0iIzYzNjZmMSIvPgogIDxjaXJjbGUgY3g9IjgiIGN5PSI4IiByPSI2IiBmaWxsPSJub25lIiBzdHJva2U9IiM2MzY2ZjEiIHN0cm9rZS13aWR0aD0iMSIgb3BhY2l0eT0iMC4zIj4KICAgIDxhbmltYXRlIGF0dHJpYnV0ZU5hbWU9InIiIHZhbHVlcz0iNjs4OzYiIGR1cj0iMy41cyIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiLz4KICAgIDxhbmltYXRlIGF0dHJpYnV0ZU5hbWU9Im9wYWNpdHkiIHZhbHVlcz0iMC4zOzA7MC4zIiBkdXI9IjMuNXMiIHJlcGVhdENvdW50PSJpbmRlZmluaXRlIi8+CiAgPC9jaXJjbGU+Cjwvc3ZnPg==',
+            iconImageSize: [16, 16],
+            iconImageOffset: [-8, -8]
+          });
+          
+          placemarks.push(placemark);
+        });
+
+        // Add placemarks to clusterer
+        clusterer.add(placemarks);
+        map.geoObjects.add(clusterer);
+        
+        markersRef.current = placemarks;
       });
     };
 
