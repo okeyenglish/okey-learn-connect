@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Monitor, Tablet, Smartphone, CheckCircle2 } from 'lucide-react';
+import MiniChatManager from './MiniChatManager';
 
 export default function HeroImage() {
   const [isVisible, setIsVisible] = useState(false);
@@ -31,16 +32,7 @@ export default function HeroImage() {
             className="w-full sm:w-72"
             animationDelay="0s"
           >
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 px-3 py-2 bg-surface rounded-lg">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[hsl(var(--accent-purple))] to-[hsl(var(--brand))]" />
-                <div className="flex-1">
-                  <div className="text-xs font-medium text-foreground">app.academyos.ru</div>
-                  <div className="text-[10px] text-muted-foreground">Веб-версия</div>
-                </div>
-              </div>
-              <SyncedCard delay="0s" />
-            </div>
+            <MiniChatManager delay={0} />
           </DeviceFrame>
 
           {/* Tablet */}
@@ -50,15 +42,7 @@ export default function HeroImage() {
             className="w-full sm:w-56 sm:scale-95"
             animationDelay="0.3s"
           >
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 px-3 py-2 bg-surface rounded-lg">
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[hsl(var(--accent-purple))] to-[hsl(var(--brand))]" />
-                <div className="flex-1">
-                  <div className="text-[10px] font-medium text-foreground">iPad Pro</div>
-                </div>
-              </div>
-              <SyncedCard delay="0.3s" />
-            </div>
+            <MiniChatManager delay={0.3} />
           </DeviceFrame>
 
           {/* Mobile */}
@@ -68,15 +52,7 @@ export default function HeroImage() {
             className="w-full sm:w-44 sm:scale-90"
             animationDelay="0.6s"
           >
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 px-2 py-2 bg-surface rounded-lg">
-                <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-[hsl(var(--accent-purple))] to-[hsl(var(--brand))]" />
-                <div className="flex-1">
-                  <div className="text-[10px] font-medium text-foreground">iOS App</div>
-                </div>
-              </div>
-              <SyncedCard delay="0.6s" />
-            </div>
+            <MiniChatManager delay={0.6} />
           </DeviceFrame>
         </div>
 
@@ -160,14 +136,3 @@ function DeviceFrame({
   );
 }
 
-function SyncedCard({ delay }: { delay: string }) {
-  return (
-    <div 
-      className="w-full h-12 sm:h-14 rounded-xl bg-gradient-to-r from-[hsl(262,83%,68%)] to-[hsl(262,83%,58%)] animate-pulse-sync flex items-center justify-center gap-2 text-white font-medium text-sm"
-      style={{ animationDelay: delay }}
-    >
-      <CheckCircle2 className="w-4 h-4" />
-      <span>Урок математики</span>
-    </div>
-  );
-}
