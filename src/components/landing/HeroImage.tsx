@@ -2,24 +2,69 @@ import { useEffect, useState } from 'react';
 
 export default function HeroImage() {
   const [isVisible, setIsVisible] = useState(false);
+  const [hoveredZone, setHoveredZone] = useState<string | null>(null);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     setIsVisible(true);
   }, []);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 10;
+    const y = ((e.clientY - rect.top) / rect.height - 0.5) * 10;
+    setMousePosition({ x, y });
+  };
+
+  const interactiveZones = [
+    { id: 'crm', title: 'CRM система', desc: 'Управление клиентами', position: 'top-[20%] left-[15%]' },
+    { id: 'schedule', title: 'Расписание', desc: 'Умное планирование', position: 'top-[35%] right-[20%]' },
+    { id: 'finance', title: 'Финансы', desc: 'Учет платежей', position: 'bottom-[30%] left-[20%]' },
+    { id: 'analytics', title: 'Аналитика', desc: 'Отчеты и графики', position: 'bottom-[20%] right-[15%]' }
+  ];
 
   return (
     <div 
       className={`relative transition-all duration-1000 ${
         isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-10'
       }`}
+      onMouseMove={handleMouseMove}
       style={{
-        transform: isVisible ? 'perspective(1000px) rotateY(-5deg)' : 'perspective(1000px) rotateY(0deg)',
-        transformStyle: 'preserve-3d'
+        transform: `perspective(1000px) rotateY(${mousePosition.x * 0.5}deg) rotateX(${mousePosition.y * -0.5}deg)`,
+        transformStyle: 'preserve-3d',
+        transition: 'transform 0.1s ease-out'
       }}
     >
       <div className="relative">
+        {/* Interactive hotspots */}
+        {interactiveZones.map((zone) => (
+          <div
+            key={zone.id}
+            className={`absolute ${zone.position} z-20`}
+            onMouseEnter={() => setHoveredZone(zone.id)}
+            onMouseLeave={() => setHoveredZone(null)}
+          >
+            <div className="relative">
+              {/* Pulsing dot */}
+              <div className="w-4 h-4 bg-category-tech rounded-full animate-pulse cursor-pointer relative">
+                <div className="absolute inset-0 bg-category-tech rounded-full animate-ping" />
+              </div>
+              
+              {/* Tooltip */}
+              {hoveredZone === zone.id && (
+                <div className="absolute left-6 top-0 glass-card p-3 whitespace-nowrap animate-fade-in z-30">
+                  <div className="text-sm font-semibold">{zone.title}</div>
+                  <div className="text-xs text-muted-foreground">{zone.desc}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+
         {/* Main dashboard mockup with glassmorphism */}
-        <div className="glass-card neon-border p-6 shadow-2xl hover:shadow-[0_0_60px_rgba(139,92,246,0.3)] transition-all duration-500">
+        <div className="glass-card neon-border p-6 shadow-2xl hover:shadow-[0_0_60px_rgba(139,92,246,0.3)] transition-all duration-500 group">
+          {/* Glow effect on hover */}
+          <div className="absolute inset-0 bg-gradient-to-br from-category-tech/0 via-category-tech/5 to-category-crm/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" />
           <div className="bg-background/80 backdrop-blur-sm rounded-lg shadow-xl overflow-hidden">
             {/* Browser chrome */}
             <div className="bg-muted px-4 py-2 flex items-center gap-2 border-b">

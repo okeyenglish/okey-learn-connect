@@ -1,6 +1,9 @@
 import SEO from '@/components/SEO';
 import { useSmoothScroll } from '@/hooks/useSmoothScroll';
 import Hero from '@/components/landing/Hero';
+import AIShowcase from '@/components/landing/AIShowcase';
+import LiveStats from '@/components/landing/LiveStats';
+import TechStack from '@/components/landing/TechStack';
 import ClientLogos from '@/components/landing/ClientLogos';
 import HowItWorks from '@/components/landing/HowItWorks';
 import RolesTabs from '@/components/landing/RolesTabs';
@@ -33,8 +36,11 @@ export default function Index() {
         <ScrollToTop />
         <main>
         <Hero />
+        <AIShowcase />
+        <LiveStats />
         <HowItWorks />
         <ClientLogos />
+        <TechStack />
         <RolesTabs />
         <Features />
         <Testimonials />
