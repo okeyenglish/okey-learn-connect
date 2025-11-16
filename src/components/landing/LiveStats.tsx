@@ -209,7 +209,7 @@ const LiveStats = () => {
 
   return (
     <section className="relative py-20 overflow-hidden bg-gradient-to-b from-background/50 via-background to-background/50">
-      {/* Animated world map background */}
+      {/* Animated Russia map background */}
       <div className="absolute inset-0 opacity-5">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(99,102,241,0.1),transparent_50%)]" />
       </div>
@@ -224,7 +224,7 @@ const LiveStats = () => {
             Сейчас в Академиусе
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Тысячи школ по всему миру доверяют нашей платформе каждый день
+            Тысячи школ по всей России доверяют нашей платформе каждый день
           </p>
         </div>
 
