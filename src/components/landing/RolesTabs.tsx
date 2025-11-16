@@ -7,6 +7,15 @@ type Role = 'schools' | 'teachers' | 'parents';
 export default function RolesTabs() {
   const [activeRole, setActiveRole] = useState<Role>('schools');
 
+  const getSectionId = (role: Role): string => {
+    const ids = {
+      schools: 'for-schools',
+      teachers: 'for-teachers',
+      parents: 'for-parents'
+    };
+    return ids[role];
+  };
+
   const rolesContent = {
     schools: {
       title: 'Для школ и учебных центров',
@@ -88,7 +97,7 @@ export default function RolesTabs() {
   const content = rolesContent[activeRole];
 
   return (
-    <section className="py-32 bg-gradient-to-br from-background via-primary/3 to-background">
+    <section id={getSectionId(activeRole)} className="py-32 bg-gradient-to-br from-background via-primary/3 to-background">
       <div className="container mx-auto px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
           {/* Tabs */}
