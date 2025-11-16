@@ -22,126 +22,131 @@ export default function Hero() {
   const roleContent = {
     school: {
       icon: Building2,
-      title: 'CRM и управление',
+      title: 'Единая платформа для управления школой',
+      subtitle: 'CRM, расписание, финансы и приложение для родителей в одной системе',
       items: [
-        'Принимайте заявки и ведите базу учеников',
-        'Формируйте группы и расписание',
-        'Контролируйте выручку и загрузку филиалов'
-      ]
+        'Все заявки собираются автоматически — больше никаких потерянных сообщений',
+        'Расписание, группы и зарплаты формируются за минуты, а не часы',
+        'Родители видят всё в приложении — меньше звонков и вопросов'
+      ],
+      cta: 'Получить бесплатный тур',
+      metric: '–18 часов рутины в месяц'
     },
     teacher: {
       icon: GraduationCap,
-      title: 'Личный кабинет и AI',
+      title: 'Всё для работы преподавателя в одном месте',
+      subtitle: 'Журнал, расписание, зарплата и AI-помощник под рукой',
       items: [
-        'Ведите журнал и выдавайте домашние задания',
-        'Видите своё расписание и список учеников',
-        'Получайте прозрачный расчёт зарплаты'
-      ]
+        'Отмечайте посещаемость одним кликом — никаких таблиц',
+        'Видите своё расписание, учеников и зарплату в реальном времени',
+        'AI генерирует задания и игры за вас'
+      ],
+      cta: 'Попробовать кабинет',
+      metric: '0 пропущенных уроков'
     },
     parent: {
       icon: Users,
-      title: 'Приложение и оплаты',
+      title: 'Всё про обучение ребёнка в одном приложении',
+      subtitle: 'Расписание, домашние задания, оплаты и прогресс — всегда под рукой',
       items: [
-        'Получайте расписание и напоминания',
-        'Видите домашние задания и прогресс ребёнка',
-        'Оплачивайте занятия онлайн в пару кликов'
-      ]
+        'Получайте расписание и напоминания о занятиях автоматически',
+        'Видите домашние задания и успехи ребёнка без звонков школе',
+        'Оплачивайте уроки онлайн за пару секунд'
+      ],
+      cta: 'Посмотреть приложение',
+      metric: '–80% звонков в школу'
     }
   };
 
   const RoleIcon = roleContent[selectedRole].icon;
 
   return (
-    <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden py-32">
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/3 via-background to-accent/20" />
-      <div className="absolute inset-0 bg-grid-pattern opacity-[0.015]" />
+    <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden py-20 md:py-32">
+      <div className="absolute inset-0 bg-gradient-to-br from-surface-elevated/30 via-background to-surface-elevated/20" />
       
       <div className="container relative mx-auto px-4 sm:px-6 max-w-7xl">
-        <div className="grid lg:grid-cols-2 gap-20 items-center">
-          <div className="text-left space-y-10">
+        <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div className="text-left space-y-8">
+            {/* Role Selector - теперь в самом верху */}
+            <div className="flex flex-wrap gap-2">
+              <button 
+                onClick={() => setSelectedRole('school')}
+                className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  selectedRole === 'school' 
+                    ? 'bg-primary text-primary-foreground shadow-md' 
+                    : 'bg-surface-elevated text-foreground hover:bg-surface-elevated/80'
+                }`}
+              >
+                Для школы
+              </button>
+              <button 
+                onClick={() => setSelectedRole('teacher')}
+                className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  selectedRole === 'teacher' 
+                    ? 'bg-primary text-primary-foreground shadow-md' 
+                    : 'bg-surface-elevated text-foreground hover:bg-surface-elevated/80'
+                }`}
+              >
+                Для преподавателя
+              </button>
+              <button 
+                onClick={() => setSelectedRole('parent')}
+                className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  selectedRole === 'parent' 
+                    ? 'bg-primary text-primary-foreground shadow-md' 
+                    : 'bg-surface-elevated text-foreground hover:bg-surface-elevated/80'
+                }`}
+              >
+                Для родителя
+              </button>
+            </div>
+
+            {/* Динамический контент по роли */}
             <div className="space-y-6">
-              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
-                Платформа, которая соединяет школу, преподавателя и родителя
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight">
+                {roleContent[selectedRole].title}
               </h1>
 
-              <p className="text-xl md:text-2xl text-muted-foreground leading-relaxed">
-                Управляйте школой, работой педагогов и прогрессом детей в одной системе
+              <p className="text-lg md:text-xl text-text-secondary leading-relaxed">
+                {roleContent[selectedRole].subtitle}
               </p>
             </div>
 
-            {/* Role Selector */}
-            <div className="space-y-6">
-              <div className="flex flex-wrap gap-3">
-                <button 
-                  onClick={() => setSelectedRole('school')}
-                  className={`px-7 py-4 rounded-xl font-medium transition-all ${
-                    selectedRole === 'school' 
-                      ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25' 
-                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                  }`}
-                >
-                  Я представляю школу
-                </button>
-                <button 
-                  onClick={() => setSelectedRole('teacher')}
-                  className={`px-7 py-4 rounded-xl font-medium transition-all ${
-                    selectedRole === 'teacher' 
-                      ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25' 
-                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                  }`}
-                >
-                  Я преподаватель
-                </button>
-                <button 
-                  onClick={() => setSelectedRole('parent')}
-                  className={`px-7 py-4 rounded-xl font-medium transition-all ${
-                    selectedRole === 'parent' 
-                      ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25' 
-                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                  }`}
-                >
-                  Я родитель
-                </button>
-              </div>
-
-              {/* Role Content */}
-              <div className="bg-card border border-border/50 rounded-2xl p-8 min-h-[240px] shadow-sm">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <RoleIcon className="h-6 w-6 text-primary" />
-                  </div>
-                  <h3 className="text-2xl font-semibold">{roleContent[selectedRole].title}</h3>
+            {/* Преимущества */}
+            <div className="space-y-4">
+              {roleContent[selectedRole].items.map((item, idx) => (
+                <div key={idx} className="flex items-start gap-3">
+                  <span className="text-brand-primary mt-1 text-lg font-bold">✓</span>
+                  <span className="text-foreground text-base leading-relaxed">{item}</span>
                 </div>
-                <ul className="space-y-4">
-                  {roleContent[selectedRole].items.map((item, idx) => (
-                    <li key={idx} className="flex items-start gap-3">
-                      <span className="text-primary mt-1 text-lg">✓</span>
-                      <span className="text-foreground text-lg leading-relaxed">{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              ))}
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-5">
+            {/* Метрика */}
+            <div className="inline-flex items-center gap-2 bg-status-success/10 px-4 py-2 rounded-lg border border-status-success/20">
+              <span className="text-sm font-semibold text-status-success">{roleContent[selectedRole].metric}</span>
+            </div>
+
+            {/* CTA */}
+            <div className="flex flex-col sm:flex-row gap-4">
               <Button 
                 size="lg" 
-                className="text-lg px-10 py-7 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/25 transition-all"
+                className="text-base px-8 py-6 shadow-lg hover:shadow-xl transition-all"
                 onClick={() => setIsDemoOpen(true)}
               >
-                Получить демо
+                {roleContent[selectedRole].cta}
               </Button>
               <button 
                 onClick={() => setIsVideoOpen(true)}
-                className="text-foreground hover:text-primary text-lg font-medium transition-colors group"
+                className="text-text-secondary hover:text-primary text-base font-medium transition-colors group inline-flex items-center justify-center sm:justify-start gap-2"
               >
                 Посмотреть видео (2 мин) <span className="inline-block transition-transform group-hover:translate-x-1">→</span>
               </button>
             </div>
 
-            {/* Single Stats Line */}
-            <div className="inline-flex items-center gap-3 bg-card/50 backdrop-blur-sm px-6 py-3 rounded-full border border-border/50 shadow-sm">
-              <span className="text-sm font-medium text-foreground">347 школ уже работают в Академиус</span>
+            {/* Социальное доказательство */}
+            <div className="pt-4">
+              <span className="text-sm text-text-secondary">347 школ уже работают в Академиус</span>
             </div>
           </div>
 
