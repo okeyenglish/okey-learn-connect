@@ -22,6 +22,38 @@ img[alt*="avatar"],
 
 /* O'KEY ENGLISH Design System - All colors MUST be HSL */
 
+/* Gradient Animation */
+@keyframes gradient {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient 3s ease infinite;
+}
+
+/* Enhanced Glassmorphism */
+.glass-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(99, 102, 241, 0.15);
+}
+
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: 0 12px 40px 0 rgba(99, 102, 241, 0.25);
+  transform: translateY(-2px);
+  transition: all 0.3s ease;
+}
+
 /* Ripple Effect */
 @keyframes ripple {
   0% { transform: scale(0); opacity: 1; }

@@ -57,25 +57,28 @@ export default function Hero() {
         <div className="flex flex-col items-center justify-center">
           <div className="text-center max-w-4xl space-y-8 animate-fade-in">
             <div className="space-y-6">
-              <div className="inline-flex items-center gap-3 px-4 py-2 glass-card">
-                <Sparkles className="w-5 h-5 text-[hsl(var(--accent-purple))]" />
-                <span className="text-sm font-medium gradient-text">
+              <div className="inline-flex items-center gap-3 px-5 py-2.5 glass-card backdrop-blur-xl border border-primary/20">
+                <Sparkles className="w-5 h-5 text-[hsl(var(--accent-purple))] animate-pulse" />
+                <span className="text-sm font-semibold bg-gradient-to-r from-primary via-purple-500 to-primary bg-clip-text text-transparent">
                   EdTech платформа №1 в России
                 </span>
               </div>
               
-              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-tight gradient-text" style={{
+              <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold leading-[1.1] gradient-text" style={{
                 textShadow: '0 0 40px rgba(139, 92, 246, 0.3), 0 0 80px rgba(59, 130, 246, 0.2)'
               }}>
-                Единая платформа для школ, преподавателей и родителей
+                Управляйте школой{' '}
+                <span className="bg-gradient-to-r from-primary via-purple-500 to-primary bg-clip-text text-transparent animate-gradient">
+                  в 10 раз быстрее
+                </span>
               </h1>
               
-              <p className="text-lg sm:text-xl text-muted-foreground leading-relaxed">
+              <p className="text-xl sm:text-2xl text-muted-foreground leading-relaxed max-w-3xl mx-auto">
                 CRM, расписание, финансы и AI-помощник в одной системе. Автоматизируйте рутину и сосредоточьтесь на обучении.
               </p>
             </div>
 
-            <ul className="space-y-4">
+            <ul className="space-y-5">
               {[
                 'Все заявки собираются автоматически — никаких потерянных сообщений',
                 'Расписание и зарплаты формируются за минуты, а не часы',
@@ -83,48 +86,51 @@ export default function Hero() {
               ].map((item, index) => (
                 <li 
                   key={index} 
-                  className="flex items-start gap-3 group"
+                  className="flex items-start gap-4 group hover:translate-x-2 transition-all duration-300"
                   style={{
                     animation: `fade-in-up 0.6s ease-out ${index * 0.1}s backwards`
                   }}
                 >
-                  <div className="mt-1 flex-shrink-0">
-                    <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <div className="w-2 h-2 rounded-full bg-gradient-to-r from-[hsl(152,69%,42%)] to-[hsl(189,94%,43%)]" />
+                  <div className="mt-0.5 flex-shrink-0">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary via-purple-500 to-primary flex items-center justify-center group-hover:scale-110 group-hover:rotate-12 transition-all duration-300 shadow-lg">
+                      <Sparkles className="w-4 h-4 text-white" />
                     </div>
                   </div>
-                  <span className="text-base text-foreground group-hover:text-primary transition-colors">{item}</span>
+                  <span className="text-base sm:text-lg text-foreground leading-relaxed font-medium group-hover:text-primary transition-colors">{item}</span>
                 </li>
               ))}
             </ul>
 
-            <div className="inline-flex items-center gap-2 glass-card px-4 py-2 backdrop-blur-xl">
-              <span className="text-2xl">⚡</span>
-              <span className="text-sm font-semibold gradient-text">
+            <div className="inline-flex items-center gap-3 glass-card px-5 py-3 backdrop-blur-xl border border-primary/20">
+              <span className="text-3xl animate-pulse">⚡</span>
+              <span className="text-sm sm:text-base font-bold bg-gradient-to-r from-primary via-purple-500 to-primary bg-clip-text text-transparent">
                 Экономия до 20 часов в месяц
               </span>
             </div>
 
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Button 
                 size="lg" 
                 onClick={() => setIsDemoOpen(true)}
-                className="group relative overflow-hidden bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+                className="group relative overflow-hidden bg-gradient-to-r from-primary via-purple-500 to-primary hover:shadow-2xl hover:shadow-primary/50 text-primary-foreground text-lg px-10 py-7 transition-all duration-300 hover:scale-105"
               >
-                <span className="relative z-10">Попробовать бесплатно</span>
-                <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700" />
+                <span className="relative z-10 flex items-center gap-2">
+                  Попробовать бесплатно
+                  <Sparkles className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
+                </span>
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               </Button>
               
               <Button 
                 size="lg" 
                 variant="outline"
                 onClick={() => setIsVideoOpen(true)}
-                className="group gap-2 border-2 hover:border-primary/50 hover:bg-primary/5"
+                className="group gap-2 border-2 hover:border-primary/50 hover:bg-primary/10 backdrop-blur-sm text-lg px-10 py-7 transition-all duration-300"
               >
-                Смотреть видео
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                  <Play className="w-4 h-4" />
+                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center group-hover:bg-primary/30 group-hover:scale-110 transition-all">
+                  <Play className="w-5 h-5" />
                 </div>
+                Смотреть видео
               </Button>
             </div>
           </div>
