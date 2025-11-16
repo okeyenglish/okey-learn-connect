@@ -1,13 +1,9 @@
 import SEO from '@/components/SEO';
 import { useSmoothScroll } from '@/hooks/useSmoothScroll';
 import Hero from '@/components/landing/Hero';
-import TrustIndicators from '@/components/landing/TrustIndicators';
 import ClientLogos from '@/components/landing/ClientLogos';
 import HowItWorks from '@/components/landing/HowItWorks';
-import VideoDemo from '@/components/landing/VideoDemo';
-import ForSchools from '@/components/landing/ForSchools';
-import ForTeachers from '@/components/landing/ForTeachers';
-import ForParents from '@/components/landing/ForParents';
+import RolesTabs from '@/components/landing/RolesTabs';
 import Features from '@/components/landing/Features';
 import Testimonials from '@/components/landing/Testimonials';
 import CaseStudies from '@/components/landing/CaseStudies';
@@ -37,12 +33,9 @@ export default function Index() {
         <ScrollToTop />
         <main>
         <Hero />
-        <ClientLogos />
         <HowItWorks />
-        <VideoDemo />
-        <ForSchools />
-        <ForTeachers />
-        <ForParents />
+        <ClientLogos />
+        <RolesTabs />
         <Features />
         <Testimonials />
         <CaseStudies />
