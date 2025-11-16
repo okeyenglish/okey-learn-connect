@@ -61,6 +61,13 @@ img[alt*="avatar"],
     --accent-orange: 36 100% 50%;
     --accent-cyan: 189 94% 43%;
     
+    /* === Category Colors === */
+    --category-crm: 262 83% 58%;
+    --category-finance: 152 69% 42%;
+    --category-education: 212 85% 58%;
+    --category-tech: 36 100% 50%;
+    --category-parent: 330 81% 60%;
+    
     /* === Glow Effects === */
     --glow-purple: 262 100% 70%;
     --glow-blue: 212 100% 65%;
@@ -463,5 +470,65 @@ img[alt*="avatar"],
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
+  }
+
+  /* === Feature Category Cards === */
+  .feature-card {
+    @apply relative overflow-hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .feature-card::before {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-300;
+    background: radial-gradient(circle at center, currentColor 0%, transparent 70%);
+  }
+
+  .feature-card:hover::before {
+    opacity: 0.1;
+  }
+
+  .feature-card:hover {
+    transform: translateY(-8px) perspective(1000px) rotateY(2deg);
+  }
+
+  /* === Gradient Border === */
+  .gradient-border {
+    position: relative;
+    border-radius: 1rem;
+  }
+
+  .gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 1rem;
+    padding: 2px;
+    background: linear-gradient(135deg, currentColor, transparent);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+
+  /* === Icon Glow === */
+  .icon-glow {
+    filter: drop-shadow(0 0 8px currentColor);
+  }
+
+  /* === Comparison Card === */
+  .comparison-card {
+    @apply relative overflow-hidden rounded-xl p-6;
+    transition: all 0.3s ease;
+  }
+
+  .comparison-card::before {
+    content: '';
+    @apply absolute top-0 left-0 w-1 h-full;
+    background: currentColor;
+    transition: width 0.3s ease;
+  }
+
+  .comparison-card:hover::before {
+    width: 4px;
   }
 }
