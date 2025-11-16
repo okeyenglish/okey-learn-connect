@@ -44,7 +44,7 @@ img[alt*="avatar"],
     --card-foreground: 215 20% 25%;
     --popover-foreground: 215 20% 25%;
     
-    /* === Brand Colors - Softer, more modern === */
+    /* === Brand Colors - Vibrant & Modern === */
     --brand: 212 85% 58%;
     --brand-600: 212 85% 50%;
     --brand-500: 212 85% 58%;
@@ -54,6 +54,17 @@ img[alt*="avatar"],
     --primary: 212 85% 58%;
     --primary-foreground: 0 0% 100%;
     --primary-hover: 212 85% 50%;
+    
+    /* === Accent Colors - Vibrant Palette === */
+    --accent-purple: 262 83% 68%;
+    --accent-pink: 330 81% 60%;
+    --accent-orange: 36 100% 50%;
+    --accent-cyan: 189 94% 43%;
+    
+    /* === Glow Effects === */
+    --glow-purple: 262 100% 70%;
+    --glow-blue: 212 100% 65%;
+    --glow-pink: 330 100% 70%;
     
     /* === Status Colors - Softer, more approachable === */
     --success: 152 69% 42%;
@@ -356,5 +367,101 @@ img[alt*="avatar"],
 
   .animate-shimmer {
     animation: shimmer 2s infinite;
+  }
+
+  /* === Floating Blob Animation === */
+  @keyframes float {
+    0%, 100% {
+      transform: translate(0, 0) scale(1);
+    }
+    33% {
+      transform: translate(30px, -30px) scale(1.1);
+    }
+    66% {
+      transform: translate(-20px, 20px) scale(0.9);
+    }
+  }
+
+  @keyframes float-delayed {
+    0%, 100% {
+      transform: translate(0, 0) scale(1);
+    }
+    33% {
+      transform: translate(-40px, 30px) scale(1.05);
+    }
+    66% {
+      transform: translate(25px, -25px) scale(0.95);
+    }
+  }
+
+  /* === Gradient Text === */
+  .gradient-text {
+    @apply bg-gradient-to-r from-[hsl(212,85%,58%)] via-[hsl(262,83%,68%)] to-[hsl(330,81%,60%)] bg-clip-text text-transparent;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* === Glass Card === */
+  .glass-card {
+    @apply bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl;
+  }
+
+  .dark .glass-card {
+    @apply bg-black/20 backdrop-blur-xl border-white/10;
+  }
+
+  /* === Glow Button === */
+  .glow-button {
+    @apply relative overflow-hidden;
+    box-shadow: 0 0 20px hsl(var(--glow-blue) / 0.3),
+                0 0 40px hsl(var(--glow-purple) / 0.2);
+  }
+
+  .glow-button::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-r from-[hsl(212,100%,65%)] via-[hsl(262,100%,70%)] to-[hsl(330,100%,70%)];
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .glow-button:hover::before {
+    opacity: 0.2;
+  }
+
+  /* === Floating Blobs === */
+  .floating-blob {
+    @apply absolute rounded-full blur-3xl opacity-30;
+    animation: float 20s ease-in-out infinite;
+  }
+
+  .floating-blob-delayed {
+    animation: float-delayed 25s ease-in-out infinite;
+  }
+
+  /* === Grid Pattern === */
+  .grid-pattern {
+    background-image: 
+      linear-gradient(to right, hsl(var(--border) / 0.1) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.1) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* === Neon Border === */
+  .neon-border {
+    @apply relative;
+  }
+
+  .neon-border::before {
+    content: '';
+    @apply absolute inset-0 rounded-2xl;
+    padding: 2px;
+    background: linear-gradient(135deg, 
+      hsl(var(--glow-blue)), 
+      hsl(var(--glow-purple)), 
+      hsl(var(--glow-pink))
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
   }
 }
