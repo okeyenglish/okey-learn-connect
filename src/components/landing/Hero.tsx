@@ -136,8 +136,8 @@ export default function Hero() {
             </div>
 
             {/* Single Stats Line */}
-            <div className="text-sm text-muted-foreground">
-              9 филиалов • 110+ активных групп • 1000+ учеников
+            <div className="inline-flex items-center gap-2 bg-primary/10 px-4 py-2 rounded-full">
+              <span className="text-sm font-medium text-primary">347 школ уже работают в Академиус</span>
             </div>
           </div>
 
