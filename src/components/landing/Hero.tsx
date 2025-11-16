@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Building2, GraduationCap, Users } from 'lucide-react';
 import HeroImage from './HeroImage';
@@ -19,6 +19,19 @@ export default function Hero() {
   const [isDemoOpen, setIsDemoOpen] = useState(false);
   const [isVideoOpen, setIsVideoOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role>('school');
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePosition({
+        x: (e.clientX / window.innerWidth - 0.5) * 20,
+        y: (e.clientY / window.innerHeight - 0.5) * 20,
+      });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
 
   const roleContent = {
     school: {
@@ -62,9 +75,36 @@ export default function Hero() {
   const RoleIcon = roleContent[selectedRole].icon;
 
   return (
-    <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden py-20 md:py-32">
-      {/* Animated Background */}
-      <AnimatedBackground />
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-b from-background via-background to-muted/10">
+      {/* Enhanced animated background with 3D depth */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(99,102,241,0.1),transparent_50%)] animate-pulse" />
+        
+        {/* 3D floating elements */}
+        <div 
+          className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-br from-category-tech/10 to-transparent rounded-full blur-3xl animate-float"
+          style={{
+            transform: `translate(${mousePosition.x}px, ${mousePosition.y}px)`,
+            transition: 'transform 0.3s ease-out'
+          }}
+        />
+        <div 
+          className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-gradient-to-br from-category-crm/10 to-transparent rounded-full blur-3xl animate-float"
+          style={{
+            transform: `translate(${-mousePosition.x}px, ${-mousePosition.y}px)`,
+            transition: 'transform 0.3s ease-out',
+            animationDelay: '2s'
+          }}
+        />
+        <div 
+          className="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-br from-category-education/10 to-transparent rounded-full blur-3xl animate-float"
+          style={{
+            transform: `translate(${mousePosition.x * 0.5}px, ${mousePosition.y * 0.5}px)`,
+            transition: 'transform 0.3s ease-out',
+            animationDelay: '1s'
+          }}
+        />
+      </div>
       
       <div className="container relative mx-auto px-4 sm:px-6 max-w-7xl">
         <div className="grid lg:grid-cols-2 gap-16 items-center">
