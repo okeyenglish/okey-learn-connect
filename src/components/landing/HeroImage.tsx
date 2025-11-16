@@ -71,15 +71,6 @@ export default function HeroImage() {
             </div>
           </div>
         </div>
-
-        {/* Floating elements */}
-        <div className="absolute -top-4 -right-4 bg-green-500 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg animate-bounce">
-          +40% конверсия
-        </div>
-        
-        <div className="absolute -bottom-4 -left-4 bg-blue-500 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg" style={{ animationDelay: '0.5s' }}>
-          -75% рутины
-        </div>
       </div>
     </div>
   );

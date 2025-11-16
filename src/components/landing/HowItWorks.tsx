@@ -24,17 +24,18 @@ export default function HowItWorks() {
             <ul className="space-y-3 text-muted-foreground">
               <li className="flex items-start gap-2">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></span>
-                <span>Принимает лиды и заявки</span>
+                <span>Не теряет заявки из мессенджеров</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></span>
-                <span>Формирует группы, расписание и оплату</span>
+                <span>Видит выручку и прибыль в реальном времени</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></span>
-                <span>Видит аналитику по филиалам</span>
+                <span>Контролирует загрузку филиалов</span>
               </li>
             </ul>
+            <div className="mt-4 text-sm font-semibold text-success">–18 часов рутины в месяц</div>
           </div>
 
           <div className="text-center group">
@@ -46,17 +47,18 @@ export default function HowItWorks() {
             <ul className="space-y-3 text-muted-foreground">
               <li className="flex items-start gap-2">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></span>
-                <span>Видит расписание и учеников</span>
+                <span>Всё расписание с уведомлениями</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></span>
-                <span>Заполняет журнал и ДЗ</span>
+                <span>Журнал за 2 клика, ДЗ автоматически</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></span>
-                <span>Получает расчет зарплаты</span>
+                <span>Прозрачный расчёт зарплаты</span>
               </li>
             </ul>
+            <div className="mt-4 text-sm font-semibold text-success">0 пропущенных уроков</div>
           </div>
 
           <div className="text-center group">
@@ -68,17 +70,18 @@ export default function HowItWorks() {
             <ul className="space-y-3 text-muted-foreground">
               <li className="flex items-start gap-2">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></span>
-                <span>Получает уведомления и ДЗ</span>
+                <span>Видит оценки и комментарии преподавателя</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></span>
-                <span>Оплачивает занятия онлайн</span>
+                <span>Расписание с push-уведомлениями</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></span>
-                <span>Видит прогресс обучения</span>
+                <span>Оплата онлайн картой за 30 секунд</span>
               </li>
             </ul>
+            <div className="mt-4 text-sm font-semibold text-success">–80% звонков по расписанию</div>
           </div>
         </div>
       </div>

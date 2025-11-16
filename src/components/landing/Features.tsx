@@ -5,16 +5,56 @@ import {
 
 export default function Features() {
   const features = [
-    { icon: Users, title: 'CRM и воронка продаж' },
-    { icon: Database, title: 'База учеников и семей' },
-    { icon: Calendar, title: 'Расписание и посещаемость' },
-    { icon: FileText, title: 'Домашние задания и материалы' },
-    { icon: DollarSign, title: 'Финансы: оплаты, долги, выручка' },
-    { icon: CreditCard, title: 'Начисление зарплат' },
-    { icon: GraduationCap, title: 'Личный кабинет педагога' },
-    { icon: Smartphone, title: 'Приложение для родителей' },
-    { icon: Sparkles, title: 'AI-инструменты для контента' },
-    { icon: Plug, title: 'Интеграции: телефония, мессенджеры, платежи' }
+    { 
+      icon: Users, 
+      title: 'CRM и воронка продаж',
+      description: 'Собирайте заявки из всех каналов и ведите их до покупки'
+    },
+    { 
+      icon: Database, 
+      title: 'База учеников и семей',
+      description: 'Вся информация о клиентах в одном месте'
+    },
+    { 
+      icon: Calendar, 
+      title: 'Расписание и посещаемость',
+      description: 'Отмечайте присутствие одним кликом'
+    },
+    { 
+      icon: FileText, 
+      title: 'Домашние задания и материалы',
+      description: 'Выдавайте ДЗ и делитесь материалами с учениками'
+    },
+    { 
+      icon: DollarSign, 
+      title: 'Финансы и выручка',
+      description: 'Видите деньги в реальном времени по всем филиалам'
+    },
+    { 
+      icon: CreditCard, 
+      title: 'Начисление зарплат',
+      description: 'Автоматический расчет зарплат преподавателей'
+    },
+    { 
+      icon: GraduationCap, 
+      title: 'Личный кабинет педагога',
+      description: 'Всё для работы в одном месте'
+    },
+    { 
+      icon: Smartphone, 
+      title: 'Приложение для родителей',
+      description: 'Прогресс ребёнка и оплата в приложении'
+    },
+    { 
+      icon: Sparkles, 
+      title: 'AI-инструменты для контента',
+      description: 'Генерация планов уроков и упражнений'
+    },
+    { 
+      icon: Plug, 
+      title: 'Интеграции',
+      description: 'Телефония, мессенджеры, платёжные системы'
+    }
   ];
 
   return (
@@ -39,12 +79,16 @@ export default function Features() {
             return (
               <div 
                 key={index} 
-                className="bg-card p-6 rounded-xl border border-border text-center hover:shadow-xl hover:border-primary/50 hover:-translate-y-2 transition-all duration-300 group"
+                className="bg-card p-6 rounded-xl border border-border text-center hover:shadow-xl hover:border-primary/50 hover:-translate-y-2 transition-all duration-300 group cursor-pointer relative overflow-hidden"
               >
-                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                  <Icon className="h-7 w-7 text-primary" />
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="relative">
+                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                    <Icon className="h-7 w-7 text-primary" />
+                  </div>
+                  <p className="text-sm font-semibold mb-2 group-hover:text-primary transition-colors">{feature.title}</p>
+                  <p className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{feature.description}</p>
                 </div>
-                <p className="text-sm font-semibold group-hover:text-primary transition-colors">{feature.title}</p>
               </div>
             );
           })}
