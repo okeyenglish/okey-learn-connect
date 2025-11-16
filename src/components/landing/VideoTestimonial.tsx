@@ -1,5 +1,6 @@
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Play } from 'lucide-react';
+import { useState } from 'react';
 
 interface VideoTestimonialProps {
   videoUrl: string;
@@ -48,5 +49,3 @@ export default function VideoTestimonial({ videoUrl, thumbnail, name, role }: Vi
     </>
   );
 }
-
-const { useState } = await import('react');
