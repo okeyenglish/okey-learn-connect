@@ -139,25 +139,36 @@ img[alt*="avatar"],
 
 @layer base {
   :root {
-    /* === Surfaces & Backgrounds === */
-    --bg: 0 0% 100%;
+    /* === Академиус Brand Colors === */
+    /* Основной цвет - глубокий тёплый синий #222f62 */
+    --primary: 228 65% 26%;
+    --primary-foreground: 210 40% 98%;
+    
+    /* Акцентный цвет - мягкий зелёный #3cb371 */
+    --accent: 146 50% 49%;
+    --accent-foreground: 0 0% 100%;
+    
+    /* Фиолетовый градиент #6d5dfc → #9159d3 */
+    --purple-start: 254 76% 68%;
+    --purple-end: 270 60% 65%;
+    
+    /* Фон - светло-серый #f8fafc */
+    --background: 210 40% 98%;
+    --bg: 210 40% 98%;
     --bg-soft: 210 20% 98%;
     --surface: 0 0% 100%;
     --surface-alt: 210 20% 97%;
     
-    /* Backward compatibility */
-    --background: 0 0% 100%;
-    --card: 0 0% 100%;
-    --popover: 0 0% 100%;
-    
-    /* === Text Colors === */
-    --text-primary: 215 20% 25%;
+    /* Text colors using primary */
+    --foreground: 228 65% 26%;
+    --text-primary: 228 65% 26%;
     --text-secondary: 215 15% 45%;
     --text-muted: 215 10% 55%;
     
-    --foreground: 215 20% 25%;
-    --card-foreground: 215 20% 25%;
-    --popover-foreground: 215 20% 25%;
+    --card: 0 0% 100%;
+    --card-foreground: 228 65% 26%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 228 65% 26%;
     
     /* === Brand Colors - Vibrant & Modern === */
     --brand: 212 85% 58%;
