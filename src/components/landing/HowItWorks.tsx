@@ -1,4 +1,5 @@
 import { Building2, GraduationCap, Users } from 'lucide-react';
+import FlowDiagram from '@/components/effects/FlowDiagram';
 
 export default function HowItWorks() {
   return (
@@ -6,11 +7,25 @@ export default function HowItWorks() {
       <div className="container mx-auto px-4 sm:px-6">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Одна платформа — три роли, общий результат
+            Как работает Академиус?
           </h2>
           <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-            Академиус связывает школу, педагога и родителя в один понятный процесс. 
-            Управление бизнесом, учебный процесс и коммуникация с семьей больше не живут в разных сервисах.
+            От заявки до отчёта — единый процесс без разрывов. Все данные автоматически передаются между этапами.
+          </p>
+        </div>
+
+        {/* Flow Diagram */}
+        <div className="mb-20">
+          <FlowDiagram />
+        </div>
+
+        {/* Roles section */}
+        <div className="text-center mb-12">
+          <h3 className="text-2xl md:text-3xl font-bold mb-4">
+            Одна платформа — три роли, общий результат
+          </h3>
+          <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+            Академиус связывает школу, педагога и родителя в один понятный процесс.
           </p>
         </div>
 
