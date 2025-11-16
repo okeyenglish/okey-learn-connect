@@ -76,13 +76,14 @@ const LiveStats = () => {
         // Dynamic increments based on time of day
         const studentsIncrement = hour >= 9 && hour < 21 ? Math.floor(Math.random() * 50) - 20 : Math.floor(Math.random() * 10) - 5;
         const lessonsIncrement = hour >= 9 && hour < 21 ? Math.floor(Math.random() * 100) - 40 : Math.floor(Math.random() * 6) - 3;
-        const paymentsIncrement = hour >= 9 && hour < 21 ? Math.floor(Math.random() * 500000) : Math.floor(Math.random() * 50000);
+        // Payments can ONLY grow, never decrease
+        const paymentsIncrement = hour >= 9 && hour < 21 ? Math.floor(Math.random() * 500000) + 100000 : Math.floor(Math.random() * 50000) + 10000;
         const aiIncrement = hour >= 9 && hour < 21 ? Math.floor(Math.random() * 50) : Math.floor(Math.random() * 20);
         
         return {
           studentsOnline: Math.max(150, prev.studentsOnline + studentsIncrement),
           lessonsNow: Math.max(30, prev.lessonsNow + lessonsIncrement),
-          paymentsToday: prev.paymentsToday + paymentsIncrement,
+          paymentsToday: prev.paymentsToday + paymentsIncrement, // Always grows
           aiRequests: Math.max(100, prev.aiRequests + aiIncrement)
         };
       });
