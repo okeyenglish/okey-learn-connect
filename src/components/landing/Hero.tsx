@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Play } from 'lucide-react';
 import DemoModal from './DemoModal';
@@ -8,18 +8,37 @@ export default function Hero() {
   const [isDemoOpen, setIsDemoOpen] = useState(false);
   const [isVideoOpen, setIsVideoOpen] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const rafRef = useRef<number | null>(null);
+  const lastUpdateRef = useRef<number>(0);
 
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
+  // Throttled mouse move handler using RAF for better performance
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    const now = Date.now();
+    // Throttle to ~60fps (16ms)
+    if (now - lastUpdateRef.current < 16) return;
+    
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+    }
+
+    rafRef.current = requestAnimationFrame(() => {
       setMousePosition({
         x: (e.clientX / window.innerWidth - 0.5) * 20,
         y: (e.clientY / window.innerHeight - 0.5) * 20,
       });
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
+      lastUpdateRef.current = now;
+    });
   }, []);
+
+  useEffect(() => {
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+      }
+    };
+  }, [handleMouseMove]);
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-b from-background via-background to-muted/10">

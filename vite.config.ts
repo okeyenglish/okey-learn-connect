@@ -20,14 +20,46 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: {
-          // Split vendor libraries into separate chunks for better caching
+          // Core vendor libraries
           vendor: ['react', 'react-dom', 'react-router-dom'],
           query: ['@tanstack/react-query'],
+          
+          // UI libraries
           ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-toast', '@radix-ui/react-select', '@radix-ui/react-tabs'],
           supabase: ['@supabase/supabase-js'],
           icons: ['lucide-react'],
           forms: ['@hookform/resolvers', 'react-hook-form', 'zod'],
-          utils: ['class-variance-authority', 'clsx', 'tailwind-merge', 'date-fns']
+          utils: ['class-variance-authority', 'clsx', 'tailwind-merge', 'date-fns'],
+          
+          // Landing page chunks - lazy loaded
+          'landing-marketing': [
+            './src/components/landing/Testimonials.tsx',
+            './src/components/landing/CaseStudies.tsx',
+            './src/components/landing/ClientLogos.tsx',
+          ],
+          'landing-features': [
+            './src/components/landing/Features.tsx',
+            './src/components/landing/RolesTabs.tsx',
+            './src/components/landing/HowItWorks.tsx',
+            './src/components/landing/WhoIsItFor.tsx',
+          ],
+          'landing-interactive': [
+            './src/components/landing/AIShowcase.tsx',
+            './src/components/landing/LiveStats.tsx',
+            './src/components/landing/CrossPlatformSection.tsx',
+          ],
+          'landing-conversion': [
+            './src/components/landing/Pricing.tsx',
+            './src/components/landing/Comparison.tsx',
+            './src/components/landing/FinalCTA.tsx',
+          ],
+          'landing-info': [
+            './src/components/landing/Integrations.tsx',
+            './src/components/landing/TechStack.tsx',
+            './src/components/landing/FAQ.tsx',
+            './src/components/landing/Roadmap.tsx',
+            './src/components/landing/HowToStart.tsx',
+          ]
         },
         // Optimize chunk loading
         chunkFileNames: 'assets/[name]-[hash].js',

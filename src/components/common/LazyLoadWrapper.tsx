@@ -1,4 +1,5 @@
-import { Suspense, ComponentType, lazy } from 'react';
+import { Suspense, ComponentType, lazy, ReactNode } from 'react';
+import { useIntersectionObserver } from '@/hooks/useIntersectionObserver';
 
 /**
  * Wrapper для lazy loading с улучшенным UX
@@ -71,4 +72,36 @@ export function usePrefetchOnHover() {
       onTouchStart: () => prefetchComponent(importFunc),
     };
   };
+}
+
+/**
+ * LazySection - компонент для lazy loading секций при скролле
+ * Загружает содержимое только когда секция становится видимой
+ */
+interface LazySectionProps {
+  children: ReactNode;
+  fallback?: ReactNode;
+  threshold?: number;
+  rootMargin?: string;
+  className?: string;
+}
+
+export function LazySection({ 
+  children, 
+  fallback = <DefaultLoadingComponent />,
+  threshold = 0.1,
+  rootMargin = '100px',
+  className = ''
+}: LazySectionProps) {
+  const [ref, isVisible] = useIntersectionObserver<HTMLDivElement>({
+    threshold,
+    rootMargin,
+    triggerOnce: true
+  });
+
+  return (
+    <div ref={ref} className={className}>
+      {isVisible ? children : fallback}
+    </div>
+  );
 }

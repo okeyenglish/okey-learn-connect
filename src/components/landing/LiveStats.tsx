@@ -1,7 +1,14 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Users, BookOpen, CreditCard, Zap, Globe } from 'lucide-react';
+import { useIntersectionObserver } from '@/hooks/useIntersectionObserver';
 
 const LiveStats = () => {
+  const [isMapReady, setIsMapReady] = useState(false);
+  const [sectionRef, isVisible] = useIntersectionObserver<HTMLDivElement>({
+    threshold: 0.1,
+    rootMargin: '200px',
+    triggerOnce: true
+  });
   // Calculate initial values based on Moscow time
   const getMoscowHour = () => {
     const now = new Date();
@@ -92,13 +99,16 @@ const LiveStats = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Initialize Yandex Map
-  useEffect(() => {
+  // Initialize Yandex Map - only when section becomes visible
+  const initializeMap = useCallback(() => {
+    if (!isVisible || isMapReady) return;
+
     const script = document.createElement('script');
     script.src = 'https://api-maps.yandex.ru/2.1/?apikey=&lang=ru_RU';
     script.async = true;
     
     script.onload = () => {
+      setIsMapReady(true);
       // @ts-ignore
       ymaps.ready(() => {
         // @ts-ignore
@@ -230,7 +240,17 @@ const LiveStats = () => {
     };
 
     document.head.appendChild(script);
+  }, [isVisible, isMapReady]);
 
+  // Trigger map initialization when section becomes visible
+  useEffect(() => {
+    if (isVisible) {
+      initializeMap();
+    }
+  }, [isVisible, initializeMap]);
+
+  // Cleanup on unmount
+  useEffect(() => {
     return () => {
       if (mapRef.current) {
         mapRef.current.destroy();
@@ -275,7 +295,7 @@ const LiveStats = () => {
   ];
 
   return (
-    <section className="relative py-20 overflow-hidden bg-gradient-to-b from-background/50 via-background to-background/50">
+    <section ref={sectionRef} className="relative py-20 overflow-hidden bg-gradient-to-b from-background/50 via-background to-background/50">
       {/* Animated Russia map background */}
       <div className="absolute inset-0 opacity-5">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(99,102,241,0.1),transparent_50%)]" />
