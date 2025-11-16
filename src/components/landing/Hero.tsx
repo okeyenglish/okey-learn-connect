@@ -76,6 +76,13 @@ export default function Hero() {
               <p className="text-xl sm:text-2xl text-muted-foreground leading-relaxed max-w-3xl mx-auto">
                 CRM, расписание, финансы и AI-помощник в одной системе. Автоматизируйте рутину и сосредоточьтесь на обучении.
               </p>
+              
+              <div className="flex items-center justify-center gap-2 mt-6 px-6 py-3 glass-card backdrop-blur-xl border border-primary/10">
+                <div className="w-2 h-2 bg-green-500 rounded-sm animate-pulse" />
+                <span className="text-sm text-muted-foreground">
+                  Прямо сейчас: <span className="font-bold text-foreground">25,000+ учеников онлайн</span> • <span className="font-bold text-foreground">12,000+ уроков</span> проходит
+                </span>
+              </div>
             </div>
 
             <ul className="space-y-5">
