@@ -22,6 +22,8 @@ import Footer from '@/components/landing/Footer';
 import StickyCTA from '@/components/landing/StickyCTA';
 import FloatingChat from '@/components/landing/FloatingChat';
 import ScrollToTop from '@/components/landing/ScrollToTop';
+import ProofBar from '@/components/landing/ProofBar';
+import Roadmap from '@/components/landing/Roadmap';
 
 export default function Index() {
   useSmoothScroll();
@@ -31,6 +33,7 @@ export default function Index() {
       <SEO />
       <div className="min-h-screen bg-background">
         <Header />
+        <ProofBar />
         <StickyCTA />
         <FloatingChat />
         <ScrollToTop />
@@ -49,6 +52,7 @@ export default function Index() {
         <Integrations />
         <WhoIsItFor />
         <Pricing />
+        <Roadmap />
         <Comparison />
         <FAQ />
         <FinalCTA />

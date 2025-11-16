@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
+import PricingCalculator from './PricingCalculator';
 
 export default function Pricing() {
   return (
@@ -13,6 +14,11 @@ export default function Pricing() {
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Выберите подходящий тариф для вашей школы. Все тарифы включают 14 дней бесплатного пробного периода
             </p>
+          </div>
+
+          {/* Pricing Calculator */}
+          <div className="mb-16">
+            <PricingCalculator />
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 mb-12">
