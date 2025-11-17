@@ -2,10 +2,11 @@ import { ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { LoginForm } from './LoginForm';
 import { Loader2 } from 'lucide-react';
+import type { AppRole } from '@/lib/permissions';
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  allowedRoles?: ('admin' | 'branch_manager' | 'methodist' | 'head_teacher' | 'sales_manager' | 'marketing_manager' | 'manager' | 'accountant' | 'receptionist' | 'support' | 'teacher' | 'student')[];
+  allowedRoles?: AppRole[];
 }
 
 export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {

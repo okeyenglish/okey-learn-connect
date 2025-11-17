@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { StudentsModal } from './StudentsModal';
+import { RoleSwitcher } from '@/components/admin/RoleSwitcher';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import crmLogo from '@/assets/crm-logo.png';
@@ -248,6 +249,9 @@ export const UnifiedCRMHeader = () => {
           <div className="w-full flex-1 md:w-auto md:flex-none">
             {/* Здесь может быть поиск в будущем */}
           </div>
+          
+          {/* Role Switcher для админа */}
+          <RoleSwitcher />
           
           {/* Профиль пользователя */}
           <DropdownMenu>
