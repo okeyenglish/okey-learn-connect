@@ -45,6 +45,7 @@ export default function UnifiedCRM() {
       case 'teacher':
         return '/crm/teacher-portal';
       case 'student':
+      case 'parent':
         return '/crm/student-portal';
       case 'admin':
       case 'methodist':

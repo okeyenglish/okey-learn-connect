@@ -27,7 +27,8 @@ import {
   DollarSign,
   UserCheck,
   Briefcase,
-  HardDrive
+  HardDrive,
+  UserCircle
 } from 'lucide-react';
 
 export const UnifiedCRMHeader = () => {
@@ -59,13 +60,15 @@ export const UnifiedCRMHeader = () => {
   const getNavigationItems = () => {
     const items = [];
 
-    // Доступно всем аутентифицированным пользователям
-    items.push({
-      label: 'CRM',
-      href: '/crm',
-      icon: MessageSquare,
-      roles: ['admin', 'manager', 'teacher', 'student', 'methodist']
-    });
+    // Доступно всем аутентифицированным пользователям (кроме student и parent)
+    if (role !== 'student' && role !== 'parent') {
+      items.push({
+        label: 'CRM',
+        href: '/crm/main',
+        icon: MessageSquare,
+        roles: ['admin', 'branch_manager', 'methodist', 'head_teacher', 'sales_manager', 'marketing_manager', 'manager', 'accountant', 'receptionist', 'support', 'teacher']
+      });
+    }
 
     // Для преподавателей
     if (role === 'teacher' || role === 'admin' || role === 'methodist') {
@@ -77,13 +80,23 @@ export const UnifiedCRMHeader = () => {
       });
     }
 
-    // Для учеников
-    if (role === 'student' || role === 'admin') {
+    // Для учеников и родителей
+    if (role === 'student' || role === 'parent' || role === 'admin') {
       items.push({
         label: 'Портал ученика',
         href: '/student-portal',
         icon: User,
-        roles: ['admin', 'student']
+        roles: ['admin', 'student', 'parent']
+      });
+    }
+
+    // Для родителей
+    if (role === 'parent' || role === 'admin') {
+      items.push({
+        label: 'Портал родителя',
+        href: '/parent-portal',
+        icon: UserCircle,
+        roles: ['admin', 'parent']
       });
     }
 
@@ -98,25 +111,25 @@ export const UnifiedCRMHeader = () => {
     }
 
     // Дополнительные разделы для менеджеров и администраторов
-    if (role === 'admin' || role === 'manager' || role === 'methodist') {
+    if (role === 'admin' || role === 'manager' || role === 'methodist' || role === 'branch_manager' || role === 'sales_manager' || role === 'marketing_manager') {
       items.push(
         {
           label: 'Расписание',
           href: '/crm/schedule',
           icon: Calendar,
-          roles: ['admin', 'manager', 'methodist']
+          roles: ['admin', 'manager', 'methodist', 'branch_manager', 'sales_manager', 'marketing_manager']
         },
         {
           label: 'Группы',
           href: '/crm/groups',
           icon: Users,
-          roles: ['admin', 'manager', 'methodist']
+          roles: ['admin', 'manager', 'methodist', 'branch_manager', 'sales_manager', 'marketing_manager']
         },
         {
           label: 'Отчеты',
           href: '/crm/reports',
           icon: BarChart3,
-          roles: ['admin', 'manager', 'methodist']
+          roles: ['admin', 'manager', 'methodist', 'branch_manager', 'sales_manager', 'marketing_manager']
         },
         // StudentsModal will be handled separately
         {
@@ -230,7 +243,7 @@ export const UnifiedCRMHeader = () => {
               </Button>
             ))}
             {/* Students Modal Button */}
-            {(role === 'admin' || role === 'manager' || role === 'methodist' || role === 'teacher') && (
+            {(role && role !== 'student' && role !== 'parent') && (
               <StudentsModal open={studentsModalOpen} onOpenChange={setStudentsModalOpen}>
                 <Button
                   variant="ghost"
