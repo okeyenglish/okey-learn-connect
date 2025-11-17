@@ -29,7 +29,7 @@ interface TeacherLayoutProps {
 
 export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
   const navigate = useNavigate();
-  const { signOut, profile } = useAuth();
+  const { signOut, profile, isRoleEmulation } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('home');
   const [isChatDocked, setIsChatDocked] = useState(false);
@@ -38,7 +38,7 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
 
   // Получаем данные преподавателя
   const { data: teacher, isLoading: teacherLoading, error: teacherError } = useQuery({
-    queryKey: ['teacher-by-profile', profile?.id],
+    queryKey: ['teacher-by-profile', profile?.id, isRoleEmulation],
     queryFn: async () => {
       if (!profile?.id) {
         console.warn('[TeacherLayout] No profile ID');
@@ -47,10 +47,25 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
       
       console.log('[TeacherLayout] Fetching teacher for profile:', profile.id);
       
+      // Если админ тестирует роль преподавателя, используем демо-преподавателя
+      let targetProfileId = profile.id;
+      if (isRoleEmulation) {
+        const { data: demoProfile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', 'demo-teacher@academius.ru')
+          .single();
+        
+        if (demoProfile) {
+          targetProfileId = demoProfile.id;
+          console.log('[TeacherLayout] Using demo teacher profile:', targetProfileId);
+        }
+      }
+      
       const { data, error } = await (supabase as any)
         .from('teachers')
         .select('*')
-        .eq('profile_id', profile.id)
+        .eq('profile_id', targetProfileId)
         .eq('is_active', true)
         .maybeSingle();
       
@@ -60,7 +75,7 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
       }
       
       if (!data) {
-        console.warn('[TeacherLayout] No teacher found for profile:', profile.id);
+        console.warn('[TeacherLayout] No teacher found for profile:', targetProfileId);
       }
       
       return data as Teacher | null;
