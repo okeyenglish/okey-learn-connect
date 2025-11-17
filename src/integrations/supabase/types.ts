@@ -7990,6 +7990,7 @@ export type Database = {
         | "head_teacher"
         | "branch_manager"
         | "support"
+        | "parent"
       balance_transaction_type: "credit" | "debit" | "transfer_in" | "refund"
       bonus_transaction_type: "earned" | "spent" | "expired"
       day_of_week:
@@ -8197,6 +8198,7 @@ export const Constants = {
         "head_teacher",
         "branch_manager",
         "support",
+        "parent",
       ],
       balance_transaction_type: ["credit", "debit", "transfer_in", "refund"],
       bonus_transaction_type: ["earned", "spent", "expired"],

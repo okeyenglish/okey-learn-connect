@@ -174,15 +174,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             console.log('User role on sign in:', roleData);
             console.log('Current path:', currentPath);
             
-            if (currentPath === '/auth') {
+            if (currentPath === '/auth' || currentPath === '/demo-login') {
               console.log('Redirecting based on role:', roleData);
-              if (roleData === 'student') {
+              if (roleData === 'student' || roleData === 'parent') {
                 window.location.href = '/student-portal';
               } else if (roleData === 'teacher') {
                 window.location.href = '/teacher-portal';
               } else if (roleData === 'admin') {
                 window.location.href = '/admin';
-              } else if (['manager', 'methodist', 'branch_manager', 'head_teacher', 'sales_manager', 'marketing_manager', 'accountant', 'receptionist'].includes(roleData)) {
+              } else if (['manager', 'methodist', 'branch_manager', 'head_teacher', 'sales_manager', 'marketing_manager', 'accountant', 'receptionist', 'support'].includes(roleData)) {
                 window.location.href = '/crm';
               } else {
                 window.location.href = '/crm';
