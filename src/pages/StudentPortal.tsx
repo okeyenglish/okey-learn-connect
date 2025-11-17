@@ -18,16 +18,35 @@ import { DashboardModal } from '@/components/dashboards/DashboardModal';
 
 export default function StudentPortal() {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, signOut, isRoleEmulation } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showDashboardModal, setShowDashboardModal] = useState(false);
 
   // Получаем данные студента
   const { data: student, isLoading: studentLoading } = useQuery({
-    queryKey: ['student-by-user', user?.id],
+    queryKey: ['student-by-user', user?.id, isRoleEmulation],
     queryFn: async () => {
       if (!user?.id) return null;
+      
+      // Если админ тестирует роль студента, используем демо-студента
+      if (isRoleEmulation) {
+        const { data: demoProfile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', 'demo-student@academius.ru')
+          .single();
+        
+        if (demoProfile) {
+          const { data, error } = await supabase.rpc('get_student_by_user_id', {
+            _user_id: demoProfile.id
+          });
+          if (!error && data?.[0]) {
+            return data[0];
+          }
+        }
+      }
+      
       const { data, error } = await supabase.rpc('get_student_by_user_id', {
         _user_id: user.id
       });
