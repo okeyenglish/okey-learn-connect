@@ -44,7 +44,7 @@ export const LeadCard = ({ lead, onUpdate, onOpen }: LeadCardProps) => {
       }
 
       // Находимся в CRM и открываем закрепленную карточку студента
-      navigate('/newcrm');
+      navigate('/crm/main');
       await pinModal({
         id: lead.id,
         type: 'student',

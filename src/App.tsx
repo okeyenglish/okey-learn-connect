@@ -94,6 +94,10 @@ const AppContent = () => {
         </Suspense>
       } />
       
+      {/* Redirect old newcrm path */}
+      <Route path="/newcrm/*" element={<Navigate to="/crm/main" replace />} />
+      <Route path="/newcrm" element={<Navigate to="/crm/main" replace />} />
+      
       {/* Admin Routes */}
       <Route path="/admin" element={
         <ProtectedRoute allowedRoles={['admin']}>

@@ -124,10 +124,10 @@ export default function Auth() {
           console.log('Redirecting admin to /admin');
           navigate('/admin');
         } else if (!roleError && ['manager', 'methodist'].includes(roleData)) {
-          navigate('/newcrm');
+          navigate('/crm/main');
         } else {
           // Fallback - перенаправляем на CRM для неопределенных ролей
-          navigate('/newcrm');
+          navigate('/crm/main');
         }
       }
     } catch (error: any) {
