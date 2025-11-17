@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -397,13 +397,24 @@ export default function Auth() {
           </CardContent>
         </Card>
 
-        <div className="text-center mt-6">
+        <div className="text-center mt-6 space-y-3">
           <p className="text-sm text-gray-600">
             Нужна помощь?{' '}
             <a href="/contacts" className="font-medium text-red-500 hover:text-red-600">
               Свяжитесь с нами
             </a>
           </p>
+          
+          {process.env.NODE_ENV === 'development' && (
+            <div className="pt-2 border-t border-border/50">
+              <Link 
+                to="/demo-login"
+                className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+              >
+                🔑 Демо-доступ для тестирования
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </div>

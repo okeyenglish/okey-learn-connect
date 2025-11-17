@@ -21,6 +21,7 @@ const ParentPortal = lazy(() => import("./pages/ParentPortal"));
 const GroupDetailView = lazy(() => import("./components/teacher/GroupDetailView"));
 const OnlineLesson = lazy(() => import("./pages/OnlineLesson"));
 const Auth = lazy(() => import("./pages/Auth"));
+const DemoLogin = lazy(() => import("./pages/DemoLogin"));
 const TestUserCreator = lazy(() => import('./pages/TestUserCreator'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
@@ -106,6 +107,12 @@ const AppContent = () => {
       <Route path="/auth" element={
         <Suspense fallback={<LoadingComponent />}>
           <Auth />
+        </Suspense>
+      } />
+      
+      <Route path="/demo-login" element={
+        <Suspense fallback={<LoadingComponent />}>
+          <DemoLogin />
         </Suspense>
       } />
       <Route path="/auth/callback" element={
