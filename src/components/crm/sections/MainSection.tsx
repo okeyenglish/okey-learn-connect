@@ -2,7 +2,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Calendar, FileText, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { ManagerInterface } from '@/components/crm/ManagerInterface';
+import { useAuth } from '@/hooks/useAuth';
+
 export default function MainSection() {
+  const { role } = useAuth();
+  
+  // Для менеджеров показываем полноценный интерфейс с чатами
+  if (role && ['manager', 'branch_manager', 'methodist', 'head_teacher', 'sales_manager', 'marketing_manager', 'accountant', 'receptionist', 'support'].includes(role)) {
+    return <ManagerInterface />;
+  }
+  
+  // Для остальных ролей показываем карточки с разделами
   return (
     <div className="container mx-auto px-6 py-8">
       <div className="mb-8">
