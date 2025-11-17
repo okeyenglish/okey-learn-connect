@@ -108,6 +108,59 @@ serve(async (req) => {
           console.error(`Error assigning role for ${user.email}:`, roleError)
         }
 
+        // Create related domain entities for demo roles
+        try {
+          if (user.role === 'student') {
+            // Ensure family group exists (use user id as deterministic group id)
+            const familyGroupId = authData.user.id;
+            const { error: fgError } = await supabaseAdmin
+              .from('family_groups')
+              .upsert({
+                id: familyGroupId,
+                name: `Демо семья ${user.lastName}`,
+                organization_id: DEMO_ORG_ID,
+                branch: 'Главный'
+              }, { onConflict: 'id' });
+            if (fgError) console.error('Error creating demo family group:', fgError);
+
+            // Create a simple demo student linked to this account
+            const { error: studError } = await supabaseAdmin
+              .from('students')
+              .upsert({
+                id: authData.user.id, // map 1:1 for demo
+                name: `${user.firstName} ${user.lastName}`,
+                first_name: user.firstName,
+                last_name: user.lastName,
+                lk_email: user.email,
+                phone: user.phone,
+                age: 16,
+                family_group_id: familyGroupId,
+                organization_id: DEMO_ORG_ID,
+                status: 'active'
+              }, { onConflict: 'id' });
+            if (studError) console.error('Error creating demo student:', studError);
+          }
+
+          if (user.role === 'teacher') {
+            // Create a simple active teacher mapped to profile
+            const { error: teacherError } = await supabaseAdmin
+              .from('teachers')
+              .upsert({
+                id: authData.user.id, // map 1:1 for demo
+                first_name: user.firstName,
+                last_name: user.lastName,
+                email: user.email,
+                phone: user.phone,
+                profile_id: authData.user.id,
+                is_active: true,
+                branch: 'Главный'
+              }, { onConflict: 'id' });
+            if (teacherError) console.error('Error creating demo teacher:', teacherError);
+          }
+        } catch (e) {
+          console.error('Error creating domain entities:', e);
+        }
+
         results.push({ 
           email: user.email, 
           status: 'created',
