@@ -26,7 +26,6 @@ const roleLabels: Record<AppRole, string> = {
   support: 'Поддержка',
   teacher: 'Преподаватель',
   student: 'Студент',
-  parent: 'Родитель',
 };
 
 export const RoleSwitcher = () => {
@@ -41,16 +40,13 @@ export const RoleSwitcher = () => {
     'admin',
     'branch_manager',
     'sales_manager',
-    'marketing_manager',
     'manager',
     'methodist',
     'head_teacher',
     'accountant',
     'receptionist',
-    'support',
     'teacher',
     'student',
-    'parent',
   ];
 
   const currentRole = roles[0];

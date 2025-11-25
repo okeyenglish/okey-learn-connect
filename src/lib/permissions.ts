@@ -14,8 +14,7 @@ export type AppRole =
   | 'receptionist'
   | 'support'
   | 'teacher'
-  | 'student'
-  | 'parent';
+  | 'student';
 
 // Admin panel sections correspond to AdminSidebar ids  
 export type AdminSectionId =
@@ -42,8 +41,7 @@ const adminSectionsByRole: Record<AppRole, AdminSectionId[]> = {
   receptionist: ['dashboard'],
   support: ['dashboard'],
   teacher: ['dashboard'],
-  student: [],
-  parent: []
+  student: []
 };
 
 // CRM routes and their identifiers
@@ -75,8 +73,7 @@ const crmRoutesByRole: Record<AppRole, CrmRouteId[]> = {
   receptionist: ['crm'],
   support: ['crm'],
   teacher: ['crm','teacher-portal'],
-  student: ['student-portal'],
-  parent: ['student-portal']
+  student: ['student-portal']
 };
 
 // Функции для проверки прав администратора

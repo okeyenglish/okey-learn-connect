@@ -5,10 +5,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { Suspense, lazy } from 'react';
 
 // Lazy load компоненты
+const CRM = lazy(() => import('./CRM'));
 const TeacherPortal = lazy(() => import('./TeacherPortal'));
 const StudentPortal = lazy(() => import('./StudentPortal'));
 const Admin = lazy(() => import('./Admin'));
-const MainSection = lazy(() => import('@/components/crm/sections/MainSection'));
 
 // Компоненты-заглушки для новых разделов
 const ScheduleSection = lazy(() => import('@/components/crm/sections/ScheduleSection'));
@@ -45,7 +45,6 @@ export default function UnifiedCRM() {
       case 'teacher':
         return '/crm/teacher-portal';
       case 'student':
-      case 'parent':
         return '/crm/student-portal';
       case 'admin':
       case 'methodist':
@@ -73,7 +72,7 @@ export default function UnifiedCRM() {
               path="/main" 
               element={
                 <Suspense fallback={<LoadingComponent />}>
-                  <MainSection />
+                  <CRM />
                 </Suspense>
               } 
             />

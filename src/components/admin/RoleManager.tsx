@@ -48,7 +48,7 @@ import { AddUserModal } from './AddUserModal';
 import { useRoles } from '@/hooks/useRoles';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
-import type { AppRole } from '@/lib/permissions';
+type AppRole = 'admin' | 'branch_manager' | 'methodist' | 'head_teacher' | 'sales_manager' | 'marketing_manager' | 'manager' | 'accountant' | 'receptionist' | 'support' | 'teacher' | 'student';
 
 interface UserWithRoles {
   id: string;

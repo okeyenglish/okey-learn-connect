@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { StudentsModal } from './StudentsModal';
-import { RoleSwitcher } from '@/components/admin/RoleSwitcher';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import crmLogo from '@/assets/crm-logo.png';
@@ -27,8 +26,7 @@ import {
   DollarSign,
   UserCheck,
   Briefcase,
-  HardDrive,
-  UserCircle
+  HardDrive
 } from 'lucide-react';
 
 export const UnifiedCRMHeader = () => {
@@ -60,15 +58,13 @@ export const UnifiedCRMHeader = () => {
   const getNavigationItems = () => {
     const items = [];
 
-    // Доступно всем аутентифицированным пользователям (кроме student и parent)
-    if (role !== 'student' && role !== 'parent') {
-      items.push({
-        label: 'CRM',
-        href: '/crm/main',
-        icon: MessageSquare,
-        roles: ['admin', 'branch_manager', 'methodist', 'head_teacher', 'sales_manager', 'marketing_manager', 'manager', 'accountant', 'receptionist', 'support', 'teacher']
-      });
-    }
+    // Доступно всем аутентифицированным пользователям
+    items.push({
+      label: 'CRM',
+      href: '/crm',
+      icon: MessageSquare,
+      roles: ['admin', 'manager', 'teacher', 'student', 'methodist']
+    });
 
     // Для преподавателей
     if (role === 'teacher' || role === 'admin' || role === 'methodist') {
@@ -80,23 +76,13 @@ export const UnifiedCRMHeader = () => {
       });
     }
 
-    // Для учеников и родителей
-    if (role === 'student' || role === 'parent' || role === 'admin') {
+    // Для учеников
+    if (role === 'student' || role === 'admin') {
       items.push({
         label: 'Портал ученика',
         href: '/student-portal',
         icon: User,
-        roles: ['admin', 'student', 'parent']
-      });
-    }
-
-    // Для родителей
-    if (role === 'parent' || role === 'admin') {
-      items.push({
-        label: 'Портал родителя',
-        href: '/parent-portal',
-        icon: UserCircle,
-        roles: ['admin', 'parent']
+        roles: ['admin', 'student']
       });
     }
 
@@ -111,25 +97,25 @@ export const UnifiedCRMHeader = () => {
     }
 
     // Дополнительные разделы для менеджеров и администраторов
-    if (role === 'admin' || role === 'manager' || role === 'methodist' || role === 'branch_manager' || role === 'sales_manager' || role === 'marketing_manager') {
+    if (role === 'admin' || role === 'manager' || role === 'methodist') {
       items.push(
         {
           label: 'Расписание',
           href: '/crm/schedule',
           icon: Calendar,
-          roles: ['admin', 'manager', 'methodist', 'branch_manager', 'sales_manager', 'marketing_manager']
+          roles: ['admin', 'manager', 'methodist']
         },
         {
           label: 'Группы',
           href: '/crm/groups',
           icon: Users,
-          roles: ['admin', 'manager', 'methodist', 'branch_manager', 'sales_manager', 'marketing_manager']
+          roles: ['admin', 'manager', 'methodist']
         },
         {
           label: 'Отчеты',
           href: '/crm/reports',
           icon: BarChart3,
-          roles: ['admin', 'manager', 'methodist', 'branch_manager', 'sales_manager', 'marketing_manager']
+          roles: ['admin', 'manager', 'methodist']
         },
         // StudentsModal will be handled separately
         {
@@ -243,7 +229,7 @@ export const UnifiedCRMHeader = () => {
               </Button>
             ))}
             {/* Students Modal Button */}
-            {(role && role !== 'student' && role !== 'parent') && (
+            {(role === 'admin' || role === 'manager' || role === 'methodist' || role === 'teacher') && (
               <StudentsModal open={studentsModalOpen} onOpenChange={setStudentsModalOpen}>
                 <Button
                   variant="ghost"
@@ -262,9 +248,6 @@ export const UnifiedCRMHeader = () => {
           <div className="w-full flex-1 md:w-auto md:flex-none">
             {/* Здесь может быть поиск в будущем */}
           </div>
-          
-          {/* Role Switcher для админа */}
-          <RoleSwitcher />
           
           {/* Профиль пользователя */}
           <DropdownMenu>

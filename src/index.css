@@ -1,19 +1,19 @@
-/* Avatar styles - use rounded corners instead of full circles */
+/* Ensure all avatar images are circular */
 img[alt*="avatar"], 
 .avatar img,
 [class*="avatar"] img {
-  border-radius: 0.75rem !important; /* rounded-xl */
+  border-radius: 50% !important;
 }
 
-/* Avatar containers - use rounded corners */
+/* Ensure all avatar containers are circular */
 .avatar,
 [class*="avatar"] {
-  border-radius: 0.75rem; /* rounded-xl */
+  border-radius: 50%;
 }
 
-/* Override rounded-full for better design consistency */
+/* Ensure rounded-full class is always circular */
 .rounded-full {
-  border-radius: 0.75rem !important; /* rounded-xl instead of full circle */
+  border-radius: 50% !important;
 }
 
 @tailwind base;
@@ -22,128 +22,13 @@ img[alt*="avatar"],
 
 /* O'KEY ENGLISH Design System - All colors MUST be HSL */
 
-/* Gradient Animation */
-@keyframes gradient {
-  0%, 100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
-.animate-gradient {
-  background-size: 200% 200%;
-  animation: gradient 3s ease infinite;
-}
-
-/* Enhanced Glassmorphism */
-.glass-card {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 32px 0 rgba(99, 102, 241, 0.15);
-}
-
-.glass-card:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(99, 102, 241, 0.3);
-  box-shadow: 0 12px 40px 0 rgba(99, 102, 241, 0.25);
-  transform: translateY(-2px);
-  transition: all 0.3s ease;
-}
-
-/* Ripple Effect */
-@keyframes ripple {
-  0% { transform: scale(0); opacity: 1; }
-  100% { transform: scale(4); opacity: 0; }
-}
-
-/* Particle Burst */
-@keyframes burst {
-  0% { transform: translate(0, 0) scale(1); opacity: 1; }
-  100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
-}
-
-.animate-burst {
-  animation: burst 1s ease-out forwards;
-}
-
-/* Synchronized Pulse for Device Showcase */
-@keyframes pulse-sync {
-  0%, 100% { 
-    transform: scale(1);
-    box-shadow: 0 10px 30px rgba(99, 102, 241, 0.15);
-  }
-  50% { 
-    transform: scale(1.05);
-    box-shadow: 0 20px 50px rgba(99, 102, 241, 0.35);
-  }
-}
-
-@keyframes message-appear {
-  0% {
-    opacity: 0;
-    transform: translateY(8px) scale(0.95);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes unread-pulse {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.15);
-    opacity: 0.9;
-  }
-}
-
-.animate-message-appear {
-  animation: message-appear 0.5s ease-out forwards;
-}
-
-.animate-unread-pulse {
-  animation: unread-pulse 2s ease-in-out infinite;
-}
-
-.animate-pulse-sync {
-  animation: pulse-sync 2s ease-in-out infinite;
-  will-change: transform;
-}
-
-/* Hover Scale */
-.hover-scale {
-  transition: all 0.3s ease;
-}
-
-.hover-scale:hover {
-  transform: translateY(-8px) scale(1.02);
-  box-shadow: 0 20px 60px rgba(99, 102, 241, 0.3);
-}
-
-/* Scale In Animation */
-@keyframes scale-in {
-  0% { transform: scale(0.8); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-.animate-scale-in {
-  animation: scale-in 0.3s ease-out;
-}
-
 @layer base {
   :root {
     /* === Surfaces & Backgrounds === */
     --bg: 0 0% 100%;
-    --bg-soft: 210 20% 98%;
+    --bg-soft: 220 20% 98%;
     --surface: 0 0% 100%;
-    --surface-alt: 210 20% 97%;
+    --surface-alt: 220 20% 97%;
     
     /* Backward compatibility */
     --background: 0 0% 100%;
@@ -151,73 +36,55 @@ img[alt*="avatar"],
     --popover: 0 0% 100%;
     
     /* === Text Colors === */
-    --text-primary: 215 20% 25%;
-    --text-secondary: 215 15% 45%;
-    --text-muted: 215 10% 55%;
+    --text-primary: 220 15% 20%;
+    --text-secondary: 220 10% 45%;
+    --text-muted: 220 8% 60%;
     
-    --foreground: 215 20% 25%;
-    --card-foreground: 215 20% 25%;
-    --popover-foreground: 215 20% 25%;
+    --foreground: 220 15% 20%;
+    --card-foreground: 220 15% 20%;
+    --popover-foreground: 220 15% 20%;
     
-    /* === Brand Colors - Vibrant & Modern === */
-    --brand: 212 85% 58%;
-    --brand-600: 212 85% 50%;
-    --brand-500: 212 85% 58%;
-    --brand-100: 212 85% 96%;
+    /* === Brand Colors === */
+    --brand: 0 84% 60%;
+    --brand-600: 0 84% 52%;
+    --brand-500: 0 84% 60%;
+    --brand-100: 0 84% 96%;
     
     /* Primary stays same for compatibility */
-    --primary: 212 85% 58%;
+    --primary: 0 84% 60%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 212 85% 50%;
+    --primary-hover: 0 84% 52%;
     
-    /* === Accent Colors - Vibrant Palette === */
-    --accent-purple: 262 83% 68%;
-    --accent-pink: 330 81% 60%;
-    --accent-orange: 36 100% 50%;
-    --accent-cyan: 189 94% 43%;
+    /* === Status Colors === */
+    --success: 142 76% 36%;
+    --success-600: 142 76% 36%;
+    --success-100: 142 76% 95%;
     
-    /* === Category Colors === */
-    --category-crm: 262 83% 58%;
-    --category-finance: 152 69% 42%;
-    --category-education: 212 85% 58%;
-    --category-tech: 36 100% 50%;
-    --category-parent: 330 81% 60%;
+    --warning: 38 92% 50%;
+    --warning-600: 38 92% 50%;
+    --warning-100: 38 92% 95%;
     
-    /* === Glow Effects === */
-    --glow-purple: 262 100% 70%;
-    --glow-blue: 212 100% 65%;
-    --glow-pink: 330 100% 70%;
+    --danger: 0 84% 60%;
+    --danger-600: 0 84% 60%;
+    --danger-100: 0 84% 96%;
     
-    /* === Status Colors - Softer, more approachable === */
-    --success: 152 69% 42%;
-    --success-600: 152 69% 42%;
-    --success-100: 152 69% 95%;
+    --info: 217 91% 60%;
+    --info-600: 217 91% 60%;
+    --info-100: 217 91% 96%;
     
-    --warning: 38 85% 55%;
-    --warning-600: 38 85% 55%;
-    --warning-100: 38 85% 95%;
-    
-    --danger: 0 72% 58%;
-    --danger-600: 0 72% 58%;
-    --danger-100: 0 72% 96%;
-    
-    --info: 212 85% 58%;
-    --info-600: 212 85% 58%;
-    --info-100: 212 85% 96%;
-    
-    --neutral: 215 12% 50%;
-    --neutral-500: 215 12% 50%;
-    --neutral-100: 215 12% 95%;
+    --neutral: 220 10% 50%;
+    --neutral-500: 220 10% 50%;
+    --neutral-100: 220 10% 95%;
     
     /* === Secondary & Accent === */
-    --secondary: 210 20% 96%;
-    --secondary-foreground: 215 20% 25%;
+    --secondary: 220 20% 96%;
+    --secondary-foreground: 220 15% 20%;
     
-    --accent: 210 20% 94%;
-    --accent-foreground: 215 20% 25%;
+    --accent: 220 15% 94%;
+    --accent-foreground: 220 15% 20%;
     
-    --muted: 210 18% 96%;
-    --muted-foreground: 215 15% 45%;
+    --muted: 220 15% 96%;
+    --muted-foreground: 220 10% 45%;
     
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
@@ -280,14 +147,14 @@ img[alt*="avatar"],
     --popover-foreground: 220 15% 95%;
     
     /* === Brand Colors === */
-    --brand: 217 91% 60%;
-    --brand-600: 217 91% 52%;
-    --brand-500: 217 91% 60%;
-    --brand-100: 217 91% 20%;
+    --brand: 0 84% 60%;
+    --brand-600: 0 84% 52%;
+    --brand-500: 0 84% 60%;
+    --brand-100: 0 84% 20%;
     
-    --primary: 217 91% 60%;
+    --primary: 0 84% 60%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 217 91% 52%;
+    --primary-hover: 0 84% 52%;
     
     /* === Status Colors === */
     --success: 142 76% 45%;
@@ -490,176 +357,4 @@ img[alt*="avatar"],
   .animate-shimmer {
     animation: shimmer 2s infinite;
   }
-
-  /* === Floating Blob Animation === */
-  @keyframes float {
-    0%, 100% {
-      transform: translate(0, 0) scale(1);
-    }
-    33% {
-      transform: translate(30px, -30px) scale(1.1);
-    }
-    66% {
-      transform: translate(-20px, 20px) scale(0.9);
-    }
-  }
-
-  @keyframes float-delayed {
-    0%, 100% {
-      transform: translate(0, 0) scale(1);
-    }
-    33% {
-      transform: translate(-40px, 30px) scale(1.05);
-    }
-    66% {
-      transform: translate(25px, -25px) scale(0.95);
-    }
-  }
-
-  /* === Gradient Text === */
-  .gradient-text {
-    @apply bg-gradient-to-r from-[hsl(212,85%,58%)] via-[hsl(262,83%,68%)] to-[hsl(330,81%,60%)] bg-clip-text text-transparent;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-
-  /* === Glass Card === */
-  .glass-card {
-    @apply bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl;
-  }
-
-  .dark .glass-card {
-    @apply bg-black/20 backdrop-blur-xl border-white/10;
-  }
-
-  /* === Glow Button === */
-  .glow-button {
-    @apply relative overflow-hidden;
-    box-shadow: 0 0 20px hsl(var(--glow-blue) / 0.3),
-                0 0 40px hsl(var(--glow-purple) / 0.2);
-  }
-
-  .glow-button::before {
-    content: '';
-    @apply absolute inset-0 bg-gradient-to-r from-[hsl(212,100%,65%)] via-[hsl(262,100%,70%)] to-[hsl(330,100%,70%)];
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-
-  .glow-button:hover::before {
-    opacity: 0.2;
-  }
-
-  /* === Floating Blobs === */
-  .floating-blob {
-    @apply absolute rounded-full blur-3xl opacity-30;
-    animation: float 20s ease-in-out infinite;
-  }
-
-  .floating-blob-delayed {
-    animation: float-delayed 25s ease-in-out infinite;
-  }
-
-  /* === Grid Pattern === */
-  .grid-pattern {
-    background-image: 
-      linear-gradient(to right, hsl(var(--border) / 0.1) 1px, transparent 1px),
-      linear-gradient(to bottom, hsl(var(--border) / 0.1) 1px, transparent 1px);
-    background-size: 40px 40px;
-  }
-
-  /* === Neon Border === */
-  .neon-border {
-    @apply relative;
-  }
-
-  .neon-border::before {
-    content: '';
-    @apply absolute inset-0 rounded-2xl;
-    padding: 2px;
-    background: linear-gradient(135deg, 
-      hsl(var(--glow-blue)), 
-      hsl(var(--glow-purple)), 
-      hsl(var(--glow-pink))
-    );
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-  }
-
-  /* === Feature Category Cards === */
-  .feature-card {
-    @apply relative overflow-hidden;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .feature-card::before {
-    content: '';
-    @apply absolute inset-0 opacity-0 transition-opacity duration-300;
-    background: radial-gradient(circle at center, currentColor 0%, transparent 70%);
-  }
-
-  .feature-card:hover::before {
-    opacity: 0.1;
-  }
-
-  .feature-card:hover {
-    transform: translateY(-8px) perspective(1000px) rotateY(2deg);
-  }
-
-  /* === Gradient Border === */
-  .gradient-border {
-    position: relative;
-    border-radius: 1rem;
-  }
-
-  .gradient-border::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: 1rem;
-    padding: 2px;
-    background: linear-gradient(135deg, currentColor, transparent);
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-  }
-
-  /* === Icon Glow === */
-  .icon-glow {
-    filter: drop-shadow(0 0 8px currentColor);
-  }
-
-  /* === Comparison Card === */
-  .comparison-card {
-    @apply relative overflow-hidden rounded-xl p-6;
-    transition: all 0.3s ease;
-  }
-
-  .comparison-card::before {
-    content: '';
-    @apply absolute top-0 left-0 w-1 h-full;
-    background: currentColor;
-    transition: width 0.3s ease;
-  }
-
-  .comparison-card:hover::before {
-    width: 4px;
-  }
-
-  /* === Gradient Animation === */
-  @keyframes gradient {
-    0%, 100% {
-      background-position: 0% 50%;
-    }
-    50% {
-      background-position: 100% 50%;
-    }
-  }
-
-  .animate-gradient {
-    background-size: 200% 200%;
-    animation: gradient 3s ease infinite;
-  }
 }
-
