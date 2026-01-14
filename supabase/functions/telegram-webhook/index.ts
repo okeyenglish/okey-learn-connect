@@ -141,8 +141,8 @@ async function handleIncomingMessage(
     return;
   }
 
-  // Determine message type and content
-  const { messageText, messageType, fileUrl, fileName, fileType } = extractMessageContent(message);
+  // Determine message content (type is stored in file_type, message_type is client/manager/system)
+  const { messageText, contentType, fileUrl, fileName, fileType } = extractMessageContent(message);
 
   // Check for duplicate
   const { data: existingMessage } = await supabase
@@ -156,21 +156,21 @@ async function handleIncomingMessage(
     return;
   }
 
-  // Save message
+  // Save message - message_type is 'client' for incoming messages
   const { error: insertError } = await supabase
     .from('chat_messages')
     .insert({
       client_id: client.id,
       organization_id: organizationId,
       message_text: messageText,
-      message_type: messageType,
+      message_type: 'client', // incoming message from client
       messenger_type: 'telegram',
       is_outgoing: false,
       is_read: false,
       external_message_id: message.id,
       file_url: fileUrl,
       file_name: fileName,
-      file_type: fileType,
+      file_type: fileType || contentType, // store content type in file_type
       created_at: message.timestamp || new Date().toISOString()
     });
 
@@ -224,23 +224,23 @@ async function handleOutgoingMessage(
     return;
   }
 
-  const { messageText, messageType, fileUrl, fileName, fileType } = extractMessageContent(message);
+  const { messageText, contentType, fileUrl, fileName, fileType } = extractMessageContent(message);
 
-  // Save outgoing message
+  // Save outgoing message - message_type is 'manager' for outgoing
   await supabase
     .from('chat_messages')
     .insert({
       client_id: client.id,
       organization_id: organizationId,
       message_text: messageText,
-      message_type: messageType,
+      message_type: 'manager', // outgoing from manager
       messenger_type: 'telegram',
       is_outgoing: true,
       is_read: true,
       external_message_id: message.id,
       file_url: fileUrl,
       file_name: fileName,
-      file_type: fileType,
+      file_type: fileType || contentType,
       message_status: 'sent',
       created_at: message.timestamp || new Date().toISOString()
     });
@@ -329,62 +329,62 @@ async function findOrCreateClient(
 
 function extractMessageContent(message: WappiMessage): {
   messageText: string;
-  messageType: string;
+  contentType: string;
   fileUrl: string | null;
   fileName: string | null;
   fileType: string | null;
 } {
   let messageText = message.body || '';
-  let messageType = 'text';
+  let contentType = 'text';
   let fileUrl: string | null = null;
   let fileName: string | null = null;
   let fileType: string | null = null;
 
   switch (message.type) {
     case 'text':
-      messageType = 'text';
+      contentType = 'text';
       break;
     case 'image':
-      messageType = 'image';
+      contentType = 'image';
       fileUrl = message.file_link || null;
       fileType = message.mimetype || 'image/jpeg';
       messageText = message.caption || '[Изображение]';
       break;
     case 'video':
-      messageType = 'video';
+      contentType = 'video';
       fileUrl = message.file_link || null;
       fileType = message.mimetype || 'video/mp4';
       messageText = message.caption || '[Видео]';
       break;
     case 'document':
-      messageType = 'document';
+      contentType = 'document';
       fileUrl = message.file_link || null;
       fileType = message.mimetype || 'application/octet-stream';
       messageText = message.caption || '[Документ]';
       break;
     case 'audio':
     case 'ptt':
-      messageType = 'audio';
+      contentType = 'audio';
       fileUrl = message.file_link || null;
       fileType = message.mimetype || 'audio/ogg';
       messageText = '[Голосовое сообщение]';
       break;
     case 'sticker':
-      messageType = 'sticker';
+      contentType = 'sticker';
       fileUrl = message.file_link || null;
       messageText = '[Стикер]';
       break;
     case 'location':
-      messageType = 'location';
+      contentType = 'location';
       messageText = '[Геолокация]';
       break;
     case 'vcard':
-      messageType = 'contact';
+      contentType = 'contact';
       messageText = '[Контакт]';
       break;
     default:
-      messageType = message.type || 'text';
+      contentType = message.type || 'text';
   }
 
-  return { messageText, messageType, fileUrl, fileName, fileType };
+  return { messageText, contentType, fileUrl, fileName, fileType };
 }

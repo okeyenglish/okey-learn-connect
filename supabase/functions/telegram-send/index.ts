@@ -169,8 +169,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Save message to database
-    const messageType = fileUrl ? getMessageTypeFromFile(fileType) : 'text';
+    // Save message to database - message_type is 'manager' for outgoing messages
+    const contentType = fileUrl ? getMessageTypeFromFile(fileType) : 'text';
     
     const { data: savedMessage, error: saveError } = await supabase
       .from('chat_messages')
@@ -178,14 +178,14 @@ Deno.serve(async (req) => {
         client_id: clientId,
         organization_id: organizationId,
         message_text: text || (fileUrl ? '[Файл]' : ''),
-        message_type: messageType,
+        message_type: 'manager', // outgoing message from manager
         messenger_type: 'telegram',
         is_outgoing: true,
         is_read: true,
         external_message_id: sendResult.messageId,
         file_url: fileUrl,
         file_name: fileName,
-        file_type: fileType,
+        file_type: fileType || contentType, // store content type
         message_status: 'sent'
       })
       .select('id')
