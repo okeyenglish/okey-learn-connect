@@ -19,6 +19,14 @@ export interface ChatMessage {
   whatsapp_chat_id?: string;
 }
 
+export interface UnreadByMessenger {
+  whatsapp: number;
+  telegram: number;
+  max: number;
+  email: number;
+  calls: number;
+}
+
 export interface ChatThread {
   client_id: string;
   client_name: string;
@@ -26,6 +34,7 @@ export interface ChatThread {
   last_message: string;
   last_message_time: string;
   unread_count: number;
+  unread_by_messenger: UnreadByMessenger;
   messages: ChatMessage[];
 }
 
@@ -65,6 +74,8 @@ export const useChatThreads = () => {
       const selectWithJoin = `
           client_id,
           message_text,
+          message_type,
+          messenger_type,
           created_at,
           is_read,
           salebot_message_id,
@@ -86,7 +97,7 @@ export const useChatThreads = () => {
           console.warn('[useChatThreads] Join to clients failed, falling back:', error.message);
           const { data: noJoinData, error: noJoinError } = await supabase
             .from('chat_messages')
-            .select('client_id, message_text, created_at, is_read, salebot_message_id')
+            .select('client_id, message_text, message_type, messenger_type, created_at, is_read, salebot_message_id')
             .order('created_at', { ascending: false });
 
           if (noJoinError) {
@@ -150,6 +161,15 @@ export const useChatThreads = () => {
       // Group interactions by client
       const threadsMap = new Map<string, ChatThread>();
       
+      // Helper function to create default unread_by_messenger
+      const createDefaultUnreadByMessenger = (): UnreadByMessenger => ({
+        whatsapp: 0,
+        telegram: 0,
+        max: 0,
+        email: 0,
+        calls: 0,
+      });
+      
       // Process chat messages
       messagesData?.forEach((message: any) => {
         const clientId = message.client_id;
@@ -166,6 +186,7 @@ export const useChatThreads = () => {
             last_message: message.message_text,
             last_message_time: message.created_at,
             unread_count: 0,
+            unread_by_messenger: createDefaultUnreadByMessenger(),
             messages: [],
           });
         }
@@ -179,6 +200,18 @@ export const useChatThreads = () => {
         // Считаем только непрочитанные сообщения от клиентов, игнорируем сообщения менеджеров и системные
         if (!message.is_read && message.message_type === 'client') {
           thread.unread_count++;
+          
+          // Подсчёт по мессенджерам
+          const messengerType = message.messenger_type || 'whatsapp';
+          if (messengerType === 'whatsapp' || !messengerType) {
+            thread.unread_by_messenger.whatsapp++;
+          } else if (messengerType === 'telegram') {
+            thread.unread_by_messenger.telegram++;
+          } else if (messengerType === 'max') {
+            thread.unread_by_messenger.max++;
+          } else if (messengerType === 'email') {
+            thread.unread_by_messenger.email++;
+          }
         }
       });
 
@@ -197,8 +230,12 @@ export const useChatThreads = () => {
             last_message: callMessage,
             last_message_time: call.started_at,
             unread_count: call.status === 'missed' ? 1 : 0,
+            unread_by_messenger: createDefaultUnreadByMessenger(),
             messages: [],
           });
+          if (call.status === 'missed') {
+            threadsMap.get(clientId)!.unread_by_messenger.calls = 1;
+          }
         } else {
           const thread = threadsMap.get(clientId)!;
           if (new Date(call.started_at) > new Date(thread.last_message_time)) {
@@ -207,6 +244,7 @@ export const useChatThreads = () => {
           }
           if (call.status === 'missed') {
             thread.unread_count++;
+            thread.unread_by_messenger.calls++;
           }
         }
       });
@@ -261,6 +299,67 @@ export const useChatThreads = () => {
 
   return {
     threads: threads || [],
+    isLoading,
+    error,
+  };
+};
+
+// Hook to get unread counts by messenger for a specific client
+export const useClientUnreadByMessenger = (clientId: string) => {
+  const { data: unreadCounts, isLoading, error } = useQuery({
+    queryKey: ['client-unread-by-messenger', clientId],
+    queryFn: async (): Promise<UnreadByMessenger> => {
+      if (!clientId) {
+        return { whatsapp: 0, telegram: 0, max: 0, email: 0, calls: 0 };
+      }
+      
+      // Fetch unread messages by messenger type
+      const { data: messages, error: msgError } = await supabase
+        .from('chat_messages')
+        .select('messenger_type')
+        .eq('client_id', clientId)
+        .eq('is_read', false)
+        .eq('message_type', 'client');
+      
+      if (msgError) {
+        console.error('[useClientUnreadByMessenger] Error:', msgError);
+        throw msgError;
+      }
+      
+      const counts: UnreadByMessenger = { whatsapp: 0, telegram: 0, max: 0, email: 0, calls: 0 };
+      
+      messages?.forEach((msg: any) => {
+        const messengerType = msg.messenger_type || 'whatsapp';
+        if (messengerType === 'whatsapp' || !messengerType) {
+          counts.whatsapp++;
+        } else if (messengerType === 'telegram') {
+          counts.telegram++;
+        } else if (messengerType === 'max') {
+          counts.max++;
+        } else if (messengerType === 'email') {
+          counts.email++;
+        }
+      });
+      
+      // Fetch missed calls
+      const { data: calls, error: callsError } = await supabase
+        .from('call_logs')
+        .select('id')
+        .eq('client_id', clientId)
+        .eq('status', 'missed');
+      
+      if (!callsError && calls) {
+        counts.calls = calls.length;
+      }
+      
+      return counts;
+    },
+    enabled: !!clientId,
+    staleTime: 0,
+  });
+
+  return {
+    unreadCounts: unreadCounts || { whatsapp: 0, telegram: 0, max: 0, email: 0, calls: 0 },
     isLoading,
     error,
   };

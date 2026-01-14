@@ -73,7 +73,7 @@ export const useMarkChatMessagesAsRead = () => {
         throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, clientId) => {
       // Invalidate all message read statuses
       queryClient.invalidateQueries({ 
         queryKey: ['message-read-status'] 
@@ -82,6 +82,11 @@ export const useMarkChatMessagesAsRead = () => {
       // Also invalidate chat threads to update unread counts
       queryClient.invalidateQueries({ 
         queryKey: ['chat-threads'] 
+      });
+      
+      // Invalidate unread by messenger for this client
+      queryClient.invalidateQueries({ 
+        queryKey: ['client-unread-by-messenger', clientId] 
       });
     }
   });
