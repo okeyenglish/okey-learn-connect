@@ -26,6 +26,7 @@ import { CallHistory } from "./CallHistory";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useMaxGreenApi } from "@/hooks/useMaxGreenApi";
 import { useMax } from "@/hooks/useMax";
+import { useTelegramWappi } from "@/hooks/useTelegramWappi";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePendingGPTResponses } from "@/hooks/usePendingGPTResponses";
@@ -129,6 +130,7 @@ export const ChatArea = ({
   const { sendTextMessage, sendFileMessage, loading, deleteMessage, editMessage, checkAvailability: checkWhatsAppAvailability, getAvatar: getWhatsAppAvatar, sendTyping: sendWhatsAppTyping } = useWhatsApp();
   const { sendMessage: sendMaxMessage, loading: maxLoading } = useMaxGreenApi();
   const { editMessage: editMaxMessage, deleteMessage: deleteMaxMessage, sendTyping: sendMaxTyping, checkAvailability: checkMaxAvailability, getAvatar: getMaxAvatar } = useMax();
+  const { sendMessage: sendTelegramMessage } = useTelegramWappi();
   
   // State for availability check (MAX and WhatsApp)
   const [maxAvailability, setMaxAvailability] = useState<{ checked: boolean; available: boolean | null }>({ checked: false, available: null });
@@ -766,6 +768,31 @@ export const ChatArea = ({
           if (!result) {
             toast({
               title: "Ошибка отправки в MAX",
+              description: "Не удалось отправить сообщение",
+              variant: "destructive",
+            });
+            return;
+          }
+        }
+      } else if (activeMessengerTab === 'telegram') {
+        // Send via Telegram
+        if (filesToSend.length > 0) {
+          for (const file of filesToSend) {
+            const result = await sendTelegramMessage(clientId, messageText || '', file.url, file.name, file.type);
+            if (!result.success) {
+              toast({
+                title: "Ошибка отправки файла в Telegram",
+                description: `Не удалось отправить файл "${file.name}"`,
+                variant: "destructive",
+              });
+              return;
+            }
+          }
+        } else if (messageText) {
+          const result = await sendTelegramMessage(clientId, messageText);
+          if (!result.success) {
+            toast({
+              title: "Ошибка отправки в Telegram",
               description: "Не удалось отправить сообщение",
               variant: "destructive",
             });
