@@ -18,11 +18,16 @@ interface WappiMessage {
   senderName?: string;
   chatId: string;
   username?: string;
+  contact_username?: string;
+  contact_name?: string;
+  contact_phone?: string;
   caption?: string;
   file_link?: string;
   mimetype?: string;
   isForwarded?: boolean;
   quotedMsgId?: string;
+  thumbnail?: string;
+  picture?: string;
 }
 
 interface WappiWebhook {
@@ -125,7 +130,9 @@ async function handleIncomingMessage(
 ): Promise<void> {
   const telegramUserId = message.from ? parseInt(message.from) : null;
   const chatId = message.chatId;
-  const senderName = message.senderName || message.username || `User ${message.from}`;
+  const senderName = message.contact_name || message.senderName || message.username || `User ${message.from}`;
+  const username = message.contact_username || message.username;
+  const avatarUrl = message.thumbnail || message.picture || null;
 
   // Find or create client
   let client = await findOrCreateClient(supabase, {
@@ -133,7 +140,8 @@ async function handleIncomingMessage(
     telegramUserId,
     telegramChatId: chatId,
     name: senderName,
-    username: message.username
+    username: username,
+    avatarUrl: avatarUrl
   });
 
   if (!client) {
@@ -305,11 +313,22 @@ async function findOrCreateClient(
     telegramChatId: string;
     name: string;
     username?: string;
+    avatarUrl?: string | null;
   }
 ): Promise<{ id: string } | null> {
-  const { organizationId, telegramUserId, telegramChatId, name, username } = params;
+  const { organizationId, telegramUserId, telegramChatId, name, username, avatarUrl } = params;
 
-  console.log('findOrCreateClient called with:', { organizationId, telegramUserId, telegramChatId, name, username });
+  console.log('findOrCreateClient called with:', { organizationId, telegramUserId, telegramChatId, name, username, avatarUrl });
+
+  // Helper function to update client with avatar
+  const updateClientAvatar = async (clientId: string) => {
+    if (avatarUrl) {
+      await supabase
+        .from('clients')
+        .update({ telegram_avatar_url: avatarUrl })
+        .eq('id', clientId);
+    }
+  };
 
   // Try to find by telegram_user_id first
   if (telegramUserId) {
@@ -323,10 +342,14 @@ async function findOrCreateClient(
 
     if (clientByUserId) {
       console.log('Found client by telegram_user_id:', clientByUserId.id);
-      // Update telegram_chat_id if needed
+      // Update telegram_chat_id and avatar if needed
+      const updateData: any = { telegram_chat_id: telegramChatId };
+      if (avatarUrl && avatarUrl !== clientByUserId.telegram_avatar_url) {
+        updateData.telegram_avatar_url = avatarUrl;
+      }
       await supabase
         .from('clients')
-        .update({ telegram_chat_id: telegramChatId })
+        .update(updateData)
         .eq('id', clientByUserId.id);
       return clientByUserId;
     }
@@ -335,7 +358,7 @@ async function findOrCreateClient(
   // Try to find by telegram_chat_id
   const { data: clientByChatId } = await supabase
     .from('clients')
-    .select('id, phone')
+    .select('id, phone, telegram_avatar_url')
     .eq('organization_id', organizationId)
     .eq('telegram_chat_id', telegramChatId)
     .eq('is_active', true)
@@ -343,11 +366,18 @@ async function findOrCreateClient(
 
   if (clientByChatId) {
     console.log('Found client by telegram_chat_id:', clientByChatId.id);
-    // Update telegram_user_id if we have it
+    // Update telegram_user_id and avatar if we have it
+    const updateData: any = {};
     if (telegramUserId) {
+      updateData.telegram_user_id = telegramUserId;
+    }
+    if (avatarUrl && avatarUrl !== clientByChatId.telegram_avatar_url) {
+      updateData.telegram_avatar_url = avatarUrl;
+    }
+    if (Object.keys(updateData).length > 0) {
       await supabase
         .from('clients')
-        .update({ telegram_user_id: telegramUserId })
+        .update(updateData)
         .eq('id', clientByChatId.id);
     }
     
@@ -368,6 +398,7 @@ async function findOrCreateClient(
       if (clientByPhone) {
         // Merge: move messages from numberless client to phone-based client
         await mergeClients(supabase, clientByPhone.id, clientByChatId.id, telegramChatId, telegramUserId);
+        await updateClientAvatar(clientByPhone.id);
         return clientByPhone;
       }
     }
@@ -417,6 +448,7 @@ async function findOrCreateClient(
           })
           .eq('id', clientByPhone.id);
       }
+      await updateClientAvatar(clientByPhone.id);
       return clientByPhone;
     }
 
@@ -462,6 +494,7 @@ async function findOrCreateClient(
             })
             .eq('id', clientFromPhone.id);
         }
+        await updateClientAvatar(clientFromPhone.id);
         return clientFromPhone;
       }
     }
@@ -476,6 +509,7 @@ async function findOrCreateClient(
       name: name,
       telegram_user_id: telegramUserId,
       telegram_chat_id: telegramChatId,
+      telegram_avatar_url: avatarUrl,
       phone: phoneFromChatId && phoneFromChatId.length >= 10 ? `+${phoneFromChatId}` : null,
       notes: username ? `@${username}` : null,
       is_active: true
