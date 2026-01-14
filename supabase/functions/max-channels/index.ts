@@ -1,76 +1,20 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Simple AES-GCM encryption for tokens
-async function encryptToken(token: string, masterKey: string): Promise<{ encrypted: string; iv: string; tag: string }> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(token);
-  
-  // Derive key from master key
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(masterKey.padEnd(32, '0').slice(0, 32)),
-    'AES-GCM',
-    false,
-    ['encrypt']
-  );
-  
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  
-  const encryptedBuffer = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    keyMaterial,
-    data
-  );
-  
-  const encryptedArray = new Uint8Array(encryptedBuffer);
-  // In AES-GCM, the tag is appended to the ciphertext
-  const encrypted = encryptedArray.slice(0, -16);
-  const tag = encryptedArray.slice(-16);
-  
-  return {
-    encrypted: btoa(String.fromCharCode(...encrypted)),
-    iv: btoa(String.fromCharCode(...iv)),
-    tag: btoa(String.fromCharCode(...tag))
-  };
+const GREEN_API_URL = 'https://api.green-api.com';
+
+interface MaxSettings {
+  instanceId: string;
+  apiToken: string;
+  webhookUrl?: string;
 }
 
-async function decryptToken(encrypted: string, iv: string, tag: string, masterKey: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const decoder = new TextDecoder();
-  
-  // Derive key from master key
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(masterKey.padEnd(32, '0').slice(0, 32)),
-    'AES-GCM',
-    false,
-    ['decrypt']
-  );
-  
-  const encryptedBytes = Uint8Array.from(atob(encrypted), c => c.charCodeAt(0));
-  const ivBytes = Uint8Array.from(atob(iv), c => c.charCodeAt(0));
-  const tagBytes = Uint8Array.from(atob(tag), c => c.charCodeAt(0));
-  
-  // Combine encrypted data with tag
-  const combined = new Uint8Array(encryptedBytes.length + tagBytes.length);
-  combined.set(encryptedBytes);
-  combined.set(tagBytes, encryptedBytes.length);
-  
-  const decryptedBuffer = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: ivBytes },
-    keyMaterial,
-    combined
-  );
-  
-  return decoder.decode(decryptedBuffer);
-}
-
-Deno.serve(async (req) => {
+serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -78,29 +22,25 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const encryptionKey = Deno.env.get('MAX_ENCRYPTION_KEY') || 'default-key-change-me';
-    const maxConnectorUrl = Deno.env.get('MAX_CONNECTOR_URL');
-    const maxSecret = Deno.env.get('MAX_CONNECTOR_SECRET');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Verify JWT from Authorization header
+    // Get auth user
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
+        JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
-    // Get user from JWT
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    
-    if (userError || !user) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
+
+    if (authError || !user) {
       return new Response(
-        JSON.stringify({ error: 'Invalid token' }),
+        JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -114,222 +54,24 @@ Deno.serve(async (req) => {
 
     if (!profile?.organization_id) {
       return new Response(
-        JSON.stringify({ error: 'User has no organization' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Organization not found' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const url = new URL(req.url);
-    const pathParts = url.pathname.split('/').filter(Boolean);
-    const channelId = pathParts.length > 1 ? pathParts[pathParts.length - 1] : null;
-    
-    // Handle different HTTP methods
+    const organizationId = profile.organization_id;
+
+    // Route based on method
     switch (req.method) {
-      case 'GET': {
-        // List all channels for organization
-        const { data: channels, error } = await supabase
-          .from('max_channels')
-          .select(`
-            id, 
-            name, 
-            bot_username, 
-            bot_id,
-            is_enabled, 
-            auto_start,
-            status, 
-            last_error,
-            last_heartbeat_at,
-            messages_today,
-            created_at,
-            updated_at
-          `)
-          .eq('organization_id', profile.organization_id)
-          .order('created_at', { ascending: false });
-
-        if (error) {
-          console.error('Error fetching channels:', error);
-          return new Response(
-            JSON.stringify({ error: 'Failed to fetch channels' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        return new Response(
-          JSON.stringify({ channels }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      case 'POST': {
-        const body = await req.json();
-        const { name, token: botToken, autoStart = true } = body;
-
-        if (!name || !botToken) {
-          return new Response(
-            JSON.stringify({ error: 'Missing required fields: name, token' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        // Validate token with MAX Connector
-        let botInfo = { botId: null, botUsername: null };
-        if (maxConnectorUrl) {
-          try {
-            const validateResponse = await fetch(`${maxConnectorUrl}/validate-token`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'x-max-secret': maxSecret || ''
-              },
-              body: JSON.stringify({ token: botToken })
-            });
-
-            if (validateResponse.ok) {
-              botInfo = await validateResponse.json();
-            } else {
-              const errorData = await validateResponse.json();
-              return new Response(
-                JSON.stringify({ error: 'Invalid bot token', details: errorData }),
-                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-              );
-            }
-          } catch (e) {
-            console.warn('Could not validate token with connector:', e);
-            // Continue without validation if connector is unavailable
-          }
-        }
-
-        // Encrypt token before storing
-        const { encrypted, iv, tag } = await encryptToken(botToken, encryptionKey);
-
-        // Create channel
-        const { data: channel, error: createError } = await supabase
-          .from('max_channels')
-          .insert({
-            organization_id: profile.organization_id,
-            name,
-            token_encrypted: encrypted,
-            token_iv: iv,
-            token_tag: tag,
-            bot_id: botInfo.botId,
-            bot_username: botInfo.botUsername,
-            is_enabled: true,
-            auto_start: autoStart,
-            status: 'offline'
-          })
-          .select('id, name, bot_username, bot_id, status, is_enabled, auto_start')
-          .single();
-
-        if (createError) {
-          console.error('Error creating channel:', createError);
-          return new Response(
-            JSON.stringify({ error: 'Failed to create channel' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        // Start bot if auto_start is enabled
-        if (autoStart && maxConnectorUrl) {
-          try {
-            await fetch(`${maxConnectorUrl}/channels/${channel.id}/start`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'x-max-secret': maxSecret || ''
-              },
-              body: JSON.stringify({ token: botToken })
-            });
-          } catch (e) {
-            console.warn('Could not start bot:', e);
-          }
-        }
-
-        console.log('Created MAX channel:', channel.id);
-
-        return new Response(
-          JSON.stringify({ channel }),
-          { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      case 'PATCH': {
-        if (!channelId) {
-          return new Response(
-            JSON.stringify({ error: 'Channel ID required' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        const body = await req.json();
-        const { name, isEnabled, autoStart } = body;
-
-        const updates: any = { updated_at: new Date().toISOString() };
-        if (name !== undefined) updates.name = name;
-        if (isEnabled !== undefined) updates.is_enabled = isEnabled;
-        if (autoStart !== undefined) updates.auto_start = autoStart;
-
-        const { data: channel, error: updateError } = await supabase
-          .from('max_channels')
-          .update(updates)
-          .eq('id', channelId)
-          .eq('organization_id', profile.organization_id)
-          .select('id, name, bot_username, status, is_enabled, auto_start')
-          .single();
-
-        if (updateError) {
-          console.error('Error updating channel:', updateError);
-          return new Response(
-            JSON.stringify({ error: 'Failed to update channel' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        return new Response(
-          JSON.stringify({ channel }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      case 'DELETE': {
-        if (!channelId) {
-          return new Response(
-            JSON.stringify({ error: 'Channel ID required' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        // Stop bot first
-        if (maxConnectorUrl) {
-          try {
-            await fetch(`${maxConnectorUrl}/channels/${channelId}/stop`, {
-              method: 'POST',
-              headers: { 'x-max-secret': maxSecret || '' }
-            });
-          } catch (e) {
-            console.warn('Could not stop bot before deletion:', e);
-          }
-        }
-
-        const { error: deleteError } = await supabase
-          .from('max_channels')
-          .delete()
-          .eq('id', channelId)
-          .eq('organization_id', profile.organization_id);
-
-        if (deleteError) {
-          console.error('Error deleting channel:', deleteError);
-          return new Response(
-            JSON.stringify({ error: 'Failed to delete channel' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        return new Response(
-          JSON.stringify({ success: true }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
+      case 'GET':
+        return await getMaxSettings(supabase, organizationId);
+      
+      case 'POST':
+        return await saveMaxSettings(supabase, organizationId, await req.json());
+      
+      case 'DELETE':
+        return await deleteMaxSettings(supabase, organizationId);
+      
       default:
         return new Response(
           JSON.stringify({ error: 'Method not allowed' }),
@@ -338,10 +80,205 @@ Deno.serve(async (req) => {
     }
 
   } catch (error) {
-    console.error('MAX channels error:', error);
+    console.error('Error in max-channels:', error);
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
+
+async function getMaxSettings(supabase: any, organizationId: string) {
+  const { data, error } = await supabase
+    .from('messenger_settings')
+    .select('*')
+    .eq('organization_id', organizationId)
+    .eq('messenger_type', 'max')
+    .single();
+
+  if (error && error.code !== 'PGRST116') { // PGRST116 = no rows
+    console.error('Error fetching MAX settings:', error);
+    return new Response(
+      JSON.stringify({ error: 'Failed to fetch settings' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Get instance state if configured
+  let instanceState = null;
+  if (data?.settings?.instanceId && data?.settings?.apiToken) {
+    instanceState = await checkInstanceState(
+      data.settings.instanceId,
+      data.settings.apiToken
+    );
+  }
+
+  return new Response(
+    JSON.stringify({ 
+      settings: data || null,
+      instanceState 
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
+async function saveMaxSettings(supabase: any, organizationId: string, body: any) {
+  const { instanceId, apiToken, isEnabled = true } = body;
+
+  if (!instanceId || !apiToken) {
+    return new Response(
+      JSON.stringify({ error: 'instanceId and apiToken are required' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Validate credentials by checking instance state
+  const instanceState = await checkInstanceState(instanceId, apiToken);
+  
+  if (!instanceState.success) {
+    return new Response(
+      JSON.stringify({ 
+        error: 'Invalid credentials or instance not available',
+        details: instanceState.error 
+      }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Generate webhook URL
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const webhookUrl = `${supabaseUrl}/functions/v1/max-webhook`;
+
+  const settings: MaxSettings = {
+    instanceId,
+    apiToken,
+    webhookUrl
+  };
+
+  // Upsert messenger settings
+  const { data, error } = await supabase
+    .from('messenger_settings')
+    .upsert({
+      organization_id: organizationId,
+      messenger_type: 'max',
+      is_enabled: isEnabled,
+      settings,
+      updated_at: new Date().toISOString()
+    }, {
+      onConflict: 'organization_id,messenger_type'
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error saving MAX settings:', error);
+    return new Response(
+      JSON.stringify({ error: 'Failed to save settings' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Try to set webhook URL in Green API
+  const webhookSetup = await setupWebhook(instanceId, apiToken, webhookUrl);
+
+  return new Response(
+    JSON.stringify({ 
+      success: true,
+      settings: data,
+      instanceState,
+      webhookSetup
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
+async function deleteMaxSettings(supabase: any, organizationId: string) {
+  const { error } = await supabase
+    .from('messenger_settings')
+    .delete()
+    .eq('organization_id', organizationId)
+    .eq('messenger_type', 'max');
+
+  if (error) {
+    console.error('Error deleting MAX settings:', error);
+    return new Response(
+      JSON.stringify({ error: 'Failed to delete settings' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  return new Response(
+    JSON.stringify({ success: true }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
+async function checkInstanceState(instanceId: string, apiToken: string): Promise<any> {
+  try {
+    const url = `${GREEN_API_URL}/v3/waInstance${instanceId}/getStateInstance/${apiToken}`;
+    console.log('Checking MAX instance state:', url);
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    console.log('Instance state response:', data);
+    
+    if (!response.ok) {
+      return { 
+        success: false, 
+        error: data.message || 'Failed to check instance state' 
+      };
+    }
+
+    return {
+      success: true,
+      stateInstance: data.stateInstance,
+      statusInstance: data.statusInstance
+    };
+  } catch (error) {
+    console.error('Error checking instance state:', error);
+    return { 
+      success: false, 
+      error: error.message 
+    };
+  }
+}
+
+async function setupWebhook(instanceId: string, apiToken: string, webhookUrl: string): Promise<any> {
+  try {
+    const url = `${GREEN_API_URL}/v3/waInstance${instanceId}/setSettings/${apiToken}`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        webhookUrl,
+        webhookUrlToken: '',
+        delaySendMessagesMilliseconds: 1000,
+        markIncomingMessagesReaded: 'no',
+        markIncomingMessagesReadedOnReply: 'no',
+        outgoingWebhook: 'yes',
+        outgoingMessageWebhook: 'yes',
+        outgoingAPIMessageWebhook: 'no',
+        incomingWebhook: 'yes',
+        stateWebhook: 'yes',
+        pollMessageWebhook: 'no',
+        incomingCallWebhook: 'no'
+      })
+    });
+
+    const data = await response.json();
+    console.log('Webhook setup response:', data);
+
+    return {
+      success: response.ok,
+      data
+    };
+  } catch (error) {
+    console.error('Error setting up webhook:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
