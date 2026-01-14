@@ -2622,8 +2622,7 @@ const CRMContent = () => {
                                const chatState = getChatState(chat.id);
                                const showEye = !!chatState?.isUnread;
                                const unreadByMessages = chat.unread > 0;
-                               const unreadConsideringGlobal = unreadByMessages && !isChatReadGlobally(chat.id);
-                               return showEye || unreadConsideringGlobal;
+                               return showEye || unreadByMessages;
                              })
                              .length;
                            return pinnedUnreadCount > 0 ? (
@@ -2640,8 +2639,8 @@ const CRMContent = () => {
                           .map((chat) => {
                             const chatState = getChatState(chat.id);
                             const showEye = !!chatState?.isUnread;
-                            const unreadConsideringGlobal = (chat.unread > 0) && !isChatReadGlobally(chat.id);
-                            const displayUnread = showEye || unreadConsideringGlobal;
+                            const unreadByMessages = chat.unread > 0;
+                            const displayUnread = showEye || unreadByMessages;
                             return (
                               <ChatContextMenu
                                 key={chat.id}
@@ -2813,14 +2812,14 @@ const CRMContent = () => {
                         </h3>
                        <div className="flex items-center gap-2">
                          {/* Unread filter button - only show if there are unread chats */}
-                          {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || ((chat.unread > 0) && !isChatReadGlobally(chat.id)))).length > 0 && (
+                          {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || (chat.unread > 0))).length > 0 && (
                            <Button
                              variant={showOnlyUnread ? "default" : "outline"}
                              size="sm"
                              className="h-5 px-2 py-0.5 text-xs min-w-[20px]"
                              onClick={() => setShowOnlyUnread(!showOnlyUnread)}
                            >
-                              {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || ((chat.unread > 0) && !isChatReadGlobally(chat.id)))).length}
+                              {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || (chat.unread > 0))).length}
                            </Button>
                          )}
                        </div>
@@ -2994,8 +2993,7 @@ const CRMContent = () => {
                                const chatState = getChatState(chat.id);
                                const showEye = !!chatState?.isUnread;
                                const unreadByMessages = chat.unread > 0;
-                               const unreadConsideringGlobal = unreadByMessages && !isChatReadGlobally(chat.id);
-                               return showEye || unreadConsideringGlobal;
+                               return showEye || unreadByMessages;
                              })
                             .length;
                           return pinnedUnreadCount > 0 ? (
@@ -3011,10 +3009,10 @@ const CRMContent = () => {
                              .filter(chat => getChatState(chat.id).isPinned)
                             .map((chat) => {
                               const chatState = getChatState(chat.id);
-                              // Используем глобальную систему прочитанности
+                              // Непрочитанность по сообщениям (message-level is_read)
                               const showEye = !!chatState?.isUnread;
-                              const unreadConsideringGlobal = (chat.unread > 0) && !isChatReadGlobally(chat.id);
-                              const displayUnread = showEye || unreadConsideringGlobal;
+                              const unreadByMessages = chat.unread > 0;
+                              const displayUnread = showEye || unreadByMessages;
                               return (
                                 <div 
                                   key={chat.id}
@@ -3144,14 +3142,14 @@ const CRMContent = () => {
                          </h3>
                        <div className="flex items-center gap-2">
                          {/* Unread filter button - only show if there are unread chats */}
-                          {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || ((chat.unread > 0) && !isChatReadGlobally(chat.id)))).length > 0 && (
+                          {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || (chat.unread > 0))).length > 0 && (
                              <Button
                                variant={showOnlyUnread ? "default" : "outline"}
                                size="sm"
                                className="h-5 px-2 py-0.5 text-xs min-w-[20px]"
                                onClick={() => setShowOnlyUnread(!showOnlyUnread)}
                              >
-                              {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || ((chat.unread > 0) && !isChatReadGlobally(chat.id)))).length}
+                              {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || (chat.unread > 0))).length}
                             </Button>
                           )}
                        </div>
