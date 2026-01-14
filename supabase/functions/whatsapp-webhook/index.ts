@@ -649,6 +649,10 @@ async function fetchAndSaveAvatar(phoneNumber: string, clientId: string): Promis
     }
 
     const contactData = await contactResponse.json()
+    console.log('Contact info response:', JSON.stringify(contactData))
+    
+    // Обновляем данные клиента с информацией из WhatsApp
+    await enrichClientData(clientId, contactData, 'whatsapp')
     
     if (!contactData.avatar) {
       console.log(`No avatar found for ${phoneNumber}`)
@@ -691,6 +695,94 @@ async function fetchAndSaveAvatar(phoneNumber: string, clientId: string): Promis
   } catch (error) {
     console.error('Error fetching avatar:', error)
     return null
+  }
+}
+
+// Обогащение данных клиента из карточки контакта мессенджера
+async function enrichClientData(clientId: string, contactInfo: any, messengerType: 'whatsapp' | 'max') {
+  try {
+    const updateData: Record<string, any> = {}
+    
+    // Извлекаем данные из контакта WhatsApp/MAX
+    // name / chatName / pushname - имя контакта
+    const contactName = contactInfo.name || contactInfo.chatName || contactInfo.pushname || contactInfo.displayName
+    // numberPhone - номер телефона
+    const contactPhone = contactInfo.numberPhone || contactInfo.phone
+    // about / description - статус/описание
+    const contactAbout = contactInfo.about || contactInfo.description
+    // avatar - URL аватара (обрабатывается отдельно)
+    
+    // Получаем текущие данные клиента
+    const { data: currentClient } = await supabase
+      .from('clients')
+      .select('name, phone, notes, holihope_metadata')
+      .eq('id', clientId)
+      .single()
+    
+    if (!currentClient) {
+      console.log('Client not found for enrichment:', clientId)
+      return
+    }
+    
+    // Обновляем имя только если текущее похоже на автоматически созданное
+    const currentName = currentClient.name || ''
+    const isAutoName = currentName.startsWith('Клиент ') || 
+                       currentName.startsWith('+') || 
+                       /^\d+$/.test(currentName) ||
+                       currentName.includes('@c.us') ||
+                       currentName.startsWith('MAX User')
+    
+    if (contactName && isAutoName) {
+      updateData.name = contactName
+      console.log(`Updating client name from "${currentName}" to "${contactName}"`)
+    }
+    
+    // Обновляем телефон если отсутствует
+    if (contactPhone && !currentClient.phone) {
+      const formattedPhone = String(contactPhone).startsWith('+') ? contactPhone : `+${contactPhone}`
+      updateData.phone = formattedPhone
+      console.log(`Setting client phone to "${formattedPhone}"`)
+    }
+    
+    // Сохраняем дополнительную информацию в metadata
+    const existingMetadata = (currentClient.holihope_metadata as Record<string, any>) || {}
+    const messengerInfo = existingMetadata[`${messengerType}_info`] || {}
+    
+    const newMessengerInfo: Record<string, any> = {
+      ...messengerInfo,
+      last_updated: new Date().toISOString()
+    }
+    
+    if (contactName) newMessengerInfo.name = contactName
+    if (contactPhone) newMessengerInfo.phone = contactPhone
+    if (contactAbout) newMessengerInfo.about = contactAbout
+    if (contactInfo.avatar) newMessengerInfo.avatar_url = contactInfo.avatar
+    if (contactInfo.email) newMessengerInfo.email = contactInfo.email
+    if (contactInfo.lastSeen) newMessengerInfo.last_seen = contactInfo.lastSeen
+    if (contactInfo.isArchive !== undefined) newMessengerInfo.is_archive = contactInfo.isArchive
+    if (contactInfo.isMute !== undefined) newMessengerInfo.is_mute = contactInfo.isMute
+    if (contactInfo.isContact !== undefined) newMessengerInfo.is_contact = contactInfo.isContact
+    
+    updateData.holihope_metadata = {
+      ...existingMetadata,
+      [`${messengerType}_info`]: newMessengerInfo
+    }
+    
+    // Обновляем клиента если есть изменения
+    if (Object.keys(updateData).length > 0) {
+      const { error: updateError } = await supabase
+        .from('clients')
+        .update(updateData)
+        .eq('id', clientId)
+      
+      if (updateError) {
+        console.error('Error enriching client data:', updateError)
+      } else {
+        console.log(`Client ${clientId} enriched with ${messengerType} data:`, Object.keys(updateData))
+      }
+    }
+  } catch (error) {
+    console.error('Error in enrichClientData:', error)
   }
 }
 
