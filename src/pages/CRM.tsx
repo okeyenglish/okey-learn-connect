@@ -803,14 +803,17 @@ const CRMContent = () => {
           ? `${typing.names[0] || 'Менеджер'} печатает...`
           : (thread.last_message?.trim?.() || 'Нет сообщений');
           
-        // Determine avatar based on last unread messenger
-        let displayAvatar = clientData?.avatar_url || null;
-        if (thread.last_unread_messenger === 'max' && clientData?.max_avatar_url) {
-          displayAvatar = clientData.max_avatar_url;
+        // Determine avatar based on last unread messenger, with fallback priority: telegram > whatsapp > max > avatar_url
+        let displayAvatar: string | null = null;
+        if (thread.last_unread_messenger === 'telegram' && clientData?.telegram_avatar_url) {
+          displayAvatar = clientData.telegram_avatar_url;
         } else if (thread.last_unread_messenger === 'whatsapp' && clientData?.whatsapp_avatar_url) {
           displayAvatar = clientData.whatsapp_avatar_url;
-        } else if (thread.last_unread_messenger === 'telegram' && clientData?.telegram_avatar_url) {
-          displayAvatar = clientData.telegram_avatar_url;
+        } else if (thread.last_unread_messenger === 'max' && clientData?.max_avatar_url) {
+          displayAvatar = clientData.max_avatar_url;
+        } else {
+          // Fallback: prefer messenger-specific avatars over generic avatar_url
+          displayAvatar = clientData?.telegram_avatar_url || clientData?.whatsapp_avatar_url || clientData?.max_avatar_url || clientData?.avatar_url || null;
         }
           
         return {
