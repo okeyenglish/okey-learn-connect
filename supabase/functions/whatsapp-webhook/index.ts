@@ -57,8 +57,9 @@ interface GreenAPIWebhook {
 }
 
 async function resolveOrganizationIdFromWebhook(webhook: GreenAPIWebhook): Promise<string | null> {
-  const instanceId = webhook.instanceData?.idInstance;
-  console.log('Resolving organization for instanceId:', instanceId);
+  const instanceIdRaw = webhook.instanceData?.idInstance as any;
+  const instanceId = instanceIdRaw !== undefined && instanceIdRaw !== null ? String(instanceIdRaw) : null;
+  console.log('Resolving organization for instanceId:', { raw: instanceIdRaw, normalized: instanceId });
   
   if (!instanceId) {
     console.error('No instanceId in webhook.instanceData:', JSON.stringify(webhook.instanceData));
