@@ -532,12 +532,15 @@ export const ChatArea = ({
     fetchMaxAvatar();
   }, [activeMessengerTab, clientId, maxClientAvatar, getMaxAvatar]);
 
-  // Fetch WhatsApp avatar for client when on WhatsApp tab
+  // Fetch WhatsApp avatar for client (always fetch on mount/client change for whatsapp tab)
   useEffect(() => {
     const fetchWhatsAppAvatar = async () => {
-      if (activeMessengerTab === 'whatsapp' && clientId && !whatsappClientAvatar) {
+      // Fetch if we're on whatsapp tab or if activeMessengerTab is default (whatsapp)
+      if ((activeMessengerTab === 'whatsapp' || !activeMessengerTab) && clientId && !whatsappClientAvatar) {
+        console.log('Fetching WhatsApp avatar for client:', clientId);
         try {
           const result = await getWhatsAppAvatar(clientId);
+          console.log('WhatsApp avatar result:', result);
           if (result.success && result.urlAvatar) {
             setWhatsappClientAvatar(result.urlAvatar);
           }
@@ -1722,7 +1725,7 @@ export const ChatArea = ({
                         onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
                         onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
                         messageStatus={msg.messageStatus}
-                        clientAvatar={msg.clientAvatar || whatsappClientAvatar}
+                        clientAvatar={whatsappClientAvatar || msg.clientAvatar}
                         managerName={msg.managerName}
                         fileUrl={msg.fileUrl}
                         fileName={msg.fileName}
@@ -1839,7 +1842,7 @@ export const ChatArea = ({
                         onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
                         onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
                         messageStatus={msg.messageStatus}
-                        clientAvatar={msg.clientAvatar || maxClientAvatar}
+                        clientAvatar={maxClientAvatar || msg.clientAvatar}
                         managerName={msg.managerName}
                         fileUrl={msg.fileUrl}
                         fileName={msg.fileName}
