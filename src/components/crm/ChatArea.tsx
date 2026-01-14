@@ -25,6 +25,7 @@ import { InlinePendingGPTResponse } from "./InlinePendingGPTResponse";
 import { CallHistory } from "./CallHistory";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useMaxGreenApi } from "@/hooks/useMaxGreenApi";
+import { useMax } from "@/hooks/useMax";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePendingGPTResponses } from "@/hooks/usePendingGPTResponses";
@@ -126,6 +127,7 @@ export const ChatArea = ({
 
   const { sendTextMessage, sendFileMessage, loading, deleteMessage, editMessage } = useWhatsApp();
   const { sendMessage: sendMaxMessage, loading: maxLoading } = useMaxGreenApi();
+  const { editMessage: editMaxMessage, deleteMessage: deleteMaxMessage } = useMax();
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
@@ -1108,20 +1110,26 @@ export const ChatArea = ({
 
   // Функция для редактирования сообщения
   const handleEditMessage = async (messageId: string, newMessage: string) => {
-    const result = await editMessage(messageId, newMessage, clientId);
+    // Find message to check messenger type
+    const msg = messages.find(m => m.id === messageId);
+    const isMaxMessage = msg?.messengerType === 'max';
+    
+    const result = isMaxMessage 
+      ? await editMaxMessage(messageId, newMessage, clientId)
+      : await editMessage(messageId, newMessage, clientId);
     
     if (result.success) {
       toast({
         title: "Сообщение отредактировано",
-        description: "Сообщение обновлено в WhatsApp",
+        description: isMaxMessage ? "Сообщение обновлено" : "Сообщение обновлено в WhatsApp",
       });
       
       // Обновляем локальное состояние сообщений
       setMessages(prev => 
-        prev.map(msg => 
-          msg.id === messageId
-            ? { ...msg, message: newMessage, isEdited: true, editedTime: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) }
-            : msg
+        prev.map(m => 
+          m.id === messageId
+            ? { ...m, message: newMessage, isEdited: true, editedTime: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) }
+            : m
         )
       );
     }
@@ -1129,15 +1137,21 @@ export const ChatArea = ({
 
   // Функция для удаления сообщения
   const handleDeleteMessage = async (messageId: string) => {
-    const result = await deleteMessage(messageId, clientId);
+    // Find message to check messenger type
+    const msg = messages.find(m => m.id === messageId);
+    const isMaxMessage = msg?.messengerType === 'max';
+    
+    const result = isMaxMessage
+      ? await deleteMaxMessage(messageId, clientId)
+      : await deleteMessage(messageId, clientId);
     
     if (result.success) {
       // Обновляем локальное состояние сообщений
       setMessages(prev => 
-        prev.map(msg => 
-          msg.id === messageId
-            ? { ...msg, message: '[Сообщение удалено]', isDeleted: true }
-            : msg
+        prev.map(m => 
+          m.id === messageId
+            ? { ...m, message: '[Сообщение удалено]', isDeleted: true }
+            : m
         )
       );
     }
