@@ -17,7 +17,8 @@ import {
   Zap,
   Image,
   Bot,
-  Route
+  Route,
+  MessagesSquare
 } from "lucide-react";
 import {
   Sidebar,
@@ -40,8 +41,7 @@ const adminItems = [
   { title: "FAQ", id: "faq", icon: HelpCircle },
   { title: "Schedule", id: "schedule", icon: Calendar },
   { title: "Courses & Pricing", id: "pricing", icon: Settings },
-  { title: "WhatsApp", id: "whatsapp", icon: MessageSquare },
-  { title: "MAX Каналы", id: "max-channels", icon: Bot },
+  { title: "Мессенджеры", id: "messengers", icon: MessagesSquare },
   { title: "Маршрутизация", id: "routing-rules", icon: Route },
   { title: "Textbooks", id: "textbooks", icon: BookOpen },
   { title: "Справочники", id: "references", icon: Database },

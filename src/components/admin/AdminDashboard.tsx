@@ -2,7 +2,6 @@ import { useState } from "react";
 import * as React from "react";
 import { AdminFAQManager } from "./AdminFAQManager";
 import { AdminScheduleManager } from "./AdminScheduleManager";
-import { WhatsAppSettings } from "./WhatsAppSettings";
 import { TextbookManager } from "./TextbookManager";
 import { RoleManager } from "./RoleManager";
 import { UserPermissionsManager } from "./UserPermissionsManager";
@@ -21,8 +20,8 @@ import { PendingPaymentsPanel } from "@/components/payments/PendingPaymentsPanel
 import { SLAMonitoringDashboard } from "@/components/monitoring/SLAMonitoringDashboard";
 import { EventBusMonitor } from "@/components/monitoring/EventBusMonitor";
 import { BranchPhotosManager } from "./BranchPhotosManager";
-import { MaxChannelSettings } from "./MaxChannelSettings";
 import { RoutingRulesSettings } from "./RoutingRulesSettings";
+import { MessengersSettings } from "./MessengersSettings";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -45,8 +44,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <AdminScheduleManager />;
       case "pricing":
         return <AdminCoursePricing />;
-      case "whatsapp":
-        return <WhatsAppSettings />;
+      case "messengers":
+        return <MessengersSettings />;
       case "textbooks":
         return <TextbookManager />;
       case "references":
@@ -77,8 +76,6 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <AIProviderSettings />;
       case "branch-photos":
         return <BranchPhotosManager />;
-      case "max-channels":
-        return <MaxChannelSettings />;
       case "routing-rules":
         return <RoutingRulesSettings />;
       case "sync":
@@ -159,19 +156,11 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 </CardHeader>
               </Card>
               
-              {/* WhatsApp */}
-              <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setCurrentSection("whatsapp")}>
+              {/* Мессенджеры */}
+              <Card className="cursor-pointer hover:bg-muted/50 border-green-200" onClick={() => setCurrentSection("messengers")}>
                 <CardHeader>
-                  <CardTitle>WhatsApp Integration</CardTitle>
-                  <CardDescription>Configure WhatsApp messaging settings</CardDescription>
-                </CardHeader>
-              </Card>
-              
-              {/* MAX Channels */}
-              <Card className="cursor-pointer hover:bg-muted/50 border-blue-200" onClick={() => setCurrentSection("max-channels")}>
-                <CardHeader>
-                  <CardTitle className="text-blue-600">🤖 MAX Каналы</CardTitle>
-                  <CardDescription>Подключение MAX-ботов для приема сообщений</CardDescription>
+                  <CardTitle className="text-green-600">💬 Мессенджеры</CardTitle>
+                  <CardDescription>WhatsApp, Telegram, MAX - все интеграции</CardDescription>
                 </CardHeader>
               </Card>
               
