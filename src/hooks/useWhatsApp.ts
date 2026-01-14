@@ -30,7 +30,7 @@ export const useWhatsApp = () => {
 
   const getMessengerSettings = useCallback(async (): Promise<WhatsAppSettings | null> => {
     try {
-      // Query messenger_settings by messenger_type only (table doesn't have organization_id)
+      // RLS will automatically filter by organization_id
       const { data, error } = await supabase
         .from('messenger_settings')
         .select('*')
@@ -129,10 +129,23 @@ export const useWhatsApp = () => {
   const updateMessengerSettings = useCallback(async (settings: Partial<WhatsAppSettings>) => {
     setLoading(true);
     try {
-      // Upsert messenger_settings by messenger_type (table doesn't have organization_id)
+      // Get user's organization_id for multi-tenant isolation
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) throw new Error('Пользователь не авторизован');
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', userData.user.id)
+        .single();
+
+      if (!profile?.organization_id) throw new Error('Organization ID не найден');
+
+      // Upsert messenger_settings with organization_id for tenant isolation
       const { error } = await supabase
         .from('messenger_settings')
         .upsert({
+          organization_id: profile.organization_id,
           messenger_type: 'whatsapp',
           provider: settings.provider || 'greenapi',
           is_enabled: settings.isEnabled ?? false,
@@ -148,7 +161,7 @@ export const useWhatsApp = () => {
           webhook_url: settings.webhookUrl,
           updated_at: new Date().toISOString()
         }, {
-          onConflict: 'messenger_type'
+          onConflict: 'organization_id,messenger_type'
         });
 
       if (error) {
