@@ -108,10 +108,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get client with phone number as fallback
+    // Get client
     const { data: client, error: clientError } = await supabase
       .from('clients')
-      .select('telegram_chat_id, telegram_user_id, phone')
+      .select('telegram_chat_id, telegram_user_id, name')
       .eq('id', clientId)
       .eq('organization_id', organizationId)
       .single();
@@ -123,25 +123,20 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Try telegram_chat_id, telegram_user_id, or phone number
-    let chatId = client.telegram_chat_id || client.telegram_user_id?.toString();
-    
-    // If no Telegram ID, try to use phone number (Wappi.pro accepts phone numbers)
-    if (!chatId && client.phone) {
-      // Clean phone number - remove non-digits
-      const cleanPhone = client.phone.replace(/\D/g, '');
-      if (cleanPhone) {
-        chatId = cleanPhone;
-        console.log('Using phone number as chat ID:', chatId);
-      }
-    }
+    // Telegram requires an existing chat - can't send to phone numbers like WhatsApp
+    const chatId = client.telegram_chat_id || client.telegram_user_id?.toString();
     
     if (!chatId) {
       return new Response(
-        JSON.stringify({ error: 'Client has no Telegram chat ID or phone number' }),
+        JSON.stringify({ 
+          error: 'У клиента нет Telegram. Отправка возможна только тем, кто уже писал вам в Telegram.',
+          code: 'NO_TELEGRAM_CHAT'
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    
+    console.log('Sending Telegram message to chat:', chatId);
 
     // Send message via Wappi.pro
     let sendResult;
