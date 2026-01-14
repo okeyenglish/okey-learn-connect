@@ -208,6 +208,8 @@ const CRMContent = () => {
     setIsPinnedSectionOpen,
     showOnlyUnread,
     setShowOnlyUnread,
+    showArchived,
+    setShowArchived,
     activeClientInfo,
     setActiveClientInfo,
     activeClientName,
@@ -913,6 +915,21 @@ const CRMContent = () => {
       }),
     [filteredChats, getChatState, showOnlyUnread]
   );
+
+  // Архивные чаты - отдельный список
+  const archivedChats = useMemo(() => 
+    allChats
+      .filter(chat => 
+        chatSearchQuery.length === 0 || 
+        (chat.name?.toLowerCase?.().includes(chatSearchQuery.toLowerCase()) ?? false) ||
+        (chat.phone?.includes(chatSearchQuery) ?? false)
+      )
+      .filter(chat => getChatState(chat.id).isArchived)
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)),
+    [allChats, chatSearchQuery, getChatState]
+  );
+
+  const archivedChatsCount = archivedChats.length;
 
   // Мемоизированный обработчик для bulk select
   const handleBulkSelectToggle = useCallback((chatId: string) => {
@@ -2815,28 +2832,78 @@ const CRMContent = () => {
                     </div>
                   )}
 
-                  {/* Активные чаты */}
-                  <div className="flex-1 min-h-0 flex flex-col">
-                     <div className="flex items-center justify-between px-3 py-1.5 mb-2 bg-gradient-to-r from-accent/30 to-transparent rounded-lg">
-                        <h3 className="text-sm font-semibold text-foreground/80">
-                          Активные чаты
-                        </h3>
-                       <div className="flex items-center gap-2">
-                         {/* Unread filter button - only show if there are unread chats */}
-                          {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || (chat.unread > 0))).length > 0 && (
-                           <Button
-                             variant={showOnlyUnread ? "default" : "outline"}
-                             size="sm"
-                             className="h-5 px-2 py-0.5 text-xs min-w-[20px]"
-                             onClick={() => setShowOnlyUnread(!showOnlyUnread)}
-                           >
-                              {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || (chat.unread > 0))).length}
-                           </Button>
-                         )}
-                       </div>
+                  {/* Кнопка переключения на архив */}
+                  {!showArchived ? (
+                    <>
+                      {/* Активные чаты */}
+                      <div className="flex-1 min-h-0 flex flex-col">
+                        <div className="flex items-center justify-between px-3 py-1.5 mb-2 bg-gradient-to-r from-accent/30 to-transparent rounded-lg">
+                          <h3 className="text-sm font-semibold text-foreground/80">
+                            Активные чаты
+                          </h3>
+                          <div className="flex items-center gap-2">
+                            {/* Unread filter button - only show if there are unread chats */}
+                            {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || (chat.unread > 0))).length > 0 && (
+                              <Button
+                                variant={showOnlyUnread ? "default" : "outline"}
+                                size="sm"
+                                className="h-5 px-2 py-0.5 text-xs min-w-[20px]"
+                                onClick={() => setShowOnlyUnread(!showOnlyUnread)}
+                              >
+                                {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || (chat.unread > 0))).length}
+                              </Button>
+                            )}
+                            {/* Archive button */}
+                            {archivedChatsCount > 0 && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-5 px-2 py-0.5 text-xs gap-1"
+                                onClick={() => setShowArchived(true)}
+                              >
+                                <Archive className="h-3 w-3" />
+                                {archivedChatsCount}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        <VirtualizedChatList
+                          chats={activeChats}
+                          activeChatId={activeChatId}
+                          profile={profile}
+                          bulkSelectMode={bulkSelectMode}
+                          selectedChatIds={selectedChatIds}
+                          getChatState={getChatState}
+                          isChatReadGlobally={isChatReadGlobally}
+                          isInWorkByOthers={isInWorkByOthers}
+                          getPinnedByUserName={getPinnedByUserName}
+                          onChatClick={handleChatClick}
+                          onChatAction={handleChatAction}
+                          onBulkSelect={handleBulkSelectToggle}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    /* Архивные чаты */
+                    <div className="flex-1 min-h-0 flex flex-col">
+                      <div className="flex items-center justify-between px-3 py-1.5 mb-2 bg-gradient-to-r from-orange-500/20 to-transparent rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={() => setShowArchived(false)}
+                          >
+                            <ChevronRight className="h-4 w-4 rotate-180" />
+                          </Button>
+                          <Archive className="h-4 w-4 text-orange-500" />
+                          <h3 className="text-sm font-semibold text-orange-600">
+                            Архив ({archivedChatsCount})
+                          </h3>
+                        </div>
                       </div>
                       <VirtualizedChatList
-                        chats={activeChats}
+                        chats={archivedChats}
                         activeChatId={activeChatId}
                         profile={profile}
                         bulkSelectMode={bulkSelectMode}
@@ -2849,7 +2916,8 @@ const CRMContent = () => {
                         onChatAction={handleChatAction}
                         onBulkSelect={handleBulkSelectToggle}
                       />
-                   </div>
+                    </div>
+                  )}
 
                   {filteredChats.length === 0 && chatSearchQuery && (
                     <div className="text-center py-8">
@@ -3145,28 +3213,78 @@ const CRMContent = () => {
                     </div>
                   )}
 
-                  {/* Активные чаты */}
-                  <div className="flex-1 min-h-0 flex flex-col">
-                     <div className="flex items-center justify-between px-3 py-1.5 mb-2 bg-gradient-to-r from-accent/30 to-transparent rounded-lg">
-                         <h3 className="text-sm font-semibold text-foreground/80">
-                           Активные чаты
-                         </h3>
-                       <div className="flex items-center gap-2">
-                         {/* Unread filter button - only show if there are unread chats */}
-                          {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || (chat.unread > 0))).length > 0 && (
-                             <Button
-                               variant={showOnlyUnread ? "default" : "outline"}
-                               size="sm"
-                               className="h-5 px-2 py-0.5 text-xs min-w-[20px]"
-                               onClick={() => setShowOnlyUnread(!showOnlyUnread)}
-                             >
-                              {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || (chat.unread > 0))).length}
-                            </Button>
-                          )}
-                       </div>
-                     </div>
+                  {/* Кнопка переключения на архив - Mobile */}
+                  {!showArchived ? (
+                    <>
+                      {/* Активные чаты */}
+                      <div className="flex-1 min-h-0 flex flex-col">
+                        <div className="flex items-center justify-between px-3 py-1.5 mb-2 bg-gradient-to-r from-accent/30 to-transparent rounded-lg">
+                          <h3 className="text-sm font-semibold text-foreground/80">
+                            Активные чаты
+                          </h3>
+                          <div className="flex items-center gap-2">
+                            {/* Unread filter button - only show if there are unread chats */}
+                            {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || (chat.unread > 0))).length > 0 && (
+                              <Button
+                                variant={showOnlyUnread ? "default" : "outline"}
+                                size="sm"
+                                className="h-5 px-2 py-0.5 text-xs min-w-[20px]"
+                                onClick={() => setShowOnlyUnread(!showOnlyUnread)}
+                              >
+                                {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || (chat.unread > 0))).length}
+                              </Button>
+                            )}
+                            {/* Archive button */}
+                            {archivedChatsCount > 0 && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-5 px-2 py-0.5 text-xs gap-1"
+                                onClick={() => setShowArchived(true)}
+                              >
+                                <Archive className="h-3 w-3" />
+                                {archivedChatsCount}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        <VirtualizedChatList
+                          chats={activeChats}
+                          activeChatId={activeChatId}
+                          profile={profile}
+                          bulkSelectMode={bulkSelectMode}
+                          selectedChatIds={selectedChatIds}
+                          getChatState={getChatState}
+                          isChatReadGlobally={isChatReadGlobally}
+                          isInWorkByOthers={isInWorkByOthers}
+                          getPinnedByUserName={getPinnedByUserName}
+                          onChatClick={handleChatClick}
+                          onChatAction={handleChatAction}
+                          onBulkSelect={handleBulkSelectToggle}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    /* Архивные чаты - Mobile */
+                    <div className="flex-1 min-h-0 flex flex-col">
+                      <div className="flex items-center justify-between px-3 py-1.5 mb-2 bg-gradient-to-r from-orange-500/20 to-transparent rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={() => setShowArchived(false)}
+                          >
+                            <ChevronRight className="h-4 w-4 rotate-180" />
+                          </Button>
+                          <Archive className="h-4 w-4 text-orange-500" />
+                          <h3 className="text-sm font-semibold text-orange-600">
+                            Архив ({archivedChatsCount})
+                          </h3>
+                        </div>
+                      </div>
                       <VirtualizedChatList
-                        chats={activeChats}
+                        chats={archivedChats}
                         activeChatId={activeChatId}
                         profile={profile}
                         bulkSelectMode={bulkSelectMode}
@@ -3179,7 +3297,8 @@ const CRMContent = () => {
                         onChatAction={handleChatAction}
                         onBulkSelect={handleBulkSelectToggle}
                       />
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

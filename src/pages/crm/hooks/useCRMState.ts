@@ -8,6 +8,7 @@ export const useCRMState = () => {
   const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
   const [isPinnedSectionOpen, setIsPinnedSectionOpen] = useState(false);
   const [showOnlyUnread, setShowOnlyUnread] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [activeClientInfo, setActiveClientInfo] = useState<{ name: string; phone: string; comment: string } | null>(null);
   const [activeClientName, setActiveClientName] = useState('');
   const [pinnedTaskClientId, setPinnedTaskClientId] = useState<string>('');
@@ -33,6 +34,8 @@ export const useCRMState = () => {
     setIsPinnedSectionOpen,
     showOnlyUnread,
     setShowOnlyUnread,
+    showArchived,
+    setShowArchived,
     activeClientInfo,
     setActiveClientInfo,
     activeClientName,
