@@ -89,11 +89,32 @@ serve(async (req) => {
     }
 
     if (!messageData.external_message_id) {
+      // Старые сообщения без external_message_id - редактируем только локально
+      console.log('No external_message_id, updating only in database')
+      const { error: updateError } = await supabase
+        .from('chat_messages')
+        .update({ message_text: newMessage })
+        .eq('id', messageId)
+
+      if (updateError) {
+        console.error('Error updating message in database:', updateError)
+        return new Response(
+          JSON.stringify({ success: false, error: 'Failed to update message in database' }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 500 
+          }
+        )
+      }
+
       return new Response(
-        JSON.stringify({ success: false, error: 'No external message ID found' }),
+        JSON.stringify({ 
+          success: true, 
+          messageId: messageId,
+          localOnly: true
+        }),
         { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
