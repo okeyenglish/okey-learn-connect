@@ -973,10 +973,11 @@ const CRMContent = () => {
       await markChatAsReadGlobally(chatId);
       
       if (chatType === 'client') {
-        // Помечаем все сообщения в чате как прочитанные для текущего пользователя
-        markChatMessagesAsReadMutation.mutate(chatId);
+        // НЕ помечаем все сообщения как прочитанные здесь!
+        // ChatArea сам пометит сообщения при переключении вкладки
+        
         // Помечаем сообщения как прочитанные в базе данных (старая система)
-        markAsReadMutation.mutate(chatId);
+        // markAsReadMutation.mutate(chatId);
         // Помечаем чат как прочитанный в персональном состоянии (для закрепленных и пр.)
         markAsRead(chatId);
       } else if (chatType === 'corporate') {
