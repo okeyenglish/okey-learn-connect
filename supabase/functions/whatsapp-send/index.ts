@@ -39,6 +39,34 @@ serve(async (req) => {
   try {
     const payload = await req.json().catch(() => ({} as any));
 
+    // Handle get_state action (for connection status check)
+    if (payload?.action === 'get_state') {
+      if (!greenApiUrl || !greenApiIdInstance || !greenApiToken) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'Missing Green-API secrets'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      try {
+        const state = await getInstanceState();
+        const stateValue = state?.stateInstance || state?.state || state?.status;
+        const authorized = String(stateValue || '').toLowerCase() === 'authorized';
+        return new Response(JSON.stringify({ 
+          success: authorized, 
+          state,
+          stateInstance: stateValue
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ success: false, error: e?.message }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     if (payload?.action === 'test_connection') {
       // Check required secrets first
       if (!greenApiUrl || !greenApiIdInstance || !greenApiToken) {
@@ -70,6 +98,17 @@ serve(async (req) => {
     }
 
     const { clientId, message, phoneNumber, fileUrl, fileName } = payload as SendMessageRequest
+    
+    // Validate clientId before proceeding
+    if (!clientId) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'clientId is required' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     
     console.log('Sending message:', { clientId, message, phoneNumber, fileUrl, fileName })
 
