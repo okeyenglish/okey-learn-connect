@@ -857,13 +857,13 @@ const CRMContent = () => {
       // В рамках закрепленных/не закрепленных: сначала непрочитанные
       const aChatState = getChatState(a.id);
       const bChatState = getChatState(b.id);
-      // Используем глобальную систему прочитанности для сортировки
-      const aUnread = (a.unread > 0) && !isChatReadGlobally(a.id);
-      const bUnread = (b.unread > 0) && !isChatReadGlobally(b.id);
+      // Сначала непрочитанные (по сообщениям / ручной отметке)
+      const aUnread = a.unread > 0;
+      const bUnread = b.unread > 0;
       
       if (aUnread && !bUnread) return -1;
       if (!aUnread && bUnread) return 1;
-      
+
       // Внутри каждой группы сортируем по времени (новые сверху)
       return (b.timestamp || 0) - (a.timestamp || 0);
     });
@@ -897,10 +897,10 @@ const CRMContent = () => {
         if (!showOnlyUnread) return true;
         const chatState = getChatState(chat.id);
         const showEye = !!chatState?.isUnread;
-        const unreadConsideringGlobal = (chat.unread > 0) && !isChatReadGlobally(chat.id);
-        return showEye || unreadConsideringGlobal;
+        const unreadByMessages = chat.unread > 0;
+        return showEye || unreadByMessages;
       }),
-    [filteredChats, getChatState, showOnlyUnread, isChatReadGlobally]
+    [filteredChats, getChatState, showOnlyUnread]
   );
 
   // Мемоизированный обработчик для bulk select
@@ -1309,11 +1309,9 @@ const CRMContent = () => {
   ];
 
 
-  // Calculate total unread messages using global read status
+  // Calculate total unread messages from message-level read flags
   const totalUnreadCount = filteredChats.reduce((total, chat) => {
-    const unreadConsideringGlobal = (chat.unread > 0) && !isChatReadGlobally(chat.id);
-    const unreadCount = unreadConsideringGlobal ? chat.unread : 0;
-    return total + unreadCount;
+    return total + (chat.unread || 0);
   }, 0);
 
   return (

@@ -57,8 +57,10 @@ export const VirtualizedChatList = React.memo(({
           const chat = chats[virtualRow.index];
           const chatState = getChatState(chat.id);
           const showEye = !!chatState?.isUnread;
-          const unreadConsideringGlobal = (chat.unread > 0) && !isChatReadGlobally(chat.id);
-          const displayUnread = showEye || unreadConsideringGlobal;
+          // Непрочитанность определяем по сообщениям (message-level is_read),
+          // не маскируем её глобальной отметкой прочитанности.
+          const unreadByMessages = Number(chat.unread) > 0;
+          const displayUnread = showEye || unreadByMessages;
 
           return (
             <div
