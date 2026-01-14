@@ -1,5 +1,20 @@
 project_id = "kbojujfwtvmsgudumown"
 
+[functions.telegram-channels]
+verify_jwt = true
+
+[functions.telegram-webhook]
+verify_jwt = false
+
+[functions.telegram-send]
+verify_jwt = true
+
+[functions.telegram-get-avatar]
+verify_jwt = true
+
+[functions.telegram-get-contact-info]
+verify_jwt = true
+
 [functions.max-webhook]
 verify_jwt = false
 
