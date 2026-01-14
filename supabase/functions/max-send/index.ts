@@ -1,18 +1,29 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Green API base URL for MAX (v3)
+const GREEN_API_URL = 'https://api.green-api.com';
+
 interface SendMessageRequest {
   clientId: string;
-  channelId: string;
   text: string;
-  attachments?: any[];
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
 }
 
-Deno.serve(async (req) => {
+interface MaxSettings {
+  instanceId: string;
+  apiToken: string;
+  webhookUrl?: string;
+}
+
+serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -20,55 +31,87 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const maxConnectorUrl = Deno.env.get('MAX_CONNECTOR_URL');
-    const maxSecret = Deno.env.get('MAX_CONNECTOR_SECRET');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    if (!maxConnectorUrl) {
-      return new Response(
-        JSON.stringify({ error: 'MAX_CONNECTOR_URL not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Verify JWT from Authorization header
+    // Get auth user
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
+        JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
-    // Get user from JWT
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    
-    if (userError || !user) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
+
+    if (authError || !user) {
       return new Response(
-        JSON.stringify({ error: 'Invalid token' }),
+        JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const body: SendMessageRequest = await req.json();
-    const { clientId, channelId, text, attachments } = body;
+    // Get user's organization
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', user.id)
+      .single();
 
-    if (!clientId || !channelId || !text) {
+    if (!profile?.organization_id) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: clientId, channelId, text' }),
+        JSON.stringify({ error: 'Organization not found' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Sending MAX message:', { clientId, channelId, textLength: text.length });
+    const organizationId = profile.organization_id;
 
-    // Get client to find max_chat_id
+    // Get MAX settings from messenger_settings
+    const { data: messengerSettings, error: settingsError } = await supabase
+      .from('messenger_settings')
+      .select('settings')
+      .eq('organization_id', organizationId)
+      .eq('messenger_type', 'max')
+      .eq('is_enabled', true)
+      .single();
+
+    if (settingsError || !messengerSettings) {
+      console.error('MAX settings not found:', settingsError);
+      return new Response(
+        JSON.stringify({ error: 'MAX integration not configured' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const maxSettings = messengerSettings.settings as MaxSettings;
+    if (!maxSettings?.instanceId || !maxSettings?.apiToken) {
+      return new Response(
+        JSON.stringify({ error: 'MAX credentials not configured' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { instanceId, apiToken } = maxSettings;
+
+    // Parse request body
+    const body: SendMessageRequest = await req.json();
+    const { clientId, text, fileUrl, fileName, fileType } = body;
+
+    if (!clientId || (!text && !fileUrl)) {
+      return new Response(
+        JSON.stringify({ error: 'clientId and text or fileUrl are required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get client info
     const { data: client, error: clientError } = await supabase
       .from('clients')
-      .select('id, max_chat_id, organization_id')
+      .select('id, name, max_chat_id, max_user_id, phone')
       .eq('id', clientId)
       .single();
 
@@ -80,135 +123,128 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!client.max_chat_id) {
+    // Determine chatId for MAX
+    // MAX uses numeric chatId format: "10000000" for individual, "-10000000000000" for groups
+    // Or phone format: "79991234567@c.us"
+    let chatId = client.max_chat_id;
+    
+    if (!chatId && client.max_user_id) {
+      chatId = String(client.max_user_id);
+    }
+    
+    if (!chatId && client.phone) {
+      // Format phone for MAX: remove + and spaces, add @c.us
+      const cleanPhone = client.phone.replace(/[^\d]/g, '');
+      chatId = `${cleanPhone}@c.us`;
+    }
+
+    if (!chatId) {
       return new Response(
-        JSON.stringify({ error: 'Client has no MAX chat ID' }),
+        JSON.stringify({ error: 'Client has no MAX chat ID or phone number' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Verify channel exists and belongs to same organization
-    const { data: channel, error: channelError } = await supabase
-      .from('max_channels')
-      .select('id, organization_id, status')
-      .eq('id', channelId)
-      .single();
+    console.log(`Sending MAX message to chatId: ${chatId}, text length: ${text?.length || 0}`);
 
-    if (channelError || !channel) {
-      console.error('Channel not found:', channelError);
-      return new Response(
-        JSON.stringify({ error: 'Channel not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    let greenApiResponse;
+    let messageId: string;
+
+    if (fileUrl) {
+      // Send file via sendFileByUrl
+      const apiUrl = `${GREEN_API_URL}/v3/waInstance${instanceId}/sendFileByUrl/${apiToken}`;
+      
+      const fileBody = {
+        chatId,
+        urlFile: fileUrl,
+        fileName: fileName || 'file',
+        caption: text || ''
+      };
+
+      console.log('Sending file to MAX:', apiUrl, fileBody);
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fileBody)
+      });
+
+      greenApiResponse = await response.json();
+      console.log('Green API file response:', greenApiResponse);
+
+      if (!response.ok) {
+        throw new Error(greenApiResponse.message || 'Failed to send file');
+      }
+
+      messageId = greenApiResponse.idMessage;
+    } else {
+      // Send text message
+      const apiUrl = `${GREEN_API_URL}/v3/waInstance${instanceId}/sendMessage/${apiToken}`;
+      
+      const messageBody = {
+        chatId,
+        message: text
+      };
+
+      console.log('Sending message to MAX:', apiUrl);
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(messageBody)
+      });
+
+      greenApiResponse = await response.json();
+      console.log('Green API message response:', greenApiResponse);
+
+      if (!response.ok) {
+        throw new Error(greenApiResponse.message || 'Failed to send message');
+      }
+
+      messageId = greenApiResponse.idMessage;
     }
 
-    if (channel.organization_id !== client.organization_id) {
-      return new Response(
-        JSON.stringify({ error: 'Channel and client organization mismatch' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Save outgoing message with pending status
+    // Save message to database
     const { data: savedMessage, error: saveError } = await supabase
       .from('chat_messages')
       .insert({
         client_id: clientId,
-        organization_id: client.organization_id,
-        message_text: text,
-        message_type: attachments?.length ? 'media' : 'text',
+        organization_id: organizationId,
+        message_text: text || `[Файл: ${fileName || 'file'}]`,
+        message_type: 'operator',
         messenger_type: 'max',
-        max_channel_id: channelId,
         is_outgoing: true,
         is_read: true,
-        message_status: 'pending'
+        external_message_id: messageId,
+        file_url: fileUrl || null,
+        file_name: fileName || null,
+        file_type: fileType || null,
+        message_status: 'sent'
       })
-      .select('id')
+      .select()
       .single();
 
     if (saveError) {
       console.error('Error saving message:', saveError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to save message' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     }
 
-    // Send message via MAX Connector
-    try {
-      const connectorResponse = await fetch(`${maxConnectorUrl}/channels/${channelId}/send`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-max-secret': maxSecret || ''
-        },
-        body: JSON.stringify({
-          chatId: client.max_chat_id,
-          text,
-          attachments,
-          messageId: savedMessage.id
-        })
-      });
+    // Update client's last_message_at
+    await supabase
+      .from('clients')
+      .update({ last_message_at: new Date().toISOString() })
+      .eq('id', clientId);
 
-      const connectorResult = await connectorResponse.json();
-
-      if (!connectorResponse.ok) {
-        // Update message status to failed
-        await supabase
-          .from('chat_messages')
-          .update({ message_status: 'failed' })
-          .eq('id', savedMessage.id);
-
-        console.error('MAX Connector error:', connectorResult);
-        return new Response(
-          JSON.stringify({ 
-            error: 'Failed to send message via MAX',
-            details: connectorResult 
-          }),
-          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Update message with external ID and sent status
-      await supabase
-        .from('chat_messages')
-        .update({ 
-          message_status: 'sent',
-          external_message_id: connectorResult.maxMessageId
-        })
-        .eq('id', savedMessage.id);
-
-      console.log('Message sent successfully:', savedMessage.id);
-
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          messageId: savedMessage.id,
-          maxMessageId: connectorResult.maxMessageId
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-
-    } catch (connectorError) {
-      console.error('Connector request failed:', connectorError);
-      
-      // Update message status to failed
-      await supabase
-        .from('chat_messages')
-        .update({ message_status: 'failed' })
-        .eq('id', savedMessage.id);
-
-      return new Response(
-        JSON.stringify({ 
-          error: 'MAX Connector unavailable',
-          messageId: savedMessage.id 
-        }),
-        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        messageId,
+        savedMessageId: savedMessage?.id 
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
   } catch (error) {
-    console.error('MAX send error:', error);
+    console.error('Error in max-send:', error);
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
