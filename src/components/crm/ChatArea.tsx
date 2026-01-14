@@ -12,7 +12,7 @@ import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useTypingStatus } from "@/hooks/useTypingStatus";
-import { useRealtimeMessages } from "@/hooks/useChatMessages";
+import { useRealtimeMessages, useClientUnreadByMessenger } from "@/hooks/useChatMessages";
 import { ChatMessage } from "./ChatMessage";
 import { ClientTasks } from "./ClientTasks";
 import { AddTaskModal } from "./AddTaskModal";
@@ -141,6 +141,9 @@ export const ChatArea = ({
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
   const markChatMessagesAsReadMutation = useMarkChatMessagesAsRead();
   const queryClient = useQueryClient();
+  
+  // Get unread counts by messenger for badge display
+  const { unreadCounts: unreadByMessenger } = useClientUnreadByMessenger(clientId);
   
   // Get pending GPT responses for this client
   const { data: pendingGPTResponses, isLoading: pendingGPTLoading, error: pendingGPTError } = usePendingGPTResponses(clientId);
@@ -1649,11 +1652,46 @@ export const ChatArea = ({
       <div className="flex-1 overflow-hidden min-h-0">
         <Tabs value={activeMessengerTab} onValueChange={setActiveMessengerTab} className="h-full flex flex-col min-h-0">
           <TabsList className="grid w-full grid-cols-5 rounded-none bg-orange-50/30 border-orange-200 border-t rounded-t-none">
-            <TabsTrigger value="whatsapp" className="text-xs">WhatsApp</TabsTrigger>
-            <TabsTrigger value="telegram" className="text-xs">Telegram</TabsTrigger>
-            <TabsTrigger value="max" className="text-xs">Max</TabsTrigger>
-            <TabsTrigger value="email" className="text-xs">Email</TabsTrigger>
-            <TabsTrigger value="calls" className="text-xs">Звонки</TabsTrigger>
+            <TabsTrigger value="whatsapp" className="text-xs relative">
+              WhatsApp
+              {unreadByMessenger.whatsapp > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-destructive text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {unreadByMessenger.whatsapp > 99 ? '99+' : unreadByMessenger.whatsapp}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="telegram" className="text-xs relative">
+              Telegram
+              {unreadByMessenger.telegram > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-destructive text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {unreadByMessenger.telegram > 99 ? '99+' : unreadByMessenger.telegram}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="max" className="text-xs relative">
+              Max
+              {unreadByMessenger.max > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-destructive text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {unreadByMessenger.max > 99 ? '99+' : unreadByMessenger.max}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="email" className="text-xs relative">
+              Email
+              {unreadByMessenger.email > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-destructive text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {unreadByMessenger.email > 99 ? '99+' : unreadByMessenger.email}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="calls" className="text-xs relative">
+              Звонки
+              {unreadByMessenger.calls > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-destructive text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {unreadByMessenger.calls > 99 ? '99+' : unreadByMessenger.calls}
+                </span>
+              )}
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="whatsapp" className="flex-1 p-3 overflow-y-auto mt-0">
