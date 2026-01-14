@@ -194,7 +194,7 @@ async function handleIncomingMessage(
     return;
   }
 
-  // Update client's last_message_at
+  // Update client's last_message_at and telegram_chat_id
   await supabase
     .from('clients')
     .update({ 
@@ -202,6 +202,14 @@ async function handleIncomingMessage(
       telegram_chat_id: chatId
     })
     .eq('id', client.id);
+
+  // Also update telegram_chat_id in client_phone_numbers if phone matches
+  await updatePhoneNumberMessengerData(supabase, client.id, {
+    phone: phoneNumber,
+    telegramChatId: chatId,
+    telegramUserId: telegramUserId,
+    telegramAvatarUrl: avatarUrl
+  });
 
   console.log('Incoming message saved successfully');
 }
@@ -637,4 +645,83 @@ function extractMessageContent(message: WappiMessage): {
   }
 
   return { messageText, contentType, fileUrl, fileName, fileType };
+}
+
+// Helper function to update messenger data in client_phone_numbers
+async function updatePhoneNumberMessengerData(
+  supabase: any,
+  clientId: string,
+  data: {
+    phone?: string | null;
+    telegramChatId?: string | null;
+    telegramUserId?: number | null;
+    telegramAvatarUrl?: string | null;
+    whatsappChatId?: string | null;
+    whatsappAvatarUrl?: string | null;
+    maxChatId?: string | null;
+    maxUserId?: number | null;
+    maxAvatarUrl?: string | null;
+  }
+): Promise<void> {
+  if (!data.phone && !data.telegramChatId && !data.whatsappChatId && !data.maxChatId) {
+    return;
+  }
+
+  try {
+    // Find matching phone number in client_phone_numbers
+    let phoneRecord = null;
+    
+    if (data.phone) {
+      const cleanPhone = data.phone.replace(/\D/g, '');
+      if (cleanPhone.length >= 10) {
+        const { data: records } = await supabase
+          .from('client_phone_numbers')
+          .select('id, phone')
+          .eq('client_id', clientId)
+          .or(`phone.ilike.%${cleanPhone}%,phone.ilike.%${cleanPhone.slice(-10)}%`)
+          .limit(1);
+        
+        phoneRecord = records?.[0];
+      }
+    }
+    
+    // If no match by phone, try to find primary number
+    if (!phoneRecord) {
+      const { data: primaryRecord } = await supabase
+        .from('client_phone_numbers')
+        .select('id')
+        .eq('client_id', clientId)
+        .eq('is_primary', true)
+        .single();
+      
+      phoneRecord = primaryRecord;
+    }
+    
+    if (!phoneRecord) {
+      console.log('No phone number record found to update messenger data');
+      return;
+    }
+
+    const updateData: Record<string, any> = {};
+    
+    if (data.telegramChatId) updateData.telegram_chat_id = data.telegramChatId;
+    if (data.telegramUserId) updateData.telegram_user_id = data.telegramUserId;
+    if (data.telegramAvatarUrl) updateData.telegram_avatar_url = data.telegramAvatarUrl;
+    if (data.whatsappChatId) updateData.whatsapp_chat_id = data.whatsappChatId;
+    if (data.whatsappAvatarUrl) updateData.whatsapp_avatar_url = data.whatsappAvatarUrl;
+    if (data.maxChatId) updateData.max_chat_id = data.maxChatId;
+    if (data.maxUserId) updateData.max_user_id = data.maxUserId;
+    if (data.maxAvatarUrl) updateData.max_avatar_url = data.maxAvatarUrl;
+
+    if (Object.keys(updateData).length > 0) {
+      await supabase
+        .from('client_phone_numbers')
+        .update(updateData)
+        .eq('id', phoneRecord.id);
+      
+      console.log(`Updated messenger data for phone record ${phoneRecord.id}:`, Object.keys(updateData));
+    }
+  } catch (error) {
+    console.error('Error updating phone number messenger data:', error);
+  }
 }

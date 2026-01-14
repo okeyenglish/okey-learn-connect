@@ -97,7 +97,7 @@ serve(async (req) => {
       }
     }
 
-    const { clientId, message, phoneNumber, fileUrl, fileName } = payload as SendMessageRequest
+    const { clientId, message, phoneNumber, fileUrl, fileName, phoneId } = payload as SendMessageRequest & { phoneId?: string }
     
     // Validate clientId before proceeding
     if (!clientId) {
@@ -110,7 +110,7 @@ serve(async (req) => {
       });
     }
     
-    console.log('Sending message:', { clientId, message, phoneNumber, fileUrl, fileName })
+    console.log('Sending message:', { clientId, message, phoneNumber, fileUrl, fileName, phoneId })
 
     // Получаем данные клиента
     const { data: client, error: clientError } = await supabase
@@ -124,34 +124,77 @@ serve(async (req) => {
     }
 
     // Определяем chat ID для WhatsApp
-    let chatId = client.whatsapp_chat_id
+    let chatId = null
     
+    // Priority 1: Use specified phone number's chat ID
+    if (phoneId) {
+      const { data: phoneRecord } = await supabase
+        .from('client_phone_numbers')
+        .select('whatsapp_chat_id, phone')
+        .eq('id', phoneId)
+        .eq('client_id', clientId)
+        .single()
+      
+      if (phoneRecord) {
+        chatId = phoneRecord.whatsapp_chat_id
+        if (!chatId && phoneRecord.phone) {
+          const cleanPhone = phoneRecord.phone.replace(/[^\d]/g, '')
+          chatId = `${cleanPhone}@c.us`
+        }
+        console.log('Using specified phone:', phoneId, 'chatId:', chatId)
+      }
+    }
+    
+    // Priority 2: Use primary phone number's chat ID
     if (!chatId) {
-      // Получаем номер телефона
+      const { data: primaryPhone } = await supabase
+        .from('client_phone_numbers')
+        .select('whatsapp_chat_id, phone')
+        .eq('client_id', clientId)
+        .eq('is_primary', true)
+        .single()
+      
+      if (primaryPhone) {
+        chatId = primaryPhone.whatsapp_chat_id
+        if (!chatId && primaryPhone.phone) {
+          const cleanPhone = primaryPhone.phone.replace(/[^\d]/g, '')
+          chatId = `${cleanPhone}@c.us`
+        }
+        console.log('Using primary phone chatId:', chatId)
+      }
+    }
+    
+    // Priority 3: Fall back to client's whatsapp_chat_id (backward compatibility)
+    if (!chatId) {
+      chatId = client.whatsapp_chat_id
+    }
+    
+    // Priority 4: Use provided phone number or client phone
+    if (!chatId) {
       let phone = phoneNumber || client.phone
       
       // Если номера нет, ищем в client_phone_numbers
       if (!phone) {
         const { data: phoneNumbers } = await supabase
           .from('client_phone_numbers')
-          .select('phone_number')
+          .select('phone')
           .eq('client_id', clientId)
-          .eq('whatsapp_enabled', true)
+          .eq('is_whatsapp_enabled', true)
           .limit(1)
           .single()
         
-        if (!phoneNumbers?.phone_number) {
+        if (!phoneNumbers?.phone) {
           // Пробуем получить любой номер
           const { data: anyPhone } = await supabase
             .from('client_phone_numbers')
-            .select('phone_number')
+            .select('phone')
             .eq('client_id', clientId)
             .limit(1)
             .single()
           
-          phone = anyPhone?.phone_number
+          phone = anyPhone?.phone
         } else {
-          phone = phoneNumbers.phone_number
+          phone = phoneNumbers.phone
         }
       }
       

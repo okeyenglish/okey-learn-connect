@@ -256,6 +256,12 @@ async function handleIncomingMessage(supabase: any, organizationId: string, webh
     })
     .eq('id', client.id);
 
+  // Also update max_chat_id in client_phone_numbers if phone matches
+  await updatePhoneNumberMessengerData(supabase, client.id, {
+    phone: senderPhoneNumber ? String(senderPhoneNumber) : null,
+    maxChatId: chatId
+  });
+
   console.log(`Saved incoming MAX message for client ${client.id}`);
 }
 
@@ -536,5 +542,51 @@ async function handleMessageStatus(supabase: any, webhook: GreenApiWebhook) {
     console.error('Error updating message status:', error);
   } else {
     console.log(`Updated message ${idMessage} status to ${mappedStatus}`);
+  }
+}
+
+// Helper function to update messenger data in client_phone_numbers  
+async function updatePhoneNumberMessengerData(
+  supabase: any,
+  clientId: string,
+  data: { phone?: string | null; maxChatId?: string | null }
+): Promise<void> {
+  if (!data.maxChatId) return
+
+  try {
+    let phoneRecord = null
+    
+    if (data.phone) {
+      const cleanPhone = data.phone.replace(/\D/g, '')
+      if (cleanPhone.length >= 10) {
+        const { data: records } = await supabase
+          .from('client_phone_numbers')
+          .select('id')
+          .eq('client_id', clientId)
+          .or(`phone.ilike.%${cleanPhone}%,phone.ilike.%${cleanPhone.slice(-10)}%`)
+          .limit(1)
+        phoneRecord = records?.[0]
+      }
+    }
+    
+    if (!phoneRecord) {
+      const { data: primaryRecord } = await supabase
+        .from('client_phone_numbers')
+        .select('id')
+        .eq('client_id', clientId)
+        .eq('is_primary', true)
+        .single()
+      phoneRecord = primaryRecord
+    }
+    
+    if (phoneRecord) {
+      await supabase
+        .from('client_phone_numbers')
+        .update({ max_chat_id: data.maxChatId })
+        .eq('id', phoneRecord.id)
+      console.log(`Updated max_chat_id for phone record ${phoneRecord.id}`)
+    }
+  } catch (error) {
+    console.error('Error updating phone number messenger data:', error)
   }
 }

@@ -28,6 +28,16 @@ export interface ClientPhoneNumber {
   is_primary: boolean;
   is_whatsapp_enabled: boolean;
   is_telegram_enabled: boolean;
+  // Messenger chat IDs
+  whatsapp_chat_id?: string | null;
+  telegram_chat_id?: string | null;
+  telegram_user_id?: number | null;
+  max_chat_id?: string | null;
+  max_user_id?: number | null;
+  // Messenger avatars
+  whatsapp_avatar_url?: string | null;
+  telegram_avatar_url?: string | null;
+  max_avatar_url?: string | null;
   created_at: string;
   updated_at: string;
 }
