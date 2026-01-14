@@ -29,7 +29,7 @@ import { useMax } from "@/hooks/useMax";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePendingGPTResponses } from "@/hooks/usePendingGPTResponses";
-import { useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
+import { useMarkChatMessagesAsRead, useMarkChatMessagesAsReadByMessenger } from "@/hooks/useMessageReadStatus";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface ChatAreaProps {
@@ -140,10 +140,11 @@ export const ChatArea = ({
   const isMobile = useIsMobile();
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
   const markChatMessagesAsReadMutation = useMarkChatMessagesAsRead();
+  const markChatMessagesAsReadByMessengerMutation = useMarkChatMessagesAsReadByMessenger();
   const queryClient = useQueryClient();
   
   // Get unread counts by messenger for badge display
-  const { unreadCounts: unreadByMessenger } = useClientUnreadByMessenger(clientId);
+  const { unreadCounts: unreadByMessenger, lastUnreadMessenger } = useClientUnreadByMessenger(clientId);
   
   // Get pending GPT responses for this client
   const { data: pendingGPTResponses, isLoading: pendingGPTLoading, error: pendingGPTError } = usePendingGPTResponses(clientId);
@@ -188,6 +189,33 @@ export const ChatArea = ({
     setDisplayName(cleaned);
     setIsEditingName(false);
   }, [clientName]);
+
+  // Set initial tab to the one with the last unread message when client changes
+  useEffect(() => {
+    const initialTab = lastUnreadMessenger || 'whatsapp';
+    setActiveMessengerTab(initialTab);
+    
+    // Mark messages as read for the initial tab
+    if (clientId && initialTab !== 'calls') {
+      markChatMessagesAsReadByMessengerMutation.mutate({ 
+        clientId, 
+        messengerType: initialTab 
+      });
+    }
+  }, [clientId]); // Only when client changes
+
+  // Mark messages as read when switching tabs - only for the current tab
+  const handleTabChange = (newTab: string) => {
+    setActiveMessengerTab(newTab);
+    
+    // Mark messages as read for the new tab
+    if (clientId && newTab !== 'calls') {
+      markChatMessagesAsReadByMessengerMutation.mutate({ 
+        clientId, 
+        messengerType: newTab 
+      });
+    }
+  };
 
   // Функция для начала редактирования имени
   const handleStartEditName = () => {
@@ -1650,7 +1678,7 @@ export const ChatArea = ({
 
       {/* Chat Messages with Tabs */}
       <div className="flex-1 overflow-hidden min-h-0">
-        <Tabs value={activeMessengerTab} onValueChange={setActiveMessengerTab} className="h-full flex flex-col min-h-0">
+        <Tabs value={activeMessengerTab} onValueChange={handleTabChange} className="h-full flex flex-col min-h-0">
           <TabsList className="grid w-full grid-cols-5 rounded-none bg-orange-50/30 border-orange-200 border-t rounded-t-none">
             <TabsTrigger value="whatsapp" className="text-xs relative">
               WhatsApp
