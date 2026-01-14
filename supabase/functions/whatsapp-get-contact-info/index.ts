@@ -88,7 +88,13 @@ serve(async (req) => {
       );
     }
 
-    const body = await req.json();
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch (_e) {
+      body = {};
+    }
+
     const { chatId, clientId } = body;
 
     // Get chatId from clientId if not provided
@@ -109,9 +115,10 @@ serve(async (req) => {
     }
 
     if (!targetChatId) {
+      // Client may not have WhatsApp; return empty result instead of error
       return new Response(
-        JSON.stringify({ error: 'chatId or clientId is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: true, contactInfo: null }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

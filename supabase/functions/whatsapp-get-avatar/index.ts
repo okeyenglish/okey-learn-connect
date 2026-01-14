@@ -88,7 +88,13 @@ serve(async (req) => {
       );
     }
 
-    const body = await req.json();
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch (_e) {
+      body = {};
+    }
+
     const { chatId, clientId } = body;
 
     // Get chatId from clientId if not provided

@@ -6,8 +6,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Green API base URL for MAX (v3 instance - uses 3100 subdomain)
-const GREEN_API_URL = 'https://3100.api.green-api.com';
+// Green API base URL for MAX (v3)
+const DEFAULT_GREEN_API_URL = 'https://api.green-api.com';
+const GREEN_API_URL =
+  Deno.env.get('MAX_GREEN_API_URL') ||
+  Deno.env.get('GREEN_API_URL') ||
+  DEFAULT_GREEN_API_URL;
 
 interface EditMessageRequest {
   messageId: string;

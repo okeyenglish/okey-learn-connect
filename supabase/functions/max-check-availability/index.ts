@@ -6,7 +6,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const GREEN_API_URL = 'https://3100.api.green-api.com';
+const DEFAULT_GREEN_API_URL = 'https://api.green-api.com';
+const GREEN_API_URL =
+  Deno.env.get('MAX_GREEN_API_URL') ||
+  Deno.env.get('GREEN_API_URL') ||
+  DEFAULT_GREEN_API_URL;
 
 interface CheckAvailabilityRequest {
   phoneNumber: string;
