@@ -568,14 +568,20 @@ async function findOrCreateClient(phoneNumber: string, displayName: string | und
   if (existingClient) {
     console.log('Found existing client:', existingClient.id, existingClient.name);
     // Если у клиента нет аватарки, попробуем получить её из WhatsApp
-    if (!existingClient.avatar_url) {
+    if (!existingClient.avatar_url || !existingClient.whatsapp_avatar_url) {
       const avatarUrl = await fetchAndSaveAvatar(phoneNumber, existingClient.id)
       if (avatarUrl) {
+        const updateData: any = { whatsapp_avatar_url: avatarUrl }
+        // Also set main avatar if not set
+        if (!existingClient.avatar_url) {
+          updateData.avatar_url = avatarUrl
+        }
         await supabase
           .from('clients')
-          .update({ avatar_url: avatarUrl })
+          .update(updateData)
           .eq('id', existingClient.id)
-        existingClient.avatar_url = avatarUrl
+        existingClient.avatar_url = existingClient.avatar_url || avatarUrl
+        existingClient.whatsapp_avatar_url = avatarUrl
       }
     }
     return existingClient
@@ -608,9 +614,10 @@ async function findOrCreateClient(phoneNumber: string, displayName: string | und
   if (avatarUrl) {
     await supabase
       .from('clients')
-      .update({ avatar_url: avatarUrl })
+      .update({ avatar_url: avatarUrl, whatsapp_avatar_url: avatarUrl })
       .eq('id', newClient.id)
     newClient.avatar_url = avatarUrl
+    newClient.whatsapp_avatar_url = avatarUrl
   }
 
   return newClient

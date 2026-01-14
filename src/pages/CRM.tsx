@@ -801,6 +801,16 @@ const CRMContent = () => {
           ? `${typing.names[0] || 'Менеджер'} печатает...`
           : (thread.last_message?.trim?.() || 'Нет сообщений');
           
+        // Determine avatar based on last unread messenger
+        let displayAvatar = clientData?.avatar_url || null;
+        if (thread.last_unread_messenger === 'max' && (clientData as any)?.max_avatar_url) {
+          displayAvatar = (clientData as any).max_avatar_url;
+        } else if (thread.last_unread_messenger === 'whatsapp' && (clientData as any)?.whatsapp_avatar_url) {
+          displayAvatar = (clientData as any).whatsapp_avatar_url;
+        } else if (thread.last_unread_messenger === 'telegram' && (clientData as any)?.telegram_avatar_url) {
+          displayAvatar = (clientData as any).telegram_avatar_url;
+        }
+          
         return {
           id: thread.client_id,
           name: cleanClientName(clientData?.name ?? thread.client_name ?? 'Без имени'),
@@ -810,7 +820,8 @@ const CRMContent = () => {
           unread: thread.unread_count,
           type: 'client' as const,
           timestamp: new Date(thread.last_message_time).getTime(),
-          avatar_url: clientData?.avatar_url || null
+          avatar_url: displayAvatar,
+          last_unread_messenger: thread.last_unread_messenger
         };
       }),
     // Добавляем клиентов без сообщений, чтобы они тоже отображались как чаты
