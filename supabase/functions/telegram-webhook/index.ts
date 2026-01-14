@@ -133,6 +133,12 @@ async function handleIncomingMessage(
   const senderName = message.contact_name || message.senderName || message.username || `User ${message.from}`;
   const username = message.contact_username || message.username;
   const avatarUrl = message.thumbnail || message.picture || null;
+  
+  // Extract phone from contact_phone field (when Telegram reveals it)
+  const contactPhone = message.contact_phone?.replace(/\D/g, '') || null;
+  const phoneNumber = contactPhone && contactPhone.length >= 10 ? contactPhone : null;
+  
+  console.log('handleIncomingMessage:', { telegramUserId, chatId, senderName, username, phoneNumber, contactPhone: message.contact_phone });
 
   // Find or create client
   let client = await findOrCreateClient(supabase, {
@@ -141,7 +147,8 @@ async function handleIncomingMessage(
     telegramChatId: chatId,
     name: senderName,
     username: username,
-    avatarUrl: avatarUrl
+    avatarUrl: avatarUrl,
+    phoneNumber: phoneNumber
   });
 
   if (!client) {
@@ -314,27 +321,128 @@ async function findOrCreateClient(
     name: string;
     username?: string;
     avatarUrl?: string | null;
+    phoneNumber?: string | null; // From contact_phone field
   }
 ): Promise<{ id: string } | null> {
-  const { organizationId, telegramUserId, telegramChatId, name, username, avatarUrl } = params;
+  const { organizationId, telegramUserId, telegramChatId, name, username, avatarUrl, phoneNumber } = params;
 
-  console.log('findOrCreateClient called with:', { organizationId, telegramUserId, telegramChatId, name, username, avatarUrl });
+  console.log('findOrCreateClient called with:', { organizationId, telegramUserId, telegramChatId, name, username, avatarUrl, phoneNumber });
 
-  // Helper function to update client with avatar
-  const updateClientAvatar = async (clientId: string) => {
+  // Helper function to update client with avatar and phone
+  const updateClientData = async (clientId: string, additionalData: any = {}) => {
+    const updateData: any = { ...additionalData };
     if (avatarUrl) {
+      updateData.telegram_avatar_url = avatarUrl;
+    }
+    if (Object.keys(updateData).length > 0) {
       await supabase
         .from('clients')
-        .update({ telegram_avatar_url: avatarUrl })
+        .update(updateData)
         .eq('id', clientId);
     }
   };
 
-  // Try to find by telegram_user_id first
+  // PRIORITY 1: If we have a phone number from contact_phone, try to find existing client by phone
+  // This handles the case when Telegram reveals the phone number
+  if (phoneNumber) {
+    console.log('Trying to find client by contact_phone:', phoneNumber);
+    
+    // Search in clients table by phone
+    const { data: clientByContactPhone } = await supabase
+      .from('clients')
+      .select('id, phone, telegram_chat_id, telegram_user_id')
+      .eq('organization_id', organizationId)
+      .eq('is_active', true)
+      .or(`phone.ilike.%${phoneNumber}%,phone.ilike.%${phoneNumber.slice(-10)}%`)
+      .maybeSingle();
+
+    if (clientByContactPhone) {
+      console.log('Found client by contact_phone:', clientByContactPhone.id);
+      
+      // Check if there's an existing telegram client (without phone) that should be merged
+      if (telegramUserId || telegramChatId) {
+        const orConditions = [];
+        if (telegramChatId) orConditions.push(`telegram_chat_id.eq.${telegramChatId}`);
+        if (telegramUserId) orConditions.push(`telegram_user_id.eq.${telegramUserId}`);
+        
+        const { data: telegramOnlyClient } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('organization_id', organizationId)
+          .eq('is_active', true)
+          .neq('id', clientByContactPhone.id)
+          .or(orConditions.join(','))
+          .maybeSingle();
+        
+        if (telegramOnlyClient) {
+          console.log('Merging telegram client into phone-based client:', telegramOnlyClient.id, '->', clientByContactPhone.id);
+          await mergeClients(supabase, clientByContactPhone.id, telegramOnlyClient.id, telegramChatId, telegramUserId);
+        }
+      }
+      
+      // Update telegram fields on the found client
+      await updateClientData(clientByContactPhone.id, {
+        telegram_chat_id: telegramChatId,
+        telegram_user_id: telegramUserId
+      });
+      
+      return clientByContactPhone;
+    }
+    
+    // Also search in client_phone_numbers table
+    const { data: phoneRecord } = await supabase
+      .from('client_phone_numbers')
+      .select('client_id')
+      .or(`phone.ilike.%${phoneNumber}%,phone.ilike.%${phoneNumber.slice(-10)}%`)
+      .maybeSingle();
+
+    if (phoneRecord) {
+      const { data: clientFromPhone } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('id', phoneRecord.client_id)
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (clientFromPhone) {
+        console.log('Found client by contact_phone in phone_numbers table:', clientFromPhone.id);
+        
+        // Check for telegram-only duplicate to merge
+        if (telegramUserId || telegramChatId) {
+          const orConditions = [];
+          if (telegramChatId) orConditions.push(`telegram_chat_id.eq.${telegramChatId}`);
+          if (telegramUserId) orConditions.push(`telegram_user_id.eq.${telegramUserId}`);
+          
+          const { data: telegramOnlyClient } = await supabase
+            .from('clients')
+            .select('id')
+            .eq('organization_id', organizationId)
+            .eq('is_active', true)
+            .neq('id', clientFromPhone.id)
+            .or(orConditions.join(','))
+            .maybeSingle();
+          
+          if (telegramOnlyClient) {
+            await mergeClients(supabase, clientFromPhone.id, telegramOnlyClient.id, telegramChatId, telegramUserId);
+          }
+        }
+        
+        await updateClientData(clientFromPhone.id, {
+          telegram_chat_id: telegramChatId,
+          telegram_user_id: telegramUserId
+        });
+        
+        return clientFromPhone;
+      }
+    }
+  }
+
+  // PRIORITY 2: Try to find by telegram_user_id
   if (telegramUserId) {
     const { data: clientByUserId } = await supabase
       .from('clients')
-      .select('id, telegram_avatar_url')
+      .select('id, phone, telegram_avatar_url')
       .eq('organization_id', organizationId)
       .eq('telegram_user_id', telegramUserId)
       .eq('is_active', true)
@@ -342,20 +450,40 @@ async function findOrCreateClient(
 
     if (clientByUserId) {
       console.log('Found client by telegram_user_id:', clientByUserId.id);
-      // Update telegram_chat_id and avatar if needed
-      const updateData: any = { telegram_chat_id: telegramChatId };
-      if (avatarUrl && avatarUrl !== clientByUserId.telegram_avatar_url) {
-        updateData.telegram_avatar_url = avatarUrl;
+      
+      // If we now have a phone number, update the client and check for merging
+      if (phoneNumber && !clientByUserId.phone) {
+        // Check if another client exists with this phone
+        const { data: clientByPhone } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('organization_id', organizationId)
+          .eq('is_active', true)
+          .neq('id', clientByUserId.id)
+          .or(`phone.ilike.%${phoneNumber}%,phone.ilike.%${phoneNumber.slice(-10)}%`)
+          .maybeSingle();
+        
+        if (clientByPhone) {
+          // Merge this telegram client into the phone-based client
+          await mergeClients(supabase, clientByPhone.id, clientByUserId.id, telegramChatId, telegramUserId);
+          await updateClientData(clientByPhone.id);
+          return clientByPhone;
+        }
+        
+        // No existing phone client, update this client with the phone
+        await updateClientData(clientByUserId.id, { 
+          telegram_chat_id: telegramChatId,
+          phone: `+${phoneNumber}`
+        });
+      } else {
+        await updateClientData(clientByUserId.id, { telegram_chat_id: telegramChatId });
       }
-      await supabase
-        .from('clients')
-        .update(updateData)
-        .eq('id', clientByUserId.id);
+      
       return clientByUserId;
     }
   }
 
-  // Try to find by telegram_chat_id
+  // PRIORITY 3: Try to find by telegram_chat_id
   const { data: clientByChatId } = await supabase
     .from('clients')
     .select('id, phone, telegram_avatar_url')
@@ -366,53 +494,43 @@ async function findOrCreateClient(
 
   if (clientByChatId) {
     console.log('Found client by telegram_chat_id:', clientByChatId.id);
-    // Update telegram_user_id and avatar if we have it
-    const updateData: any = {};
-    if (telegramUserId) {
-      updateData.telegram_user_id = telegramUserId;
-    }
-    if (avatarUrl && avatarUrl !== clientByChatId.telegram_avatar_url) {
-      updateData.telegram_avatar_url = avatarUrl;
-    }
-    if (Object.keys(updateData).length > 0) {
-      await supabase
-        .from('clients')
-        .update(updateData)
-        .eq('id', clientByChatId.id);
-    }
     
-    // Check if this client has no phone but we can find one by phone
-    // This handles the case where a "numberless" telegram client exists
-    // and we need to merge it with a phone-based client
-    const phoneFromChatId = telegramChatId?.replace(/\D/g, '');
-    if (!clientByChatId.phone && phoneFromChatId && phoneFromChatId.length >= 10) {
+    // If we now have a phone number from contact_phone, update and possibly merge
+    if (phoneNumber && !clientByChatId.phone) {
       const { data: clientByPhone } = await supabase
         .from('clients')
         .select('id')
         .eq('organization_id', organizationId)
         .eq('is_active', true)
         .neq('id', clientByChatId.id)
-        .or(`phone.ilike.%${phoneFromChatId}%,phone.ilike.%${phoneFromChatId.slice(-10)}%`)
+        .or(`phone.ilike.%${phoneNumber}%,phone.ilike.%${phoneNumber.slice(-10)}%`)
         .maybeSingle();
       
       if (clientByPhone) {
         // Merge: move messages from numberless client to phone-based client
         await mergeClients(supabase, clientByPhone.id, clientByChatId.id, telegramChatId, telegramUserId);
-        await updateClientAvatar(clientByPhone.id);
+        await updateClientData(clientByPhone.id);
         return clientByPhone;
       }
+      
+      // No existing phone client, update this client
+      const updateData: any = { phone: `+${phoneNumber}` };
+      if (telegramUserId) updateData.telegram_user_id = telegramUserId;
+      await updateClientData(clientByChatId.id, updateData);
+    } else {
+      const updateData: any = {};
+      if (telegramUserId) updateData.telegram_user_id = telegramUserId;
+      await updateClientData(clientByChatId.id, updateData);
     }
     
     return clientByChatId;
   }
 
-  // Try to find by phone number extracted from chatId
-  // Telegram chatId often contains phone number like "79123456789"
+  // PRIORITY 4: Try to find by phone from chatId (legacy fallback)
   const phoneFromChatId = telegramChatId?.replace(/\D/g, '');
   if (phoneFromChatId && phoneFromChatId.length >= 10) {
     console.log('Trying to find client by phone from chatId:', phoneFromChatId);
     
-    // Search in clients table by phone
     const { data: clientByPhone } = await supabase
       .from('clients')
       .select('id, phone')
@@ -422,86 +540,19 @@ async function findOrCreateClient(
       .maybeSingle();
 
     if (clientByPhone) {
-      console.log('Found client by phone:', clientByPhone.id);
-      
-      // Check if there's an existing telegram client without phone that should be merged
-      const { data: telegramOnlyClient } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('organization_id', organizationId)
-        .eq('is_active', true)
-        .is('phone', null)
-        .or(`telegram_chat_id.eq.${telegramChatId}${telegramUserId ? `,telegram_user_id.eq.${telegramUserId}` : ''}`)
-        .neq('id', clientByPhone.id)
-        .maybeSingle();
-      
-      if (telegramOnlyClient) {
-        // Merge telegram-only client into phone-based client
-        await mergeClients(supabase, clientByPhone.id, telegramOnlyClient.id, telegramChatId, telegramUserId);
-      } else {
-        // Just update telegram fields
-        await supabase
-          .from('clients')
-          .update({ 
-            telegram_chat_id: telegramChatId,
-            telegram_user_id: telegramUserId
-          })
-          .eq('id', clientByPhone.id);
-      }
-      await updateClientAvatar(clientByPhone.id);
+      console.log('Found client by phone from chatId:', clientByPhone.id);
+      await updateClientData(clientByPhone.id, {
+        telegram_chat_id: telegramChatId,
+        telegram_user_id: telegramUserId
+      });
       return clientByPhone;
-    }
-
-    // Also search in client_phone_numbers table
-    const { data: phoneRecord } = await supabase
-      .from('client_phone_numbers')
-      .select('client_id')
-      .or(`phone.ilike.%${phoneFromChatId}%,phone.ilike.%${phoneFromChatId.slice(-10)}%`)
-      .maybeSingle();
-
-    if (phoneRecord) {
-      // Verify client belongs to the organization
-      const { data: clientFromPhone } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('id', phoneRecord.client_id)
-        .eq('organization_id', organizationId)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (clientFromPhone) {
-        console.log('Found client by phone_numbers table:', clientFromPhone.id);
-        
-        // Check for telegram-only duplicate to merge
-        const { data: telegramOnlyClient } = await supabase
-          .from('clients')
-          .select('id')
-          .eq('organization_id', organizationId)
-          .eq('is_active', true)
-          .is('phone', null)
-          .or(`telegram_chat_id.eq.${telegramChatId}${telegramUserId ? `,telegram_user_id.eq.${telegramUserId}` : ''}`)
-          .neq('id', clientFromPhone.id)
-          .maybeSingle();
-        
-        if (telegramOnlyClient) {
-          await mergeClients(supabase, clientFromPhone.id, telegramOnlyClient.id, telegramChatId, telegramUserId);
-        } else {
-          await supabase
-            .from('clients')
-            .update({ 
-              telegram_chat_id: telegramChatId,
-              telegram_user_id: telegramUserId
-            })
-            .eq('id', clientFromPhone.id);
-        }
-        await updateClientAvatar(clientFromPhone.id);
-        return clientFromPhone;
-      }
     }
   }
 
   // Create new client only if no match found
   console.log('No existing client found, creating new one');
+  const finalPhone = phoneNumber ? `+${phoneNumber}` : (phoneFromChatId && phoneFromChatId.length >= 10 ? `+${phoneFromChatId}` : null);
+  
   const { data: newClient, error: createError } = await supabase
     .from('clients')
     .insert({
@@ -510,7 +561,7 @@ async function findOrCreateClient(
       telegram_user_id: telegramUserId,
       telegram_chat_id: telegramChatId,
       telegram_avatar_url: avatarUrl,
-      phone: phoneFromChatId && phoneFromChatId.length >= 10 ? `+${phoneFromChatId}` : null,
+      phone: finalPhone,
       notes: username ? `@${username}` : null,
       is_active: true
     })
