@@ -143,7 +143,12 @@ export const ChatArea = ({
   const queryClient = useQueryClient();
   
   // Get unread counts by messenger for badge display
-  const { unreadCounts: unreadByMessenger, lastUnreadMessenger, isLoading: unreadLoading } = useClientUnreadByMessenger(clientId);
+  const {
+    unreadCounts: unreadByMessenger,
+    lastUnreadMessenger,
+    isLoading: unreadLoading,
+    isFetching: unreadFetching,
+  } = useClientUnreadByMessenger(clientId);
   
   // Get pending GPT responses for this client
   const { data: pendingGPTResponses, isLoading: pendingGPTLoading, error: pendingGPTError } = usePendingGPTResponses(clientId);
@@ -200,13 +205,11 @@ export const ChatArea = ({
   
   // Set initial tab to the one with the last unread message when client changes
   useEffect(() => {
-    // Wait for unread data to load before setting initial tab
-    if (unreadLoading) return;
+    // Wait for unread data to fully settle before setting initial tab
+    if (unreadLoading || unreadFetching) return;
     
     // Only set initial tab once per client selection
     if (initialTabSet === clientId) return;
-    
-    console.log('[ChatArea] Setting initial tab for client:', clientId, 'lastUnreadMessenger:', lastUnreadMessenger);
     
     const initialTab = lastUnreadMessenger || 'whatsapp';
     setActiveMessengerTab(initialTab);
@@ -219,7 +222,7 @@ export const ChatArea = ({
         messengerType: initialTab 
       });
     }
-  }, [clientId, unreadLoading, lastUnreadMessenger, initialTabSet]);
+  }, [clientId, unreadLoading, unreadFetching, lastUnreadMessenger, initialTabSet]);
 
   // Mark messages as read when switching tabs - only for the current tab
   const handleTabChange = (newTab: string) => {
