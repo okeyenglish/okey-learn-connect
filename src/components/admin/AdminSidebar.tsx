@@ -15,7 +15,9 @@ import {
   Clock,
   Activity,
   Zap,
-  Image
+  Image,
+  Bot,
+  Route
 } from "lucide-react";
 import {
   Sidebar,
@@ -39,6 +41,8 @@ const adminItems = [
   { title: "Schedule", id: "schedule", icon: Calendar },
   { title: "Courses & Pricing", id: "pricing", icon: Settings },
   { title: "WhatsApp", id: "whatsapp", icon: MessageSquare },
+  { title: "MAX Каналы", id: "max-channels", icon: Bot },
+  { title: "Маршрутизация", id: "routing-rules", icon: Route },
   { title: "Textbooks", id: "textbooks", icon: BookOpen },
   { title: "Справочники", id: "references", icon: Database },
   { title: "Фото филиалов", id: "branch-photos", icon: Image },
