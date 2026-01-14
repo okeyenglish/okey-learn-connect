@@ -1,0 +1,87 @@
+import React, { useState } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { MessageSquare, MessageCircle, Send } from 'lucide-react';
+import { WhatsAppSettings } from './WhatsAppSettings';
+import { MaxGreenApiSettings } from './MaxGreenApiSettings';
+
+// Placeholder for Telegram settings - to be implemented
+const TelegramSettings: React.FC = () => {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-blue-500/10">
+            <Send className="h-6 w-6 text-blue-500" />
+          </div>
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              Telegram Bot
+              <Badge variant="outline">Скоро</Badge>
+            </CardTitle>
+            <CardDescription>
+              Интеграция с Telegram через Bot API
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="text-center py-8 text-muted-foreground">
+          <Send className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p>Интеграция с Telegram находится в разработке</p>
+          <p className="text-sm mt-2">
+            Планируется подключение через Telegram Bot API для автоматизации общения с клиентами
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+export const MessengersSettings: React.FC = () => {
+  const [activeTab, setActiveTab] = useState('whatsapp');
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <MessageSquare className="h-7 w-7 text-primary" />
+        <div>
+          <h2 className="text-2xl font-bold">Мессенджеры</h2>
+          <p className="text-muted-foreground">
+            Настройки интеграций с мессенджерами для общения с клиентами
+          </p>
+        </div>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+          <TabsTrigger value="whatsapp" className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-green-600" />
+            <span className="hidden sm:inline">WhatsApp</span>
+          </TabsTrigger>
+          <TabsTrigger value="telegram" className="flex items-center gap-2">
+            <Send className="h-4 w-4 text-blue-500" />
+            <span className="hidden sm:inline">Telegram</span>
+          </TabsTrigger>
+          <TabsTrigger value="max" className="flex items-center gap-2">
+            <MessageCircle className="h-4 w-4 text-purple-500" />
+            <span className="hidden sm:inline">MAX</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="whatsapp" className="mt-6">
+          <WhatsAppSettings />
+        </TabsContent>
+
+        <TabsContent value="telegram" className="mt-6">
+          <TelegramSettings />
+        </TabsContent>
+
+        <TabsContent value="max" className="mt-6">
+          <MaxGreenApiSettings />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
