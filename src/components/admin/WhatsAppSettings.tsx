@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,10 +6,34 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, MessageSquare, Settings, Zap, AlertCircle, CheckCircle } from 'lucide-react';
+import { 
+  Loader2, 
+  MessageSquare, 
+  Settings, 
+  Zap, 
+  AlertCircle, 
+  CheckCircle,
+  Cloud,
+  Server,
+  RefreshCw,
+  Copy,
+  ExternalLink,
+  Wifi,
+  WifiOff,
+  Phone
+} from 'lucide-react';
 import { useWhatsApp } from '@/hooks/useWhatsApp';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+
+interface ConnectionInfo {
+  status: 'online' | 'offline' | 'connecting' | 'error' | 'unknown';
+  phone?: string;
+  name?: string;
+  lastCheck?: Date;
+}
 
 export const WhatsAppSettings: React.FC = () => {
   const { 
@@ -17,8 +41,10 @@ export const WhatsAppSettings: React.FC = () => {
     getMessengerSettings, 
     updateMessengerSettings, 
     testConnection, 
-    getWebhookLogs 
+    getWebhookLogs,
+    getConnectionStatus
   } = useWhatsApp();
+  const { toast } = useToast();
 
   const [settings, setSettings] = useState({
     provider: 'greenapi' as 'greenapi' | 'wpp',
@@ -34,6 +60,8 @@ export const WhatsAppSettings: React.FC = () => {
   });
 
   const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'connected' | 'error'>('unknown');
+  const [connectionInfo, setConnectionInfo] = useState<ConnectionInfo>({ status: 'unknown' });
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [webhookLogs, setWebhookLogs] = useState<any[]>([]);
   const [showLogs, setShowLogs] = useState(false);
 
@@ -41,6 +69,15 @@ export const WhatsAppSettings: React.FC = () => {
     loadSettings();
     loadWebhookLogs();
   }, []);
+
+  // Auto-check connection status on provider change
+  useEffect(() => {
+    if (settings.isEnabled) {
+      checkConnectionStatus();
+      const interval = setInterval(checkConnectionStatus, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [settings.provider, settings.isEnabled]);
 
   const loadSettings = async () => {
     const data = await getMessengerSettings();
@@ -59,7 +96,6 @@ export const WhatsAppSettings: React.FC = () => {
       });
     }
     
-    // Генерируем webhook URL если его нет
     if (!data?.webhookUrl) {
       const provider = data?.provider || 'greenapi';
       const webhookFn = provider === 'wpp' ? 'wpp-webhook' : 'whatsapp-webhook';
@@ -73,6 +109,21 @@ export const WhatsAppSettings: React.FC = () => {
     setWebhookLogs(logs);
   };
 
+  const checkConnectionStatus = useCallback(async () => {
+    setIsCheckingStatus(true);
+    try {
+      const status = await getConnectionStatus(settings.provider);
+      setConnectionInfo({
+        ...status,
+        lastCheck: new Date()
+      });
+    } catch (error) {
+      setConnectionInfo({ status: 'error', lastCheck: new Date() });
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  }, [getConnectionStatus, settings.provider]);
+
   const handleSave = async () => {
     const result = await updateMessengerSettings(settings);
     if (result.success) {
@@ -83,13 +134,15 @@ export const WhatsAppSettings: React.FC = () => {
   const handleTest = async () => {
     const result = await testConnection(settings.provider as 'greenapi' | 'wpp');
     setConnectionStatus(result ? 'connected' : 'error');
+    if (result) {
+      checkConnectionStatus();
+    }
   };
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setSettings(prev => {
       const updated = { ...prev, [field]: value } as typeof settings;
       
-      // Автоматически обновляем webhook URL при смене провайдера
       if (field === 'provider') {
         const webhookFn = value === 'wpp' ? 'wpp-webhook' : 'whatsapp-webhook';
         updated.webhookUrl = `https://api.academyos.ru/functions/v1/${webhookFn}`;
@@ -97,6 +150,34 @@ export const WhatsAppSettings: React.FC = () => {
       
       return updated;
     });
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Скопировано",
+      description: "URL скопирован в буфер обмена",
+    });
+  };
+
+  const getStatusColor = (status: ConnectionInfo['status']) => {
+    switch (status) {
+      case 'online': return 'bg-green-500';
+      case 'offline': return 'bg-gray-400';
+      case 'connecting': return 'bg-yellow-500';
+      case 'error': return 'bg-red-500';
+      default: return 'bg-gray-300';
+    }
+  };
+
+  const getStatusText = (status: ConnectionInfo['status']) => {
+    switch (status) {
+      case 'online': return 'Подключено';
+      case 'offline': return 'Отключено';
+      case 'connecting': return 'Подключение...';
+      case 'error': return 'Ошибка подключения';
+      default: return 'Неизвестно';
+    }
   };
 
   return (
@@ -111,44 +192,150 @@ export const WhatsAppSettings: React.FC = () => {
         )}
       </div>
 
+      {/* Connection Status Banner */}
+      {settings.isEnabled && (
+        <div className={cn(
+          "flex items-center gap-4 p-4 rounded-lg border",
+          connectionInfo.status === 'online' && "bg-green-50 border-green-200",
+          connectionInfo.status === 'offline' && "bg-gray-50 border-gray-200",
+          connectionInfo.status === 'error' && "bg-red-50 border-red-200",
+          connectionInfo.status === 'connecting' && "bg-yellow-50 border-yellow-200",
+          connectionInfo.status === 'unknown' && "bg-muted border-border"
+        )}>
+          <div className={cn(
+            "h-3 w-3 rounded-full",
+            getStatusColor(connectionInfo.status),
+            (connectionInfo.status === 'online' || connectionInfo.status === 'connecting') && "animate-pulse"
+          )} />
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              {connectionInfo.status === 'online' ? (
+                <Wifi className="h-4 w-4 text-green-600" />
+              ) : (
+                <WifiOff className="h-4 w-4 text-muted-foreground" />
+              )}
+              <p className="font-medium">{getStatusText(connectionInfo.status)}</p>
+            </div>
+            {connectionInfo.phone && (
+              <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                <Phone className="h-3 w-3" />
+                <span>{connectionInfo.name ? `${connectionInfo.name} (${connectionInfo.phone})` : connectionInfo.phone}</span>
+              </div>
+            )}
+            {connectionInfo.lastCheck && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Проверено: {connectionInfo.lastCheck.toLocaleTimeString('ru-RU')}
+              </p>
+            )}
+          </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={checkConnectionStatus}
+            disabled={isCheckingStatus}
+          >
+            <RefreshCw className={cn("h-4 w-4", isCheckingStatus && "animate-spin")} />
+          </Button>
+        </div>
+      )}
+
+      {/* Provider Selection Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card 
+          className={cn(
+            "cursor-pointer transition-all hover:shadow-md",
+            settings.provider === 'greenapi' && "ring-2 ring-primary shadow-md"
+          )}
+          onClick={() => handleInputChange('provider', 'greenapi')}
+        >
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
+                <Cloud className="h-5 w-5 text-green-600" />
+              </div>
+              <div className="flex-1">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  Green API
+                  {settings.provider === 'greenapi' && (
+                    <CheckCircle className="h-4 w-4 text-primary" />
+                  )}
+                </CardTitle>
+                <Badge variant="secondary" className="mt-1">Облачный</Badge>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <ul className="text-sm text-muted-foreground space-y-1">
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-3 w-3 text-green-500" />
+                Официальный WhatsApp Business API
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-3 w-3 text-green-500" />
+                Не требует своего сервера
+              </li>
+              <li className="flex items-center gap-2">
+                <AlertCircle className="h-3 w-3 text-orange-500" />
+                Платная подписка
+              </li>
+            </ul>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className={cn(
+            "cursor-pointer transition-all hover:shadow-md",
+            settings.provider === 'wpp' && "ring-2 ring-primary shadow-md"
+          )}
+          onClick={() => handleInputChange('provider', 'wpp')}
+        >
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                <Server className="h-5 w-5 text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  WPP Connect
+                  {settings.provider === 'wpp' && (
+                    <CheckCircle className="h-4 w-4 text-primary" />
+                  )}
+                </CardTitle>
+                <Badge variant="secondary" className="mt-1">Self-hosted</Badge>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <ul className="text-sm text-muted-foreground space-y-1">
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-3 w-3 text-green-500" />
+                Полный контроль над данными
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-3 w-3 text-green-500" />
+                Бесплатный (open source)
+              </li>
+              <li className="flex items-center gap-2">
+                <AlertCircle className="h-3 w-3 text-orange-500" />
+                Требует собственный сервер
+              </li>
+            </ul>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Settings Card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5" />
-            Настройки WhatsApp провайдера
+            Настройки {settings.provider === 'greenapi' ? 'Green API' : 'WPP Connect'}
           </CardTitle>
           <CardDescription>
-            Выберите провайдера и настройте подключение для отправки и получения WhatsApp сообщений
+            Введите учетные данные для подключения к {settings.provider === 'greenapi' ? 'Green API' : 'WPP серверу'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="provider">Провайдер</Label>
-            <div className="flex gap-2" role="group" aria-label="Выбор провайдера WhatsApp">
-              <Button
-                type="button"
-                variant={settings.provider === 'greenapi' ? 'default' : 'outline'}
-                onClick={() => handleInputChange('provider', 'greenapi')}
-              >
-                Green-API
-              </Button>
-              <Button
-                type="button"
-                variant={settings.provider === 'wpp' ? 'default' : 'outline'}
-                onClick={() => handleInputChange('provider', 'wpp')}
-              >
-                WPP (msg.academyos.ru)
-              </Button>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {settings.provider === 'greenapi' 
-                ? 'Green-API - официальный провайдер WhatsApp Business API' 
-                : 'WPP - собственный сервер WhatsApp Web Protocol'}
-            </p>
-          </div>
-
-          <Separator />
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {settings.provider === 'greenapi' ? (
               <>
@@ -172,6 +359,16 @@ export const WhatsAppSettings: React.FC = () => {
                     placeholder="••••••••••••••••••••••••••••••••"
                   />
                 </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="apiUrl">API URL</Label>
+                  <Input
+                    id="apiUrl"
+                    value={settings.apiUrl}
+                    onChange={(e) => handleInputChange('apiUrl', e.target.value)}
+                    placeholder="https://api.green-api.com"
+                  />
+                </div>
               </>
             ) : (
               <>
@@ -183,7 +380,7 @@ export const WhatsAppSettings: React.FC = () => {
                     onChange={(e) => handleInputChange('wppSession', e.target.value)}
                     placeholder="default"
                   />
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Имя сессии для подключения WhatsApp
                   </p>
                 </div>
@@ -220,30 +417,30 @@ export const WhatsAppSettings: React.FC = () => {
             )}
           </div>
 
-          {settings.provider === 'greenapi' && (
-            <div className="space-y-2">
-              <Label htmlFor="apiUrl">API URL</Label>
-              <Input
-                id="apiUrl"
-                value={settings.apiUrl}
-                onChange={(e) => handleInputChange('apiUrl', e.target.value)}
-                placeholder="https://api.green-api.com"
-              />
-            </div>
-          )}
+          <Separator />
 
           <div className="space-y-2">
             <Label htmlFor="webhookUrl">Webhook URL</Label>
-            <Input
-              id="webhookUrl"
-              value={settings.webhookUrl}
-              onChange={(e) => handleInputChange('webhookUrl', e.target.value)}
-              placeholder="https://your-project.supabase.co/functions/v1/whatsapp-webhook"
-            />
+            <div className="flex gap-2">
+              <Input
+                id="webhookUrl"
+                value={settings.webhookUrl}
+                onChange={(e) => handleInputChange('webhookUrl', e.target.value)}
+                placeholder="https://your-project.supabase.co/functions/v1/whatsapp-webhook"
+                className="flex-1"
+                readOnly
+              />
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={() => copyToClipboard(settings.webhookUrl)}
+                title="Скопировать URL"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
             <p className="text-sm text-muted-foreground">
-              {settings.provider === 'greenapi' 
-                ? 'Скопируйте этот URL в настройки вашего инстанса Green‑API'
-                : 'Скопируйте этот URL в настройки вашего сервера WPP'}
+              Скопируйте этот URL в настройки {settings.provider === 'greenapi' ? 'Green API' : 'WPP сервера'}
             </p>
           </div>
 
@@ -293,91 +490,219 @@ export const WhatsAppSettings: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Instructions Accordion */}
       <Card>
         <CardHeader>
-          <CardTitle>Инструкция по настройке</CardTitle>
+          <CardTitle>Инструкция по настройке {settings.provider === 'greenapi' ? 'Green API' : 'WPP Connect'}</CardTitle>
+          <CardDescription>
+            Пошаговое руководство для подключения WhatsApp
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
           {settings.provider === 'greenapi' ? (
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
-                  1
-                </div>
-                <div>
-                  <h4 className="font-medium">Получите учетные данные Green-API</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Зарегистрируйтесь на green-api.com и получите ID инстанса и API токен
-                  </p>
-                </div>
-              </div>
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="step-1">
+                <AccordionTrigger>
+                  <div className="flex items-center gap-3">
+                    <Badge className="bg-primary text-primary-foreground">Шаг 1</Badge>
+                    <span>Регистрация в Green API</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <ol className="space-y-3 text-sm ml-4">
+                    <li className="flex items-start gap-2">
+                      <span className="font-medium">1.</span>
+                      <span>
+                        Перейдите на{' '}
+                        <a 
+                          href="https://green-api.com" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-primary underline inline-flex items-center gap-1"
+                        >
+                          green-api.com
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="font-medium">2.</span>
+                      <span>Нажмите "Регистрация" и создайте аккаунт</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="font-medium">3.</span>
+                      <span>Подтвердите email</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="font-medium">4.</span>
+                      <span>Создайте новый инстанс в личном кабинете</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="font-medium">5.</span>
+                      <span>Скопируйте ID инстанса и API токен в поля выше</span>
+                    </li>
+                  </ol>
+                </AccordionContent>
+              </AccordionItem>
               
-              <div className="flex items-start gap-3">
-                <div className="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
-                  2
-                </div>
-                <div>
-                  <h4 className="font-medium">Настройте webhook</h4>
-                  <p className="text-sm text-muted-foreground">
-                    В панели Green-API укажите webhook URL из поля выше и включите нужные типы уведомлений
-                  </p>
-                </div>
-              </div>
+              <AccordionItem value="step-2">
+                <AccordionTrigger>
+                  <div className="flex items-center gap-3">
+                    <Badge className="bg-primary text-primary-foreground">Шаг 2</Badge>
+                    <span>Настройка Webhook</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-4 text-sm">
+                    <p>В панели Green API откройте настройки инстанса и укажите webhook URL:</p>
+                    <div className="flex gap-2">
+                      <Input value={settings.webhookUrl} readOnly className="flex-1 text-xs" />
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => copyToClipboard(settings.webhookUrl)}
+                      >
+                        <Copy className="h-3 w-3 mr-1" />
+                        Копировать
+                      </Button>
+                    </div>
+                    <div className="bg-muted p-3 rounded-lg">
+                      <p className="font-medium mb-2">Включите следующие уведомления:</p>
+                      <ul className="space-y-1 text-muted-foreground">
+                        <li>✓ incomingMessageReceived</li>
+                        <li>✓ outgoingMessageStatus</li>
+                        <li>✓ stateInstanceChanged</li>
+                      </ul>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
               
-              <div className="flex items-start gap-3">
-                <div className="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
-                  3
-                </div>
-                <div>
-                  <h4 className="font-medium">Авторизуйте WhatsApp</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Отсканируйте QR-код в панели Green-API для подключения WhatsApp аккаунта
-                  </p>
-                </div>
-              </div>
-            </div>
+              <AccordionItem value="step-3">
+                <AccordionTrigger>
+                  <div className="flex items-center gap-3">
+                    <Badge className="bg-primary text-primary-foreground">Шаг 3</Badge>
+                    <span>Авторизация WhatsApp</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-3 text-sm">
+                    <p>Отсканируйте QR-код в личном кабинете Green API:</p>
+                    <ol className="space-y-2 ml-4">
+                      <li className="flex items-start gap-2">
+                        <span className="font-medium">1.</span>
+                        <span>Откройте WhatsApp на телефоне</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="font-medium">2.</span>
+                        <span>Перейдите: Меню → Связанные устройства → Привязка устройства</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="font-medium">3.</span>
+                        <span>Отсканируйте QR-код из панели Green API</span>
+                      </li>
+                    </ol>
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        После сканирования QR-кода статус изменится на "Подключено"
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           ) : (
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
-                  1
-                </div>
-                <div>
-                  <h4 className="font-medium">Заполните настройки WPP</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Укажите URL вашего WPP сервера, API ключ и webhook secret в полях выше
-                  </p>
-                </div>
-              </div>
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="step-1">
+                <AccordionTrigger>
+                  <div className="flex items-center gap-3">
+                    <Badge className="bg-primary text-primary-foreground">Шаг 1</Badge>
+                    <span>Настройка WPP сервера</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-3 text-sm">
+                    <p>Убедитесь, что WPP сервер развернут и работает:</p>
+                    <ol className="space-y-2 ml-4">
+                      <li className="flex items-start gap-2">
+                        <span className="font-medium">1.</span>
+                        <span>Проверьте доступность сервера по URL</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="font-medium">2.</span>
+                        <span>Получите API ключ из конфигурации сервера</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="font-medium">3.</span>
+                        <span>Заполните поля выше: Base URL, Session, API Key</span>
+                      </li>
+                    </ol>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
               
-              <div className="flex items-start gap-3">
-                <div className="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
-                  2
-                </div>
-                <div>
-                  <h4 className="font-medium">Настройте webhook в WPP</h4>
-                  <p className="text-sm text-muted-foreground">
-                    В панели WPP укажите webhook URL из поля выше
-                  </p>
-                </div>
-              </div>
+              <AccordionItem value="step-2">
+                <AccordionTrigger>
+                  <div className="flex items-center gap-3">
+                    <Badge className="bg-primary text-primary-foreground">Шаг 2</Badge>
+                    <span>Настройка Webhook</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-4 text-sm">
+                    <p>В настройках WPP сервера укажите webhook URL:</p>
+                    <div className="flex gap-2">
+                      <Input value={settings.webhookUrl} readOnly className="flex-1 text-xs" />
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => copyToClipboard(settings.webhookUrl)}
+                      >
+                        <Copy className="h-3 w-3 mr-1" />
+                        Копировать
+                      </Button>
+                    </div>
+                    <p className="text-muted-foreground">
+                      Также укажите Webhook Secret для верификации запросов
+                    </p>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
               
-              <div className="flex items-start gap-3">
-                <div className="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
-                  3
-                </div>
-                <div>
-                  <h4 className="font-medium">Авторизуйте сессию</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Отсканируйте QR-код в панели WPP для подключения WhatsApp аккаунта
-                  </p>
-                </div>
-              </div>
-            </div>
+              <AccordionItem value="step-3">
+                <AccordionTrigger>
+                  <div className="flex items-center gap-3">
+                    <Badge className="bg-primary text-primary-foreground">Шаг 3</Badge>
+                    <span>Авторизация сессии</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-3 text-sm">
+                    <p>Авторизуйте WhatsApp сессию в панели WPP:</p>
+                    <ol className="space-y-2 ml-4">
+                      <li className="flex items-start gap-2">
+                        <span className="font-medium">1.</span>
+                        <span>Откройте панель управления WPP сервера</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="font-medium">2.</span>
+                        <span>Создайте или выберите сессию</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="font-medium">3.</span>
+                        <span>Отсканируйте QR-код с телефона</span>
+                      </li>
+                    </ol>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           )}
         </CardContent>
       </Card>
 
+      {/* Webhook Logs */}
       {webhookLogs.length > 0 && (
         <Card>
           <CardHeader>
@@ -398,9 +723,10 @@ export const WhatsAppSettings: React.FC = () => {
                 {webhookLogs.map((log) => (
                   <div 
                     key={log.id} 
-                    className={`p-3 rounded-lg border ${
-                      log.processed ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'
-                    }`}
+                    className={cn(
+                      "p-3 rounded-lg border",
+                      log.processed ? "bg-green-50 border-green-200" : "bg-yellow-50 border-yellow-200"
+                    )}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <Badge variant="outline">{log.event_type}</Badge>

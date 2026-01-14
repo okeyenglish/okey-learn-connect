@@ -277,6 +277,49 @@ export const useWhatsApp = () => {
     }
   }, []);
 
+  const getConnectionStatus = useCallback(async (providerOverride?: 'greenapi' | 'wpp'): Promise<{
+    status: 'online' | 'offline' | 'connecting' | 'error';
+    phone?: string;
+    name?: string;
+  }> => {
+    try {
+      let provider: 'greenapi' | 'wpp' = providerOverride || 'greenapi';
+      if (!providerOverride) {
+        const dbSettings = await getMessengerSettings();
+        provider = dbSettings?.provider || 'greenapi';
+      }
+      
+      const functionName = provider === 'wpp' ? 'wpp-status' : 'whatsapp-send';
+      
+      const { data, error } = await supabase.functions.invoke(functionName, {
+        body: provider === 'greenapi' ? { action: 'get_state' } : undefined
+      });
+      
+      if (error) throw error;
+      
+      // Normalize response from different providers
+      if (provider === 'wpp') {
+        const status = data?.status || data?.state;
+        return {
+          status: status === 'CONNECTED' || status === 'isLogged' ? 'online' : 'offline',
+          phone: data?.wid || data?.phone,
+          name: data?.pushname
+        };
+      } else {
+        // Green API response
+        const state = data?.state?.stateInstance || data?.stateInstance;
+        return {
+          status: state === 'authorized' ? 'online' : state === 'notAuthorized' ? 'offline' : 'error',
+          phone: data?.phone,
+          name: data?.pushname
+        };
+      }
+    } catch (error) {
+      console.error('Error getting connection status:', error);
+      return { status: 'error' };
+    }
+  }, [getMessengerSettings]);
+
   const checkWppStatus = useCallback(async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -421,6 +464,7 @@ export const useWhatsApp = () => {
     updateMessengerSettings,
     testConnection,
     getWebhookLogs,
+    getConnectionStatus,
     checkWppStatus,
     startWppSession,
     deleteMessage,
