@@ -8070,6 +8070,10 @@ export type Database = {
         Args: { p_client_id: string }
         Returns: undefined
       }
+      mark_chat_messages_as_read_by_messenger: {
+        Args: { p_client_id: string; p_messenger_type: string }
+        Returns: undefined
+      }
       mark_internal_messages_as_read: {
         Args: { p_chat_id: string; p_message_ids?: string[] }
         Returns: undefined

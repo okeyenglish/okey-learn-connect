@@ -92,6 +92,44 @@ export const useMarkChatMessagesAsRead = () => {
   });
 };
 
+// Hook to mark messages as read for a specific messenger type only
+export const useMarkChatMessagesAsReadByMessenger = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ clientId, messengerType }: { clientId: string; messengerType: string }) => {
+      if (!user) throw new Error('User not authenticated');
+      
+      const { error } = await supabase.rpc('mark_chat_messages_as_read_by_messenger', {
+        p_client_id: clientId,
+        p_messenger_type: messengerType
+      });
+      
+      if (error) {
+        console.error('Error marking chat messages as read by messenger:', error);
+        throw error;
+      }
+    },
+    onSuccess: (_, { clientId }) => {
+      // Invalidate all message read statuses
+      queryClient.invalidateQueries({ 
+        queryKey: ['message-read-status'] 
+      });
+      
+      // Also invalidate chat threads to update unread counts
+      queryClient.invalidateQueries({ 
+        queryKey: ['chat-threads'] 
+      });
+      
+      // Invalidate unread by messenger for this client
+      queryClient.invalidateQueries({ 
+        queryKey: ['client-unread-by-messenger', clientId] 
+      });
+    }
+  });
+};
+
 // Hook to check if current user has read a specific message
 export const useHasUserReadMessage = (messageId: string) => {
   const { user } = useAuth();

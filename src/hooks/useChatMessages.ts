@@ -35,6 +35,7 @@ export interface ChatThread {
   last_message_time: string;
   unread_count: number;
   unread_by_messenger: UnreadByMessenger;
+  last_unread_messenger: string | null;
   messages: ChatMessage[];
 }
 
@@ -187,6 +188,7 @@ export const useChatThreads = () => {
             last_message_time: message.created_at,
             unread_count: 0,
             unread_by_messenger: createDefaultUnreadByMessenger(),
+            last_unread_messenger: null,
             messages: [],
           });
         }
@@ -201,15 +203,22 @@ export const useChatThreads = () => {
         if (!message.is_read && message.message_type === 'client') {
           thread.unread_count++;
           
-          // Подсчёт по мессенджерам
+          // Подсчёт по мессенджерам и отслеживание последнего непрочитанного
           const messengerType = message.messenger_type || 'whatsapp';
-          if (messengerType === 'whatsapp' || !messengerType) {
+          const normalizedMessenger = (messengerType === 'whatsapp' || !messengerType) ? 'whatsapp' : messengerType;
+          
+          // Поскольку сообщения отсортированы по убыванию времени, первое непрочитанное - самое новое
+          if (!thread.last_unread_messenger) {
+            thread.last_unread_messenger = normalizedMessenger;
+          }
+          
+          if (normalizedMessenger === 'whatsapp') {
             thread.unread_by_messenger.whatsapp++;
-          } else if (messengerType === 'telegram') {
+          } else if (normalizedMessenger === 'telegram') {
             thread.unread_by_messenger.telegram++;
-          } else if (messengerType === 'max') {
+          } else if (normalizedMessenger === 'max') {
             thread.unread_by_messenger.max++;
-          } else if (messengerType === 'email') {
+          } else if (normalizedMessenger === 'email') {
             thread.unread_by_messenger.email++;
           }
         }
@@ -231,6 +240,7 @@ export const useChatThreads = () => {
             last_message_time: call.started_at,
             unread_count: call.status === 'missed' ? 1 : 0,
             unread_by_messenger: createDefaultUnreadByMessenger(),
+            last_unread_messenger: call.status === 'missed' ? 'calls' : null,
             messages: [],
           });
           if (call.status === 'missed') {
@@ -306,20 +316,21 @@ export const useChatThreads = () => {
 
 // Hook to get unread counts by messenger for a specific client
 export const useClientUnreadByMessenger = (clientId: string) => {
-  const { data: unreadCounts, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['client-unread-by-messenger', clientId],
-    queryFn: async (): Promise<UnreadByMessenger> => {
+    queryFn: async (): Promise<{ counts: UnreadByMessenger; lastUnreadMessenger: string | null }> => {
       if (!clientId) {
-        return { whatsapp: 0, telegram: 0, max: 0, email: 0, calls: 0 };
+        return { counts: { whatsapp: 0, telegram: 0, max: 0, email: 0, calls: 0 }, lastUnreadMessenger: null };
       }
       
-      // Fetch unread messages by messenger type
+      // Fetch unread messages by messenger type with created_at to find the latest
       const { data: messages, error: msgError } = await supabase
         .from('chat_messages')
-        .select('messenger_type')
+        .select('messenger_type, created_at')
         .eq('client_id', clientId)
         .eq('is_read', false)
-        .eq('message_type', 'client');
+        .eq('message_type', 'client')
+        .order('created_at', { ascending: false });
       
       if (msgError) {
         console.error('[useClientUnreadByMessenger] Error:', msgError);
@@ -327,9 +338,18 @@ export const useClientUnreadByMessenger = (clientId: string) => {
       }
       
       const counts: UnreadByMessenger = { whatsapp: 0, telegram: 0, max: 0, email: 0, calls: 0 };
+      let lastUnreadMessenger: string | null = null;
+      let latestUnreadTime: Date | null = null;
       
       messages?.forEach((msg: any) => {
         const messengerType = msg.messenger_type || 'whatsapp';
+        const msgTime = new Date(msg.created_at);
+        
+        if (!latestUnreadTime || msgTime > latestUnreadTime) {
+          latestUnreadTime = msgTime;
+          lastUnreadMessenger = messengerType === 'whatsapp' || !messengerType ? 'whatsapp' : messengerType;
+        }
+        
         if (messengerType === 'whatsapp' || !messengerType) {
           counts.whatsapp++;
         } else if (messengerType === 'telegram') {
@@ -344,22 +364,31 @@ export const useClientUnreadByMessenger = (clientId: string) => {
       // Fetch missed calls
       const { data: calls, error: callsError } = await supabase
         .from('call_logs')
-        .select('id')
+        .select('id, started_at')
         .eq('client_id', clientId)
-        .eq('status', 'missed');
+        .eq('status', 'missed')
+        .order('started_at', { ascending: false });
       
       if (!callsError && calls) {
         counts.calls = calls.length;
+        // Check if latest missed call is newer than latest unread message
+        if (calls.length > 0) {
+          const latestCallTime = new Date(calls[0].started_at);
+          if (!latestUnreadTime || latestCallTime > latestUnreadTime) {
+            lastUnreadMessenger = 'calls';
+          }
+        }
       }
       
-      return counts;
+      return { counts, lastUnreadMessenger };
     },
     enabled: !!clientId,
     staleTime: 0,
   });
 
   return {
-    unreadCounts: unreadCounts || { whatsapp: 0, telegram: 0, max: 0, email: 0, calls: 0 },
+    unreadCounts: data?.counts || { whatsapp: 0, telegram: 0, max: 0, email: 0, calls: 0 },
+    lastUnreadMessenger: data?.lastUnreadMessenger || null,
     isLoading,
     error,
   };
