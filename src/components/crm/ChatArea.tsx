@@ -127,7 +127,12 @@ export const ChatArea = ({
 
   const { sendTextMessage, sendFileMessage, loading, deleteMessage, editMessage } = useWhatsApp();
   const { sendMessage: sendMaxMessage, loading: maxLoading } = useMaxGreenApi();
-  const { editMessage: editMaxMessage, deleteMessage: deleteMaxMessage } = useMax();
+  const { editMessage: editMaxMessage, deleteMessage: deleteMaxMessage, sendTyping: sendMaxTyping, checkAvailability: checkMaxAvailability, getAvatar: getMaxAvatar } = useMax();
+  
+  // State for MAX availability check
+  const [maxAvailability, setMaxAvailability] = useState<{ checked: boolean; available: boolean | null }>({ checked: false, available: null });
+  const [maxClientAvatar, setMaxClientAvatar] = useState<string | null>(null);
+  const [checkingMaxAvailability, setCheckingMaxAvailability] = useState(false);
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
@@ -454,6 +459,56 @@ export const ChatArea = ({
     };
   }, [clientId]);
 
+  // Check MAX availability when switching to MAX tab with no messages
+  useEffect(() => {
+    const checkMaxForClient = async () => {
+      // Count MAX messages from all messages
+      const maxMsgCount = messages.filter(m => m.messengerType === 'max').length;
+      
+      if (activeMessengerTab === 'max' && !loadingMessages && maxMsgCount === 0 && !maxAvailability.checked && clientPhone) {
+        setCheckingMaxAvailability(true);
+        try {
+          const result = await checkMaxAvailability(clientPhone);
+          setMaxAvailability({
+            checked: true,
+            available: result.success ? result.existsWhatsapp : null
+          });
+        } catch (error) {
+          console.error('Error checking MAX availability:', error);
+          setMaxAvailability({ checked: true, available: null });
+        } finally {
+          setCheckingMaxAvailability(false);
+        }
+      }
+    };
+    
+    checkMaxForClient();
+  }, [activeMessengerTab, loadingMessages, messages, maxAvailability.checked, clientPhone, checkMaxAvailability]);
+
+  // Fetch MAX avatar for client when on MAX tab
+  useEffect(() => {
+    const fetchMaxAvatar = async () => {
+      if (activeMessengerTab === 'max' && clientId && !maxClientAvatar) {
+        try {
+          const result = await getMaxAvatar(clientId);
+          if (result.success && result.urlAvatar) {
+            setMaxClientAvatar(result.urlAvatar);
+          }
+        } catch (error) {
+          console.error('Error fetching MAX avatar:', error);
+        }
+      }
+    };
+    
+    fetchMaxAvatar();
+  }, [activeMessengerTab, clientId, maxClientAvatar, getMaxAvatar]);
+
+  // Reset MAX availability when client changes
+  useEffect(() => {
+    setMaxAvailability({ checked: false, available: null });
+    setMaxClientAvatar(null);
+  }, [clientId]);
+
   // Cleanup pending message interval and scheduled messages on unmount
   useEffect(() => {
     return () => {
@@ -472,6 +527,11 @@ export const ChatArea = ({
     // Update typing status
     if (value.trim().length > 0) {
       updateTypingStatus(true);
+      
+      // Send MAX typing notification if on MAX tab
+      if (activeMessengerTab === 'max') {
+        sendMaxTyping(clientId);
+      }
     } else {
       updateTypingStatus(false);
     }
@@ -1711,7 +1771,7 @@ export const ChatArea = ({
                         onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
                         onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
                         messageStatus={msg.messageStatus}
-                        clientAvatar={msg.clientAvatar}
+                        clientAvatar={msg.clientAvatar || maxClientAvatar}
                         managerName={msg.managerName}
                         fileUrl={msg.fileUrl}
                         fileName={msg.fileName}
@@ -1729,7 +1789,24 @@ export const ChatArea = ({
                 </>
               ) : (
                 <div className="text-center text-muted-foreground text-sm py-4">
-                  {searchQuery ? 'Сообщения не найдены' : 'Нет сообщений Max'}
+                  {searchQuery ? (
+                    'Сообщения не найдены'
+                  ) : checkingMaxAvailability ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></span>
+                      Проверка наличия MAX...
+                    </span>
+                  ) : maxAvailability.checked ? (
+                    maxAvailability.available === true ? (
+                      <span className="text-green-600">✓ MAX доступен. Начните переписку!</span>
+                    ) : maxAvailability.available === false ? (
+                      <span className="text-orange-600">✗ У клиента нет MAX</span>
+                    ) : (
+                      'Нет сообщений Max'
+                    )
+                  ) : (
+                    'Нет сообщений Max'
+                  )}
                 </div>
               )}
             </div>
