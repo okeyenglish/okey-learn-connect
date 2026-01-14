@@ -261,12 +261,12 @@ async function checkInstanceState(
     const data = await response.json();
     console.log('Wappi.pro status response:', data);
 
-    // Wappi.pro returns { status: true/false, ... }
-    if (data.status === true) {
+    // Wappi.pro returns { authorized: true/false, ... }
+    if (data.authorized === true) {
       return {
         status: 'authorized',
         phone: data.phone,
-        username: data.username
+        username: data.name || data.username
       };
     } else {
       return {
