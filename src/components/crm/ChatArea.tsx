@@ -125,14 +125,17 @@ export const ChatArea = ({
 
   const MAX_MESSAGE_LENGTH = 4000;
 
-  const { sendTextMessage, sendFileMessage, loading, deleteMessage, editMessage } = useWhatsApp();
+  const { sendTextMessage, sendFileMessage, loading, deleteMessage, editMessage, checkAvailability: checkWhatsAppAvailability, getAvatar: getWhatsAppAvatar, sendTyping: sendWhatsAppTyping } = useWhatsApp();
   const { sendMessage: sendMaxMessage, loading: maxLoading } = useMaxGreenApi();
   const { editMessage: editMaxMessage, deleteMessage: deleteMaxMessage, sendTyping: sendMaxTyping, checkAvailability: checkMaxAvailability, getAvatar: getMaxAvatar } = useMax();
   
-  // State for MAX availability check
+  // State for availability check (MAX and WhatsApp)
   const [maxAvailability, setMaxAvailability] = useState<{ checked: boolean; available: boolean | null }>({ checked: false, available: null });
+  const [whatsappAvailability, setWhatsappAvailability] = useState<{ checked: boolean; available: boolean | null }>({ checked: false, available: null });
   const [maxClientAvatar, setMaxClientAvatar] = useState<string | null>(null);
+  const [whatsappClientAvatar, setWhatsappClientAvatar] = useState<string | null>(null);
   const [checkingMaxAvailability, setCheckingMaxAvailability] = useState(false);
+  const [checkingWhatsAppAvailability, setCheckingWhatsAppAvailability] = useState(false);
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
@@ -485,6 +488,32 @@ export const ChatArea = ({
     checkMaxForClient();
   }, [activeMessengerTab, loadingMessages, messages, maxAvailability.checked, clientPhone, checkMaxAvailability]);
 
+  // Check WhatsApp availability when switching to WhatsApp tab with no messages
+  useEffect(() => {
+    const checkWhatsAppForClient = async () => {
+      // Count WhatsApp messages from all messages
+      const whatsappMsgCount = messages.filter(m => m.messengerType === 'whatsapp' || !m.messengerType).length;
+      
+      if (activeMessengerTab === 'whatsapp' && !loadingMessages && whatsappMsgCount === 0 && !whatsappAvailability.checked && clientPhone) {
+        setCheckingWhatsAppAvailability(true);
+        try {
+          const result = await checkWhatsAppAvailability(clientPhone);
+          setWhatsappAvailability({
+            checked: true,
+            available: result.success ? result.existsWhatsapp : null
+          });
+        } catch (error) {
+          console.error('Error checking WhatsApp availability:', error);
+          setWhatsappAvailability({ checked: true, available: null });
+        } finally {
+          setCheckingWhatsAppAvailability(false);
+        }
+      }
+    };
+    
+    checkWhatsAppForClient();
+  }, [activeMessengerTab, loadingMessages, messages, whatsappAvailability.checked, clientPhone, checkWhatsAppAvailability]);
+
   // Fetch MAX avatar for client when on MAX tab
   useEffect(() => {
     const fetchMaxAvatar = async () => {
@@ -503,10 +532,30 @@ export const ChatArea = ({
     fetchMaxAvatar();
   }, [activeMessengerTab, clientId, maxClientAvatar, getMaxAvatar]);
 
-  // Reset MAX availability when client changes
+  // Fetch WhatsApp avatar for client when on WhatsApp tab
+  useEffect(() => {
+    const fetchWhatsAppAvatar = async () => {
+      if (activeMessengerTab === 'whatsapp' && clientId && !whatsappClientAvatar) {
+        try {
+          const result = await getWhatsAppAvatar(clientId);
+          if (result.success && result.urlAvatar) {
+            setWhatsappClientAvatar(result.urlAvatar);
+          }
+        } catch (error) {
+          console.error('Error fetching WhatsApp avatar:', error);
+        }
+      }
+    };
+    
+    fetchWhatsAppAvatar();
+  }, [activeMessengerTab, clientId, whatsappClientAvatar, getWhatsAppAvatar]);
+
+  // Reset availability and avatars when client changes
   useEffect(() => {
     setMaxAvailability({ checked: false, available: null });
+    setWhatsappAvailability({ checked: false, available: null });
     setMaxClientAvatar(null);
+    setWhatsappClientAvatar(null);
   }, [clientId]);
 
   // Cleanup pending message interval and scheduled messages on unmount
@@ -528,9 +577,11 @@ export const ChatArea = ({
     if (value.trim().length > 0) {
       updateTypingStatus(true);
       
-      // Send MAX typing notification if on MAX tab
+      // Send typing notification based on active tab
       if (activeMessengerTab === 'max') {
         sendMaxTyping(clientId);
+      } else if (activeMessengerTab === 'whatsapp') {
+        sendWhatsAppTyping(clientId);
       }
     } else {
       updateTypingStatus(false);
@@ -1671,7 +1722,7 @@ export const ChatArea = ({
                         onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
                         onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
                         messageStatus={msg.messageStatus}
-                        clientAvatar={msg.clientAvatar}
+                        clientAvatar={msg.clientAvatar || whatsappClientAvatar}
                         managerName={msg.managerName}
                         fileUrl={msg.fileUrl}
                         fileName={msg.fileName}
@@ -1712,10 +1763,27 @@ export const ChatArea = ({
                   )}
                 </>
               ) : (
-                  <div className="text-center text-muted-foreground text-sm py-4">
-                    {searchQuery ? 'Сообщения не найдены' : 'Нет сообщений'}
-                  </div>
-                )}
+                <div className="text-center text-muted-foreground text-sm py-4">
+                  {searchQuery ? (
+                    'Сообщения не найдены'
+                  ) : checkingWhatsAppAvailability ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></span>
+                      Проверка наличия WhatsApp...
+                    </span>
+                  ) : whatsappAvailability.checked ? (
+                    whatsappAvailability.available === true ? (
+                      <span className="text-green-600">✓ WhatsApp доступен. Начните переписку!</span>
+                    ) : whatsappAvailability.available === false ? (
+                      <span className="text-orange-600">✗ У клиента нет WhatsApp</span>
+                    ) : (
+                      'Нет сообщений WhatsApp'
+                    )
+                  ) : (
+                    'Нет сообщений WhatsApp'
+                  )}
+                </div>
+              )}
               </div>
               {/* Элемент для прокрутки к концу */}
               <div ref={messagesEndRef} />
