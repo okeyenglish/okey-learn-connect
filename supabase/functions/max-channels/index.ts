@@ -219,16 +219,39 @@ async function checkInstanceState(instanceId: string, apiToken: string): Promise
     console.log('Checking MAX instance state:', url);
     
     const response = await fetch(url);
-    const data = await response.json();
     
-    console.log('Instance state response:', data);
-    
+    // Check if response is ok first
     if (!response.ok) {
+      const text = await response.text();
+      console.error('Instance state error response:', response.status, text);
       return { 
         success: false, 
-        error: data.message || 'Failed to check instance state' 
+        error: `HTTP ${response.status}: ${text || 'No response body'}` 
       };
     }
+    
+    // Try to parse JSON, handle empty response
+    const text = await response.text();
+    if (!text || text.trim() === '') {
+      console.error('Empty response from Green API');
+      return { 
+        success: false, 
+        error: 'Empty response from Green API - check instance ID and token' 
+      };
+    }
+    
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (parseError) {
+      console.error('Failed to parse response:', text);
+      return { 
+        success: false, 
+        error: `Invalid JSON response: ${text.substring(0, 100)}` 
+      };
+    }
+    
+    console.log('Instance state response:', data);
 
     return {
       success: true,
