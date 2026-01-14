@@ -192,13 +192,21 @@ export const ChatArea = ({
   // Track if we've set the initial tab for this client
   const [initialTabSet, setInitialTabSet] = useState<string | null>(null);
   
+  // Reset initialTabSet when clientId changes (to allow re-setting tab for new client)
+  useEffect(() => {
+    // When client changes, reset the flag so we can set the initial tab
+    setInitialTabSet(null);
+  }, [clientId]);
+  
   // Set initial tab to the one with the last unread message when client changes
   useEffect(() => {
     // Wait for unread data to load before setting initial tab
     if (unreadLoading) return;
     
-    // Only set initial tab once per client
+    // Only set initial tab once per client selection
     if (initialTabSet === clientId) return;
+    
+    console.log('[ChatArea] Setting initial tab for client:', clientId, 'lastUnreadMessenger:', lastUnreadMessenger);
     
     const initialTab = lastUnreadMessenger || 'whatsapp';
     setActiveMessengerTab(initialTab);
