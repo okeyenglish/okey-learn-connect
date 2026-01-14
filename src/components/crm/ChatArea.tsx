@@ -271,7 +271,8 @@ export const ChatArea = ({
     fileName: msg.file_name,
     fileType: msg.file_type,
     whatsappChatId: msg.whatsapp_chat_id,
-    externalMessageId: msg.external_message_id
+    externalMessageId: msg.external_message_id,
+    messengerType: msg.messenger_type || 'whatsapp'
   });
 
   // Load messages from database with pagination
@@ -1165,6 +1166,15 @@ export const ChatArea = ({
     return matchesSearch;
   });
 
+  // Filter messages by messenger type
+  const whatsappMessages = filteredMessages.filter(msg => 
+    !msg.messengerType || msg.messengerType === 'whatsapp'
+  );
+
+  const maxMessages = filteredMessages.filter(msg => 
+    msg.messengerType === 'max'
+  );
+
   return (
     <div 
       className="flex-1 bg-background flex flex-col min-w-0 min-h-0 relative"
@@ -1524,7 +1534,7 @@ export const ChatArea = ({
                 <div className="text-center text-muted-foreground text-sm py-4">
                   Загрузка сообщений...
                 </div>
-              ) : filteredMessages.length > 0 ? (
+              ) : whatsappMessages.length > 0 ? (
                 <>
                   {/* Load older messages button */}
                   {hasMoreMessages && (
@@ -1551,9 +1561,9 @@ export const ChatArea = ({
                     </div>
                   )}
                   
-                  {filteredMessages.map((msg, index) => {
-                    const prevMessage = filteredMessages[index - 1];
-                    const nextMessage = filteredMessages[index + 1];
+                  {whatsappMessages.map((msg, index) => {
+                    const prevMessage = whatsappMessages[index - 1];
+                    const nextMessage = whatsappMessages[index + 1];
                     
                     // Определяем нужно ли показывать аватарку и имя
                     const showAvatar = !prevMessage || 
@@ -1647,9 +1657,67 @@ export const ChatArea = ({
           
           <TabsContent value="max" className="flex-1 p-3 overflow-y-auto mt-0">
             <div className="space-y-1">
-              <div className="text-center text-muted-foreground text-sm py-4">
-                История переписки Max
-              </div>
+              {loadingMessages ? (
+                <div className="text-center text-muted-foreground text-sm py-4">
+                  Загрузка сообщений...
+                </div>
+              ) : maxMessages.length > 0 ? (
+                <>
+                  {maxMessages.map((msg, index) => {
+                    const prevMessage = maxMessages[index - 1];
+                    const nextMessage = maxMessages[index + 1];
+                    
+                    const showAvatar = !prevMessage || 
+                      prevMessage.type !== msg.type || 
+                      msg.type === 'system' || 
+                      msg.type === 'comment';
+                      
+                    const showName = showAvatar;
+                    
+                    const isLastInGroup = !nextMessage || 
+                      nextMessage.type !== msg.type || 
+                      nextMessage.type === 'system' || 
+                      nextMessage.type === 'comment';
+                    
+                    return (
+                      <ChatMessage
+                        key={msg.id || index}
+                        messageId={msg.id}
+                        type={msg.type}
+                        message={msg.message}
+                        time={msg.time}
+                        systemType={msg.systemType}
+                        callDuration={msg.callDuration}
+                        isSelectionMode={isSelectionMode}
+                        isSelected={selectedMessages.has(msg.id)}
+                        onSelectionChange={(selected) => handleMessageSelectionChange(msg.id, selected)}
+                        isForwarded={msg.isForwarded}
+                        forwardedFrom={msg.forwardedFrom}
+                        forwardedFromType={msg.forwardedFromType}
+                        onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
+                        onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
+                        messageStatus={msg.messageStatus}
+                        clientAvatar={msg.clientAvatar}
+                        managerName={msg.managerName}
+                        fileUrl={msg.fileUrl}
+                        fileName={msg.fileName}
+                        fileType={msg.fileType}
+                        whatsappChatId={msg.whatsappChatId}
+                        externalMessageId={msg.externalMessageId}
+                        showAvatar={showAvatar}
+                        showName={showName}
+                        isLastInGroup={isLastInGroup}
+                        onForwardMessage={handleForwardSingleMessage}
+                        onEnterSelectionMode={handleEnterSelectionMode}
+                      />
+                    );
+                  })}
+                </>
+              ) : (
+                <div className="text-center text-muted-foreground text-sm py-4">
+                  {searchQuery ? 'Сообщения не найдены' : 'Нет сообщений Max'}
+                </div>
+              )}
             </div>
           </TabsContent>
           
