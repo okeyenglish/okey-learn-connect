@@ -108,10 +108,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get client
+    // Get client with phone number as fallback
     const { data: client, error: clientError } = await supabase
       .from('clients')
-      .select('telegram_chat_id, telegram_user_id')
+      .select('telegram_chat_id, telegram_user_id, phone')
       .eq('id', clientId)
       .eq('organization_id', organizationId)
       .single();
@@ -123,10 +123,22 @@ Deno.serve(async (req) => {
       );
     }
 
-    const chatId = client.telegram_chat_id || client.telegram_user_id?.toString();
+    // Try telegram_chat_id, telegram_user_id, or phone number
+    let chatId = client.telegram_chat_id || client.telegram_user_id?.toString();
+    
+    // If no Telegram ID, try to use phone number (Wappi.pro accepts phone numbers)
+    if (!chatId && client.phone) {
+      // Clean phone number - remove non-digits
+      const cleanPhone = client.phone.replace(/\D/g, '');
+      if (cleanPhone) {
+        chatId = cleanPhone;
+        console.log('Using phone number as chat ID:', chatId);
+      }
+    }
+    
     if (!chatId) {
       return new Response(
-        JSON.stringify({ error: 'Client has no Telegram chat ID' }),
+        JSON.stringify({ error: 'Client has no Telegram chat ID or phone number' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
