@@ -21,6 +21,8 @@ import { PendingPaymentsPanel } from "@/components/payments/PendingPaymentsPanel
 import { SLAMonitoringDashboard } from "@/components/monitoring/SLAMonitoringDashboard";
 import { EventBusMonitor } from "@/components/monitoring/EventBusMonitor";
 import { BranchPhotosManager } from "./BranchPhotosManager";
+import { MaxChannelSettings } from "./MaxChannelSettings";
+import { RoutingRulesSettings } from "./RoutingRulesSettings";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -75,6 +77,10 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <AIProviderSettings />;
       case "branch-photos":
         return <BranchPhotosManager />;
+      case "max-channels":
+        return <MaxChannelSettings />;
+      case "routing-rules":
+        return <RoutingRulesSettings />;
       case "sync":
         return (
           <Card>
@@ -158,6 +164,22 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 <CardHeader>
                   <CardTitle>WhatsApp Integration</CardTitle>
                   <CardDescription>Configure WhatsApp messaging settings</CardDescription>
+                </CardHeader>
+              </Card>
+              
+              {/* MAX Channels */}
+              <Card className="cursor-pointer hover:bg-muted/50 border-blue-200" onClick={() => setCurrentSection("max-channels")}>
+                <CardHeader>
+                  <CardTitle className="text-blue-600">🤖 MAX Каналы</CardTitle>
+                  <CardDescription>Подключение MAX-ботов для приема сообщений</CardDescription>
+                </CardHeader>
+              </Card>
+              
+              {/* Routing Rules */}
+              <Card className="cursor-pointer hover:bg-muted/50 border-purple-200" onClick={() => setCurrentSection("routing-rules")}>
+                <CardHeader>
+                  <CardTitle className="text-purple-600">🔀 Правила маршрутизации</CardTitle>
+                  <CardDescription>Автоответы и распределение обращений</CardDescription>
                 </CardHeader>
               </Card>
               
