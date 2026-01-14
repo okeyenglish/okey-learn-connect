@@ -385,7 +385,60 @@ export const ChatArea = ({
         },
         (payload) => {
           console.log('Received new message via real-time:', payload);
-          loadMessages(messageLimit, false); // Reload with current limit
+          const newMsg = payload.new as any;
+          
+          // Avoid duplicate by checking if message already exists
+          setMessages(prev => {
+            const exists = prev.some(m => m.id === newMsg.id);
+            if (exists) {
+              console.log('Message already exists, skipping:', newMsg.id);
+              return prev;
+            }
+            
+            const formatted = formatMessage(newMsg);
+            console.log('Adding new message to chat:', formatted.id);
+            return [...prev, formatted];
+          });
+          
+          // Scroll to bottom with smooth animation for new messages
+          setTimeout(() => scrollToBottom(true), 100);
+          
+          // Mark as read if from client
+          if (newMsg.message_type === 'client' || !newMsg.is_outgoing) {
+            markChatMessagesAsReadMutation.mutate(clientId);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `client_id=eq.${clientId}`
+        },
+        (payload) => {
+          console.log('Message updated via real-time:', payload);
+          const updatedMsg = payload.new as any;
+          
+          setMessages(prev => 
+            prev.map(m => m.id === updatedMsg.id ? formatMessage(updatedMsg) : m)
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `client_id=eq.${clientId}`
+        },
+        (payload) => {
+          console.log('Message deleted via real-time:', payload);
+          const deletedMsg = payload.old as any;
+          
+          setMessages(prev => prev.filter(m => m.id !== deletedMsg.id));
         }
       )
       .subscribe();
@@ -393,7 +446,7 @@ export const ChatArea = ({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [clientId, messageLimit]);
+  }, [clientId]);
 
   // Cleanup pending message interval and scheduled messages on unmount
   useEffect(() => {
