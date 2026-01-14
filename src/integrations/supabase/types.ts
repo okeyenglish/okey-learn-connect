@@ -1408,6 +1408,7 @@ export type Database = {
           phone: string | null
           telegram_avatar_url: string | null
           telegram_chat_id: string | null
+          telegram_user_id: number | null
           updated_at: string
           whatsapp_avatar_url: string | null
           whatsapp_chat_id: string | null
@@ -1432,6 +1433,7 @@ export type Database = {
           phone?: string | null
           telegram_avatar_url?: string | null
           telegram_chat_id?: string | null
+          telegram_user_id?: number | null
           updated_at?: string
           whatsapp_avatar_url?: string | null
           whatsapp_chat_id?: string | null
@@ -1456,6 +1458,7 @@ export type Database = {
           phone?: string | null
           telegram_avatar_url?: string | null
           telegram_chat_id?: string | null
+          telegram_user_id?: number | null
           updated_at?: string
           whatsapp_avatar_url?: string | null
           whatsapp_chat_id?: string | null

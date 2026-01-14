@@ -1,43 +1,9 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { MessageSquare, MessageCircle, Send } from 'lucide-react';
 import { WhatsAppSettings } from './WhatsAppSettings';
 import { MaxGreenApiSettings } from './MaxGreenApiSettings';
-
-// Placeholder for Telegram settings - to be implemented
-const TelegramSettings: React.FC = () => {
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-blue-500/10">
-            <Send className="h-6 w-6 text-blue-500" />
-          </div>
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              Telegram Bot
-              <Badge variant="outline">Скоро</Badge>
-            </CardTitle>
-            <CardDescription>
-              Интеграция с Telegram через Bot API
-            </CardDescription>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="text-center py-8 text-muted-foreground">
-          <Send className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p>Интеграция с Telegram находится в разработке</p>
-          <p className="text-sm mt-2">
-            Планируется подключение через Telegram Bot API для автоматизации общения с клиентами
-          </p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
+import { TelegramWappiSettings } from './TelegramWappiSettings';
 
 export const MessengersSettings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('whatsapp');
@@ -75,7 +41,7 @@ export const MessengersSettings: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="telegram" className="mt-6">
-          <TelegramSettings />
+          <TelegramWappiSettings />
         </TabsContent>
 
         <TabsContent value="max" className="mt-6">
