@@ -6,8 +6,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Green API base URL for MAX (v3 instance - uses 3100 subdomain)
-const GREEN_API_URL = 'https://3100.api.green-api.com';
+// Green API base URL for MAX (v3)
+const DEFAULT_GREEN_API_URL = 'https://api.green-api.com';
+const GREEN_API_URL =
+  Deno.env.get('MAX_GREEN_API_URL') ||
+  Deno.env.get('GREEN_API_URL') ||
+  DEFAULT_GREEN_API_URL;
 
 interface MaxSettings {
   instanceId: string;
@@ -217,8 +221,8 @@ async function deleteMaxSettings(supabase: any, organizationId: string) {
 async function checkInstanceState(instanceId: string, apiToken: string): Promise<any> {
   try {
     const url = `${GREEN_API_URL}/v3/waInstance${instanceId}/getStateInstance/${apiToken}`;
-    console.log('Checking MAX instance state:', url);
-    
+    console.log('Checking MAX instance state:', { baseUrl: GREEN_API_URL, instanceId });
+
     const response = await fetch(url);
     
     // Check if response is ok first

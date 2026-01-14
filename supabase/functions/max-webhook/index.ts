@@ -6,6 +6,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const DEFAULT_GREEN_API_URL = 'https://api.green-api.com';
+const GREEN_API_URL =
+  Deno.env.get('MAX_GREEN_API_URL') ||
+  Deno.env.get('GREEN_API_URL') ||
+  DEFAULT_GREEN_API_URL;
+
 // Green API webhook payload types for MAX (v3)
 interface GreenApiWebhook {
   typeWebhook: 'incomingMessageReceived' | 'outgoingMessageReceived' | 'outgoingAPIMessageReceived' | 'outgoingMessageStatus' | 'stateInstanceChanged';
@@ -374,7 +380,7 @@ async function enrichClientFromMax(supabase: any, organizationId: string, client
       return;
     }
 
-    const GREEN_API_URL = 'https://3100.api.green-api.com';
+    // GREEN_API_URL is defined at module scope
 
     // Get contact info from MAX API
     const contactInfoUrl = `${GREEN_API_URL}/v3/waInstance${instanceId}/getContactInfo/${apiToken}`;
