@@ -152,9 +152,9 @@ Deno.serve(async (req) => {
     // Send message via Wappi.pro
     let sendResult;
     if (fileUrl) {
-      sendResult = await sendFileMessage(profileId, recipient, fileUrl, text || '', wappiApiToken, usePhoneNumber);
+      sendResult = await sendFileMessage(profileId, recipient, fileUrl, text || '', wappiApiToken);
     } else if (text) {
-      sendResult = await sendTextMessage(profileId, recipient, text, wappiApiToken, usePhoneNumber);
+      sendResult = await sendTextMessage(profileId, recipient, text, wappiApiToken);
     } else {
       return new Response(
         JSON.stringify({ error: 'Message text or file is required' }),
@@ -222,26 +222,10 @@ async function sendTextMessage(
   profileId: string,
   recipient: string,
   text: string,
-  apiToken: string,
-  usePhoneNumber: boolean = false
+  apiToken: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const url = `https://wappi.pro/tapi/sync/message/send?profile_id=${profileId}`;
-
-  // Wappi.pro payload keys are not consistently documented; we try multiple variants.
-  const recipientVariants: Array<string | number> = /^\d+$/.test(recipient)
-    ? [recipient, Number(recipient)]
-    : [recipient];
-
-  const bodies: Record<string, unknown>[] = usePhoneNumber
-    ? [{ recipient, body: text }]
-    : [
-        ...recipientVariants.map((r) => ({ chatId: r, body: text })),
-        ...recipientVariants.map((r) => ({ chat_id: r, body: text })),
-        ...recipientVariants.map((r) => ({ to: r, body: text })),
-        ...recipientVariants.map((r) => ({ recipient: r, body: text })),
-      ];
-
-  return await sendWithFallback(url, apiToken, bodies, 'text');
+  return await sendMessage(url, apiToken, { recipient, body: text }, 'text');
 }
 
 async function sendFileMessage(
@@ -249,99 +233,62 @@ async function sendFileMessage(
   recipient: string,
   fileUrl: string,
   caption: string,
-  apiToken: string,
-  usePhoneNumber: boolean = false
+  apiToken: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const url = `https://wappi.pro/tapi/sync/message/file/url/send?profile_id=${profileId}`;
-
-  const base = {
-    url: fileUrl,
-    caption: caption || undefined,
-  };
-
-  // Wappi.pro payload keys are not consistently documented; we try multiple variants.
-  const recipientVariants: Array<string | number> = /^\d+$/.test(recipient)
-    ? [recipient, Number(recipient)]
-    : [recipient];
-
-  const bodies: Record<string, unknown>[] = usePhoneNumber
-    ? [{ recipient, ...base }]
-    : [
-        ...recipientVariants.map((r) => ({ chatId: r, ...base })),
-        ...recipientVariants.map((r) => ({ chat_id: r, ...base })),
-        ...recipientVariants.map((r) => ({ to: r, ...base })),
-        ...recipientVariants.map((r) => ({ recipient: r, ...base })),
-      ];
-
-  return await sendWithFallback(url, apiToken, bodies, 'file');
+  const body: Record<string, unknown> = { recipient, url: fileUrl };
+  if (caption) {
+    body.caption = caption;
+  }
+  return await sendMessage(url, apiToken, body, 'file');
 }
 
-type WappiApiResponse = {
-  status?: string;
-  detail?: string;
-  message?: string;
-  message_id?: string;
-  id?: string;
-};
-
-async function sendWithFallback(
+async function sendMessage(
   url: string,
   apiToken: string,
-  bodies: Record<string, unknown>[],
+  body: Record<string, unknown>,
   kind: 'text' | 'file'
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const attemptErrors: string[] = [];
+  console.log(`[telegram-send] Sending ${kind} message:`, body);
 
-  for (let i = 0; i < bodies.length; i++) {
-    const body = bodies[i];
-    console.log(`[telegram-send] ${kind} attempt #${i + 1}/${bodies.length}:`, body);
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: apiToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
 
+    let data: { status?: string; detail?: string; message_id?: string; id?: string } | null = null;
     try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          Authorization: apiToken,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
-
-      let data: WappiApiResponse | null = null;
-      try {
-        data = await response.json();
-      } catch {
-        const text = await response.text().catch(() => '');
-        data = { detail: text || `HTTP ${response.status}` };
-      }
-
-      console.log(`[telegram-send] ${kind} response #${i + 1}:`, data);
-
-      if (response.ok && data?.status !== 'error') {
-        return {
-          success: true,
-          messageId: data?.message_id || data?.id,
-        };
-      }
-
-      attemptErrors.push(
-        `attempt #${i + 1}: http=${response.status} body=${JSON.stringify(body)} response=${JSON.stringify(data)}`
-      );
-
-      // If Wappi explicitly says recipient is wrong, there is a good chance the key name is wrong.
-      // Continue trying fallbacks.
-      continue;
-    } catch (err) {
-      console.error(`[telegram-send] ${kind} attempt #${i + 1} failed:`, err);
-      attemptErrors.push(`attempt #${i + 1}: ${err?.message || String(err)}`);
-      continue;
+      data = await response.json();
+    } catch {
+      const text = await response.text().catch(() => '');
+      data = { detail: text || `HTTP ${response.status}` };
     }
-  }
 
-  const last = attemptErrors[attemptErrors.length - 1] || 'Unknown error';
-  return {
-    success: false,
-    error: last,
-  };
+    console.log(`[telegram-send] Response:`, data);
+
+    if (response.ok && data?.status !== 'error') {
+      return {
+        success: true,
+        messageId: data?.message_id || data?.id,
+      };
+    }
+
+    return {
+      success: false,
+      error: data?.detail || `HTTP ${response.status}`,
+    };
+  } catch (err) {
+    console.error(`[telegram-send] ${kind} message failed:`, err);
+    return {
+      success: false,
+      error: err?.message || String(err),
+    };
+  }
 }
 
 function getMessageTypeFromFile(fileType: string | undefined): string {
