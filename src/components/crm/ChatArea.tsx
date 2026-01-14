@@ -29,7 +29,7 @@ import { useMax } from "@/hooks/useMax";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePendingGPTResponses } from "@/hooks/usePendingGPTResponses";
-import { useMarkChatMessagesAsRead, useMarkChatMessagesAsReadByMessenger } from "@/hooks/useMessageReadStatus";
+import { useMarkChatMessagesAsReadByMessenger } from "@/hooks/useMessageReadStatus";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface ChatAreaProps {
@@ -139,12 +139,11 @@ export const ChatArea = ({
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
-  const markChatMessagesAsReadMutation = useMarkChatMessagesAsRead();
   const markChatMessagesAsReadByMessengerMutation = useMarkChatMessagesAsReadByMessenger();
   const queryClient = useQueryClient();
   
   // Get unread counts by messenger for badge display
-  const { unreadCounts: unreadByMessenger, lastUnreadMessenger } = useClientUnreadByMessenger(clientId);
+  const { unreadCounts: unreadByMessenger, lastUnreadMessenger, isLoading: unreadLoading } = useClientUnreadByMessenger(clientId);
   
   // Get pending GPT responses for this client
   const { data: pendingGPTResponses, isLoading: pendingGPTLoading, error: pendingGPTError } = usePendingGPTResponses(clientId);
@@ -190,10 +189,20 @@ export const ChatArea = ({
     setIsEditingName(false);
   }, [clientName]);
 
+  // Track if we've set the initial tab for this client
+  const [initialTabSet, setInitialTabSet] = useState<string | null>(null);
+  
   // Set initial tab to the one with the last unread message when client changes
   useEffect(() => {
+    // Wait for unread data to load before setting initial tab
+    if (unreadLoading) return;
+    
+    // Only set initial tab once per client
+    if (initialTabSet === clientId) return;
+    
     const initialTab = lastUnreadMessenger || 'whatsapp';
     setActiveMessengerTab(initialTab);
+    setInitialTabSet(clientId);
     
     // Mark messages as read for the initial tab
     if (clientId && initialTab !== 'calls') {
@@ -202,7 +211,7 @@ export const ChatArea = ({
         messengerType: initialTab 
       });
     }
-  }, [clientId]); // Only when client changes
+  }, [clientId, unreadLoading, lastUnreadMessenger, initialTabSet]);
 
   // Mark messages as read when switching tabs - only for the current tab
   const handleTabChange = (newTab: string) => {
@@ -384,8 +393,8 @@ export const ChatArea = ({
           setTimeout(() => scrollToBottom(false), 50);
           setIsInitialLoad(false);
           
-          // Отмечаем все сообщения в чате как прочитанные
-          markChatMessagesAsReadMutation.mutate(clientId);
+          // НЕ помечаем все сообщения как прочитанные здесь!
+          // Это делается в useEffect при установке начальной вкладки
         }
       }
     } catch (error) {
@@ -448,9 +457,19 @@ export const ChatArea = ({
           // Scroll to bottom with smooth animation for new messages
           setTimeout(() => scrollToBottom(true), 100);
           
-          // Mark as read if from client
+          // Mark as read ONLY if from client AND matches current active tab
           if (newMsg.message_type === 'client' || !newMsg.is_outgoing) {
-            markChatMessagesAsReadMutation.mutate(clientId);
+            const msgMessenger = newMsg.messenger_type || 'whatsapp';
+            // Only auto-mark as read if the message is for the currently active tab
+            if (msgMessenger === activeMessengerTab || (activeMessengerTab === 'whatsapp' && !newMsg.messenger_type)) {
+              markChatMessagesAsReadByMessengerMutation.mutate({ 
+                clientId, 
+                messengerType: activeMessengerTab 
+              });
+            }
+            // Invalidate unread counts to show badge on other tabs
+            queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', clientId] });
+            queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
           }
         }
       )
