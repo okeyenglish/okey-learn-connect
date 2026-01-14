@@ -118,6 +118,7 @@ export const ChatArea = ({
   const [displayName, setDisplayName] = useState(cleanClientName(clientName));
   const whatsappEndRef = useRef<HTMLDivElement>(null);
   const maxEndRef = useRef<HTMLDivElement>(null);
+  const telegramEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const editNameInputRef = useRef<HTMLInputElement>(null);
@@ -185,7 +186,7 @@ export const ChatArea = ({
   // Функция для прокрутки к концу чата (для активного мессенджера)
   const scrollToBottom = (smooth = true, tab?: string) => {
     const t = tab || activeMessengerTab;
-    const targetRef = t === 'max' ? maxEndRef : whatsappEndRef;
+    const targetRef = t === 'max' ? maxEndRef : t === 'telegram' ? telegramEndRef : whatsappEndRef;
 
     targetRef.current?.scrollIntoView({
       behavior: smooth ? "smooth" : "instant",
@@ -1399,6 +1400,10 @@ export const ChatArea = ({
     msg.messengerType === 'max'
   );
 
+  const telegramMessages = filteredMessages.filter(msg => 
+    msg.messengerType === 'telegram'
+  );
+
   return (
     <div 
       className="flex-1 bg-background flex flex-col min-w-0 min-h-0 relative"
@@ -1925,10 +1930,69 @@ export const ChatArea = ({
           
           <TabsContent value="telegram" className="flex-1 p-3 overflow-y-auto mt-0">
             <div className="space-y-1">
-              <div className="text-center text-muted-foreground text-sm py-4">
-                История переписки в Telegram
-              </div>
+              {loadingMessages ? (
+                <div className="text-center text-muted-foreground text-sm py-4">
+                  Загрузка сообщений...
+                </div>
+              ) : telegramMessages.length > 0 ? (
+                <>
+                  {telegramMessages.map((msg, index) => {
+                    const prevMessage = telegramMessages[index - 1];
+                    const nextMessage = telegramMessages[index + 1];
+                    
+                    const showAvatar = !prevMessage || 
+                      prevMessage.type !== msg.type || 
+                      msg.type === 'system' || 
+                      msg.type === 'comment';
+                      
+                    const showName = showAvatar;
+                    
+                    const isLastInGroup = !nextMessage || 
+                      nextMessage.type !== msg.type || 
+                      nextMessage.type === 'system' || 
+                      nextMessage.type === 'comment';
+                    
+                    return (
+                      <ChatMessage
+                        key={msg.id || index}
+                        messageId={msg.id}
+                        type={msg.type}
+                        message={msg.message}
+                        time={msg.time}
+                        systemType={msg.systemType}
+                        callDuration={msg.callDuration}
+                        isSelectionMode={isSelectionMode}
+                        isSelected={selectedMessages.has(msg.id)}
+                        onSelectionChange={(selected) => handleMessageSelectionChange(msg.id, selected)}
+                        isForwarded={msg.isForwarded}
+                        forwardedFrom={msg.forwardedFrom}
+                        forwardedFromType={msg.forwardedFromType}
+                        onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
+                        onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
+                        messageStatus={msg.messageStatus}
+                        clientAvatar={msg.clientAvatar}
+                        managerName={msg.managerName}
+                        fileUrl={msg.fileUrl}
+                        fileName={msg.fileName}
+                        fileType={msg.fileType}
+                        externalMessageId={msg.externalMessageId}
+                        showAvatar={showAvatar}
+                        showName={showName}
+                        isLastInGroup={isLastInGroup}
+                        onForwardMessage={handleForwardSingleMessage}
+                        onEnterSelectionMode={handleEnterSelectionMode}
+                      />
+                    );
+                  })}
+                </>
+              ) : (
+                <div className="text-center text-muted-foreground text-sm py-4">
+                  {searchQuery ? 'Сообщения не найдены' : 'Нет сообщений Telegram'}
+                </div>
+              )}
             </div>
+            {/* Элемент для прокрутки к концу Telegram */}
+            <div ref={telegramEndRef} />
           </TabsContent>
           
           <TabsContent value="max" className="flex-1 p-3 overflow-y-auto mt-0">
