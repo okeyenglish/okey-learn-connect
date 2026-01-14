@@ -223,7 +223,7 @@ serve(async (req) => {
         client_id: clientId,
         organization_id: organizationId,
         message_text: text || `[Файл: ${fileName || 'file'}]`,
-        message_type: 'operator',
+        message_type: 'manager',
         messenger_type: 'max',
         is_outgoing: true,
         is_read: true,
