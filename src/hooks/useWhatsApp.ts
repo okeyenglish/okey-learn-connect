@@ -141,25 +141,42 @@ export const useWhatsApp = () => {
 
       if (!profile?.organization_id) throw new Error('Organization ID не найден');
 
+      // Read existing settings so partial updates don't wipe fields (e.g. switch provider)
+      const { data: existing } = await supabase
+        .from('messenger_settings')
+        .select('provider, is_enabled, settings, webhook_url')
+        .eq('organization_id', profile.organization_id)
+        .eq('messenger_type', 'whatsapp')
+        .maybeSingle();
+
+      const prev = (existing?.settings as any) ?? {};
+
+      const mergedSettings = {
+        ...prev,
+        ...(settings.instanceId !== undefined ? { instanceId: settings.instanceId } : {}),
+        ...(settings.apiToken !== undefined ? { apiToken: settings.apiToken } : {}),
+        ...(settings.apiUrl !== undefined ? { apiUrl: settings.apiUrl } : {}),
+        ...(settings.wppSession !== undefined ? { wppSession: settings.wppSession } : {}),
+        ...(settings.wppBaseUrl !== undefined ? { wppBaseUrl: settings.wppBaseUrl } : {}),
+        ...(settings.wppApiKey !== undefined ? { wppApiKey: settings.wppApiKey } : {}),
+        ...(settings.wppWebhookSecret !== undefined ? { wppWebhookSecret: settings.wppWebhookSecret } : {}),
+      };
+
+      const provider = (settings.provider ?? (existing?.provider === 'wpp' ? 'wpp' : 'greenapi')) as 'greenapi' | 'wpp';
+      const isEnabled = settings.isEnabled ?? existing?.is_enabled ?? false;
+      const webhookUrl = settings.webhookUrl !== undefined ? settings.webhookUrl : existing?.webhook_url;
+
       // Upsert messenger_settings with organization_id for tenant isolation
       const { error } = await supabase
         .from('messenger_settings')
         .upsert({
           organization_id: profile.organization_id,
           messenger_type: 'whatsapp',
-          provider: settings.provider || 'greenapi',
-          is_enabled: settings.isEnabled ?? false,
-          settings: {
-            instanceId: settings.instanceId,
-            apiToken: settings.apiToken,
-            apiUrl: settings.apiUrl,
-            wppSession: settings.wppSession,
-            wppBaseUrl: settings.wppBaseUrl,
-            wppApiKey: settings.wppApiKey,
-            wppWebhookSecret: settings.wppWebhookSecret,
-          },
-          webhook_url: settings.webhookUrl,
-          updated_at: new Date().toISOString()
+          provider,
+          is_enabled: isEnabled,
+          settings: mergedSettings,
+          webhook_url: webhookUrl,
+          updated_at: new Date().toISOString(),
         }, {
           onConflict: 'organization_id,messenger_type'
         });
@@ -177,7 +194,7 @@ export const useWhatsApp = () => {
 
     } catch (error: any) {
       console.error('Error updating WhatsApp settings:', error);
-      
+
       toast({
         title: "Ошибка сохранения",
         description: error.message || "Не удалось сохранить настройки",
