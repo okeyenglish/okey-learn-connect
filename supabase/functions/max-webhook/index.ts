@@ -452,10 +452,16 @@ async function enrichClientFromMax(supabase: any, organizationId: string, client
       updateData.phone = formattedPhone;
     }
 
-    // Update avatar if we got one and client doesn't have it
-    if (avatarData?.urlAvatar && !currentClient.avatar_url) {
-      updateData.avatar_url = avatarData.urlAvatar;
+    // Update avatar if we got one - save to both main avatar_url and max_avatar_url
+    if (avatarData?.urlAvatar) {
+      // Always save to max_avatar_url for messenger-specific display
+      updateData.max_avatar_url = avatarData.urlAvatar;
       console.log(`Setting MAX avatar for client ${clientId}`);
+      
+      // Also update main avatar_url if client doesn't have one
+      if (!currentClient.avatar_url) {
+        updateData.avatar_url = avatarData.urlAvatar;
+      }
     }
 
     // Save additional info to metadata

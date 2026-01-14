@@ -150,7 +150,18 @@ serve(async (req) => {
     if (clientId && result.urlAvatar) {
       await supabase
         .from('clients')
-        .update({ avatar_url: result.urlAvatar })
+        .update({ 
+          max_avatar_url: result.urlAvatar,
+          // Also update main avatar if not set
+          avatar_url: result.urlAvatar
+        })
+        .eq('id', clientId)
+        .is('avatar_url', null); // Only update main avatar if it's null
+      
+      // Always update max_avatar_url regardless
+      await supabase
+        .from('clients')
+        .update({ max_avatar_url: result.urlAvatar })
         .eq('id', clientId);
     }
 

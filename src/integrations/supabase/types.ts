@@ -1399,14 +1399,17 @@ export type Database = {
           id: string
           is_active: boolean
           last_message_at: string | null
+          max_avatar_url: string | null
           max_chat_id: string | null
           max_user_id: number | null
           name: string
           notes: string | null
           organization_id: string
           phone: string | null
+          telegram_avatar_url: string | null
           telegram_chat_id: string | null
           updated_at: string
+          whatsapp_avatar_url: string | null
           whatsapp_chat_id: string | null
         }
         Insert: {
@@ -1420,14 +1423,17 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_message_at?: string | null
+          max_avatar_url?: string | null
           max_chat_id?: string | null
           max_user_id?: number | null
           name: string
           notes?: string | null
           organization_id?: string
           phone?: string | null
+          telegram_avatar_url?: string | null
           telegram_chat_id?: string | null
           updated_at?: string
+          whatsapp_avatar_url?: string | null
           whatsapp_chat_id?: string | null
         }
         Update: {
@@ -1441,14 +1447,17 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_message_at?: string | null
+          max_avatar_url?: string | null
           max_chat_id?: string | null
           max_user_id?: number | null
           name?: string
           notes?: string | null
           organization_id?: string
           phone?: string | null
+          telegram_avatar_url?: string | null
           telegram_chat_id?: string | null
           updated_at?: string
+          whatsapp_avatar_url?: string | null
           whatsapp_chat_id?: string | null
         }
         Relationships: [
