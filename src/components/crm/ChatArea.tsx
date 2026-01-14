@@ -24,6 +24,7 @@ import { AttachedFile } from "./AttachedFile";
 import { InlinePendingGPTResponse } from "./InlinePendingGPTResponse";
 import { CallHistory } from "./CallHistory";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
+import { useMaxGreenApi } from "@/hooks/useMaxGreenApi";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePendingGPTResponses } from "@/hooks/usePendingGPTResponses";
@@ -100,6 +101,7 @@ export const ChatArea = ({
   const [showQuickResponsesModal, setShowQuickResponsesModal] = useState(false);
   const [commentMode, setCommentMode] = useState(false);
   const [gptGenerating, setGptGenerating] = useState(false);
+  const [activeMessengerTab, setActiveMessengerTab] = useState("whatsapp");
   const [isEditingName, setIsEditingName] = useState(false);
   
   // Функция для очистки имени от префикса "Клиент" (определяем до использования)
@@ -123,6 +125,7 @@ export const ChatArea = ({
   const MAX_MESSAGE_LENGTH = 4000;
 
   const { sendTextMessage, sendFileMessage, loading, deleteMessage, editMessage } = useWhatsApp();
+  const { sendMessage: sendMaxMessage, loading: maxLoading } = useMaxGreenApi();
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
@@ -557,42 +560,70 @@ export const ChatArea = ({
 
   const sendMessageNow = async (messageText: string, filesToSend: Array<{url: string, name: string, type: string, size: number}> = []) => {
     try {
-      // Send files first if any are attached
-      if (filesToSend.length > 0) {
-        for (const file of filesToSend) {
-          const result = await sendFileMessage(clientId, file.url, file.name, messageText);
+      // Check which messenger tab is active and send via appropriate service
+      if (activeMessengerTab === 'max') {
+        // Send via MAX
+        if (filesToSend.length > 0) {
+          for (const file of filesToSend) {
+            const result = await sendMaxMessage(clientId, messageText || '', file.url, file.name, file.type);
+            if (!result) {
+              toast({
+                title: "Ошибка отправки файла в MAX",
+                description: `Не удалось отправить файл "${file.name}"`,
+                variant: "destructive",
+              });
+              return;
+            }
+          }
+        } else if (messageText) {
+          const result = await sendMaxMessage(clientId, messageText);
+          if (!result) {
+            toast({
+              title: "Ошибка отправки в MAX",
+              description: "Не удалось отправить сообщение",
+              variant: "destructive",
+            });
+            return;
+          }
+        }
+      } else {
+        // Send via WhatsApp (default)
+        if (filesToSend.length > 0) {
+          for (const file of filesToSend) {
+            const result = await sendFileMessage(clientId, file.url, file.name, messageText);
+            if (!result.success) {
+              toast({
+                title: "Ошибка отправки файла",
+                description: `Не удалось отправить файл "${file.name}": ${result.error}`,
+                variant: "destructive",
+              });
+              return;
+            }
+          }
+          
+          // If we have files and text, send text separately only if it's not just a caption
+          if (messageText && messageText !== '[Файл]') {
+            const textResult = await sendTextMessage(clientId, messageText);
+            if (!textResult.success) {
+              toast({
+                title: "Ошибка отправки текста",
+                description: textResult.error || "Не удалось отправить текстовое сообщение",
+                variant: "destructive",
+              });
+              return;
+            }
+          }
+        } else if (messageText) {
+          // Send text message only
+          const result = await sendTextMessage(clientId, messageText);
           if (!result.success) {
             toast({
-              title: "Ошибка отправки файла",
-              description: `Не удалось отправить файл "${file.name}": ${result.error}`,
+              title: "Ошибка отправки",
+              description: result.error || "Не удалось отправить сообщение",
               variant: "destructive",
             });
             return;
           }
-        }
-        
-        // If we have files and text, send text separately only if it's not just a caption
-        if (messageText && messageText !== '[Файл]') {
-          const textResult = await sendTextMessage(clientId, messageText);
-          if (!textResult.success) {
-            toast({
-              title: "Ошибка отправки текста",
-              description: textResult.error || "Не удалось отправить текстовое сообщение",
-              variant: "destructive",
-            });
-            return;
-          }
-        }
-      } else if (messageText) {
-        // Send text message only
-        const result = await sendTextMessage(clientId, messageText);
-        if (!result.success) {
-          toast({
-            title: "Ошибка отправки",
-            description: result.error || "Не удалось отправить сообщение",
-            variant: "destructive",
-          });
-          return;
         }
       }
 
@@ -1478,7 +1509,7 @@ export const ChatArea = ({
 
       {/* Chat Messages with Tabs */}
       <div className="flex-1 overflow-hidden min-h-0">
-        <Tabs defaultValue="whatsapp" className="h-full flex flex-col min-h-0">
+        <Tabs value={activeMessengerTab} onValueChange={setActiveMessengerTab} className="h-full flex flex-col min-h-0">
           <TabsList className="grid w-full grid-cols-5 rounded-none bg-orange-50/30 border-orange-200 border-t rounded-t-none">
             <TabsTrigger value="whatsapp" className="text-xs">WhatsApp</TabsTrigger>
             <TabsTrigger value="telegram" className="text-xs">Telegram</TabsTrigger>
@@ -1881,7 +1912,7 @@ export const ChatArea = ({
                   commentMode ? "bg-yellow-500 hover:bg-yellow-600" : ""
                 }`}
                 onClick={handleSendMessage}
-                disabled={loading || (!message.trim() && attachedFiles.length === 0) || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
+                disabled={(loading || maxLoading) || (!message.trim() && attachedFiles.length === 0) || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
               >
                 <Send className="h-4 w-4" />
                 <span className="hidden lg:inline">Отправить</span>
