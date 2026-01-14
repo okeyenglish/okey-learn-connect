@@ -115,7 +115,8 @@ export const ChatArea = ({
   
   const [editedName, setEditedName] = useState(cleanClientName(clientName));
   const [displayName, setDisplayName] = useState(cleanClientName(clientName));
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const whatsappEndRef = useRef<HTMLDivElement>(null);
+  const maxEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const editNameInputRef = useRef<HTMLInputElement>(null);
@@ -179,10 +180,13 @@ export const ChatArea = ({
     return () => ro.disconnect();
   }, []);
   
-  // Функция для прокрутки к концу чата
-  const scrollToBottom = (smooth = true) => {
-    messagesEndRef.current?.scrollIntoView({ 
-      behavior: smooth ? "smooth" : "instant" 
+  // Функция для прокрутки к концу чата (для активного мессенджера)
+  const scrollToBottom = (smooth = true, tab?: string) => {
+    const t = tab || activeMessengerTab;
+    const targetRef = t === 'max' ? maxEndRef : whatsappEndRef;
+
+    targetRef.current?.scrollIntoView({
+      behavior: smooth ? "smooth" : "instant",
     });
   };
 
@@ -214,6 +218,8 @@ export const ChatArea = ({
     const initialTab = lastUnreadMessenger || 'whatsapp';
     setActiveMessengerTab(initialTab);
     setInitialTabSet(clientId);
+    // после установки вкладки — прокручиваем именно её к последнему сообщению
+    setTimeout(() => scrollToBottom(false, initialTab), 0);
     
     // Mark messages as read for the initial tab
     if (clientId && initialTab !== 'calls') {
@@ -227,6 +233,8 @@ export const ChatArea = ({
   // Mark messages as read when switching tabs - only for the current tab
   const handleTabChange = (newTab: string) => {
     setActiveMessengerTab(newTab);
+    // при переключении вкладки сразу показываем последние сообщения
+    setTimeout(() => scrollToBottom(false, newTab), 0);
     
     // Mark messages as read for the new tab
     if (clientId && newTab !== 'calls') {
@@ -1884,8 +1892,8 @@ export const ChatArea = ({
                 </div>
               )}
               </div>
-              {/* Элемент для прокрутки к концу */}
-              <div ref={messagesEndRef} />
+              {/* Элемент для прокрутки к концу WhatsApp */}
+              <div ref={whatsappEndRef} />
             </TabsContent>
           
           <TabsContent value="telegram" className="flex-1 p-3 overflow-y-auto mt-0">
@@ -1977,6 +1985,8 @@ export const ChatArea = ({
                 </div>
               )}
             </div>
+            {/* Элемент для прокрутки к концу Max */}
+            <div ref={maxEndRef} />
           </TabsContent>
           
           <TabsContent value="email" className="flex-1 p-3 overflow-y-auto mt-0">
