@@ -109,9 +109,10 @@ serve(async (req) => {
     }
 
     if (!targetChatId) {
+      // Return empty result instead of error - client may not have WhatsApp
       return new Response(
-        JSON.stringify({ error: 'chatId or clientId is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: true, urlAvatar: null, available: false }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
