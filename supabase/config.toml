@@ -33,6 +33,21 @@ verify_jwt = true
 [functions.wpp-start]
 verify_jwt = true
 
+[functions.whatsapp-check-availability]
+verify_jwt = true
+
+[functions.whatsapp-get-avatar]
+verify_jwt = true
+
+[functions.whatsapp-get-contacts]
+verify_jwt = true
+
+[functions.whatsapp-get-contact-info]
+verify_jwt = true
+
+[functions.whatsapp-typing]
+verify_jwt = true
+
 [functions.wpp-status]
 verify_jwt = true
 

@@ -457,6 +457,81 @@ export const useWhatsApp = () => {
     }
   }, [toast, getMessengerSettings]);
 
+  // Check WhatsApp availability for a phone number
+  const checkAvailability = useCallback(async (phoneNumber: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('whatsapp-check-availability', {
+        body: { phoneNumber }
+      });
+
+      if (error) throw error;
+      return data;
+    } catch (error: any) {
+      console.error('Error checking WhatsApp availability:', error);
+      return { success: false, error: error.message };
+    }
+  }, []);
+
+  // Get avatar for a contact
+  const getAvatar = useCallback(async (clientId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('whatsapp-get-avatar', {
+        body: { clientId }
+      });
+
+      if (error) throw error;
+      return data;
+    } catch (error: any) {
+      console.error('Error getting WhatsApp avatar:', error);
+      return { success: false, error: error.message };
+    }
+  }, []);
+
+  // Get all contacts
+  const getContacts = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('whatsapp-get-contacts', {
+        body: {}
+      });
+
+      if (error) throw error;
+      return data;
+    } catch (error: any) {
+      console.error('Error getting WhatsApp contacts:', error);
+      return { success: false, contacts: [], error: error.message };
+    }
+  }, []);
+
+  // Get contact info
+  const getContactInfo = useCallback(async (clientId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('whatsapp-get-contact-info', {
+        body: { clientId }
+      });
+
+      if (error) throw error;
+      return data;
+    } catch (error: any) {
+      console.error('Error getting WhatsApp contact info:', error);
+      return { success: false, error: error.message };
+    }
+  }, []);
+
+  // Send typing notification
+  const sendTyping = useCallback(async (clientId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('whatsapp-typing', {
+        body: { clientId }
+      });
+
+      if (error) throw error;
+      return data;
+    } catch (error: any) {
+      console.error('Error sending WhatsApp typing:', error);
+      return { success: false, error: error.message };
+    }
+  }, []);
+
   return {
     loading,
     sendTextMessage,
@@ -471,5 +546,10 @@ export const useWhatsApp = () => {
     deleteMessage,
     editMessage,
     downloadFile,
+    checkAvailability,
+    getAvatar,
+    getContacts,
+    getContactInfo,
+    sendTyping,
   };
 };
