@@ -10,6 +10,9 @@ export interface Client {
   email?: string;
   notes?: string;
   avatar_url?: string;
+  telegram_avatar_url?: string;
+  whatsapp_avatar_url?: string;
+  max_avatar_url?: string;
   is_active: boolean;
   branch?: string;
   branches?: string[]; // Multiple branches

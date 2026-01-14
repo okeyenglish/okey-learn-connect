@@ -805,12 +805,12 @@ const CRMContent = () => {
           
         // Determine avatar based on last unread messenger
         let displayAvatar = clientData?.avatar_url || null;
-        if (thread.last_unread_messenger === 'max' && (clientData as any)?.max_avatar_url) {
-          displayAvatar = (clientData as any).max_avatar_url;
-        } else if (thread.last_unread_messenger === 'whatsapp' && (clientData as any)?.whatsapp_avatar_url) {
-          displayAvatar = (clientData as any).whatsapp_avatar_url;
-        } else if (thread.last_unread_messenger === 'telegram' && (clientData as any)?.telegram_avatar_url) {
-          displayAvatar = (clientData as any).telegram_avatar_url;
+        if (thread.last_unread_messenger === 'max' && clientData?.max_avatar_url) {
+          displayAvatar = clientData.max_avatar_url;
+        } else if (thread.last_unread_messenger === 'whatsapp' && clientData?.whatsapp_avatar_url) {
+          displayAvatar = clientData.whatsapp_avatar_url;
+        } else if (thread.last_unread_messenger === 'telegram' && clientData?.telegram_avatar_url) {
+          displayAvatar = clientData.telegram_avatar_url;
         }
           
         return {
