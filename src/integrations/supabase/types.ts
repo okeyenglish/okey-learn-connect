@@ -4304,6 +4304,7 @@ export type Database = {
           is_enabled: boolean
           last_sync_at: string | null
           messenger_type: Database["public"]["Enums"]["messenger_type"]
+          organization_id: string | null
           provider: string | null
           settings: Json | null
           updated_at: string
@@ -4315,6 +4316,7 @@ export type Database = {
           is_enabled?: boolean
           last_sync_at?: string | null
           messenger_type: Database["public"]["Enums"]["messenger_type"]
+          organization_id?: string | null
           provider?: string | null
           settings?: Json | null
           updated_at?: string
@@ -4326,12 +4328,28 @@ export type Database = {
           is_enabled?: boolean
           last_sync_at?: string | null
           messenger_type?: Database["public"]["Enums"]["messenger_type"]
+          organization_id?: string | null
           provider?: string | null
           settings?: Json | null
           updated_at?: string
           webhook_url?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "messenger_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messenger_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
+        ]
       }
       notifications: {
         Row: {
