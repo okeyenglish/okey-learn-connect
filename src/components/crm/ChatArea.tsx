@@ -138,6 +138,7 @@ export const ChatArea = ({
   const [whatsappAvailability, setWhatsappAvailability] = useState<{ checked: boolean; available: boolean | null }>({ checked: false, available: null });
   const [maxClientAvatar, setMaxClientAvatar] = useState<string | null>(null);
   const [whatsappClientAvatar, setWhatsappClientAvatar] = useState<string | null>(null);
+  const [telegramClientAvatar, setTelegramClientAvatar] = useState<string | null>(null);
   const [checkingMaxAvailability, setCheckingMaxAvailability] = useState(false);
   const [checkingWhatsAppAvailability, setCheckingWhatsAppAvailability] = useState(false);
   const { toast } = useToast();
@@ -337,7 +338,17 @@ export const ChatArea = ({
     systemType: msg.system_type,
     callDuration: msg.call_duration,
     messageStatus: msg.message_status,
-    clientAvatar: (msg.clients && msg.clients.avatar_url) ? msg.clients.avatar_url : null,
+    // Get avatar based on messenger type, with fallback chain
+    clientAvatar: (() => {
+      const clients = msg.clients;
+      if (!clients) return null;
+      const messengerType = msg.messenger_type;
+      if (messengerType === 'telegram' && clients.telegram_avatar_url) return clients.telegram_avatar_url;
+      if (messengerType === 'whatsapp' && clients.whatsapp_avatar_url) return clients.whatsapp_avatar_url;
+      if (messengerType === 'max' && clients.max_avatar_url) return clients.max_avatar_url;
+      // Fallback: prefer messenger-specific avatars
+      return clients.telegram_avatar_url || clients.whatsapp_avatar_url || clients.max_avatar_url || clients.avatar_url || null;
+    })(),
     managerName: managerName,
     fileUrl: msg.file_url,
     fileName: msg.file_name,
@@ -374,7 +385,7 @@ export const ChatArea = ({
         .from('chat_messages')
         .select(`
           *,
-          clients(avatar_url, whatsapp_chat_id)
+          clients(avatar_url, whatsapp_chat_id, telegram_avatar_url, whatsapp_avatar_url, max_avatar_url)
         `)
         .eq('client_id', clientId)
         .order('created_at', { ascending: false })
@@ -625,12 +636,34 @@ export const ChatArea = ({
     fetchWhatsAppAvatar();
   }, [activeMessengerTab, clientId, whatsappClientAvatar, getWhatsAppAvatar]);
 
-  // Reset availability and avatars when client changes
+  // Fetch Telegram avatar for client from database
+  useEffect(() => {
+    const fetchTelegramAvatar = async () => {
+      if (activeMessengerTab === 'telegram' && clientId && !telegramClientAvatar) {
+        try {
+          const { data } = await supabase
+            .from('clients')
+            .select('telegram_avatar_url')
+            .eq('id', clientId)
+            .single();
+          if (data?.telegram_avatar_url) {
+            setTelegramClientAvatar(data.telegram_avatar_url);
+          }
+        } catch (error) {
+          console.error('Error fetching Telegram avatar:', error);
+        }
+      }
+    };
+    
+    fetchTelegramAvatar();
+  }, [activeMessengerTab, clientId, telegramClientAvatar]);
+
   useEffect(() => {
     setMaxAvailability({ checked: false, available: null });
     setWhatsappAvailability({ checked: false, available: null });
     setMaxClientAvatar(null);
     setWhatsappClientAvatar(null);
+    setTelegramClientAvatar(null);
   }, [clientId]);
 
   // Cleanup pending message interval and scheduled messages on unmount
@@ -1970,7 +2003,7 @@ export const ChatArea = ({
                         onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
                         onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
                         messageStatus={msg.messageStatus}
-                        clientAvatar={msg.clientAvatar}
+                        clientAvatar={telegramClientAvatar || msg.clientAvatar}
                         managerName={msg.managerName}
                         fileUrl={msg.fileUrl}
                         fileName={msg.fileName}
