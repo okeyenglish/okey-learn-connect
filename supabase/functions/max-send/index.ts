@@ -6,8 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Green API base URL for MAX (v3)
-const GREEN_API_URL = 'https://api.green-api.com';
+// Green API base URL for MAX (v3 instance - uses 3100 subdomain)
+const GREEN_API_URL = 'https://3100.api.green-api.com';
 
 interface SendMessageRequest {
   clientId: string;
@@ -152,7 +152,7 @@ serve(async (req) => {
 
     if (fileUrl) {
       // Send file via sendFileByUrl
-      const apiUrl = `${GREEN_API_URL}/v3/waInstance${instanceId}/sendFileByUrl/${apiToken}`;
+      const apiUrl = `${GREEN_API_URL}/waInstance${instanceId}/sendFileByUrl/${apiToken}`;
       
       const fileBody = {
         chatId,
@@ -179,7 +179,7 @@ serve(async (req) => {
       messageId = greenApiResponse.idMessage;
     } else {
       // Send text message
-      const apiUrl = `${GREEN_API_URL}/v3/waInstance${instanceId}/sendMessage/${apiToken}`;
+      const apiUrl = `${GREEN_API_URL}/waInstance${instanceId}/sendMessage/${apiToken}`;
       
       const messageBody = {
         chatId,
