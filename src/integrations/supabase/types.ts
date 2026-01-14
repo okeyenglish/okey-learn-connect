@@ -814,7 +814,9 @@ export type Database = {
       }
       branch_photos: {
         Row: {
+          alt_text: string | null
           branch_id: string
+          caption: string | null
           created_at: string
           id: string
           image_url: string
@@ -824,7 +826,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          alt_text?: string | null
           branch_id: string
+          caption?: string | null
           created_at?: string
           id?: string
           image_url: string
@@ -834,7 +838,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          alt_text?: string | null
           branch_id?: string
+          caption?: string | null
           created_at?: string
           id?: string
           image_url?: string
@@ -844,13 +850,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "branch_photos_branch_id_fkey"
-            columns: ["branch_id"]
-            isOneToOne: false
-            referencedRelation: "organization_branches"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "branch_photos_organization_id_fkey"
             columns: ["organization_id"]
@@ -1049,6 +1048,7 @@ export type Database = {
           id: string
           is_outgoing: boolean | null
           is_read: boolean
+          max_channel_id: string | null
           message_status: Database["public"]["Enums"]["message_status"] | null
           message_text: string
           message_type: string
@@ -1070,6 +1070,7 @@ export type Database = {
           id?: string
           is_outgoing?: boolean | null
           is_read?: boolean
+          max_channel_id?: string | null
           message_status?: Database["public"]["Enums"]["message_status"] | null
           message_text: string
           message_type: string
@@ -1091,6 +1092,7 @@ export type Database = {
           id?: string
           is_outgoing?: boolean | null
           is_read?: boolean
+          max_channel_id?: string | null
           message_status?: Database["public"]["Enums"]["message_status"] | null
           message_text?: string
           message_type?: string
@@ -1107,6 +1109,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_max_channel_id_fkey"
+            columns: ["max_channel_id"]
+            isOneToOne: false
+            referencedRelation: "max_channels"
             referencedColumns: ["id"]
           },
           {
@@ -1390,6 +1399,8 @@ export type Database = {
           id: string
           is_active: boolean
           last_message_at: string | null
+          max_chat_id: string | null
+          max_user_id: number | null
           name: string
           notes: string | null
           organization_id: string
@@ -1409,6 +1420,8 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_message_at?: string | null
+          max_chat_id?: string | null
+          max_user_id?: number | null
           name: string
           notes?: string | null
           organization_id?: string
@@ -1428,6 +1441,8 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_message_at?: string | null
+          max_chat_id?: string | null
+          max_user_id?: number | null
           name?: string
           notes?: string | null
           organization_id?: string
@@ -4056,6 +4071,131 @@ export type Database = {
           },
         ]
       }
+      max_channel_state: {
+        Row: {
+          channel_id: string
+          connected_at: string | null
+          created_at: string | null
+          disconnected_at: string | null
+          id: string
+          last_error: string | null
+          last_heartbeat_at: string | null
+          status: string | null
+          total_messages_received: number | null
+          total_messages_sent: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          channel_id: string
+          connected_at?: string | null
+          created_at?: string | null
+          disconnected_at?: string | null
+          id?: string
+          last_error?: string | null
+          last_heartbeat_at?: string | null
+          status?: string | null
+          total_messages_received?: number | null
+          total_messages_sent?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          channel_id?: string
+          connected_at?: string | null
+          created_at?: string | null
+          disconnected_at?: string | null
+          id?: string
+          last_error?: string | null
+          last_heartbeat_at?: string | null
+          status?: string | null
+          total_messages_received?: number | null
+          total_messages_sent?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "max_channel_state_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: true
+            referencedRelation: "max_channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      max_channels: {
+        Row: {
+          auto_start: boolean | null
+          bot_id: number | null
+          bot_username: string | null
+          created_at: string | null
+          id: string
+          is_enabled: boolean | null
+          last_error: string | null
+          last_heartbeat_at: string | null
+          messages_today: number | null
+          messages_today_reset_at: string | null
+          name: string
+          organization_id: string
+          status: string | null
+          token_encrypted: string
+          token_iv: string
+          token_tag: string
+          updated_at: string | null
+        }
+        Insert: {
+          auto_start?: boolean | null
+          bot_id?: number | null
+          bot_username?: string | null
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          last_error?: string | null
+          last_heartbeat_at?: string | null
+          messages_today?: number | null
+          messages_today_reset_at?: string | null
+          name: string
+          organization_id: string
+          status?: string | null
+          token_encrypted: string
+          token_iv: string
+          token_tag: string
+          updated_at?: string | null
+        }
+        Update: {
+          auto_start?: boolean | null
+          bot_id?: number | null
+          bot_username?: string | null
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          last_error?: string | null
+          last_heartbeat_at?: string | null
+          messages_today?: number | null
+          messages_today_reset_at?: string | null
+          name?: string
+          organization_id?: string
+          status?: string | null
+          token_encrypted?: string
+          token_iv?: string
+          token_tag?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "max_channels_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "max_channels_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
+        ]
+      }
       message_reactions: {
         Row: {
           client_id: string | null
@@ -4709,6 +4849,81 @@ export type Database = {
         }
         Relationships: []
       }
+      placement_test_results: {
+        Row: {
+          accuracy_percent: number | null
+          age_or_grade: string | null
+          answers: Json
+          completed_at: string
+          correct_answers: number
+          created_at: string | null
+          email: string | null
+          final_level: string
+          id: string
+          ip_address: string | null
+          name: string
+          phone: string | null
+          started_at: string
+          status: string
+          time_spent_seconds: number
+          total_questions: number
+          track: string
+          updated_at: string | null
+          user_agent: string | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+        }
+        Insert: {
+          accuracy_percent?: number | null
+          age_or_grade?: string | null
+          answers?: Json
+          completed_at: string
+          correct_answers: number
+          created_at?: string | null
+          email?: string | null
+          final_level: string
+          id?: string
+          ip_address?: string | null
+          name: string
+          phone?: string | null
+          started_at: string
+          status?: string
+          time_spent_seconds: number
+          total_questions: number
+          track: string
+          updated_at?: string | null
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Update: {
+          accuracy_percent?: number | null
+          age_or_grade?: string | null
+          answers?: Json
+          completed_at?: string
+          correct_answers?: number
+          created_at?: string | null
+          email?: string | null
+          final_level?: string
+          id?: string
+          ip_address?: string | null
+          name?: string
+          phone?: string | null
+          started_at?: string
+          status?: string
+          time_spent_seconds?: number
+          total_questions?: number
+          track?: string
+          updated_at?: string | null
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Relationships: []
+      }
       price_list_items: {
         Row: {
           created_at: string
@@ -5085,6 +5300,66 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
         }
         Relationships: []
+      }
+      routing_rules: {
+        Row: {
+          actions: Json
+          channel_id: string | null
+          channel_type: string
+          conditions: Json
+          created_at: string | null
+          description: string | null
+          id: string
+          is_enabled: boolean | null
+          name: string
+          organization_id: string
+          priority: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          actions?: Json
+          channel_id?: string | null
+          channel_type: string
+          conditions?: Json
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          name: string
+          organization_id: string
+          priority?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          actions?: Json
+          channel_id?: string | null
+          channel_type?: string
+          conditions?: Json
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          name?: string
+          organization_id?: string
+          priority?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routing_rules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routing_rules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
+        ]
       }
       salebot_import_progress: {
         Row: {
@@ -7605,7 +7880,7 @@ export type Database = {
       }
       get_public_schedule:
         | {
-            Args: { branch_name?: string }
+            Args: never
             Returns: {
               compact_classroom: string
               compact_days: string
@@ -7624,7 +7899,7 @@ export type Database = {
             }[]
           }
         | {
-            Args: never
+            Args: { branch_name?: string }
             Returns: {
               compact_classroom: string
               compact_days: string
@@ -7916,6 +8191,7 @@ export type Database = {
         | "head_teacher"
         | "branch_manager"
         | "support"
+        | "parent"
       balance_transaction_type: "credit" | "debit" | "transfer_in" | "refund"
       bonus_transaction_type: "earned" | "spent" | "expired"
       day_of_week:
@@ -7961,7 +8237,7 @@ export type Database = {
         | "read"
         | "failed"
         | "noAccount"
-      messenger_type: "whatsapp" | "telegram" | "system"
+      messenger_type: "whatsapp" | "telegram" | "system" | "max"
       payment_method: "per_lesson" | "monthly" | "course" | "package"
       payment_method_type: "cash" | "card" | "bank_transfer" | "online"
       relationship_type: "main" | "spouse" | "parent" | "guardian" | "other"
@@ -8123,6 +8399,7 @@ export const Constants = {
         "head_teacher",
         "branch_manager",
         "support",
+        "parent",
       ],
       balance_transaction_type: ["credit", "debit", "transfer_in", "refund"],
       bonus_transaction_type: ["earned", "spent", "expired"],
@@ -8168,7 +8445,7 @@ export const Constants = {
         "failed",
         "noAccount",
       ],
-      messenger_type: ["whatsapp", "telegram", "system"],
+      messenger_type: ["whatsapp", "telegram", "system", "max"],
       payment_method: ["per_lesson", "monthly", "course", "package"],
       payment_method_type: ["cash", "card", "bank_transfer", "online"],
       relationship_type: ["main", "spouse", "parent", "guardian", "other"],

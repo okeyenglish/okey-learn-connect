@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-type AppRole = 'admin' | 'branch_manager' | 'methodist' | 'head_teacher' | 'sales_manager' | 'marketing_manager' | 'manager' | 'accountant' | 'receptionist' | 'support' | 'teacher' | 'student';
+type AppRole = 'admin' | 'branch_manager' | 'methodist' | 'head_teacher' | 'sales_manager' | 'marketing_manager' | 'manager' | 'accountant' | 'receptionist' | 'support' | 'teacher' | 'student' | 'parent';
 
 interface UserRole {
   id: string;
@@ -207,7 +207,7 @@ export const useRoles = () => {
 
   // Получить отображаемое имя роли
   const getRoleDisplayName = (role: AppRole): string => {
-    const roleNames = {
+    const roleNames: Record<AppRole, string> = {
       'admin': 'Администратор',
       'branch_manager': 'Управляющий филиалом',
       'methodist': 'Методист',
@@ -217,8 +217,10 @@ export const useRoles = () => {
       'manager': 'Менеджер',
       'accountant': 'Бухгалтер',
       'receptionist': 'Администратор',
+      'support': 'Поддержка',
       'teacher': 'Преподаватель',
-      'student': 'Студент'
+      'student': 'Студент',
+      'parent': 'Родитель'
     };
     
     return roleNames[role] || role;
@@ -226,7 +228,7 @@ export const useRoles = () => {
 
   // Получить описание роли
   const getRoleDescription = (role: AppRole): string => {
-    const descriptions = {
+    const descriptions: Record<AppRole, string> = {
       'admin': 'Полный доступ ко всем функциям системы',
       'branch_manager': 'Управление филиалом, расписанием и сотрудниками',
       'methodist': 'Управление учебным процессом и методическими материалами',
@@ -236,8 +238,10 @@ export const useRoles = () => {
       'manager': 'Работа с клиентами и общие управленческие задачи',
       'accountant': 'Финансовый учет и управление платежами',
       'receptionist': 'Работа с клиентами на ресепшн',
+      'support': 'Техническая поддержка пользователей',
       'teacher': 'Проведение занятий и работа со студентами',
-      'student': 'Доступ к учебным материалам и расписанию'
+      'student': 'Доступ к учебным материалам и расписанию',
+      'parent': 'Просмотр успеваемости и расписания ребенка'
     };
     
     return descriptions[role] || '';
@@ -246,7 +250,7 @@ export const useRoles = () => {
   const availableRoles: AppRole[] = [
     'admin', 'branch_manager', 'methodist', 'head_teacher', 
     'sales_manager', 'marketing_manager', 'manager', 'accountant', 
-    'receptionist', 'teacher', 'student'
+    'receptionist', 'support', 'teacher', 'student', 'parent'
   ];
 
   useEffect(() => {
