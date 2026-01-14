@@ -90,6 +90,10 @@ serve(async (req) => {
     const webhook: GreenAPIWebhook = await req.json()
     console.log('Received webhook:', JSON.stringify(webhook, null, 2))
 
+    // Resolve organization_id from instanceId in webhook
+    const organizationId = await resolveOrganizationIdFromWebhook(webhook)
+    console.log('Resolved organization_id:', organizationId)
+
     // Сохраняем webhook в лог для отладки
     await supabase.from('webhook_logs').insert({
       messenger_type: 'whatsapp',
@@ -101,7 +105,7 @@ serve(async (req) => {
     // Обрабатываем разные типы webhook событий
     switch (webhook.typeWebhook) {
       case 'incomingMessageReceived':
-        await handleIncomingMessage(webhook)
+        await handleIncomingMessage(webhook, organizationId)
         break
       
       case 'outgoingMessageStatus':
@@ -109,7 +113,7 @@ serve(async (req) => {
         break
         
       case 'outgoingMessageReceived':
-        await handleOutgoingMessage(webhook)
+        await handleOutgoingMessage(webhook, organizationId)
         break
         
       case 'stateInstanceChanged':
@@ -117,11 +121,11 @@ serve(async (req) => {
         break
         
         case 'incomingCall':
-        await handleIncomingCall(webhook)
+        await handleIncomingCall(webhook, organizationId)
         break
         
       case 'incomingReaction':
-        await handleIncomingReaction(webhook)
+        await handleIncomingReaction(webhook, organizationId)
         break
         
       default:
@@ -163,7 +167,7 @@ serve(async (req) => {
   }
 })
 
-async function handleIncomingMessage(webhook: GreenAPIWebhook) {
+async function handleIncomingMessage(webhook: GreenAPIWebhook, organizationId: string | null) {
   const { senderData, messageData, idMessage } = webhook
   
   if (!senderData || !messageData) {
@@ -171,11 +175,16 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook) {
     return
   }
 
+  if (!organizationId) {
+    console.error('Cannot process incoming message: organization_id not resolved from instanceId')
+    throw new Error('Organization not found for this WhatsApp instance')
+  }
+
   const chatId = senderData.chatId
   const phoneNumber = extractPhoneFromChatId(chatId)
   
   // Находим или создаем клиента
-  let client = await findOrCreateClient(phoneNumber, senderData.senderName || senderData.sender)
+  let client = await findOrCreateClient(phoneNumber, senderData.senderName || senderData.sender, organizationId)
   
   // Определяем тип и содержимое сообщения
   let messageText = ''
@@ -257,11 +266,12 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook) {
   // Сохраняем сообщение в базу данных
   const { error } = await supabase.from('chat_messages').insert({
     client_id: client.id,
+    organization_id: organizationId,
     message_text: messageText,
     message_type: 'client',
     messenger_type: 'whatsapp',
     message_status: 'delivered',
-    green_api_message_id: idMessage,
+    external_message_id: idMessage,
     is_outgoing: false,
     is_read: false,
     file_url: fileUrl,
@@ -342,17 +352,17 @@ async function handleMessageStatus(webhook: GreenAPIWebhook) {
     .update({ 
       message_status: status as any // Приводим к типу message_status
     })
-    .eq('green_api_message_id', messageId)
+    .eq('external_message_id', messageId)
 
   if (error) {
     console.error('Error updating message status:', error)
-    throw error
+    // Don't throw - status update failure shouldn't break the webhook
   }
 
   console.log(`Updated message ${messageId} status to ${status}`)
 }
 
-async function handleOutgoingMessage(webhook: GreenAPIWebhook) {
+async function handleOutgoingMessage(webhook: GreenAPIWebhook, organizationId: string | null) {
   // Сообщения, отправленные с телефона - синхронизируем их в CRM
   const { senderData, messageData, idMessage } = webhook
   
@@ -361,11 +371,16 @@ async function handleOutgoingMessage(webhook: GreenAPIWebhook) {
     return
   }
 
+  if (!organizationId) {
+    console.error('Cannot process outgoing message: organization_id not resolved')
+    return
+  }
+
   const chatId = senderData.chatId
   const phoneNumber = extractPhoneFromChatId(chatId)
   
   // Находим или создаем клиента
-  let client = await findOrCreateClient(phoneNumber, senderData.chatName)
+  let client = await findOrCreateClient(phoneNumber, senderData.chatName, organizationId)
   
   let messageText = ''
   switch (messageData.typeMessage) {
@@ -382,11 +397,12 @@ async function handleOutgoingMessage(webhook: GreenAPIWebhook) {
   // Сохраняем сообщение как исходящее от менеджера
   const { error } = await supabase.from('chat_messages').insert({
     client_id: client.id,
+    organization_id: organizationId,
     message_text: messageText,
     message_type: 'manager',
     messenger_type: 'whatsapp',
     message_status: 'sent',
-    green_api_message_id: idMessage,
+    external_message_id: idMessage,
     is_outgoing: true,
     is_read: true,
     created_at: new Date(webhook.timestamp * 1000).toISOString()
@@ -419,7 +435,7 @@ async function handleStateChange(webhook: GreenAPIWebhook) {
     })
 }
 
-async function handleIncomingCall(webhook: GreenAPIWebhook) {
+async function handleIncomingCall(webhook: GreenAPIWebhook, organizationId: string | null) {
   // Обработка входящих звонков
   const callData = (webhook as any)
   const phoneNumber = extractPhoneFromChatId(callData.from)
@@ -435,6 +451,7 @@ async function handleIncomingCall(webhook: GreenAPIWebhook) {
     // Сохраняем уведомление о звонке
     await supabase.from('chat_messages').insert({
       client_id: client.id,
+      organization_id: client.organization_id || organizationId,
       message_text: `📞 Входящий звонок (${callData.status || 'unknown'})`,
       message_type: 'system',
       messenger_type: 'whatsapp',
@@ -449,13 +466,14 @@ async function handleIncomingCall(webhook: GreenAPIWebhook) {
   }
 }
 
-async function findOrCreateClient(phoneNumber: string, displayName?: string) {
-  // Сначала ищем клиента по номеру телефона
+async function findOrCreateClient(phoneNumber: string, displayName: string | undefined, organizationId: string) {
+  // Сначала ищем клиента по номеру телефона в рамках организации
   const { data: existingClient } = await supabase
     .from('clients')
     .select('*')
     .eq('phone', phoneNumber)
-    .single()
+    .eq('organization_id', organizationId)
+    .maybeSingle()
 
   if (existingClient) {
     // Если у клиента нет аватарки, попробуем получить её из WhatsApp
@@ -478,6 +496,7 @@ async function findOrCreateClient(phoneNumber: string, displayName?: string) {
     .insert({
       name: displayName || phoneNumber,
       phone: phoneNumber,
+      organization_id: organizationId,
       notes: 'Автоматически создан из WhatsApp',
       whatsapp_chat_id: `${phoneNumber.replace('+', '')}@c.us`
     })
@@ -600,11 +619,11 @@ async function handleReactionMessage(webhook: GreenAPIWebhook, client: any) {
   }
   
   try {
-    // Находим оригинальное сообщение по Green API message ID
+    // Находим оригинальное сообщение по external_message_id
     const { data: originalMessage, error: messageError } = await supabase
       .from('chat_messages')
       .select('id')
-      .eq('green_api_message_id', originalMessageId)
+      .eq('external_message_id', originalMessageId)
       .single()
 
     if (messageError || !originalMessage) {
@@ -675,7 +694,7 @@ async function handleReactionMessage(webhook: GreenAPIWebhook, client: any) {
   }
 }
 
-async function handleIncomingReaction(webhook: GreenAPIWebhook) {
+async function handleIncomingReaction(webhook: GreenAPIWebhook, organizationId: string | null) {
   const { senderData, messageData } = webhook
   
   if (!senderData || !messageData?.reactionMessageData) {
@@ -683,11 +702,16 @@ async function handleIncomingReaction(webhook: GreenAPIWebhook) {
     return
   }
 
+  if (!organizationId) {
+    console.log('Missing organizationId for reaction, skipping')
+    return
+  }
+
   const chatId = senderData.chatId
   const phoneNumber = extractPhoneFromChatId(chatId)
   
   // Находим клиента
-  const client = await findOrCreateClient(phoneNumber, senderData.senderName || senderData.sender)
+  const client = await findOrCreateClient(phoneNumber, senderData.senderName || senderData.sender, organizationId)
   
   if (client) {
     await handleReactionMessage(webhook, client)
