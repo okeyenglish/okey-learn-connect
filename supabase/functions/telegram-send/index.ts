@@ -108,10 +108,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get client
+    // Get client with phone number
     const { data: client, error: clientError } = await supabase
       .from('clients')
-      .select('telegram_chat_id, telegram_user_id, name')
+      .select('telegram_chat_id, telegram_user_id, phone, name')
       .eq('id', clientId)
       .eq('organization_id', organizationId)
       .single();
@@ -123,27 +123,38 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Telegram requires an existing chat - can't send to phone numbers like WhatsApp
-    const chatId = client.telegram_chat_id || client.telegram_user_id?.toString();
+    // Try telegram_chat_id first, then telegram_user_id, then phone number
+    let recipient = client.telegram_chat_id || client.telegram_user_id?.toString();
+    let usePhoneNumber = false;
     
-    if (!chatId) {
+    // If no Telegram ID, use phone number with recipient field
+    if (!recipient && client.phone) {
+      const cleanPhone = client.phone.replace(/\D/g, '');
+      if (cleanPhone) {
+        recipient = cleanPhone;
+        usePhoneNumber = true;
+        console.log('Using phone number as recipient:', recipient);
+      }
+    }
+    
+    if (!recipient) {
       return new Response(
         JSON.stringify({ 
-          error: 'У клиента нет Telegram. Отправка возможна только тем, кто уже писал вам в Telegram.',
-          code: 'NO_TELEGRAM_CHAT'
+          error: 'У клиента нет Telegram и номера телефона',
+          code: 'NO_TELEGRAM_CONTACT'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
-    console.log('Sending Telegram message to chat:', chatId);
+    console.log('Sending Telegram message to:', recipient, 'usePhoneNumber:', usePhoneNumber);
 
     // Send message via Wappi.pro
     let sendResult;
     if (fileUrl) {
-      sendResult = await sendFileMessage(profileId, chatId, fileUrl, text || '', wappiApiToken);
+      sendResult = await sendFileMessage(profileId, recipient, fileUrl, text || '', wappiApiToken, usePhoneNumber);
     } else if (text) {
-      sendResult = await sendTextMessage(profileId, chatId, text, wappiApiToken);
+      sendResult = await sendTextMessage(profileId, recipient, text, wappiApiToken, usePhoneNumber);
     } else {
       return new Response(
         JSON.stringify({ error: 'Message text or file is required' }),
@@ -209,11 +220,19 @@ Deno.serve(async (req) => {
 
 async function sendTextMessage(
   profileId: string,
-  chatId: string,
+  recipient: string,
   text: string,
-  apiToken: string
+  apiToken: string,
+  usePhoneNumber: boolean = false
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
+    // Use 'recipient' for phone numbers, 'to' for chat IDs
+    const bodyData = usePhoneNumber 
+      ? { recipient, body: text }
+      : { to: recipient, body: text };
+    
+    console.log('Sending text message with body:', bodyData);
+    
     const response = await fetch(
       `https://wappi.pro/tapi/sync/message/send?profile_id=${profileId}`,
       {
@@ -222,20 +241,17 @@ async function sendTextMessage(
           'Authorization': apiToken,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          to: chatId,
-          body: text
-        })
+        body: JSON.stringify(bodyData)
       }
     );
 
     const data = await response.json();
     console.log('Wappi.pro send response:', data);
 
-    if (!response.ok || data.status === false) {
+    if (!response.ok || data.status === 'error') {
       return {
         success: false,
-        error: data.message || `HTTP ${response.status}`
+        error: data.detail || data.message || `HTTP ${response.status}`
       };
     }
 
@@ -254,12 +270,18 @@ async function sendTextMessage(
 
 async function sendFileMessage(
   profileId: string,
-  chatId: string,
+  recipient: string,
   fileUrl: string,
   caption: string,
-  apiToken: string
+  apiToken: string,
+  usePhoneNumber: boolean = false
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
+    // Use 'recipient' for phone numbers, 'to' for chat IDs
+    const bodyData = usePhoneNumber 
+      ? { recipient, url: fileUrl, caption: caption || undefined }
+      : { to: recipient, url: fileUrl, caption: caption || undefined };
+    
     const response = await fetch(
       `https://wappi.pro/tapi/sync/message/file/url/send?profile_id=${profileId}`,
       {
@@ -268,21 +290,17 @@ async function sendFileMessage(
           'Authorization': apiToken,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          to: chatId,
-          url: fileUrl,
-          caption: caption || undefined
-        })
+        body: JSON.stringify(bodyData)
       }
     );
 
     const data = await response.json();
     console.log('Wappi.pro send file response:', data);
 
-    if (!response.ok || data.status === false) {
+    if (!response.ok || data.status === 'error') {
       return {
         success: false,
-        error: data.message || `HTTP ${response.status}`
+        error: data.detail || data.message || `HTTP ${response.status}`
       };
     }
 
