@@ -152,7 +152,7 @@ serve(async (req) => {
 
     if (fileUrl) {
       // Send file via sendFileByUrl
-      const apiUrl = `${GREEN_API_URL}/waInstance${instanceId}/sendFileByUrl/${apiToken}`;
+      const apiUrl = `${GREEN_API_URL}/v3/waInstance${instanceId}/sendFileByUrl/${apiToken}`;
       
       const fileBody = {
         chatId,
@@ -169,17 +169,23 @@ serve(async (req) => {
         body: JSON.stringify(fileBody)
       });
 
-      greenApiResponse = await response.json();
-      console.log('Green API file response:', greenApiResponse);
+      const responseText = await response.text();
+      console.log('Green API file response text:', responseText);
 
       if (!response.ok) {
-        throw new Error(greenApiResponse.message || 'Failed to send file');
+        throw new Error(`HTTP ${response.status}: ${responseText.substring(0, 200)}`);
+      }
+
+      try {
+        greenApiResponse = JSON.parse(responseText);
+      } catch (e) {
+        throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}`);
       }
 
       messageId = greenApiResponse.idMessage;
     } else {
       // Send text message
-      const apiUrl = `${GREEN_API_URL}/waInstance${instanceId}/sendMessage/${apiToken}`;
+      const apiUrl = `${GREEN_API_URL}/v3/waInstance${instanceId}/sendMessage/${apiToken}`;
       
       const messageBody = {
         chatId,
@@ -194,11 +200,17 @@ serve(async (req) => {
         body: JSON.stringify(messageBody)
       });
 
-      greenApiResponse = await response.json();
-      console.log('Green API message response:', greenApiResponse);
+      const responseText = await response.text();
+      console.log('Green API message response text:', responseText);
 
       if (!response.ok) {
-        throw new Error(greenApiResponse.message || 'Failed to send message');
+        throw new Error(`HTTP ${response.status}: ${responseText.substring(0, 200)}`);
+      }
+
+      try {
+        greenApiResponse = JSON.parse(responseText);
+      } catch (e) {
+        throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}`);
       }
 
       messageId = greenApiResponse.idMessage;
