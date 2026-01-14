@@ -269,6 +269,8 @@ async function findOrCreateClient(
     .single();
 
   if (client) {
+    // Enrich existing client data if needed
+    await enrichClientFromMax(supabase, organizationId, client.id, chatId);
     return client;
   }
 
@@ -288,6 +290,9 @@ async function findOrCreateClient(
         .from('clients')
         .update({ max_chat_id: chatId })
         .eq('id', clientByUserId.id);
+      
+      // Enrich client data
+      await enrichClientFromMax(supabase, organizationId, clientByUserId.id, chatId);
       return clientByUserId;
     }
   }
@@ -309,6 +314,9 @@ async function findOrCreateClient(
         .from('clients')
         .update({ max_chat_id: chatId })
         .eq('id', clientByPhone.id);
+      
+      // Enrich client data
+      await enrichClientFromMax(supabase, organizationId, clientByPhone.id, chatId);
       return clientByPhone;
     }
   }
@@ -333,7 +341,160 @@ async function findOrCreateClient(
   }
 
   console.log(`Created new client for MAX user: ${newClient.id}`);
+  
+  // Enrich new client data from MAX
+  await enrichClientFromMax(supabase, organizationId, newClient.id, chatId);
+  
   return newClient;
+}
+
+// Enrich client data from MAX contact info
+async function enrichClientFromMax(supabase: any, organizationId: string, clientId: string, chatId: string) {
+  try {
+    // Get MAX settings for this organization
+    const { data: messengerSettings } = await supabase
+      .from('messenger_settings')
+      .select('settings')
+      .eq('organization_id', organizationId)
+      .eq('messenger_type', 'max')
+      .eq('is_enabled', true)
+      .single();
+
+    if (!messengerSettings) {
+      console.log('MAX settings not found for enrichment');
+      return;
+    }
+
+    const settings = messengerSettings.settings as any;
+    const instanceId = settings?.instanceId;
+    const apiToken = settings?.apiToken;
+
+    if (!instanceId || !apiToken) {
+      console.log('MAX credentials not configured for enrichment');
+      return;
+    }
+
+    const GREEN_API_URL = 'https://3100.api.green-api.com';
+
+    // Get contact info from MAX API
+    const contactInfoUrl = `${GREEN_API_URL}/v3/waInstance${instanceId}/getContactInfo/${apiToken}`;
+    
+    console.log(`Fetching MAX contact info for ${chatId}`);
+    
+    const contactResponse = await fetch(contactInfoUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chatId })
+    });
+
+    if (!contactResponse.ok) {
+      console.log(`Failed to get MAX contact info: ${contactResponse.status}`);
+      return;
+    }
+
+    const contactData = await contactResponse.json();
+    console.log('MAX contact info response:', JSON.stringify(contactData));
+
+    // Also try to get avatar
+    const avatarUrl = `${GREEN_API_URL}/v3/waInstance${instanceId}/getAvatar/${apiToken}`;
+    let avatarData: any = null;
+    
+    try {
+      const avatarResponse = await fetch(avatarUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatId })
+      });
+      
+      if (avatarResponse.ok) {
+        avatarData = await avatarResponse.json();
+        console.log('MAX avatar response:', JSON.stringify(avatarData));
+      }
+    } catch (e) {
+      console.log('Error fetching MAX avatar:', e);
+    }
+
+    // Get current client data
+    const { data: currentClient } = await supabase
+      .from('clients')
+      .select('name, phone, avatar_url, holihope_metadata')
+      .eq('id', clientId)
+      .single();
+
+    if (!currentClient) {
+      console.log('Client not found for MAX enrichment:', clientId);
+      return;
+    }
+
+    const updateData: Record<string, any> = {};
+    
+    // Extract contact info
+    const contactName = contactData.name || contactData.chatName || contactData.pushname || contactData.displayName;
+    const contactPhone = contactData.numberPhone || contactData.phone;
+    const contactAbout = contactData.about || contactData.description;
+
+    // Update name if current is auto-generated
+    const currentName = currentClient.name || '';
+    const isAutoName = currentName.startsWith('Клиент ') || 
+                       currentName.startsWith('+') || 
+                       /^\d+$/.test(currentName) ||
+                       currentName.includes('@c.us') ||
+                       currentName.startsWith('MAX User');
+
+    if (contactName && isAutoName) {
+      updateData.name = contactName;
+      console.log(`Updating MAX client name from "${currentName}" to "${contactName}"`);
+    }
+
+    // Update phone if missing
+    if (contactPhone && !currentClient.phone) {
+      const formattedPhone = String(contactPhone).startsWith('+') ? contactPhone : `+${contactPhone}`;
+      updateData.phone = formattedPhone;
+    }
+
+    // Update avatar if we got one and client doesn't have it
+    if (avatarData?.urlAvatar && !currentClient.avatar_url) {
+      updateData.avatar_url = avatarData.urlAvatar;
+      console.log(`Setting MAX avatar for client ${clientId}`);
+    }
+
+    // Save additional info to metadata
+    const existingMetadata = (currentClient.holihope_metadata as Record<string, any>) || {};
+    const maxInfo = existingMetadata.max_info || {};
+
+    const newMaxInfo: Record<string, any> = {
+      ...maxInfo,
+      last_updated: new Date().toISOString()
+    };
+
+    if (contactName) newMaxInfo.name = contactName;
+    if (contactPhone) newMaxInfo.phone = contactPhone;
+    if (contactAbout) newMaxInfo.about = contactAbout;
+    if (avatarData?.urlAvatar) newMaxInfo.avatar_url = avatarData.urlAvatar;
+    if (contactData.email) newMaxInfo.email = contactData.email;
+    if (contactData.lastSeen) newMaxInfo.last_seen = contactData.lastSeen;
+
+    updateData.holihope_metadata = {
+      ...existingMetadata,
+      max_info: newMaxInfo
+    };
+
+    // Update client
+    if (Object.keys(updateData).length > 0) {
+      const { error: updateError } = await supabase
+        .from('clients')
+        .update(updateData)
+        .eq('id', clientId);
+
+      if (updateError) {
+        console.error('Error enriching MAX client data:', updateError);
+      } else {
+        console.log(`Client ${clientId} enriched with MAX data:`, Object.keys(updateData));
+      }
+    }
+  } catch (error) {
+    console.error('Error in enrichClientFromMax:', error);
+  }
 }
 
 async function handleMessageStatus(supabase: any, webhook: GreenApiWebhook) {
