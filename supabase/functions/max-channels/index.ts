@@ -6,7 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const GREEN_API_URL = 'https://api.green-api.com';
+// Green API base URL for MAX (v3 instance - uses 3100 subdomain)
+const GREEN_API_URL = 'https://3100.api.green-api.com';
 
 interface MaxSettings {
   instanceId: string;
@@ -215,7 +216,7 @@ async function deleteMaxSettings(supabase: any, organizationId: string) {
 
 async function checkInstanceState(instanceId: string, apiToken: string): Promise<any> {
   try {
-    const url = `${GREEN_API_URL}/v3/waInstance${instanceId}/getStateInstance/${apiToken}`;
+    const url = `${GREEN_API_URL}/waInstance${instanceId}/getStateInstance/${apiToken}`;
     console.log('Checking MAX instance state:', url);
     
     const response = await fetch(url);
@@ -269,7 +270,7 @@ async function checkInstanceState(instanceId: string, apiToken: string): Promise
 
 async function setupWebhook(instanceId: string, apiToken: string, webhookUrl: string): Promise<any> {
   try {
-    const url = `${GREEN_API_URL}/v3/waInstance${instanceId}/setSettings/${apiToken}`;
+    const url = `${GREEN_API_URL}/waInstance${instanceId}/setSettings/${apiToken}`;
     
     const response = await fetch(url, {
       method: 'POST',
