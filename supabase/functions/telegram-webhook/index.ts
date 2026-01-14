@@ -266,6 +266,8 @@ async function findOrCreateClient(
 ): Promise<{ id: string } | null> {
   const { organizationId, telegramUserId, telegramChatId, name, username } = params;
 
+  console.log('findOrCreateClient called with:', { organizationId, telegramUserId, telegramChatId, name, username });
+
   // Try to find by telegram_user_id first
   if (telegramUserId) {
     const { data: clientByUserId } = await supabase
@@ -276,6 +278,7 @@ async function findOrCreateClient(
       .maybeSingle();
 
     if (clientByUserId) {
+      console.log('Found client by telegram_user_id:', clientByUserId.id);
       // Update telegram_chat_id if needed
       await supabase
         .from('clients')
@@ -294,6 +297,7 @@ async function findOrCreateClient(
     .maybeSingle();
 
   if (clientByChatId) {
+    console.log('Found client by telegram_chat_id:', clientByChatId.id);
     // Update telegram_user_id if we have it
     if (telegramUserId) {
       await supabase
@@ -304,7 +308,67 @@ async function findOrCreateClient(
     return clientByChatId;
   }
 
-  // Create new client
+  // Try to find by phone number extracted from chatId
+  // Telegram chatId often contains phone number like "79123456789"
+  const phoneFromChatId = telegramChatId?.replace(/\D/g, '');
+  if (phoneFromChatId && phoneFromChatId.length >= 10) {
+    console.log('Trying to find client by phone from chatId:', phoneFromChatId);
+    
+    // Search in clients table by phone
+    const { data: clientByPhone } = await supabase
+      .from('clients')
+      .select('id, phone')
+      .eq('organization_id', organizationId)
+      .eq('is_active', true)
+      .or(`phone.ilike.%${phoneFromChatId}%,phone.ilike.%${phoneFromChatId.slice(-10)}%`)
+      .maybeSingle();
+
+    if (clientByPhone) {
+      console.log('Found client by phone:', clientByPhone.id);
+      // Update telegram fields
+      await supabase
+        .from('clients')
+        .update({ 
+          telegram_chat_id: telegramChatId,
+          telegram_user_id: telegramUserId
+        })
+        .eq('id', clientByPhone.id);
+      return clientByPhone;
+    }
+
+    // Also search in client_phone_numbers table
+    const { data: phoneRecord } = await supabase
+      .from('client_phone_numbers')
+      .select('client_id')
+      .or(`phone.ilike.%${phoneFromChatId}%,phone.ilike.%${phoneFromChatId.slice(-10)}%`)
+      .maybeSingle();
+
+    if (phoneRecord) {
+      // Verify client belongs to the organization
+      const { data: clientFromPhone } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('id', phoneRecord.client_id)
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (clientFromPhone) {
+        console.log('Found client by phone_numbers table:', clientFromPhone.id);
+        await supabase
+          .from('clients')
+          .update({ 
+            telegram_chat_id: telegramChatId,
+            telegram_user_id: telegramUserId
+          })
+          .eq('id', clientFromPhone.id);
+        return clientFromPhone;
+      }
+    }
+  }
+
+  // Create new client only if no match found
+  console.log('No existing client found, creating new one');
   const { data: newClient, error: createError } = await supabase
     .from('clients')
     .insert({
