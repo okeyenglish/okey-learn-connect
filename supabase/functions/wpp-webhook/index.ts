@@ -227,11 +227,20 @@ async function handleIncomingMessage(data: any) {
   // Save message to chat_messages table (CRM messages)
   const messageText = text || body || (media ? '[Media]' : '')
   
-  // Update client's last_message_at
+  // Update client's last_message_at and whatsapp_chat_id
   await supabase
     .from('clients')
-    .update({ last_message_at: new Date().toISOString() })
+    .update({ 
+      last_message_at: new Date().toISOString(),
+      whatsapp_chat_id: `${phone}@c.us`
+    })
     .eq('id', client.id)
+
+  // Also update whatsapp_chat_id in client_phone_numbers if phone matches
+  await updatePhoneNumberMessengerData(supabase, client.id, {
+    phone: phone,
+    whatsappChatId: `${phone}@c.us`
+  })
   
   const { error: messageError } = await supabase
     .from('chat_messages')
@@ -272,4 +281,35 @@ function getFileTypeFromMime(mime: string): string {
   if (mime.startsWith('audio/')) return 'audio'
   if (mime.includes('pdf') || mime.includes('document')) return 'document'
   return 'file'
+}
+
+// Helper function to update messenger data in client_phone_numbers
+async function updatePhoneNumberMessengerData(
+  supabase: any,
+  clientId: string,
+  data: { phone?: string | null; whatsappChatId?: string | null }
+): Promise<void> {
+  if (!data.phone || !data.whatsappChatId) return
+
+  try {
+    const cleanPhone = data.phone.replace(/\D/g, '')
+    if (cleanPhone.length < 10) return
+
+    const { data: records } = await supabase
+      .from('client_phone_numbers')
+      .select('id')
+      .eq('client_id', clientId)
+      .or(`phone.ilike.%${cleanPhone}%,phone.ilike.%${cleanPhone.slice(-10)}%`)
+      .limit(1)
+
+    if (records?.[0]) {
+      await supabase
+        .from('client_phone_numbers')
+        .update({ whatsapp_chat_id: data.whatsappChatId })
+        .eq('id', records[0].id)
+      console.log(`Updated whatsapp_chat_id for phone record ${records[0].id}`)
+    }
+  } catch (error) {
+    console.error('Error updating phone number messenger data:', error)
+  }
 }

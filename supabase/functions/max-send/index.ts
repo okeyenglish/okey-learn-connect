@@ -102,8 +102,8 @@ serve(async (req) => {
     const { instanceId, apiToken } = maxSettings;
 
     // Parse request body
-    const body: SendMessageRequest = await req.json();
-    const { clientId, text, fileUrl, fileName, fileType } = body;
+    const body: SendMessageRequest & { phoneId?: string } = await req.json();
+    const { clientId, text, fileUrl, fileName, fileType, phoneId } = body;
 
     if (!clientId || (!text && !fileUrl)) {
       return new Response(
@@ -128,16 +128,62 @@ serve(async (req) => {
     }
 
     // Determine chatId for MAX
-    // MAX uses numeric chatId format: "10000000" for individual, "-10000000000000" for groups
-    // Or phone format: "79991234567@c.us"
-    let chatId = client.max_chat_id;
+    let chatId: string | null = null;
     
-    if (!chatId && client.max_user_id) {
-      chatId = String(client.max_user_id);
+    // Priority 1: Use specified phone number's chat ID
+    if (phoneId) {
+      const { data: phoneRecord } = await supabase
+        .from('client_phone_numbers')
+        .select('max_chat_id, max_user_id, phone')
+        .eq('id', phoneId)
+        .eq('client_id', clientId)
+        .single();
+      
+      if (phoneRecord) {
+        chatId = phoneRecord.max_chat_id;
+        if (!chatId && phoneRecord.max_user_id) {
+          chatId = String(phoneRecord.max_user_id);
+        }
+        if (!chatId && phoneRecord.phone) {
+          const cleanPhone = phoneRecord.phone.replace(/[^\d]/g, '');
+          chatId = `${cleanPhone}@c.us`;
+        }
+        console.log('Using specified phone:', phoneId, 'chatId:', chatId);
+      }
     }
     
+    // Priority 2: Use primary phone number's chat ID
+    if (!chatId) {
+      const { data: primaryPhone } = await supabase
+        .from('client_phone_numbers')
+        .select('max_chat_id, max_user_id, phone')
+        .eq('client_id', clientId)
+        .eq('is_primary', true)
+        .single();
+      
+      if (primaryPhone) {
+        chatId = primaryPhone.max_chat_id;
+        if (!chatId && primaryPhone.max_user_id) {
+          chatId = String(primaryPhone.max_user_id);
+        }
+        if (!chatId && primaryPhone.phone) {
+          const cleanPhone = primaryPhone.phone.replace(/[^\d]/g, '');
+          chatId = `${cleanPhone}@c.us`;
+        }
+        console.log('Using primary phone chatId:', chatId);
+      }
+    }
+    
+    // Priority 3: Fall back to client's max fields (backward compatibility)
+    if (!chatId) {
+      chatId = client.max_chat_id;
+      if (!chatId && client.max_user_id) {
+        chatId = String(client.max_user_id);
+      }
+    }
+    
+    // Priority 4: Use client's phone
     if (!chatId && client.phone) {
-      // Format phone for MAX: remove + and spaces, add @c.us
       const cleanPhone = client.phone.replace(/[^\d]/g, '');
       chatId = `${cleanPhone}@c.us`;
     }

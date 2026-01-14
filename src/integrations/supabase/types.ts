@@ -1306,9 +1306,17 @@ export type Database = {
           is_primary: boolean | null
           is_telegram_enabled: boolean | null
           is_whatsapp_enabled: boolean | null
+          max_avatar_url: string | null
+          max_chat_id: string | null
+          max_user_id: number | null
           phone: string
           phone_type: string | null
+          telegram_avatar_url: string | null
+          telegram_chat_id: string | null
+          telegram_user_id: number | null
           updated_at: string | null
+          whatsapp_avatar_url: string | null
+          whatsapp_chat_id: string | null
         }
         Insert: {
           client_id: string
@@ -1317,9 +1325,17 @@ export type Database = {
           is_primary?: boolean | null
           is_telegram_enabled?: boolean | null
           is_whatsapp_enabled?: boolean | null
+          max_avatar_url?: string | null
+          max_chat_id?: string | null
+          max_user_id?: number | null
           phone: string
           phone_type?: string | null
+          telegram_avatar_url?: string | null
+          telegram_chat_id?: string | null
+          telegram_user_id?: number | null
           updated_at?: string | null
+          whatsapp_avatar_url?: string | null
+          whatsapp_chat_id?: string | null
         }
         Update: {
           client_id?: string
@@ -1328,9 +1344,17 @@ export type Database = {
           is_primary?: boolean | null
           is_telegram_enabled?: boolean | null
           is_whatsapp_enabled?: boolean | null
+          max_avatar_url?: string | null
+          max_chat_id?: string | null
+          max_user_id?: number | null
           phone?: string
           phone_type?: string | null
+          telegram_avatar_url?: string | null
+          telegram_chat_id?: string | null
+          telegram_user_id?: number | null
           updated_at?: string | null
+          whatsapp_avatar_url?: string | null
+          whatsapp_chat_id?: string | null
         }
         Relationships: [
           {

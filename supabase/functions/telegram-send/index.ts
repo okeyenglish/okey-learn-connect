@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { clientId, text, fileUrl, fileName, fileType } = body;
+    const { clientId, text, fileUrl, fileName, fileType, phoneId } = body;
 
     if (!clientId) {
       return new Response(
@@ -123,17 +123,66 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Try telegram_chat_id first, then telegram_user_id, then phone number
-    let recipient = client.telegram_chat_id || client.telegram_user_id?.toString();
+    // Try to get chat ID from specified phone number first
+    let recipient: string | null = null;
     let usePhoneNumber = false;
     
-    // If no Telegram ID, use phone number with recipient field
+    if (phoneId) {
+      // Get chat ID from specific phone number
+      const { data: phoneRecord } = await supabase
+        .from('client_phone_numbers')
+        .select('telegram_chat_id, telegram_user_id, phone')
+        .eq('id', phoneId)
+        .eq('client_id', clientId)
+        .single();
+      
+      if (phoneRecord) {
+        recipient = phoneRecord.telegram_chat_id || phoneRecord.telegram_user_id?.toString();
+        if (!recipient && phoneRecord.phone) {
+          const cleanPhone = phoneRecord.phone.replace(/\D/g, '');
+          if (cleanPhone) {
+            recipient = cleanPhone;
+            usePhoneNumber = true;
+          }
+        }
+        console.log('Using specified phone:', phoneId, 'recipient:', recipient);
+      }
+    }
+    
+    // If no recipient from phoneId, try primary phone number
+    if (!recipient) {
+      const { data: primaryPhone } = await supabase
+        .from('client_phone_numbers')
+        .select('telegram_chat_id, telegram_user_id, phone')
+        .eq('client_id', clientId)
+        .eq('is_primary', true)
+        .single();
+      
+      if (primaryPhone) {
+        recipient = primaryPhone.telegram_chat_id || primaryPhone.telegram_user_id?.toString();
+        if (!recipient && primaryPhone.phone) {
+          const cleanPhone = primaryPhone.phone.replace(/\D/g, '');
+          if (cleanPhone) {
+            recipient = cleanPhone;
+            usePhoneNumber = true;
+          }
+        }
+        console.log('Using primary phone recipient:', recipient);
+      }
+    }
+    
+    // Fallback to client's telegram fields (backward compatibility)
+    if (!recipient) {
+      recipient = client.telegram_chat_id || client.telegram_user_id?.toString();
+    }
+    
+    // Final fallback: use client's phone number
     if (!recipient && client.phone) {
       const cleanPhone = client.phone.replace(/\D/g, '');
       if (cleanPhone) {
         recipient = cleanPhone;
         usePhoneNumber = true;
-        console.log('Using phone number as recipient:', recipient);
+        console.log('Using client phone number as recipient:', recipient);
       }
     }
     
