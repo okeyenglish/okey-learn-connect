@@ -56,6 +56,30 @@ interface GreenAPIWebhook {
   };
 }
 
+async function resolveOrganizationIdFromWebhook(webhook: GreenAPIWebhook): Promise<string | null> {
+  const instanceId = webhook.instanceData?.idInstance;
+  if (!instanceId) return null;
+
+  const { data, error } = await supabase
+    .from('messenger_settings')
+    .select('organization_id')
+    .eq('messenger_type', 'whatsapp')
+    .eq('provider', 'greenapi')
+    .not('organization_id', 'is', null)
+    // settings is jsonb; we store instanceId in settings.instanceId
+    .eq('settings->>instanceId', instanceId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Failed to resolve organization by instanceId:', { instanceId, error });
+    return null;
+  }
+
+  return (data?.organization_id as string | null) ?? null;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
