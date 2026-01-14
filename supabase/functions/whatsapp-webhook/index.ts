@@ -58,26 +58,68 @@ interface GreenAPIWebhook {
 
 async function resolveOrganizationIdFromWebhook(webhook: GreenAPIWebhook): Promise<string | null> {
   const instanceId = webhook.instanceData?.idInstance;
-  if (!instanceId) return null;
+  console.log('Resolving organization for instanceId:', instanceId);
+  
+  if (!instanceId) {
+    console.error('No instanceId in webhook.instanceData:', JSON.stringify(webhook.instanceData));
+    return null;
+  }
 
-  const { data, error } = await supabase
+  // Try to find by settings->>instanceId (string match)
+  let { data, error } = await supabase
     .from('messenger_settings')
-    .select('organization_id')
+    .select('organization_id, settings')
     .eq('messenger_type', 'whatsapp')
     .eq('provider', 'greenapi')
     .not('organization_id', 'is', null)
-    // settings is jsonb; we store instanceId in settings.instanceId
     .eq('settings->>instanceId', instanceId)
     .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  if (!data && !error) {
+    // Fallback: try with numeric instanceId (in case stored as number in JSON)
+    const numericId = String(instanceId);
+    console.log('No match with string, trying numeric instanceId:', numericId);
+    
+    const { data: data2, error: error2 } = await supabase
+      .from('messenger_settings')
+      .select('organization_id, settings')
+      .eq('messenger_type', 'whatsapp')
+      .eq('provider', 'greenapi')
+      .not('organization_id', 'is', null)
+      .order('updated_at', { ascending: false });
+    
+    if (error2) {
+      console.error('Error fetching all messenger_settings:', error2);
+    } else if (data2 && data2.length > 0) {
+      // Manual search through settings
+      for (const setting of data2) {
+        const settingsObj = setting.settings as Record<string, unknown> | null;
+        const storedInstanceId = settingsObj?.instanceId;
+        console.log('Checking setting:', { org: setting.organization_id, storedInstanceId, targetInstanceId: instanceId });
+        
+        if (String(storedInstanceId) === String(instanceId)) {
+          data = setting;
+          console.log('Found match via manual search:', setting.organization_id);
+          break;
+        }
+      }
+    }
+  }
 
   if (error) {
     console.error('Failed to resolve organization by instanceId:', { instanceId, error });
     return null;
   }
 
-  return (data?.organization_id as string | null) ?? null;
+  if (!data) {
+    console.warn('No organization found for instanceId:', instanceId);
+    return null;
+  }
+
+  console.log('Resolved organization_id:', data.organization_id);
+  return (data.organization_id as string | null) ?? null;
 }
 
 serve(async (req) => {
@@ -466,16 +508,64 @@ async function handleIncomingCall(webhook: GreenAPIWebhook, organizationId: stri
   }
 }
 
+// Normalize phone number to digits only for consistent matching
+function normalizePhone(phone: string | null | undefined): string {
+  if (!phone) return '';
+  return phone.replace(/\D/g, '');
+}
+
 async function findOrCreateClient(phoneNumber: string, displayName: string | undefined, organizationId: string) {
-  // Сначала ищем клиента по номеру телефона в рамках организации
-  const { data: existingClient } = await supabase
+  const normalizedPhone = normalizePhone(phoneNumber);
+  console.log('findOrCreateClient: searching for phone', { phoneNumber, normalizedPhone, organizationId });
+
+  // Try multiple phone formats for matching
+  const phoneVariants = [
+    phoneNumber,                                    // original: +79876543210
+    `+${normalizedPhone}`,                          // +79876543210
+    normalizedPhone,                                // 79876543210
+    normalizedPhone.replace(/^7/, '8'),             // 89876543210 (Russian alt)
+    normalizedPhone.replace(/^8/, '7'),             // if stored with 8, convert to 7
+  ];
+  
+  // Remove duplicates
+  const uniqueVariants = [...new Set(phoneVariants.filter(Boolean))];
+  console.log('Searching with phone variants:', uniqueVariants);
+
+  // Search in clients table by phone column
+  const { data: existingClients } = await supabase
     .from('clients')
     .select('*')
-    .eq('phone', phoneNumber)
     .eq('organization_id', organizationId)
-    .maybeSingle()
+    .in('phone', uniqueVariants);
+
+  let existingClient = existingClients?.[0] || null;
+
+  // If not found in clients.phone, search in client_phone_numbers table
+  if (!existingClient) {
+    console.log('Not found in clients.phone, searching in client_phone_numbers...');
+    const { data: phoneRecords } = await supabase
+      .from('client_phone_numbers')
+      .select('client_id, phone')
+      .in('phone', uniqueVariants);
+
+    if (phoneRecords && phoneRecords.length > 0) {
+      const clientIds = [...new Set(phoneRecords.map(r => r.client_id))];
+      console.log('Found client_ids in client_phone_numbers:', clientIds);
+      
+      // Get the client and verify it belongs to this organization
+      const { data: clients } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .in('id', clientIds)
+        .limit(1);
+      
+      existingClient = clients?.[0] || null;
+    }
+  }
 
   if (existingClient) {
+    console.log('Found existing client:', existingClient.id, existingClient.name);
     // Если у клиента нет аватарки, попробуем получить её из WhatsApp
     if (!existingClient.avatar_url) {
       const avatarUrl = await fetchAndSaveAvatar(phoneNumber, existingClient.id)
@@ -490,6 +580,8 @@ async function findOrCreateClient(phoneNumber: string, displayName: string | und
     return existingClient
   }
 
+  console.log('Client not found, creating new client for phone:', phoneNumber);
+
   // Если не найден, создаем нового клиента
   const { data: newClient, error } = await supabase
     .from('clients')
@@ -498,7 +590,7 @@ async function findOrCreateClient(phoneNumber: string, displayName: string | und
       phone: phoneNumber,
       organization_id: organizationId,
       notes: 'Автоматически создан из WhatsApp',
-      whatsapp_chat_id: `${phoneNumber.replace('+', '')}@c.us`
+      whatsapp_chat_id: `${normalizedPhone}@c.us`
     })
     .select()
     .single()
@@ -508,7 +600,7 @@ async function findOrCreateClient(phoneNumber: string, displayName: string | und
     throw error
   }
 
-  console.log(`Created new client: ${newClient.name} (${phoneNumber})`)
+  console.log(`Created new client: ${newClient.name} (${phoneNumber}) with id ${newClient.id}`)
 
   // Пытаемся получить аватарку для нового клиента
   const avatarUrl = await fetchAndSaveAvatar(phoneNumber, newClient.id)
