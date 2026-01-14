@@ -226,10 +226,12 @@ async function sendTextMessage(
   usePhoneNumber: boolean = false
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
-    // Use 'recipient' for phone numbers, 'to' for chat IDs
+    // For Telegram via Wappi.pro:
+    // - Use 'recipient' for phone numbers (when user hasn't chatted before)
+    // - Use 'chat_id' for existing Telegram chat IDs
     const bodyData = usePhoneNumber 
       ? { recipient, body: text }
-      : { to: recipient, body: text };
+      : { chat_id: recipient, body: text };
     
     console.log('Sending text message with body:', bodyData);
     
@@ -249,6 +251,32 @@ async function sendTextMessage(
     console.log('Wappi.pro send response:', data);
 
     if (!response.ok || data.status === 'error') {
+      // If chat_id fails, try with 'to' field as fallback
+      if (!usePhoneNumber && data.detail?.includes('recipient')) {
+        console.log('Retrying with "to" field instead of "chat_id"');
+        const retryBody = { to: recipient, body: text };
+        const retryResponse = await fetch(
+          `https://wappi.pro/tapi/sync/message/send?profile_id=${profileId}`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': apiToken,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(retryBody)
+          }
+        );
+        const retryData = await retryResponse.json();
+        console.log('Wappi.pro retry response:', retryData);
+        
+        if (retryResponse.ok && retryData.status !== 'error') {
+          return {
+            success: true,
+            messageId: retryData.message_id || retryData.id
+          };
+        }
+      }
+      
       return {
         success: false,
         error: data.detail || data.message || `HTTP ${response.status}`
@@ -277,10 +305,14 @@ async function sendFileMessage(
   usePhoneNumber: boolean = false
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
-    // Use 'recipient' for phone numbers, 'to' for chat IDs
+    // For Telegram via Wappi.pro:
+    // - Use 'recipient' for phone numbers
+    // - Use 'chat_id' for existing Telegram chat IDs
     const bodyData = usePhoneNumber 
       ? { recipient, url: fileUrl, caption: caption || undefined }
-      : { to: recipient, url: fileUrl, caption: caption || undefined };
+      : { chat_id: recipient, url: fileUrl, caption: caption || undefined };
+    
+    console.log('Sending file message with body:', bodyData);
     
     const response = await fetch(
       `https://wappi.pro/tapi/sync/message/file/url/send?profile_id=${profileId}`,
@@ -298,6 +330,31 @@ async function sendFileMessage(
     console.log('Wappi.pro send file response:', data);
 
     if (!response.ok || data.status === 'error') {
+      // If chat_id fails, try with 'to' field as fallback
+      if (!usePhoneNumber && data.detail?.includes('recipient')) {
+        console.log('Retrying file send with "to" field');
+        const retryBody = { to: recipient, url: fileUrl, caption: caption || undefined };
+        const retryResponse = await fetch(
+          `https://wappi.pro/tapi/sync/message/file/url/send?profile_id=${profileId}`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': apiToken,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(retryBody)
+          }
+        );
+        const retryData = await retryResponse.json();
+        
+        if (retryResponse.ok && retryData.status !== 'error') {
+          return {
+            success: true,
+            messageId: retryData.message_id || retryData.id
+          };
+        }
+      }
+      
       return {
         success: false,
         error: data.detail || data.message || `HTTP ${response.status}`
