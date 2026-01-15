@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const FUNCTION_VERSION = '2026-01-15-1841';
+const FUNCTION_VERSION = '2026-01-15-1925';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,8 +29,10 @@ Deno.serve(async (req) => {
     
     // Validate authorization and admin role
     const authHeader = req.headers.get('authorization');
+    console.log(`🔐 v${FUNCTION_VERSION} Auth header present: ${!!authHeader}`);
+    
     if (!authHeader?.startsWith('Bearer ')) {
-      console.error('❌ Unauthorized: no Bearer token');
+      console.error(`❌ v${FUNCTION_VERSION} Unauthorized: no Bearer token`);
       return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -38,6 +40,7 @@ Deno.serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
+    console.log(`🔐 v${FUNCTION_VERSION} Token length: ${token?.length || 0}`);
     const { data: userData, error: userError } = await supabase.auth.getUser(token);
     
     if (userError || !userData?.user) {
