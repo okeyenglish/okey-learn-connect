@@ -47,7 +47,9 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    
+    // Create a single service role client for all operations
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
     
     // Validate authorization and admin role
     const authHeader = req.headers.get('authorization');
@@ -59,32 +61,26 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check user role using anon key client with user's token
-    const userSupabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
     const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await userSupabase.auth.getClaims(token);
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
     
-    if (claimsError || !claimsData?.claims) {
-      console.error('❌ Invalid token:', claimsError?.message);
+    if (userError || !userData?.user) {
+      console.error('❌ Invalid token:', userError?.message);
       return new Response(JSON.stringify({ success: false, error: 'Invalid token' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    const userId = claimsData.claims.sub;
+    const userId = userData.user.id;
     console.log(`👤 User ID: ${userId}`);
 
-    // Check if user is admin using service role client
-    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-    
+    // Check if user is admin using the same service role client
     const { data: userRoles, error: rolesError } = await supabase
       .from('user_roles')
       .select('role')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .limit(1);
 
     if (rolesError) {
       console.error('❌ Error checking roles:', rolesError.message);
