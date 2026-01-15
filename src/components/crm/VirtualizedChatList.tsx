@@ -15,6 +15,8 @@ interface VirtualizedChatListProps {
   onChatClick: (chatId: string, type: string) => void;
   onChatAction: (chatId: string, action: string) => void;
   onBulkSelect: (chatId: string) => void;
+  onDeleteChat?: (chatId: string, chatName: string) => void;
+  onLinkChat?: (chatId: string, chatName: string) => void;
 }
 
 export const VirtualizedChatList = React.memo(({
@@ -29,7 +31,9 @@ export const VirtualizedChatList = React.memo(({
   getPinnedByUserName,
   onChatClick,
   onChatAction,
-  onBulkSelect
+  onBulkSelect,
+  onDeleteChat,
+  onLinkChat
 }: VirtualizedChatListProps) => {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -92,6 +96,8 @@ export const VirtualizedChatList = React.memo(({
                   onPinDialog={() => onChatAction(chat.id, 'pin')}
                   onArchive={() => onChatAction(chat.id, 'archive')}
                   onBlock={chat.type === 'client' ? () => onChatAction(chat.id, 'block') : undefined}
+                  onDelete={chat.type === 'client' && onDeleteChat ? () => onDeleteChat(chat.id, chat.name) : undefined}
+                  onLinkToClient={chat.type === 'client' && onLinkChat ? () => onLinkChat(chat.id, chat.name) : undefined}
                   onBulkSelect={() => onBulkSelect(chat.id)}
                 />
               </div>

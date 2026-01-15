@@ -31,6 +31,8 @@ interface ChatListItemProps {
   onPinDialog: () => void;
   onArchive: () => void;
   onBlock?: () => void;
+  onDelete?: () => void;
+  onLinkToClient?: () => void;
   onBulkSelect?: () => void;
 }
 
@@ -51,6 +53,8 @@ export const ChatListItem = React.memo(({
   onPinDialog,
   onArchive,
   onBlock,
+  onDelete,
+  onLinkToClient,
   onBulkSelect
 }: ChatListItemProps) => {
   return (
@@ -59,6 +63,8 @@ export const ChatListItem = React.memo(({
       onPinDialog={onPinDialog}
       onArchive={onArchive}
       onBlock={onBlock}
+      onDelete={onDelete}
+      onLinkToClient={onLinkToClient}
       isPinned={isPinned}
       isArchived={isArchived}
     >

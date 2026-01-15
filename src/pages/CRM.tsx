@@ -36,6 +36,8 @@ import { VirtualizedChatList } from "@/components/crm/VirtualizedChatList";
 import { AddClientModal } from "@/components/crm/AddClientModal";
 import { ClientsList } from "@/components/crm/ClientsList";
 import { NewChatModal } from "@/components/crm/NewChatModal";
+import { DeleteChatDialog } from "@/components/crm/DeleteChatDialog";
+import { LinkChatToClientModal } from "@/components/crm/LinkChatToClientModal";
 import { PinnedModalTabs } from "@/components/crm/PinnedModalTabs";
 import { WhatsAppStatusNotification } from "@/components/crm/WhatsAppStatusNotification";
 import { WhatsAppSessionsModal } from "@/components/crm/WhatsAppSessionsModal";
@@ -273,6 +275,11 @@ const CRMContent = () => {
     selectedChatIds,
     setSelectedChatIds,
   } = search;
+
+  // State for delete and link modals
+  const [deleteChatDialog, setDeleteChatDialog] = useState<{ open: boolean; chatId: string; chatName: string }>({ open: false, chatId: '', chatName: '' });
+  const [linkChatModal, setLinkChatModal] = useState<{ open: boolean; chatId: string; chatName: string }>({ open: false, chatId: '', chatName: '' });
+  const [isDeletingChat, setIsDeletingChat] = useState(false);
   
   // Критичные данные - загружаем сразу
   const { clients, isLoading: clientsLoading } = useClients();
@@ -1074,6 +1081,46 @@ const CRMContent = () => {
     }
     console.log(`${action} для чата:`, chatId);
   }, [markAsUnread, markAsUnreadMutation, togglePin, toggleArchive]);
+
+  // Delete chat handler
+  const handleDeleteChat = useCallback(async (chatId: string, chatName: string) => {
+    setDeleteChatDialog({ open: true, chatId, chatName });
+  }, []);
+
+  const confirmDeleteChat = useCallback(async () => {
+    if (!deleteChatDialog.chatId) return;
+    setIsDeletingChat(true);
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .update({ is_active: false })
+        .eq('id', deleteChatDialog.chatId);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+      if (activeChatId === deleteChatDialog.chatId) {
+        setActiveChatId(null);
+      }
+      setDeleteChatDialog({ open: false, chatId: '', chatName: '' });
+    } catch (error) {
+      console.error('Error deleting chat:', error);
+    } finally {
+      setIsDeletingChat(false);
+    }
+  }, [deleteChatDialog.chatId, activeChatId, queryClient, setActiveChatId]);
+
+  // Link chat handler
+  const handleLinkChat = useCallback((chatId: string, chatName: string) => {
+    setLinkChatModal({ open: true, chatId, chatName });
+  }, []);
+
+  const handleLinkChatSuccess = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['clients'] });
+    queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+    if (activeChatId === linkChatModal.chatId) {
+      setActiveChatId(null);
+    }
+  }, [queryClient, activeChatId, linkChatModal.chatId, setActiveChatId]);
 
   const [activeFamilyMemberId, setActiveFamilyMemberId] = useState('550e8400-e29b-41d4-a716-446655440001');
 
@@ -2905,6 +2952,8 @@ const CRMContent = () => {
                           onChatClick={handleChatClick}
                           onChatAction={handleChatAction}
                           onBulkSelect={handleBulkSelectToggle}
+                          onDeleteChat={handleDeleteChat}
+                          onLinkChat={handleLinkChat}
                         />
                       </div>
                     </>
@@ -2940,6 +2989,8 @@ const CRMContent = () => {
                         onChatClick={handleChatClick}
                         onChatAction={handleChatAction}
                         onBulkSelect={handleBulkSelectToggle}
+                        onDeleteChat={handleDeleteChat}
+                        onLinkChat={handleLinkChat}
                       />
                     </div>
                   )}
