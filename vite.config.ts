@@ -22,16 +22,13 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: {
-          // Split vendor libraries into separate chunks for better caching
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          query: ['@tanstack/react-query'],
+          // DO NOT separate react/react-dom - they must stay together to avoid dispatcher issues
           ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-toast', '@radix-ui/react-select', '@radix-ui/react-tabs'],
           supabase: ['@supabase/supabase-js'],
           icons: ['lucide-react'],
           forms: ['@hookform/resolvers', 'react-hook-form', 'zod'],
           utils: ['class-variance-authority', 'clsx', 'tailwind-merge', 'date-fns']
         },
-        // Optimize chunk loading
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash].[ext]'
@@ -40,13 +37,13 @@ export default defineConfig(({ mode }) => ({
     cssCodeSplit: true,
     sourcemap: false,
     minify: true,
-    // Reduce bundle size
     assetsInlineLimit: 4096,
     chunkSizeWarningLimit: 1000
   },
-  // Optimize dependencies
+  // Force React to be bundled once
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', '@tanstack/react-query'],
-    exclude: ['lucide-react']
+    include: ['react', 'react-dom', '@tanstack/react-query'],
+    exclude: ['lucide-react'],
+    force: true
   }
 }));
