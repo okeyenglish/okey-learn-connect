@@ -36,6 +36,108 @@ interface SalebotClient {
   operator_start_dialog: string | null;
 }
 
+// Helper: Normalize phone to format 79161234567
+function normalizePhone(phone: string | null | undefined): string {
+  if (!phone) return '';
+  let cleaned = phone.replace(/\D/g, '');
+  if (/^8\d{10}$/.test(cleaned)) {
+    cleaned = '7' + cleaned.substring(1);
+  }
+  if (cleaned.length === 10) {
+    cleaned = '7' + cleaned;
+  }
+  return cleaned;
+}
+
+// Helper: Check and increment API usage, returns remaining requests or -1 if limit reached
+async function checkAndIncrementApiUsage(supabase: any, incrementBy: number = 1): Promise<{ allowed: boolean; remaining: number; used: number; limit: number }> {
+  // Get or create today's usage record
+  const { data: usage } = await supabase.rpc('get_or_create_salebot_usage');
+  
+  if (!usage) {
+    console.error('Failed to get API usage record');
+    return { allowed: false, remaining: 0, used: 0, limit: 6000 };
+  }
+
+  const currentCount = usage.api_requests_count || 0;
+  const maxLimit = usage.max_daily_limit || 6000;
+  
+  // Check if adding incrementBy would exceed limit
+  if (currentCount + incrementBy > maxLimit) {
+    console.log(`⚠️ API лимит достигнут: ${currentCount}/${maxLimit}. Пропускаем импорт.`);
+    return { allowed: false, remaining: 0, used: currentCount, limit: maxLimit };
+  }
+
+  // Increment counter
+  const { data: updated } = await supabase.rpc('increment_salebot_api_usage', { increment_by: incrementBy });
+  const newCount = updated?.api_requests_count || currentCount + incrementBy;
+  
+  console.log(`📊 API использование: ${newCount}/${maxLimit} (+${incrementBy})`);
+  
+  return { 
+    allowed: true, 
+    remaining: maxLimit - newCount, 
+    used: newCount, 
+    limit: maxLimit 
+  };
+}
+
+// Helper: Link client with student by phone
+async function linkClientWithStudent(supabase: any, clientId: string, phoneNumber: string): Promise<void> {
+  const phoneLast10 = phoneNumber.slice(-10);
+  if (phoneLast10.length < 10) return;
+
+  // Search student by phone (contact_phone field)
+  const { data: students } = await supabase
+    .from('students')
+    .select('id, external_id, family_group_id, first_name, last_name')
+    .or(`contact_phone.ilike.%${phoneLast10}%,additional_contact_phone.ilike.%${phoneLast10}%`)
+    .limit(1);
+
+  if (students && students.length > 0) {
+    const student = students[0];
+    console.log(`🔗 Найден студент по телефону: ${student.first_name} ${student.last_name} (external_id: ${student.external_id})`);
+    
+    // Update client with HolyHope data
+    const updateData: any = {
+      holihope_metadata: {
+        student_id: student.id,
+        external_id: student.external_id,
+        linked_at: new Date().toISOString()
+      }
+    };
+    
+    // Link to family group if exists
+    if (student.family_group_id) {
+      // Check if client is already in family_members
+      const { data: existingMember } = await supabase
+        .from('family_members')
+        .select('id')
+        .eq('client_id', clientId)
+        .eq('family_group_id', student.family_group_id)
+        .maybeSingle();
+      
+      if (!existingMember) {
+        // Add client to family group
+        await supabase
+          .from('family_members')
+          .insert({
+            client_id: clientId,
+            family_group_id: student.family_group_id,
+            relationship_type: 'parent',
+            is_primary_contact: false
+          });
+        console.log(`👨‍👩‍👧 Клиент добавлен в семейную группу студента`);
+      }
+    }
+    
+    await supabase
+      .from('clients')
+      .update(updateData)
+      .eq('id', clientId);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -65,6 +167,24 @@ Deno.serve(async (req) => {
       console.log('⏸️ Автоимпорт на паузе (is_paused=true). Выходим.');
       return new Response(
         JSON.stringify({ skipped: true, paused: true, message: 'Auto-import paused' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ======== CHECK API LIMIT BEFORE STARTING ========
+    // Estimate: 1 get_clients + ~10 get_history = ~11 API requests per batch
+    const estimatedApiCalls = 11;
+    const apiCheck = await checkAndIncrementApiUsage(supabase, 0); // Check without incrementing
+    
+    if (!apiCheck.allowed || apiCheck.remaining < estimatedApiCalls) {
+      console.log(`⚠️ Недостаточно API лимита для батча. Осталось: ${apiCheck.remaining}, нужно: ${estimatedApiCalls}`);
+      return new Response(
+        JSON.stringify({ 
+          skipped: true, 
+          apiLimitReached: true, 
+          message: `Дневной лимит API достигнут (${apiCheck.used}/${apiCheck.limit})`,
+          apiUsage: apiCheck
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -129,7 +249,6 @@ Deno.serve(async (req) => {
 
     const progressId = lock.progress_id;
     
-    
     console.log('Результат блокировки:', JSON.stringify(lock));
     
     if (!progressId) {
@@ -174,13 +293,29 @@ Deno.serve(async (req) => {
     let totalImported = 0;
     let totalClients = 0;
     let totalProcessedMessages = 0;
+    let totalApiCalls = 0;
     let errors: string[] = [];
-    const clientBatchSize = 10; // Уменьшено с 20 до 10 для снижения риска таймаута
+    const clientBatchSize = 10;
 
     let salebotClients: SalebotClient[] = [];
 
     // Если указан list_id, получаем клиентов из списка Salebot
     if (listId) {
+      // ======== INCREMENT API COUNTER FOR get_clients ========
+      const apiResult = await checkAndIncrementApiUsage(supabase, 1);
+      totalApiCalls++;
+      if (!apiResult.allowed) {
+        console.log('⚠️ API лимит достигнут при get_clients');
+        await supabase
+          .from('salebot_import_progress')
+          .update({ is_running: false })
+          .eq('id', progressId);
+        return new Response(
+          JSON.stringify({ skipped: true, apiLimitReached: true, apiUsage: apiResult }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       const clientsUrl = `https://chatter.salebot.pro/api/${salebotApiKey}/get_clients`;
       const clientsResponse = await fetch(clientsUrl, {
         method: 'POST',
@@ -215,7 +350,8 @@ Deno.serve(async (req) => {
           JSON.stringify({
             success: true,
             completed: true,
-            message: 'All list clients processed'
+            message: 'All list clients processed',
+            apiCalls: totalApiCalls
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -245,7 +381,8 @@ Deno.serve(async (req) => {
           JSON.stringify({
             success: true,
             completed: true,
-            message: 'All clients processed'
+            message: 'All clients processed',
+            apiCalls: totalApiCalls
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -258,7 +395,18 @@ Deno.serve(async (req) => {
     if (listId && salebotClients.length > 0) {
       for (const salebotClient of salebotClients) {
         try {
+          // ======== CHECK API LIMIT BEFORE EACH get_history ========
+          const apiCheck = await checkAndIncrementApiUsage(supabase, 0);
+          if (!apiCheck.allowed || apiCheck.remaining < 1) {
+            console.log(`⚠️ API лимит достигнут. Прерываем батч на клиенте ${salebotClient.id}`);
+            break;
+          }
+
           console.log(`Обработка клиента из списка: Salebot ID ${salebotClient.id}, имя: ${salebotClient.name || 'неизвестно'}`);
+
+          // ======== INCREMENT API COUNTER FOR get_history ========
+          await checkAndIncrementApiUsage(supabase, 1);
+          totalApiCalls++;
 
           // Получаем историю сообщений
           const historyUrl = `https://chatter.salebot.pro/api/${salebotApiKey}/get_history?client_id=${salebotClient.id}&limit=2000`;
@@ -276,31 +424,26 @@ Deno.serve(async (req) => {
           if (messages.length === 0) continue;
 
           // Пытаемся извлечь телефон из platform_id или из сообщений
-          let phoneNumber = salebotClient.platform_id?.replace(/\D/g, '');
+          let phoneNumber = normalizePhone(salebotClient.platform_id);
           
           if (!phoneNumber || phoneNumber.length < 10) {
             console.log(`Не удалось извлечь телефон для клиента ${salebotClient.id}`);
             continue;
           }
 
-          // Нормализуем телефон
-          if (phoneNumber.match(/^8\d{10}$/)) {
-            phoneNumber = '7' + phoneNumber.substring(1);
-          }
-          if (phoneNumber.length === 10) {
-            phoneNumber = '7' + phoneNumber;
-          }
-
           console.log(`Извлечен телефон: ${phoneNumber}`);
 
-          // Ищем клиента в нашей базе по телефону
+          // ======== IMPROVED PHONE SEARCH (last 10 digits) ========
+          const phoneLast10 = phoneNumber.slice(-10);
+          
+          // Search by exact match first, then by last 10 digits
           const { data: existingPhones } = await supabase
             .from('client_phone_numbers')
-            .select('client_id, clients(id, name)')
-            .eq('phone', phoneNumber);
+            .select('client_id, phone, clients(id, name)')
+            .or(`phone.eq.${phoneNumber},phone.ilike.%${phoneLast10}`)
+            .limit(5);
 
           let clientId: string;
-          // Берем имя из Salebot, если оно есть и не пустое
           let clientName = (salebotClient.name && salebotClient.name.trim()) 
             ? salebotClient.name.trim() 
             : `Клиент ${phoneNumber}`;
@@ -309,6 +452,9 @@ Deno.serve(async (req) => {
             // Клиент существует
             clientId = existingPhones[0].client_id;
             console.log(`Найден существующий клиент: ${clientId}`);
+            
+            // Try to link with student
+            await linkClientWithStudent(supabase, clientId, phoneNumber);
           } else {
             // Создаем нового клиента
             const { data: newClient, error: createError } = await supabase
@@ -338,6 +484,9 @@ Deno.serve(async (req) => {
               });
 
             console.log(`Создан новый клиент: ${clientId}, телефон: ${phoneNumber}`);
+            
+            // Try to link with student from HolyHope
+            await linkClientWithStudent(supabase, clientId, phoneNumber);
           }
 
           // Преобразуем сообщения
@@ -388,32 +537,31 @@ Deno.serve(async (req) => {
             
             console.log(`Батч ${i/batchSize + 1}: всего ${batch.length} сообщений, уже существует ${existingIds.size}, новых ${newMessages.length}`);
             
-              if (newMessages.length > 0) {
-                const { error: insertError } = await supabase
-                  .from('chat_messages')
-                  .insert(newMessages, { onConflict: 'client_id,salebot_message_id', ignoreDuplicates: true });
+            if (newMessages.length > 0) {
+              const { error: insertError } = await supabase
+                .from('chat_messages')
+                .insert(newMessages, { onConflict: 'client_id,salebot_message_id', ignoreDuplicates: true });
 
-                if (insertError) {
-                  console.error('Ошибка вставки:', insertError);
-                } else {
-                  totalImported += newMessages.length;
-                  console.log(`Вставлено ${newMessages.length} новых сообщений, всего: ${totalImported}`);
-                }
+              if (insertError) {
+                console.error('Ошибка вставки:', insertError);
               } else {
-                console.log('Все сообщения в батче уже импортированы (дубликаты)');
+                totalImported += newMessages.length;
+                console.log(`Вставлено ${newMessages.length} новых сообщений, всего: ${totalImported}`);
               }
+            } else {
+              console.log('Все сообщения в батче уже импортированы (дубликаты)');
+            }
             
-            await new Promise(resolve => setTimeout(resolve, 100)); // Уменьшено с 200ms до 100ms
+            await new Promise(resolve => setTimeout(resolve, 100));
           }
 
           totalClients++;
           totalProcessedMessages += processedMessages;
-          console.log(`Клиент обработан. Всего клиентов: ${totalClients}, обработано всего сообщений: ${totalProcessedMessages}, новых: ${totalImported}`);
+          console.log(`Клиент обработан. Всего клиентов: ${totalClients}, обработано всего сообщений: ${totalProcessedMessages}, новых: ${totalImported}, API вызовов: ${totalApiCalls}`);
           
           // Промежуточный коммит каждые 5 клиентов
           if (totalClients % 5 === 0) {
             console.log(`💾 Промежуточный коммит (${totalClients} клиентов)...`);
-            // Обновляем явным образом абсолютные значения и heartbeat, чтобы UI видел свежие данные
             const nowIso = new Date().toISOString();
             const { error: updErr } = await supabase
               .from('salebot_import_progress')
@@ -444,7 +592,7 @@ Deno.serve(async (req) => {
           errors.push(`Salebot ID ${salebotClient.id}: ${error.message}`);
         }
 
-        await new Promise(resolve => setTimeout(resolve, 150)); // Уменьшено с 500ms до 150ms
+        await new Promise(resolve => setTimeout(resolve, 150));
       }
     } else if (!listId) {
       // Обработка клиентов из нашей базы
@@ -456,7 +604,7 @@ Deno.serve(async (req) => {
 
       if (!clients || clients.length === 0) {
         return new Response(
-          JSON.stringify({ success: true, completed: true }),
+          JSON.stringify({ success: true, completed: true, apiCalls: totalApiCalls }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -468,19 +616,16 @@ Deno.serve(async (req) => {
           const phone = phoneRecord.phone;
           if (!phone) continue;
 
-          let normalized = phone.replace(/\D/g, '');
-          
-          if (normalized.match(/^8\d{10}$/)) {
-            normalized = '7' + normalized.substring(1);
-          }
-          
-          if (normalized.length === 10) {
-            normalized = '7' + normalized;
-          }
-          
-          const cleanPhone = normalized;
+          const cleanPhone = normalizePhone(phone);
           
           try {
+            // Check API limit before each client lookup
+            const apiCheck = await checkAndIncrementApiUsage(supabase, 0);
+            if (!apiCheck.allowed || apiCheck.remaining < 5) {
+              console.log(`⚠️ API лимит достигнут. Прерываем батч.`);
+              break;
+            }
+
             console.log(`Обработка: ${client.name}, тел: ${phone} → ${cleanPhone}`);
 
             const phoneVariants = [
@@ -494,6 +639,10 @@ Deno.serve(async (req) => {
             let foundPhone = null;
 
             for (const phoneVariant of phoneVariants) {
+              // Increment API counter for each lookup attempt
+              await checkAndIncrementApiUsage(supabase, 1);
+              totalApiCalls++;
+
               const clientIdUrl = `https://chatter.salebot.pro/api/${salebotApiKey}/whatsapp_client_id?phone=${phoneVariant}&group_id=115236`;
               
               try {
@@ -519,6 +668,10 @@ Deno.serve(async (req) => {
             }
 
             console.log(`Получен client_id: ${salebotClientId} (формат: ${foundPhone})`);
+
+            // Increment for get_history
+            await checkAndIncrementApiUsage(supabase, 1);
+            totalApiCalls++;
 
             const historyUrl = `https://chatter.salebot.pro/api/${salebotApiKey}/get_history?client_id=${salebotClientId}&limit=2000`;
             const historyResponse = await fetch(historyUrl);
@@ -588,7 +741,7 @@ Deno.serve(async (req) => {
                 }
               }
               
-              await new Promise(resolve => setTimeout(resolve, 100)); // Уменьшено с 200ms до 100ms
+              await new Promise(resolve => setTimeout(resolve, 100));
             }
 
             totalClients++;
@@ -599,7 +752,7 @@ Deno.serve(async (req) => {
             errors.push(`${client.name}: ${error.message}`);
           }
 
-          await new Promise(resolve => setTimeout(resolve, 150)); // Уменьшено с 500ms до 150ms
+          await new Promise(resolve => setTimeout(resolve, 150));
         }
       }
     }
@@ -623,7 +776,10 @@ Deno.serve(async (req) => {
       .eq('id', progressId);
     if (finalUpdErr) console.error('❌ Ошибка финального обновления прогресса:', finalUpdErr);
 
-    console.log(`✅ Батч завершен. Клиентов: ${totalClients}, сообщений: ${totalProcessedMessages}, новых: ${totalImported}, nextOffset: ${nextOffset}`);
+    // Get final API usage stats
+    const finalApiUsage = await checkAndIncrementApiUsage(supabase, 0);
+
+    console.log(`✅ Батч завершен. Клиентов: ${totalClients}, сообщений: ${totalProcessedMessages}, новых: ${totalImported}, API вызовов: ${totalApiCalls}, nextOffset: ${nextOffset}`);
 
     const isCompleted = listId 
       ? salebotClients.length < clientBatchSize 
@@ -637,7 +793,9 @@ Deno.serve(async (req) => {
         nextOffset,
         completed: isCompleted,
         mode: listId ? 'list' : 'all_clients',
-        listId: listId || null
+        listId: listId || null,
+        apiCalls: totalApiCalls,
+        apiUsage: finalApiUsage
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
