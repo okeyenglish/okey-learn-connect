@@ -105,45 +105,50 @@ Deno.serve(async (req) => {
 
     console.log('✅ Admin role verified');
 
-    const { csvData, dryRun = false } = await req.json();
+    const { csvData, dryRun = false, parsedRows, chunkOffset = 0, chunkSize = 500 } = await req.json();
 
-    if (!csvData || typeof csvData !== 'string') {
-      throw new Error('CSV data is required');
-    }
-
-    console.log('📥 Начало импорта salebot_client_id из CSV');
-    console.log(`📊 Режим: ${dryRun ? 'тестовый (dry run)' : 'реальный импорт'}`);
-
-    // Parse CSV
-    const lines = csvData.split('\n').filter(line => line.trim());
-    console.log(`📊 Всего строк в CSV: ${lines.length}`);
-
-    // Skip header if present (check if first line contains 'ID' or similar)
-    const startIndex = lines[0].toLowerCase().includes('id') || 
-                       lines[0].toLowerCase().includes('имя') || 
-                       lines[0].toLowerCase().includes('name') ? 1 : 0;
+    // Two modes: 
+    // 1. Initial call with csvData - parse and return total, or process first chunk
+    // 2. Subsequent calls with parsedRows - process specific chunk
     
-    const rows: CsvRow[] = [];
+    let rows: CsvRow[] = [];
     
-    for (let i = startIndex; i < lines.length; i++) {
-      const fields = parseCsvLine(lines[i]);
-      if (fields.length >= 3) {
-        const salebotId = fields[0];
-        const name = fields[1];
-        // Phone can be in field 2 or 3 (CSV format: ID;Name;Phone;Phone)
-        const phone = fields[2] || fields[3];
-        
-        if (salebotId && phone) {
-          rows.push({
-            salebotId,
-            name,
-            phone: normalizePhone(phone)
-          });
+    if (parsedRows && Array.isArray(parsedRows)) {
+      // Mode 2: Already parsed rows provided
+      rows = parsedRows;
+      console.log(`📥 Получен chunk: offset=${chunkOffset}, размер chunk=${rows.length}`);
+    } else if (csvData && typeof csvData === 'string') {
+      // Mode 1: Parse CSV
+      console.log('📥 Начало импорта salebot_client_id из CSV');
+      console.log(`📊 Режим: ${dryRun ? 'тестовый (dry run)' : 'реальный импорт'}`);
+
+      const lines = csvData.split('\n').filter(line => line.trim());
+      console.log(`📊 Всего строк в CSV: ${lines.length}`);
+
+      const startIndex = lines[0].toLowerCase().includes('id') || 
+                         lines[0].toLowerCase().includes('имя') || 
+                         lines[0].toLowerCase().includes('name') ? 1 : 0;
+      
+      for (let i = startIndex; i < lines.length; i++) {
+        const fields = parseCsvLine(lines[i]);
+        if (fields.length >= 3) {
+          const salebotId = fields[0];
+          const name = fields[1];
+          const phone = fields[2] || fields[3];
+          
+          if (salebotId && phone) {
+            rows.push({
+              salebotId,
+              name,
+              phone: normalizePhone(phone)
+            });
+          }
         }
       }
+      console.log(`📊 Распознано записей: ${rows.length}`);
+    } else {
+      throw new Error('CSV data or parsedRows is required');
     }
-
-    console.log(`📊 Распознано записей: ${rows.length}`);
 
     // Get all phone numbers from database for matching (paginate to get all)
     let allPhoneRecords: { id: string; client_id: string; phone: string }[] = [];

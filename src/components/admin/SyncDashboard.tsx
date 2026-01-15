@@ -63,6 +63,11 @@ export function SyncDashboard() {
   const [isFillingIds, setIsFillingIds] = useState(false);
   const [isFullReimporting, setIsFullReimporting] = useState(false);
   const [isImportingCsv, setIsImportingCsv] = useState(false);
+  const [csvImportProgress, setCsvImportProgress] = useState<{
+    current: number;
+    total: number;
+    phase: 'parsing' | 'matching' | 'updating';
+  } | null>(null);
   const [csvImportResult, setCsvImportResult] = useState<{
     matched: number;
     updated: number;
@@ -422,75 +427,129 @@ export function SyncDashboard() {
     try {
       setIsImportingCsv(true);
       setCsvImportResult(null);
+      setCsvImportProgress({ current: 0, total: 0, phase: 'parsing' });
 
-      // Read file content
+      // Read and parse CSV file on client
       const csvData = await file.text();
       console.log('📁 CSV файл загружен:', file.name, 'размер:', csvData.length);
 
-      // Call edge function
-      const { data, error } = await supabase.functions.invoke('import-salebot-ids-csv', {
-        body: { csvData, dryRun: false }
+      // Parse CSV on client side
+      const lines = csvData.split('\n').filter(line => line.trim());
+      const startIndex = lines[0].toLowerCase().includes('id') || 
+                         lines[0].toLowerCase().includes('имя') || 
+                         lines[0].toLowerCase().includes('name') ? 1 : 0;
+      
+      const parsedRows: { salebotId: string; name: string; phone: string }[] = [];
+      
+      for (let i = startIndex; i < lines.length; i++) {
+        const fields = lines[i].split(';').map(f => f.trim().replace(/^["']|["']$/g, ''));
+        if (fields.length >= 3) {
+          const salebotId = fields[0];
+          const name = fields[1];
+          const phone = fields[2] || fields[3];
+          
+          if (salebotId && phone) {
+            // Normalize phone
+            let digits = phone.replace(/\D/g, '');
+            if (digits.startsWith('8') && digits.length === 11) {
+              digits = '7' + digits.substring(1);
+            }
+            if (!digits.startsWith('+')) {
+              digits = '+' + digits;
+            }
+            
+            parsedRows.push({ salebotId, name, phone: digits });
+          }
+        }
+      }
+
+      console.log(`📊 Распознано записей: ${parsedRows.length}`);
+      setCsvImportProgress({ current: 0, total: parsedRows.length, phase: 'matching' });
+
+      // Process in chunks
+      const chunkSize = 500;
+      let totalMatched = 0;
+      let totalUpdated = 0;
+      let totalNotFound = 0;
+      let totalErrors = 0;
+
+      for (let offset = 0; offset < parsedRows.length; offset += chunkSize) {
+        const chunk = parsedRows.slice(offset, offset + chunkSize);
+        
+        setCsvImportProgress({ 
+          current: offset, 
+          total: parsedRows.length, 
+          phase: 'updating' 
+        });
+
+        console.log(`📤 Отправка chunk: offset=${offset}, size=${chunk.length}`);
+
+        const { data, error } = await supabase.functions.invoke('import-salebot-ids-csv', {
+          body: { parsedRows: chunk, chunkOffset: offset, chunkSize }
+        });
+
+        if (error) {
+          const context = (error as any).context;
+          const status = context?.status;
+          
+          if (status === 401) {
+            throw new Error('Вы не авторизованы. Пожалуйста, обновите страницу и войдите снова.');
+          } else if (status === 403) {
+            throw new Error('Только администраторы могут выполнять импорт.');
+          } else if (status === 500) {
+            let detailedError = error.message;
+            try {
+              const bodyText = context?.body;
+              if (bodyText) {
+                const bodyJson = typeof bodyText === 'string' ? JSON.parse(bodyText) : bodyText;
+                if (bodyJson?.error) detailedError = bodyJson.error;
+              }
+            } catch { /* ignore */ }
+            throw new Error(`Ошибка сервера: ${detailedError}`);
+          }
+          throw error;
+        }
+
+        const result = data as any;
+        if (!result.success) {
+          throw new Error(result.error || 'Неизвестная ошибка');
+        }
+
+        totalMatched += result.matched || 0;
+        totalUpdated += result.updated || 0;
+        totalNotFound += result.notFound || 0;
+        totalErrors += result.errors || 0;
+
+        console.log(`✅ Chunk ${offset}-${offset + chunk.length}: matched=${result.matched}, updated=${result.updated}`);
+      }
+
+      setCsvImportProgress(null);
+      setCsvImportResult({
+        matched: totalMatched,
+        updated: totalUpdated,
+        notFound: totalNotFound,
+        errors: totalErrors
       });
 
-      // Handle different error cases with better messaging
-      if (error) {
-        const context = (error as any).context;
-        const status = context?.status;
-        
-        if (status === 401) {
-          throw new Error('Вы не авторизованы. Пожалуйста, обновите страницу и войдите снова.');
-        } else if (status === 403) {
-          throw new Error('Только администраторы могут выполнять импорт.');
-        } else if (status === 500) {
-          // Try to extract detailed error from response body
-          let detailedError = error.message;
-          try {
-            const bodyText = context?.body;
-            if (bodyText) {
-              const bodyJson = typeof bodyText === 'string' ? JSON.parse(bodyText) : bodyText;
-              if (bodyJson?.error) {
-                detailedError = bodyJson.error;
-              }
-            }
-          } catch {
-            // Ignore parsing errors
-          }
-          throw new Error(`Ошибка сервера: ${detailedError}`);
-        }
-        throw error;
-      }
+      toast({
+        title: 'Импорт завершён',
+        description: `Обновлено ${totalUpdated} клиентов из ${totalMatched} найденных`,
+      });
 
-      const result = data as any;
-      
-      if (result.success) {
-        setCsvImportResult({
-          matched: result.matched || 0,
-          updated: result.updated || 0,
-          notFound: result.notFound || 0,
-          errors: result.errors || 0
-        });
+      // Refresh stats
+      const [clientsWithIdRes, clientsWithoutIdRes] = await Promise.all([
+        supabase.from('clients').select('id', { count: 'exact', head: true }).not('salebot_client_id', 'is', null),
+        supabase.from('clients').select('id', { count: 'exact', head: true }).is('salebot_client_id', null)
+      ]);
 
-        toast({
-          title: 'Импорт завершён',
-          description: `Обновлено ${result.updated} клиентов из ${result.matched} найденных`,
-        });
-
-        // Refresh stats
-        const [clientsWithIdRes, clientsWithoutIdRes] = await Promise.all([
-          supabase.from('clients').select('id', { count: 'exact', head: true }).not('salebot_client_id', 'is', null),
-          supabase.from('clients').select('id', { count: 'exact', head: true }).is('salebot_client_id', null)
-        ]);
-
-        setDbStats(prev => prev ? {
-          ...prev,
-          clientsWithSalebotId: clientsWithIdRes.count || 0,
-          clientsWithoutSalebotId: clientsWithoutIdRes.count || 0
-        } : null);
-      } else {
-        throw new Error(result.error || 'Неизвестная ошибка');
-      }
+      setDbStats(prev => prev ? {
+        ...prev,
+        clientsWithSalebotId: clientsWithIdRes.count || 0,
+        clientsWithoutSalebotId: clientsWithoutIdRes.count || 0
+      } : null);
     } catch (error: any) {
       console.error('Ошибка импорта CSV:', error);
+      setCsvImportProgress(null);
       toast({
         title: 'Ошибка импорта',
         description: error.message || 'Неизвестная ошибка при импорте',
@@ -498,7 +557,6 @@ export function SyncDashboard() {
       });
     } finally {
       setIsImportingCsv(false);
-      // Reset file input
       if (csvFileInputRef.current) {
         csvFileInputRef.current.value = '';
       }
@@ -834,6 +892,28 @@ export function SyncDashboard() {
                   </Button>
                 </div>
               </div>
+
+              {/* CSV Import Progress */}
+              {csvImportProgress && (
+                <div className="p-3 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium text-cyan-700 dark:text-cyan-300">
+                      {csvImportProgress.phase === 'parsing' && '📄 Парсинг CSV...'}
+                      {csvImportProgress.phase === 'matching' && '🔍 Поиск совпадений...'}
+                      {csvImportProgress.phase === 'updating' && '📝 Обновление записей...'}
+                    </span>
+                    <span className="text-cyan-600 dark:text-cyan-400">
+                      {csvImportProgress.total > 0 
+                        ? `${csvImportProgress.current} / ${csvImportProgress.total} (${Math.round(csvImportProgress.current / csvImportProgress.total * 100)}%)`
+                        : 'Загрузка...'}
+                    </span>
+                  </div>
+                  <Progress 
+                    value={csvImportProgress.total > 0 ? (csvImportProgress.current / csvImportProgress.total) * 100 : 0} 
+                    className="h-2"
+                  />
+                </div>
+              )}
 
               {/* CSV Import Result */}
               {csvImportResult && (
