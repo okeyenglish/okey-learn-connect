@@ -489,8 +489,9 @@ export const useRealtimeMessages = (clientId: string) => {
           filter: `client_id=eq.${clientId}`,
         },
         () => {
+          // Only invalidate specific chat messages, not the entire chat-threads list
+          // chat-threads is already updated by debounced subscription in CRM.tsx
           queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
-          queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
         }
       )
       .on(
@@ -502,8 +503,8 @@ export const useRealtimeMessages = (clientId: string) => {
           filter: `client_id=eq.${clientId}`,
         },
         () => {
+          // Only invalidate specific chat messages, not the entire chat-threads list
           queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
-          queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
         }
       )
       .subscribe();

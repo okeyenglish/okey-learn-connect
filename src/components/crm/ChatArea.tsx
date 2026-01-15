@@ -501,8 +501,8 @@ export const ChatArea = ({
               });
             }
             // Invalidate unread counts to show badge on other tabs
+            // Note: chat-threads is already updated by debounced subscription in CRM.tsx
             queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', clientId] });
-            queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
           }
         }
       )
