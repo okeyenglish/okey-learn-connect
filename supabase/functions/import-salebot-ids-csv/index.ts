@@ -101,51 +101,36 @@ Deno.serve(async (req) => {
 
     console.log(`📥 Received ${updates.length} pre-matched updates`);
 
-    // Perform batch updates
-    const batchSize = 50;
-    let updatedCount = 0;
-    let errorCount = 0;
+    // Filter valid updates and prepare arrays for batch RPC
+    const validUpdates = updates.filter(u => !isNaN(parseInt(u.salebotId)));
+    const clientIds = validUpdates.map(u => u.clientId);
+    const salebotIds = validUpdates.map(u => parseInt(u.salebotId));
 
-    for (let i = 0; i < updates.length; i += batchSize) {
-      const batch = updates.slice(i, i + batchSize);
-      
-      // Process batch with Promise.all for parallel updates
-      const results = await Promise.all(
-        batch.map(async (update) => {
-          const salebotIdNum = parseInt(update.salebotId);
-          if (isNaN(salebotIdNum)) {
-            console.error(`❌ Invalid salebotId: ${update.salebotId}`);
-            return { success: false, error: 'Invalid salebotId' };
-          }
-          
-          const { error } = await supabase
-            .from('clients')
-            .update({ salebot_client_id: salebotIdNum })
-            .eq('id', update.clientId);
-          
-          return { success: !error, error };
-        })
-      );
+    console.log(`📊 Valid updates: ${validUpdates.length}, invalid: ${updates.length - validUpdates.length}`);
 
-      const batchSuccess = results.filter(r => r.success).length;
-      const batchErrors = results.filter(r => !r.success).length;
-      
-      updatedCount += batchSuccess;
-      errorCount += batchErrors;
+    // Use batch RPC for efficient single-query update
+    const { data: updatedCount, error: rpcError } = await supabase.rpc('batch_update_salebot_ids', {
+      p_client_ids: clientIds,
+      p_salebot_ids: salebotIds
+    });
 
-      if (batchErrors > 0) {
-        console.error(`❌ Errors in batch ${i}-${i + batchSize}: ${batchErrors}`);
-      }
-
-      console.log(`📊 Processed: ${Math.min(i + batchSize, updates.length)}/${updates.length}, success: ${batchSuccess}, errors: ${batchErrors}`);
+    if (rpcError) {
+      console.error('❌ Batch update RPC error:', rpcError);
+      return new Response(JSON.stringify({
+        success: false,
+        error: rpcError.message
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    console.log(`✅ Import complete: updated ${updatedCount}, errors ${errorCount}`);
+    console.log(`✅ Import complete: updated ${updatedCount} records`);
 
     return new Response(JSON.stringify({
       success: true,
-      updated: updatedCount,
-      errors: errorCount,
+      updated: updatedCount || 0,
+      errors: updates.length - validUpdates.length,
       total: updates.length
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

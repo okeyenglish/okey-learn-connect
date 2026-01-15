@@ -591,7 +591,7 @@ export function SyncDashboard() {
       // STEP 4: Send pre-matched updates to Edge Function in chunks with retry logic
       setCsvImportProgress({ current: 0, total: updates.length, phase: 'updating' });
       
-      const chunkSize = 500;
+      const chunkSize = 1000;
       let totalUpdated = 0;
       let totalErrors = 0;
 
@@ -631,6 +631,11 @@ export function SyncDashboard() {
         const chunk = updates.slice(offset, offset + chunkSize);
         
         console.log(`📤 Отправка chunk: offset=${offset}, size=${chunk.length}`);
+        
+        // Add delay between chunks to reduce DB load
+        if (offset > 0) {
+          await new Promise(r => setTimeout(r, 500));
+        }
 
         const { data, error } = await invokeWithRetry(chunk);
 
