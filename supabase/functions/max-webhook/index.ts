@@ -120,8 +120,9 @@ serve(async (req) => {
       
       case 'outgoingMessageReceived':
       case 'outgoingAPIMessageReceived':
-        // Messages sent from phone or API - could sync if needed
-        console.log('Outgoing message received, skipping sync');
+        // Messages sent from phone or API - sync to CRM
+        console.log('Outgoing message received, syncing to CRM');
+        await handleOutgoingMessage(supabase, organizationId, body);
         break;
       
       case 'outgoingMessageStatus':
@@ -513,6 +514,130 @@ async function enrichClientFromMax(supabase: any, organizationId: string, client
   } catch (error) {
     console.error('Error in enrichClientFromMax:', error);
   }
+}
+
+// Handle outgoing messages (sent from phone or API)
+async function handleOutgoingMessage(supabase: any, organizationId: string, webhook: GreenApiWebhook) {
+  const { senderData, messageData, idMessage, timestamp } = webhook;
+  
+  // For outgoing messages, senderData contains the recipient info
+  const chatId = senderData?.chatId;
+  
+  if (!chatId || !messageData) {
+    console.log('Missing chatId or messageData for outgoing message');
+    return;
+  }
+
+  console.log(`Processing outgoing MAX message to chatId: ${chatId}`);
+
+  // Check for duplicate message first (message might have been sent via CRM)
+  const { data: existingMessage } = await supabase
+    .from('chat_messages')
+    .select('id')
+    .eq('external_message_id', idMessage)
+    .maybeSingle();
+
+  if (existingMessage) {
+    console.log('Outgoing message already exists (sent via CRM), skipping:', idMessage);
+    return;
+  }
+
+  // Find client by max_chat_id
+  let { data: client } = await supabase
+    .from('clients')
+    .select('id')
+    .eq('organization_id', organizationId)
+    .eq('max_chat_id', chatId)
+    .maybeSingle();
+
+  if (!client) {
+    // Try to find in client_phone_numbers
+    const { data: phoneRecord } = await supabase
+      .from('client_phone_numbers')
+      .select('client_id, clients!inner(organization_id)')
+      .eq('max_chat_id', chatId)
+      .eq('clients.organization_id', organizationId)
+      .maybeSingle();
+
+    if (phoneRecord) {
+      client = { id: phoneRecord.client_id };
+    }
+  }
+
+  if (!client) {
+    console.log(`Client not found for outgoing MAX message to ${chatId}, skipping`);
+    return;
+  }
+
+  // Extract message content (same logic as incoming)
+  let messageText = '';
+  let fileUrl = null;
+  let fileName = null;
+  let fileType = null;
+
+  switch (messageData.typeMessage) {
+    case 'textMessage':
+      messageText = messageData.textMessageData?.textMessage || '';
+      break;
+    
+    case 'extendedTextMessage':
+      messageText = messageData.extendedTextMessageData?.text || '';
+      break;
+    
+    case 'imageMessage':
+    case 'videoMessage':
+    case 'audioMessage':
+    case 'documentMessage':
+      fileUrl = messageData.fileMessageData?.downloadUrl;
+      fileName = messageData.fileMessageData?.fileName;
+      fileType = messageData.fileMessageData?.mimeType;
+      messageText = messageData.fileMessageData?.caption || `[${messageData.typeMessage}]`;
+      break;
+    
+    case 'locationMessage':
+      const loc = messageData.locationMessageData;
+      messageText = `📍 ${loc?.nameLocation || 'Location'}: ${loc?.latitude}, ${loc?.longitude}`;
+      break;
+    
+    case 'contactMessage':
+      messageText = `👤 Contact: ${messageData.contactMessageData?.displayName || 'Unknown'}`;
+      break;
+    
+    default:
+      messageText = `[${messageData.typeMessage}]`;
+  }
+
+  // Save message as outgoing (from manager/phone)
+  const { error: insertError } = await supabase
+    .from('chat_messages')
+    .insert({
+      client_id: client.id,
+      organization_id: organizationId,
+      message_text: messageText,
+      message_type: 'manager', // Sent by manager (from phone)
+      messenger_type: 'max',
+      is_outgoing: true,
+      is_read: true, // Outgoing messages are already read
+      external_message_id: idMessage,
+      file_url: fileUrl,
+      file_name: fileName,
+      file_type: fileType,
+      message_status: 'sent',
+      created_at: new Date(timestamp * 1000).toISOString()
+    });
+
+  if (insertError) {
+    console.error('Error saving outgoing MAX message:', insertError);
+    return;
+  }
+
+  // Update client's last_message_at
+  await supabase
+    .from('clients')
+    .update({ last_message_at: new Date().toISOString() })
+    .eq('id', client.id);
+
+  console.log(`Saved outgoing MAX message for client ${client.id}`);
 }
 
 async function handleMessageStatus(supabase: any, webhook: GreenApiWebhook) {
