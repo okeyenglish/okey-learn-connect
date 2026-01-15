@@ -78,93 +78,138 @@ export function SyncDashboard() {
   const [newApiLimit, setNewApiLimit] = useState<string>('6000');
   const [isSavingLimit, setIsSavingLimit] = useState(false);
 
-  // Fetch all data
+  // Smart polling: only fetch when tab is visible, with backoff on errors
+  const [pollInterval, setPollInterval] = useState(10000); // Start at 10s
+  const [lastStatsRefresh, setLastStatsRefresh] = useState<number>(0);
+
+  const fetchProgressOnly = async () => {
+    try {
+      // Get Salebot progress (lightweight)
+      const { data: progressData } = await supabase
+        .from('salebot_import_progress')
+        .select('*')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (progressData) {
+        const isCompleted = !progressData.is_running && 
+          !progressData.is_paused && 
+          progressData.total_clients_processed > 0 &&
+          progressData.current_offset > 0;
+        
+        setImportProgress({
+          totalClientsProcessed: progressData.total_clients_processed || 0,
+          totalImported: progressData.total_imported || 0,
+          totalMessagesImported: progressData.total_messages_imported || 0,
+          currentOffset: progressData.current_offset || 0,
+          startTime: progressData.start_time ? new Date(progressData.start_time) : null,
+          lastRunAt: progressData.last_run_at ? new Date(progressData.last_run_at) : null,
+          isRunning: progressData.is_running || false,
+          isPaused: progressData.is_paused || false,
+          isCompleted,
+          resyncMode: progressData.resync_mode || false,
+          resyncOffset: progressData.resync_offset || 0,
+          resyncTotalClients: progressData.resync_total_clients || 0,
+          resyncNewMessages: progressData.resync_new_messages || 0,
+          fillIdsMode: (progressData as any).fill_ids_mode || false,
+          fillIdsOffset: (progressData as any).fill_ids_offset || 0,
+          fillIdsTotalProcessed: (progressData as any).fill_ids_total_processed || 0,
+          fillIdsTotalMatched: (progressData as any).fill_ids_total_matched || 0
+        });
+
+        // If import is running, poll faster (5s), otherwise slow down (30s)
+        setPollInterval(progressData.is_running ? 5000 : 30000);
+      }
+
+      // Get API usage (lightweight)
+      const today = new Date().toISOString().split('T')[0];
+      const { data: usageData } = await supabase
+        .from('salebot_api_usage')
+        .select('*')
+        .eq('date', today)
+        .maybeSingle();
+
+      const currentLimit = usageData?.max_daily_limit || 6000;
+      setApiUsage({
+        used: usageData?.api_requests_count || 0,
+        limit: currentLimit,
+        remaining: currentLimit - (usageData?.api_requests_count || 0),
+        date: today
+      });
+      setNewApiLimit(currentLimit.toString());
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error fetching progress:', error);
+      // Backoff on error: increase interval up to 60s
+      setPollInterval(prev => Math.min(prev * 2, 60000));
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch DB stats manually (heavy queries) - not on auto-refresh
+  const fetchDbStats = async () => {
+    try {
+      const [clientsRes, studentsRes, messagesRes, familyRes, clientsWithIdRes, clientsWithoutIdRes] = await Promise.all([
+        supabase.from('clients').select('id', { count: 'exact', head: true }),
+        supabase.from('students').select('id', { count: 'exact', head: true }),
+        supabase.from('chat_messages').select('id', { count: 'exact', head: true }),
+        supabase.from('family_groups').select('id', { count: 'exact', head: true }),
+        supabase.from('clients').select('id', { count: 'exact', head: true }).not('salebot_client_id', 'is', null),
+        supabase.from('clients').select('id', { count: 'exact', head: true }).is('salebot_client_id', null)
+      ]);
+
+      setDbStats({
+        clients: clientsRes.count || 0,
+        students: studentsRes.count || 0,
+        messages: messagesRes.count || 0,
+        familyGroups: familyRes.count || 0,
+        clientsWithSalebotId: clientsWithIdRes.count || 0,
+        clientsWithoutSalebotId: clientsWithoutIdRes.count || 0
+      });
+      setLastStatsRefresh(Date.now());
+    } catch (error) {
+      console.error('Error fetching DB stats:', error);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Get Salebot progress
-        const { data: progressData } = await supabase
-          .from('salebot_import_progress')
-          .select('*')
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+    // Initial fetch
+    fetchProgressOnly();
+    fetchDbStats(); // Fetch stats once on mount
 
-        if (progressData) {
-          // Check if import is completed (offset > 0 and clients processed, not running, not paused)
-          const isCompleted = !progressData.is_running && 
-            !progressData.is_paused && 
-            progressData.total_clients_processed > 0 &&
-            progressData.current_offset > 0;
-          
-          setImportProgress({
-            totalClientsProcessed: progressData.total_clients_processed || 0,
-            totalImported: progressData.total_imported || 0,
-            totalMessagesImported: progressData.total_messages_imported || 0,
-            currentOffset: progressData.current_offset || 0,
-            startTime: progressData.start_time ? new Date(progressData.start_time) : null,
-            lastRunAt: progressData.last_run_at ? new Date(progressData.last_run_at) : null,
-            isRunning: progressData.is_running || false,
-            isPaused: progressData.is_paused || false,
-            isCompleted,
-            resyncMode: progressData.resync_mode || false,
-            resyncOffset: progressData.resync_offset || 0,
-            resyncTotalClients: progressData.resync_total_clients || 0,
-            resyncNewMessages: progressData.resync_new_messages || 0,
-            fillIdsMode: (progressData as any).fill_ids_mode || false,
-            fillIdsOffset: (progressData as any).fill_ids_offset || 0,
-            fillIdsTotalProcessed: (progressData as any).fill_ids_total_processed || 0,
-            fillIdsTotalMatched: (progressData as any).fill_ids_total_matched || 0
-          });
-        }
+    let intervalId: NodeJS.Timeout;
 
-        // Get API usage
-        const today = new Date().toISOString().split('T')[0];
-        const { data: usageData } = await supabase
-          .from('salebot_api_usage')
-          .select('*')
-          .eq('date', today)
-          .maybeSingle();
-
-        const currentLimit = usageData?.max_daily_limit || 6000;
-        setApiUsage({
-          used: usageData?.api_requests_count || 0,
-          limit: currentLimit,
-          remaining: currentLimit - (usageData?.api_requests_count || 0),
-          date: today
-        });
-        setNewApiLimit(currentLimit.toString());
-
-        // Get DB stats including salebot_client_id counts
-        const [clientsRes, studentsRes, messagesRes, familyRes, clientsWithIdRes, clientsWithoutIdRes] = await Promise.all([
-          supabase.from('clients').select('id', { count: 'exact', head: true }),
-          supabase.from('students').select('id', { count: 'exact', head: true }),
-          supabase.from('chat_messages').select('id', { count: 'exact', head: true }),
-          supabase.from('family_groups').select('id', { count: 'exact', head: true }),
-          supabase.from('clients').select('id', { count: 'exact', head: true }).not('salebot_client_id', 'is', null),
-          supabase.from('clients').select('id', { count: 'exact', head: true }).is('salebot_client_id', null)
-        ]);
-
-        setDbStats({
-          clients: clientsRes.count || 0,
-          students: studentsRes.count || 0,
-          messages: messagesRes.count || 0,
-          familyGroups: familyRes.count || 0,
-          clientsWithSalebotId: clientsWithIdRes.count || 0,
-          clientsWithoutSalebotId: clientsWithoutIdRes.count || 0
-        });
-
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Error fetching sync data:', error);
-        setIsLoading(false);
+    const startPolling = () => {
+      // Only poll if tab is visible
+      if (document.visibilityState === 'visible') {
+        intervalId = setInterval(() => {
+          if (document.visibilityState === 'visible') {
+            fetchProgressOnly();
+          }
+        }, pollInterval);
       }
     };
 
-    fetchData();
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Resume polling when tab becomes visible
+        fetchProgressOnly();
+        startPolling();
+      } else {
+        // Stop polling when tab is hidden
+        if (intervalId) clearInterval(intervalId);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    startPolling();
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [pollInterval]);
 
   const handleStopImport = async () => {
     try {
@@ -857,6 +902,20 @@ export function SyncDashboard() {
       </div>
 
       {/* Stats Overview */}
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm text-muted-foreground">
+          {lastStatsRefresh > 0 && `Обновлено: ${new Date(lastStatsRefresh).toLocaleTimeString()}`}
+        </span>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={fetchDbStats}
+          className="gap-1"
+        >
+          <RefreshCw className="h-3 w-3" />
+          Обновить статистику
+        </Button>
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
