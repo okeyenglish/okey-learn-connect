@@ -1,0 +1,190 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+interface CsvRow {
+  salebotId: string;
+  name: string;
+  phone: string;
+}
+
+function normalizePhone(phone: string): string {
+  // Remove all non-digit characters
+  let digits = phone.replace(/\D/g, '');
+  
+  // Handle Russian phone numbers
+  if (digits.startsWith('8') && digits.length === 11) {
+    digits = '7' + digits.substring(1);
+  }
+  
+  // Add + prefix if not present
+  if (!digits.startsWith('+')) {
+    digits = '+' + digits;
+  }
+  
+  return digits;
+}
+
+function parseCsvLine(line: string): string[] {
+  // Handle semicolon-separated values
+  return line.split(';').map(field => field.trim().replace(/^["']|["']$/g, ''));
+}
+
+Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
+    const { csvData, dryRun = false } = await req.json();
+
+    if (!csvData || typeof csvData !== 'string') {
+      throw new Error('CSV data is required');
+    }
+
+    console.log('📥 Начало импорта salebot_client_id из CSV');
+    console.log(`📊 Режим: ${dryRun ? 'тестовый (dry run)' : 'реальный импорт'}`);
+
+    // Parse CSV
+    const lines = csvData.split('\n').filter(line => line.trim());
+    console.log(`📊 Всего строк в CSV: ${lines.length}`);
+
+    // Skip header if present (check if first line contains 'ID' or similar)
+    const startIndex = lines[0].toLowerCase().includes('id') || 
+                       lines[0].toLowerCase().includes('имя') || 
+                       lines[0].toLowerCase().includes('name') ? 1 : 0;
+    
+    const rows: CsvRow[] = [];
+    
+    for (let i = startIndex; i < lines.length; i++) {
+      const fields = parseCsvLine(lines[i]);
+      if (fields.length >= 3) {
+        const salebotId = fields[0];
+        const name = fields[1];
+        // Phone can be in field 2 or 3 (CSV format: ID;Name;Phone;Phone)
+        const phone = fields[2] || fields[3];
+        
+        if (salebotId && phone) {
+          rows.push({
+            salebotId,
+            name,
+            phone: normalizePhone(phone)
+          });
+        }
+      }
+    }
+
+    console.log(`📊 Распознано записей: ${rows.length}`);
+
+    // Get all phone numbers from database for matching
+    const { data: phoneRecords, error: phoneError } = await supabase
+      .from('client_phone_numbers')
+      .select('id, client_id, phone');
+
+    if (phoneError) {
+      throw new Error(`Ошибка получения телефонов: ${phoneError.message}`);
+    }
+
+    console.log(`📊 Телефонов в базе: ${phoneRecords?.length || 0}`);
+
+    // Create phone lookup map (normalized phone -> client_id)
+    const phoneToClientMap = new Map<string, string>();
+    for (const record of phoneRecords || []) {
+      const normalizedPhone = normalizePhone(record.phone);
+      phoneToClientMap.set(normalizedPhone, record.client_id);
+    }
+
+    // Match and prepare updates
+    const updates: { clientId: string; salebotId: string; phone: string }[] = [];
+    const notFound: string[] = [];
+
+    for (const row of rows) {
+      const clientId = phoneToClientMap.get(row.phone);
+      if (clientId) {
+        updates.push({
+          clientId,
+          salebotId: row.salebotId,
+          phone: row.phone
+        });
+      } else {
+        notFound.push(row.phone);
+      }
+    }
+
+    console.log(`✅ Найдено совпадений: ${updates.length}`);
+    console.log(`❌ Не найдено: ${notFound.length}`);
+
+    if (dryRun) {
+      // Just return stats without making changes
+      return new Response(JSON.stringify({
+        success: true,
+        dryRun: true,
+        totalRows: rows.length,
+        matched: updates.length,
+        notFound: notFound.length,
+        sampleNotFound: notFound.slice(0, 10),
+        sampleMatched: updates.slice(0, 10).map(u => ({ phone: u.phone, salebotId: u.salebotId }))
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Perform actual updates in batches
+    const batchSize = 100;
+    let updatedCount = 0;
+    let errorCount = 0;
+
+    for (let i = 0; i < updates.length; i += batchSize) {
+      const batch = updates.slice(i, i + batchSize);
+      
+      // Update each client
+      for (const update of batch) {
+        const { error: updateError } = await supabase
+          .from('clients')
+          .update({ salebot_client_id: parseInt(update.salebotId) })
+          .eq('id', update.clientId);
+
+        if (updateError) {
+          console.error(`❌ Ошибка обновления ${update.clientId}: ${updateError.message}`);
+          errorCount++;
+        } else {
+          updatedCount++;
+        }
+      }
+
+      console.log(`📊 Обработано: ${Math.min(i + batchSize, updates.length)}/${updates.length}`);
+    }
+
+    console.log(`✅ Импорт завершён: обновлено ${updatedCount}, ошибок ${errorCount}`);
+
+    return new Response(JSON.stringify({
+      success: true,
+      dryRun: false,
+      totalRows: rows.length,
+      matched: updates.length,
+      updated: updatedCount,
+      errors: errorCount,
+      notFound: notFound.length
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка импорта CSV:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+});

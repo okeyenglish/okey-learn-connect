@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CheckCircle2, XCircle, AlertCircle, RefreshCw, Database, MessageSquare, Users, Clock, Pause, Play } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, AlertCircle, RefreshCw, Database, MessageSquare, Users, Clock, Pause, Play, Upload, FileSpreadsheet } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
@@ -62,6 +62,14 @@ export function SyncDashboard() {
   const [isResyncingAll, setIsResyncingAll] = useState(false);
   const [isFillingIds, setIsFillingIds] = useState(false);
   const [isFullReimporting, setIsFullReimporting] = useState(false);
+  const [isImportingCsv, setIsImportingCsv] = useState(false);
+  const [csvImportResult, setCsvImportResult] = useState<{
+    matched: number;
+    updated: number;
+    notFound: number;
+    errors?: number;
+  } | null>(null);
+  const csvFileInputRef = useRef<HTMLInputElement>(null);
   const [newApiLimit, setNewApiLimit] = useState<string>('6000');
   const [isSavingLimit, setIsSavingLimit] = useState(false);
 
@@ -398,6 +406,79 @@ export function SyncDashboard() {
     }
   };
 
+  const handleCsvFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv')) {
+      toast({
+        title: 'Неверный формат',
+        description: 'Пожалуйста, выберите CSV файл',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setIsImportingCsv(true);
+      setCsvImportResult(null);
+
+      // Read file content
+      const csvData = await file.text();
+      console.log('📁 CSV файл загружен:', file.name, 'размер:', csvData.length);
+
+      // Call edge function
+      const { data, error } = await supabase.functions.invoke('import-salebot-ids-csv', {
+        body: { csvData, dryRun: false }
+      });
+
+      if (error) throw error;
+
+      const result = data as any;
+      
+      if (result.success) {
+        setCsvImportResult({
+          matched: result.matched || 0,
+          updated: result.updated || 0,
+          notFound: result.notFound || 0,
+          errors: result.errors || 0
+        });
+
+        toast({
+          title: 'Импорт завершён',
+          description: `Обновлено ${result.updated} клиентов из ${result.matched} найденных`,
+        });
+
+        // Refresh stats
+        const [clientsWithIdRes, clientsWithoutIdRes] = await Promise.all([
+          supabase.from('clients').select('id', { count: 'exact', head: true }).not('salebot_client_id', 'is', null),
+          supabase.from('clients').select('id', { count: 'exact', head: true }).is('salebot_client_id', null)
+        ]);
+
+        setDbStats(prev => prev ? {
+          ...prev,
+          clientsWithSalebotId: clientsWithIdRes.count || 0,
+          clientsWithoutSalebotId: clientsWithoutIdRes.count || 0
+        } : null);
+      } else {
+        throw new Error(result.error || 'Неизвестная ошибка');
+      }
+    } catch (error: any) {
+      console.error('Ошибка импорта CSV:', error);
+      toast({
+        title: 'Ошибка импорта',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsImportingCsv(false);
+      // Reset file input
+      if (csvFileInputRef.current) {
+        csvFileInputRef.current.value = '';
+      }
+    }
+  };
+
   const handleResetProgress = async () => {
     if (!confirm('Вы уверены? Это сбросит весь прогресс импорта Salebot.')) return;
     
@@ -688,19 +769,66 @@ export function SyncDashboard() {
                 </Alert>
               )}
               
-              <Button 
-                variant="default" 
-                className="bg-cyan-600 hover:bg-cyan-700 w-full"
-                onClick={handleFillSalebotIds} 
-                disabled={isFillingIds || importProgress?.isRunning || (apiUsage?.remaining || 0) < 1}
-              >
-                {isFillingIds ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                )}
-                Заполнить Salebot IDs
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button 
+                  variant="default" 
+                  className="bg-cyan-600 hover:bg-cyan-700 flex-1"
+                  onClick={handleFillSalebotIds} 
+                  disabled={isFillingIds || importProgress?.isRunning || (apiUsage?.remaining || 0) < 1}
+                >
+                  {isFillingIds ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  )}
+                  Заполнить через API
+                </Button>
+                
+                <div className="relative flex-1">
+                  <input
+                    ref={csvFileInputRef}
+                    type="file"
+                    accept=".csv"
+                    onChange={handleCsvFileSelect}
+                    className="hidden"
+                    id="csv-salebot-upload"
+                  />
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-cyan-500 text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-950"
+                    onClick={() => csvFileInputRef.current?.click()}
+                    disabled={isImportingCsv}
+                  >
+                    {isImportingCsv ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <FileSpreadsheet className="mr-2 h-4 w-4" />
+                    )}
+                    Загрузить CSV
+                  </Button>
+                </div>
+              </div>
+
+              {/* CSV Import Result */}
+              {csvImportResult && (
+                <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                  <div className="text-sm font-medium text-green-700 dark:text-green-300 mb-2">
+                    ✅ Результат импорта CSV:
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                    <div>Найдено: <strong>{csvImportResult.matched}</strong></div>
+                    <div>Обновлено: <strong className="text-green-600">{csvImportResult.updated}</strong></div>
+                    <div>Не найдено: <strong className="text-orange-600">{csvImportResult.notFound}</strong></div>
+                    {csvImportResult.errors ? (
+                      <div>Ошибок: <strong className="text-red-600">{csvImportResult.errors}</strong></div>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground">
+                Загрузите CSV файл с клиентами из Salebot (формат: ID;Имя;Телефон) для быстрого связывания
+              </p>
             </CardContent>
           </Card>
 
