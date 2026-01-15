@@ -37,24 +37,75 @@ export const LinkChatToClientModal = ({
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [isLinking, setIsLinking] = useState(false);
 
-  // Search for clients
+  // Search for clients with improved phone search
   const { data: clients = [], isLoading } = useQuery({
     queryKey: ["clients-for-link", searchQuery],
     queryFn: async () => {
       if (!searchQuery || searchQuery.length < 2) return [];
 
-      const { data, error } = await supabase
+      // Normalize phone - extract only digits
+      const phoneDigits = searchQuery.replace(/\D/g, "");
+      const isPhoneSearch = phoneDigits.length >= 4;
+      
+      // Get last 10 digits for phone matching (Russian format)
+      const phonePattern = phoneDigits.length >= 10 
+        ? phoneDigits.slice(-10) 
+        : phoneDigits;
+
+      // First, search clients directly
+      let clientIds = new Set<string>();
+      
+      // Search by name/email
+      const { data: clientsByName } = await supabase
+        .from("clients")
+        .select("id")
+        .eq("is_active", true)
+        .neq("id", chatClientId)
+        .or(`name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`)
+        .limit(50);
+      
+      (clientsByName || []).forEach(c => clientIds.add(c.id));
+
+      // Search by phone in clients table
+      if (isPhoneSearch) {
+        const { data: clientsByPhone } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("is_active", true)
+          .neq("id", chatClientId)
+          .ilike("phone", `%${phonePattern}%`)
+          .limit(50);
+        
+        (clientsByPhone || []).forEach(c => clientIds.add(c.id));
+
+        // Search in client_phone_numbers table
+        const { data: phoneNumbers } = await supabase
+          .from("client_phone_numbers")
+          .select("client_id, phone")
+          .ilike("phone", `%${phonePattern}%`)
+          .limit(100);
+        
+        if (phoneNumbers) {
+          for (const pn of phoneNumbers) {
+            if (pn.client_id !== chatClientId) {
+              clientIds.add(pn.client_id);
+            }
+          }
+        }
+      }
+
+      if (clientIds.size === 0) return [];
+
+      // Fetch full client data
+      const { data: fullClients, error } = await supabase
         .from("clients")
         .select("id, name, phone, email, avatar_url, telegram_chat_id, whatsapp_chat_id, max_chat_id")
+        .in("id", Array.from(clientIds))
         .eq("is_active", true)
-        .neq("id", chatClientId) // Exclude current chat client
-        .or(
-          `name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`
-        )
-        .limit(20);
+        .limit(30);
 
       if (error) throw error;
-      return data || [];
+      return fullClients || [];
     },
     enabled: searchQuery.length >= 2,
   });
