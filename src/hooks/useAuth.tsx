@@ -64,6 +64,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [originalRoles, setOriginalRoles] = useState<AppRole[]>([]);
 
   const fetchProfile = async (userId: string) => {
+    console.log('🔍 fetchProfile called for userId:', userId);
     try {
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
@@ -71,18 +72,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         .eq('id', userId)
         .single();
 
+      console.log('📋 Profile result:', { profileData, profileError });
       if (profileError) throw profileError;
 
       // Получаем основную роль
       const { data: roleData, error: roleError } = await supabase
         .rpc('get_user_role', { _user_id: userId });
 
+      console.log('👤 Role result:', { roleData, roleError });
       if (roleError) throw roleError;
 
       // Получаем все роли пользователя
       const { data: rolesData, error: rolesError } = await supabase
         .rpc('get_user_roles', { _user_id: userId });
 
+      console.log('👥 Roles result:', { rolesData, rolesError });
       if (rolesError) throw rolesError;
 
       // Ensure avatar_url exists in the profile data
@@ -95,10 +99,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setRole(roleData);
       setRoles(rolesData || []);
       
+      console.log('✅ Roles set in state:', { role: roleData, roles: rolesData });
+      
       // Подгружаем базовые разрешения
       await loadUserPermissions(userId);
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error('❌ Error fetching profile:', error);
     }
   };
 
@@ -207,10 +213,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('🔐 getSession result:', { hasSession: !!session, userId: session?.user?.id });
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
+        console.log('🔐 getSession: existing session found, fetching profile...');
         setTimeout(() => {
           fetchProfile(session.user.id);
         }, 0);
