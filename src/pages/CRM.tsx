@@ -959,31 +959,53 @@ const CRMContent = () => {
       const existingClient = clients.find(c => c.id === chatId);
       const existingThread = threads.find(t => t.client_id === chatId);
       
+      // Helper to get phone: try client.phone first, then fetch from client_phone_numbers
+      const getClientPhone = async (clientId: string, clientPhone?: string | null): Promise<string> => {
+        if (clientPhone) return clientPhone;
+        const { data: primaryPhone } = await supabase
+          .from('client_phone_numbers')
+          .select('phone')
+          .eq('client_id', clientId)
+          .eq('is_primary', true)
+          .maybeSingle();
+        return primaryPhone?.phone || '';
+      };
+      
       if (existingClient) {
+        const phone = await getClientPhone(chatId, existingClient.phone);
         setActiveClientInfo({
           name: existingClient.name,
-          phone: existingClient.phone,
+          phone: phone,
           comment: existingClient.notes || 'Клиент'
         });
       } else if (existingThread) {
+        const phone = existingThread.client_phone || await getClientPhone(chatId, null);
         setActiveClientInfo({
           name: existingThread.client_name,
-          phone: existingThread.client_phone,
+          phone: phone,
           comment: 'Клиент'
         });
       } else {
         // Загружаем из базы данных
         try {
-          const { data: clientData, error } = await supabase
-            .from('clients')
-            .select('name, phone, notes')
-            .eq('id', chatId)
-            .maybeSingle();
+          const [{ data: clientData, error }, { data: primaryPhone }] = await Promise.all([
+            supabase
+              .from('clients')
+              .select('name, phone, notes')
+              .eq('id', chatId)
+              .maybeSingle(),
+            supabase
+              .from('client_phone_numbers')
+              .select('phone')
+              .eq('client_id', chatId)
+              .eq('is_primary', true)
+              .maybeSingle()
+          ]);
           
           if (!error && clientData) {
             setActiveClientInfo({
               name: clientData.name,
-              phone: clientData.phone || '',
+              phone: clientData.phone || primaryPhone?.phone || '',
               comment: clientData.notes || 'Клиент'
             });
           } else {
