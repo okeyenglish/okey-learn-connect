@@ -429,6 +429,45 @@ export function SyncDashboard() {
       setCsvImportResult(null);
       setCsvImportProgress({ current: 0, total: 0, phase: 'parsing' });
 
+      // STEP 0: Verify user is admin before proceeding
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: 'Ошибка авторизации',
+          description: 'Вы не авторизованы. Пожалуйста, обновите страницу и войдите снова.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const { data: adminCheck, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+
+      if (roleError) {
+        console.error('Ошибка проверки роли:', roleError);
+        toast({
+          title: 'Ошибка проверки прав',
+          description: 'Не удалось проверить ваши права доступа',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (!adminCheck) {
+        toast({
+          title: 'Доступ запрещён',
+          description: 'Импорт Salebot IDs доступен только администраторам',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      console.log('✅ Права администратора подтверждены');
+
       // Read and parse CSV file on client
       const csvData = await file.text();
       console.log('📁 CSV файл загружен:', file.name, 'размер:', csvData.length);
@@ -532,36 +571,66 @@ export function SyncDashboard() {
         return;
       }
 
-      // STEP 4: Send pre-matched updates to Edge Function in chunks
+      // STEP 4: Send pre-matched updates to Edge Function in chunks with retry logic
       setCsvImportProgress({ current: 0, total: updates.length, phase: 'updating' });
       
       const chunkSize = 500;
       let totalUpdated = 0;
       let totalErrors = 0;
 
+      // Helper function for invoking with retry
+      const invokeWithRetry = async (chunk: { clientId: string; salebotId: string }[], maxRetries = 3) => {
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+          // Refresh session before each attempt to prevent token expiration
+          await supabase.auth.refreshSession();
+          
+          const { data, error } = await supabase.functions.invoke('import-salebot-ids-csv', {
+            body: { updates: chunk }
+          });
+          
+          if (!error) {
+            return { data, error: null };
+          }
+          
+          const context = (error as any).context;
+          const status = context?.status;
+          
+          // Don't retry on auth errors - these are real authorization issues
+          if (status === 401 || status === 403) {
+            return { data: null, error };
+          }
+          
+          // Retry on 5xx or network errors
+          if (attempt < maxRetries - 1) {
+            const delayMs = 1000 * (attempt + 1); // 1s, 2s, 3s
+            console.log(`⚠️ Ошибка ${status || 'network'}, повторная попытка через ${delayMs}ms...`);
+            await new Promise(r => setTimeout(r, delayMs));
+          }
+        }
+        return { data: null, error: new Error('Превышено количество попыток') };
+      };
+
       for (let offset = 0; offset < updates.length; offset += chunkSize) {
         const chunk = updates.slice(offset, offset + chunkSize);
         
-        setCsvImportProgress({ 
-          current: offset, 
-          total: updates.length, 
-          phase: 'updating' 
-        });
-
         console.log(`📤 Отправка chunk: offset=${offset}, size=${chunk.length}`);
 
-        const { data, error } = await supabase.functions.invoke('import-salebot-ids-csv', {
-          body: { updates: chunk }
-        });
+        const { data, error } = await invokeWithRetry(chunk);
 
         if (error) {
           const context = (error as any).context;
           const status = context?.status;
           
+          console.error(`❌ Ошибка на chunk ${offset}-${offset + chunkSize}:`, {
+            status,
+            body: context?.body,
+            message: error.message
+          });
+          
           if (status === 401) {
-            throw new Error('Вы не авторизованы. Пожалуйста, обновите страницу и войдите снова.');
+            throw new Error('Сессия истекла. Пожалуйста, обновите страницу и войдите снова.');
           } else if (status === 403) {
-            throw new Error('Только администраторы могут выполнять импорт.');
+            throw new Error(`Ошибка 403 на chunk ${offset}/${updates.length}. Пожалуйста, обновите страницу и попробуйте снова.`);
           } else if (status === 500) {
             let detailedError = error.message;
             try {
@@ -571,9 +640,9 @@ export function SyncDashboard() {
                 if (bodyJson?.error) detailedError = bodyJson.error;
               }
             } catch { /* ignore */ }
-            throw new Error(`Ошибка сервера: ${detailedError}`);
+            throw new Error(`Ошибка сервера на chunk ${offset}: ${detailedError}`);
           }
-          throw error;
+          throw new Error(`Ошибка на chunk ${offset}/${updates.length}: ${error.message}`);
         }
 
         const result = data as any;
@@ -583,6 +652,13 @@ export function SyncDashboard() {
 
         totalUpdated += result.updated || 0;
         totalErrors += result.errors || 0;
+
+        // Update progress AFTER successful chunk
+        setCsvImportProgress({ 
+          current: offset + chunk.length, 
+          total: updates.length, 
+          phase: 'updating' 
+        });
 
         console.log(`✅ Chunk ${offset}-${offset + chunk.length}: updated=${result.updated}, errors=${result.errors || 0}`);
       }
