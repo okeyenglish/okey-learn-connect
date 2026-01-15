@@ -53,6 +53,8 @@ export function SyncDashboard() {
   const [isRunningBatch, setIsRunningBatch] = useState(false);
   const [isSyncingNew, setIsSyncingNew] = useState(false);
   const [isResyncingAll, setIsResyncingAll] = useState(false);
+  const [newApiLimit, setNewApiLimit] = useState<string>('6000');
+  const [isSavingLimit, setIsSavingLimit] = useState(false);
 
   // Fetch all data
   useEffect(() => {
@@ -98,12 +100,14 @@ export function SyncDashboard() {
           .eq('date', today)
           .maybeSingle();
 
+        const currentLimit = usageData?.max_daily_limit || 6000;
         setApiUsage({
           used: usageData?.api_requests_count || 0,
-          limit: usageData?.max_daily_limit || 6000,
-          remaining: (usageData?.max_daily_limit || 6000) - (usageData?.api_requests_count || 0),
+          limit: currentLimit,
+          remaining: currentLimit - (usageData?.api_requests_count || 0),
           date: today
         });
+        setNewApiLimit(currentLimit.toString());
 
         // Get DB stats
         const [clientsRes, studentsRes, messagesRes, familyRes] = await Promise.all([
@@ -371,6 +375,53 @@ export function SyncDashboard() {
     }
   };
 
+  const handleUpdateApiLimit = async () => {
+    const limitValue = parseInt(newApiLimit, 10);
+    if (isNaN(limitValue) || limitValue < 100 || limitValue > 100000) {
+      toast({
+        title: 'Неверное значение',
+        description: 'Лимит должен быть от 100 до 100 000',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setIsSavingLimit(true);
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { error } = await supabase
+        .from('salebot_api_usage')
+        .upsert({ 
+          date: today,
+          max_daily_limit: limitValue
+        }, { 
+          onConflict: 'date' 
+        });
+      
+      if (error) throw error;
+      
+      setApiUsage(prev => prev ? {
+        ...prev,
+        limit: limitValue,
+        remaining: limitValue - prev.used
+      } : null);
+      
+      toast({
+        title: 'Лимит обновлён',
+        description: `Новый дневной лимит: ${limitValue.toLocaleString()} запросов`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingLimit(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -455,17 +506,41 @@ export function SyncDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div className="flex justify-between text-sm">
-                  <span>Использовано: <strong>{apiUsage?.used}</strong> / {apiUsage?.limit}</span>
+                  <span>Использовано: <strong>{apiUsage?.used?.toLocaleString()}</strong> / {apiUsage?.limit?.toLocaleString()}</span>
                   <span className={apiUsage?.remaining && apiUsage.remaining < 500 ? 'text-red-600 font-semibold' : 'text-green-600'}>
-                    Осталось: {apiUsage?.remaining}
+                    Осталось: {apiUsage?.remaining?.toLocaleString()}
                   </span>
                 </div>
                 <Progress value={apiUsage ? (apiUsage.used / apiUsage.limit) * 100 : 0} className="h-3" />
                 <p className="text-xs text-muted-foreground">
-                  ~{apiUsage ? Math.floor(apiUsage.remaining / 11) : 0} клиентов можно импортировать сегодня (11 API запросов на клиента)
+                  ~{apiUsage ? Math.floor(apiUsage.remaining / 11).toLocaleString() : 0} клиентов можно импортировать сегодня (11 API запросов на клиента)
                 </p>
+                
+                {/* Edit limit section */}
+                <div className="pt-2 border-t border-amber-200 dark:border-amber-800">
+                  <Label className="text-xs text-muted-foreground">Дневной лимит запросов</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      type="number"
+                      value={newApiLimit}
+                      onChange={(e) => setNewApiLimit(e.target.value)}
+                      placeholder="6000"
+                      className="w-32"
+                      min={100}
+                      max={100000}
+                    />
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleUpdateApiLimit}
+                      disabled={isSavingLimit}
+                    >
+                      {isSavingLimit ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Сохранить'}
+                    </Button>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
