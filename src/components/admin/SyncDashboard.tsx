@@ -439,53 +439,119 @@ export function SyncDashboard() {
                          lines[0].toLowerCase().includes('имя') || 
                          lines[0].toLowerCase().includes('name') ? 1 : 0;
       
-      const parsedRows: { salebotId: string; name: string; phone: string }[] = [];
+      const parsedRows: { salebotId: string; phone: string }[] = [];
+      
+      // Helper function to normalize phone (matching the utility)
+      const normalizePhoneLocal = (phone: string): string => {
+        let digits = phone.replace(/\D/g, '');
+        if (digits.startsWith('8') && digits.length === 11) {
+          digits = '7' + digits.substring(1);
+        }
+        if (digits.length === 10) {
+          digits = '7' + digits;
+        }
+        return digits;
+      };
       
       for (let i = startIndex; i < lines.length; i++) {
         const fields = lines[i].split(';').map(f => f.trim().replace(/^["']|["']$/g, ''));
         if (fields.length >= 3) {
           const salebotId = fields[0];
-          const name = fields[1];
           const phone = fields[2] || fields[3];
           
           if (salebotId && phone) {
-            // Normalize phone
-            let digits = phone.replace(/\D/g, '');
-            if (digits.startsWith('8') && digits.length === 11) {
-              digits = '7' + digits.substring(1);
-            }
-            if (!digits.startsWith('+')) {
-              digits = '+' + digits;
-            }
-            
-            parsedRows.push({ salebotId, name, phone: digits });
+            parsedRows.push({ salebotId, phone: normalizePhoneLocal(phone) });
           }
         }
       }
 
-      console.log(`📊 Распознано записей: ${parsedRows.length}`);
+      console.log(`📊 Распознано записей CSV: ${parsedRows.length}`);
       setCsvImportProgress({ current: 0, total: parsedRows.length, phase: 'matching' });
 
-      // Process in chunks
-      const chunkSize = 500;
-      let totalMatched = 0;
-      let totalUpdated = 0;
+      // STEP 1: Load ALL phone numbers from database ONCE (with pagination)
+      console.log('📥 Загрузка телефонов из базы данных...');
+      const allPhoneRecords: { client_id: string; phone: string }[] = [];
+      let page = 0;
+      const pageSize = 1000;
+
+      while (true) {
+        const { data: pageRecords, error: phoneError } = await supabase
+          .from('client_phone_numbers')
+          .select('client_id, phone')
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+        
+        if (phoneError) {
+          throw new Error(`Ошибка загрузки телефонов: ${phoneError.message}`);
+        }
+        
+        if (!pageRecords || pageRecords.length === 0) break;
+        allPhoneRecords.push(...pageRecords);
+        console.log(`📊 Загружено телефонов: ${allPhoneRecords.length}`);
+        
+        if (pageRecords.length < pageSize) break;
+        page++;
+      }
+
+      console.log(`✅ Всего телефонов в базе: ${allPhoneRecords.length}`);
+
+      // STEP 2: Build phone->clientId lookup map on client
+      const phoneToClientMap = new Map<string, string>();
+      for (const record of allPhoneRecords) {
+        const normalized = normalizePhoneLocal(record.phone);
+        phoneToClientMap.set(normalized, record.client_id);
+      }
+
+      // STEP 3: Match CSV rows to clients on client-side
+      const updates: { clientId: string; salebotId: string }[] = [];
       let totalNotFound = 0;
+
+      for (const row of parsedRows) {
+        const clientId = phoneToClientMap.get(row.phone);
+        if (clientId) {
+          updates.push({ clientId, salebotId: row.salebotId });
+        } else {
+          totalNotFound++;
+        }
+      }
+
+      console.log(`✅ Найдено совпадений: ${updates.length}, не найдено: ${totalNotFound}`);
+      
+      if (updates.length === 0) {
+        setCsvImportProgress(null);
+        setCsvImportResult({
+          matched: 0,
+          updated: 0,
+          notFound: totalNotFound,
+          errors: 0
+        });
+        toast({
+          title: 'Совпадений не найдено',
+          description: `Ни один телефон из CSV не найден в базе данных`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // STEP 4: Send pre-matched updates to Edge Function in chunks
+      setCsvImportProgress({ current: 0, total: updates.length, phase: 'updating' });
+      
+      const chunkSize = 500;
+      let totalUpdated = 0;
       let totalErrors = 0;
 
-      for (let offset = 0; offset < parsedRows.length; offset += chunkSize) {
-        const chunk = parsedRows.slice(offset, offset + chunkSize);
+      for (let offset = 0; offset < updates.length; offset += chunkSize) {
+        const chunk = updates.slice(offset, offset + chunkSize);
         
         setCsvImportProgress({ 
           current: offset, 
-          total: parsedRows.length, 
+          total: updates.length, 
           phase: 'updating' 
         });
 
         console.log(`📤 Отправка chunk: offset=${offset}, size=${chunk.length}`);
 
         const { data, error } = await supabase.functions.invoke('import-salebot-ids-csv', {
-          body: { parsedRows: chunk, chunkOffset: offset, chunkSize }
+          body: { updates: chunk }
         });
 
         if (error) {
@@ -515,17 +581,15 @@ export function SyncDashboard() {
           throw new Error(result.error || 'Неизвестная ошибка');
         }
 
-        totalMatched += result.matched || 0;
         totalUpdated += result.updated || 0;
-        totalNotFound += result.notFound || 0;
         totalErrors += result.errors || 0;
 
-        console.log(`✅ Chunk ${offset}-${offset + chunk.length}: matched=${result.matched}, updated=${result.updated}`);
+        console.log(`✅ Chunk ${offset}-${offset + chunk.length}: updated=${result.updated}, errors=${result.errors || 0}`);
       }
 
       setCsvImportProgress(null);
       setCsvImportResult({
-        matched: totalMatched,
+        matched: updates.length,
         updated: totalUpdated,
         notFound: totalNotFound,
         errors: totalErrors
@@ -533,7 +597,7 @@ export function SyncDashboard() {
 
       toast({
         title: 'Импорт завершён',
-        description: `Обновлено ${totalUpdated} клиентов из ${totalMatched} найденных`,
+        description: `Обновлено ${totalUpdated} клиентов из ${updates.length} найденных`,
       });
 
       // Refresh stats

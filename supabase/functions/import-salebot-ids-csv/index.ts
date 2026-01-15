@@ -1,38 +1,15 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const FUNCTION_VERSION = '2026-01-15-1720';
+const FUNCTION_VERSION = '2026-01-15-1800';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface CsvRow {
+interface UpdateRequest {
+  clientId: string;
   salebotId: string;
-  name: string;
-  phone: string;
-}
-
-function normalizePhone(phone: string): string {
-  // Remove all non-digit characters
-  let digits = phone.replace(/\D/g, '');
-  
-  // Handle Russian phone numbers
-  if (digits.startsWith('8') && digits.length === 11) {
-    digits = '7' + digits.substring(1);
-  }
-  
-  // Add + prefix if not present
-  if (!digits.startsWith('+')) {
-    digits = '+' + digits;
-  }
-  
-  return digits;
-}
-
-function parseCsvLine(line: string): string[] {
-  // Handle semicolon-separated values
-  return line.split(';').map(field => field.trim().replace(/^["']|["']$/g, ''));
 }
 
 Deno.serve(async (req) => {
@@ -42,7 +19,6 @@ Deno.serve(async (req) => {
   }
 
   console.log(`🚀 import-salebot-ids-csv v${FUNCTION_VERSION} started`);
-  console.log(`📋 Headers: x-client-info=${req.headers.get('x-client-info') || 'none'}, auth=${req.headers.get('authorization') ? 'present' : 'missing'}`);
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -75,7 +51,7 @@ Deno.serve(async (req) => {
     const userId = userData.user.id;
     console.log(`👤 User ID: ${userId}`);
 
-    // Check if user is admin using the same service role client
+    // Check if user is admin
     const { data: userRoles, error: rolesError } = await supabase
       .from('user_roles')
       .select('role')
@@ -101,121 +77,22 @@ Deno.serve(async (req) => {
 
     console.log('✅ Admin role verified');
 
-    const { csvData, dryRun = false, parsedRows, chunkOffset = 0, chunkSize = 500 } = await req.json();
+    // Parse request body - expecting pre-matched updates from client
+    const { updates } = await req.json() as { updates: UpdateRequest[] };
 
-    // Two modes: 
-    // 1. Initial call with csvData - parse and return total, or process first chunk
-    // 2. Subsequent calls with parsedRows - process specific chunk
-    
-    let rows: CsvRow[] = [];
-    
-    if (parsedRows && Array.isArray(parsedRows)) {
-      // Mode 2: Already parsed rows provided
-      rows = parsedRows;
-      console.log(`📥 Получен chunk: offset=${chunkOffset}, размер chunk=${rows.length}`);
-    } else if (csvData && typeof csvData === 'string') {
-      // Mode 1: Parse CSV
-      console.log('📥 Начало импорта salebot_client_id из CSV');
-      console.log(`📊 Режим: ${dryRun ? 'тестовый (dry run)' : 'реальный импорт'}`);
-
-      const lines = csvData.split('\n').filter(line => line.trim());
-      console.log(`📊 Всего строк в CSV: ${lines.length}`);
-
-      const startIndex = lines[0].toLowerCase().includes('id') || 
-                         lines[0].toLowerCase().includes('имя') || 
-                         lines[0].toLowerCase().includes('name') ? 1 : 0;
-      
-      for (let i = startIndex; i < lines.length; i++) {
-        const fields = parseCsvLine(lines[i]);
-        if (fields.length >= 3) {
-          const salebotId = fields[0];
-          const name = fields[1];
-          const phone = fields[2] || fields[3];
-          
-          if (salebotId && phone) {
-            rows.push({
-              salebotId,
-              name,
-              phone: normalizePhone(phone)
-            });
-          }
-        }
-      }
-      console.log(`📊 Распознано записей: ${rows.length}`);
-    } else {
-      throw new Error('CSV data or parsedRows is required');
-    }
-
-    // Get all phone numbers from database for matching (paginate to get all)
-    let allPhoneRecords: { id: string; client_id: string; phone: string }[] = [];
-    let page = 0;
-    const pageSize = 1000;
-    
-    while (true) {
-      const { data: pageRecords, error: phoneError } = await supabase
-        .from('client_phone_numbers')
-        .select('id, client_id, phone')
-        .range(page * pageSize, (page + 1) * pageSize - 1);
-
-      if (phoneError) {
-        throw new Error(`Ошибка получения телефонов: ${phoneError.message}`);
-      }
-
-      if (!pageRecords || pageRecords.length === 0) break;
-      
-      allPhoneRecords = allPhoneRecords.concat(pageRecords);
-      console.log(`📊 Загружено телефонов: ${allPhoneRecords.length}`);
-      
-      if (pageRecords.length < pageSize) break;
-      page++;
-    }
-
-    console.log(`📊 Всего телефонов в базе: ${allPhoneRecords.length}`);
-
-    // Create phone lookup map (normalized phone -> client_id)
-    const phoneToClientMap = new Map<string, string>();
-    for (const record of allPhoneRecords) {
-      const normalizedPhone = normalizePhone(record.phone);
-      phoneToClientMap.set(normalizedPhone, record.client_id);
-    }
-
-    // Match and prepare updates
-    const updates: { clientId: string; salebotId: string; phone: string }[] = [];
-    const notFound: string[] = [];
-
-    for (const row of rows) {
-      const clientId = phoneToClientMap.get(row.phone);
-      if (clientId) {
-        updates.push({
-          clientId,
-          salebotId: row.salebotId,
-          phone: row.phone
-        });
-      } else {
-        notFound.push(row.phone);
-      }
-    }
-
-    console.log(`✅ Найдено совпадений: ${updates.length}`);
-    console.log(`❌ Не найдено: ${notFound.length}`);
-
-    if (dryRun) {
-      // Just return stats without making changes
-      return new Response(JSON.stringify({
-        success: true,
-        dryRun: true,
-        totalRows: rows.length,
-        matched: updates.length,
-        notFound: notFound.length,
-        sampleNotFound: notFound.slice(0, 10),
-        sampleMatched: updates.slice(0, 10).map(u => ({ phone: u.phone, salebotId: u.salebotId }))
+    if (!updates || !Array.isArray(updates) || updates.length === 0) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'No updates provided. Expected array of {clientId, salebotId}' 
       }), {
+        status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    // Perform actual updates in batches using individual UPDATE queries
-    // (upsert requires all NOT NULL fields which we don't have)
+    console.log(`📥 Received ${updates.length} pre-matched updates`);
+
+    // Perform batch updates
     const batchSize = 50;
     let updatedCount = 0;
     let errorCount = 0;
@@ -226,9 +103,15 @@ Deno.serve(async (req) => {
       // Process batch with Promise.all for parallel updates
       const results = await Promise.all(
         batch.map(async (update) => {
+          const salebotIdNum = parseInt(update.salebotId);
+          if (isNaN(salebotIdNum)) {
+            console.error(`❌ Invalid salebotId: ${update.salebotId}`);
+            return { success: false, error: 'Invalid salebotId' };
+          }
+          
           const { error } = await supabase
             .from('clients')
-            .update({ salebot_client_id: parseInt(update.salebotId) })
+            .update({ salebot_client_id: salebotIdNum })
             .eq('id', update.clientId);
           
           return { success: !error, error };
@@ -242,28 +125,25 @@ Deno.serve(async (req) => {
       errorCount += batchErrors;
 
       if (batchErrors > 0) {
-        console.error(`❌ Ошибки в batch ${i}-${i + batchSize}: ${batchErrors}`);
+        console.error(`❌ Errors in batch ${i}-${i + batchSize}: ${batchErrors}`);
       }
 
-      console.log(`📊 Обработано: ${Math.min(i + batchSize, updates.length)}/${updates.length}, успешно: ${batchSuccess}, ошибок: ${batchErrors}`);
+      console.log(`📊 Processed: ${Math.min(i + batchSize, updates.length)}/${updates.length}, success: ${batchSuccess}, errors: ${batchErrors}`);
     }
 
-    console.log(`✅ Импорт завершён: обновлено ${updatedCount}, ошибок ${errorCount}`);
+    console.log(`✅ Import complete: updated ${updatedCount}, errors ${errorCount}`);
 
     return new Response(JSON.stringify({
       success: true,
-      dryRun: false,
-      totalRows: rows.length,
-      matched: updates.length,
       updated: updatedCount,
       errors: errorCount,
-      notFound: notFound.length
+      total: updates.length
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
-    console.error('❌ Ошибка импорта CSV:', error);
+    console.error('❌ Import error:', error);
     return new Response(JSON.stringify({
       success: false,
       error: error.message
