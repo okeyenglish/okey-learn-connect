@@ -295,7 +295,8 @@ Deno.serve(async (req) => {
     let totalProcessedMessages = 0;
     let totalApiCalls = 0;
     let errors: string[] = [];
-    const clientBatchSize = 10;
+    // Reduced batch size to complete within 60s edge function timeout
+    const clientBatchSize = 5;
 
     let salebotClients: SalebotClient[] = [];
 

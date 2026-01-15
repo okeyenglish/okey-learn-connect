@@ -44,6 +44,7 @@ export function SyncDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [salebotListId, setSalebotListId] = useState<string>('740756');
   const [isImporting, setIsImporting] = useState(false);
+  const [isRunningBatch, setIsRunningBatch] = useState(false);
 
   // Fetch all data
   useEffect(() => {
@@ -164,6 +165,38 @@ export function SyncDashboard() {
       });
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  const handleRunBatch = async () => {
+    try {
+      setIsRunningBatch(true);
+      
+      const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto');
+      if (error) throw error;
+      
+      const result = data as any;
+      
+      if (result?.skipped) {
+        toast({
+          title: result.apiLimitReached ? 'Лимит API' : 'Пропущено',
+          description: result.message || 'Батч пропущен',
+          variant: result.apiLimitReached ? 'destructive' : 'default',
+        });
+      } else {
+        toast({
+          title: 'Батч выполнен',
+          description: `Обработано клиентов: ${result?.totalClients || 0}, сообщений: ${result?.messagesImported || 0}`,
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRunningBatch(false);
     }
   };
 
@@ -415,6 +448,18 @@ export function SyncDashboard() {
                     Запустить импорт
                   </Button>
                 )}
+                <Button 
+                  variant="secondary" 
+                  onClick={handleRunBatch} 
+                  disabled={isRunningBatch || importProgress?.isRunning || (apiUsage?.remaining || 0) < 11}
+                >
+                  {isRunningBatch ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  )}
+                  Запустить 1 батч
+                </Button>
                 <Button variant="outline" onClick={handleResetProgress}>
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Сбросить прогресс
