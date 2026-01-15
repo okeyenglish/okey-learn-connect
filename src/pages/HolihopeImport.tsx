@@ -72,76 +72,112 @@ export default function HolihopeImport() {
     { id: 'lesson_plans', name: '22. Планы занятий', description: 'ДЗ и материалы (текст + ссылки)', action: 'import_lesson_plans', status: 'pending' },
   ]);
 
-  // Poll import progress and API usage continuously
+  // Smart polling: only when tab visible, with adaptive interval
+  const [pollInterval, setPollInterval] = useState(15000); // Start at 15s
+
   useEffect(() => {
     const pollProgress = async () => {
-      // 1) Пытаемся получить именно текущий запущенный прогресс
-      let query = supabase
-        .from('salebot_import_progress')
-        .select('*')
-        .eq('is_running', true)
-        .order('last_run_at', { ascending: false, nullsFirst: false })
-        .order('updated_at', { ascending: false, nullsFirst: false })
-        .limit(1)
-        .single();
+      // Skip if tab is hidden
+      if (document.visibilityState !== 'visible') return;
 
-      let { data } = await query;
-
-      // 2) Фолбэк – берём последний по времени обновления
-      if (!data) {
-        const fallback = await supabase
+      try {
+        // 1) Try to get currently running progress
+        let query = supabase
           .from('salebot_import_progress')
           .select('*')
-          .order('updated_at', { ascending: false })
+          .eq('is_running', true)
+          .order('last_run_at', { ascending: false, nullsFirst: false })
+          .order('updated_at', { ascending: false, nullsFirst: false })
           .limit(1)
           .single();
-        data = fallback.data || null;
-      }
 
-      if (data) {
-        setImportProgress({
-          totalClientsProcessed: data.total_clients_processed || 0,
-          totalImported: data.total_imported || 0,
-          totalMessagesImported: data.total_messages_imported || 0,
-          currentOffset: data.current_offset || 0,
-          startTime: data.start_time ? new Date(data.start_time) : null,
-          lastRunAt: data.last_run_at ? new Date(data.last_run_at) : null,
-          isRunning: data.is_running || false,
-          isPaused: data.is_paused || false
-        });
-      }
+        let { data } = await query;
 
-      // 3) Получаем данные об API лимите
-      const today = new Date().toISOString().split('T')[0];
-      const { data: usageData } = await supabase
-        .from('salebot_api_usage')
-        .select('*')
-        .eq('date', today)
-        .maybeSingle();
+        // 2) Fallback – get last updated
+        if (!data) {
+          const fallback = await supabase
+            .from('salebot_import_progress')
+            .select('*')
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .single();
+          data = fallback.data || null;
+        }
 
-      if (usageData) {
-        setApiUsage({
-          used: usageData.api_requests_count || 0,
-          limit: usageData.max_daily_limit || 6000,
-          remaining: (usageData.max_daily_limit || 6000) - (usageData.api_requests_count || 0),
-          date: usageData.date
-        });
-      } else {
-        // Если записи нет, показываем дефолтные значения
-        setApiUsage({
-          used: 0,
-          limit: 6000,
-          remaining: 6000,
-          date: today
-        });
+        if (data) {
+          setImportProgress({
+            totalClientsProcessed: data.total_clients_processed || 0,
+            totalImported: data.total_imported || 0,
+            totalMessagesImported: data.total_messages_imported || 0,
+            currentOffset: data.current_offset || 0,
+            startTime: data.start_time ? new Date(data.start_time) : null,
+            lastRunAt: data.last_run_at ? new Date(data.last_run_at) : null,
+            isRunning: data.is_running || false,
+            isPaused: data.is_paused || false
+          });
+
+          // If import is running, poll faster (5s), otherwise slow (30s)
+          setPollInterval(data.is_running ? 5000 : 30000);
+        }
+
+        // 3) Get API usage
+        const today = new Date().toISOString().split('T')[0];
+        const { data: usageData } = await supabase
+          .from('salebot_api_usage')
+          .select('*')
+          .eq('date', today)
+          .maybeSingle();
+
+        if (usageData) {
+          setApiUsage({
+            used: usageData.api_requests_count || 0,
+            limit: usageData.max_daily_limit || 6000,
+            remaining: (usageData.max_daily_limit || 6000) - (usageData.api_requests_count || 0),
+            date: usageData.date
+          });
+        } else {
+          setApiUsage({
+            used: 0,
+            limit: 6000,
+            remaining: 6000,
+            date: today
+          });
+        }
+      } catch (error) {
+        console.error('Error polling progress:', error);
+        // Backoff on error
+        setPollInterval(prev => Math.min(prev * 2, 60000));
       }
     };
 
-    // Load immediately and then poll every 3 seconds
+    // Load immediately
     pollProgress();
-    const interval = setInterval(pollProgress, 3000);
-    return () => clearInterval(interval);
-  }, []); // Run continuously, not just when importing
+
+    let intervalId: NodeJS.Timeout;
+
+    const startPolling = () => {
+      if (document.visibilityState === 'visible') {
+        intervalId = setInterval(pollProgress, pollInterval);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        pollProgress();
+        startPolling();
+      } else {
+        if (intervalId) clearInterval(intervalId);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    startPolling();
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [pollInterval]);
 
   // Emergency stop via URL param: /holihope-import?stop_salebot=1
   useEffect(() => {
