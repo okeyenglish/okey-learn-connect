@@ -115,13 +115,34 @@ serve(async (req) => {
     const responseText = await response.text();
     console.log('Green API checkWhatsapp response:', responseText);
 
+    // Check for non-200 response or HTML error response
+    if (!response.ok || responseText.includes('<html')) {
+      console.log('Green API returned error or HTML, treating as unavailable');
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          existsWhatsapp: false,
+          chatId: null,
+          unavailable: true,
+          reason: 'API temporarily unavailable'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     let result;
     try {
       result = JSON.parse(responseText);
     } catch (e) {
+      // Return graceful response instead of 500
       return new Response(
-        JSON.stringify({ error: 'Invalid API response' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: true,
+          existsWhatsapp: false,
+          chatId: null,
+          unavailable: true
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

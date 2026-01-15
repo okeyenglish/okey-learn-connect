@@ -120,9 +120,15 @@ serve(async (req) => {
     }
 
     if (!chatId) {
+      // Return graceful response instead of error
       return new Response(
-        JSON.stringify({ error: 'Could not determine chatId' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: true,
+          urlAvatar: null,
+          available: false,
+          reason: 'No chatId available'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -140,13 +146,31 @@ serve(async (req) => {
     const responseText = await response.text();
     console.log('Green API getAvatar response:', responseText);
 
+    // Check for non-200 response or HTML error response
+    if (!response.ok || responseText.includes('<html')) {
+      console.log('Green API returned error or HTML, treating as unavailable');
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          urlAvatar: null,
+          available: false,
+          reason: 'API temporarily unavailable'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     let result;
     try {
       result = JSON.parse(responseText);
     } catch (e) {
       return new Response(
-        JSON.stringify({ error: 'Invalid API response' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: true,
+          urlAvatar: null,
+          available: false
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
