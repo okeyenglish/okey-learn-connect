@@ -65,8 +65,8 @@ export const useChatMessages = (clientId: string) => {
 export const useChatThreads = () => {
   const { data: threads, isLoading, error } = useQuery({
     queryKey: ['chat-threads'],
-    staleTime: 0,
-    refetchOnMount: true,
+    staleTime: 5000, // Cache for 5 seconds to prevent rapid refetches
+    refetchOnMount: 'always',
     queryFn: async () => {
       console.log('[useChatThreads] Fetching chat messages...');
       
@@ -89,17 +89,20 @@ export const useChatThreads = () => {
 
       let messagesData: any[] | null = null;
       {
+        // Limit to last 500 messages to prevent huge fetches
         const { data, error } = await supabase
           .from('chat_messages')
           .select(selectWithJoin)
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(500);
 
         if (error) {
           console.warn('[useChatThreads] Join to clients failed, falling back:', error.message);
           const { data: noJoinData, error: noJoinError } = await supabase
             .from('chat_messages')
             .select('client_id, message_text, message_type, messenger_type, created_at, is_read, salebot_message_id')
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: false })
+            .limit(500);
 
           if (noJoinError) {
             console.error('[useChatThreads] Error fetching messages (no join):', noJoinError);
@@ -140,17 +143,20 @@ export const useChatThreads = () => {
             phone
           )
         `;
+        // Limit to last 200 calls to prevent huge fetches
         const { data, error } = await supabase
           .from('call_logs')
           .select(selectCallsWithJoin)
-          .order('started_at', { ascending: false });
+          .order('started_at', { ascending: false })
+          .limit(200);
 
         if (error) {
           console.warn('[useChatThreads] Calls join failed, falling back:', error.message);
           const { data: noJoinCalls, error: noJoinCallsError } = await supabase
             .from('call_logs')
             .select('client_id, status, direction, started_at, duration_seconds')
-            .order('started_at', { ascending: false });
+            .order('started_at', { ascending: false })
+            .limit(200);
 
           if (noJoinCallsError) throw noJoinCallsError;
           callsData = noJoinCalls as any[];

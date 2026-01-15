@@ -365,26 +365,45 @@ const CRMContent = () => {
   // Enable real-time updates for the active chat
   useRealtimeMessages(activeChatId);
 
-  // Also refresh chat thread list in real-time for any chat changes
+  // Debounced real-time refresh for chat threads (prevents "realtime storm")
   useEffect(() => {
+    let debounceTimer: NodeJS.Timeout | null = null;
+    let pendingRefetch = false;
+    let eventCount = 0;
+
+    const debouncedRefetch = () => {
+      pendingRefetch = true;
+      eventCount++;
+      
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      
+      // Wait 2 seconds after the last event before refetching
+      debounceTimer = setTimeout(() => {
+        if (pendingRefetch) {
+          console.log(`🔄 [CRM] Debounced chat-threads refetch (${eventCount} events batched)`);
+          queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+          pendingRefetch = false;
+          eventCount = 0;
+        }
+        debounceTimer = null;
+      }, 2000);
+    };
+
     const channel = supabase
       .channel('chat-threads-realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-        queryClient.invalidateQueries({ queryKey: ['clients'] });
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-      })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'call_logs' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-        queryClient.invalidateQueries({ queryKey: ['clients'] });
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'call_logs' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-      })
+      // Only listen to INSERT events - UPDATE events cause "storms" during bulk mark-as-read
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, debouncedRefetch)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'call_logs' }, debouncedRefetch)
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+      
+    return () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      supabase.removeChannel(channel);
+    };
   }, [queryClient]);
   // Автоматическое восстановление открытых модальных окон после загрузки
   useEffect(() => {

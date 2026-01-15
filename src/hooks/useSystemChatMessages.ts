@@ -74,34 +74,41 @@ export const useSystemChatMessages = () => {
     }
   }, [systemChatsData]);
 
-  // Real-time subscription for system chats
+  // Debounced real-time subscription for system chats
   useEffect(() => {
+    let debounceTimer: NodeJS.Timeout | null = null;
+    let pendingRefetch = false;
+
+    const debouncedRefetch = () => {
+      pendingRefetch = true;
+      
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      
+      debounceTimer = setTimeout(() => {
+        if (pendingRefetch) {
+          queryClient.refetchQueries({ queryKey: ['system-chats'] });
+          pendingRefetch = false;
+        }
+        debounceTimer = null;
+      }, 2000);
+    };
+
     const channel = supabase
       .channel('system-chats-realtime')
+      // Only listen to INSERT events to prevent storms
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_messages' },
-        () => {
-          queryClient.refetchQueries({ queryKey: ['system-chats'] });
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'chat_messages' },
-        () => {
-          queryClient.refetchQueries({ queryKey: ['system-chats'] });
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'clients' },
-        () => {
-          queryClient.refetchQueries({ queryKey: ['system-chats'] });
-        }
+        debouncedRefetch
       )
       .subscribe();
 
     return () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
