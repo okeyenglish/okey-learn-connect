@@ -61,6 +61,7 @@ export function SyncDashboard() {
   const [isSyncingNew, setIsSyncingNew] = useState(false);
   const [isResyncingAll, setIsResyncingAll] = useState(false);
   const [isFillingIds, setIsFillingIds] = useState(false);
+  const [isFullReimporting, setIsFullReimporting] = useState(false);
   const [newApiLimit, setNewApiLimit] = useState<string>('6000');
   const [isSavingLimit, setIsSavingLimit] = useState(false);
 
@@ -367,6 +368,33 @@ export function SyncDashboard() {
       });
     } finally {
       setIsFillingIds(false);
+    }
+  };
+
+  const handleFullReimport = async () => {
+    if (!confirm('⚠️ ПОЛНЫЙ РЕИМПОРТ С НУЛЯ\n\nЭто сбросит весь прогресс и начнёт импорт заново:\n- Существующие клиенты будут пропущены (без дублей)\n- Все сообщения будут проверены (дубликаты пропущены)\n- Новые клиенты будут созданы\n- Это займёт много времени и API запросов!\n\nПродолжить?')) return;
+    
+    try {
+      setIsFullReimporting(true);
+      
+      const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
+        body: { mode: 'full_reimport' }
+      });
+      if (error) throw error;
+      
+      const result = data as any;
+      toast({
+        title: 'Полный реимпорт запущен',
+        description: `Прогресс сброшен, импорт начнётся с начала списка. Клиентов: ${result?.totalClients || 0}, сообщений: ${result?.messagesImported || 0}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsFullReimporting(false);
     }
   };
 
@@ -814,6 +842,18 @@ export function SyncDashboard() {
                 <Button variant="outline" onClick={handleResetProgress}>
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Сбросить прогресс
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={handleFullReimport} 
+                  disabled={isFullReimporting || importProgress?.isRunning || (apiUsage?.remaining || 0) < 11}
+                >
+                  {isFullReimporting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Database className="mr-2 h-4 w-4" />
+                  )}
+                  Полный реимпорт с нуля
                 </Button>
               </div>
 
