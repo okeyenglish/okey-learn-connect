@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const FUNCTION_VERSION = '2026-01-15-1800';
+const FUNCTION_VERSION = '2026-01-15-1841';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,12 +52,16 @@ Deno.serve(async (req) => {
     console.log(`👤 User ID: ${userId}`);
 
     // Check if user is admin - query specifically for admin role
+    console.log(`🔍 Checking admin role for user: ${userId}`);
+    
     const { data: adminRole, error: rolesError } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', userId)
       .eq('role', 'admin')
       .maybeSingle();
+
+    console.log(`📋 Admin role query result:`, JSON.stringify({ adminRole, rolesError }));
 
     if (rolesError) {
       console.error('❌ Error checking roles:', rolesError.message);
@@ -68,6 +72,7 @@ Deno.serve(async (req) => {
     }
 
     const isAdmin = !!adminRole;
+    console.log(`🎯 isAdmin: ${isAdmin}`);
     if (!isAdmin) {
       console.error('❌ Forbidden: user is not admin');
       return new Response(JSON.stringify({ success: false, error: 'Только администраторы могут выполнять импорт' }), {
