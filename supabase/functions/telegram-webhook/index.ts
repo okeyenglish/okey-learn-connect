@@ -225,18 +225,136 @@ async function handleOutgoingMessage(
 ): Promise<void> {
   const chatId = message.chatId;
   const telegramUserId = message.to ? parseInt(message.to) : null;
+  const contactPhone = message.contact_phone?.replace(/\D/g, '') || null;
+  const contactUsername = message.contact_username || null;
+  const contactName = message.contact_name || null;
 
-  // Find client by chat_id or telegram_user_id
-  const { data: client } = await supabase
+  console.log('handleOutgoingMessage: Starting search for client', {
+    chatId,
+    telegramUserId,
+    contactPhone,
+    contactUsername,
+    contactName
+  });
+
+  let client = null;
+
+  // PRIORITY 1: Find by telegram_chat_id or telegram_user_id (use limit(1) to avoid maybeSingle error with duplicates)
+  const { data: clientsByTelegram, error: telegramError } = await supabase
     .from('clients')
     .select('id')
     .eq('organization_id', organizationId)
+    .eq('is_active', true)
     .or(`telegram_chat_id.eq.${chatId},telegram_user_id.eq.${telegramUserId}`)
-    .maybeSingle();
+    .limit(1);
 
+  if (telegramError) {
+    console.error('Error finding client by telegram:', telegramError);
+  } else if (clientsByTelegram && clientsByTelegram.length > 0) {
+    client = clientsByTelegram[0];
+    console.log('handleOutgoingMessage: Found client by telegram_chat_id/user_id:', client.id);
+  }
+
+  // PRIORITY 2: Find by contact_phone in clients table
+  if (!client && contactPhone && contactPhone.length >= 10) {
+    const phoneLast10 = contactPhone.slice(-10);
+    console.log('handleOutgoingMessage: Searching by phone:', phoneLast10);
+    
+    const { data: clientsByPhone, error: phoneError } = await supabase
+      .from('clients')
+      .select('id')
+      .eq('organization_id', organizationId)
+      .eq('is_active', true)
+      .ilike('phone', `%${phoneLast10}%`)
+      .limit(1);
+
+    if (phoneError) {
+      console.error('Error finding client by phone:', phoneError);
+    } else if (clientsByPhone && clientsByPhone.length > 0) {
+      client = clientsByPhone[0];
+      console.log('handleOutgoingMessage: Found client by phone:', client.id);
+      
+      // Update telegram data on found client
+      const { error: updateError } = await supabase
+        .from('clients')
+        .update({ 
+          telegram_chat_id: chatId, 
+          telegram_user_id: telegramUserId 
+        })
+        .eq('id', client.id);
+      
+      if (updateError) {
+        console.error('Error updating telegram data on client:', updateError);
+      } else {
+        console.log('handleOutgoingMessage: Updated telegram data on client:', client.id);
+      }
+    }
+  }
+
+  // PRIORITY 3: Search in client_phone_numbers table
+  if (!client && contactPhone && contactPhone.length >= 10) {
+    const phoneLast10 = contactPhone.slice(-10);
+    console.log('handleOutgoingMessage: Searching in client_phone_numbers:', phoneLast10);
+    
+    const { data: phoneRecords, error: phoneRecordError } = await supabase
+      .from('client_phone_numbers')
+      .select('client_id')
+      .ilike('phone', `%${phoneLast10}%`)
+      .limit(1);
+
+    if (phoneRecordError) {
+      console.error('Error finding phone record:', phoneRecordError);
+    } else if (phoneRecords && phoneRecords.length > 0) {
+      const { data: foundClient, error: foundError } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('id', phoneRecords[0].client_id)
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (foundError) {
+        console.error('Error finding client by phone record:', foundError);
+      } else if (foundClient) {
+        client = foundClient;
+        console.log('handleOutgoingMessage: Found client via client_phone_numbers:', client.id);
+        
+        // Update telegram data
+        await supabase
+          .from('clients')
+          .update({ 
+            telegram_chat_id: chatId, 
+            telegram_user_id: telegramUserId 
+          })
+          .eq('id', client.id);
+      }
+    }
+  }
+
+  // PRIORITY 4: Create new client if not found
   if (!client) {
-    console.log('Client not found for outgoing message');
-    return;
+    const clientName = contactName || contactUsername || `Telegram ${chatId}`;
+    console.log('handleOutgoingMessage: Creating new client:', clientName);
+    
+    const { data: newClient, error: createError } = await supabase
+      .from('clients')
+      .insert({
+        organization_id: organizationId,
+        name: clientName,
+        telegram_chat_id: chatId,
+        telegram_user_id: telegramUserId,
+        phone: contactPhone ? `+${contactPhone}` : null,
+        is_active: true
+      })
+      .select('id')
+      .single();
+
+    if (createError) {
+      console.error('Error creating client for outgoing message:', createError);
+      return;
+    }
+    client = newClient;
+    console.log('handleOutgoingMessage: Created new client:', client.id);
   }
 
   // Check for duplicate
@@ -272,7 +390,7 @@ async function handleOutgoingMessage(
       created_at: message.timestamp || new Date().toISOString()
     });
 
-  console.log('Outgoing message saved');
+  console.log('Outgoing message saved for client:', client.id);
 }
 
 async function handleDeliveryStatus(supabase: any, message: WappiMessage): Promise<void> {
