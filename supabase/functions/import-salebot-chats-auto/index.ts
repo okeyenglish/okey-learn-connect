@@ -154,6 +154,19 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
+    // Parse request body for mode parameter
+    let requestMode: 'full' | 'incremental' | 'sync_new' = 'full';
+    try {
+      const body = await req.json();
+      if (body?.mode === 'incremental' || body?.mode === 'sync_new') {
+        requestMode = body.mode;
+      }
+    } catch {
+      // No body or invalid JSON - use default mode
+    }
+    
+    console.log(`🚀 Запуск импорта в режиме: ${requestMode}`);
+
     // Check pause flag to prevent auto-resume
     const { data: pauseRow } = await supabase
       .from('salebot_import_progress')
@@ -337,22 +350,39 @@ Deno.serve(async (req) => {
 
       if (salebotClients.length === 0) {
         const nowIso = new Date().toISOString();
-        await supabase
-          .from('salebot_import_progress')
-          .update({
-            current_offset: currentOffset,
-            last_run_at: nowIso,
-            updated_at: nowIso,
-            is_running: false
-          })
-          .eq('id', progressId);
+        
+        // If incremental/sync_new mode and completed, reset offset for next cycle
+        if (requestMode === 'incremental' || requestMode === 'sync_new') {
+          console.log('🔄 Incremental режим: сбрасываем offset для следующего цикла');
+          await supabase
+            .from('salebot_import_progress')
+            .update({
+              current_offset: 0,
+              last_run_at: nowIso,
+              updated_at: nowIso,
+              is_running: false
+            })
+            .eq('id', progressId);
+        } else {
+          await supabase
+            .from('salebot_import_progress')
+            .update({
+              current_offset: currentOffset,
+              last_run_at: nowIso,
+              updated_at: nowIso,
+              is_running: false
+            })
+            .eq('id', progressId);
+        }
 
         return new Response(
           JSON.stringify({
             success: true,
             completed: true,
             message: 'All list clients processed',
-            apiCalls: totalApiCalls
+            apiCalls: totalApiCalls,
+            mode: requestMode,
+            offsetReset: requestMode === 'incremental' || requestMode === 'sync_new'
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
