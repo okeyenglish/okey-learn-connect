@@ -5451,6 +5451,10 @@ export type Database = {
           current_offset: number
           errors: Json | null
           estimated_total: number | null
+          fill_ids_mode: boolean | null
+          fill_ids_offset: number | null
+          fill_ids_total_matched: number | null
+          fill_ids_total_processed: number | null
           id: string
           is_paused: boolean
           is_running: boolean
@@ -5471,6 +5475,10 @@ export type Database = {
           current_offset?: number
           errors?: Json | null
           estimated_total?: number | null
+          fill_ids_mode?: boolean | null
+          fill_ids_offset?: number | null
+          fill_ids_total_matched?: number | null
+          fill_ids_total_processed?: number | null
           id?: string
           is_paused?: boolean
           is_running?: boolean
@@ -5491,6 +5499,10 @@ export type Database = {
           current_offset?: number
           errors?: Json | null
           estimated_total?: number | null
+          fill_ids_mode?: boolean | null
+          fill_ids_offset?: number | null
+          fill_ids_total_matched?: number | null
+          fill_ids_total_processed?: number | null
           id?: string
           is_paused?: boolean
           is_running?: boolean

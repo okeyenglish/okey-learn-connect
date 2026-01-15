@@ -26,6 +26,11 @@ interface SalebotProgress {
   resyncOffset: number;
   resyncTotalClients: number;
   resyncNewMessages: number;
+  // Fill IDs fields
+  fillIdsMode: boolean;
+  fillIdsOffset: number;
+  fillIdsTotalProcessed: number;
+  fillIdsTotalMatched: number;
 }
 
 interface ApiUsage {
@@ -40,6 +45,8 @@ interface DbStats {
   students: number;
   messages: number;
   familyGroups: number;
+  clientsWithSalebotId: number;
+  clientsWithoutSalebotId: number;
 }
 
 export function SyncDashboard() {
@@ -53,6 +60,7 @@ export function SyncDashboard() {
   const [isRunningBatch, setIsRunningBatch] = useState(false);
   const [isSyncingNew, setIsSyncingNew] = useState(false);
   const [isResyncingAll, setIsResyncingAll] = useState(false);
+  const [isFillingIds, setIsFillingIds] = useState(false);
   const [newApiLimit, setNewApiLimit] = useState<string>('6000');
   const [isSavingLimit, setIsSavingLimit] = useState(false);
 
@@ -88,7 +96,11 @@ export function SyncDashboard() {
             resyncMode: progressData.resync_mode || false,
             resyncOffset: progressData.resync_offset || 0,
             resyncTotalClients: progressData.resync_total_clients || 0,
-            resyncNewMessages: progressData.resync_new_messages || 0
+            resyncNewMessages: progressData.resync_new_messages || 0,
+            fillIdsMode: (progressData as any).fill_ids_mode || false,
+            fillIdsOffset: (progressData as any).fill_ids_offset || 0,
+            fillIdsTotalProcessed: (progressData as any).fill_ids_total_processed || 0,
+            fillIdsTotalMatched: (progressData as any).fill_ids_total_matched || 0
           });
         }
 
@@ -109,19 +121,23 @@ export function SyncDashboard() {
         });
         setNewApiLimit(currentLimit.toString());
 
-        // Get DB stats
-        const [clientsRes, studentsRes, messagesRes, familyRes] = await Promise.all([
+        // Get DB stats including salebot_client_id counts
+        const [clientsRes, studentsRes, messagesRes, familyRes, clientsWithIdRes, clientsWithoutIdRes] = await Promise.all([
           supabase.from('clients').select('id', { count: 'exact', head: true }),
           supabase.from('students').select('id', { count: 'exact', head: true }),
           supabase.from('chat_messages').select('id', { count: 'exact', head: true }),
-          supabase.from('family_groups').select('id', { count: 'exact', head: true })
+          supabase.from('family_groups').select('id', { count: 'exact', head: true }),
+          supabase.from('clients').select('id', { count: 'exact', head: true }).not('salebot_client_id', 'is', null),
+          supabase.from('clients').select('id', { count: 'exact', head: true }).is('salebot_client_id', null)
         ]);
 
         setDbStats({
           clients: clientsRes.count || 0,
           students: studentsRes.count || 0,
           messages: messagesRes.count || 0,
-          familyGroups: familyRes.count || 0
+          familyGroups: familyRes.count || 0,
+          clientsWithSalebotId: clientsWithIdRes.count || 0,
+          clientsWithoutSalebotId: clientsWithoutIdRes.count || 0
         });
 
         setIsLoading(false);
@@ -305,6 +321,52 @@ export function SyncDashboard() {
       });
     } finally {
       setIsResyncingAll(false);
+    }
+  };
+
+  const handleFillSalebotIds = async () => {
+    try {
+      setIsFillingIds(true);
+      
+      // Reset fill progress and trigger fill mode
+      const { data: progress } = await supabase
+        .from('salebot_import_progress')
+        .select('id')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (progress?.id) {
+        await supabase
+          .from('salebot_import_progress')
+          .update({ 
+            fill_ids_offset: 0, 
+            fill_ids_total_processed: 0,
+            fill_ids_total_matched: 0,
+            fill_ids_mode: true,
+            is_paused: false 
+          } as any)
+          .eq('id', progress.id);
+      }
+      
+      const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
+        body: { mode: 'fill_salebot_ids' }
+      });
+      if (error) throw error;
+      
+      const result = data as any;
+      toast({
+        title: 'Заполнение Salebot IDs запущено',
+        description: `Обработано: ${result?.processedThisBatch || 0}, связано: ${result?.matchedThisBatch || 0}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsFillingIds(false);
     }
   };
 
@@ -542,6 +604,75 @@ export function SyncDashboard() {
                   </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Salebot IDs Status Card */}
+          <Card className="border-cyan-500/50 bg-cyan-50/50 dark:bg-cyan-950/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-cyan-700 dark:text-cyan-300">
+                <Users className="h-5 w-5" />
+                Связь клиентов с Salebot
+              </CardTitle>
+              <CardDescription>
+                Для синхронизации диалогов необходимо связать клиентов с их Salebot ID
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                  <div className="text-xs text-muted-foreground">С Salebot ID</div>
+                  <div className="text-2xl font-bold text-green-600">{dbStats?.clientsWithSalebotId?.toLocaleString() || 0}</div>
+                </div>
+                <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                  <div className="text-xs text-muted-foreground">Без Salebot ID</div>
+                  <div className="text-2xl font-bold text-red-600">{dbStats?.clientsWithoutSalebotId?.toLocaleString() || 0}</div>
+                </div>
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <div className="text-xs text-muted-foreground">Процент связанности</div>
+                  <div className="text-2xl font-bold">
+                    {dbStats?.clients ? Math.round((dbStats.clientsWithSalebotId / dbStats.clients) * 100) : 0}%
+                  </div>
+                </div>
+              </div>
+              
+              {/* Fill IDs Progress */}
+              {importProgress?.fillIdsMode && (
+                <div className="p-3 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg">
+                  <div className="flex justify-between text-sm mb-2">
+                    <span>Прогресс заполнения:</span>
+                    <span>Offset: {importProgress.fillIdsOffset}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>Обработано: <strong>{importProgress.fillIdsTotalProcessed}</strong></div>
+                    <div>Связано: <strong>{importProgress.fillIdsTotalMatched}</strong></div>
+                  </div>
+                </div>
+              )}
+              
+              {dbStats && dbStats.clientsWithoutSalebotId > 0 && (
+                <Alert className="border-cyan-500/50 bg-cyan-50/50 dark:bg-cyan-950/20">
+                  <AlertCircle className="h-4 w-4 text-cyan-500" />
+                  <AlertTitle>Требуется заполнение Salebot IDs</AlertTitle>
+                  <AlertDescription>
+                    {dbStats.clientsWithoutSalebotId.toLocaleString()} клиентов без Salebot ID. Запустите заполнение для связи клиентов.
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              <Button 
+                variant="default" 
+                className="bg-cyan-600 hover:bg-cyan-700 w-full"
+                onClick={handleFillSalebotIds} 
+                disabled={isFillingIds || importProgress?.isRunning || (apiUsage?.remaining || 0) < 1}
+              >
+                {isFillingIds ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                Заполнить Salebot IDs
+              </Button>
             </CardContent>
           </Card>
 
