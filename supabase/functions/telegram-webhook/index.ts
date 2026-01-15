@@ -534,38 +534,81 @@ async function findOrCreateClient(
     return clientByChatId;
   }
 
-  // PRIORITY 4: Try to find by phone from chatId (legacy fallback)
-  const phoneFromChatId = telegramChatId?.replace(/\D/g, '');
-  if (phoneFromChatId && phoneFromChatId.length >= 10) {
-    console.log('Trying to find client by phone from chatId:', phoneFromChatId);
+  // PRIORITY 4: Try to find by phone from name (if name looks like a phone number)
+  // Sometimes Telegram sends phone number as senderName
+  const phoneFromName = name?.replace(/\D/g, '');
+  if (phoneFromName && phoneFromName.length >= 10 && phoneFromName.length <= 15) {
+    console.log('Trying to find client by phone from name:', phoneFromName);
     
-    const { data: clientByPhone } = await supabase
+    // Search in clients table
+    const { data: clientByPhoneName } = await supabase
       .from('clients')
-      .select('id, phone')
+      .select('id, name, phone')
       .eq('organization_id', organizationId)
       .eq('is_active', true)
-      .or(`phone.ilike.%${phoneFromChatId}%,phone.ilike.%${phoneFromChatId.slice(-10)}%`)
+      .or(`phone.ilike.%${phoneFromName.slice(-10)}%`)
       .maybeSingle();
 
-    if (clientByPhone) {
-      console.log('Found client by phone from chatId:', clientByPhone.id);
-      await updateClientData(clientByPhone.id, {
+    if (clientByPhoneName) {
+      console.log('Found client by phone from name:', clientByPhoneName.id);
+      await updateClientData(clientByPhoneName.id, {
         telegram_chat_id: telegramChatId,
         telegram_user_id: telegramUserId
       });
-      return clientByPhone;
+      return clientByPhoneName;
+    }
+    
+    // Search in client_phone_numbers
+    const { data: phoneRecordFromName } = await supabase
+      .from('client_phone_numbers')
+      .select('client_id')
+      .or(`phone.ilike.%${phoneFromName.slice(-10)}%`)
+      .maybeSingle();
+
+    if (phoneRecordFromName) {
+      const { data: clientFromPhoneName } = await supabase
+        .from('clients')
+        .select('id, name')
+        .eq('id', phoneRecordFromName.client_id)
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (clientFromPhoneName) {
+        console.log('Found client by phone from name in phone_numbers:', clientFromPhoneName.id);
+        await updateClientData(clientFromPhoneName.id, {
+          telegram_chat_id: telegramChatId,
+          telegram_user_id: telegramUserId
+        });
+        return clientFromPhoneName;
+      }
     }
   }
 
   // Create new client only if no match found
   console.log('No existing client found, creating new one');
-  const finalPhone = phoneNumber ? `+${phoneNumber}` : (phoneFromChatId && phoneFromChatId.length >= 10 ? `+${phoneFromChatId}` : null);
+  
+  // Determine final phone - only use phone if it looks like a real phone number (10+ digits, starts with country code pattern)
+  let finalPhone: string | null = null;
+  if (phoneNumber && phoneNumber.length >= 10) {
+    finalPhone = `+${phoneNumber}`;
+  } else if (phoneFromName && phoneFromName.length >= 10 && phoneFromName.length <= 15) {
+    // Phone number was in the name field - use it as phone, but need a different name
+    finalPhone = `+${phoneFromName}`;
+  }
+  
+  // Determine final name - if name is a phone number, use username or generic name
+  let finalName = name;
+  if (phoneFromName && phoneFromName.length >= 10 && name.replace(/\D/g, '') === phoneFromName) {
+    // Name is just a phone number - use username or generic name
+    finalName = username ? `@${username}` : `Telegram ${telegramUserId || 'User'}`;
+  }
   
   const { data: newClient, error: createError } = await supabase
     .from('clients')
     .insert({
       organization_id: organizationId,
-      name: name,
+      name: finalName,
       telegram_user_id: telegramUserId,
       telegram_chat_id: telegramChatId,
       telegram_avatar_url: avatarUrl,
