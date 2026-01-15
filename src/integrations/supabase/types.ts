@@ -5415,6 +5415,33 @@ export type Database = {
           },
         ]
       }
+      salebot_api_usage: {
+        Row: {
+          api_requests_count: number | null
+          created_at: string | null
+          date: string
+          id: string
+          max_daily_limit: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          api_requests_count?: number | null
+          created_at?: string | null
+          date: string
+          id?: string
+          max_daily_limit?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          api_requests_count?: number | null
+          created_at?: string | null
+          date?: string
+          id?: string
+          max_daily_limit?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       salebot_import_progress: {
         Row: {
           created_at: string
@@ -7756,6 +7783,7 @@ export type Database = {
           student_id: string
         }[]
       }
+      check_salebot_api_limit: { Args: never; Returns: boolean }
       check_student_balance: {
         Args: { p_required_hours?: number; p_student_id: string }
         Returns: {
@@ -7928,6 +7956,23 @@ export type Database = {
           user_name: string
         }[]
       }
+      get_or_create_salebot_usage: {
+        Args: never
+        Returns: {
+          api_requests_count: number | null
+          created_at: string | null
+          date: string
+          id: string
+          max_daily_limit: number | null
+          updated_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "salebot_api_usage"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_organization_ai_limit: {
         Args: { p_organization_id: string }
         Returns: number
@@ -8086,6 +8131,23 @@ export type Database = {
           p_progress_id: string
         }
         Returns: undefined
+      }
+      increment_salebot_api_usage: {
+        Args: { increment_by?: number }
+        Returns: {
+          api_requests_count: number | null
+          created_at: string | null
+          date: string
+          id: string
+          max_daily_limit: number | null
+          updated_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "salebot_api_usage"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       log_audit_event: {
         Args: {

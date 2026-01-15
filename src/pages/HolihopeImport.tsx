@@ -41,6 +41,12 @@ export default function HolihopeImport() {
     isRunning: boolean;
     isPaused: boolean;
   } | null>(null);
+  const [apiUsage, setApiUsage] = useState<{
+    used: number;
+    limit: number;
+    remaining: number;
+    date: string;
+  } | null>(null);
   const [steps, setSteps] = useState<ImportStep[]>([
     { id: 'clear', name: '1. Архивация данных', description: 'Пометка существующих данных как неактивных', action: 'clear_data', status: 'pending' },
     { id: 'offices', name: '2. Филиалы', description: 'Импорт филиалов/офисов', action: 'import_locations', status: 'pending' },
@@ -66,7 +72,7 @@ export default function HolihopeImport() {
     { id: 'lesson_plans', name: '22. Планы занятий', description: 'ДЗ и материалы (текст + ссылки)', action: 'import_lesson_plans', status: 'pending' },
   ]);
 
-  // Poll import progress continuously (to show auto-import status)
+  // Poll import progress and API usage continuously
   useEffect(() => {
     const pollProgress = async () => {
       // 1) Пытаемся получить именно текущий запущенный прогресс
@@ -102,6 +108,31 @@ export default function HolihopeImport() {
           lastRunAt: data.last_run_at ? new Date(data.last_run_at) : null,
           isRunning: data.is_running || false,
           isPaused: data.is_paused || false
+        });
+      }
+
+      // 3) Получаем данные об API лимите
+      const today = new Date().toISOString().split('T')[0];
+      const { data: usageData } = await supabase
+        .from('salebot_api_usage')
+        .select('*')
+        .eq('date', today)
+        .maybeSingle();
+
+      if (usageData) {
+        setApiUsage({
+          used: usageData.api_requests_count || 0,
+          limit: usageData.max_daily_limit || 6000,
+          remaining: (usageData.max_daily_limit || 6000) - (usageData.api_requests_count || 0),
+          date: usageData.date
+        });
+      } else {
+        // Если записи нет, показываем дефолтные значения
+        setApiUsage({
+          used: 0,
+          limit: 6000,
+          remaining: 6000,
+          date: today
         });
       }
     };
@@ -828,6 +859,31 @@ export default function HolihopeImport() {
           </Button>
         </div>
       </div>
+
+      {/* API Usage Card */}
+      {apiUsage && (
+        <Card className="border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-300 text-base">
+              📊 Лимит API Salebot (сегодня)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Использовано: <strong>{apiUsage.used}</strong> / {apiUsage.limit}</span>
+                <span className={apiUsage.remaining < 500 ? 'text-red-600 font-semibold' : 'text-green-600'}>
+                  Осталось: {apiUsage.remaining}
+                </span>
+              </div>
+              <Progress value={(apiUsage.used / apiUsage.limit) * 100} className="h-2" />
+              <p className="text-xs text-muted-foreground">
+                ~{Math.floor(apiUsage.remaining / 11)} клиентов можно импортировать сегодня (11 API запросов на клиента)
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-purple-500/50 bg-purple-50/50 dark:bg-purple-950/20">
         <CardHeader>
