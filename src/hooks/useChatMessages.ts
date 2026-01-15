@@ -262,17 +262,30 @@ export const useChatThreads = () => {
       // Refresh client names from clients table to ensure latest display names
       const clientIds = Array.from(threadsMap.keys());
       if (clientIds.length > 0) {
-        const { data: freshClients, error: freshClientsError } = await supabase
-          .from('clients')
-          .select('id, name, phone')
-          .in('id', clientIds);
+        // Fetch clients with their primary phone numbers
+        const [{ data: freshClients, error: freshClientsError }, { data: primaryPhones, error: phonesError }] = await Promise.all([
+          supabase
+            .from('clients')
+            .select('id, name, phone')
+            .in('id', clientIds),
+          supabase
+            .from('client_phone_numbers')
+            .select('client_id, phone')
+            .in('client_id', clientIds)
+            .eq('is_primary', true)
+        ]);
+        
         if (!freshClientsError && freshClients) {
           const freshMap = new Map(freshClients.map((c: any) => [c.id, c]));
+          const phonesMap = new Map((primaryPhones || []).map((p: any) => [p.client_id, p.phone]));
+          
           threadsMap.forEach((thread, id) => {
             const fresh = freshMap.get(id);
+            const primaryPhone = phonesMap.get(id);
             if (fresh) {
               thread.client_name = fresh.name ?? thread.client_name;
-              thread.client_phone = fresh.phone ?? thread.client_phone;
+              // Use clients.phone first, fallback to primary phone from client_phone_numbers
+              thread.client_phone = fresh.phone || primaryPhone || thread.client_phone;
             }
           });
         }

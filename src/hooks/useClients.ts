@@ -54,6 +54,10 @@ export const useClients = () => {
             *,
             client_branches (
               branch
+            ),
+            client_phone_numbers (
+              phone,
+              is_primary
             )
           `)
           .eq('is_active', true)
@@ -65,10 +69,17 @@ export const useClients = () => {
         }
         console.log('Clients fetched successfully:', data?.length);
         
-        return (data || []).map(client => ({
-          ...client,
-          branches: client.client_branches?.map((b: any) => b.branch) || [],
-        })) as Client[];
+        return (data || []).map(client => {
+          // Get primary phone from client_phone_numbers if clients.phone is empty
+          const primaryPhoneRecord = client.client_phone_numbers?.find((p: any) => p.is_primary);
+          const effectivePhone = client.phone || primaryPhoneRecord?.phone || '';
+          
+          return {
+            ...client,
+            phone: effectivePhone,
+            branches: client.client_branches?.map((b: any) => b.branch) || [],
+          };
+        }) as Client[];
       } catch (err) {
         console.error('Client fetch failed:', err);
         throw err;
