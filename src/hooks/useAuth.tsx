@@ -65,7 +65,37 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const fetchProfile = async (userId: string) => {
     console.log('🔍 fetchProfile called for userId:', userId);
+    
+    let fetchedRole: AppRole | null = null;
+    let fetchedRoles: AppRole[] = [];
+    
     try {
+      // ВАЖНО: Сначала загружаем роли - они критичны для UI
+      const { data: roleData, error: roleError } = await supabase
+        .rpc('get_user_role', { _user_id: userId });
+
+      console.log('👤 Role result:', { roleData, roleError });
+      
+      const { data: rolesData, error: rolesError } = await supabase
+        .rpc('get_user_roles', { _user_id: userId });
+
+      console.log('👥 Roles result:', { rolesData, rolesError });
+      
+      // Устанавливаем роли даже если есть ошибки (используем то что есть)
+      fetchedRole = roleError ? null : roleData;
+      fetchedRoles = rolesError ? [] : (rolesData || []);
+      
+      setRole(fetchedRole);
+      setRoles(fetchedRoles);
+      
+      console.log('✅ Roles set in state:', { role: fetchedRole, roles: fetchedRoles });
+      
+    } catch (error) {
+      console.error('❌ Error fetching roles:', error);
+    }
+    
+    try {
+      // Затем загружаем профиль - менее критично
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -73,45 +103,30 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         .single();
 
       console.log('📋 Profile result:', { profileData, profileError });
-      if (profileError) throw profileError;
-
-      // Получаем основную роль
-      const { data: roleData, error: roleError } = await supabase
-        .rpc('get_user_role', { _user_id: userId });
-
-      console.log('👤 Role result:', { roleData, roleError });
-      if (roleError) throw roleError;
-
-      // Получаем все роли пользователя
-      const { data: rolesData, error: rolesError } = await supabase
-        .rpc('get_user_roles', { _user_id: userId });
-
-      console.log('👥 Roles result:', { rolesData, rolesError });
-      if (rolesError) throw rolesError;
-
-      // Ensure avatar_url exists in the profile data
-      const profileWithAvatar = {
-        ...profileData,
-        avatar_url: null  // For now, set to null since it's not in the DB
-      };
-
-      setProfile(profileWithAvatar);
-      setRole(roleData);
-      setRoles(rolesData || []);
       
-      console.log('✅ Roles set in state:', { role: roleData, roles: rolesData });
-      
-      // Подгружаем базовые разрешения
-      await loadUserPermissions(userId);
+      if (!profileError && profileData) {
+        const profileWithAvatar = {
+          ...profileData,
+          avatar_url: null
+        };
+        setProfile(profileWithAvatar);
+      }
     } catch (error) {
-      console.error('❌ Error fetching profile:', error);
+      console.error('❌ Error fetching profile data:', error);
+    }
+    
+    // Подгружаем разрешения с уже установленными ролями
+    try {
+      await loadUserPermissionsWithRoles(userId, fetchedRoles, fetchedRole);
+    } catch (error) {
+      console.error('❌ Error loading permissions:', error);
     }
   };
-
-  const loadUserPermissions = async (userId: string) => {
+  
+  const loadUserPermissionsWithRoles = async (userId: string, userRoles: AppRole[], userRole: AppRole | null) => {
     try {
-      // Если пользователь администратор — даем полный доступ без запросов
-      if (roles?.includes?.('admin') || role === 'admin') {
+      // Если пользователь администратор — даем полный доступ
+      if (userRoles?.includes?.('admin') || userRole === 'admin') {
         const adminPermissions = [
           'manage:all',
           'manage:users',
@@ -151,12 +166,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         
         permissionsMap[`${perm.permission}:${perm.resource}`] = data || false;
       }
-      // merge with static permissions derived from roles for instant UI
-      const staticMap = buildPermissionsForRoles(roles);
+      
+      const staticMap = buildPermissionsForRoles(userRoles);
       setPermissions({ ...staticMap, ...permissionsMap });
     } catch (error) {
       console.error('Error loading permissions:', error);
     }
+  };
+
+  // Legacy function - kept for backwards compatibility
+  const loadUserPermissions = async (userId: string) => {
+    await loadUserPermissionsWithRoles(userId, roles, role);
   };
   useEffect(() => {
     // Set up auth state listener

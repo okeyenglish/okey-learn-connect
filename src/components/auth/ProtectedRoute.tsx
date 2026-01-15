@@ -5,11 +5,11 @@ import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  allowedRoles?: ('admin' | 'branch_manager' | 'methodist' | 'head_teacher' | 'sales_manager' | 'marketing_manager' | 'manager' | 'accountant' | 'receptionist' | 'support' | 'teacher' | 'student' | 'parent')[];
+  allowedRoles?: string[];
 }
 
 export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
-  const { user, role, loading, isRoleEmulation, originalRoles } = useAuth();
+  const { user, role, roles, loading, isRoleEmulation, originalRoles } = useAuth();
 
   if (loading) {
     return (
@@ -24,9 +24,19 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
   }
 
   // Если админ в режиме эмуляции - разрешаем доступ везде
-  const isAdmin = isRoleEmulation && originalRoles.includes('admin');
+  const isAdminEmulating = isRoleEmulation && originalRoles.includes('admin');
   
-  if (allowedRoles && role && !allowedRoles.includes(role) && !isAdmin) {
+  // Проверяем пересечение ролей пользователя с разрешёнными ролями
+  const hasAllowedRole = () => {
+    if (!allowedRoles) return true;
+    if (role && allowedRoles.includes(role)) return true;
+    if (Array.isArray(roles)) {
+      return roles.some(r => allowedRoles.includes(r));
+    }
+    return false;
+  };
+  
+  if (allowedRoles && !hasAllowedRole() && !isAdminEmulating) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

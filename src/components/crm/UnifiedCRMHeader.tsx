@@ -32,7 +32,7 @@ import {
 export const UnifiedCRMHeader = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, profile, role, signOut } = useAuth();
+  const { user, profile, role, roles, signOut } = useAuth();
   const { toast } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [studentsModalOpen, setStudentsModalOpen] = useState(false);
@@ -55,6 +55,15 @@ export const UnifiedCRMHeader = () => {
     }
   };
 
+  // Helper: проверяет есть ли пересечение между ролями пользователя и разрешёнными ролями
+  const hasAnyRole = (allowedRoles: string[]) => {
+    if (role && allowedRoles.includes(role)) return true;
+    if (Array.isArray(roles)) {
+      return roles.some(r => allowedRoles.includes(r));
+    }
+    return false;
+  };
+
   const getNavigationItems = () => {
     const items = [];
 
@@ -63,107 +72,106 @@ export const UnifiedCRMHeader = () => {
       label: 'CRM',
       href: '/crm',
       icon: MessageSquare,
-      roles: ['admin', 'manager', 'teacher', 'student', 'methodist']
+      allowedRoles: ['admin', 'manager', 'teacher', 'student', 'methodist']
     });
 
     // Для преподавателей
-    if (role === 'teacher' || role === 'admin' || role === 'methodist') {
+    if (hasAnyRole(['teacher', 'admin', 'methodist'])) {
       items.push({
         label: 'Портал преподавателя',
         href: '/teacher-portal',
         icon: GraduationCap,
-        roles: ['admin', 'teacher', 'methodist']
+        allowedRoles: ['admin', 'teacher', 'methodist']
       });
     }
 
     // Для учеников
-    if (role === 'student' || role === 'admin') {
+    if (hasAnyRole(['student', 'admin'])) {
       items.push({
         label: 'Портал ученика',
         href: '/student-portal',
         icon: User,
-        roles: ['admin', 'student']
+        allowedRoles: ['admin', 'student']
       });
     }
 
     // Для администраторов и методистов
-    if (role === 'admin' || role === 'methodist') {
+    if (hasAnyRole(['admin', 'methodist'])) {
       items.push({
         label: 'Администрирование',
         href: '/admin',
         icon: Settings,
-        roles: ['admin', 'methodist']
+        allowedRoles: ['admin', 'methodist']
       });
     }
 
     // Дополнительные разделы для менеджеров и администраторов
-    if (role === 'admin' || role === 'manager' || role === 'methodist') {
+    if (hasAnyRole(['admin', 'manager', 'methodist'])) {
       items.push(
         {
           label: 'Расписание',
           href: '/crm/schedule',
           icon: Calendar,
-          roles: ['admin', 'manager', 'methodist']
+          allowedRoles: ['admin', 'manager', 'methodist']
         },
         {
           label: 'Группы',
           href: '/crm/groups',
           icon: Users,
-          roles: ['admin', 'manager', 'methodist']
+          allowedRoles: ['admin', 'manager', 'methodist']
         },
         {
           label: 'Отчеты',
           href: '/crm/reports',
           icon: BarChart3,
-          roles: ['admin', 'manager', 'methodist']
+          allowedRoles: ['admin', 'manager', 'methodist']
         },
-        // StudentsModal will be handled separately
         {
           label: 'Сотрудники',
           href: '/crm/employees',
           icon: Briefcase,
-          roles: ['admin', 'branch_manager', 'manager']
+          allowedRoles: ['admin', 'branch_manager', 'manager']
         },
         {
           label: 'Абонементы',
           href: '/crm/subscriptions',
           icon: BookOpen,
-          roles: ['admin', 'manager', 'accountant']
+          allowedRoles: ['admin', 'manager', 'accountant']
         },
         {
           label: 'Лиды и продажи',
           href: '/crm/leads',
           icon: Target,
-          roles: ['admin', 'sales_manager', 'marketing_manager', 'manager']
+          allowedRoles: ['admin', 'sales_manager', 'marketing_manager', 'manager']
         },
         {
           label: 'Финансы',
           href: '/crm/finances',
           icon: DollarSign,
-          roles: ['admin', 'manager', 'accountant']
+          allowedRoles: ['admin', 'manager', 'accountant']
         },
         {
           label: 'Внутренние чаты',
           href: '/crm/internal-chats',
           icon: MessageCircle,
-          roles: ['admin', 'manager', 'methodist', 'teacher']
+          allowedRoles: ['admin', 'manager', 'methodist', 'teacher']
         },
         {
           label: 'Справочники',
           href: '/crm/references',
           icon: Settings,
-          roles: ['admin', 'methodist']
+          allowedRoles: ['admin', 'methodist']
         },
         {
           label: 'Диск',
           href: '/crm/sheets',
           icon: HardDrive,
-          roles: ['admin', 'manager', 'methodist']
+          allowedRoles: ['admin', 'manager', 'methodist']
         }
       );
     }
 
-    return items.filter(item => item.roles.includes(role as string));
+    return items.filter(item => hasAnyRole(item.allowedRoles));
   };
 
   const navigationItems = getNavigationItems();
@@ -229,7 +237,7 @@ export const UnifiedCRMHeader = () => {
               </Button>
             ))}
             {/* Students Modal Button */}
-            {(role === 'admin' || role === 'manager' || role === 'methodist' || role === 'teacher') && (
+            {hasAnyRole(['admin', 'manager', 'methodist', 'teacher']) && (
               <StudentsModal open={studentsModalOpen} onOpenChange={setStudentsModalOpen}>
                 <Button
                   variant="ghost"
@@ -318,7 +326,7 @@ export const UnifiedCRMHeader = () => {
               </Button>
             ))}
             {/* Mobile Students Modal Button */}
-            {(role === 'admin' || role === 'manager' || role === 'methodist' || role === 'teacher') && (
+            {hasAnyRole(['admin', 'manager', 'methodist', 'teacher']) && (
               <StudentsModal open={studentsModalOpen} onOpenChange={setStudentsModalOpen}>
                 <Button
                   variant="ghost"
