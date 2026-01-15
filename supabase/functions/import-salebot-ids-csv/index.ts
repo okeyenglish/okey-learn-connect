@@ -51,12 +51,13 @@ Deno.serve(async (req) => {
     const userId = userData.user.id;
     console.log(`👤 User ID: ${userId}`);
 
-    // Check if user is admin
-    const { data: userRoles, error: rolesError } = await supabase
+    // Check if user is admin - query specifically for admin role
+    const { data: adminRole, error: rolesError } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', userId)
-      .limit(1);
+      .eq('role', 'admin')
+      .maybeSingle();
 
     if (rolesError) {
       console.error('❌ Error checking roles:', rolesError.message);
@@ -66,7 +67,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const isAdmin = userRoles?.some(r => r.role === 'admin');
+    const isAdmin = !!adminRole;
     if (!isAdmin) {
       console.error('❌ Forbidden: user is not admin');
       return new Response(JSON.stringify({ success: false, error: 'Только администраторы могут выполнять импорт' }), {
