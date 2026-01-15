@@ -22,6 +22,7 @@ import { EventBusMonitor } from "@/components/monitoring/EventBusMonitor";
 import { BranchPhotosManager } from "./BranchPhotosManager";
 import { RoutingRulesSettings } from "./RoutingRulesSettings";
 import { MessengersSettings } from "./MessengersSettings";
+import { SyncDashboard } from "./SyncDashboard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -79,17 +80,7 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
       case "routing-rules":
         return <RoutingRulesSettings />;
       case "sync":
-        return (
-          <Card>
-            <CardHeader>
-              <CardTitle>Synchronization</CardTitle>
-              <CardDescription>Data sync and integration settings</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Sync functionality coming soon...</p>
-            </CardContent>
-          </Card>
-        );
+        return <SyncDashboard />;
       case "users":
         return <UserPermissionsManager />;
       case "settings":
