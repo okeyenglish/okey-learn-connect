@@ -1,5 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+const FUNCTION_VERSION = '2026-01-15-1720';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -39,10 +41,69 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  console.log(`🚀 import-salebot-ids-csv v${FUNCTION_VERSION} started`);
+  console.log(`📋 Headers: x-client-info=${req.headers.get('x-client-info') || 'none'}, auth=${req.headers.get('authorization') ? 'present' : 'missing'}`);
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    
+    // Validate authorization and admin role
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      console.error('❌ Unauthorized: no Bearer token');
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Check user role using anon key client with user's token
+    const userSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await userSupabase.auth.getClaims(token);
+    
+    if (claimsError || !claimsData?.claims) {
+      console.error('❌ Invalid token:', claimsError?.message);
+      return new Response(JSON.stringify({ success: false, error: 'Invalid token' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const userId = claimsData.claims.sub;
+    console.log(`👤 User ID: ${userId}`);
+
+    // Check if user is admin using service role client
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+    
+    const { data: userRoles, error: rolesError } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId);
+
+    if (rolesError) {
+      console.error('❌ Error checking roles:', rolesError.message);
+      return new Response(JSON.stringify({ success: false, error: 'Error checking permissions' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const isAdmin = userRoles?.some(r => r.role === 'admin');
+    if (!isAdmin) {
+      console.error('❌ Forbidden: user is not admin');
+      return new Response(JSON.stringify({ success: false, error: 'Только администраторы могут выполнять импорт' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    console.log('✅ Admin role verified');
 
     const { csvData, dryRun = false } = await req.json();
 
@@ -90,7 +151,7 @@ Deno.serve(async (req) => {
     const pageSize = 1000;
     
     while (true) {
-      const { data: phoneRecords, error: phoneError } = await supabase
+      const { data: pageRecords, error: phoneError } = await supabase
         .from('client_phone_numbers')
         .select('id, client_id, phone')
         .range(page * pageSize, (page + 1) * pageSize - 1);
@@ -99,12 +160,12 @@ Deno.serve(async (req) => {
         throw new Error(`Ошибка получения телефонов: ${phoneError.message}`);
       }
 
-      if (!phoneRecords || phoneRecords.length === 0) break;
+      if (!pageRecords || pageRecords.length === 0) break;
       
-      allPhoneRecords = allPhoneRecords.concat(phoneRecords);
+      allPhoneRecords = allPhoneRecords.concat(pageRecords);
       console.log(`📊 Загружено телефонов: ${allPhoneRecords.length}`);
       
-      if (phoneRecords.length < pageSize) break;
+      if (pageRecords.length < pageSize) break;
       page++;
     }
 
@@ -152,7 +213,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Perform actual updates in batches
+    // Perform actual updates in batches using upsert for efficiency
     const batchSize = 100;
     let updatedCount = 0;
     let errorCount = 0;
@@ -160,19 +221,21 @@ Deno.serve(async (req) => {
     for (let i = 0; i < updates.length; i += batchSize) {
       const batch = updates.slice(i, i + batchSize);
       
-      // Update each client
-      for (const update of batch) {
-        const { error: updateError } = await supabase
-          .from('clients')
-          .update({ salebot_client_id: parseInt(update.salebotId) })
-          .eq('id', update.clientId);
+      // Prepare batch data for upsert
+      const batchData = batch.map(update => ({
+        id: update.clientId,
+        salebot_client_id: parseInt(update.salebotId)
+      }));
 
-        if (updateError) {
-          console.error(`❌ Ошибка обновления ${update.clientId}: ${updateError.message}`);
-          errorCount++;
-        } else {
-          updatedCount++;
-        }
+      const { error: batchError } = await supabase
+        .from('clients')
+        .upsert(batchData, { onConflict: 'id', ignoreDuplicates: false });
+
+      if (batchError) {
+        console.error(`❌ Ошибка batch ${i}-${i + batchSize}: ${batchError.message}`);
+        errorCount += batch.length;
+      } else {
+        updatedCount += batch.length;
       }
 
       console.log(`📊 Обработано: ${Math.min(i + batchSize, updates.length)}/${updates.length}`);
