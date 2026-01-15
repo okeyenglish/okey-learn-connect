@@ -213,32 +213,38 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Perform actual updates in batches using upsert for efficiency
-    const batchSize = 100;
+    // Perform actual updates in batches using individual UPDATE queries
+    // (upsert requires all NOT NULL fields which we don't have)
+    const batchSize = 50;
     let updatedCount = 0;
     let errorCount = 0;
 
     for (let i = 0; i < updates.length; i += batchSize) {
       const batch = updates.slice(i, i + batchSize);
       
-      // Prepare batch data for upsert
-      const batchData = batch.map(update => ({
-        id: update.clientId,
-        salebot_client_id: parseInt(update.salebotId)
-      }));
+      // Process batch with Promise.all for parallel updates
+      const results = await Promise.all(
+        batch.map(async (update) => {
+          const { error } = await supabase
+            .from('clients')
+            .update({ salebot_client_id: parseInt(update.salebotId) })
+            .eq('id', update.clientId);
+          
+          return { success: !error, error };
+        })
+      );
 
-      const { error: batchError } = await supabase
-        .from('clients')
-        .upsert(batchData, { onConflict: 'id', ignoreDuplicates: false });
+      const batchSuccess = results.filter(r => r.success).length;
+      const batchErrors = results.filter(r => !r.success).length;
+      
+      updatedCount += batchSuccess;
+      errorCount += batchErrors;
 
-      if (batchError) {
-        console.error(`❌ Ошибка batch ${i}-${i + batchSize}: ${batchError.message}`);
-        errorCount += batch.length;
-      } else {
-        updatedCount += batch.length;
+      if (batchErrors > 0) {
+        console.error(`❌ Ошибки в batch ${i}-${i + batchSize}: ${batchErrors}`);
       }
 
-      console.log(`📊 Обработано: ${Math.min(i + batchSize, updates.length)}/${updates.length}`);
+      console.log(`📊 Обработано: ${Math.min(i + batchSize, updates.length)}/${updates.length}, успешно: ${batchSuccess}, ошибок: ${batchErrors}`);
     }
 
     console.log(`✅ Импорт завершён: обновлено ${updatedCount}, ошибок ${errorCount}`);
