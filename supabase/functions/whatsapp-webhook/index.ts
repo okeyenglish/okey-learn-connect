@@ -156,6 +156,7 @@ serve(async (req) => {
         break
         
       case 'outgoingMessageReceived':
+      case 'outgoingAPIMessageReceived':
         await handleOutgoingMessage(webhook, organizationId)
         break
         
@@ -406,7 +407,7 @@ async function handleMessageStatus(webhook: GreenAPIWebhook) {
 }
 
 async function handleOutgoingMessage(webhook: GreenAPIWebhook, organizationId: string | null) {
-  // Сообщения, отправленные с телефона - синхронизируем их в CRM
+  // Сообщения, отправленные с телефона или через API - синхронизируем их в CRM
   const { senderData, messageData, idMessage } = webhook
   
   if (!senderData || !messageData) {
@@ -419,19 +420,67 @@ async function handleOutgoingMessage(webhook: GreenAPIWebhook, organizationId: s
     return
   }
 
+  console.log(`Processing outgoing WhatsApp message: ${idMessage}, type: ${webhook.typeWebhook}`)
+
+  // Проверяем дубликат - сообщение могло быть отправлено через CRM
+  const { data: existingMessage } = await supabase
+    .from('chat_messages')
+    .select('id')
+    .eq('external_message_id', idMessage)
+    .maybeSingle()
+
+  if (existingMessage) {
+    console.log('Outgoing message already exists (sent via CRM), skipping:', idMessage)
+    return
+  }
+
   const chatId = senderData.chatId
   const phoneNumber = extractPhoneFromChatId(chatId)
   
   // Находим или создаем клиента
   let client = await findOrCreateClient(phoneNumber, senderData.chatName, organizationId)
   
+  // Определяем тип и содержимое сообщения
   let messageText = ''
+  let fileUrl = null
+  let fileName = null
+  let fileType = null
+
   switch (messageData.typeMessage) {
     case 'textMessage':
       messageText = messageData.textMessageData?.textMessage || ''
       break
     case 'extendedTextMessage':
       messageText = messageData.extendedTextMessageData?.text || ''
+      break
+    case 'imageMessage':
+      messageText = messageData.fileMessageData?.caption || '📷 Изображение'
+      fileUrl = messageData.fileMessageData?.downloadUrl
+      fileName = messageData.fileMessageData?.fileName
+      fileType = messageData.fileMessageData?.mimeType
+      break
+    case 'videoMessage':
+      messageText = messageData.fileMessageData?.caption || '🎥 Видео'
+      fileUrl = messageData.fileMessageData?.downloadUrl
+      fileName = messageData.fileMessageData?.fileName
+      fileType = messageData.fileMessageData?.mimeType
+      break
+    case 'audioMessage':
+      const mimeType = messageData.fileMessageData?.mimeType
+      if (mimeType && (mimeType.includes('ogg') || mimeType.includes('opus'))) {
+        messageText = '🎙️ Голосовое сообщение'
+      } else {
+        messageText = messageData.fileMessageData?.caption || '🎵 Аудиофайл'
+      }
+      fileUrl = messageData.fileMessageData?.downloadUrl
+      fileName = messageData.fileMessageData?.fileName
+      fileType = mimeType
+      break
+    case 'documentMessage':
+      messageText = messageData.fileMessageData?.caption || `📄 ${messageData.fileMessageData?.fileName || 'Документ'}`
+      fileUrl = messageData.fileMessageData?.downloadUrl
+      fileName = messageData.fileMessageData?.fileName
+      fileType = messageData.fileMessageData?.mimeType
       break
     default:
       messageText = `[${messageData.typeMessage}]`
@@ -448,6 +497,9 @@ async function handleOutgoingMessage(webhook: GreenAPIWebhook, organizationId: s
     external_message_id: idMessage,
     is_outgoing: true,
     is_read: true,
+    file_url: fileUrl,
+    file_name: fileName,
+    file_type: fileType,
     created_at: new Date(webhook.timestamp * 1000).toISOString()
   })
 
@@ -456,7 +508,16 @@ async function handleOutgoingMessage(webhook: GreenAPIWebhook, organizationId: s
     throw error
   }
 
-  console.log(`Saved outgoing message to ${phoneNumber}: ${messageText}`)
+  // Обновляем время последнего сообщения у клиента
+  await supabase
+    .from('clients')
+    .update({ 
+      last_message_at: new Date(webhook.timestamp * 1000).toISOString(),
+      whatsapp_chat_id: chatId
+    })
+    .eq('id', client.id)
+
+  console.log(`Saved outgoing WhatsApp message to ${phoneNumber}: ${messageText}`)
 }
 
 async function handleStateChange(webhook: GreenAPIWebhook) {
