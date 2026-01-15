@@ -594,10 +594,10 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     // Parse request body for mode parameter
-    let requestMode: 'full' | 'incremental' | 'sync_new' | 'resync_messages' | 'fill_salebot_ids' = 'full';
+    let requestMode: 'full' | 'incremental' | 'sync_new' | 'resync_messages' | 'fill_salebot_ids' | 'full_reimport' = 'full';
     try {
       const body = await req.json();
-      if (body?.mode === 'incremental' || body?.mode === 'sync_new' || body?.mode === 'resync_messages' || body?.mode === 'fill_salebot_ids') {
+      if (body?.mode === 'incremental' || body?.mode === 'sync_new' || body?.mode === 'resync_messages' || body?.mode === 'fill_salebot_ids' || body?.mode === 'full_reimport') {
         requestMode = body.mode;
       }
     } catch {
@@ -738,6 +738,34 @@ Deno.serve(async (req) => {
       .single();
     
     const listId = progressData?.list_id;
+    
+    // ======== FULL_REIMPORT MODE: Сброс и полный реимпорт с нуля ========
+    if (requestMode === 'full_reimport') {
+      console.log('🔄 Запуск FULL_REIMPORT: сброс прогресса и полный импорт с нуля');
+      
+      // Reset all progress counters
+      await supabase
+        .from('salebot_import_progress')
+        .update({
+          current_offset: 0,
+          total_clients_processed: 0,
+          total_messages_imported: 0,
+          total_imported: 0,
+          resync_offset: 0,
+          resync_total_clients: 0,
+          resync_new_messages: 0,
+          resync_mode: false,
+          fill_ids_offset: 0,
+          fill_ids_total_processed: 0,
+          fill_ids_total_matched: 0,
+          fill_ids_mode: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', progressId);
+      
+      // Continue with standard import logic (requestMode will be treated as 'full')
+      // The code below will start from offset 0
+    }
     
     // ======== FILL_SALEBOT_IDS MODE ========
     if (requestMode === 'fill_salebot_ids') {
