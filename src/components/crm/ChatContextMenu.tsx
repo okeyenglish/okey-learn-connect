@@ -12,7 +12,7 @@ import {
   Archive, 
   Trash2,
   Lock,
-  MoreHorizontal
+  Link2
 } from "lucide-react";
 
 interface ChatContextMenuProps {
@@ -21,6 +21,8 @@ interface ChatContextMenuProps {
   onPinDialog: () => void;
   onArchive: () => void;
   onBlock?: () => void;
+  onDelete?: () => void;
+  onLinkToClient?: () => void;
   isPinned?: boolean;
   isArchived?: boolean;
 }
@@ -31,6 +33,8 @@ export const ChatContextMenu = ({
   onPinDialog, 
   onArchive,
   onBlock,
+  onDelete,
+  onLinkToClient,
   isPinned = false,
   isArchived = false 
 }: ChatContextMenuProps) => {
@@ -52,20 +56,33 @@ export const ChatContextMenu = ({
         
         <ContextMenuSeparator />
         
-        {onBlock && (
-          <>
-            <ContextMenuItem onClick={onBlock} className="cursor-pointer">
-              <Lock className="mr-2 h-4 w-4" />
-              Заблокировать клиента
-            </ContextMenuItem>
-            <ContextMenuSeparator />
-          </>
+        {onLinkToClient && (
+          <ContextMenuItem onClick={onLinkToClient} className="cursor-pointer">
+            <Link2 className="mr-2 h-4 w-4" />
+            Привязать к клиенту
+          </ContextMenuItem>
         )}
+        
+        {onBlock && (
+          <ContextMenuItem onClick={onBlock} className="cursor-pointer">
+            <Lock className="mr-2 h-4 w-4" />
+            Заблокировать клиента
+          </ContextMenuItem>
+        )}
+        
+        <ContextMenuSeparator />
         
         <ContextMenuItem onClick={onArchive} className="cursor-pointer text-orange-600">
           <Archive className="mr-2 h-4 w-4" />
           {isArchived ? 'Разархивировать' : 'Архивировать'}
         </ContextMenuItem>
+        
+        {onDelete && (
+          <ContextMenuItem onClick={onDelete} className="cursor-pointer text-destructive">
+            <Trash2 className="mr-2 h-4 w-4" />
+            Удалить чат
+          </ContextMenuItem>
+        )}
       </ContextMenuContent>
     </ContextMenu>
   );
