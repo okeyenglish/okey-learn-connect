@@ -432,7 +432,33 @@ export function SyncDashboard() {
         body: { csvData, dryRun: false }
       });
 
-      if (error) throw error;
+      // Handle different error cases with better messaging
+      if (error) {
+        const context = (error as any).context;
+        const status = context?.status;
+        
+        if (status === 401) {
+          throw new Error('Вы не авторизованы. Пожалуйста, обновите страницу и войдите снова.');
+        } else if (status === 403) {
+          throw new Error('Только администраторы могут выполнять импорт.');
+        } else if (status === 500) {
+          // Try to extract detailed error from response body
+          let detailedError = error.message;
+          try {
+            const bodyText = context?.body;
+            if (bodyText) {
+              const bodyJson = typeof bodyText === 'string' ? JSON.parse(bodyText) : bodyText;
+              if (bodyJson?.error) {
+                detailedError = bodyJson.error;
+              }
+            }
+          } catch {
+            // Ignore parsing errors
+          }
+          throw new Error(`Ошибка сервера: ${detailedError}`);
+        }
+        throw error;
+      }
 
       const result = data as any;
       
@@ -467,7 +493,7 @@ export function SyncDashboard() {
       console.error('Ошибка импорта CSV:', error);
       toast({
         title: 'Ошибка импорта',
-        description: error.message,
+        description: error.message || 'Неизвестная ошибка при импорте',
         variant: 'destructive',
       });
     } finally {
