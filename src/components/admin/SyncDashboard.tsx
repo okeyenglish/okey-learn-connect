@@ -440,12 +440,25 @@ export function SyncDashboard() {
         return;
       }
 
+      console.log('🔍 Текущий пользователь:', user.id, user.email);
+
+      // Fetch ALL user roles for diagnostics
+      const { data: allRoles, error: allRolesError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id);
+      
+      console.log('📋 Все роли пользователя:', allRoles, 'ошибка:', allRolesError);
+
+      // Check specifically for admin role (will find it even if user has multiple roles like manager + admin)
       const { data: adminCheck, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id)
         .eq('role', 'admin')
         .maybeSingle();
+
+      console.log('📋 Результат проверки admin роли:', { adminCheck, roleError });
 
       if (roleError) {
         console.error('Ошибка проверки роли:', roleError);
@@ -457,7 +470,11 @@ export function SyncDashboard() {
         return;
       }
 
-      if (!adminCheck) {
+      // Check if admin role exists (regardless of other roles like manager)
+      const hasAdminRole = !!adminCheck;
+      console.log('🎯 Есть роль admin:', hasAdminRole);
+
+      if (!hasAdminRole) {
         toast({
           title: 'Доступ запрещён',
           description: 'Импорт Salebot IDs доступен только администраторам',
@@ -466,7 +483,7 @@ export function SyncDashboard() {
         return;
       }
 
-      console.log('✅ Права администратора подтверждены');
+      console.log('✅ Права администратора подтверждены (роль admin найдена)');
 
       // Read and parse CSV file on client
       const csvData = await file.text();
