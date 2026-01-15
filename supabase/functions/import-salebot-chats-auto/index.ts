@@ -138,6 +138,177 @@ async function linkClientWithStudent(supabase: any, clientId: string, phoneNumbe
   }
 }
 
+// ======== FILL SALEBOT IDS MODE: Get salebot_client_id for existing clients ========
+async function handleFillSalebotIds(
+  supabase: any,
+  salebotApiKey: string,
+  progressId: string,
+  listId: string | null
+): Promise<Response> {
+  console.log('🔗 Запуск режима FILL_SALEBOT_IDS: получение salebot_client_id для существующих клиентов');
+  
+  // Get fill progress from salebot_import_progress
+  const { data: progressData } = await supabase
+    .from('salebot_import_progress')
+    .select('fill_ids_offset, fill_ids_total_matched, fill_ids_total_processed')
+    .eq('id', progressId)
+    .single();
+  
+  const currentOffset = progressData?.fill_ids_offset || 0;
+  const baseMatched = progressData?.fill_ids_total_matched || 0;
+  const baseProcessed = progressData?.fill_ids_total_processed || 0;
+  
+  const batchSize = 50;
+  let totalMatched = 0;
+  let totalProcessed = 0;
+  let totalApiCalls = 0;
+  
+  // Check API limit
+  const apiCheck = await checkAndIncrementApiUsage(supabase, 0);
+  if (!apiCheck.allowed || apiCheck.remaining < 1) {
+    console.log('⚠️ API лимит достигнут');
+    await supabase
+      .from('salebot_import_progress')
+      .update({ is_running: false })
+      .eq('id', progressId);
+    return new Response(
+      JSON.stringify({ skipped: true, apiLimitReached: true, apiUsage: apiCheck }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+  
+  // Get clients from Salebot API
+  await checkAndIncrementApiUsage(supabase, 1);
+  totalApiCalls++;
+  
+  const clientsUrl = `https://chatter.salebot.pro/api/${salebotApiKey}/get_clients`;
+  const clientsResponse = await fetch(clientsUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      list: listId || undefined,
+      offset: currentOffset,
+      limit: batchSize
+    })
+  });
+  
+  if (!clientsResponse.ok) {
+    console.error('Ошибка получения клиентов из Salebot:', clientsResponse.statusText);
+    throw new Error(`Ошибка получения клиентов: ${clientsResponse.statusText}`);
+  }
+  
+  const clientsData = await clientsResponse.json();
+  const salebotClients: SalebotClient[] = clientsData.clients || [];
+  
+  if (salebotClients.length === 0) {
+    console.log('✅ Все клиенты Salebot обработаны! Заполнение ID завершено.');
+    
+    // Reset progress
+    await supabase
+      .from('salebot_import_progress')
+      .update({
+        fill_ids_offset: 0,
+        fill_ids_mode: false,
+        is_running: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', progressId);
+    
+    return new Response(
+      JSON.stringify({
+        success: true,
+        completed: true,
+        mode: 'fill_salebot_ids',
+        message: 'Все клиенты Salebot обработаны',
+        totalMatched: baseMatched,
+        totalProcessed: baseProcessed
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+  
+  console.log(`📋 Загружено ${salebotClients.length} клиентов из Salebot (offset: ${currentOffset})`);
+  
+  // Process each Salebot client
+  for (const salebotClient of salebotClients) {
+    try {
+      totalProcessed++;
+      
+      // Extract phone from platform_id
+      const phoneNumber = normalizePhone(salebotClient.platform_id);
+      
+      if (!phoneNumber || phoneNumber.length < 10) {
+        console.log(`⏭️ Пропуск клиента ${salebotClient.id}: нет валидного телефона`);
+        continue;
+      }
+      
+      const phoneLast10 = phoneNumber.slice(-10);
+      
+      // Search for matching client in our DB by phone
+      const { data: matchingPhones } = await supabase
+        .from('client_phone_numbers')
+        .select('client_id, phone')
+        .or(`phone.eq.${phoneNumber},phone.ilike.%${phoneLast10}`)
+        .limit(1);
+      
+      if (matchingPhones && matchingPhones.length > 0) {
+        const clientId = matchingPhones[0].client_id;
+        
+        // Update client with salebot_client_id
+        const { error: updateError } = await supabase
+          .from('clients')
+          .update({ salebot_client_id: salebotClient.id })
+          .eq('id', clientId)
+          .is('salebot_client_id', null); // Only update if not already set
+        
+        if (!updateError) {
+          totalMatched++;
+          console.log(`✅ Связан клиент ${clientId} с Salebot ID ${salebotClient.id} (телефон: ${phoneNumber})`);
+        }
+      }
+      
+      // Small delay to avoid overwhelming DB
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+    } catch (error: any) {
+      console.error(`Ошибка обработки Salebot клиента ${salebotClient.id}:`, error);
+    }
+  }
+  
+  // Update progress
+  const nextOffset = currentOffset + salebotClients.length;
+  const isCompleted = salebotClients.length < batchSize;
+  
+  await supabase
+    .from('salebot_import_progress')
+    .update({
+      fill_ids_offset: isCompleted ? 0 : nextOffset,
+      fill_ids_total_matched: baseMatched + totalMatched,
+      fill_ids_total_processed: baseProcessed + totalProcessed,
+      fill_ids_mode: !isCompleted,
+      is_running: false,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', progressId);
+  
+  console.log(`📊 Батч завершён: обработано ${totalProcessed}, связано ${totalMatched}, API вызовов: ${totalApiCalls}`);
+  
+  return new Response(
+    JSON.stringify({
+      success: true,
+      mode: 'fill_salebot_ids',
+      completed: isCompleted,
+      processedThisBatch: totalProcessed,
+      matchedThisBatch: totalMatched,
+      totalProcessed: baseProcessed + totalProcessed,
+      totalMatched: baseMatched + totalMatched,
+      nextOffset,
+      apiCalls: totalApiCalls
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
 // ======== RESYNC MODE: Get history for existing clients in our DB ========
 async function handleResyncMessages(
   supabase: any,
@@ -423,10 +594,10 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     // Parse request body for mode parameter
-    let requestMode: 'full' | 'incremental' | 'sync_new' | 'resync_messages' = 'full';
+    let requestMode: 'full' | 'incremental' | 'sync_new' | 'resync_messages' | 'fill_salebot_ids' = 'full';
     try {
       const body = await req.json();
-      if (body?.mode === 'incremental' || body?.mode === 'sync_new' || body?.mode === 'resync_messages') {
+      if (body?.mode === 'incremental' || body?.mode === 'sync_new' || body?.mode === 'resync_messages' || body?.mode === 'fill_salebot_ids') {
         requestMode = body.mode;
       }
     } catch {
@@ -567,6 +738,17 @@ Deno.serve(async (req) => {
       .single();
     
     const listId = progressData?.list_id;
+    
+    // ======== FILL_SALEBOT_IDS MODE ========
+    if (requestMode === 'fill_salebot_ids') {
+      // Set fill mode flag
+      await supabase
+        .from('salebot_import_progress')
+        .update({ fill_ids_mode: true })
+        .eq('id', progressId);
+      
+      return await handleFillSalebotIds(supabase, salebotApiKey, progressId, listId);
+    }
     // Базовые значения для точного пересчёта абсолютных метрик
     const baseClients = progressData?.total_clients_processed ?? 0;
     const baseMsgs = progressData?.total_messages_imported ?? 0;
