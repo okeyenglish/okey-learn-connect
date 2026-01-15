@@ -84,20 +84,35 @@ Deno.serve(async (req) => {
 
     console.log(`📊 Распознано записей: ${rows.length}`);
 
-    // Get all phone numbers from database for matching
-    const { data: phoneRecords, error: phoneError } = await supabase
-      .from('client_phone_numbers')
-      .select('id, client_id, phone');
+    // Get all phone numbers from database for matching (paginate to get all)
+    let allPhoneRecords: { id: string; client_id: string; phone: string }[] = [];
+    let page = 0;
+    const pageSize = 1000;
+    
+    while (true) {
+      const { data: phoneRecords, error: phoneError } = await supabase
+        .from('client_phone_numbers')
+        .select('id, client_id, phone')
+        .range(page * pageSize, (page + 1) * pageSize - 1);
 
-    if (phoneError) {
-      throw new Error(`Ошибка получения телефонов: ${phoneError.message}`);
+      if (phoneError) {
+        throw new Error(`Ошибка получения телефонов: ${phoneError.message}`);
+      }
+
+      if (!phoneRecords || phoneRecords.length === 0) break;
+      
+      allPhoneRecords = allPhoneRecords.concat(phoneRecords);
+      console.log(`📊 Загружено телефонов: ${allPhoneRecords.length}`);
+      
+      if (phoneRecords.length < pageSize) break;
+      page++;
     }
 
-    console.log(`📊 Телефонов в базе: ${phoneRecords?.length || 0}`);
+    console.log(`📊 Всего телефонов в базе: ${allPhoneRecords.length}`);
 
     // Create phone lookup map (normalized phone -> client_id)
     const phoneToClientMap = new Map<string, string>();
-    for (const record of phoneRecords || []) {
+    for (const record of allPhoneRecords) {
       const normalizedPhone = normalizePhone(record.phone);
       phoneToClientMap.set(normalizedPhone, record.client_id);
     }
