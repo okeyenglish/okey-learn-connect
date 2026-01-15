@@ -20,6 +20,7 @@ interface SalebotProgress {
   lastRunAt: Date | null;
   isRunning: boolean;
   isPaused: boolean;
+  isCompleted: boolean;
 }
 
 interface ApiUsage {
@@ -45,6 +46,7 @@ export function SyncDashboard() {
   const [salebotListId, setSalebotListId] = useState<string>('740756');
   const [isImporting, setIsImporting] = useState(false);
   const [isRunningBatch, setIsRunningBatch] = useState(false);
+  const [isSyncingNew, setIsSyncingNew] = useState(false);
 
   // Fetch all data
   useEffect(() => {
@@ -59,6 +61,12 @@ export function SyncDashboard() {
           .maybeSingle();
 
         if (progressData) {
+          // Check if import is completed (offset > 0 and clients processed, not running, not paused)
+          const isCompleted = !progressData.is_running && 
+            !progressData.is_paused && 
+            progressData.total_clients_processed > 0 &&
+            progressData.current_offset > 0;
+          
           setImportProgress({
             totalClientsProcessed: progressData.total_clients_processed || 0,
             totalImported: progressData.total_imported || 0,
@@ -67,7 +75,8 @@ export function SyncDashboard() {
             startTime: progressData.start_time ? new Date(progressData.start_time) : null,
             lastRunAt: progressData.last_run_at ? new Date(progressData.last_run_at) : null,
             isRunning: progressData.is_running || false,
-            isPaused: progressData.is_paused || false
+            isPaused: progressData.is_paused || false,
+            isCompleted
           });
         }
 
@@ -197,6 +206,45 @@ export function SyncDashboard() {
       });
     } finally {
       setIsRunningBatch(false);
+    }
+  };
+
+  const handleSyncNew = async () => {
+    try {
+      setIsSyncingNew(true);
+      
+      // Reset offset to 0 and trigger incremental sync
+      const { data: progress } = await supabase
+        .from('salebot_import_progress')
+        .select('id')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (progress?.id) {
+        await supabase
+          .from('salebot_import_progress')
+          .update({ current_offset: 0, is_paused: false })
+          .eq('id', progress.id);
+      }
+      
+      const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
+        body: { mode: 'sync_new' }
+      });
+      if (error) throw error;
+      
+      toast({
+        title: 'Синхронизация запущена',
+        description: 'Поиск новых сообщений у существующих клиентов',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSyncingNew(false);
     }
   };
 
@@ -384,6 +432,11 @@ export function SyncDashboard() {
                     <Pause className="h-3 w-3 mr-1" />
                     На паузе
                   </Badge>
+                ) : importProgress?.isCompleted ? (
+                  <Badge variant="default" className="bg-blue-500">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Импорт завершён
+                  </Badge>
                 ) : (
                   <Badge variant="outline">Остановлен</Badge>
                 )}
@@ -431,6 +484,17 @@ export function SyncDashboard() {
                 </Button>
               </div>
 
+              {/* Completed Status Alert */}
+              {importProgress?.isCompleted && !importProgress?.isRunning && (
+                <Alert className="border-blue-500/50 bg-blue-50/50 dark:bg-blue-950/20">
+                  <CheckCircle2 className="h-4 w-4 text-blue-500" />
+                  <AlertTitle>Импорт списка завершён</AlertTitle>
+                  <AlertDescription>
+                    Все клиенты из списка обработаны. Используйте "Синхронизировать новые" для загрузки новых сообщений.
+                  </AlertDescription>
+                </Alert>
+              )}
+
               {/* Action Buttons */}
               <div className="flex flex-wrap gap-2">
                 {importProgress?.isRunning ? (
@@ -459,6 +523,18 @@ export function SyncDashboard() {
                     <RefreshCw className="mr-2 h-4 w-4" />
                   )}
                   Запустить 1 батч
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleSyncNew} 
+                  disabled={isSyncingNew || importProgress?.isRunning || (apiUsage?.remaining || 0) < 11}
+                >
+                  {isSyncingNew ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  )}
+                  Синхронизировать новые
                 </Button>
                 <Button variant="outline" onClick={handleResetProgress}>
                   <RefreshCw className="mr-2 h-4 w-4" />
