@@ -138,6 +138,274 @@ async function linkClientWithStudent(supabase: any, clientId: string, phoneNumbe
   }
 }
 
+// ======== RESYNC MODE: Get history for existing clients in our DB ========
+async function handleResyncMessages(
+  supabase: any,
+  salebotApiKey: string,
+  organizationId: string,
+  progressId: string
+): Promise<Response> {
+  console.log('🔄 Запуск режима RESYNC_MESSAGES: синхронизация новых сообщений для существующих клиентов');
+  
+  // Get resync progress
+  const { data: progressData } = await supabase
+    .from('salebot_import_progress')
+    .select('resync_offset, resync_total_clients, resync_new_messages')
+    .eq('id', progressId)
+    .single();
+  
+  const resyncOffset = progressData?.resync_offset || 0;
+  const baseTotalClients = progressData?.resync_total_clients || 0;
+  const baseNewMessages = progressData?.resync_new_messages || 0;
+  
+  const clientBatchSize = 10;
+  
+  // Get clients that have salebot messages (meaning they came from Salebot)
+  const { data: localClients, error: clientsError } = await supabase
+    .from('clients')
+    .select(`
+      id, 
+      name, 
+      salebot_client_id,
+      phone_numbers:client_phone_numbers(phone)
+    `)
+    .order('created_at', { ascending: true })
+    .range(resyncOffset, resyncOffset + clientBatchSize - 1);
+  
+  if (clientsError) {
+    console.error('Ошибка получения клиентов:', clientsError);
+    throw clientsError;
+  }
+  
+  if (!localClients || localClients.length === 0) {
+    console.log('✅ Все клиенты обработаны! Ресинхронизация завершена.');
+    
+    // Reset resync progress
+    await supabase
+      .from('salebot_import_progress')
+      .update({
+        resync_offset: 0,
+        resync_mode: false,
+        is_running: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', progressId);
+    
+    return new Response(
+      JSON.stringify({
+        success: true,
+        completed: true,
+        mode: 'resync_messages',
+        message: 'Все клиенты синхронизированы',
+        totalClients: baseTotalClients,
+        newMessages: baseNewMessages
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+  
+  console.log(`📋 Загружено ${localClients.length} клиентов для ресинхронизации (offset: ${resyncOffset})`);
+  
+  let processedClients = 0;
+  let totalNewMessages = 0;
+  let totalApiCalls = 0;
+  
+  for (const client of localClients) {
+    try {
+      // Check API limit
+      const apiCheck = await checkAndIncrementApiUsage(supabase, 0);
+      if (!apiCheck.allowed || apiCheck.remaining < 2) {
+        console.log(`⚠️ API лимит достигнут. Прерываем ресинхронизацию.`);
+        break;
+      }
+      
+      let salebotClientId = client.salebot_client_id;
+      
+      // If no salebot_client_id, try to find it by phone
+      if (!salebotClientId && client.phone_numbers && client.phone_numbers.length > 0) {
+        const phone = client.phone_numbers[0]?.phone;
+        if (phone) {
+          const cleanPhone = normalizePhone(phone);
+          
+          // Try to find Salebot client ID by phone
+          await checkAndIncrementApiUsage(supabase, 1);
+          totalApiCalls++;
+          
+          const clientIdUrl = `https://chatter.salebot.pro/api/${salebotApiKey}/whatsapp_client_id?phone=${cleanPhone}&group_id=115236`;
+          
+          try {
+            const response = await fetch(clientIdUrl);
+            if (response.ok) {
+              const data = await response.json();
+              if (data.client_id) {
+                salebotClientId = data.client_id;
+                
+                // Save salebot_client_id for future use
+                await supabase
+                  .from('clients')
+                  .update({ salebot_client_id: salebotClientId })
+                  .eq('id', client.id);
+                
+                console.log(`📱 Найден Salebot ID ${salebotClientId} для клиента ${client.name} по телефону ${cleanPhone}`);
+              }
+            }
+          } catch (e) {
+            console.log(`Не удалось найти Salebot ID для телефона ${cleanPhone}`);
+          }
+        }
+      }
+      
+      if (!salebotClientId) {
+        console.log(`⏭️ Пропуск клиента ${client.name}: нет salebot_client_id`);
+        processedClients++;
+        continue;
+      }
+      
+      // Get message history from Salebot
+      await checkAndIncrementApiUsage(supabase, 1);
+      totalApiCalls++;
+      
+      const historyUrl = `https://chatter.salebot.pro/api/${salebotApiKey}/get_history?client_id=${salebotClientId}&limit=2000`;
+      const historyResponse = await fetch(historyUrl);
+      
+      if (!historyResponse.ok) {
+        console.error(`Ошибка получения истории для клиента ${client.id}: ${historyResponse.statusText}`);
+        processedClients++;
+        continue;
+      }
+      
+      const historyData = await historyResponse.json();
+      const messages: SalebotHistoryMessage[] = historyData.result || [];
+      
+      if (messages.length === 0) {
+        console.log(`📭 Нет сообщений для клиента ${client.name}`);
+        processedClients++;
+        continue;
+      }
+      
+      console.log(`📨 Получено ${messages.length} сообщений для клиента ${client.name}`);
+      
+      // Convert messages
+      const chatMessages: any[] = [];
+      for (const msg of messages) {
+        if (!msg.created_at) continue;
+        
+        let date: Date;
+        if (typeof msg.created_at === 'number') {
+          date = new Date(msg.created_at * 1000);
+        } else {
+          date = new Date(msg.created_at);
+        }
+        
+        if (isNaN(date.getTime())) continue;
+        
+        chatMessages.push({
+          client_id: client.id,
+          organization_id: organizationId,
+          message_text: msg.text || '',
+          message_type: msg.client_replica ? 'client' : 'manager',
+          is_outgoing: !msg.client_replica,
+          is_read: true,
+          created_at: date.toISOString(),
+          messenger_type: 'whatsapp',
+          salebot_message_id: msg.id.toString(),
+        });
+      }
+      
+      // Insert in batches, checking for duplicates
+      const batchSize = 50;
+      let clientNewMessages = 0;
+      
+      for (let i = 0; i < chatMessages.length; i += batchSize) {
+        const batch = chatMessages.slice(i, i + batchSize);
+        
+        const salebotIds = batch.map(m => m.salebot_message_id);
+        const { data: existing } = await supabase
+          .from('chat_messages')
+          .select('salebot_message_id')
+          .eq('client_id', client.id)
+          .in('salebot_message_id', salebotIds);
+        
+        const existingIds = new Set((existing || []).map((e: any) => e.salebot_message_id));
+        const newMessages = batch.filter(m => !existingIds.has(m.salebot_message_id));
+        
+        if (newMessages.length > 0) {
+          const { error: insertError } = await supabase
+            .from('chat_messages')
+            .insert(newMessages, { onConflict: 'client_id,salebot_message_id', ignoreDuplicates: true });
+          
+          if (!insertError) {
+            clientNewMessages += newMessages.length;
+            totalNewMessages += newMessages.length;
+          }
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      
+      if (clientNewMessages > 0) {
+        console.log(`✅ Добавлено ${clientNewMessages} новых сообщений для клиента ${client.name}`);
+      }
+      
+      processedClients++;
+      
+      // Intermediate commit every 5 clients
+      if (processedClients % 5 === 0) {
+        await supabase
+          .from('salebot_import_progress')
+          .update({
+            resync_offset: resyncOffset + processedClients,
+            resync_total_clients: baseTotalClients + processedClients,
+            resync_new_messages: baseNewMessages + totalNewMessages,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', progressId);
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+    } catch (error: any) {
+      console.error(`Ошибка обработки клиента ${client.name}:`, error);
+    }
+  }
+  
+  // Final update
+  const nextOffset = resyncOffset + processedClients;
+  const isCompleted = localClients.length < clientBatchSize;
+  
+  await supabase
+    .from('salebot_import_progress')
+    .update({
+      resync_offset: isCompleted ? 0 : nextOffset,
+      resync_total_clients: baseTotalClients + processedClients,
+      resync_new_messages: baseNewMessages + totalNewMessages,
+      resync_mode: !isCompleted,
+      is_running: false,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', progressId);
+  
+  const finalApiUsage = await checkAndIncrementApiUsage(supabase, 0);
+  
+  console.log(`📊 Ресинхронизация батча завершена: ${processedClients} клиентов, ${totalNewMessages} новых сообщений, ${totalApiCalls} API вызовов`);
+  
+  return new Response(
+    JSON.stringify({
+      success: true,
+      mode: 'resync_messages',
+      completed: isCompleted,
+      processedClients,
+      newMessages: totalNewMessages,
+      totalClients: baseTotalClients + processedClients,
+      totalNewMessages: baseNewMessages + totalNewMessages,
+      nextOffset,
+      apiCalls: totalApiCalls,
+      apiUsage: finalApiUsage
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -155,10 +423,10 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     // Parse request body for mode parameter
-    let requestMode: 'full' | 'incremental' | 'sync_new' = 'full';
+    let requestMode: 'full' | 'incremental' | 'sync_new' | 'resync_messages' = 'full';
     try {
       const body = await req.json();
-      if (body?.mode === 'incremental' || body?.mode === 'sync_new') {
+      if (body?.mode === 'incremental' || body?.mode === 'sync_new' || body?.mode === 'resync_messages') {
         requestMode = body.mode;
       }
     } catch {
@@ -272,6 +540,25 @@ Deno.serve(async (req) => {
       );
     }
     
+    // Get organization_id
+    const { data: orgs } = await supabase.from('organizations').select('id').limit(1);
+    const organizationId = orgs?.[0]?.id;
+
+    if (!organizationId) {
+      throw new Error('Не найдена организация');
+    }
+    
+    // ======== RESYNC_MESSAGES MODE ========
+    if (requestMode === 'resync_messages') {
+      // Set resync mode flag
+      await supabase
+        .from('salebot_import_progress')
+        .update({ resync_mode: true })
+        .eq('id', progressId);
+      
+      return await handleResyncMessages(supabase, salebotApiKey, organizationId, progressId);
+    }
+    
     // Получаем информацию о прогрессе (list_id и безопасный offset)
     const { data: progressData } = await supabase
       .from('salebot_import_progress')
@@ -294,14 +581,6 @@ Deno.serve(async (req) => {
     
     console.log(`🔒 Блокировка получена. Progress ID: ${progressId}`);
     console.log(`Автоматический импорт (${mode}): начало батча (offset: ${currentOffset})...`);
-
-    // Получаем organization_id
-    const { data: orgs } = await supabase.from('organizations').select('id').limit(1);
-    const organizationId = orgs?.[0]?.id;
-
-    if (!organizationId) {
-      throw new Error('Не найдена организация');
-    }
 
     let totalImported = 0;
     let totalClients = 0;
@@ -484,6 +763,12 @@ Deno.serve(async (req) => {
             clientId = existingPhones[0].client_id;
             console.log(`Найден существующий клиент: ${clientId}`);
             
+            // Save salebot_client_id for future resync
+            await supabase
+              .from('clients')
+              .update({ salebot_client_id: salebotClient.id })
+              .eq('id', clientId);
+            
             // Try to link with student
             await linkClientWithStudent(supabase, clientId, phoneNumber);
           } else {
@@ -493,7 +778,8 @@ Deno.serve(async (req) => {
               .insert({
                 name: clientName,
                 organization_id: organizationId,
-                is_active: true
+                is_active: true,
+                salebot_client_id: salebotClient.id
               })
               .select()
               .single();
@@ -563,7 +849,7 @@ Deno.serve(async (req) => {
               .eq('client_id', clientId)
               .in('salebot_message_id', salebotIds);
             
-            const existingIds = new Set((existing || []).map(e => e.salebot_message_id));
+            const existingIds = new Set((existing || []).map((e: any) => e.salebot_message_id));
             const newMessages = batch.filter(m => !existingIds.has(m.salebot_message_id));
             
             console.log(`Батч ${i/batchSize + 1}: всего ${batch.length} сообщений, уже существует ${existingIds.size}, новых ${newMessages.length}`);
@@ -699,6 +985,12 @@ Deno.serve(async (req) => {
             }
 
             console.log(`Получен client_id: ${salebotClientId} (формат: ${foundPhone})`);
+            
+            // Save salebot_client_id for future resync
+            await supabase
+              .from('clients')
+              .update({ salebot_client_id: salebotClientId })
+              .eq('id', client.id);
 
             // Increment for get_history
             await checkAndIncrementApiUsage(supabase, 1);
@@ -757,7 +1049,7 @@ Deno.serve(async (req) => {
                 .eq('client_id', client.id)
                 .in('salebot_message_id', salebotIds);
               
-              const existingIds = new Set((existing || []).map(e => e.salebot_message_id));
+              const existingIds = new Set((existing || []).map((e: any) => e.salebot_message_id));
               const newMessages = batch.filter(m => !existingIds.has(m.salebot_message_id));
               
               if (newMessages.length > 0) {

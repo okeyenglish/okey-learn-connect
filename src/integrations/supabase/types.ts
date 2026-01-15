@@ -1430,6 +1430,7 @@ export type Database = {
           notes: string | null
           organization_id: string
           phone: string | null
+          salebot_client_id: number | null
           telegram_avatar_url: string | null
           telegram_chat_id: string | null
           telegram_user_id: number | null
@@ -1455,6 +1456,7 @@ export type Database = {
           notes?: string | null
           organization_id?: string
           phone?: string | null
+          salebot_client_id?: number | null
           telegram_avatar_url?: string | null
           telegram_chat_id?: string | null
           telegram_user_id?: number | null
@@ -1480,6 +1482,7 @@ export type Database = {
           notes?: string | null
           organization_id?: string
           phone?: string | null
+          salebot_client_id?: number | null
           telegram_avatar_url?: string | null
           telegram_chat_id?: string | null
           telegram_user_id?: number | null
@@ -5453,6 +5456,10 @@ export type Database = {
           is_running: boolean
           last_run_at: string | null
           list_id: string | null
+          resync_mode: boolean | null
+          resync_new_messages: number | null
+          resync_offset: number | null
+          resync_total_clients: number | null
           start_time: string | null
           total_clients_processed: number
           total_imported: number
@@ -5469,6 +5476,10 @@ export type Database = {
           is_running?: boolean
           last_run_at?: string | null
           list_id?: string | null
+          resync_mode?: boolean | null
+          resync_new_messages?: number | null
+          resync_offset?: number | null
+          resync_total_clients?: number | null
           start_time?: string | null
           total_clients_processed?: number
           total_imported?: number
@@ -5485,6 +5496,10 @@ export type Database = {
           is_running?: boolean
           last_run_at?: string | null
           list_id?: string | null
+          resync_mode?: boolean | null
+          resync_new_messages?: number | null
+          resync_offset?: number | null
+          resync_total_clients?: number | null
           start_time?: string | null
           total_clients_processed?: number
           total_imported?: number

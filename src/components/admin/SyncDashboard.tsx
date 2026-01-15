@@ -21,6 +21,11 @@ interface SalebotProgress {
   isRunning: boolean;
   isPaused: boolean;
   isCompleted: boolean;
+  // Resync fields
+  resyncMode: boolean;
+  resyncOffset: number;
+  resyncTotalClients: number;
+  resyncNewMessages: number;
 }
 
 interface ApiUsage {
@@ -47,6 +52,7 @@ export function SyncDashboard() {
   const [isImporting, setIsImporting] = useState(false);
   const [isRunningBatch, setIsRunningBatch] = useState(false);
   const [isSyncingNew, setIsSyncingNew] = useState(false);
+  const [isResyncingAll, setIsResyncingAll] = useState(false);
 
   // Fetch all data
   useEffect(() => {
@@ -76,7 +82,11 @@ export function SyncDashboard() {
             lastRunAt: progressData.last_run_at ? new Date(progressData.last_run_at) : null,
             isRunning: progressData.is_running || false,
             isPaused: progressData.is_paused || false,
-            isCompleted
+            isCompleted,
+            resyncMode: progressData.resync_mode || false,
+            resyncOffset: progressData.resync_offset || 0,
+            resyncTotalClients: progressData.resync_total_clients || 0,
+            resyncNewMessages: progressData.resync_new_messages || 0
           });
         }
 
@@ -245,6 +255,52 @@ export function SyncDashboard() {
       });
     } finally {
       setIsSyncingNew(false);
+    }
+  };
+
+  const handleResyncAllDialogs = async () => {
+    try {
+      setIsResyncingAll(true);
+      
+      // Reset resync offset and trigger resync mode
+      const { data: progress } = await supabase
+        .from('salebot_import_progress')
+        .select('id')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (progress?.id) {
+        await supabase
+          .from('salebot_import_progress')
+          .update({ 
+            resync_offset: 0, 
+            resync_total_clients: 0,
+            resync_new_messages: 0,
+            resync_mode: true,
+            is_paused: false 
+          })
+          .eq('id', progress.id);
+      }
+      
+      const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
+        body: { mode: 'resync_messages' }
+      });
+      if (error) throw error;
+      
+      const result = data as any;
+      toast({
+        title: 'Синхронизация диалогов запущена',
+        description: `Обработано: ${result?.processedClients || 0} клиентов, новых сообщений: ${result?.newMessages || 0}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsResyncingAll(false);
     }
   };
 
@@ -535,6 +591,19 @@ export function SyncDashboard() {
                     <RefreshCw className="mr-2 h-4 w-4" />
                   )}
                   Синхронизировать новые
+                </Button>
+                <Button 
+                  variant="default" 
+                  className="bg-green-600 hover:bg-green-700"
+                  onClick={handleResyncAllDialogs} 
+                  disabled={isResyncingAll || importProgress?.isRunning || (apiUsage?.remaining || 0) < 11}
+                >
+                  {isResyncingAll ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  )}
+                  Синхронизировать все диалоги
                 </Button>
                 <Button variant="outline" onClick={handleResetProgress}>
                   <RefreshCw className="mr-2 h-4 w-4" />
