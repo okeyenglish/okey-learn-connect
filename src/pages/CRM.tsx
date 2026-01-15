@@ -3337,6 +3337,8 @@ const CRMContent = () => {
                           onChatClick={handleChatClick}
                           onChatAction={handleChatAction}
                           onBulkSelect={handleBulkSelectToggle}
+                          onDeleteChat={handleDeleteChat}
+                          onLinkChat={handleLinkChat}
                         />
                       </div>
                     </>
@@ -3372,6 +3374,8 @@ const CRMContent = () => {
                         onChatClick={handleChatClick}
                         onChatAction={handleChatAction}
                         onBulkSelect={handleBulkSelectToggle}
+                        onDeleteChat={handleDeleteChat}
+                        onLinkChat={handleLinkChat}
                       />
                     </div>
                   )}
@@ -3802,6 +3806,24 @@ const CRMContent = () => {
         onOpenChange={setShowEducationSubmenu}
         onGroupsClick={() => setShowGroupsModal(true)}
         onIndividualClick={() => setShowIndividualLessonsModal(true)}
+      />
+
+      {/* Delete Chat Dialog */}
+      <DeleteChatDialog
+        open={deleteChatDialog.open}
+        onOpenChange={(open) => setDeleteChatDialog(prev => ({ ...prev, open }))}
+        chatName={deleteChatDialog.chatName}
+        onConfirm={confirmDeleteChat}
+        isDeleting={isDeletingChat}
+      />
+
+      {/* Link Chat to Client Modal */}
+      <LinkChatToClientModal
+        open={linkChatModal.open}
+        onOpenChange={(open) => setLinkChatModal(prev => ({ ...prev, open }))}
+        chatClientId={linkChatModal.chatId}
+        chatClientName={linkChatModal.chatName}
+        onSuccess={handleLinkChatSuccess}
       />
 
       {/* Модальные окна для голосового ассистента */}
