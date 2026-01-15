@@ -38,9 +38,13 @@ export const ManagerMenu = ({
   const isMobile = useIsMobile();
   
   // Check if user is admin or methodist
-  const isAdmin = role === 'admin' || roles?.includes?.('admin');
-  const isMethodist = role === 'methodist' || roles?.includes?.('methodist');
+  // roles is an array, check if it includes admin
+  const isAdmin = role === 'admin' || (Array.isArray(roles) && roles.includes('admin'));
+  const isMethodist = role === 'methodist' || (Array.isArray(roles) && roles.includes('methodist'));
   const canAccessAdmin = isAdmin || isMethodist;
+  
+  // Debug logging
+  console.log('🔐 ManagerMenu roles check:', { role, roles, isAdmin, isMethodist, canAccessAdmin });
 
   const handleProfileClick = () => {
     setShowProfileModal(true);
