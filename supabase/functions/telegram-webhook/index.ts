@@ -8,7 +8,7 @@ const corsHeaders = {
 interface WappiMessage {
   id: string;
   profile_id: string;
-  wh_type: 'incoming_message' | 'outgoing_message' | 'delivery_status' | 'authorization_status';
+  wh_type: 'incoming_message' | 'outgoing_message' | 'outgoing_message_phone' | 'delivery_status' | 'authorization_status';
   timestamp: string;
   time: number;
   body?: string;
@@ -28,6 +28,8 @@ interface WappiMessage {
   quotedMsgId?: string;
   thumbnail?: string;
   picture?: string;
+  from_where?: string;
+  is_me?: boolean;
 }
 
 interface WappiWebhook {
@@ -110,6 +112,8 @@ async function processMessage(supabase: any, message: WappiMessage): Promise<voi
       await handleIncomingMessage(supabase, message, organizationId);
       break;
     case 'outgoing_message':
+    case 'outgoing_message_phone':
+      // outgoing_message_phone - сообщения отправленные с телефона
       await handleOutgoingMessage(supabase, message, organizationId);
       break;
     case 'delivery_status':
