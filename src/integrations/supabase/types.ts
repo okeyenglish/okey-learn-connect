@@ -7727,6 +7727,10 @@ export type Database = {
         Args: { p_description: string; p_kind: string; p_level: string }
         Returns: string
       }
+      batch_update_salebot_ids: {
+        Args: { p_client_ids: string[]; p_salebot_ids: number[] }
+        Returns: number
+      }
       calculate_cluster_score: {
         Args: {
           p_business_value?: number
