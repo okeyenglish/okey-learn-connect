@@ -101,40 +101,86 @@ Deno.serve(async (req) => {
 
     console.log(`📥 Received ${updates.length} pre-matched updates`);
 
-    // Filter valid updates and prepare arrays for batch RPC
-    const validUpdates = updates.filter(u => !isNaN(parseInt(u.salebotId)));
-    const clientIds = validUpdates.map(u => u.clientId);
-    const salebotIds = validUpdates.map(u => parseInt(u.salebotId));
+    // Normalize + validate updates
+    const normalized = updates
+      .map((u) => ({
+        clientId: u.clientId,
+        salebotId: Number.parseInt(String(u.salebotId), 10),
+      }))
+      .filter((u) => Number.isFinite(u.salebotId));
 
-    console.log(`📊 Valid updates: ${validUpdates.length}, invalid: ${updates.length - validUpdates.length}`);
+    // De-duplicate by clientId (last one wins) to avoid re-updating same row
+    const dedup = new Map<string, number>();
+    for (const u of normalized) dedup.set(u.clientId, u.salebotId);
 
-    // Use batch RPC for efficient single-query update
-    const { data: updatedCount, error: rpcError } = await supabase.rpc('batch_update_salebot_ids', {
-      p_client_ids: clientIds,
-      p_salebot_ids: salebotIds
-    });
+    const validUpdates = Array.from(dedup.entries()).map(([clientId, salebotId]) => ({
+      clientId,
+      salebotId,
+    }));
 
-    if (rpcError) {
-      console.error('❌ Batch update RPC error:', rpcError);
-      return new Response(JSON.stringify({
-        success: false,
-        error: rpcError.message
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    console.log(
+      `📊 Valid updates: ${validUpdates.length}, invalid: ${updates.length - normalized.length}, deduped: ${normalized.length - validUpdates.length}`,
+    );
+
+    const BATCH_SIZE = 250;
+
+    const updateBatch = async (clientIds: string[], salebotIds: number[]): Promise<number> => {
+      const { data: updatedCount, error: rpcError } = await supabase.rpc('batch_update_salebot_ids', {
+        p_client_ids: clientIds,
+        p_salebot_ids: salebotIds,
       });
+
+      if (rpcError) {
+        // 57014 = query_canceled (often statement_timeout). Split batch to find/avoid the slow/locked rows.
+        if (rpcError.code === '57014' && clientIds.length > 1) {
+          const mid = Math.ceil(clientIds.length / 2);
+          const left = await updateBatch(clientIds.slice(0, mid), salebotIds.slice(0, mid));
+          const right = await updateBatch(clientIds.slice(mid), salebotIds.slice(mid));
+          return left + right;
+        }
+
+        throw rpcError;
+      }
+
+      return updatedCount || 0;
+    };
+
+    let updatedTotal = 0;
+    let failedValidUpdates = 0;
+
+    for (let i = 0; i < validUpdates.length; i += BATCH_SIZE) {
+      const batch = validUpdates.slice(i, i + BATCH_SIZE);
+      const clientIds = batch.map((u) => u.clientId);
+      const salebotIds = batch.map((u) => u.salebotId);
+
+      console.log(`🔁 Updating batch ${Math.floor(i / BATCH_SIZE) + 1} (${batch.length} records)`);
+
+      try {
+        const updatedCount = await updateBatch(clientIds, salebotIds);
+        updatedTotal += updatedCount;
+        console.log(`✅ Batch updated: ${updatedCount}`);
+      } catch (e) {
+        console.error('❌ Batch update failed:', e);
+        failedValidUpdates += batch.length;
+      }
     }
 
-    console.log(`✅ Import complete: updated ${updatedCount} records`);
+    console.log(
+      `✅ Import complete: updated ${updatedTotal} records (failed batches: ${failedValidUpdates}, invalid rows: ${updates.length - normalized.length})`,
+    );
 
-    return new Response(JSON.stringify({
-      success: true,
-      updated: updatedCount || 0,
-      errors: updates.length - validUpdates.length,
-      total: updates.length
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: failedValidUpdates === 0,
+        updated: updatedTotal,
+        errors: updates.length - normalized.length + failedValidUpdates,
+        total: updates.length,
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: failedValidUpdates === 0 ? 200 : 207,
+      },
+    );
 
   } catch (error) {
     console.error('❌ Import error:', error);
