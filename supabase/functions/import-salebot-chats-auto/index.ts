@@ -961,6 +961,105 @@ Deno.serve(async (req) => {
       throw new Error('Не найдена организация');
     }
     
+// ======== CONTINUOUS MODE: Фоновый импорт (можно закрыть страницу) ========
+    if (requestMode === 'continuous_sync') {
+      console.log('🚀 Запуск CONTINUOUS режима: фоновый импорт с waitUntil');
+      
+      // Set mode flag and mark as running
+      await supabase
+        .from('salebot_import_progress')
+        .update({ 
+          resync_mode: true, 
+          is_running: true,
+          is_paused: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', progressId);
+      
+      // Background continuous import loop
+      const continuousImport = async () => {
+        let batchCount = 0;
+        const maxBatches = 50; // Safety limit: max 50 batches per invocation
+        const batchDelayMs = 3000; // 3 second delay between batches
+        
+        while (batchCount < maxBatches) {
+          try {
+            // Check if stopped by user
+            const { data: checkProgress } = await supabase
+              .from('salebot_import_progress')
+              .select('is_paused, is_running')
+              .eq('id', progressId)
+              .single();
+            
+            if (checkProgress?.is_paused || !checkProgress?.is_running) {
+              console.log(`⏸️ Continuous импорт остановлен пользователем (batch ${batchCount})`);
+              break;
+            }
+            
+            // Check API limit
+            const apiCheck = await checkAndIncrementApiUsage(supabase, 0);
+            if (!apiCheck.allowed || apiCheck.remaining < 5) {
+              console.log(`⚠️ API лимит достигнут в continuous режиме (batch ${batchCount})`);
+              break;
+            }
+            
+            // Process one batch
+            console.log(`📦 Continuous batch ${batchCount + 1}...`);
+            const result = await handleSyncWithSalebotIds(supabase, salebotApiKey, organizationId, progressId);
+            const resultData = await result.json();
+            
+            batchCount++;
+            
+            // If completed, stop
+            if (resultData.completed) {
+              console.log(`✅ Continuous импорт завершён полностью (${batchCount} батчей)`);
+              break;
+            }
+            
+            // Update heartbeat
+            await supabase
+              .from('salebot_import_progress')
+              .update({ 
+                updated_at: new Date().toISOString(),
+                is_running: true
+              })
+              .eq('id', progressId);
+            
+            // Delay before next batch
+            await new Promise(resolve => setTimeout(resolve, batchDelayMs));
+            
+          } catch (error: any) {
+            console.error(`❌ Ошибка в continuous batch ${batchCount}:`, error);
+            break;
+          }
+        }
+        
+        // Mark as complete
+        await supabase
+          .from('salebot_import_progress')
+          .update({ 
+            is_running: false,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', progressId);
+        
+        console.log(`🏁 Continuous импорт завершён: ${batchCount} батчей обработано`);
+      };
+      
+      // Start background task and return immediately
+      EdgeRuntime.waitUntil(continuousImport());
+      
+      return new Response(
+        JSON.stringify({
+          success: true,
+          mode: 'continuous_sync',
+          message: 'Фоновый импорт запущен. Можно закрыть страницу.',
+          backgroundStarted: true
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     // ======== SYNC_WITH_SALEBOT_IDS MODE ========
     if (requestMode === 'sync_with_salebot_ids') {
       // Set resync mode flag
