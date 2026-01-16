@@ -61,6 +61,7 @@ export function SyncDashboard() {
   const [isSyncingNew, setIsSyncingNew] = useState(false);
   const [isResyncingAll, setIsResyncingAll] = useState(false);
   const [isFillingIds, setIsFillingIds] = useState(false);
+  const [isSyncingWithIds, setIsSyncingWithIds] = useState(false);
   const [isFullReimporting, setIsFullReimporting] = useState(false);
   const [isImportingCsv, setIsImportingCsv] = useState(false);
   const [csvImportProgress, setCsvImportProgress] = useState<{
@@ -380,6 +381,52 @@ export function SyncDashboard() {
       });
     } finally {
       setIsResyncingAll(false);
+    }
+  };
+
+  const handleSyncWithSalebotIds = async () => {
+    try {
+      setIsSyncingWithIds(true);
+      
+      // Reset resync progress and trigger sync mode
+      const { data: progress } = await supabase
+        .from('salebot_import_progress')
+        .select('id')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (progress?.id) {
+        await supabase
+          .from('salebot_import_progress')
+          .update({ 
+            resync_offset: 0, 
+            resync_total_clients: 0,
+            resync_new_messages: 0,
+            resync_mode: true,
+            is_paused: false 
+          })
+          .eq('id', progress.id);
+      }
+      
+      const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
+        body: { mode: 'sync_with_salebot_ids' }
+      });
+      if (error) throw error;
+      
+      const result = data as any;
+      toast({
+        title: 'Синхронизация запущена',
+        description: `Обработано: ${result?.processedClients || 0} клиентов, новых сообщений: ${result?.newMessages || 0}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSyncingWithIds(false);
     }
   };
 
@@ -1064,12 +1111,36 @@ export function SyncDashboard() {
                 </div>
               )}
               
+              {/* Sync with IDs Progress */}
+              {importProgress?.resyncMode && !importProgress?.fillIdsMode && (
+                <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                  <div className="flex justify-between text-sm mb-2">
+                    <span>Прогресс загрузки чатов:</span>
+                    <span>Offset: {importProgress.resyncOffset}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>Клиентов: <strong>{importProgress.resyncTotalClients}</strong></div>
+                    <div>Новых сообщений: <strong className="text-green-600">{importProgress.resyncNewMessages}</strong></div>
+                  </div>
+                </div>
+              )}
+              
               {dbStats && dbStats.clientsWithoutSalebotId > 0 && (
                 <Alert className="border-cyan-500/50 bg-cyan-50/50 dark:bg-cyan-950/20">
                   <AlertCircle className="h-4 w-4 text-cyan-500" />
                   <AlertTitle>Требуется заполнение Salebot IDs</AlertTitle>
                   <AlertDescription>
                     {dbStats.clientsWithoutSalebotId.toLocaleString()} клиентов без Salebot ID. Запустите заполнение для связи клиентов.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {dbStats && dbStats.clientsWithSalebotId > 0 && (
+                <Alert className="border-green-500/50 bg-green-50/50 dark:bg-green-950/20">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <AlertTitle>Готово к загрузке чатов</AlertTitle>
+                  <AlertDescription>
+                    {dbStats.clientsWithSalebotId.toLocaleString()} клиентов с Salebot ID готовы к загрузке диалогов.
                   </AlertDescription>
                 </Alert>
               )}
@@ -1112,6 +1183,21 @@ export function SyncDashboard() {
                     Загрузить CSV
                   </Button>
                 </div>
+                
+                {/* Sync chats for clients with Salebot ID */}
+                <Button 
+                  variant="default" 
+                  className="bg-green-600 hover:bg-green-700 flex-1"
+                  onClick={handleSyncWithSalebotIds} 
+                  disabled={isSyncingWithIds || importProgress?.isRunning || (apiUsage?.remaining || 0) < 1 || !dbStats?.clientsWithSalebotId}
+                >
+                  {isSyncingWithIds ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                  )}
+                  Загрузить чаты ({dbStats?.clientsWithSalebotId || 0})
+                </Button>
               </div>
 
               {/* CSV Import Progress */}

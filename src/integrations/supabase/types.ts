@@ -7987,6 +7987,7 @@ export type Database = {
           user_name: string
         }[]
       }
+      get_my_organization_id: { Args: never; Returns: string }
       get_or_create_salebot_usage: {
         Args: never
         Returns: {
