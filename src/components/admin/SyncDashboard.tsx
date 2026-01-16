@@ -212,20 +212,55 @@ export function SyncDashboard() {
     };
   }, [pollInterval]);
 
+  const [isStopping, setIsStopping] = useState(false);
+
   const handleStopImport = async () => {
     try {
-      const { error } = await supabase.functions.invoke('salebot-stop');
-      if (error) throw error;
+      setIsStopping(true);
+      
+      // Stop by updating the progress record directly
+      const { data: progress } = await supabase
+        .from('salebot_import_progress')
+        .select('id')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (progress?.id) {
+        await supabase
+          .from('salebot_import_progress')
+          .update({ 
+            is_running: false, 
+            is_paused: true,
+            resync_mode: false,
+            fill_ids_mode: false
+          })
+          .eq('id', progress.id);
+      }
+      
+      // Also reset local state
+      setIsSyncingWithIds(false);
+      setIsFillingIds(false);
+      setIsResyncingAll(false);
+      setIsSyncingNew(false);
+      setIsRunningBatch(false);
+      setIsImporting(false);
+      
       toast({
         title: 'Импорт остановлен',
-        description: 'Автоматический импорт Salebot успешно остановлен',
+        description: 'Загрузка чатов остановлена. Можете продолжить позже.',
       });
+      
+      // Refresh progress
+      await fetchProgressOnly();
     } catch (error: any) {
       toast({
         title: 'Ошибка',
         description: error.message,
         variant: 'destructive',
       });
+    } finally {
+      setIsStopping(false);
     }
   };
 
@@ -388,6 +423,21 @@ export function SyncDashboard() {
     try {
       setIsSyncingWithIds(true);
       
+      // Check if stopped before continuing
+      const { data: currentProgress } = await supabase
+        .from('salebot_import_progress')
+        .select('is_paused, resync_mode')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      // If paused, don't continue
+      if (continueSync && currentProgress?.is_paused) {
+        console.log('⏸️ Синхронизация остановлена пользователем');
+        setIsSyncingWithIds(false);
+        return;
+      }
+      
       const { data: progress } = await supabase
         .from('salebot_import_progress')
         .select('id')
@@ -405,6 +455,7 @@ export function SyncDashboard() {
               resync_total_clients: 0,
               resync_new_messages: 0,
               resync_mode: true,
+              is_running: true,
               is_paused: false 
             })
             .eq('id', progress.id);
@@ -414,6 +465,7 @@ export function SyncDashboard() {
             .from('salebot_import_progress')
             .update({ 
               resync_mode: true,
+              is_running: true,
               is_paused: false 
             })
             .eq('id', progress.id);
@@ -426,6 +478,20 @@ export function SyncDashboard() {
       if (error) throw error;
       
       const result = data as any;
+      
+      // Check if stopped during this batch
+      const { data: checkPaused } = await supabase
+        .from('salebot_import_progress')
+        .select('is_paused')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (checkPaused?.is_paused) {
+        console.log('⏸️ Синхронизация остановлена пользователем');
+        setIsSyncingWithIds(false);
+        return;
+      }
       
       // Auto-continue if not completed
       if (result?.completed === false) {
@@ -442,6 +508,14 @@ export function SyncDashboard() {
         title: result?.completed ? 'Синхронизация завершена!' : 'Синхронизация запущена',
         description: `Обработано: ${result?.totalClients || result?.processedClients || 0} клиентов, новых сообщений: ${result?.totalNewMessages || result?.newMessages || 0}`,
       });
+      
+      // Mark as not running when completed
+      if (progress?.id) {
+        await supabase
+          .from('salebot_import_progress')
+          .update({ is_running: false })
+          .eq('id', progress.id);
+      }
     } catch (error: any) {
       toast({
         title: 'Ошибка',
@@ -1208,19 +1282,31 @@ export function SyncDashboard() {
                 </div>
                 
                 {/* Sync chats for clients with Salebot ID */}
-                <Button 
-                  variant="default" 
-                  className="bg-green-600 hover:bg-green-700 flex-1"
-                  onClick={() => handleSyncWithSalebotIds(false)} 
-                  disabled={isSyncingWithIds || importProgress?.isRunning || (apiUsage?.remaining || 0) < 1 || !dbStats?.clientsWithSalebotId}
-                >
-                  {isSyncingWithIds ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
+                {isSyncingWithIds || (importProgress?.resyncMode && importProgress?.isRunning) ? (
+                  <Button 
+                    variant="destructive" 
+                    className="flex-1"
+                    onClick={handleStopImport} 
+                    disabled={isStopping}
+                  >
+                    {isStopping ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Pause className="mr-2 h-4 w-4" />
+                    )}
+                    Остановить
+                  </Button>
+                ) : (
+                  <Button 
+                    variant="default" 
+                    className="bg-green-600 hover:bg-green-700 flex-1"
+                    onClick={() => handleSyncWithSalebotIds(false)} 
+                    disabled={importProgress?.isRunning || (apiUsage?.remaining || 0) < 1 || !dbStats?.clientsWithSalebotId}
+                  >
                     <MessageSquare className="mr-2 h-4 w-4" />
-                  )}
-                  Загрузить чаты ({dbStats?.clientsWithSalebotId || 0})
-                </Button>
+                    Загрузить чаты ({dbStats?.clientsWithSalebotId || 0})
+                  </Button>
+                )}
               </div>
 
               {/* CSV Import Progress */}
