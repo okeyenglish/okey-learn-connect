@@ -902,7 +902,8 @@ Deno.serve(async (req) => {
       | 'fill_salebot_ids'
       | 'full_reimport'
       | 'sync_with_salebot_ids'
-      | 'continuous_sync' = 'full';
+      | 'continuous_sync'
+      | 'background_chain' = 'full';
     try {
       const body = await req.json();
       if (
@@ -912,7 +913,8 @@ Deno.serve(async (req) => {
         body?.mode === 'fill_salebot_ids' ||
         body?.mode === 'full_reimport' ||
         body?.mode === 'sync_with_salebot_ids' ||
-        body?.mode === 'continuous_sync'
+        body?.mode === 'continuous_sync' ||
+        body?.mode === 'background_chain'
       ) {
         requestMode = body.mode;
       }
@@ -1040,100 +1042,317 @@ Deno.serve(async (req) => {
       throw new Error('Не найдена организация');
     }
     
-// ======== CONTINUOUS MODE: Фоновый импорт (можно закрыть страницу) ========
-    if (requestMode === 'continuous_sync') {
-      console.log('🚀 Запуск CONTINUOUS режима: фоновый импорт с waitUntil');
+// ======== BACKGROUND_CHAIN MODE: Self-invoking chain for unlimited background import ========
+    if (requestMode === 'background_chain') {
+      console.log('🔗 Запуск BACKGROUND_CHAIN режима: self-invoking chain');
       
-      // Set mode flag and mark as running
+      const BATCH_SIZE = 10; // Process 10 clients per invocation (~20-30 seconds)
+      
+      // Get current progress
+      const { data: chainProgress } = await supabase
+        .from('salebot_import_progress')
+        .select('resync_offset, resync_total_clients, resync_new_messages, is_paused, is_running')
+        .eq('id', progressId)
+        .single();
+      
+      // Check if should stop
+      if (chainProgress?.is_paused) {
+        console.log('⏸️ Background chain остановлен пользователем');
+        await supabase
+          .from('salebot_import_progress')
+          .update({ is_running: false })
+          .eq('id', progressId);
+        return new Response(
+          JSON.stringify({ success: true, stopped: true, reason: 'paused' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Check API limit
+      const apiCheck = await checkAndIncrementApiUsage(supabase, 0);
+      if (!apiCheck.allowed || apiCheck.remaining < 5) {
+        console.log(`⚠️ API лимит достигнут в background chain`);
+        await supabase
+          .from('salebot_import_progress')
+          .update({ is_running: false })
+          .eq('id', progressId);
+        return new Response(
+          JSON.stringify({ success: true, stopped: true, reason: 'api_limit', apiUsage: apiCheck }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Mark as running with heartbeat
       await supabase
         .from('salebot_import_progress')
         .update({ 
-          resync_mode: true, 
+          is_running: true,
+          is_paused: false,
+          resync_mode: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', progressId);
+      
+      const resyncOffset = chainProgress?.resync_offset || 0;
+      const baseTotalClients = chainProgress?.resync_total_clients || 0;
+      const baseNewMessages = chainProgress?.resync_new_messages || 0;
+      
+      // Get clients with salebot_client_id
+      const { data: localClients, error: clientsError } = await supabase
+        .from('clients')
+        .select('id, name, salebot_client_id')
+        .not('salebot_client_id', 'is', null)
+        .order('created_at', { ascending: true })
+        .range(resyncOffset, resyncOffset + BATCH_SIZE - 1);
+      
+      if (clientsError) {
+        console.error('Ошибка получения клиентов:', clientsError);
+        throw clientsError;
+      }
+      
+      // Check if completed
+      if (!localClients || localClients.length === 0) {
+        console.log('✅ Background chain завершён! Все клиенты обработаны.');
+        await supabase
+          .from('salebot_import_progress')
+          .update({
+            resync_offset: 0,
+            resync_mode: false,
+            is_running: false,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', progressId);
+        
+        return new Response(
+          JSON.stringify({
+            success: true,
+            completed: true,
+            mode: 'background_chain',
+            totalClients: baseTotalClients,
+            totalNewMessages: baseNewMessages
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      console.log(`📦 Background chain batch: ${localClients.length} клиентов (offset: ${resyncOffset})`);
+      
+      let processedClients = 0;
+      let totalNewMessages = 0;
+      let totalApiCalls = 0;
+      
+      // Process batch
+      for (const client of localClients) {
+        try {
+          const salebotClientId = String(client.salebot_client_id).replace(/[^\d]/g, '');
+          
+          if (!salebotClientId || salebotClientId === '0') {
+            processedClients++;
+            continue;
+          }
+          
+          // Get message history
+          await checkAndIncrementApiUsage(supabase, 1);
+          totalApiCalls++;
+          
+          const historyUrl = `https://chatter.salebot.pro/api/${salebotApiKey}/get_history?client_id=${salebotClientId}&limit=2000`;
+          const historyResponse = await fetch(historyUrl);
+          
+          if (!historyResponse.ok) {
+            console.error(`Ошибка получения истории для ${client.name}: ${historyResponse.statusText}`);
+            processedClients++;
+            continue;
+          }
+          
+          const historyData = await historyResponse.json();
+          const messages: SalebotHistoryMessage[] = historyData.result || [];
+          
+          if (messages.length > 0) {
+            // Convert messages
+            const chatMessages: any[] = [];
+            for (const msg of messages) {
+              if (!msg.created_at) continue;
+              
+              let date: Date;
+              if (typeof msg.created_at === 'number') {
+                date = new Date(msg.created_at * 1000);
+              } else {
+                date = new Date(msg.created_at);
+              }
+              
+              if (isNaN(date.getTime())) continue;
+              
+              chatMessages.push({
+                client_id: client.id,
+                organization_id: organizationId,
+                message_text: msg.text || '',
+                message_type: msg.client_replica ? 'client' : 'manager',
+                is_outgoing: !msg.client_replica,
+                is_read: true,
+                created_at: date.toISOString(),
+                messenger_type: 'whatsapp',
+                salebot_message_id: msg.id.toString(),
+              });
+            }
+            
+            // Insert in batches
+            const batchSize = 50;
+            for (let i = 0; i < chatMessages.length; i += batchSize) {
+              const batch = chatMessages.slice(i, i + batchSize);
+              
+              const salebotIds = batch.map(m => m.salebot_message_id);
+              const { data: existing } = await supabase
+                .from('chat_messages')
+                .select('salebot_message_id')
+                .eq('client_id', client.id)
+                .in('salebot_message_id', salebotIds);
+              
+              const existingIds = new Set((existing || []).map((e: any) => e.salebot_message_id));
+              const newMessages = batch.filter(m => !existingIds.has(m.salebot_message_id));
+              
+              if (newMessages.length > 0) {
+                const { error: insertError } = await supabase
+                  .from('chat_messages')
+                  .insert(newMessages, { onConflict: 'client_id,salebot_message_id', ignoreDuplicates: true });
+                
+                if (!insertError) {
+                  totalNewMessages += newMessages.length;
+                }
+              }
+              
+              await sleep(50);
+            }
+          }
+          
+          processedClients++;
+          
+          // Update heartbeat every 3 clients
+          if (processedClients % 3 === 0) {
+            await supabase
+              .from('salebot_import_progress')
+              .update({
+                resync_offset: resyncOffset + processedClients,
+                resync_total_clients: baseTotalClients + processedClients,
+                resync_new_messages: baseNewMessages + totalNewMessages,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', progressId);
+          }
+          
+          await sleep(100);
+          
+        } catch (error: any) {
+          console.error(`Ошибка обработки ${client.name}:`, error);
+          processedClients++;
+        }
+      }
+      
+      // Save final progress for this batch
+      const nextOffset = resyncOffset + processedClients;
+      const hasMoreClients = localClients.length === BATCH_SIZE;
+      
+      await supabase
+        .from('salebot_import_progress')
+        .update({
+          resync_offset: nextOffset,
+          resync_total_clients: baseTotalClients + processedClients,
+          resync_new_messages: baseNewMessages + totalNewMessages,
+          updated_at: new Date().toISOString(),
+          is_running: hasMoreClients // Keep running if more to process
+        })
+        .eq('id', progressId);
+      
+      console.log(`✅ Batch завершён: ${processedClients} клиентов, ${totalNewMessages} сообщений, offset → ${nextOffset}`);
+      
+      // Self-invoke for next batch if not completed
+      if (hasMoreClients) {
+        // Check if paused before continuing
+        const { data: checkPause } = await supabase
+          .from('salebot_import_progress')
+          .select('is_paused')
+          .eq('id', progressId)
+          .single();
+        
+        if (!checkPause?.is_paused) {
+          console.log('🔗 Вызываем следующий batch...');
+          
+          // Fire-and-forget self-invocation
+          fetch(`${supabaseUrl}/functions/v1/import-salebot-chats-auto`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseServiceRoleKey}`
+            },
+            body: JSON.stringify({ mode: 'background_chain' })
+          }).catch(err => console.error('Self-invoke error:', err));
+        } else {
+          console.log('⏸️ Пауза обнаружена, остановка цепочки');
+          await supabase
+            .from('salebot_import_progress')
+            .update({ is_running: false })
+            .eq('id', progressId);
+        }
+      } else {
+        // Mark as completed
+        await supabase
+          .from('salebot_import_progress')
+          .update({ 
+            is_running: false,
+            resync_mode: false,
+            resync_offset: 0
+          })
+          .eq('id', progressId);
+      }
+      
+      return new Response(
+        JSON.stringify({
+          success: true,
+          mode: 'background_chain',
+          completed: !hasMoreClients,
+          processedClients,
+          newMessages: totalNewMessages,
+          nextOffset,
+          apiCalls: totalApiCalls
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+// ======== CONTINUOUS MODE: Фоновый импорт (DEPRECATED - use background_chain) ========
+    if (requestMode === 'continuous_sync') {
+      // Redirect to background_chain mode
+      console.log('⚠️ continuous_sync deprecated, redirecting to background_chain');
+      
+      // Reset and start chain
+      await supabase
+        .from('salebot_import_progress')
+        .update({ 
+          resync_offset: 0,
+          resync_total_clients: 0,
+          resync_new_messages: 0,
+          resync_mode: true,
           is_running: true,
           is_paused: false,
           updated_at: new Date().toISOString()
         })
         .eq('id', progressId);
       
-      // Background continuous import loop
-      const continuousImport = async () => {
-        let batchCount = 0;
-        const maxBatches = 50; // Safety limit: max 50 batches per invocation
-        const batchDelayMs = 3000; // 3 second delay between batches
-        
-        while (batchCount < maxBatches) {
-          try {
-            // Check if stopped by user
-            const { data: checkProgress } = await supabase
-              .from('salebot_import_progress')
-              .select('is_paused, is_running')
-              .eq('id', progressId)
-              .single();
-            
-            if (checkProgress?.is_paused || !checkProgress?.is_running) {
-              console.log(`⏸️ Continuous импорт остановлен пользователем (batch ${batchCount})`);
-              break;
-            }
-            
-            // Check API limit
-            const apiCheck = await checkAndIncrementApiUsage(supabase, 0);
-            if (!apiCheck.allowed || apiCheck.remaining < 5) {
-              console.log(`⚠️ API лимит достигнут в continuous режиме (batch ${batchCount})`);
-              break;
-            }
-            
-            // Process one batch
-            console.log(`📦 Continuous batch ${batchCount + 1}...`);
-            const result = await handleSyncWithSalebotIds(supabase, salebotApiKey, organizationId, progressId);
-            const resultData = await result.json();
-            
-            batchCount++;
-            
-            // If completed, stop
-            if (resultData.completed) {
-              console.log(`✅ Continuous импорт завершён полностью (${batchCount} батчей)`);
-              break;
-            }
-            
-            // Update heartbeat
-            await supabase
-              .from('salebot_import_progress')
-              .update({ 
-                updated_at: new Date().toISOString(),
-                is_running: true
-              })
-              .eq('id', progressId);
-            
-            // Delay before next batch
-            await new Promise(resolve => setTimeout(resolve, batchDelayMs));
-            
-          } catch (error: any) {
-            console.error(`❌ Ошибка в continuous batch ${batchCount}:`, error);
-            break;
-          }
-        }
-        
-        // Mark as complete
-        await supabase
-          .from('salebot_import_progress')
-          .update({ 
-            is_running: false,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', progressId);
-        
-        console.log(`🏁 Continuous импорт завершён: ${batchCount} батчей обработано`);
-      };
-      
-      // Start background task and return immediately
-      EdgeRuntime.waitUntil(continuousImport());
+      // Start the chain
+      fetch(`${supabaseUrl}/functions/v1/import-salebot-chats-auto`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseServiceRoleKey}`
+        },
+        body: JSON.stringify({ mode: 'background_chain' })
+      }).catch(err => console.error('Chain start error:', err));
       
       return new Response(
         JSON.stringify({
           success: true,
-          mode: 'continuous_sync',
-          message: 'Фоновый импорт запущен. Можно закрыть страницу.',
-          backgroundStarted: true
+          mode: 'background_chain',
+          message: 'Фоновый импорт запущен (self-invoking chain). Можно закрыть страницу.',
+          chainStarted: true
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

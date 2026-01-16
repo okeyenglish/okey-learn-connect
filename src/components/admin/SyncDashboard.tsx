@@ -481,7 +481,7 @@ export function SyncDashboard() {
     }
   };
 
-  // Фоновый импорт - можно закрыть страницу
+  // Фоновый импорт - можно закрыть страницу (self-invoking chain)
   const handleBackgroundSync = async () => {
     try {
       setIsSyncingWithIds(true);
@@ -494,6 +494,7 @@ export function SyncDashboard() {
         .single();
       
       if (progress?.id) {
+        // Reset progress and start fresh
         await supabase
           .from('salebot_import_progress')
           .update({ 
@@ -507,14 +508,15 @@ export function SyncDashboard() {
           .eq('id', progress.id);
       }
       
+      // Use background_chain mode - self-invoking for unlimited processing
       const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
-        body: { mode: 'continuous_sync' }
+        body: { mode: 'background_chain' }
       });
       if (error) throw error;
       
       toast({
         title: '🚀 Фоновый импорт запущен!',
-        description: 'Можно закрыть страницу. Импорт продолжится на сервере.',
+        description: 'Self-invoking chain активирована. Можно закрыть страницу — импорт продолжится автоматически.',
       });
       
       // Don't set isSyncingWithIds to false immediately - let polling show real status
@@ -1317,16 +1319,38 @@ export function SyncDashboard() {
                 </div>
               )}
               
-              {/* Sync with IDs Progress */}
+              {/* Sync with IDs Progress - with progress bar */}
               {importProgress?.resyncMode && !importProgress?.fillIdsMode && (
-                <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>Прогресс загрузки чатов:</span>
-                    <span>Offset: {importProgress.resyncOffset}</span>
+                <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium text-green-700 dark:text-green-300 flex items-center gap-2">
+                      {importProgress.isRunning && (
+                        <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></span>
+                      )}
+                      Фоновый импорт чатов
+                    </span>
+                    <span className="text-green-600">
+                      {dbStats?.clientsWithSalebotId 
+                        ? `${Math.round((importProgress.resyncTotalClients / dbStats.clientsWithSalebotId) * 100)}%` 
+                        : `Offset: ${importProgress.resyncOffset}`}
+                    </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>Клиентов: <strong>{importProgress.resyncTotalClients}</strong></div>
+                  {dbStats?.clientsWithSalebotId && dbStats.clientsWithSalebotId > 0 && (
+                    <Progress 
+                      value={(importProgress.resyncTotalClients / dbStats.clientsWithSalebotId) * 100} 
+                      className="h-2"
+                    />
+                  )}
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div>Обработано: <strong>{importProgress.resyncTotalClients}</strong> / {dbStats?.clientsWithSalebotId || '?'}</div>
                     <div>Новых сообщений: <strong className="text-green-600">{importProgress.resyncNewMessages}</strong></div>
+                    <div className="text-xs text-muted-foreground">
+                      {importProgress.isRunning 
+                        ? '🔗 Chain активна' 
+                        : importProgress.resyncTotalClients > 0 
+                          ? '✅ Завершено' 
+                          : '⏸️ Пауза'}
+                    </div>
                   </div>
                 </div>
               )}
