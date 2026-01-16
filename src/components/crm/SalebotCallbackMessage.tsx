@@ -18,9 +18,10 @@ const CALLBACK_CONFIG: Record<string, { label: string; icon: React.ElementType; 
 };
 
 // Check if a message is a Salebot callback
-export const isSalebotCallback = (message: string): boolean => {
-  if (!message) return false;
+export const isSalebotCallback = (message: string | null | undefined): boolean => {
+  if (!message || typeof message !== 'string') return false;
   const trimmed = message.trim().toLowerCase();
+  if (!trimmed) return false;
   return Object.keys(CALLBACK_CONFIG).some(key => trimmed === key || trimmed.startsWith(key + ':'));
 };
 
