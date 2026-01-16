@@ -276,6 +276,56 @@ export function SyncDashboard() {
     }
   };
 
+  // Resume stuck chain - just triggers background_chain without resetting offset
+  const [isResumingChain, setIsResumingChain] = useState(false);
+  
+  const handleResumeChain = async () => {
+    try {
+      setIsResumingChain(true);
+      
+      const { data: progress } = await supabase
+        .from('salebot_import_progress')
+        .select('id')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (progress?.id) {
+        // Just mark as running and unpause - don't reset offset!
+        await supabase
+          .from('salebot_import_progress')
+          .update({ 
+            is_running: true,
+            is_paused: false,
+            resync_mode: true
+          })
+          .eq('id', progress.id);
+      }
+      
+      // Trigger background_chain mode
+      const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
+        body: { mode: 'background_chain' }
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: '🔄 Импорт продолжен',
+        description: 'Цепочка импорта возобновлена с текущей позиции.',
+      });
+      
+      await fetchProgressOnly();
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsResumingChain(false);
+    }
+  };
+
   const handleStopImport = async () => {
     try {
       setIsStopping(true);
@@ -1539,25 +1589,41 @@ export function SyncDashboard() {
                   return (
                     <Alert className="border-orange-500/50 bg-orange-50/50 dark:bg-orange-950/20">
                       <AlertCircle className="h-4 w-4 text-orange-500" />
-                      <AlertTitle className="flex items-center justify-between">
+                      <AlertTitle className="flex items-center justify-between flex-wrap gap-2">
                         <span>Возможно, процесс завис</span>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          className="ml-2 border-orange-500 text-orange-600 hover:bg-orange-100"
-                          onClick={handleResetStuckProcess}
-                          disabled={isResettingStuck}
-                        >
-                          {isResettingStuck ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <XCircle className="mr-1 h-4 w-4" />
-                          )}
-                          Сбросить
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="default" 
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700"
+                            onClick={handleResumeChain}
+                            disabled={isResumingChain}
+                          >
+                            {isResumingChain ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Play className="mr-1 h-4 w-4" />
+                            )}
+                            Продолжить
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="border-orange-500 text-orange-600 hover:bg-orange-100"
+                            onClick={handleResetStuckProcess}
+                            disabled={isResettingStuck}
+                          >
+                            {isResettingStuck ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <XCircle className="mr-1 h-4 w-4" />
+                            )}
+                            Сбросить
+                          </Button>
+                        </div>
                       </AlertTitle>
                       <AlertDescription>
-                        Последнее обновление: {stuckStatus.minutesAgo} мин. назад. Процесс не обновлялся более 2 минут — возможно, он завис. Нажмите "Сбросить" для принудительной остановки.
+                        Последнее обновление: {stuckStatus.minutesAgo} мин. назад. Нажмите "Продолжить" чтобы возобновить с текущей позиции или "Сбросить" для полной остановки.
                       </AlertDescription>
                     </Alert>
                   );

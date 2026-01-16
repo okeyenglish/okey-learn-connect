@@ -926,7 +926,12 @@ Deno.serve(async (req) => {
 
     // ======== BACKGROUND_CHAIN MODE: Handle BEFORE lock check ========
     // This mode uses its own lock management via updated_at heartbeat
+    // Features: time budget, stale run detection, fetchJsonWithRetry, reliable self-invoke
     if (requestMode === 'background_chain') {
+      const BATCH_TIME_BUDGET_MS = 45000; // 45 seconds max per batch (edge runtime limit is ~60s)
+      const STALE_RUN_THRESHOLD_MS = 120000; // 2 minutes - consider previous run as crashed
+      const batchStartedAt = Date.now();
+      
       console.log('🔗 Запуск BACKGROUND_CHAIN режима (до проверки блокировки)');
       
       // Get current progress directly - skip try_acquire_import_lock
@@ -960,7 +965,19 @@ Deno.serve(async (req) => {
         );
       }
       
-      // Self-invocation chain контролирует последовательность сам - дополнительные проверки не нужны
+      // Stale run detection: if is_running=true but updated_at is old, consider it crashed and continue
+      if (chainProgress.is_running) {
+        const lastUpdateTime = new Date(chainProgress.updated_at).getTime();
+        const timeSinceUpdate = Date.now() - lastUpdateTime;
+        
+        if (timeSinceUpdate > STALE_RUN_THRESHOLD_MS) {
+          console.log(`⚠️ Обнаружен зависший процесс (${Math.round(timeSinceUpdate / 1000)}с без обновления). Перезапускаем...`);
+          // Continue processing - don't block, just take over
+        } else {
+          console.log(`ℹ️ Процесс уже запущен (обновление ${Math.round(timeSinceUpdate / 1000)}с назад). Возможно дубль вызова, но продолжаем.`);
+          // Don't block - in chain mode we want to continue processing
+        }
+      }
       
       // Check API limit
       const chainApiCheck = await checkAndIncrementApiUsage(supabase, 0);
@@ -988,7 +1005,7 @@ Deno.serve(async (req) => {
         );
       }
       
-      // Mark as running with heartbeat
+      // Mark as running with heartbeat immediately
       await supabase
         .from('salebot_import_progress')
         .update({ 
@@ -1054,9 +1071,84 @@ Deno.serve(async (req) => {
       let processedClients = 0;
       let totalNewMessages = 0;
       let totalApiCalls = 0;
+      let stoppedDueToTimeBudget = false;
+      
+      // Helper to save progress and trigger next batch
+      const saveProgressAndContinue = async (hasMoreClients: boolean) => {
+        const nextOffset = resyncOffset + processedClients;
+        
+        await supabase
+          .from('salebot_import_progress')
+          .update({
+            resync_offset: nextOffset,
+            resync_total_clients: baseTotalClients + processedClients,
+            resync_new_messages: baseNewMessages + totalNewMessages,
+            updated_at: new Date().toISOString(),
+            is_running: hasMoreClients
+          })
+          .eq('id', progressId);
+        
+        console.log(`✅ Batch сохранён: ${processedClients} клиентов, ${totalNewMessages} сообщений, offset → ${nextOffset}`);
+        
+        if (hasMoreClients) {
+          // Check if paused before continuing
+          const { data: checkPause } = await supabase
+            .from('salebot_import_progress')
+            .select('is_paused')
+            .eq('id', progressId)
+            .single();
+          
+          if (!checkPause?.is_paused) {
+            console.log('🔗 Вызываем следующий batch через EdgeRuntime.waitUntil...');
+            
+            // Use EdgeRuntime.waitUntil for reliable background task
+            const nextBatchPromise = fetch(`${supabaseUrl}/functions/v1/import-salebot-chats-auto`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseServiceRoleKey}`
+              },
+              body: JSON.stringify({ mode: 'background_chain' })
+            }).catch(err => console.error('Self-invoke error:', err));
+            
+            // @ts-ignore - EdgeRuntime is available in Deno edge functions
+            if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+              // @ts-ignore
+              EdgeRuntime.waitUntil(nextBatchPromise);
+            } else {
+              // Fallback for environments without EdgeRuntime
+              nextBatchPromise.catch(() => {});
+            }
+          } else {
+            console.log('⏸️ Пауза обнаружена, остановка цепочки');
+            await supabase
+              .from('salebot_import_progress')
+              .update({ is_running: false })
+              .eq('id', progressId);
+          }
+        } else {
+          // Mark as completed
+          await supabase
+            .from('salebot_import_progress')
+            .update({ 
+              is_running: false,
+              resync_mode: false,
+              resync_offset: 0
+            })
+            .eq('id', progressId);
+        }
+      };
       
       // Process batch
       for (const client of localClients) {
+        // Check time budget BEFORE processing each client
+        const elapsedMs = Date.now() - batchStartedAt;
+        if (elapsedMs > BATCH_TIME_BUDGET_MS) {
+          console.log(`⏱️ Time budget исчерпан (${Math.round(elapsedMs / 1000)}с). Сохраняем прогресс и продолжаем в следующем batch.`);
+          stoppedDueToTimeBudget = true;
+          break;
+        }
+        
         try {
           const salebotClientId = String(client.salebot_client_id).replace(/[^\d]/g, '');
           
@@ -1065,21 +1157,35 @@ Deno.serve(async (req) => {
             continue;
           }
           
-          // Get message history
+          // Update heartbeat before API call (in case it hangs)
+          await supabase
+            .from('salebot_import_progress')
+            .update({ updated_at: new Date().toISOString() })
+            .eq('id', progressId);
+          
+          // Get message history using fetchJsonWithRetry with timeout
           await checkAndIncrementApiUsage(supabase, 1);
           totalApiCalls++;
           
           const historyUrl = `https://chatter.salebot.pro/api/${salebotApiKey}/get_history?client_id=${salebotClientId}&limit=2000`;
-          const historyResponse = await fetch(historyUrl);
           
-          if (!historyResponse.ok) {
-            console.error(`Ошибка получения истории для ${client.name}: ${historyResponse.statusText}`);
+          let historyData: any;
+          try {
+            historyData = await fetchJsonWithRetry(historyUrl, undefined, {
+              retries: 2,
+              timeoutMs: 20000, // 20 second timeout per request
+              baseDelayMs: 500,
+              maxDelayMs: 3000,
+              logPrefix: `get_history(${client.name})`
+            });
+          } catch (fetchError: any) {
+            console.error(`❌ Не удалось получить историю для ${client.name} после ретраев: ${fetchError.message}`);
             processedClients++;
+            // Continue to next client instead of failing the whole batch
             continue;
           }
           
-          const historyData = await historyResponse.json();
-          const messages: SalebotHistoryMessage[] = historyData.result || [];
+          const messages: SalebotHistoryMessage[] = historyData?.result || [];
           
           if (messages.length > 0) {
             // Convert messages
@@ -1140,18 +1246,16 @@ Deno.serve(async (req) => {
           
           processedClients++;
           
-          // Update heartbeat every 3 clients
-          if (processedClients % 3 === 0) {
-            await supabase
-              .from('salebot_import_progress')
-              .update({
-                resync_offset: resyncOffset + processedClients,
-                resync_total_clients: baseTotalClients + processedClients,
-                resync_new_messages: baseNewMessages + totalNewMessages,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', progressId);
-          }
+          // Update heartbeat after each client (more reliable)
+          await supabase
+            .from('salebot_import_progress')
+            .update({
+              resync_offset: resyncOffset + processedClients,
+              resync_total_clients: baseTotalClients + processedClients,
+              resync_new_messages: baseNewMessages + totalNewMessages,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', progressId);
           
           await sleep(100);
           
@@ -1161,72 +1265,23 @@ Deno.serve(async (req) => {
         }
       }
       
-      // Save final progress for this batch
-      const nextOffset = resyncOffset + processedClients;
-      const hasMoreClients = localClients.length === BATCH_SIZE;
+      // Determine if there are more clients to process
+      const hasMoreClients = stoppedDueToTimeBudget || localClients.length === BATCH_SIZE;
       
-      await supabase
-        .from('salebot_import_progress')
-        .update({
-          resync_offset: nextOffset,
-          resync_total_clients: baseTotalClients + processedClients,
-          resync_new_messages: baseNewMessages + totalNewMessages,
-          updated_at: new Date().toISOString(),
-          is_running: hasMoreClients
-        })
-        .eq('id', progressId);
-      
-      console.log(`✅ Batch завершён: ${processedClients} клиентов, ${totalNewMessages} сообщений, offset → ${nextOffset}`);
-      
-      // Self-invoke for next batch if not completed
-      if (hasMoreClients) {
-        // Check if paused before continuing
-        const { data: checkPause } = await supabase
-          .from('salebot_import_progress')
-          .select('is_paused')
-          .eq('id', progressId)
-          .single();
-        
-        if (!checkPause?.is_paused) {
-          console.log('🔗 Вызываем следующий batch...');
-          
-          // Fire-and-forget self-invocation
-          fetch(`${supabaseUrl}/functions/v1/import-salebot-chats-auto`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${supabaseServiceRoleKey}`
-            },
-            body: JSON.stringify({ mode: 'background_chain' })
-          }).catch(err => console.error('Self-invoke error:', err));
-        } else {
-          console.log('⏸️ Пауза обнаружена, остановка цепочки');
-          await supabase
-            .from('salebot_import_progress')
-            .update({ is_running: false })
-            .eq('id', progressId);
-        }
-      } else {
-        // Mark as completed
-        await supabase
-          .from('salebot_import_progress')
-          .update({ 
-            is_running: false,
-            resync_mode: false,
-            resync_offset: 0
-          })
-          .eq('id', progressId);
-      }
+      // Save progress and trigger next batch using the helper function
+      await saveProgressAndContinue(hasMoreClients);
       
       return new Response(
         JSON.stringify({
           success: true,
           mode: 'background_chain',
           completed: !hasMoreClients,
+          stoppedDueToTimeBudget,
           processedClients,
           newMessages: totalNewMessages,
-          nextOffset,
-          apiCalls: totalApiCalls
+          nextOffset: resyncOffset + processedClients,
+          apiCalls: totalApiCalls,
+          elapsedMs: Date.now() - batchStartedAt
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
