@@ -960,15 +960,7 @@ Deno.serve(async (req) => {
         );
       }
       
-      // Protection against duplicate calls - if updated < 5 sec ago and is_running, skip
-      const lastUpdateAge = (Date.now() - new Date(chainProgress.updated_at).getTime()) / 1000;
-      if (lastUpdateAge < 5 && chainProgress.is_running) {
-        console.log(`⏳ Предыдущий batch ещё выполняется (обновлён ${lastUpdateAge.toFixed(1)}с назад). Пропускаем.`);
-        return new Response(
-          JSON.stringify({ skipped: true, reason: 'too_soon', lastUpdateAge }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+      // Self-invocation chain контролирует последовательность сам - дополнительные проверки не нужны
       
       // Check API limit
       const chainApiCheck = await checkAndIncrementApiUsage(supabase, 0);
