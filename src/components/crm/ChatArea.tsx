@@ -14,6 +14,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useTypingStatus } from "@/hooks/useTypingStatus";
 import { useRealtimeMessages, useClientUnreadByMessenger } from "@/hooks/useChatMessages";
 import { ChatMessage } from "./ChatMessage";
+import { DateSeparator, shouldShowDateSeparator } from "./DateSeparator";
 import { ClientTasks } from "./ClientTasks";
 import { AddTaskModal } from "./AddTaskModal";
 import { CreateInvoiceModal } from "./CreateInvoiceModal";
@@ -335,6 +336,7 @@ export const ChatArea = ({
       hour: '2-digit',
       minute: '2-digit'
     }),
+    createdAt: msg.created_at, // Keep original timestamp for date separator
     systemType: msg.system_type,
     callDuration: msg.call_duration,
     messageStatus: msg.message_status,
@@ -1862,11 +1864,18 @@ export const ChatArea = ({
                     const prevMessage = whatsappMessages[index - 1];
                     const nextMessage = whatsappMessages[index + 1];
                     
+                    // Check if we need to show date separator
+                    const showDateSeparator = shouldShowDateSeparator(
+                      msg.createdAt,
+                      prevMessage?.createdAt
+                    );
+                    
                     // Определяем нужно ли показывать аватарку и имя
                     const showAvatar = !prevMessage || 
                       prevMessage.type !== msg.type || 
                       msg.type === 'system' || 
-                      msg.type === 'comment';
+                      msg.type === 'comment' ||
+                      showDateSeparator; // Reset grouping after date separator
                       
                     const showName = showAvatar;
                     
@@ -1877,36 +1886,40 @@ export const ChatArea = ({
                       nextMessage.type === 'comment';
                     
                     return (
-                      <ChatMessage
-                        key={msg.id || index}
-                        messageId={msg.id}
-                        type={msg.type}
-                        message={msg.message}
-                        time={msg.time}
-                        systemType={msg.systemType}
-                        callDuration={msg.callDuration}
-                        isSelectionMode={isSelectionMode}
-                        isSelected={selectedMessages.has(msg.id)}
-                        onSelectionChange={(selected) => handleMessageSelectionChange(msg.id, selected)}
-                        isForwarded={msg.isForwarded}
-                        forwardedFrom={msg.forwardedFrom}
-                        forwardedFromType={msg.forwardedFromType}
-                        onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
-                        onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
-                        messageStatus={msg.messageStatus}
-                        clientAvatar={whatsappClientAvatar || msg.clientAvatar}
-                        managerName={msg.managerName}
-                        fileUrl={msg.fileUrl}
-                        fileName={msg.fileName}
-                        fileType={msg.fileType}
-                        whatsappChatId={msg.whatsappChatId}
-                        externalMessageId={msg.externalMessageId}
-                        showAvatar={showAvatar}
-                        showName={showName}
-                        isLastInGroup={isLastInGroup}
-                        onForwardMessage={handleForwardSingleMessage}
-                        onEnterSelectionMode={handleEnterSelectionMode}
-                      />
+                      <div key={msg.id || index}>
+                        {showDateSeparator && msg.createdAt && (
+                          <DateSeparator date={msg.createdAt} />
+                        )}
+                        <ChatMessage
+                          messageId={msg.id}
+                          type={msg.type}
+                          message={msg.message}
+                          time={msg.time}
+                          systemType={msg.systemType}
+                          callDuration={msg.callDuration}
+                          isSelectionMode={isSelectionMode}
+                          isSelected={selectedMessages.has(msg.id)}
+                          onSelectionChange={(selected) => handleMessageSelectionChange(msg.id, selected)}
+                          isForwarded={msg.isForwarded}
+                          forwardedFrom={msg.forwardedFrom}
+                          forwardedFromType={msg.forwardedFromType}
+                          onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
+                          onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
+                          messageStatus={msg.messageStatus}
+                          clientAvatar={whatsappClientAvatar || msg.clientAvatar}
+                          managerName={msg.managerName}
+                          fileUrl={msg.fileUrl}
+                          fileName={msg.fileName}
+                          fileType={msg.fileType}
+                          whatsappChatId={msg.whatsappChatId}
+                          externalMessageId={msg.externalMessageId}
+                          showAvatar={showAvatar}
+                          showName={showName}
+                          isLastInGroup={isLastInGroup}
+                          onForwardMessage={handleForwardSingleMessage}
+                          onEnterSelectionMode={handleEnterSelectionMode}
+                        />
+                      </div>
                     );
                   })}
                   
@@ -1973,10 +1986,17 @@ export const ChatArea = ({
                     const prevMessage = telegramMessages[index - 1];
                     const nextMessage = telegramMessages[index + 1];
                     
+                    // Check if we need to show date separator
+                    const showDateSeparator = shouldShowDateSeparator(
+                      msg.createdAt,
+                      prevMessage?.createdAt
+                    );
+                    
                     const showAvatar = !prevMessage || 
                       prevMessage.type !== msg.type || 
                       msg.type === 'system' || 
-                      msg.type === 'comment';
+                      msg.type === 'comment' ||
+                      showDateSeparator;
                       
                     const showName = showAvatar;
                     
@@ -1986,35 +2006,39 @@ export const ChatArea = ({
                       nextMessage.type === 'comment';
                     
                     return (
-                      <ChatMessage
-                        key={msg.id || index}
-                        messageId={msg.id}
-                        type={msg.type}
-                        message={msg.message}
-                        time={msg.time}
-                        systemType={msg.systemType}
-                        callDuration={msg.callDuration}
-                        isSelectionMode={isSelectionMode}
-                        isSelected={selectedMessages.has(msg.id)}
-                        onSelectionChange={(selected) => handleMessageSelectionChange(msg.id, selected)}
-                        isForwarded={msg.isForwarded}
-                        forwardedFrom={msg.forwardedFrom}
-                        forwardedFromType={msg.forwardedFromType}
-                        onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
-                        onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
-                        messageStatus={msg.messageStatus}
-                        clientAvatar={telegramClientAvatar || msg.clientAvatar}
-                        managerName={msg.managerName}
-                        fileUrl={msg.fileUrl}
-                        fileName={msg.fileName}
-                        fileType={msg.fileType}
-                        externalMessageId={msg.externalMessageId}
-                        showAvatar={showAvatar}
-                        showName={showName}
-                        isLastInGroup={isLastInGroup}
-                        onForwardMessage={handleForwardSingleMessage}
-                        onEnterSelectionMode={handleEnterSelectionMode}
-                      />
+                      <div key={msg.id || index}>
+                        {showDateSeparator && msg.createdAt && (
+                          <DateSeparator date={msg.createdAt} />
+                        )}
+                        <ChatMessage
+                          messageId={msg.id}
+                          type={msg.type}
+                          message={msg.message}
+                          time={msg.time}
+                          systemType={msg.systemType}
+                          callDuration={msg.callDuration}
+                          isSelectionMode={isSelectionMode}
+                          isSelected={selectedMessages.has(msg.id)}
+                          onSelectionChange={(selected) => handleMessageSelectionChange(msg.id, selected)}
+                          isForwarded={msg.isForwarded}
+                          forwardedFrom={msg.forwardedFrom}
+                          forwardedFromType={msg.forwardedFromType}
+                          onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
+                          onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
+                          messageStatus={msg.messageStatus}
+                          clientAvatar={telegramClientAvatar || msg.clientAvatar}
+                          managerName={msg.managerName}
+                          fileUrl={msg.fileUrl}
+                          fileName={msg.fileName}
+                          fileType={msg.fileType}
+                          externalMessageId={msg.externalMessageId}
+                          showAvatar={showAvatar}
+                          showName={showName}
+                          isLastInGroup={isLastInGroup}
+                          onForwardMessage={handleForwardSingleMessage}
+                          onEnterSelectionMode={handleEnterSelectionMode}
+                        />
+                      </div>
                     );
                   })}
                 </>
@@ -2040,10 +2064,17 @@ export const ChatArea = ({
                     const prevMessage = maxMessages[index - 1];
                     const nextMessage = maxMessages[index + 1];
                     
+                    // Check if we need to show date separator
+                    const showDateSeparator = shouldShowDateSeparator(
+                      msg.createdAt,
+                      prevMessage?.createdAt
+                    );
+                    
                     const showAvatar = !prevMessage || 
                       prevMessage.type !== msg.type || 
                       msg.type === 'system' || 
-                      msg.type === 'comment';
+                      msg.type === 'comment' ||
+                      showDateSeparator;
                       
                     const showName = showAvatar;
                     
@@ -2053,36 +2084,40 @@ export const ChatArea = ({
                       nextMessage.type === 'comment';
                     
                     return (
-                      <ChatMessage
-                        key={msg.id || index}
-                        messageId={msg.id}
-                        type={msg.type}
-                        message={msg.message}
-                        time={msg.time}
-                        systemType={msg.systemType}
-                        callDuration={msg.callDuration}
-                        isSelectionMode={isSelectionMode}
-                        isSelected={selectedMessages.has(msg.id)}
-                        onSelectionChange={(selected) => handleMessageSelectionChange(msg.id, selected)}
-                        isForwarded={msg.isForwarded}
-                        forwardedFrom={msg.forwardedFrom}
-                        forwardedFromType={msg.forwardedFromType}
-                        onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
-                        onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
-                        messageStatus={msg.messageStatus}
-                        clientAvatar={maxClientAvatar || msg.clientAvatar}
-                        managerName={msg.managerName}
-                        fileUrl={msg.fileUrl}
-                        fileName={msg.fileName}
-                        fileType={msg.fileType}
-                        whatsappChatId={msg.whatsappChatId}
-                        externalMessageId={msg.externalMessageId}
-                        showAvatar={showAvatar}
-                        showName={showName}
-                        isLastInGroup={isLastInGroup}
-                        onForwardMessage={handleForwardSingleMessage}
-                        onEnterSelectionMode={handleEnterSelectionMode}
-                      />
+                      <div key={msg.id || index}>
+                        {showDateSeparator && msg.createdAt && (
+                          <DateSeparator date={msg.createdAt} />
+                        )}
+                        <ChatMessage
+                          messageId={msg.id}
+                          type={msg.type}
+                          message={msg.message}
+                          time={msg.time}
+                          systemType={msg.systemType}
+                          callDuration={msg.callDuration}
+                          isSelectionMode={isSelectionMode}
+                          isSelected={selectedMessages.has(msg.id)}
+                          onSelectionChange={(selected) => handleMessageSelectionChange(msg.id, selected)}
+                          isForwarded={msg.isForwarded}
+                          forwardedFrom={msg.forwardedFrom}
+                          forwardedFromType={msg.forwardedFromType}
+                          onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
+                          onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
+                          messageStatus={msg.messageStatus}
+                          clientAvatar={maxClientAvatar || msg.clientAvatar}
+                          managerName={msg.managerName}
+                          fileUrl={msg.fileUrl}
+                          fileName={msg.fileName}
+                          fileType={msg.fileType}
+                          whatsappChatId={msg.whatsappChatId}
+                          externalMessageId={msg.externalMessageId}
+                          showAvatar={showAvatar}
+                          showName={showName}
+                          isLastInGroup={isLastInGroup}
+                          onForwardMessage={handleForwardSingleMessage}
+                          onEnterSelectionMode={handleEnterSelectionMode}
+                        />
+                      </div>
                     );
                   })}
                 </>
