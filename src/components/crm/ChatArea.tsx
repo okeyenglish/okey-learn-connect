@@ -15,6 +15,7 @@ import { useTypingStatus } from "@/hooks/useTypingStatus";
 import { useRealtimeMessages, useClientUnreadByMessenger } from "@/hooks/useChatMessages";
 import { ChatMessage } from "./ChatMessage";
 import { DateSeparator, shouldShowDateSeparator } from "./DateSeparator";
+import { SalebotCallbackMessage, isSalebotCallback } from "./SalebotCallbackMessage";
 import { ClientTasks } from "./ClientTasks";
 import { AddTaskModal } from "./AddTaskModal";
 import { CreateInvoiceModal } from "./CreateInvoiceModal";
@@ -1885,40 +1886,47 @@ export const ChatArea = ({
                       nextMessage.type === 'system' || 
                       nextMessage.type === 'comment';
                     
+                    // Check if this is a Salebot callback message
+                    const isCallback = isSalebotCallback(msg.message);
+                    
                     return (
                       <div key={msg.id || index}>
                         {showDateSeparator && msg.createdAt && (
                           <DateSeparator date={msg.createdAt} />
                         )}
-                        <ChatMessage
-                          messageId={msg.id}
-                          type={msg.type}
-                          message={msg.message}
-                          time={msg.time}
-                          systemType={msg.systemType}
-                          callDuration={msg.callDuration}
-                          isSelectionMode={isSelectionMode}
-                          isSelected={selectedMessages.has(msg.id)}
-                          onSelectionChange={(selected) => handleMessageSelectionChange(msg.id, selected)}
-                          isForwarded={msg.isForwarded}
-                          forwardedFrom={msg.forwardedFrom}
-                          forwardedFromType={msg.forwardedFromType}
-                          onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
-                          onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
-                          messageStatus={msg.messageStatus}
-                          clientAvatar={whatsappClientAvatar || msg.clientAvatar}
-                          managerName={msg.managerName}
-                          fileUrl={msg.fileUrl}
-                          fileName={msg.fileName}
-                          fileType={msg.fileType}
-                          whatsappChatId={msg.whatsappChatId}
-                          externalMessageId={msg.externalMessageId}
-                          showAvatar={showAvatar}
-                          showName={showName}
-                          isLastInGroup={isLastInGroup}
-                          onForwardMessage={handleForwardSingleMessage}
-                          onEnterSelectionMode={handleEnterSelectionMode}
-                        />
+                        {isCallback ? (
+                          <SalebotCallbackMessage message={msg.message} time={msg.time} />
+                        ) : (
+                          <ChatMessage
+                            messageId={msg.id}
+                            type={msg.type}
+                            message={msg.message}
+                            time={msg.time}
+                            systemType={msg.systemType}
+                            callDuration={msg.callDuration}
+                            isSelectionMode={isSelectionMode}
+                            isSelected={selectedMessages.has(msg.id)}
+                            onSelectionChange={(selected) => handleMessageSelectionChange(msg.id, selected)}
+                            isForwarded={msg.isForwarded}
+                            forwardedFrom={msg.forwardedFrom}
+                            forwardedFromType={msg.forwardedFromType}
+                            onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
+                            onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
+                            messageStatus={msg.messageStatus}
+                            clientAvatar={whatsappClientAvatar || msg.clientAvatar}
+                            managerName={msg.managerName}
+                            fileUrl={msg.fileUrl}
+                            fileName={msg.fileName}
+                            fileType={msg.fileType}
+                            whatsappChatId={msg.whatsappChatId}
+                            externalMessageId={msg.externalMessageId}
+                            showAvatar={showAvatar}
+                            showName={showName}
+                            isLastInGroup={isLastInGroup}
+                            onForwardMessage={handleForwardSingleMessage}
+                            onEnterSelectionMode={handleEnterSelectionMode}
+                          />
+                        )}
                       </div>
                     );
                   })}
@@ -2005,39 +2013,46 @@ export const ChatArea = ({
                       nextMessage.type === 'system' || 
                       nextMessage.type === 'comment';
                     
+                    // Check if this is a Salebot callback message
+                    const isCallback = isSalebotCallback(msg.message);
+                    
                     return (
                       <div key={msg.id || index}>
                         {showDateSeparator && msg.createdAt && (
                           <DateSeparator date={msg.createdAt} />
                         )}
-                        <ChatMessage
-                          messageId={msg.id}
-                          type={msg.type}
-                          message={msg.message}
-                          time={msg.time}
-                          systemType={msg.systemType}
-                          callDuration={msg.callDuration}
-                          isSelectionMode={isSelectionMode}
-                          isSelected={selectedMessages.has(msg.id)}
-                          onSelectionChange={(selected) => handleMessageSelectionChange(msg.id, selected)}
-                          isForwarded={msg.isForwarded}
-                          forwardedFrom={msg.forwardedFrom}
-                          forwardedFromType={msg.forwardedFromType}
-                          onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
-                          onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
-                          messageStatus={msg.messageStatus}
-                          clientAvatar={telegramClientAvatar || msg.clientAvatar}
-                          managerName={msg.managerName}
-                          fileUrl={msg.fileUrl}
-                          fileName={msg.fileName}
-                          fileType={msg.fileType}
-                          externalMessageId={msg.externalMessageId}
-                          showAvatar={showAvatar}
-                          showName={showName}
-                          isLastInGroup={isLastInGroup}
-                          onForwardMessage={handleForwardSingleMessage}
-                          onEnterSelectionMode={handleEnterSelectionMode}
-                        />
+                        {isCallback ? (
+                          <SalebotCallbackMessage message={msg.message} time={msg.time} />
+                        ) : (
+                          <ChatMessage
+                            messageId={msg.id}
+                            type={msg.type}
+                            message={msg.message}
+                            time={msg.time}
+                            systemType={msg.systemType}
+                            callDuration={msg.callDuration}
+                            isSelectionMode={isSelectionMode}
+                            isSelected={selectedMessages.has(msg.id)}
+                            onSelectionChange={(selected) => handleMessageSelectionChange(msg.id, selected)}
+                            isForwarded={msg.isForwarded}
+                            forwardedFrom={msg.forwardedFrom}
+                            forwardedFromType={msg.forwardedFromType}
+                            onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
+                            onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
+                            messageStatus={msg.messageStatus}
+                            clientAvatar={telegramClientAvatar || msg.clientAvatar}
+                            managerName={msg.managerName}
+                            fileUrl={msg.fileUrl}
+                            fileName={msg.fileName}
+                            fileType={msg.fileType}
+                            externalMessageId={msg.externalMessageId}
+                            showAvatar={showAvatar}
+                            showName={showName}
+                            isLastInGroup={isLastInGroup}
+                            onForwardMessage={handleForwardSingleMessage}
+                            onEnterSelectionMode={handleEnterSelectionMode}
+                          />
+                        )}
                       </div>
                     );
                   })}
@@ -2083,40 +2098,47 @@ export const ChatArea = ({
                       nextMessage.type === 'system' || 
                       nextMessage.type === 'comment';
                     
+                    // Check if this is a Salebot callback message
+                    const isCallback = isSalebotCallback(msg.message);
+                    
                     return (
                       <div key={msg.id || index}>
                         {showDateSeparator && msg.createdAt && (
                           <DateSeparator date={msg.createdAt} />
                         )}
-                        <ChatMessage
-                          messageId={msg.id}
-                          type={msg.type}
-                          message={msg.message}
-                          time={msg.time}
-                          systemType={msg.systemType}
-                          callDuration={msg.callDuration}
-                          isSelectionMode={isSelectionMode}
-                          isSelected={selectedMessages.has(msg.id)}
-                          onSelectionChange={(selected) => handleMessageSelectionChange(msg.id, selected)}
-                          isForwarded={msg.isForwarded}
-                          forwardedFrom={msg.forwardedFrom}
-                          forwardedFromType={msg.forwardedFromType}
-                          onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
-                          onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
-                          messageStatus={msg.messageStatus}
-                          clientAvatar={maxClientAvatar || msg.clientAvatar}
-                          managerName={msg.managerName}
-                          fileUrl={msg.fileUrl}
-                          fileName={msg.fileName}
-                          fileType={msg.fileType}
-                          whatsappChatId={msg.whatsappChatId}
-                          externalMessageId={msg.externalMessageId}
-                          showAvatar={showAvatar}
-                          showName={showName}
-                          isLastInGroup={isLastInGroup}
-                          onForwardMessage={handleForwardSingleMessage}
-                          onEnterSelectionMode={handleEnterSelectionMode}
-                        />
+                        {isCallback ? (
+                          <SalebotCallbackMessage message={msg.message} time={msg.time} />
+                        ) : (
+                          <ChatMessage
+                            messageId={msg.id}
+                            type={msg.type}
+                            message={msg.message}
+                            time={msg.time}
+                            systemType={msg.systemType}
+                            callDuration={msg.callDuration}
+                            isSelectionMode={isSelectionMode}
+                            isSelected={selectedMessages.has(msg.id)}
+                            onSelectionChange={(selected) => handleMessageSelectionChange(msg.id, selected)}
+                            isForwarded={msg.isForwarded}
+                            forwardedFrom={msg.forwardedFrom}
+                            forwardedFromType={msg.forwardedFromType}
+                            onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
+                            onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
+                            messageStatus={msg.messageStatus}
+                            clientAvatar={maxClientAvatar || msg.clientAvatar}
+                            managerName={msg.managerName}
+                            fileUrl={msg.fileUrl}
+                            fileName={msg.fileName}
+                            fileType={msg.fileType}
+                            whatsappChatId={msg.whatsappChatId}
+                            externalMessageId={msg.externalMessageId}
+                            showAvatar={showAvatar}
+                            showName={showName}
+                            isLastInGroup={isLastInGroup}
+                            onForwardMessage={handleForwardSingleMessage}
+                            onEnterSelectionMode={handleEnterSelectionMode}
+                          />
+                        )}
                       </div>
                     );
                   })}
