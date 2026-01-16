@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CheckCircle2, XCircle, AlertCircle, RefreshCw, Database, MessageSquare, Users, Clock, Pause, Play, Upload, FileSpreadsheet } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, AlertCircle, RefreshCw, Database, MessageSquare, Users, Clock, Pause, Play, Upload, FileSpreadsheet, Zap } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
@@ -478,6 +478,53 @@ export function SyncDashboard() {
       });
     } finally {
       setIsResyncingAll(false);
+    }
+  };
+
+  // Фоновый импорт - можно закрыть страницу
+  const handleBackgroundSync = async () => {
+    try {
+      setIsSyncingWithIds(true);
+      
+      const { data: progress } = await supabase
+        .from('salebot_import_progress')
+        .select('id')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (progress?.id) {
+        await supabase
+          .from('salebot_import_progress')
+          .update({ 
+            resync_offset: 0, 
+            resync_total_clients: 0,
+            resync_new_messages: 0,
+            resync_mode: true,
+            is_running: true,
+            is_paused: false 
+          })
+          .eq('id', progress.id);
+      }
+      
+      const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
+        body: { mode: 'continuous_sync' }
+      });
+      if (error) throw error;
+      
+      toast({
+        title: '🚀 Фоновый импорт запущен!',
+        description: 'Можно закрыть страницу. Импорт продолжится на сервере.',
+      });
+      
+      // Don't set isSyncingWithIds to false immediately - let polling show real status
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка',
+        description: error.message,
+        variant: 'destructive',
+      });
+      setIsSyncingWithIds(false);
     }
   };
 
@@ -1343,7 +1390,7 @@ export function SyncDashboard() {
                   </Button>
                 </div>
                 
-                {/* Sync chats for clients with Salebot ID */}
+{/* Sync chats for clients with Salebot ID */}
                 {isSyncingWithIds || (importProgress?.resyncMode && importProgress?.isRunning) ? (
                   <Button 
                     variant="destructive" 
@@ -1359,15 +1406,28 @@ export function SyncDashboard() {
                     Остановить
                   </Button>
                 ) : (
-                  <Button 
-                    variant="default" 
-                    className="bg-green-600 hover:bg-green-700 flex-1"
-                    onClick={() => handleSyncWithSalebotIds(false)} 
-                    disabled={importProgress?.isRunning || (apiUsage?.remaining || 0) < 1 || !dbStats?.clientsWithSalebotId}
-                  >
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    Загрузить чаты ({dbStats?.clientsWithSalebotId || 0})
-                  </Button>
+                  <>
+                    <Button 
+                      variant="default" 
+                      className="bg-green-600 hover:bg-green-700 flex-1"
+                      onClick={handleBackgroundSync} 
+                      disabled={importProgress?.isRunning || (apiUsage?.remaining || 0) < 1 || !dbStats?.clientsWithSalebotId}
+                      title="Фоновый импорт - можно закрыть страницу"
+                    >
+                      <Play className="mr-2 h-4 w-4" />
+                      🚀 Фоновый импорт
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-950"
+                      onClick={() => handleSyncWithSalebotIds(false)} 
+                      disabled={importProgress?.isRunning || (apiUsage?.remaining || 0) < 1 || !dbStats?.clientsWithSalebotId}
+                      title="Импорт в браузере - требует открытой страницы"
+                    >
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      В браузере
+                    </Button>
+                  </>
                 )}
               </div>
 
