@@ -7891,6 +7891,18 @@ export type Database = {
           teacher_id: string
         }[]
       }
+      find_or_create_telegram_client: {
+        Args: {
+          p_avatar_url?: string
+          p_name: string
+          p_org_id: string
+          p_phone?: string
+          p_telegram_chat_id: string
+          p_telegram_user_id: number
+          p_username?: string
+        }
+        Returns: string
+      }
       find_similar_routes: {
         Args: { p_route: string; p_threshold?: number }
         Returns: {
