@@ -385,13 +385,21 @@ async function handleSyncWithSalebotIds(
         break;
       }
       
-      const salebotClientId = client.salebot_client_id;
+      // IMPORTANT: Convert bigint to string without scientific notation
+      const salebotClientId = String(client.salebot_client_id).replace(/[^\d]/g, '');
+      
+      if (!salebotClientId || salebotClientId === '0') {
+        console.log(`⏭️ Пропуск клиента ${client.name}: невалидный salebot_client_id`);
+        processedClients++;
+        continue;
+      }
       
       // Get message history from Salebot
       await checkAndIncrementApiUsage(supabase, 1);
       totalApiCalls++;
       
       const historyUrl = `https://chatter.salebot.pro/api/${salebotApiKey}/get_history?client_id=${salebotClientId}&limit=2000`;
+      console.log(`📡 Запрос истории для ${client.name}: ${historyUrl}`);
       const historyResponse = await fetch(historyUrl);
       
       if (!historyResponse.ok) {
@@ -401,10 +409,11 @@ async function handleSyncWithSalebotIds(
       }
       
       const historyData = await historyResponse.json();
+      console.log(`📥 Ответ Salebot для ${client.name}: ${JSON.stringify(historyData).substring(0, 300)}`);
       const messages: SalebotHistoryMessage[] = historyData.result || [];
       
       if (messages.length === 0) {
-        console.log(`📭 Нет сообщений для клиента ${client.name}`);
+        console.log(`📭 Нет сообщений для клиента ${client.name} (Salebot ID: ${salebotClientId})`);
         processedClients++;
         continue;
       }
@@ -655,11 +664,15 @@ async function handleResyncMessages(
         continue;
       }
       
+      // IMPORTANT: Convert bigint to string without scientific notation
+      const salebotClientIdStr = String(salebotClientId).replace(/[^\d]/g, '');
+      
       // Get message history from Salebot
       await checkAndIncrementApiUsage(supabase, 1);
       totalApiCalls++;
       
-      const historyUrl = `https://chatter.salebot.pro/api/${salebotApiKey}/get_history?client_id=${salebotClientId}&limit=2000`;
+      const historyUrl = `https://chatter.salebot.pro/api/${salebotApiKey}/get_history?client_id=${salebotClientIdStr}&limit=2000`;
+      console.log(`📡 Запрос истории для ${client.name}: client_id=${salebotClientIdStr}`);
       const historyResponse = await fetch(historyUrl);
       
       if (!historyResponse.ok) {
@@ -669,6 +682,7 @@ async function handleResyncMessages(
       }
       
       const historyData = await historyResponse.json();
+      console.log(`📥 Ответ Salebot для ${client.name}: ${JSON.stringify(historyData).substring(0, 300)}`);
       const messages: SalebotHistoryMessage[] = historyData.result || [];
       
       if (messages.length === 0) {

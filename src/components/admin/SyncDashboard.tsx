@@ -384,11 +384,10 @@ export function SyncDashboard() {
     }
   };
 
-  const handleSyncWithSalebotIds = async () => {
+  const handleSyncWithSalebotIds = async (continueSync = false) => {
     try {
       setIsSyncingWithIds(true);
       
-      // Reset resync progress and trigger sync mode
       const { data: progress } = await supabase
         .from('salebot_import_progress')
         .select('id')
@@ -397,16 +396,28 @@ export function SyncDashboard() {
         .single();
       
       if (progress?.id) {
-        await supabase
-          .from('salebot_import_progress')
-          .update({ 
-            resync_offset: 0, 
-            resync_total_clients: 0,
-            resync_new_messages: 0,
-            resync_mode: true,
-            is_paused: false 
-          })
-          .eq('id', progress.id);
+        // Only reset if not continuing
+        if (!continueSync) {
+          await supabase
+            .from('salebot_import_progress')
+            .update({ 
+              resync_offset: 0, 
+              resync_total_clients: 0,
+              resync_new_messages: 0,
+              resync_mode: true,
+              is_paused: false 
+            })
+            .eq('id', progress.id);
+        } else {
+          // Just mark as running
+          await supabase
+            .from('salebot_import_progress')
+            .update({ 
+              resync_mode: true,
+              is_paused: false 
+            })
+            .eq('id', progress.id);
+        }
       }
       
       const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
@@ -415,9 +426,21 @@ export function SyncDashboard() {
       if (error) throw error;
       
       const result = data as any;
+      
+      // Auto-continue if not completed
+      if (result?.completed === false) {
+        toast({
+          title: 'Батч завершён, продолжаем...',
+          description: `Обработано: ${result?.totalClients || 0} клиентов, новых сообщений: ${result?.totalNewMessages || 0}`,
+        });
+        // Continue after short delay
+        setTimeout(() => handleSyncWithSalebotIds(true), 2000);
+        return;
+      }
+      
       toast({
-        title: 'Синхронизация запущена',
-        description: `Обработано: ${result?.processedClients || 0} клиентов, новых сообщений: ${result?.newMessages || 0}`,
+        title: result?.completed ? 'Синхронизация завершена!' : 'Синхронизация запущена',
+        description: `Обработано: ${result?.totalClients || result?.processedClients || 0} клиентов, новых сообщений: ${result?.totalNewMessages || result?.newMessages || 0}`,
       });
     } catch (error: any) {
       toast({
@@ -1188,7 +1211,7 @@ export function SyncDashboard() {
                 <Button 
                   variant="default" 
                   className="bg-green-600 hover:bg-green-700 flex-1"
-                  onClick={handleSyncWithSalebotIds} 
+                  onClick={() => handleSyncWithSalebotIds(false)} 
                   disabled={isSyncingWithIds || importProgress?.isRunning || (apiUsage?.remaining || 0) < 1 || !dbStats?.clientsWithSalebotId}
                 >
                   {isSyncingWithIds ? (
