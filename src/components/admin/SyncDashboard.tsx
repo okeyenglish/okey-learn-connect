@@ -18,6 +18,7 @@ interface SalebotProgress {
   currentOffset: number;
   startTime: Date | null;
   lastRunAt: Date | null;
+  updatedAt: Date | null;
   isRunning: boolean;
   isPaused: boolean;
   isCompleted: boolean;
@@ -106,6 +107,7 @@ export function SyncDashboard() {
           currentOffset: progressData.current_offset || 0,
           startTime: progressData.start_time ? new Date(progressData.start_time) : null,
           lastRunAt: progressData.last_run_at ? new Date(progressData.last_run_at) : null,
+          updatedAt: progressData.updated_at ? new Date(progressData.updated_at) : null,
           isRunning: progressData.is_running || false,
           isPaused: progressData.is_paused || false,
           isCompleted,
@@ -213,6 +215,66 @@ export function SyncDashboard() {
   }, [pollInterval]);
 
   const [isStopping, setIsStopping] = useState(false);
+  const [isResettingStuck, setIsResettingStuck] = useState(false);
+
+  // Helper to check if process might be stuck (running but not updated for > 2 min)
+  const getStuckStatus = (): { isStuck: boolean; minutesAgo: number } => {
+    if (!importProgress?.isRunning || !importProgress?.updatedAt) {
+      return { isStuck: false, minutesAgo: 0 };
+    }
+    const now = Date.now();
+    const updatedAt = importProgress.updatedAt.getTime();
+    const minutesAgo = Math.floor((now - updatedAt) / 60000);
+    return { isStuck: minutesAgo >= 2, minutesAgo };
+  };
+
+  const handleResetStuckProcess = async () => {
+    try {
+      setIsResettingStuck(true);
+      
+      const { data: progress } = await supabase
+        .from('salebot_import_progress')
+        .select('id')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (progress?.id) {
+        await supabase
+          .from('salebot_import_progress')
+          .update({ 
+            is_running: false, 
+            is_paused: false,
+            resync_mode: false,
+            fill_ids_mode: false
+          })
+          .eq('id', progress.id);
+      }
+      
+      // Reset local state
+      setIsSyncingWithIds(false);
+      setIsFillingIds(false);
+      setIsResyncingAll(false);
+      setIsSyncingNew(false);
+      setIsRunningBatch(false);
+      setIsImporting(false);
+      
+      toast({
+        title: 'Зависший процесс сброшен',
+        description: 'Теперь можно запустить новый импорт.',
+      });
+      
+      await fetchProgressOnly();
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsResettingStuck(false);
+    }
+  };
 
   const handleStopImport = async () => {
     try {
@@ -1386,6 +1448,50 @@ export function SyncDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Stuck Process Alert */}
+              {(() => {
+                const stuckStatus = getStuckStatus();
+                if (stuckStatus.isStuck) {
+                  return (
+                    <Alert className="border-orange-500/50 bg-orange-50/50 dark:bg-orange-950/20">
+                      <AlertCircle className="h-4 w-4 text-orange-500" />
+                      <AlertTitle className="flex items-center justify-between">
+                        <span>Возможно, процесс завис</span>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="ml-2 border-orange-500 text-orange-600 hover:bg-orange-100"
+                          onClick={handleResetStuckProcess}
+                          disabled={isResettingStuck}
+                        >
+                          {isResettingStuck ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <XCircle className="mr-1 h-4 w-4" />
+                          )}
+                          Сбросить
+                        </Button>
+                      </AlertTitle>
+                      <AlertDescription>
+                        Последнее обновление: {stuckStatus.minutesAgo} мин. назад. Процесс не обновлялся более 2 минут — возможно, он завис. Нажмите "Сбросить" для принудительной остановки.
+                      </AlertDescription>
+                    </Alert>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* Running Status with Time */}
+              {importProgress?.isRunning && importProgress?.updatedAt && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  <span>
+                    Последнее обновление: {importProgress.updatedAt.toLocaleTimeString()} 
+                    ({Math.floor((Date.now() - importProgress.updatedAt.getTime()) / 1000)}с назад)
+                  </span>
+                </div>
+              )}
+
               {/* Progress Stats */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
                 <div>

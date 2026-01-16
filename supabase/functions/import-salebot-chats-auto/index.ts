@@ -878,7 +878,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Проверяем и очищаем протухшую блокировку (старше 90 секунд)
+    // Проверяем и очищаем зависший процесс (старше 3 минут)
+    const STALE_THRESHOLD_SECONDS = 180; // 3 минуты
     const { data: staleProgress } = await supabase
       .from('salebot_import_progress')
       .select('id, is_running, updated_at')
@@ -891,13 +892,17 @@ Deno.serve(async (req) => {
       const now = new Date();
       const ageSeconds = (now.getTime() - lastUpdate.getTime()) / 1000;
       
-      if (ageSeconds > 90) {
-        console.log(`⏱️ Обнаружена протухшая блокировка (${Math.round(ageSeconds)}s). Сбрасываем...`);
+      if (ageSeconds > STALE_THRESHOLD_SECONDS) {
+        console.log(`⚠️ Обнаружен зависший процесс (последнее обновление ${Math.round(ageSeconds)}с назад). Автосброс...`);
         await supabase
           .from('salebot_import_progress')
-          .update({ is_running: false })
+          .update({ 
+            is_running: false,
+            resync_mode: false,
+            fill_ids_mode: false
+          })
           .eq('id', staleProgress.id);
-        console.log('✅ Stale lock cleared');
+        console.log('✅ Зависший процесс сброшен, можно продолжить импорт');
       }
     }
 
