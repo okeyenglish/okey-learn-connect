@@ -924,140 +924,32 @@ Deno.serve(async (req) => {
     
     console.log(`🚀 Запуск импорта в режиме: ${requestMode}`);
 
-    // Check pause flag to prevent auto-resume
-    const { data: pauseRow } = await supabase
-      .from('salebot_import_progress')
-      .select('id, is_paused')
-      .order('last_run_at', { ascending: false, nullsFirst: false })
-      .order('updated_at', { ascending: false, nullsFirst: false })
-      .limit(1)
-      .single();
-
-    if (pauseRow?.is_paused) {
-      console.log('⏸️ Автоимпорт на паузе (is_paused=true). Выходим.');
-      return new Response(
-        JSON.stringify({ skipped: true, paused: true, message: 'Auto-import paused' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // ======== CHECK API LIMIT BEFORE STARTING ========
-    // Estimate: 1 get_clients + ~10 get_history = ~11 API requests per batch
-    const estimatedApiCalls = 11;
-    const apiCheck = await checkAndIncrementApiUsage(supabase, 0); // Check without incrementing
-    
-    if (!apiCheck.allowed || apiCheck.remaining < estimatedApiCalls) {
-      console.log(`⚠️ Недостаточно API лимита для батча. Осталось: ${apiCheck.remaining}, нужно: ${estimatedApiCalls}`);
-      return new Response(
-        JSON.stringify({ 
-          skipped: true, 
-          apiLimitReached: true, 
-          message: `Дневной лимит API достигнут (${apiCheck.used}/${apiCheck.limit})`,
-          apiUsage: apiCheck
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Проверяем и очищаем зависший процесс (старше 3 минут)
-    const STALE_THRESHOLD_SECONDS = 180; // 3 минуты
-    const { data: staleProgress } = await supabase
-      .from('salebot_import_progress')
-      .select('id, is_running, updated_at')
-      .order('id', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (staleProgress?.is_running) {
-      const lastUpdate = new Date(staleProgress.updated_at);
-      const now = new Date();
-      const ageSeconds = (now.getTime() - lastUpdate.getTime()) / 1000;
-      
-      if (ageSeconds > STALE_THRESHOLD_SECONDS) {
-        console.log(`⚠️ Обнаружен зависший процесс (последнее обновление ${Math.round(ageSeconds)}с назад). Автосброс...`);
-        await supabase
-          .from('salebot_import_progress')
-          .update({ 
-            is_running: false,
-            resync_mode: false,
-            fill_ids_mode: false
-          })
-          .eq('id', staleProgress.id);
-        console.log('✅ Зависший процесс сброшен, можно продолжить импорт');
-      }
-    }
-
-    // Пытаемся получить блокировку для запуска импорта через атомарную RPC функцию
-    const { data: lockResult, error: lockError } = await supabase.rpc('try_acquire_import_lock');
-    
-    if (lockError) {
-      console.error('Ошибка получения блокировки:', lockError);
-      return new Response(
-        JSON.stringify({ error: `Ошибка получения блокировки импорта: ${lockError.message}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (!lockResult || lockResult.length === 0) {
-      console.error('Не удалось получить данные блокировки');
-      return new Response(
-        JSON.stringify({ error: 'Не удалось получить данные блокировки' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const lock = lockResult[0];
-    
-    if (!lock.acquired) {
-      console.log('⏸️ Импорт уже выполняется. Пропускаем запуск.');
-      return new Response(
-        JSON.stringify({ 
-          message: 'Импорт уже выполняется',
-          totalImported: 0,
-          totalClients: 0,
-          completed: false,
-          skipped: true
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const progressId = lock.progress_id;
-    
-    console.log('Результат блокировки:', JSON.stringify(lock));
-    
-    if (!progressId) {
-      console.error('progress_id не найден в результате блокировки');
-      return new Response(
-        JSON.stringify({ error: 'Не удалось получить progress_id из блокировки' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    // Get organization_id
-    const { data: orgs } = await supabase.from('organizations').select('id').limit(1);
-    const organizationId = orgs?.[0]?.id;
-
-    if (!organizationId) {
-      throw new Error('Не найдена организация');
-    }
-    
-// ======== BACKGROUND_CHAIN MODE: Self-invoking chain for unlimited background import ========
+    // ======== BACKGROUND_CHAIN MODE: Handle BEFORE lock check ========
+    // This mode uses its own lock management via updated_at heartbeat
     if (requestMode === 'background_chain') {
-      console.log('🔗 Запуск BACKGROUND_CHAIN режима: self-invoking chain');
+      console.log('🔗 Запуск BACKGROUND_CHAIN режима (до проверки блокировки)');
       
-      const BATCH_SIZE = 10; // Process 10 clients per invocation (~20-30 seconds)
-      
-      // Get current progress
+      // Get current progress directly - skip try_acquire_import_lock
       const { data: chainProgress } = await supabase
         .from('salebot_import_progress')
-        .select('resync_offset, resync_total_clients, resync_new_messages, is_paused, is_running')
-        .eq('id', progressId)
+        .select('id, resync_offset, resync_total_clients, resync_new_messages, is_paused, is_running, updated_at')
+        .order('id', { ascending: false })
+        .limit(1)
         .single();
       
-      // Check if should stop
-      if (chainProgress?.is_paused) {
-        console.log('⏸️ Background chain остановлен пользователем');
+      if (!chainProgress) {
+        console.error('❌ Не найдена запись прогресса для background_chain');
+        return new Response(
+          JSON.stringify({ error: 'No progress record found' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      const progressId = chainProgress.id;
+      
+      // Check if should stop (paused by user)
+      if (chainProgress.is_paused) {
+        console.log('⏸️ Background chain остановлен пользователем (is_paused=true)');
         await supabase
           .from('salebot_import_progress')
           .update({ is_running: false })
@@ -1068,17 +960,39 @@ Deno.serve(async (req) => {
         );
       }
       
+      // Protection against duplicate calls - if updated < 5 sec ago and is_running, skip
+      const lastUpdateAge = (Date.now() - new Date(chainProgress.updated_at).getTime()) / 1000;
+      if (lastUpdateAge < 5 && chainProgress.is_running) {
+        console.log(`⏳ Предыдущий batch ещё выполняется (обновлён ${lastUpdateAge.toFixed(1)}с назад). Пропускаем.`);
+        return new Response(
+          JSON.stringify({ skipped: true, reason: 'too_soon', lastUpdateAge }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       // Check API limit
-      const apiCheck = await checkAndIncrementApiUsage(supabase, 0);
-      if (!apiCheck.allowed || apiCheck.remaining < 5) {
-        console.log(`⚠️ API лимит достигнут в background chain`);
+      const chainApiCheck = await checkAndIncrementApiUsage(supabase, 0);
+      if (!chainApiCheck.allowed || chainApiCheck.remaining < 5) {
+        console.log(`⚠️ API лимит достигнут в background chain: ${chainApiCheck.remaining} осталось`);
         await supabase
           .from('salebot_import_progress')
           .update({ is_running: false })
           .eq('id', progressId);
         return new Response(
-          JSON.stringify({ success: true, stopped: true, reason: 'api_limit', apiUsage: apiCheck }),
+          JSON.stringify({ success: true, stopped: true, reason: 'api_limit', apiUsage: chainApiCheck }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Get organization_id
+      const { data: orgs } = await supabase.from('organizations').select('id').limit(1);
+      const organizationId = orgs?.[0]?.id;
+      
+      if (!organizationId) {
+        console.error('❌ Не найдена организация');
+        return new Response(
+          JSON.stringify({ error: 'No organization found' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
@@ -1093,9 +1007,10 @@ Deno.serve(async (req) => {
         })
         .eq('id', progressId);
       
-      const resyncOffset = chainProgress?.resync_offset || 0;
-      const baseTotalClients = chainProgress?.resync_total_clients || 0;
-      const baseNewMessages = chainProgress?.resync_new_messages || 0;
+      const BATCH_SIZE = 10;
+      const resyncOffset = chainProgress.resync_offset || 0;
+      const baseTotalClients = chainProgress.resync_total_clients || 0;
+      const baseNewMessages = chainProgress.resync_new_messages || 0;
       
       // Get clients with salebot_client_id
       const { data: localClients, error: clientsError } = await supabase
@@ -1107,7 +1022,14 @@ Deno.serve(async (req) => {
       
       if (clientsError) {
         console.error('Ошибка получения клиентов:', clientsError);
-        throw clientsError;
+        await supabase
+          .from('salebot_import_progress')
+          .update({ is_running: false })
+          .eq('id', progressId);
+        return new Response(
+          JSON.stringify({ error: clientsError.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
       
       // Check if completed
@@ -1258,7 +1180,7 @@ Deno.serve(async (req) => {
           resync_total_clients: baseTotalClients + processedClients,
           resync_new_messages: baseNewMessages + totalNewMessages,
           updated_at: new Date().toISOString(),
-          is_running: hasMoreClients // Keep running if more to process
+          is_running: hasMoreClients
         })
         .eq('id', progressId);
       
@@ -1317,6 +1239,128 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    // ======== END BACKGROUND_CHAIN MODE ========
+
+    // Check pause flag to prevent auto-resume (for non-chain modes)
+    const { data: pauseRow } = await supabase
+      .from('salebot_import_progress')
+      .select('id, is_paused')
+      .order('last_run_at', { ascending: false, nullsFirst: false })
+      .order('updated_at', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .single();
+
+    if (pauseRow?.is_paused) {
+      console.log('⏸️ Автоимпорт на паузе (is_paused=true). Выходим.');
+      return new Response(
+        JSON.stringify({ skipped: true, paused: true, message: 'Auto-import paused' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ======== CHECK API LIMIT BEFORE STARTING ========
+    // Estimate: 1 get_clients + ~10 get_history = ~11 API requests per batch
+    const estimatedApiCalls = 11;
+    const apiCheck = await checkAndIncrementApiUsage(supabase, 0); // Check without incrementing
+    
+    if (!apiCheck.allowed || apiCheck.remaining < estimatedApiCalls) {
+      console.log(`⚠️ Недостаточно API лимита для батча. Осталось: ${apiCheck.remaining}, нужно: ${estimatedApiCalls}`);
+      return new Response(
+        JSON.stringify({ 
+          skipped: true, 
+          apiLimitReached: true, 
+          message: `Дневной лимит API достигнут (${apiCheck.used}/${apiCheck.limit})`,
+          apiUsage: apiCheck
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Проверяем и очищаем зависший процесс (старше 3 минут)
+    const STALE_THRESHOLD_SECONDS = 180; // 3 минуты
+    const { data: staleProgress } = await supabase
+      .from('salebot_import_progress')
+      .select('id, is_running, updated_at')
+      .order('id', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (staleProgress?.is_running) {
+      const lastUpdate = new Date(staleProgress.updated_at);
+      const now = new Date();
+      const ageSeconds = (now.getTime() - lastUpdate.getTime()) / 1000;
+      
+      if (ageSeconds > STALE_THRESHOLD_SECONDS) {
+        console.log(`⚠️ Обнаружен зависший процесс (последнее обновление ${Math.round(ageSeconds)}с назад). Автосброс...`);
+        await supabase
+          .from('salebot_import_progress')
+          .update({ 
+            is_running: false,
+            resync_mode: false,
+            fill_ids_mode: false
+          })
+          .eq('id', staleProgress.id);
+        console.log('✅ Зависший процесс сброшен, можно продолжить импорт');
+      }
+    }
+
+    // Пытаемся получить блокировку для запуска импорта через атомарную RPC функцию
+    const { data: lockResult, error: lockError } = await supabase.rpc('try_acquire_import_lock');
+    
+    if (lockError) {
+      console.error('Ошибка получения блокировки:', lockError);
+      return new Response(
+        JSON.stringify({ error: `Ошибка получения блокировки импорта: ${lockError.message}` }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!lockResult || lockResult.length === 0) {
+      console.error('Не удалось получить данные блокировки');
+      return new Response(
+        JSON.stringify({ error: 'Не удалось получить данные блокировки' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const lock = lockResult[0];
+    
+    if (!lock.acquired) {
+      console.log('⏸️ Импорт уже выполняется. Пропускаем запуск.');
+      return new Response(
+        JSON.stringify({ 
+          message: 'Импорт уже выполняется',
+          totalImported: 0,
+          totalClients: 0,
+          completed: false,
+          skipped: true
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const progressId = lock.progress_id;
+    
+    console.log('Результат блокировки:', JSON.stringify(lock));
+    
+    if (!progressId) {
+      console.error('progress_id не найден в результате блокировки');
+      return new Response(
+        JSON.stringify({ error: 'Не удалось получить progress_id из блокировки' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Get organization_id
+    const { data: orgs } = await supabase.from('organizations').select('id').limit(1);
+    const organizationId = orgs?.[0]?.id;
+
+    if (!organizationId) {
+      throw new Error('Не найдена организация');
+    }
+    
+// ======== BACKGROUND_CHAIN MODE is now handled BEFORE lock check (line ~927) ========
+    // This block was moved up to avoid lock conflicts in self-invoking chain
 
 // ======== CONTINUOUS MODE: Фоновый импорт (DEPRECATED - use background_chain) ========
     if (requestMode === 'continuous_sync') {
