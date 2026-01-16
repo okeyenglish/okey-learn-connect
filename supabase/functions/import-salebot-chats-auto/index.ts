@@ -82,6 +82,69 @@ async function checkAndIncrementApiUsage(supabase: any, incrementBy: number = 1)
   };
 }
 
+function isRetryableStatus(status: number): boolean {
+  return status === 408 || status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchJsonWithRetry(
+  url: string,
+  init?: RequestInit,
+  opts?: {
+    retries?: number;
+    timeoutMs?: number;
+    baseDelayMs?: number;
+    maxDelayMs?: number;
+    logPrefix?: string;
+  }
+): Promise<any> {
+  const retries = opts?.retries ?? 5;
+  const timeoutMs = opts?.timeoutMs ?? 25000;
+  const baseDelayMs = opts?.baseDelayMs ?? 800;
+  const maxDelayMs = opts?.maxDelayMs ?? 8000;
+  const logPrefix = opts?.logPrefix ?? 'fetchJsonWithRetry';
+
+  let lastErr: any;
+
+  for (let attempt = 1; attempt <= retries + 1; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const res = await fetch(url, { ...init, signal: controller.signal });
+
+      if (res.ok) {
+        return await res.json();
+      }
+
+      const msg = `${logPrefix}: HTTP ${res.status} ${res.statusText}`;
+      if (!isRetryableStatus(res.status)) {
+        throw new Error(msg);
+      }
+
+      lastErr = new Error(msg);
+    } catch (e: any) {
+      lastErr = e;
+
+      // AbortError, network errors, etc. are retryable
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    if (attempt <= retries) {
+      const delay = Math.min(baseDelayMs * Math.pow(2, attempt - 1), maxDelayMs);
+      console.log(`🔁 ${logPrefix}: retry ${attempt}/${retries} через ${delay}ms (${url})`);
+      await sleep(delay);
+      continue;
+    }
+  }
+
+  throw lastErr;
+}
+
 // Helper: Link client with student by phone
 async function linkClientWithStudent(supabase: any, clientId: string, phoneNumber: string): Promise<void> {
   const phoneLast10 = phoneNumber.slice(-10);
@@ -831,10 +894,26 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     // Parse request body for mode parameter
-    let requestMode: 'full' | 'incremental' | 'sync_new' | 'resync_messages' | 'fill_salebot_ids' | 'full_reimport' | 'sync_with_salebot_ids' = 'full';
+    let requestMode:
+      | 'full'
+      | 'incremental'
+      | 'sync_new'
+      | 'resync_messages'
+      | 'fill_salebot_ids'
+      | 'full_reimport'
+      | 'sync_with_salebot_ids'
+      | 'continuous_sync' = 'full';
     try {
       const body = await req.json();
-      if (body?.mode === 'incremental' || body?.mode === 'sync_new' || body?.mode === 'resync_messages' || body?.mode === 'fill_salebot_ids' || body?.mode === 'full_reimport' || body?.mode === 'sync_with_salebot_ids') {
+      if (
+        body?.mode === 'incremental' ||
+        body?.mode === 'sync_new' ||
+        body?.mode === 'resync_messages' ||
+        body?.mode === 'fill_salebot_ids' ||
+        body?.mode === 'full_reimport' ||
+        body?.mode === 'sync_with_salebot_ids' ||
+        body?.mode === 'continuous_sync'
+      ) {
         requestMode = body.mode;
       }
     } catch {
@@ -1172,21 +1251,20 @@ Deno.serve(async (req) => {
       }
 
       const clientsUrl = `https://chatter.salebot.pro/api/${salebotApiKey}/get_clients`;
-      const clientsResponse = await fetch(clientsUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          list: listId,
-          offset: currentOffset,
-          limit: clientBatchSize
-        })
-      });
+      const clientsData = await fetchJsonWithRetry(
+        clientsUrl,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            list: listId,
+            offset: currentOffset,
+            limit: clientBatchSize,
+          }),
+        },
+        { logPrefix: 'Salebot get_clients' }
+      );
 
-      if (!clientsResponse.ok) {
-        throw new Error(`Ошибка получения клиентов из списка: ${clientsResponse.statusText}`);
-      }
-
-      const clientsData = await clientsResponse.json();
       salebotClients = clientsData.clients || [];
 
       if (salebotClients.length === 0) {
@@ -1686,21 +1764,34 @@ Deno.serve(async (req) => {
     );
   } catch (error: any) {
     console.error('Ошибка автоимпорта:', error);
-    
-    // Снимаем флаг is_running в случае ошибки
+
+    // Снимаем флаг is_running в случае ошибки (обязательно с фильтром)
     try {
       const supabase = createClient(
         Deno.env.get('SUPABASE_URL')!,
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
       );
-      await supabase
+
+      const { data: lastProgress } = await supabase
         .from('salebot_import_progress')
-        .update({ is_running: false })
-        .limit(1);
+        .select('id')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (lastProgress?.id) {
+        await supabase
+          .from('salebot_import_progress')
+          .update({
+            is_running: false,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', lastProgress.id);
+      }
     } catch (e) {
       console.error('Не удалось сбросить флаг is_running:', e);
     }
-    
+
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
