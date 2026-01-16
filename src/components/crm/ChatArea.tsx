@@ -1785,8 +1785,11 @@ export const ChatArea = ({
       {/* Chat Messages with Tabs */}
       <div className="flex-1 overflow-hidden min-h-0">
         <Tabs value={activeMessengerTab} onValueChange={handleTabChange} className="h-full flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-5 rounded-none bg-orange-50/30 border-orange-200 border-t rounded-t-none">
-            <TabsTrigger value="whatsapp" className="text-xs relative">
+          <TabsList className="grid w-full grid-cols-5 rounded-none bg-muted/30 border-b">
+            <TabsTrigger 
+              value="whatsapp" 
+              className="text-xs relative data-[state=active]:bg-green-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
+            >
               WhatsApp
               {unreadByMessenger.whatsapp > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-destructive text-white text-[10px] font-bold rounded-full flex items-center justify-center">
@@ -1794,7 +1797,10 @@ export const ChatArea = ({
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="telegram" className="text-xs relative">
+            <TabsTrigger 
+              value="telegram" 
+              className="text-xs relative data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
+            >
               Telegram
               {unreadByMessenger.telegram > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-destructive text-white text-[10px] font-bold rounded-full flex items-center justify-center">
@@ -1802,7 +1808,10 @@ export const ChatArea = ({
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="max" className="text-xs relative">
+            <TabsTrigger 
+              value="max" 
+              className="text-xs relative data-[state=active]:bg-purple-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
+            >
               Max
               {unreadByMessenger.max > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-destructive text-white text-[10px] font-bold rounded-full flex items-center justify-center">
@@ -1810,7 +1819,10 @@ export const ChatArea = ({
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="email" className="text-xs relative">
+            <TabsTrigger 
+              value="email" 
+              className="text-xs relative data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
+            >
               Email
               {unreadByMessenger.email > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-destructive text-white text-[10px] font-bold rounded-full flex items-center justify-center">
@@ -1818,7 +1830,10 @@ export const ChatArea = ({
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="calls" className="text-xs relative">
+            <TabsTrigger 
+              value="calls" 
+              className="text-xs relative data-[state=active]:bg-rose-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
+            >
               Звонки
               {unreadByMessenger.calls > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-destructive text-white text-[10px] font-bold rounded-full flex items-center justify-center">
