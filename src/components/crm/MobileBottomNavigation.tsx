@@ -11,7 +11,7 @@ interface MobileBottomNavigationProps {
   onAssistantClick: () => void;
   corporateUnreadCount?: number;
   teachersUnreadCount?: number;
-  activeChatType?: 'client' | 'corporate' | 'teachers';
+  activeChatType?: 'client' | 'corporate' | 'teachers' | 'communities';
 }
 
 export const MobileBottomNavigation = ({
