@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { ChatThread, UnreadByMessenger } from './useChatMessages';
 import { chatListQueryConfig } from '@/lib/queryConfig';
+import { isGroupChatName } from './useCommunityChats';
 
 /**
  * Optimized hook for loading chat threads using RPC function
@@ -42,23 +43,29 @@ export const useChatThreadsOptimized = () => {
 
 // Helper function to map RPC result to ChatThread format
 function mapRpcToThreads(data: any[], startTime: number): ChatThread[] {
-  // Filter out group chats (telegram groups have negative chat_id)
-  // Also exclude system chats (corporate, teachers)
+  // Filter out group chats and system chats
   const filteredData = data.filter((row: any) => {
-    // Check for negative telegram_chat_id (group chats)
+    const name = row.client_name || '';
     const telegramChatId = row.telegram_chat_id;
+    
+    // Check for negative telegram_chat_id (Telegram supergroups)
     if (telegramChatId) {
-      const chatIdNum = typeof telegramChatId === 'string' 
-        ? parseInt(telegramChatId, 10) 
-        : telegramChatId;
-      if (chatIdNum < 0) return false;
+      const isNegative = typeof telegramChatId === 'string' 
+        ? telegramChatId.startsWith('-')
+        : telegramChatId < 0;
+      if (isNegative) return false;
+    }
+    
+    // Exclude group chats by name patterns (ЖК, Английский язык, etc.)
+    if (isGroupChatName(name)) {
+      return false;
     }
     
     // Exclude system chats by name patterns
-    const name = (row.client_name || '').toLowerCase();
-    if (name.includes('корпоративный') || 
-        name.includes('педагог') || 
-        name.includes('преподаватель:')) {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes('корпоративный') || 
+        lowerName.includes('педагог') || 
+        lowerName.includes('преподаватель:')) {
       return false;
     }
     

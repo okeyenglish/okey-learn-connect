@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -13,9 +13,31 @@ export interface CommunityChat {
   avatarUrl: string | null;
 }
 
+// Helper to check if a client name indicates it's a group/community
+export const isGroupChatName = (name: string): boolean => {
+  if (!name) return false;
+  const lowerName = name.toLowerCase();
+  
+  // Patterns that indicate group chats
+  return (
+    lowerName.includes('жк ') ||
+    lowerName.includes('жк«') ||
+    lowerName.startsWith('жк') ||
+    lowerName.includes(' жк') ||
+    lowerName.includes('| жк') ||
+    lowerName.includes('английский язык') ||
+    lowerName.includes('support') ||
+    lowerName.includes('люберцы') ||
+    lowerName.includes('жулебино') ||
+    (lowerName.includes('|') && (lowerName.includes('язык') || lowerName.includes('группа')))
+  );
+};
+
 /**
  * Hook to fetch community chats (group chats from messengers)
- * Telegram groups have negative chat_id
+ * Groups are identified by:
+ * 1. Negative telegram_chat_id (Telegram supergroups)
+ * 2. Name patterns like "ЖК", "Английский язык |", etc.
  */
 export const useCommunityChats = () => {
   const queryClient = useQueryClient();
@@ -25,8 +47,8 @@ export const useCommunityChats = () => {
     queryFn: async (): Promise<CommunityChat[]> => {
       console.log('[useCommunityChats] Fetching community chats...');
       
-      // Get all group chats - telegram groups have negative chat_id (starts with -)
-      // We use LIKE '-%' since telegram_chat_id is stored as string
+      // Get all clients with telegram_chat_id to filter groups
+      // We'll filter by name patterns on the client side for flexibility
       const { data: clients, error } = await supabase
         .from('clients')
         .select(`
@@ -38,14 +60,15 @@ export const useCommunityChats = () => {
           whatsapp_chat_id,
           whatsapp_avatar_url,
           max_chat_id,
-          max_avatar_url
+          max_avatar_url,
+          last_message_at
         `)
-        .like('telegram_chat_id', '-%')
+        .not('telegram_chat_id', 'is', null)
         .not('name', 'ilike', '%Корпоративный%')
         .not('name', 'ilike', '%педагог%')
         .not('name', 'ilike', '%Преподаватель:%')
-        .order('updated_at', { ascending: false })
-        .limit(100);
+        .order('last_message_at', { ascending: false, nullsFirst: false })
+        .limit(200);
 
       if (error) {
         console.error('[useCommunityChats] Error fetching clients:', error);
@@ -57,74 +80,112 @@ export const useCommunityChats = () => {
         return [];
       }
 
-      console.log(`[useCommunityChats] Found ${clients.length} clients with group chat_id`);
+      // Filter to only include group chats based on:
+      // 1. Negative telegram_chat_id (starts with -)
+      // 2. Name patterns indicating groups
+      const groupClients = clients.filter(client => {
+        const telegramId = client.telegram_chat_id;
+        const isNegativeId = telegramId && telegramId.startsWith('-');
+        const hasGroupName = isGroupChatName(client.name);
+        return isNegativeId || hasGroupName;
+      });
 
-      // Get latest message and unread count for each community
-      const communitiesData = await Promise.all(
-        clients.map(async (client) => {
-          // Determine messenger type
-          let messengerType: 'telegram' | 'whatsapp' | 'max' = 'telegram';
-          let avatarUrl = client.telegram_avatar_url;
-          
-          if (client.telegram_chat_id) {
-            messengerType = 'telegram';
-            avatarUrl = client.telegram_avatar_url;
-          } else if (client.whatsapp_chat_id) {
-            messengerType = 'whatsapp';
-            avatarUrl = client.whatsapp_avatar_url;
-          } else if (client.max_chat_id) {
-            messengerType = 'max';
-            avatarUrl = client.max_avatar_url;
+      console.log(`[useCommunityChats] Found ${groupClients.length} group chats out of ${clients.length} with telegram_chat_id`);
+
+      if (groupClients.length === 0) {
+        return [];
+      }
+
+      // Get latest message and unread count for each community in a single batch
+      const clientIds = groupClients.map(c => c.id);
+      
+      // Batch fetch last messages for all communities (limit to recent for performance)
+      const { data: lastMessages } = await supabase
+        .from('chat_messages')
+        .select('client_id, message_text, file_type, file_name, created_at')
+        .in('client_id', clientIds)
+        .order('created_at', { ascending: false })
+        .limit(500);
+      
+      // Batch fetch unread counts
+      const { data: unreadMessages } = await supabase
+        .from('chat_messages')
+        .select('client_id')
+        .in('client_id', clientIds)
+        .eq('is_read', false)
+        .eq('message_type', 'client');
+      
+      // Create lookup maps
+      const lastMessageMap = new Map<string, any>();
+      lastMessages?.forEach(msg => {
+        if (!lastMessageMap.has(msg.client_id)) {
+          lastMessageMap.set(msg.client_id, msg);
+        }
+      });
+      
+      const unreadCountMap = new Map<string, number>();
+      unreadMessages?.forEach(msg => {
+        unreadCountMap.set(msg.client_id, (unreadCountMap.get(msg.client_id) || 0) + 1);
+      });
+
+      // Map communities data using the batch-fetched data
+      const communitiesData: CommunityChat[] = groupClients.map((client) => {
+        // Determine messenger type
+        let messengerType: 'telegram' | 'whatsapp' | 'max' = 'telegram';
+        let avatarUrl = client.telegram_avatar_url;
+        
+        if (client.telegram_chat_id) {
+          messengerType = 'telegram';
+          avatarUrl = client.telegram_avatar_url;
+        } else if (client.whatsapp_chat_id) {
+          messengerType = 'whatsapp';
+          avatarUrl = client.whatsapp_avatar_url;
+        } else if (client.max_chat_id) {
+          messengerType = 'max';
+          avatarUrl = client.max_avatar_url;
+        }
+
+        // Get last message from batch data
+        const lastMsg = lastMessageMap.get(client.id);
+        const unreadCount = unreadCountMap.get(client.id) || 0;
+
+        // Format last message - show file type if no text
+        let lastMessageText = lastMsg?.message_text || '';
+        if (!lastMessageText && lastMsg?.file_type) {
+          // Show media type indicator
+          if (lastMsg.file_type.startsWith('image/')) {
+            lastMessageText = '📷 Фото';
+          } else if (lastMsg.file_type.startsWith('video/')) {
+            lastMessageText = '🎥 Видео';
+          } else if (lastMsg.file_type.startsWith('audio/')) {
+            lastMessageText = '🎵 Аудио';
+          } else if (lastMsg.file_type === 'voice') {
+            lastMessageText = '🎤 Голосовое сообщение';
+          } else if (lastMsg.file_name) {
+            lastMessageText = `📎 ${lastMsg.file_name}`;
+          } else {
+            lastMessageText = '📎 Файл';
           }
+        }
 
-          // Get last message - also check for file_type if message_text is empty
-          const { data: lastMsg } = await supabase
-            .from('chat_messages')
-            .select('message_text, file_type, file_name, created_at, is_read')
-            .eq('client_id', client.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+        return {
+          id: client.id,
+          name: client.name,
+          branch: client.branch,
+          messengerType,
+          lastMessage: lastMessageText,
+          lastMessageTime: lastMsg?.created_at || client.last_message_at || '',
+          unreadCount,
+          avatarUrl
+        };
+      });
 
-          // Get unread count
-          const { count: unreadCount } = await supabase
-            .from('chat_messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('client_id', client.id)
-            .eq('is_read', false)
-            .eq('message_type', 'client');
-
-          // Format last message - show file type if no text
-          let lastMessageText = lastMsg?.message_text || '';
-          if (!lastMessageText && lastMsg?.file_type) {
-            // Show media type indicator
-            if (lastMsg.file_type.startsWith('image/')) {
-              lastMessageText = '📷 Фото';
-            } else if (lastMsg.file_type.startsWith('video/')) {
-              lastMessageText = '🎥 Видео';
-            } else if (lastMsg.file_type.startsWith('audio/')) {
-              lastMessageText = '🎵 Аудио';
-            } else if (lastMsg.file_type === 'voice') {
-              lastMessageText = '🎤 Голосовое сообщение';
-            } else if (lastMsg.file_name) {
-              lastMessageText = `📎 ${lastMsg.file_name}`;
-            } else {
-              lastMessageText = '📎 Файл';
-            }
-          }
-
-          return {
-            id: client.id,
-            name: client.name,
-            branch: client.branch,
-            messengerType,
-            lastMessage: lastMessageText,
-            lastMessageTime: lastMsg?.created_at || '',
-            unreadCount: unreadCount || 0,
-            avatarUrl
-          };
-        })
-      );
+      // Sort by last message time
+      communitiesData.sort((a, b) => {
+        if (!a.lastMessageTime) return 1;
+        if (!b.lastMessageTime) return -1;
+        return new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime();
+      });
 
       console.log(`[useCommunityChats] Processed ${communitiesData.length} community chats`);
       return communitiesData;
