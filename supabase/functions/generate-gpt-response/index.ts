@@ -6,21 +6,67 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Input validation constants
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MAX_MESSAGE_LENGTH = 2000;
+
+// Validate UUID format
+const isValidUUID = (str: string): boolean => UUID_REGEX.test(str);
+
+// Sanitize message - remove potential injection patterns but keep content
+const sanitizeMessage = (msg: string): string => {
+  return msg
+    .slice(0, MAX_MESSAGE_LENGTH)
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // Remove script tags
+    .trim();
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { clientId, currentMessage } = await req.json();
+    const body = await req.json();
+    const { clientId, currentMessage } = body;
     
-    if (!clientId || !currentMessage) {
-      throw new Error('Client ID and current message are required');
+    // Validate clientId
+    if (!clientId || typeof clientId !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Client ID is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    if (!isValidUUID(clientId)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid client ID format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Validate currentMessage
+    if (!currentMessage || typeof currentMessage !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Message is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const sanitizedMessage = sanitizeMessage(currentMessage);
+    if (sanitizedMessage.length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'Message cannot be empty' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not set');
+      return new Response(
+        JSON.stringify({ error: 'Service configuration error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Initialize Supabase client
@@ -69,7 +115,7 @@ serve(async (req) => {
 Контекст предыдущих сообщений:
 ${conversationContext}
 
-Текущее сообщение клиента: ${currentMessage}
+Текущее сообщение клиента: ${sanitizedMessage}
 
 ОБЯЗАТЕЛЬНЫЕ ПРАВИЛА:
 1. Вы менеджер школы английского языка O'KEY ENGLISH - общайтесь профессионально на "Вы"
@@ -99,7 +145,7 @@ ${conversationContext}
         model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: currentMessage }
+          { role: 'user', content: sanitizedMessage }
         ],
         max_completion_tokens: 300,
       }),

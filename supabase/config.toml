@@ -73,7 +73,7 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.get-ai-provider]
-verify_jwt = false
+verify_jwt = true
 
 [functions.set-ai-provider]
 verify_jwt = true
@@ -94,7 +94,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.ask]
-verify_jwt = false
+verify_jwt = true
 
 [functions.delete-whatsapp-message]
 verify_jwt = true
@@ -124,10 +124,10 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.import-holihope]
-verify_jwt = false
+verify_jwt = true
 
 [functions.index-content]
-verify_jwt = false
+verify_jwt = true
 
 [functions.onlinepbx-call]
 verify_jwt = true
@@ -148,7 +148,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.voice-assistant]
-verify_jwt = false
+verify_jwt = true
 
 [functions.webhook-proxy]
 verify_jwt = false
@@ -160,7 +160,7 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.auto-payment-notifications]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-payment-notifications]
 verify_jwt = true
@@ -169,10 +169,10 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.import-salebot-chats-auto]
-verify_jwt = false
+verify_jwt = true
 
 [functions.salebot-stop]
-verify_jwt = false
+verify_jwt = true
 
 [functions.salebot-webhook]
 verify_jwt = false
@@ -223,25 +223,25 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.create-teacher-test-data]
-verify_jwt = false
+verify_jwt = true
 
 [functions.create-student-test-data]
-verify_jwt = false
+verify_jwt = true
 
 [functions.suggest-or-generate]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-app]
-verify_jwt = false
+verify_jwt = true
 
 [functions.improve-app]
-verify_jwt = false
+verify_jwt = true
 
 [functions.publish-app]
-verify_jwt = false
+verify_jwt = true
 
 [functions.manage-app]
-verify_jwt = false
+verify_jwt = true
 
 [functions.teacher-assistant]
 verify_jwt = true
