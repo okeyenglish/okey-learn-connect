@@ -262,9 +262,31 @@ export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalP
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Branch Selection */}
+            <div className="flex items-end gap-2 p-3 bg-muted/50 rounded-lg">
+              <div className="flex-1 space-y-1.5">
+                <Label htmlFor="import-branch" className="flex items-center gap-1.5 text-sm">
+                  <MapPin className="h-3.5 w-3.5" />
+                  Филиал для импортируемых студентов
+                </Label>
+                <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                  <SelectTrigger id="import-branch">
+                    <SelectValue placeholder="Выберите филиал (рекомендуется)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches.map((branch) => (
+                      <SelectItem key={branch.id} value={branch.name}>
+                        {branch.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <h3 className="font-semibold">Предпросмотр данных ({data.length} строк)</h3>
-              <ScrollArea className="h-[400px] border rounded-lg">
+              <ScrollArea className="h-[350px] border rounded-lg">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -304,7 +326,10 @@ export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalP
                     Импорт...
                   </>
                 ) : (
-                  `Импортировать ${data.length} студентов`
+                  <>
+                    Импортировать {data.length} студентов
+                    {selectedBranch && <Badge variant="secondary" className="ml-2">{selectedBranch}</Badge>}
+                  </>
                 )}
               </Button>
             </DialogFooter>
