@@ -27,6 +27,8 @@ import { useTasksLazy } from "@/hooks/useTasksLazy";
 import { ChatArea } from "@/components/crm/ChatArea";
 import { CorporateChatArea } from "@/components/crm/CorporateChatArea";
 import { TeacherChatArea } from "@/components/crm/TeacherChatArea";
+import { CommunityChatArea } from "@/components/crm/CommunityChatArea";
+import { useCommunityChats } from "@/hooks/useCommunityChats";
 import { SearchInput } from "@/components/crm/SearchInput";
 import { SearchResults } from "@/components/crm/SearchResults";
 import { LinkedContacts } from "@/components/crm/LinkedContacts";
@@ -287,6 +289,7 @@ const CRMContent = () => {
   // useClients убран из критического пути - 27К клиентов тормозили загрузку
   const { data: threads = [], isLoading: threadsLoading } = useChatThreadsOptimized();
   const { corporateChats, teacherChats, isLoading: systemChatsLoading } = useSystemChatMessages();
+  const { communityChats, totalUnread: communityUnread, latestCommunity, isLoading: communityLoading } = useCommunityChats();
   
   // Клиенты загружаются лениво - только при необходимости (поиск, модалы)
   const clientsNeeded = modals.openModal === "Ученики" || modals.openModal === "Лиды" || chatSearchQuery.length > 0;
@@ -800,6 +803,17 @@ const CRMContent = () => {
       timestamp: latestTeacher?.lastMessageTime ? new Date(latestTeacher.lastMessageTime).getTime() : 0,
       avatar_url: null,
     },
+    {
+      id: 'communities',
+      name: 'Сообщества',
+      phone: 'Группы мессенджеров',
+      lastMessage: latestCommunity?.lastMessage || 'Нет сообщений',
+      time: latestCommunity?.lastMessageTime ? formatTime(latestCommunity.lastMessageTime) : '',
+      unread: communityUnread,
+      type: 'communities' as const,
+      timestamp: latestCommunity?.lastMessageTime ? new Date(latestCommunity.lastMessageTime).getTime() : 0,
+      avatar_url: null,
+    },
   ];
   const threadClientIds = new Set((threads || []).map(t => t.client_id));
 
@@ -880,8 +894,8 @@ const CRMContent = () => {
   )
     .filter(chat => !getChatState(chat.id).isArchived) // Скрываем архивированные чаты
     .filter(chat => {
-      // Skip filtering for corporate and teacher chats as they don't have client_id
-      if (chat.type === "corporate" || chat.type === "teachers") return true;
+      // Skip filtering for corporate, teacher and community chats as they don't have client_id
+      if (chat.type === "corporate" || chat.type === "teachers" || chat.type === "communities") return true;
       
       // Filter by client type using getClientStatus
       if (selectedClientType !== "all" && 'client_id' in chat && typeof chat.client_id === 'string') {
@@ -897,7 +911,7 @@ const CRMContent = () => {
     // Фильтр по филиалу клиента (из UI dropdown) - теперь используем branch из chat
     .filter(chat => {
       if (selectedBranch === "all") return true;
-      if (chat.type === "corporate" || chat.type === "teachers") return true;
+      if (chat.type === "corporate" || chat.type === "teachers" || chat.type === "communities") return true;
       
       // Используем branch напрямую из chat (теперь приходит из threads RPC)
       const clientBranch = (chat as any).branch;
@@ -3456,6 +3470,10 @@ const CRMContent = () => {
                   handleChatClick(teacherId, 'teachers');
                 }
               }}
+            />
+          ) : activeChatType === 'communities' ? (
+            <CommunityChatArea 
+              onMessageChange={setHasUnsavedChat}
             />
           ) : (
             <div className="flex-1 bg-background flex items-center justify-center p-4">
