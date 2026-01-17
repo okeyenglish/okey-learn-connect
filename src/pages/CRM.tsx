@@ -16,6 +16,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients, useSearchClients, useCreateClient } from "@/hooks/useClients";
+import { useClientIdsByPhoneSearch } from "@/hooks/useClientIdsByPhoneSearch";
 import { useClientStatus } from "@/hooks/useClientStatus";
 import { useRealtimeMessages, useMarkAsRead, useMarkAsUnread } from "@/hooks/useChatMessages";
 import { useChatThreadsOptimized } from "@/hooks/useChatThreadsOptimized";
@@ -886,11 +887,15 @@ const CRMContent = () => {
     sample: allChats.slice(0, 5).map(c => ({ id: c.id, name: c.name, type: c.type }))
   });
 
+  const { data: phoneSearchClientIds = [] } = useClientIdsByPhoneSearch(chatSearchQuery);
+  const phoneSearchClientIdsSet = useMemo(() => new Set(phoneSearchClientIds), [phoneSearchClientIds]);
+
   const filteredChats = allChats
   .filter(chat => 
     chatSearchQuery.length === 0 || 
     (chat.name?.toLowerCase?.().includes(chatSearchQuery.toLowerCase()) ?? false) ||
-    (chat.phone?.includes(chatSearchQuery) ?? false)
+    (chat.phone?.includes(chatSearchQuery) ?? false) ||
+    (chat.type === 'client' && phoneSearchClientIdsSet.has(chat.id))
   )
     .filter(chat => !getChatState(chat.id).isArchived) // Скрываем архивированные чаты
     .filter(chat => {
