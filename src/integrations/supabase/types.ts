@@ -8001,6 +8001,7 @@ export type Database = {
           last_unread_messenger: string
           max_avatar_url: string
           telegram_avatar_url: string
+          telegram_chat_id: string
           unread_calls: number
           unread_count: number
           unread_email: number
@@ -8452,7 +8453,7 @@ export type Database = {
         | "read"
         | "failed"
         | "noAccount"
-      messenger_type: "whatsapp" | "telegram" | "system" | "max"
+      messenger_type: "whatsapp" | "telegram" | "system" | "max" | "email"
       payment_method: "per_lesson" | "monthly" | "course" | "package"
       payment_method_type: "cash" | "card" | "bank_transfer" | "online"
       relationship_type: "main" | "spouse" | "parent" | "guardian" | "other"
@@ -8660,7 +8661,7 @@ export const Constants = {
         "failed",
         "noAccount",
       ],
-      messenger_type: ["whatsapp", "telegram", "system", "max"],
+      messenger_type: ["whatsapp", "telegram", "system", "max", "email"],
       payment_method: ["per_lesson", "monthly", "course", "package"],
       payment_method_type: ["cash", "card", "bank_transfer", "online"],
       relationship_type: ["main", "spouse", "parent", "guardian", "other"],
