@@ -147,14 +147,16 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
     return systemPatterns.some(pattern => pattern.test(message));
   }, [message]);
 
-  // If it looks like a system message, render it as simple centered text
+  // If it looks like a system message, render it as simple centered text (same style as SalebotCallbackMessage)
   if (type === 'manager' && isAutoSystemMessage) {
     return (
-      <div className="flex justify-center items-center gap-2 my-2">
-        <User className="h-3.5 w-3.5 text-muted-foreground/60" />
-        <span className="text-xs text-muted-foreground">{message}</span>
-        <span className="text-xs text-muted-foreground/60">·</span>
-        <span className="text-xs text-muted-foreground/60">{time}</span>
+      <div className="flex justify-center my-1">
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
+          <User className="h-3 w-3 text-muted-foreground/70" />
+          <span className="text-muted-foreground/70">{message}</span>
+          <span className="text-muted-foreground/40">·</span>
+          <span className="text-muted-foreground/40">{time}</span>
+        </div>
       </div>
     );
   }
