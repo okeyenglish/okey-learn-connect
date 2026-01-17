@@ -3,42 +3,155 @@ import { supabase } from '@/integrations/supabase/client';
 import { ChatThread, UnreadByMessenger } from './useChatMessages';
 import { chatListQueryConfig } from '@/lib/queryConfig';
 import { isGroupChatName, isTelegramGroup } from './useCommunityChats';
+import { useMemo, useEffect, useState } from 'react';
 
 /**
  * Optimized hook for loading chat threads using RPC function
- * Uses database RPC for 10x faster queries (single query vs 4 sequential)
+ * Step 1: Fast load recent threads (200)
+ * Step 2: Separately load unread client IDs
+ * Step 3: Fetch missing unread threads and merge
  */
 export const useChatThreadsOptimized = () => {
-  return useQuery({
+  const queryClient = useQueryClient();
+  const [missingUnreadThreads, setMissingUnreadThreads] = useState<ChatThread[]>([]);
+  const [isMissingLoading, setIsMissingLoading] = useState(false);
+
+  // Step 1: Fast load of recent threads
+  const recentThreadsQuery = useQuery({
     queryKey: ['chat-threads'],
     queryFn: async (): Promise<ChatThread[]> => {
-      console.log('[useChatThreadsOptimized] Starting optimized RPC fetch...');
+      console.log('[useChatThreadsOptimized] Step 1: Loading recent threads...');
       const startTime = performance.now();
 
-      // Use optimized RPC function for fast chat threads loading
       const { data, error } = await supabase
         .rpc('get_chat_threads_optimized', { p_limit: 200 });
 
       if (error) {
-        console.error('[useChatThreadsOptimized] RPC error, falling back to fast method:', error);
-        // Fallback to get_chat_threads_fast if available
+        console.error('[useChatThreadsOptimized] RPC error, falling back:', error);
         const { data: fallbackData, error: fallbackError } = await supabase
           .rpc('get_chat_threads_fast', { p_limit: 200 });
         
-        if (fallbackError) {
-          console.error('[useChatThreadsOptimized] Fallback RPC also failed:', fallbackError);
-          throw fallbackError;
-        }
-        
+        if (fallbackError) throw fallbackError;
         return mapRpcToThreads(fallbackData || [], startTime);
       }
 
       return mapRpcToThreads(data || [], startTime);
     },
     ...chatListQueryConfig,
-    // Keep previous data while loading for smooth UX
     placeholderData: (previousData) => previousData,
   });
+
+  // Step 2: Load unread client IDs (fast, uses partial index)
+  const unreadClientsQuery = useQuery({
+    queryKey: ['unread-client-ids'],
+    queryFn: async (): Promise<string[]> => {
+      console.log('[useChatThreadsOptimized] Step 2: Loading unread client IDs...');
+      const startTime = performance.now();
+      
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('client_id')
+        .eq('is_read', false)
+        .eq('message_type', 'client');
+
+      if (error) throw error;
+
+      // Get unique client IDs
+      const clientIds = [...new Set((data || []).map(m => m.client_id))];
+      console.log(`[useChatThreadsOptimized] Step 2: Found ${clientIds.length} clients with unread in ${(performance.now() - startTime).toFixed(2)}ms`);
+      return clientIds;
+    },
+    staleTime: 10000,
+    refetchOnWindowFocus: false,
+  });
+
+  // Step 3: Load missing unread threads (those not in recent)
+  useEffect(() => {
+    const loadMissingUnread = async () => {
+      const recentThreads = recentThreadsQuery.data;
+      const unreadClientIds = unreadClientsQuery.data;
+
+      if (!recentThreads || !unreadClientIds || unreadClientIds.length === 0) {
+        setMissingUnreadThreads([]);
+        return;
+      }
+
+      // Find which unread clients are NOT in recent threads
+      const recentClientIds = new Set(recentThreads.map(t => t.client_id));
+      const missingIds = unreadClientIds.filter(id => !recentClientIds.has(id));
+
+      if (missingIds.length === 0) {
+        console.log('[useChatThreadsOptimized] Step 3: All unread chats are in recent, no need to load more');
+        setMissingUnreadThreads([]);
+        return;
+      }
+
+      console.log(`[useChatThreadsOptimized] Step 3: Loading ${missingIds.length} missing unread threads...`);
+      setIsMissingLoading(true);
+      const startTime = performance.now();
+
+      try {
+        const { data, error } = await supabase
+          .rpc('get_chat_threads_by_client_ids', { p_client_ids: missingIds });
+
+        if (error) {
+          console.error('[useChatThreadsOptimized] Failed to load missing unread:', error);
+          setMissingUnreadThreads([]);
+        } else {
+          const threads = mapRpcToThreads(data || [], startTime);
+          console.log(`[useChatThreadsOptimized] Step 3: Loaded ${threads.length} missing unread threads in ${(performance.now() - startTime).toFixed(2)}ms`);
+          setMissingUnreadThreads(threads);
+        }
+      } catch (e) {
+        console.error('[useChatThreadsOptimized] Error loading missing unread:', e);
+        setMissingUnreadThreads([]);
+      } finally {
+        setIsMissingLoading(false);
+      }
+    };
+
+    loadMissingUnread();
+  }, [recentThreadsQuery.data, unreadClientsQuery.data]);
+
+  // Merge recent threads + missing unread threads
+  const mergedThreads = useMemo(() => {
+    const recent = recentThreadsQuery.data || [];
+    const missing = missingUnreadThreads || [];
+
+    if (missing.length === 0) return recent;
+
+    // Combine and sort: unread first, then by time
+    const combined = [...recent, ...missing];
+    
+    // Deduplicate by client_id (in case of race conditions)
+    const seen = new Set<string>();
+    const unique = combined.filter(t => {
+      if (seen.has(t.client_id)) return false;
+      seen.add(t.client_id);
+      return true;
+    });
+
+    // Sort: unread first, then by last_message_time desc
+    unique.sort((a, b) => {
+      const aHasUnread = a.unread_count > 0 ? 0 : 1;
+      const bHasUnread = b.unread_count > 0 ? 0 : 1;
+      if (aHasUnread !== bHasUnread) return aHasUnread - bHasUnread;
+      
+      const aTime = new Date(a.last_message_time || 0).getTime();
+      const bTime = new Date(b.last_message_time || 0).getTime();
+      return bTime - aTime;
+    });
+
+    return unique;
+  }, [recentThreadsQuery.data, missingUnreadThreads]);
+
+  return {
+    data: mergedThreads,
+    isLoading: recentThreadsQuery.isLoading,
+    isFetching: recentThreadsQuery.isFetching || isMissingLoading,
+    error: recentThreadsQuery.error,
+    refetch: recentThreadsQuery.refetch,
+  };
 };
 
 // Helper function to map RPC result to ChatThread format
