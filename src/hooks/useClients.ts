@@ -203,15 +203,60 @@ export const useSearchClients = () => {
     setSearchQuery(query);
 
     try {
-      const { data, error } = await supabase
+      // Normalize phone for search (remove +, spaces, brackets, dashes)
+      const normalizedQuery = query.replace(/[\s\+\-\(\)]/g, '');
+      const isPhoneSearch = /^\d{5,}$/.test(normalizedQuery);
+      
+      let clientIdsFromPhones: string[] = [];
+      
+      // If looks like phone - search in client_phone_numbers first
+      if (isPhoneSearch) {
+        const { data: phoneMatches } = await supabase
+          .from('client_phone_numbers')
+          .select('client_id')
+          .ilike('phone', `%${normalizedQuery}%`)
+          .limit(20);
+        
+        if (phoneMatches && phoneMatches.length > 0) {
+          clientIdsFromPhones = phoneMatches.map(p => p.client_id);
+        }
+      }
+      
+      // Build the main query
+      let queryBuilder = supabase
         .from('clients')
-        .select('*')
-        .or(`name.ilike.%${query}%,phone.ilike.%${query}%,email.ilike.%${query}%`)
-        .eq('is_active', true)
-        .limit(10);
+        .select(`
+          *, 
+          client_phone_numbers (phone, is_primary)
+        `)
+        .eq('is_active', true);
+      
+      if (clientIdsFromPhones.length > 0) {
+        // Search by name/email OR by found IDs from phone numbers
+        queryBuilder = queryBuilder.or(
+          `name.ilike.%${query}%,email.ilike.%${query}%,id.in.(${clientIdsFromPhones.join(',')})`
+        );
+      } else {
+        // Normal search by name, phone in clients, email
+        queryBuilder = queryBuilder.or(
+          `name.ilike.%${query}%,phone.ilike.%${query}%,email.ilike.%${query}%`
+        );
+      }
+      
+      const { data, error } = await queryBuilder.limit(20);
 
       if (error) throw error;
-      setSearchResults(data || []);
+      
+      // Enrich with primary phone from client_phone_numbers if clients.phone is empty
+      const enrichedData = (data || []).map(client => {
+        const primaryPhone = client.client_phone_numbers?.find((p: any) => p.is_primary);
+        return {
+          ...client,
+          phone: client.phone || primaryPhone?.phone || '',
+        };
+      });
+      
+      setSearchResults(enrichedData as Client[]);
     } catch (error) {
       console.error('Search error:', error);
       setSearchResults([]);
