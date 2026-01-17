@@ -42,7 +42,30 @@ export const useChatThreadsOptimized = () => {
 
 // Helper function to map RPC result to ChatThread format
 function mapRpcToThreads(data: any[], startTime: number): ChatThread[] {
-  const threads: ChatThread[] = data.map((row: any) => ({
+  // Filter out group chats (telegram groups have negative chat_id)
+  // Also exclude system chats (corporate, teachers)
+  const filteredData = data.filter((row: any) => {
+    // Check for negative telegram_chat_id (group chats)
+    const telegramChatId = row.telegram_chat_id;
+    if (telegramChatId) {
+      const chatIdNum = typeof telegramChatId === 'string' 
+        ? parseInt(telegramChatId, 10) 
+        : telegramChatId;
+      if (chatIdNum < 0) return false;
+    }
+    
+    // Exclude system chats by name patterns
+    const name = (row.client_name || '').toLowerCase();
+    if (name.includes('корпоративный') || 
+        name.includes('педагог') || 
+        name.includes('преподаватель:')) {
+      return false;
+    }
+    
+    return true;
+  });
+
+  const threads: ChatThread[] = filteredData.map((row: any) => ({
     client_id: row.client_id,
     client_name: row.client_name || '',
     client_phone: row.client_phone || '',
@@ -66,7 +89,7 @@ function mapRpcToThreads(data: any[], startTime: number): ChatThread[] {
   }));
 
   const endTime = performance.now();
-  console.log(`[useChatThreadsOptimized] ✅ Completed in ${(endTime - startTime).toFixed(2)}ms, ${threads.length} threads`);
+  console.log(`[useChatThreadsOptimized] ✅ Completed in ${(endTime - startTime).toFixed(2)}ms, ${threads.length} threads (filtered from ${data.length})`);
 
   return threads;
 }
