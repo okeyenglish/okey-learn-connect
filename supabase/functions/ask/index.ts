@@ -7,6 +7,63 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Input validation limits
+const MAX_QUESTION_LENGTH = 2000;
+const MAX_HISTORY_LENGTH = 20;
+const MAX_HISTORY_ITEM_LENGTH = 1000;
+
+// Validate and sanitize question
+const validateQuestion = (question: unknown): { valid: boolean; sanitized?: string; error?: string } => {
+  if (!question || typeof question !== 'string') {
+    return { valid: false, error: 'Question must be a non-empty string' };
+  }
+  
+  const trimmed = question.trim();
+  if (trimmed.length === 0) {
+    return { valid: false, error: 'Question cannot be empty' };
+  }
+  
+  if (trimmed.length > MAX_QUESTION_LENGTH) {
+    return { valid: false, error: `Question too long (max ${MAX_QUESTION_LENGTH} characters)` };
+  }
+  
+  // Sanitize potential injection patterns
+  const sanitized = trimmed
+    .replace(/<[^>]*>/g, '') // Remove HTML tags
+    .replace(/\[INST\]|\[\/INST\]/gi, '') // Remove instruction markers
+    .trim();
+  
+  return { valid: true, sanitized };
+};
+
+// Validate history array
+const validateHistory = (history: unknown): { valid: boolean; sanitized?: any[]; error?: string } => {
+  if (!history) {
+    return { valid: true, sanitized: [] };
+  }
+  
+  if (!Array.isArray(history)) {
+    return { valid: false, error: 'History must be an array' };
+  }
+  
+  if (history.length > MAX_HISTORY_LENGTH) {
+    return { valid: false, error: `History too long (max ${MAX_HISTORY_LENGTH} messages)` };
+  }
+  
+  const sanitized = history
+    .filter(item => item && typeof item === 'object' && item.role && item.content)
+    .filter(item => ['user', 'assistant'].includes(item.role))
+    .map(item => ({
+      role: item.role,
+      content: typeof item.content === 'string' 
+        ? item.content.slice(0, MAX_HISTORY_ITEM_LENGTH).trim()
+        : ''
+    }))
+    .filter(item => item.content.length > 0);
+  
+  return { valid: true, sanitized };
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -14,20 +71,34 @@ serve(async (req) => {
   }
 
   try {
-    const { question, history } = await req.json();
+    const body = await req.json();
+    const { question: rawQuestion, history: rawHistory } = body;
     
-    if (!question || typeof question !== "string") {
+    // Validate inputs
+    const questionResult = validateQuestion(rawQuestion);
+    if (!questionResult.valid) {
       return new Response(
-        JSON.stringify({ error: "Empty question" }), 
+        JSON.stringify({ error: questionResult.error }), 
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    
+    const historyResult = validateHistory(rawHistory);
+    if (!historyResult.valid) {
+      return new Response(
+        JSON.stringify({ error: historyResult.error }), 
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const question = questionResult.sanitized!;
+    const history = historyResult.sanitized!;
 
-    console.log('Processing question:', question);
-    console.log('Conversation history length:', history?.length || 0);
+    console.log('Processing question:', question.slice(0, 100) + (question.length > 100 ? '...' : ''));
+    console.log('Conversation history length:', history.length);
 
     // Quick handling for greetings and small talk to save tokens and avoid empty answers
-    const normalized = (question || '').trim().toLowerCase().replace(/[!.,?]+$/g, '');
+    const normalized = question.toLowerCase().replace(/[!.,?]+$/g, '');
     const greetingPhrases = [
       'привет','здравствуйте','добрый день','добрый вечер','доброе утро','hello','hi','добрый ночи','доброй ночи'
     ];
@@ -44,7 +115,7 @@ serve(async (req) => {
     if (!OPENAI_API_KEY || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
       console.error('Missing required environment variables');
       return new Response(
-        JSON.stringify({ error: "Missing configuration" }), 
+        JSON.stringify({ error: "Service configuration error" }), 
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

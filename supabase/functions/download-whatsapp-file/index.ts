@@ -6,6 +6,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Input validation
+const CHAT_ID_REGEX = /^\d+@[cg]\.(us|net)$/; // WhatsApp chat ID format
+const MAX_MESSAGE_ID_LENGTH = 200;
+
+const validateChatId = (chatId: unknown): boolean => {
+  return typeof chatId === 'string' && CHAT_ID_REGEX.test(chatId);
+};
+
+const validateMessageId = (idMessage: unknown): boolean => {
+  return typeof idMessage === 'string' && 
+         idMessage.length > 0 && 
+         idMessage.length <= MAX_MESSAGE_ID_LENGTH;
+};
+
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -17,7 +31,23 @@ serve(async (req) => {
   }
 
   try {
-    const { chatId, idMessage } = await req.json();
+    const body = await req.json();
+    const { chatId, idMessage } = body;
+    
+    // Validate inputs
+    if (!validateChatId(chatId)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid chat ID format', success: false }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    if (!validateMessageId(idMessage)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid message ID', success: false }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
     console.log(`Downloading WhatsApp file for chatId: ${chatId}, messageId: ${idMessage}`);
     
@@ -27,7 +57,10 @@ serve(async (req) => {
     const greenApiToken = Deno.env.get('GREEN_API_TOKEN_INSTANCE');
     
     if (!greenApiUrl || !greenApiIdInstance || !greenApiToken) {
-      throw new Error('Missing Green API credentials: GREEN_API_URL, GREEN_API_ID_INSTANCE, or GREEN_API_TOKEN_INSTANCE');
+      return new Response(
+        JSON.stringify({ error: 'Service configuration error', success: false }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Call Green API downloadFile endpoint
