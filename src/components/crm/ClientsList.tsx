@@ -10,10 +10,11 @@ import { Phone, Mail, MessageCircle, User, UserPlus } from "lucide-react";
 interface ClientsListProps {
   onSelectClient?: (clientId: string) => void;
   selectedClientId?: string;
+  enabled?: boolean; // Allow parent to control when to load clients
 }
 
-export const ClientsList = ({ onSelectClient, selectedClientId }: ClientsListProps) => {
-  const { clients, isLoading, error } = useClients();
+export const ClientsList = ({ onSelectClient, selectedClientId, enabled = true }: ClientsListProps) => {
+  const { clients, isLoading, error } = useClients(enabled);
   const clientIds = clients.map(client => client.id);
   const { getClientStatus } = useClientStatus(clientIds);
 

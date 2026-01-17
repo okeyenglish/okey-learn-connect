@@ -66,7 +66,9 @@ export const AddTaskModal = ({
   });
 
   // Client selection state (for client tasks outside chat)
-  const { clients } = useClients();
+  // Only load clients when modal is open AND no clientId provided (need to select one)
+  const needsClientSelection = open && !clientId;
+  const { clients } = useClients(needsClientSelection);
   const [clientSearch, setClientSearch] = useState("");
   const [selectedClientId, setSelectedClientId] = useState<string | undefined>(clientId);
   const [selectedClientName, setSelectedClientName] = useState<string | undefined>(clientName);

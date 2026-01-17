@@ -46,23 +46,25 @@ export const useClients = (enabled: boolean = true) => {
   const { data: clients, isLoading, error } = useQuery({
     queryKey: ['clients'],
     enabled,
+    staleTime: 60000, // Cache for 1 minute to reduce DB load
+    gcTime: 300000, // Keep in cache for 5 minutes
     queryFn: async () => {
       console.log('Fetching clients...', { userId: supabase.auth.getUser() });
       try {
+        // OPTIMIZED: Limited query to prevent timeout on large datasets (27K+ clients)
+        // Use useSearchClients for full search functionality
         const { data, error } = await supabase
           .from('clients')
           .select(`
-            *,
-            client_branches (
-              branch
-            ),
-            client_phone_numbers (
-              phone,
-              is_primary
-            )
+            id, name, phone, email, notes, avatar_url, 
+            telegram_avatar_url, whatsapp_avatar_url, max_avatar_url,
+            is_active, branch, created_at, updated_at,
+            client_branches (branch),
+            client_phone_numbers (phone, is_primary)
           `)
           .eq('is_active', true)
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(500); // Prevent timeout - use search for more
         
         if (error) {
           console.error('Clients fetch error:', error);
