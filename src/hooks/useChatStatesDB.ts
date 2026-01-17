@@ -9,7 +9,7 @@ export interface ChatState {
   isUnread: boolean;
 }
 
-export const useChatStatesDB = () => {
+export const useChatStatesDB = (chatIds?: string[]) => {
   const [chatStates, setChatStates] = useState<Record<string, ChatState>>({});
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
@@ -23,11 +23,24 @@ export const useChatStatesDB = () => {
       return;
     }
 
+    // Если нам явно передали список и он пустой — ничего не грузим
+    if (Array.isArray(chatIds) && chatIds.length === 0) {
+      setChatStates({});
+      setLoading(false);
+      return;
+    }
+
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('chat_states')
-        .select('*')
+        .select('chat_id, is_pinned, is_archived, is_unread')
         .eq('user_id', user.id);
+
+      if (Array.isArray(chatIds) && chatIds.length > 0) {
+        query = query.in('chat_id', chatIds);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error loading chat states:', error);
@@ -50,7 +63,7 @@ export const useChatStatesDB = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, chatIds]);
 
   // Загружаем данные при монтировании компонента или изменении пользователя
   useEffect(() => {
