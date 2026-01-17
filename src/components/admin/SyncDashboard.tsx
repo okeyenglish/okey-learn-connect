@@ -3,13 +3,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CheckCircle2, XCircle, AlertCircle, RefreshCw, Database, MessageSquare, Users, Clock, Pause, Play, Upload, FileSpreadsheet } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, AlertCircle, RefreshCw, Database, MessageSquare, Users, Clock, Pause, Play, Upload, FileSpreadsheet, MapPin } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useOrganization } from '@/hooks/useOrganization';
 
 interface SalebotProgress {
   totalClientsProcessed: number;
@@ -52,6 +54,7 @@ interface DbStats {
 
 export function SyncDashboard() {
   const { toast } = useToast();
+  const { branches } = useOrganization();
   const [importProgress, setImportProgress] = useState<SalebotProgress | null>(null);
   const [apiUsage, setApiUsage] = useState<ApiUsage | null>(null);
   const [dbStats, setDbStats] = useState<DbStats | null>(null);
@@ -65,6 +68,7 @@ export function SyncDashboard() {
   const [isSyncingWithIds, setIsSyncingWithIds] = useState(false);
   const [isFullReimporting, setIsFullReimporting] = useState(false);
   const [isImportingCsv, setIsImportingCsv] = useState(false);
+  const [selectedBranchForCsv, setSelectedBranchForCsv] = useState<string>('');
   const [csvImportProgress, setCsvImportProgress] = useState<{
     current: number;
     total: number;
@@ -75,6 +79,7 @@ export function SyncDashboard() {
     updated: number;
     notFound: number;
     errors?: number;
+    branchAssigned?: number;
   } | null>(null);
   const csvFileInputRef = useRef<HTMLInputElement>(null);
   const [newApiLimit, setNewApiLimit] = useState<string>('6000');
@@ -952,7 +957,7 @@ export function SyncDashboard() {
           await supabase.auth.refreshSession();
           
           const { data, error } = await supabase.functions.invoke('import-salebot-ids-csv', {
-            body: { updates: chunk }
+            body: { updates: chunk, branch: selectedBranchForCsv }
           });
           
           if (!error) {
@@ -1425,6 +1430,28 @@ export function SyncDashboard() {
                 </Alert>
               )}
               
+              {/* Branch Selection for CSV Import */}
+              <div className="flex items-end gap-2 p-3 bg-muted/50 rounded-lg">
+                <div className="flex-1 space-y-1.5">
+                  <Label htmlFor="csv-branch" className="flex items-center gap-1.5 text-sm">
+                    <MapPin className="h-3.5 w-3.5" />
+                    Филиал для импортируемых клиентов
+                  </Label>
+                  <Select value={selectedBranchForCsv} onValueChange={setSelectedBranchForCsv}>
+                    <SelectTrigger id="csv-branch">
+                      <SelectValue placeholder="Выберите филиал (обязательно)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {branches.map((branch) => (
+                        <SelectItem key={branch.id} value={branch.name}>
+                          {branch.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div className="flex flex-col sm:flex-row gap-2">
                 <Button 
                   variant="default" 
@@ -1453,7 +1480,8 @@ export function SyncDashboard() {
                     variant="outline" 
                     className="w-full border-cyan-500 text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-950"
                     onClick={() => csvFileInputRef.current?.click()}
-                    disabled={isImportingCsv}
+                    disabled={isImportingCsv || !selectedBranchForCsv}
+                    title={!selectedBranchForCsv ? 'Сначала выберите филиал' : ''}
                   >
                     {isImportingCsv ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

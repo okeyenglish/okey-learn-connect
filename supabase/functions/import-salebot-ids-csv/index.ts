@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
     console.log('✅ Admin role verified');
 
     // Parse request body - expecting pre-matched updates from client
-    const { updates } = await req.json() as { updates: UpdateRequest[] };
+    const { updates, branch } = await req.json() as { updates: UpdateRequest[]; branch?: string };
 
     if (!updates || !Array.isArray(updates) || updates.length === 0) {
       return new Response(JSON.stringify({ 
@@ -98,6 +98,8 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
+
+    console.log(`📍 Branch for import: ${branch || 'not specified'}`);
 
     console.log(`📥 Received ${updates.length} pre-matched updates`);
 
@@ -159,6 +161,23 @@ Deno.serve(async (req) => {
         const updatedCount = await updateBatch(clientIds, salebotIds);
         updatedTotal += updatedCount;
         console.log(`✅ Batch updated: ${updatedCount}`);
+        // If branch is specified, also add clients to this branch
+        if (branch && updatedCount > 0) {
+          const branchRecords = clientIds.map(clientId => ({
+            client_id: clientId,
+            branch: branch
+          }));
+          
+          const { error: branchError } = await supabase
+            .from('client_branches')
+            .upsert(branchRecords, { onConflict: 'client_id,branch' });
+          
+          if (branchError) {
+            console.warn('⚠️ Branch assignment warning:', branchError.message);
+          } else {
+            console.log(`📍 Assigned ${clientIds.length} clients to branch: ${branch}`);
+          }
+        }
       } catch (e) {
         console.error('❌ Batch update failed:', e);
         failedValidUpdates += batch.length;

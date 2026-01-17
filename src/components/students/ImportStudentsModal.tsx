@@ -3,11 +3,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, Loader2, Info } from "lucide-react";
+import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, Loader2, Info, MapPin } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useOrganization } from "@/hooks/useOrganization";
 
 interface ImportStudentsModalProps {
   open: boolean;
@@ -21,10 +24,12 @@ interface ImportStats {
 }
 
 export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalProps) {
+  const { branches } = useOrganization();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any[]>([]);
   const [importStats, setImportStats] = useState<ImportStats | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState<string>('');
 
   const processFile = useCallback(async (file: File) => {
     try {
@@ -112,6 +117,11 @@ export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalP
 
           // Генерация имени студента
           studentData.name = `${studentData.last_name} ${studentData.first_name}`.trim() || 'Без имени';
+          
+          // Добавляем филиал если выбран
+          if (selectedBranch) {
+            studentData.branch = selectedBranch;
+          }
 
           // Создание студента
           const { error } = await supabase
@@ -143,6 +153,7 @@ export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalP
   const reset = () => {
     setData([]);
     setImportStats(null);
+    setSelectedBranch('');
   };
 
   return (
