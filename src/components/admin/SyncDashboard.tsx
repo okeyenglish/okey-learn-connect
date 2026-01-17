@@ -72,11 +72,12 @@ export function SyncDashboard() {
   const [csvImportProgress, setCsvImportProgress] = useState<{
     current: number;
     total: number;
-    phase: 'parsing' | 'matching' | 'updating';
+    phase: 'parsing' | 'matching' | 'updating' | 'creating';
   } | null>(null);
   const [csvImportResult, setCsvImportResult] = useState<{
     matched: number;
     updated: number;
+    created?: number;
     notFound: number;
     errors?: number;
     branchAssigned?: number;
@@ -850,7 +851,7 @@ export function SyncDashboard() {
                          lines[0].toLowerCase().includes('имя') || 
                          lines[0].toLowerCase().includes('name') ? 1 : 0;
       
-      const parsedRows: { salebotId: string; phone: string }[] = [];
+      const parsedRows: { salebotId: string; name: string; phone: string }[] = [];
       
       // Helper function to normalize phone (matching the utility)
       const normalizePhoneLocal = (phone: string): string => {
@@ -868,10 +869,11 @@ export function SyncDashboard() {
         const fields = lines[i].split(';').map(f => f.trim().replace(/^["']|["']$/g, ''));
         if (fields.length >= 3) {
           const salebotId = fields[0];
+          const name = fields[1] || 'Без имени';
           const phone = fields[2] || fields[3];
           
           if (salebotId && phone) {
-            parsedRows.push({ salebotId, phone: normalizePhoneLocal(phone) });
+            parsedRows.push({ salebotId, name, phone: normalizePhoneLocal(phone) });
           }
         }
       }
@@ -914,50 +916,53 @@ export function SyncDashboard() {
 
       // STEP 3: Match CSV rows to clients on client-side
       const updates: { clientId: string; salebotId: string }[] = [];
-      let totalNotFound = 0;
+      const newClients: { salebotId: string; name: string; phone: string }[] = [];
 
       for (const row of parsedRows) {
         const clientId = phoneToClientMap.get(row.phone);
         if (clientId) {
           updates.push({ clientId, salebotId: row.salebotId });
         } else {
-          totalNotFound++;
+          newClients.push(row);
         }
       }
 
-      console.log(`✅ Найдено совпадений: ${updates.length}, не найдено: ${totalNotFound}`);
+      console.log(`✅ Найдено совпадений: ${updates.length}, новых клиентов: ${newClients.length}`);
       
-      if (updates.length === 0) {
+      if (updates.length === 0 && newClients.length === 0) {
         setCsvImportProgress(null);
         setCsvImportResult({
           matched: 0,
           updated: 0,
-          notFound: totalNotFound,
+          created: 0,
+          notFound: 0,
           errors: 0
         });
         toast({
-          title: 'Совпадений не найдено',
-          description: `Ни один телефон из CSV не найден в базе данных`,
+          title: 'Нет данных для импорта',
+          description: `CSV файл пуст или не содержит валидных записей`,
           variant: 'destructive',
         });
         return;
       }
 
       // STEP 4: Send pre-matched updates to Edge Function in chunks with retry logic
-      setCsvImportProgress({ current: 0, total: updates.length, phase: 'updating' });
+      const totalOperations = updates.length + newClients.length;
+      setCsvImportProgress({ current: 0, total: totalOperations, phase: 'updating' });
       
       const chunkSize = 1000;
       let totalUpdated = 0;
+      let totalCreated = 0;
       let totalErrors = 0;
 
       // Helper function for invoking with retry
-      const invokeWithRetry = async (chunk: { clientId: string; salebotId: string }[], maxRetries = 3) => {
+      const invokeWithRetry = async (body: any, maxRetries = 3) => {
         for (let attempt = 0; attempt < maxRetries; attempt++) {
           // Refresh session before each attempt to prevent token expiration
           await supabase.auth.refreshSession();
           
           const { data, error } = await supabase.functions.invoke('import-salebot-ids-csv', {
-            body: { updates: chunk, branch: selectedBranchForCsv }
+            body
           });
           
           if (!error) {
@@ -982,17 +987,22 @@ export function SyncDashboard() {
         return { data: null, error: new Error('Превышено количество попыток') };
       };
 
+      // Process updates
       for (let offset = 0; offset < updates.length; offset += chunkSize) {
         const chunk = updates.slice(offset, offset + chunkSize);
         
-        console.log(`📤 Отправка chunk: offset=${offset}, size=${chunk.length}`);
+        console.log(`📤 Отправка updates chunk: offset=${offset}, size=${chunk.length}`);
         
         // Add delay between chunks to reduce DB load
         if (offset > 0) {
           await new Promise(r => setTimeout(r, 500));
         }
 
-        const { data, error } = await invokeWithRetry(chunk);
+        const { data, error } = await invokeWithRetry({ 
+          updates: chunk, 
+          newClients: [], 
+          branch: selectedBranchForCsv 
+        });
 
         if (error) {
           const context = (error as any).context;
@@ -1023,7 +1033,7 @@ export function SyncDashboard() {
         }
 
         const result = data as any;
-        if (!result.success) {
+        if (!result.success && result.updated === undefined) {
           throw new Error(result.error || 'Неизвестная ошибка');
         }
 
@@ -1033,18 +1043,60 @@ export function SyncDashboard() {
         // Update progress AFTER successful chunk
         setCsvImportProgress({ 
           current: offset + chunk.length, 
-          total: updates.length, 
+          total: totalOperations, 
           phase: 'updating' 
         });
 
-        console.log(`✅ Chunk ${offset}-${offset + chunk.length}: updated=${result.updated}, errors=${result.errors || 0}`);
+        console.log(`✅ Updates chunk ${offset}-${offset + chunk.length}: updated=${result.updated}, errors=${result.errors || 0}`);
+      }
+
+      // Process new clients
+      if (newClients.length > 0) {
+        setCsvImportProgress({ current: updates.length, total: totalOperations, phase: 'creating' });
+        
+        for (let offset = 0; offset < newClients.length; offset += chunkSize) {
+          const chunk = newClients.slice(offset, offset + chunkSize);
+          
+          console.log(`📤 Отправка newClients chunk: offset=${offset}, size=${chunk.length}`);
+          
+          // Add delay between chunks
+          if (offset > 0) {
+            await new Promise(r => setTimeout(r, 500));
+          }
+
+          const { data, error } = await invokeWithRetry({ 
+            updates: [], 
+            newClients: chunk, 
+            branch: selectedBranchForCsv 
+          });
+
+          if (error) {
+            console.error(`❌ Ошибка создания клиентов на chunk ${offset}:`, error.message);
+            totalErrors += chunk.length;
+            continue; // Continue with next chunk instead of failing completely
+          }
+
+          const result = data as any;
+          totalCreated += result.created || 0;
+          totalErrors += result.errors || 0;
+
+          // Update progress
+          setCsvImportProgress({ 
+            current: updates.length + offset + chunk.length, 
+            total: totalOperations, 
+            phase: 'creating' 
+          });
+
+          console.log(`✅ NewClients chunk ${offset}-${offset + chunk.length}: created=${result.created || 0}`);
+        }
       }
 
       setCsvImportProgress(null);
       setCsvImportResult({
         matched: updates.length,
         updated: totalUpdated,
-        notFound: totalNotFound,
+        created: totalCreated,
+        notFound: 0,
         errors: totalErrors
       });
 
@@ -1547,6 +1599,7 @@ export function SyncDashboard() {
                       {csvImportProgress.phase === 'parsing' && '📄 Парсинг CSV...'}
                       {csvImportProgress.phase === 'matching' && '🔍 Поиск совпадений...'}
                       {csvImportProgress.phase === 'updating' && '📝 Обновление записей...'}
+                      {csvImportProgress.phase === 'creating' && '➕ Создание новых клиентов...'}
                     </span>
                     <span className="text-cyan-600 dark:text-cyan-400">
                       {csvImportProgress.total > 0 
@@ -1567,10 +1620,15 @@ export function SyncDashboard() {
                   <div className="text-sm font-medium text-green-700 dark:text-green-300 mb-2">
                     ✅ Результат импорта CSV:
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm">
                     <div>Найдено: <strong>{csvImportResult.matched}</strong></div>
                     <div>Обновлено: <strong className="text-green-600">{csvImportResult.updated}</strong></div>
-                    <div>Не найдено: <strong className="text-orange-600">{csvImportResult.notFound}</strong></div>
+                    {csvImportResult.created !== undefined && csvImportResult.created > 0 && (
+                      <div>Создано: <strong className="text-blue-600">{csvImportResult.created}</strong></div>
+                    )}
+                    {csvImportResult.notFound > 0 && (
+                      <div>Не найдено: <strong className="text-orange-600">{csvImportResult.notFound}</strong></div>
+                    )}
                     {csvImportResult.errors ? (
                       <div>Ошибок: <strong className="text-red-600">{csvImportResult.errors}</strong></div>
                     ) : null}
