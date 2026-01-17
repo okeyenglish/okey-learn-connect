@@ -52,9 +52,9 @@ export const usePendingGPTResponses = (clientId?: string) => {
       return data as PendingGPTResponse[];
     },
     enabled: !!clientId,
-    staleTime: 10000, // Consider data stale after 10 seconds 
-    gcTime: 30000, // Keep in cache for 30 seconds
-    refetchInterval: 15000, // Refetch every 15 seconds to clean up expired
+    staleTime: 30000, // Consider data stale after 30 seconds 
+    gcTime: 60000, // Keep in cache for 60 seconds
+    refetchInterval: 60000, // Refetch every 60 seconds (realtime handles instant updates)
   });
 
   // Set up realtime subscription
