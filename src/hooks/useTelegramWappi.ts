@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -125,6 +125,9 @@ export const useTelegramWappi = () => {
     }
   }, [toast]);
 
+  // Track in-flight requests to prevent duplicates
+  const sendingRef = useRef<Set<string>>(new Set());
+
   const sendMessage = useCallback(async (
     clientId: string,
     text: string,
@@ -132,6 +135,18 @@ export const useTelegramWappi = () => {
     fileName?: string,
     fileType?: string
   ): Promise<{ success: boolean; messageId?: string }> => {
+    // Create a unique key for this message to prevent duplicates
+    const messageKey = `${clientId}-${text}-${fileUrl || ''}-${Date.now()}`;
+    
+    // Check if we're already sending this message
+    if (sendingRef.current.has(messageKey)) {
+      console.log('Telegram message already being sent, skipping duplicate');
+      return { success: true }; // Return success to prevent error toast
+    }
+    
+    // Mark as sending
+    sendingRef.current.add(messageKey);
+    
     try {
       const { data, error } = await supabase.functions.invoke('telegram-send', {
         body: { clientId, text, fileUrl, fileName, fileType }
@@ -152,6 +167,11 @@ export const useTelegramWappi = () => {
         variant: "destructive"
       });
       return { success: false };
+    } finally {
+      // Remove from sending set after a delay to prevent rapid re-sends
+      setTimeout(() => {
+        sendingRef.current.delete(messageKey);
+      }, 2000);
     }
   }, [toast]);
 
