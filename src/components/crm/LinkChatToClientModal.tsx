@@ -147,44 +147,93 @@ export const LinkChatToClientModal = ({
 
       console.log("Target client:", targetClient?.name);
 
-      // Prepare update data - merge messenger IDs
-      const updateData: Record<string, any> = {};
+      // Prepare update data - move messenger IDs (avoid unique constraints)
+      const targetUpdateData: Record<string, any> = {};
+      const currentClearData: Record<string, any> = {};
+      const currentRestoreData: Record<string, any> = {};
 
-      // Transfer telegram data if current has it and target doesn't
-      if (currentClient.telegram_chat_id && !targetClient.telegram_chat_id) {
-        updateData.telegram_chat_id = currentClient.telegram_chat_id;
-        updateData.telegram_user_id = currentClient.telegram_user_id;
-        updateData.telegram_avatar_url = currentClient.telegram_avatar_url;
+      // Telegram (unique: organization_id + telegram_user_id)
+      if (currentClient.telegram_user_id && !targetClient.telegram_user_id) {
+        targetUpdateData.telegram_user_id = currentClient.telegram_user_id;
+        targetUpdateData.telegram_chat_id = currentClient.telegram_chat_id;
+        targetUpdateData.telegram_avatar_url = currentClient.telegram_avatar_url;
+
+        currentClearData.telegram_user_id = null;
+        currentClearData.telegram_chat_id = null;
+        currentClearData.telegram_avatar_url = null;
+
+        currentRestoreData.telegram_user_id = currentClient.telegram_user_id;
+        currentRestoreData.telegram_chat_id = currentClient.telegram_chat_id;
+        currentRestoreData.telegram_avatar_url = currentClient.telegram_avatar_url;
       }
 
-      // Transfer whatsapp data if current has it and target doesn't
+      // WhatsApp
       if (currentClient.whatsapp_chat_id && !targetClient.whatsapp_chat_id) {
-        updateData.whatsapp_chat_id = currentClient.whatsapp_chat_id;
-        updateData.whatsapp_avatar_url = currentClient.whatsapp_avatar_url;
+        targetUpdateData.whatsapp_chat_id = currentClient.whatsapp_chat_id;
+        targetUpdateData.whatsapp_avatar_url = currentClient.whatsapp_avatar_url;
+
+        currentClearData.whatsapp_chat_id = null;
+        currentClearData.whatsapp_avatar_url = null;
+
+        currentRestoreData.whatsapp_chat_id = currentClient.whatsapp_chat_id;
+        currentRestoreData.whatsapp_avatar_url = currentClient.whatsapp_avatar_url;
       }
 
-      // Transfer max data if current has it and target doesn't
+      // MAX
       if (currentClient.max_chat_id && !targetClient.max_chat_id) {
-        updateData.max_chat_id = currentClient.max_chat_id;
-        updateData.max_user_id = currentClient.max_user_id;
-        updateData.max_avatar_url = currentClient.max_avatar_url;
-      }
-      
-      // Transfer salebot_client_id if current has it and target doesn't
-      if (currentClient.salebot_client_id && !targetClient.salebot_client_id) {
-        updateData.salebot_client_id = currentClient.salebot_client_id;
+        targetUpdateData.max_chat_id = currentClient.max_chat_id;
+        targetUpdateData.max_user_id = currentClient.max_user_id;
+        targetUpdateData.max_avatar_url = currentClient.max_avatar_url;
+
+        currentClearData.max_chat_id = null;
+        currentClearData.max_user_id = null;
+        currentClearData.max_avatar_url = null;
+
+        currentRestoreData.max_chat_id = currentClient.max_chat_id;
+        currentRestoreData.max_user_id = currentClient.max_user_id;
+        currentRestoreData.max_avatar_url = currentClient.max_avatar_url;
       }
 
-      // Update target client with merged data
-      if (Object.keys(updateData).length > 0) {
-        console.log("Updating target client with:", updateData);
+      // Salebot client id
+      if (currentClient.salebot_client_id && !targetClient.salebot_client_id) {
+        targetUpdateData.salebot_client_id = currentClient.salebot_client_id;
+
+        currentClearData.salebot_client_id = null;
+        currentRestoreData.salebot_client_id = currentClient.salebot_client_id;
+      }
+
+      // First clear fields on current client (to satisfy unique constraints), then update target
+      if (Object.keys(targetUpdateData).length > 0) {
+        if (Object.keys(currentClearData).length > 0) {
+          console.log("Clearing fields on current client:", currentClearData);
+          const { error: clearError } = await supabase
+            .from("clients")
+            .update(currentClearData)
+            .eq("id", chatClientId);
+
+          if (clearError) {
+            console.error("Error clearing current client fields:", clearError);
+            throw clearError;
+          }
+        }
+
+        console.log("Updating target client with:", targetUpdateData);
         const { error: updateError } = await supabase
           .from("clients")
-          .update(updateData)
+          .update(targetUpdateData)
           .eq("id", selectedClientId);
 
         if (updateError) {
           console.error("Error updating target client:", updateError);
+
+          // Best-effort restore if we already cleared something
+          if (Object.keys(currentRestoreData).length > 0) {
+            await supabase
+              .from("clients")
+              .update(currentRestoreData)
+              .eq("id", chatClientId);
+          }
+
           throw updateError;
         }
       }
