@@ -135,18 +135,18 @@ export const useTelegramWappi = () => {
     fileName?: string,
     fileType?: string
   ): Promise<{ success: boolean; messageId?: string }> => {
-    // Create a unique key for this message to prevent duplicates
-    const messageKey = `${clientId}-${text}-${fileUrl || ''}-${Date.now()}`;
-    
-    // Check if we're already sending this message
+    // Deterministic key (no Date.now) so double-triggers within a short window are deduped
+    const messageKey = `${clientId}::${text}::${fileUrl || ''}::${fileName || ''}`;
+
+    // Check if we're already sending this exact message
     if (sendingRef.current.has(messageKey)) {
       console.log('Telegram message already being sent, skipping duplicate');
-      return { success: true }; // Return success to prevent error toast
+      return { success: true };
     }
-    
+
     // Mark as sending
     sendingRef.current.add(messageKey);
-    
+
     try {
       const { data, error } = await supabase.functions.invoke('telegram-send', {
         body: { clientId, text, fileUrl, fileName, fileType }
@@ -168,10 +168,10 @@ export const useTelegramWappi = () => {
       });
       return { success: false };
     } finally {
-      // Remove from sending set after a delay to prevent rapid re-sends
+      // Clear key shortly after to allow re-sending intentionally
       setTimeout(() => {
         sendingRef.current.delete(messageKey);
-      }, 2000);
+      }, 1500);
     }
   }, [toast]);
 
