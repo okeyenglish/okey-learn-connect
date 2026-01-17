@@ -7971,6 +7971,23 @@ export type Database = {
           pin_count: number
         }[]
       }
+      get_chat_threads_fast: {
+        Args: { p_limit?: number }
+        Returns: {
+          client_id: string
+          client_name: string
+          client_phone: string
+          last_message: string
+          last_message_time: string
+          last_unread_messenger: string
+          unread_calls: number
+          unread_count: number
+          unread_email: number
+          unread_max: number
+          unread_telegram: number
+          unread_whatsapp: number
+        }[]
+      }
       get_clients_without_imported_messages: {
         Args: { p_limit?: number; p_offset?: number; p_org_id: string }
         Returns: {
