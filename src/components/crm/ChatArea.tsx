@@ -33,7 +33,7 @@ import { useTelegramWappi } from "@/hooks/useTelegramWappi";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePendingGPTResponses } from "@/hooks/usePendingGPTResponses";
-import { useMarkChatMessagesAsReadByMessenger } from "@/hooks/useMessageReadStatus";
+import { useMarkChatMessagesAsReadByMessenger, useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface ChatAreaProps {
@@ -148,6 +148,7 @@ export const ChatArea = ({
   const isMobile = useIsMobile();
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
   const markChatMessagesAsReadByMessengerMutation = useMarkChatMessagesAsReadByMessenger();
+  const markChatMessagesAsReadMutation = useMarkChatMessagesAsRead();
   const queryClient = useQueryClient();
   
   // Get unread counts by messenger for badge display
@@ -963,6 +964,15 @@ export const ChatArea = ({
         console.log('Cleared pending GPT responses after manual send');
       } catch (e) {
         console.warn('Failed to clear pending GPT responses:', e);
+      }
+      
+      // Mark all client messages as read after sending a reply
+      // If we replied - it means we've seen all their messages
+      try {
+        await markChatMessagesAsReadMutation.mutateAsync(clientId);
+        console.log('Marked all client messages as read after sending reply');
+      } catch (e) {
+        console.warn('Failed to mark messages as read:', e);
       }
       
       // Smooth scroll to bottom after sending message
