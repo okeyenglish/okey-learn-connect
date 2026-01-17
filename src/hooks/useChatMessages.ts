@@ -31,6 +31,11 @@ export interface ChatThread {
   client_id: string;
   client_name: string;
   client_phone: string;
+  client_branch?: string | null;
+  avatar_url?: string | null;
+  telegram_avatar_url?: string | null;
+  whatsapp_avatar_url?: string | null;
+  max_avatar_url?: string | null;
   last_message: string;
   last_message_time: string;
   unread_count: number;

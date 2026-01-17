@@ -283,10 +283,14 @@ const CRMContent = () => {
   const [linkChatModal, setLinkChatModal] = useState<{ open: boolean; chatId: string; chatName: string }>({ open: false, chatId: '', chatName: '' });
   const [isDeletingChat, setIsDeletingChat] = useState(false);
   
-  // Критичные данные - загружаем сразу
-  const { clients, isLoading: clientsLoading } = useClients();
+  // Критичные данные - загружаем ТОЛЬКО threads (быстрый RPC)
+  // useClients убран из критического пути - 27К клиентов тормозили загрузку
   const { data: threads = [], isLoading: threadsLoading } = useChatThreadsOptimized();
   const { corporateChats, teacherChats, isLoading: systemChatsLoading } = useSystemChatMessages();
+  
+  // Клиенты загружаются лениво - только при необходимости (поиск, модалы)
+  const clientsNeeded = modals.openModal === "Ученики" || modals.openModal === "Лиды" || chatSearchQuery.length > 0;
+  const { clients, isLoading: clientsLoading } = useClients();
   
   // Данные для модальных окон - загружаем только при открытии
   const studentsEnabled = modals.openModal === "Ученики" || modals.openModal === "Лиды";
@@ -327,13 +331,14 @@ const CRMContent = () => {
     getChatState
   } = useChatStatesDB();
 
+  // visibleChatIds теперь берем из threads (не из clients)
   const visibleChatIds = useMemo(() => {
     const ids = new Set<string>();
-    (clients || []).forEach((c: any) => c?.id && ids.add(c.id));
+    (threads || []).forEach((t: any) => t?.client_id && ids.add(t.client_id));
     (corporateChats || []).forEach((c: any) => c?.id && ids.add(c.id));
     (teacherChats || []).forEach((c: any) => c?.id && ids.add(c.id));
     return Array.from(ids);
-  }, [clients, corporateChats, teacherChats]);
+  }, [threads, corporateChats, teacherChats]);
 
   const { isInWorkByOthers, isPinnedByCurrentUser, isPinnedByAnyone, getPinnedByUserName, isLoading: sharedStatesLoading } = useSharedChatStates(visibleChatIds);
   const { markChatAsReadGlobally, isChatReadGlobally } = useGlobalChatReadStatus();
@@ -805,36 +810,16 @@ const CRMContent = () => {
     return name;
   };
 
-  // ВАЖНО: чтобы при первом открытии/перезагрузке не показывать «Нет сообщений»
-  // для всех клиентов (пока threads ещё грузятся), добавляем клиентов без тредов
-  // только после завершения загрузки тредов.
-  const clientChatsWithoutThreads = threadsLoading
-    ? []
-    : (clients || [])
-        .filter(c => !c.name?.includes('Корпоративный чат') && 
-                     !c.name?.includes('Чат педагогов') && 
-                     !c.name?.includes('Преподаватель:') &&
-                     !c.name?.includes('Кастомный чат'))
-        .filter(c => !threadClientIds.has(c.id))
-        .map(c => ({
-          id: c.id,
-          name: cleanClientName(c.name),
-          phone: c.phone,
-          lastMessage: 'Нет сообщений',
-          time: '',
-          unread: 0,
-          type: 'client' as const,
-          timestamp: 0,
-          avatar_url: c.avatar_url || null
-        }));
+  // Клиенты без тредов НЕ показываются при первой загрузке для скорости
+  // Они появятся только при поиске или открытии модалов
+  const clientChatsWithoutThreads: any[] = [];
 
   const allChats = [
     ...systemChats,
-    // Только реальные клиентские чаты (исключаем системные и кастомные)
+    // Только реальные клиентские чаты из threads (без загрузки всех clients)
     ...threads
       .filter(thread => {
-        const clientData = clients.find(c => c.id === thread.client_id);
-        const nameForCheck = cleanClientName(clientData?.name ?? thread.client_name ?? '');
+        const nameForCheck = cleanClientName(thread.client_name ?? '');
         return (
           !nameForCheck.includes('Корпоративный чат') &&
           !nameForCheck.includes('Чат педагогов') &&
@@ -843,29 +828,28 @@ const CRMContent = () => {
         );
       })
       .map(thread => {
-        const clientData = clients.find(c => c.id === thread.client_id);
         const typing = typingByClient[thread.client_id];
         const lastMsgDisplay = typing && typing.count > 0
           ? `${typing.names[0] || 'Менеджер'} печатает...`
           : (thread.last_message?.trim?.() || 'Нет сообщений');
           
-        // Determine avatar based on last unread messenger, with fallback priority: telegram > whatsapp > max > avatar_url
+        // Используем аватары из threads (теперь RPC их возвращает)
         let displayAvatar: string | null = null;
-        if (thread.last_unread_messenger === 'telegram' && clientData?.telegram_avatar_url) {
-          displayAvatar = clientData.telegram_avatar_url;
-        } else if (thread.last_unread_messenger === 'whatsapp' && clientData?.whatsapp_avatar_url) {
-          displayAvatar = clientData.whatsapp_avatar_url;
-        } else if (thread.last_unread_messenger === 'max' && clientData?.max_avatar_url) {
-          displayAvatar = clientData.max_avatar_url;
+        if (thread.last_unread_messenger === 'telegram' && thread.telegram_avatar_url) {
+          displayAvatar = thread.telegram_avatar_url;
+        } else if (thread.last_unread_messenger === 'whatsapp' && thread.whatsapp_avatar_url) {
+          displayAvatar = thread.whatsapp_avatar_url;
+        } else if (thread.last_unread_messenger === 'max' && thread.max_avatar_url) {
+          displayAvatar = thread.max_avatar_url;
         } else {
-          // Fallback: prefer messenger-specific avatars over generic avatar_url
-          displayAvatar = clientData?.telegram_avatar_url || clientData?.whatsapp_avatar_url || clientData?.max_avatar_url || clientData?.avatar_url || null;
+          displayAvatar = thread.telegram_avatar_url || thread.whatsapp_avatar_url || thread.max_avatar_url || thread.avatar_url || null;
         }
           
         return {
           id: thread.client_id,
-          name: cleanClientName(clientData?.name ?? thread.client_name ?? 'Без имени'),
-          phone: clientData?.phone ?? thread.client_phone,
+          name: cleanClientName(thread.client_name ?? 'Без имени'),
+          phone: thread.client_phone,
+          branch: thread.client_branch,
           lastMessage: lastMsgDisplay,
           time: formatTime(thread.last_message_time),
           unread: thread.unread_count,
@@ -875,7 +859,7 @@ const CRMContent = () => {
           last_unread_messenger: thread.last_unread_messenger
         };
       }),
-    // Добавляем клиентов без сообщений, чтобы они тоже отображались как чаты
+    // Клиенты без сообщений не показываются при первой загрузке
     ...clientChatsWithoutThreads
   ];
 
@@ -909,16 +893,13 @@ const CRMContent = () => {
       
       return true;
     })
-    // Фильтр по филиалу клиента (из UI dropdown)
+    // Фильтр по филиалу клиента (из UI dropdown) - теперь используем branch из chat
     .filter(chat => {
       if (selectedBranch === "all") return true;
       if (chat.type === "corporate" || chat.type === "teachers") return true;
       
-      // Найдём клиента для этого чата
-      const clientData = clients.find(c => c.id === chat.id);
-      if (!clientData) return true; // Если клиент не найден - показываем
-      
-      const clientBranch = clientData.branch;
+      // Используем branch напрямую из chat (теперь приходит из threads RPC)
+      const clientBranch = (chat as any).branch;
       if (!clientBranch) return true; // Если у клиента нет филиала - показываем
       
       // Нормализуем для сравнения: "OKEY ENGLISH Котельники" -> "котельники"
@@ -934,8 +915,8 @@ const CRMContent = () => {
     .filter(chat => {
       if (chat.type === "corporate" || chat.type === "teachers") return true;
       
-      const clientData = clients.find(c => c.id === chat.id);
-      const clientBranch = clientData?.branch;
+      // Используем branch напрямую из chat
+      const clientBranch = (chat as any).branch;
       
       return canAccessBranch(clientBranch);
     })
@@ -1578,7 +1559,7 @@ const CRMContent = () => {
               )}
             </div>
             <div className="flex items-center gap-2 h-14">
-              {(clientsLoading || threadsLoading || studentsLoading || pinnedLoading || chatStatesLoading || systemChatsLoading || statusLoading) && (
+              {(threadsLoading || pinnedLoading || chatStatesLoading || systemChatsLoading) && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
                   <span className="hidden sm:inline">Загрузка данных...</span>
