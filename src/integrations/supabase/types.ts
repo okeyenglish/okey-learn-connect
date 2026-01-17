@@ -7991,18 +7991,23 @@ export type Database = {
       get_chat_threads_optimized: {
         Args: { p_limit?: number }
         Returns: {
+          avatar_url: string
+          client_branch: string
           client_id: string
           client_name: string
           client_phone: string
           last_message: string
           last_message_time: string
           last_unread_messenger: string
+          max_avatar_url: string
+          telegram_avatar_url: string
           unread_calls: number
           unread_count: number
           unread_email: number
           unread_max: number
           unread_telegram: number
           unread_whatsapp: number
+          whatsapp_avatar_url: string
         }[]
       }
       get_clients_without_imported_messages: {
