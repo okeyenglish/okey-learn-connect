@@ -217,8 +217,9 @@ export const ChatArea = ({
   
   // Set initial tab to the one with the last message when client changes
   useEffect(() => {
-    // Wait for unread data to fully settle before setting initial tab
+    // Wait for unread data AND messages to fully settle before setting initial tab
     if (unreadLoading || unreadFetching) return;
+    if (loadingMessages) return; // Wait for messages to load too!
     
     // Only set initial tab once per client selection
     if (initialTabSet === clientId) return;
@@ -233,12 +234,15 @@ export const ChatArea = ({
     if (!initialTab && messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
       initialTab = lastMessage?.messengerType || 'whatsapp';
+      console.log('[ChatArea] Setting initial tab from last message:', initialTab, 'message:', lastMessage?.id);
     }
     
     // Fallback to whatsapp
     if (!initialTab) {
       initialTab = 'whatsapp';
     }
+    
+    console.log('[ChatArea] Setting initial tab:', initialTab, 'for client:', clientId, 'lastUnreadMessenger:', lastUnreadMessenger, 'messagesCount:', messages.length);
     
     setActiveMessengerTab(initialTab);
     setInitialTabSet(clientId);
@@ -247,7 +251,7 @@ export const ChatArea = ({
     
     // НЕ помечаем автоматически сообщения как прочитанные
     // Менеджер должен явно нажать "Не требует ответа" или отправить сообщение
-  }, [clientId, unreadLoading, unreadFetching, lastUnreadMessenger, initialTabSet, messages]);
+  }, [clientId, unreadLoading, unreadFetching, lastUnreadMessenger, initialTabSet, messages, loadingMessages]);
 
   // Mark messages as read when switching tabs - только прокрутка, НЕ отметка прочитанности
   const handleTabChange = (newTab: string) => {
