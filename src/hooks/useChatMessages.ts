@@ -43,6 +43,7 @@ export const useChatMessages = (clientId: string) => {
   const { data: messages, isLoading, error } = useQuery({
     queryKey: ['chat-messages', clientId],
     queryFn: async () => {
+      // Uses idx_chat_messages_client_created index for fast queries
       const { data, error } = await supabase
         .from('chat_messages')
         .select('*')
@@ -53,6 +54,11 @@ export const useChatMessages = (clientId: string) => {
       return data as ChatMessage[];
     },
     enabled: !!clientId,
+    // Optimized caching settings
+    staleTime: 30 * 1000, // Cache for 30 seconds
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    refetchOnWindowFocus: false, // Don't refetch on focus - use realtime instead
+    placeholderData: (previousData) => previousData, // Keep showing old data while loading
   });
 
   return {
@@ -65,10 +71,13 @@ export const useChatMessages = (clientId: string) => {
 export const useChatThreads = () => {
   const { data: threads, isLoading, error } = useQuery({
     queryKey: ['chat-threads'],
-    staleTime: 5000, // Cache for 5 seconds to prevent rapid refetches
+    staleTime: 15 * 1000, // Cache for 15 seconds - optimized
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    refetchOnWindowFocus: true,
     refetchOnMount: 'always',
     queryFn: async () => {
       console.log('[useChatThreads] Fetching chat messages...');
+      const startTime = performance.now();
       
       // Fetch chat messages
       // Try selecting with join to clients; if blocked by RLS, fall back to no-join select
@@ -300,8 +309,10 @@ export const useChatThreads = () => {
       const finalThreads = Array.from(threadsMap.values())
         .sort((a, b) => new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime());
       
+      const endTime = performance.now();
       console.log('[useChatThreads] Threads created from messages:', {
         totalThreads: finalThreads.length,
+        executionTime: `${(endTime - startTime).toFixed(2)}ms`,
         threadsWithNames: finalThreads.filter(t => t.client_name).length,
         threadsWithoutNames: finalThreads.filter(t => !t.client_name).length,
         sample: finalThreads.slice(0, 5).map(t => ({
