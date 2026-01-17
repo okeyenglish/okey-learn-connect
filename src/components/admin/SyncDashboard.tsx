@@ -24,6 +24,7 @@ interface SalebotProgress {
   isRunning: boolean;
   isPaused: boolean;
   isCompleted: boolean;
+  requiresManualRestart: boolean;
   // Resync fields
   resyncMode: boolean;
   resyncOffset: number;
@@ -119,6 +120,7 @@ export function SyncDashboard() {
           isRunning: progressData.is_running || false,
           isPaused: progressData.is_paused || false,
           isCompleted,
+          requiresManualRestart: progressData.requires_manual_restart || false,
           resyncMode: progressData.resync_mode || false,
           resyncOffset: progressData.resync_offset || 0,
           resyncTotalClients: progressData.resync_total_clients || 0,
@@ -291,6 +293,49 @@ export function SyncDashboard() {
       });
     } finally {
       setIsResettingStuck(false);
+    }
+  };
+
+  // Manual restart after API limit was reached
+  const [isManualRestarting, setIsManualRestarting] = useState(false);
+  
+  const handleManualRestartAfterLimit = async () => {
+    try {
+      setIsManualRestarting(true);
+      
+      const { data: progress } = await supabase
+        .from('salebot_import_progress')
+        .select('id')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (progress?.id) {
+        // Clear the requires_manual_restart flag and mark as ready to run
+        await supabase
+          .from('salebot_import_progress')
+          .update({ 
+            requires_manual_restart: false,
+            is_running: false,
+            is_paused: false
+          })
+          .eq('id', progress.id);
+      }
+      
+      toast({
+        title: 'Блокировка снята',
+        description: 'Импорт разблокирован. Теперь можно запустить синхронизацию.',
+      });
+      
+      await fetchProgressOnly();
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsManualRestarting(false);
     }
   };
 
@@ -1870,6 +1915,34 @@ export function SyncDashboard() {
                 }
                 return null;
               })()}
+
+              {/* API Limit Reached - Manual Restart Required */}
+              {importProgress?.requiresManualRestart && !importProgress?.isRunning && (
+                <Alert className="border-red-500/50 bg-red-50/50 dark:bg-red-950/20">
+                  <AlertCircle className="h-4 w-4 text-red-500" />
+                  <AlertTitle className="flex items-center justify-between flex-wrap gap-2">
+                    <span>Импорт остановлен из-за лимита API</span>
+                    <Button 
+                      variant="default" 
+                      size="sm"
+                      className="bg-blue-600 hover:bg-blue-700"
+                      onClick={handleManualRestartAfterLimit}
+                      disabled={isManualRestarting}
+                    >
+                      {isManualRestarting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="mr-1 h-4 w-4" />
+                      )}
+                      Разблокировать импорт
+                    </Button>
+                  </AlertTitle>
+                  <AlertDescription>
+                    Дневной лимит API Salebot был достигнут. Импорт заблокирован для предотвращения случайного запуска.
+                    Нажмите "Разблокировать импорт" чтобы снять блокировку, затем запустите синхронизацию вручную.
+                  </AlertDescription>
+                </Alert>
+              )}
 
               {/* Running Status with Time */}
               {importProgress?.isRunning && importProgress?.updatedAt && (

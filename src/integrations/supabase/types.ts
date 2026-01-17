@@ -5460,6 +5460,7 @@ export type Database = {
           is_running: boolean
           last_run_at: string | null
           list_id: string | null
+          requires_manual_restart: boolean
           resync_mode: boolean | null
           resync_new_messages: number | null
           resync_offset: number | null
@@ -5484,6 +5485,7 @@ export type Database = {
           is_running?: boolean
           last_run_at?: string | null
           list_id?: string | null
+          requires_manual_restart?: boolean
           resync_mode?: boolean | null
           resync_new_messages?: number | null
           resync_offset?: number | null
@@ -5508,6 +5510,7 @@ export type Database = {
           is_running?: boolean
           last_run_at?: string | null
           list_id?: string | null
+          requires_manual_restart?: boolean
           resync_mode?: boolean | null
           resync_new_messages?: number | null
           resync_offset?: number | null

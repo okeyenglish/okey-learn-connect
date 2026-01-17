@@ -232,10 +232,14 @@ async function handleFillSalebotIds(
     console.log('⚠️ API лимит достигнут');
     await supabase
       .from('salebot_import_progress')
-      .update({ is_running: false })
+      .update({ 
+        is_running: false,
+        requires_manual_restart: true
+      })
       .eq('id', progressId);
+    console.log('🔒 Установлен флаг requires_manual_restart в fill_salebot_ids');
     return new Response(
-      JSON.stringify({ skipped: true, apiLimitReached: true, apiUsage: apiCheck }),
+      JSON.stringify({ skipped: true, apiLimitReached: true, requiresManualRestart: true, apiUsage: apiCheck }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
@@ -1215,12 +1219,23 @@ Deno.serve(async (req) => {
       const chainApiCheck = await checkAndIncrementApiUsage(supabase, 0);
       if (!chainApiCheck.allowed || chainApiCheck.remaining < 5) {
         console.log(`⚠️ API лимит достигнут в background chain: ${chainApiCheck.remaining} осталось`);
+        // Set requires_manual_restart to prevent auto-resume after API limit
         await supabase
           .from('salebot_import_progress')
-          .update({ is_running: false })
+          .update({ 
+            is_running: false,
+            requires_manual_restart: true
+          })
           .eq('id', progressId);
+        console.log('🔒 Установлен флаг requires_manual_restart в background_chain');
         return new Response(
-          JSON.stringify({ success: true, stopped: true, reason: 'api_limit', apiUsage: chainApiCheck }),
+          JSON.stringify({ 
+            success: true, 
+            stopped: true, 
+            reason: 'api_limit', 
+            requiresManualRestart: true,
+            apiUsage: chainApiCheck 
+          }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -1523,7 +1538,7 @@ Deno.serve(async (req) => {
     // Check pause flag to prevent auto-resume (for non-chain modes)
     const { data: pauseRow } = await supabase
       .from('salebot_import_progress')
-      .select('id, is_paused')
+      .select('id, is_paused, requires_manual_restart')
       .order('last_run_at', { ascending: false, nullsFirst: false })
       .order('updated_at', { ascending: false, nullsFirst: false })
       .limit(1)
@@ -1537,6 +1552,20 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ======== CHECK MANUAL RESTART REQUIREMENT ========
+    // If import was stopped due to API limit, it requires manual restart
+    if (pauseRow?.requires_manual_restart) {
+      console.log('🔒 Импорт заблокирован (requires_manual_restart=true). Требуется ручной перезапуск.');
+      return new Response(
+        JSON.stringify({ 
+          skipped: true, 
+          requiresManualRestart: true, 
+          message: 'Импорт заблокирован после достижения API лимита. Требуется ручной перезапуск.' 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // ======== CHECK API LIMIT BEFORE STARTING ========
     // Estimate: 1 get_clients + ~10 get_history = ~11 API requests per batch
     const estimatedApiCalls = 11;
@@ -1544,11 +1573,26 @@ Deno.serve(async (req) => {
     
     if (!apiCheck.allowed || apiCheck.remaining < estimatedApiCalls) {
       console.log(`⚠️ Недостаточно API лимита для батча. Осталось: ${apiCheck.remaining}, нужно: ${estimatedApiCalls}`);
+      
+      // Set requires_manual_restart flag to prevent auto-resume
+      if (pauseRow?.id) {
+        await supabase
+          .from('salebot_import_progress')
+          .update({ 
+            requires_manual_restart: true,
+            is_running: false,
+            is_paused: false
+          })
+          .eq('id', pauseRow.id);
+        console.log('🔒 Установлен флаг requires_manual_restart - импорт заблокирован до ручного перезапуска');
+      }
+      
       return new Response(
         JSON.stringify({ 
           skipped: true, 
           apiLimitReached: true, 
-          message: `Дневной лимит API достигнут (${apiCheck.used}/${apiCheck.limit})`,
+          requiresManualRestart: true,
+          message: `Дневной лимит API достигнут (${apiCheck.used}/${apiCheck.limit}). Импорт заблокирован.`,
           apiUsage: apiCheck
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
