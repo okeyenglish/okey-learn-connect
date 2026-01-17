@@ -1938,67 +1938,82 @@ Deno.serve(async (req) => {
 
           console.log(`Извлечен телефон: ${phoneNumber}`);
 
-          // ======== IMPROVED PHONE SEARCH (last 10 digits) ========
-          const phoneLast10 = phoneNumber.slice(-10);
+          // ======== STEP 1: Check by salebot_client_id first (most reliable) ========
+          const { data: existingBySalebotId } = await supabase
+            .from('clients')
+            .select('id, name')
+            .eq('salebot_client_id', salebotClient.id)
+            .maybeSingle();
           
-          // Search by exact match first, then by last 10 digits
-          const { data: existingPhones } = await supabase
-            .from('client_phone_numbers')
-            .select('client_id, phone, clients(id, name)')
-            .or(`phone.eq.${phoneNumber},phone.ilike.%${phoneLast10}`)
-            .limit(5);
-
           let clientId: string;
           let clientName = (salebotClient.name && salebotClient.name.trim()) 
             ? salebotClient.name.trim() 
             : `Клиент ${phoneNumber}`;
-
-          if (existingPhones && existingPhones.length > 0) {
-            // Клиент существует
-            clientId = existingPhones[0].client_id;
-            console.log(`Найден существующий клиент: ${clientId}`);
-            
-            // Save salebot_client_id for future resync
-            await supabase
-              .from('clients')
-              .update({ salebot_client_id: salebotClient.id })
-              .eq('id', clientId);
+          
+          if (existingBySalebotId) {
+            // Client already exists with this salebot_client_id
+            clientId = existingBySalebotId.id;
+            console.log(`Найден существующий клиент по salebot_client_id: ${clientId}`);
             
             // Try to link with student
             await linkClientWithStudent(supabase, clientId, phoneNumber);
           } else {
-            // Создаем нового клиента
-            const { data: newClient, error: createError } = await supabase
-              .from('clients')
-              .insert({
-                name: clientName,
-                organization_id: organizationId,
-                is_active: true,
-                salebot_client_id: salebotClient.id
-              })
-              .select()
-              .single();
-
-            if (createError || !newClient) {
-              console.error('Ошибка создания клиента:', createError);
-              continue;
-            }
-
-            clientId = newClient.id;
-
-            // Добавляем телефон
-            await supabase
-              .from('client_phone_numbers')
-              .insert({
-                client_id: clientId,
-                phone: phoneNumber,
-                is_primary: true
-              });
-
-            console.log(`Создан новый клиент: ${clientId}, телефон: ${phoneNumber}`);
+            // ======== STEP 2: Try to find by phone (last 10 digits) ========
+            const phoneLast10 = phoneNumber.slice(-10);
             
-            // Try to link with student from HolyHope
-            await linkClientWithStudent(supabase, clientId, phoneNumber);
+            const { data: existingPhones } = await supabase
+              .from('client_phone_numbers')
+              .select('client_id, phone, clients(id, name)')
+              .or(`phone.eq.${phoneNumber},phone.ilike.%${phoneLast10}`)
+              .limit(5);
+
+            if (existingPhones && existingPhones.length > 0) {
+              // Клиент существует по телефону
+              clientId = existingPhones[0].client_id;
+              console.log(`Найден существующий клиент по телефону: ${clientId}`);
+              
+              // Save salebot_client_id for future resync
+              await supabase
+                .from('clients')
+                .update({ salebot_client_id: salebotClient.id })
+                .eq('id', clientId);
+              
+              // Try to link with student
+              await linkClientWithStudent(supabase, clientId, phoneNumber);
+            } else {
+              // ======== STEP 3: Create new client ========
+              const { data: newClient, error: createError } = await supabase
+                .from('clients')
+                .insert({
+                  name: clientName,
+                  organization_id: organizationId,
+                  is_active: true,
+                  salebot_client_id: salebotClient.id
+                })
+                .select()
+                .single();
+
+              if (createError || !newClient) {
+                console.error('Ошибка создания клиента:', createError);
+                continue;
+              }
+
+              clientId = newClient.id;
+
+              // Добавляем телефон
+              await supabase
+                .from('client_phone_numbers')
+                .insert({
+                  client_id: clientId,
+                  phone: phoneNumber,
+                  is_primary: true
+                });
+
+              console.log(`Создан новый клиент: ${clientId}, телефон: ${phoneNumber}`);
+              
+              // Try to link with student from HolyHope
+              await linkClientWithStudent(supabase, clientId, phoneNumber);
+            }
           }
 
           // Преобразуем сообщения
