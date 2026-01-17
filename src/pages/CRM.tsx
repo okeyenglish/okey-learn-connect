@@ -64,6 +64,7 @@ import { useAllTasks, useCompleteTask, useCancelTask, useUpdateTask } from "@/ho
 import { useRealtimeClients } from "@/hooks/useRealtimeClients";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useOrganization } from "@/hooks/useOrganization";
+import { useManagerBranches } from "@/hooks/useManagerBranches";
 import crmLogo from "@/assets/crm-logo.png";
 import { 
   Search, 
@@ -338,7 +339,8 @@ const CRMContent = () => {
   const completeTask = useCompleteTask();
   const cancelTask = useCancelTask();
   const updateTask = useUpdateTask();
-  const { organization } = useOrganization();
+  const { organization, branches } = useOrganization();
+  const { canAccessBranch, hasRestrictions: hasManagerBranchRestrictions } = useManagerBranches();
   const isMobile = useIsMobile();
   
   // Auto-manage right panel state based on screen size
@@ -888,6 +890,36 @@ const CRMContent = () => {
       }
       
       return true;
+    })
+    // Фильтр по филиалу клиента (из UI dropdown)
+    .filter(chat => {
+      if (selectedBranch === "all") return true;
+      if (chat.type === "corporate" || chat.type === "teachers") return true;
+      
+      // Найдём клиента для этого чата
+      const clientData = clients.find(c => c.id === chat.id);
+      if (!clientData) return true; // Если клиент не найден - показываем
+      
+      const clientBranch = clientData.branch;
+      if (!clientBranch) return true; // Если у клиента нет филиала - показываем
+      
+      // Нормализуем для сравнения: "OKEY ENGLISH Котельники" -> "котельники"
+      const normalizedClientBranch = clientBranch
+        .toLowerCase()
+        .replace(/okey\s*english\s*/gi, '')
+        .replace(/o'key\s*english\s*/gi, '')
+        .trim();
+      
+      return normalizedClientBranch === selectedBranch.toLowerCase();
+    })
+    // Авто-фильтр для менеджеров с ограничениями по филиалу
+    .filter(chat => {
+      if (chat.type === "corporate" || chat.type === "teachers") return true;
+      
+      const clientData = clients.find(c => c.id === chat.id);
+      const clientBranch = clientData?.branch;
+      
+      return canAccessBranch(clientBranch);
     })
     .sort((a, b) => {
       // Сначала закрепленные чаты (только текущим пользователем)
@@ -2563,24 +2595,20 @@ const CRMContent = () => {
                           <span className={selectedBranch !== "all" ? "ml-5" : ""}>Все филиалы</span>
                         </div>
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setSelectedBranch("kotelniki")}>
-                        <div className="flex items-center gap-2">
-                          {selectedBranch === "kotelniki" && <Check className="h-3 w-3" />}
-                          <span className={selectedBranch !== "kotelniki" ? "ml-5" : ""}>Котельники</span>
-                        </div>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setSelectedBranch("mytishchi")}>
-                        <div className="flex items-center gap-2">
-                          {selectedBranch === "mytishchi" && <Check className="h-3 w-3" />}
-                          <span className={selectedBranch !== "mytishchi" ? "ml-5" : ""}>Мытищи</span>
-                        </div>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setSelectedBranch("online")}>
-                        <div className="flex items-center gap-2">
-                          {selectedBranch === "online" && <Check className="h-3 w-3" />}
-                          <span className={selectedBranch !== "online" ? "ml-5" : ""}>Онлайн</span>
-                        </div>
-                      </DropdownMenuItem>
+                      {branches.map((branch) => {
+                        const branchKey = branch.name.toLowerCase()
+                          .replace(/okey\s*english\s*/gi, '')
+                          .replace(/o'key\s*english\s*/gi, '')
+                          .trim();
+                        return (
+                          <DropdownMenuItem key={branch.id} onClick={() => setSelectedBranch(branchKey)}>
+                            <div className="flex items-center gap-2">
+                              {selectedBranch === branchKey && <Check className="h-3 w-3" />}
+                              <span className={selectedBranch !== branchKey ? "ml-5" : ""}>{branch.name}</span>
+                            </div>
+                          </DropdownMenuItem>
+                        );
+                      })}
                       
                       <DropdownMenuSeparator />
                       
@@ -3082,24 +3110,20 @@ const CRMContent = () => {
                           <span className={selectedBranch !== "all" ? "ml-5" : ""}>Все филиалы</span>
                         </div>
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setSelectedBranch("kotelniki")}>
-                        <div className="flex items-center gap-2">
-                          {selectedBranch === "kotelniki" && <Check className="h-3 w-3" />}
-                          <span className={selectedBranch !== "kotelniki" ? "ml-5" : ""}>Котельники</span>
-                        </div>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setSelectedBranch("mytishchi")}>
-                        <div className="flex items-center gap-2">
-                          {selectedBranch === "mytishchi" && <Check className="h-3 w-3" />}
-                          <span className={selectedBranch !== "mytishchi" ? "ml-5" : ""}>Мытищи</span>
-                        </div>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setSelectedBranch("online")}>
-                        <div className="flex items-center gap-2">
-                          {selectedBranch === "online" && <Check className="h-3 w-3" />}
-                          <span className={selectedBranch !== "online" ? "ml-5" : ""}>Онлайн</span>
-                        </div>
-                      </DropdownMenuItem>
+                      {branches.map((branch) => {
+                        const branchKey = branch.name.toLowerCase()
+                          .replace(/okey\s*english\s*/gi, '')
+                          .replace(/o'key\s*english\s*/gi, '')
+                          .trim();
+                        return (
+                          <DropdownMenuItem key={branch.id} onClick={() => setSelectedBranch(branchKey)}>
+                            <div className="flex items-center gap-2">
+                              {selectedBranch === branchKey && <Check className="h-3 w-3" />}
+                              <span className={selectedBranch !== branchKey ? "ml-5" : ""}>{branch.name}</span>
+                            </div>
+                          </DropdownMenuItem>
+                        );
+                      })}
                       
                       <DropdownMenuSeparator />
                       
