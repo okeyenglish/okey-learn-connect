@@ -25,8 +25,8 @@ export const useCommunityChats = () => {
     queryFn: async (): Promise<CommunityChat[]> => {
       console.log('[useCommunityChats] Fetching community chats...');
       
-      // Get all group chats - telegram groups have negative chat_id
-      // Also exclude system chats (Корпоративный, педагогов)
+      // Get all group chats - telegram groups have negative chat_id (starts with -)
+      // We use LIKE '-%' since telegram_chat_id is stored as string
       const { data: clients, error } = await supabase
         .from('clients')
         .select(`
@@ -40,7 +40,7 @@ export const useCommunityChats = () => {
           max_chat_id,
           max_avatar_url
         `)
-        .or('telegram_chat_id.lt.0,telegram_chat_id.like.-%')
+        .like('telegram_chat_id', '-%')
         .not('name', 'ilike', '%Корпоративный%')
         .not('name', 'ilike', '%педагог%')
         .not('name', 'ilike', '%Преподаватель:%')
@@ -53,8 +53,11 @@ export const useCommunityChats = () => {
       }
 
       if (!clients || clients.length === 0) {
+        console.log('[useCommunityChats] No community chats found');
         return [];
       }
+
+      console.log(`[useCommunityChats] Found ${clients.length} clients with group chat_id`);
 
       // Get latest message and unread count for each community
       const communitiesData = await Promise.all(
@@ -74,10 +77,10 @@ export const useCommunityChats = () => {
             avatarUrl = client.max_avatar_url;
           }
 
-          // Get last message
+          // Get last message - also check for file_type if message_text is empty
           const { data: lastMsg } = await supabase
             .from('chat_messages')
-            .select('message_text, created_at, is_read')
+            .select('message_text, file_type, file_name, created_at, is_read')
             .eq('client_id', client.id)
             .order('created_at', { ascending: false })
             .limit(1)
@@ -91,12 +94,31 @@ export const useCommunityChats = () => {
             .eq('is_read', false)
             .eq('message_type', 'client');
 
+          // Format last message - show file type if no text
+          let lastMessageText = lastMsg?.message_text || '';
+          if (!lastMessageText && lastMsg?.file_type) {
+            // Show media type indicator
+            if (lastMsg.file_type.startsWith('image/')) {
+              lastMessageText = '📷 Фото';
+            } else if (lastMsg.file_type.startsWith('video/')) {
+              lastMessageText = '🎥 Видео';
+            } else if (lastMsg.file_type.startsWith('audio/')) {
+              lastMessageText = '🎵 Аудио';
+            } else if (lastMsg.file_type === 'voice') {
+              lastMessageText = '🎤 Голосовое сообщение';
+            } else if (lastMsg.file_name) {
+              lastMessageText = `📎 ${lastMsg.file_name}`;
+            } else {
+              lastMessageText = '📎 Файл';
+            }
+          }
+
           return {
             id: client.id,
             name: client.name,
             branch: client.branch,
             messengerType,
-            lastMessage: lastMsg?.message_text || '',
+            lastMessage: lastMessageText,
             lastMessageTime: lastMsg?.created_at || '',
             unreadCount: unreadCount || 0,
             avatarUrl
@@ -104,7 +126,7 @@ export const useCommunityChats = () => {
         })
       );
 
-      console.log(`[useCommunityChats] Found ${communitiesData.length} community chats`);
+      console.log(`[useCommunityChats] Processed ${communitiesData.length} community chats`);
       return communitiesData;
     },
     staleTime: 30000,
