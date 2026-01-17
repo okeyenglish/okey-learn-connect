@@ -32,9 +32,16 @@ export const createOptimizedQueryClient = () => {
 
 // Специальные конфигурации для разных типов запросов
 export const chatQueryConfig = {
-  staleTime: 10 * 1000, // Чаты обновляются чаще - 10 сек
-  gcTime: 10 * 60 * 1000, // Кэш чатов 10 минут
-  refetchOnWindowFocus: true, // Рефетчить чаты при фокусе
+  staleTime: 30 * 1000, // Сообщения кешируются 30 сек
+  gcTime: 10 * 60 * 1000, // Кэш сообщений 10 минут
+  refetchOnWindowFocus: false, // Не рефетчить при фокусе - используем real-time
+  refetchOnReconnect: true, // Но рефетчить при reconnect
+};
+
+export const chatListQueryConfig = {
+  staleTime: 10 * 1000, // Список чатов обновляется чаще - 10 сек
+  gcTime: 10 * 60 * 1000, // Кэш 10 минут
+  refetchOnWindowFocus: true, // Рефетчить список при фокусе
 };
 
 export const staticDataQueryConfig = {
