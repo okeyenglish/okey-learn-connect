@@ -24,6 +24,7 @@ import { QuickResponsesModal } from "./QuickResponsesModal";
 import { FileUpload } from "./FileUpload";
 import { AttachedFile } from "./AttachedFile";
 import { InlinePendingGPTResponse } from "./InlinePendingGPTResponse";
+import { TextFormatToolbar } from "./TextFormatToolbar";
 import { CallHistory } from "./CallHistory";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useMaxGreenApi } from "@/hooks/useMaxGreenApi";
@@ -2253,7 +2254,16 @@ export const ChatArea = ({
               </div>
             )}
           
-          <div className="space-y-2">
+          <div className="space-y-2 relative">
+            {/* Text Format Toolbar - appears on selection */}
+            <TextFormatToolbar
+              textareaRef={textareaRef}
+              value={message}
+              onChange={(newValue) => handleMessageChange(newValue)}
+              messengerType={activeMessengerTab === 'max' ? 'max' : activeMessengerTab === 'telegram' ? 'telegram' : 'whatsapp'}
+              disabled={loading || !!pendingMessage || isOtherUserTyping || commentMode}
+            />
+            
             {/* Textarea */}
             <Textarea
               ref={textareaRef}
