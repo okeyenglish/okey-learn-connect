@@ -805,23 +805,28 @@ const CRMContent = () => {
     return name;
   };
 
-  const clientChatsWithoutThreads = (clients || [])
-    .filter(c => !c.name?.includes('Корпоративный чат') && 
-                 !c.name?.includes('Чат педагогов') && 
-                 !c.name?.includes('Преподаватель:') &&
-                 !c.name?.includes('Кастомный чат'))
-    .filter(c => !threadClientIds.has(c.id))
-    .map(c => ({
-      id: c.id,
-      name: cleanClientName(c.name),
-      phone: c.phone,
-      lastMessage: 'Нет сообщений',
-      time: '',
-      unread: 0,
-      type: 'client' as const,
-      timestamp: 0,
-      avatar_url: c.avatar_url || null
-    }));
+  // ВАЖНО: чтобы при первом открытии/перезагрузке не показывать «Нет сообщений»
+  // для всех клиентов (пока threads ещё грузятся), добавляем клиентов без тредов
+  // только после завершения загрузки тредов.
+  const clientChatsWithoutThreads = threadsLoading
+    ? []
+    : (clients || [])
+        .filter(c => !c.name?.includes('Корпоративный чат') && 
+                     !c.name?.includes('Чат педагогов') && 
+                     !c.name?.includes('Преподаватель:') &&
+                     !c.name?.includes('Кастомный чат'))
+        .filter(c => !threadClientIds.has(c.id))
+        .map(c => ({
+          id: c.id,
+          name: cleanClientName(c.name),
+          phone: c.phone,
+          lastMessage: 'Нет сообщений',
+          time: '',
+          unread: 0,
+          type: 'client' as const,
+          timestamp: 0,
+          avatar_url: c.avatar_url || null
+        }));
 
   const allChats = [
     ...systemChats,
