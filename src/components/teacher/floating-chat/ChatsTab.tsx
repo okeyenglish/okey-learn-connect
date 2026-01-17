@@ -149,7 +149,7 @@ export const ChatsTab = ({ teacherId }: ChatsTabProps) => {
 
       return threadsWithDetails as ChatThread[];
     },
-    refetchInterval: 10000,
+    refetchInterval: 60000, // 1 минута - realtime обрабатывает срочные обновления
   });
 
   const getThreadIcon = (type: string) => {

@@ -96,8 +96,8 @@ export const WhatsAppStatusNotification = () => {
       )
       .subscribe();
 
-    // Also poll every 10 seconds as fallback
-    const interval = setInterval(checkConnection, 10000);
+    // Poll every 60 seconds as fallback (realtime handles instant updates)
+    const interval = setInterval(checkConnection, 60000);
     
     return () => {
       clearInterval(interval);

@@ -54,7 +54,7 @@ export const FloatingChatWidget = ({ teacherId, context, onDockedChange }: Float
 
       return messages?.length || 0;
     },
-    refetchInterval: 10000, // обновляем каждые 10 секунд
+    refetchInterval: 60000, // обновляем каждые 60 секунд
   });
 
   // Горячая клавиша ⌘/
