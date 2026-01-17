@@ -6,15 +6,13 @@ export type MessengerType = 'whatsapp' | 'telegram' | 'max' | 'vk' | 'viber';
 export type FormatType = 'bold' | 'italic' | 'strikethrough' | 'underline' | 'code' | 'monospace';
 
 // Formatting syntax by messenger
-// Note: Telegram via Wappi.pro uses standard Telegram markdown:
-// *bold*, _italic_, ~strikethrough~, `code`, ```monospace```
-// Underline is NOT supported in Telegram markdown mode
+// Telegram: intended for MarkdownV2 (bold/italic/underline/strikethrough)
 const FORMATTING_SYNTAX: Record<MessengerType, Record<FormatType, { prefix: string; suffix: string }>> = {
   telegram: {
     bold: { prefix: '*', suffix: '*' },
     italic: { prefix: '_', suffix: '_' },
     strikethrough: { prefix: '~', suffix: '~' },
-    underline: { prefix: '', suffix: '' },  // Telegram markdown doesn't support underline
+    underline: { prefix: '__', suffix: '__' },
     code: { prefix: '`', suffix: '`' },
     monospace: { prefix: '```', suffix: '```' },
   },

@@ -274,7 +274,8 @@ async function sendTextMessage(
   apiToken: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const url = `https://wappi.pro/tapi/sync/message/send?profile_id=${profileId}`;
-  return await sendMessage(url, apiToken, { recipient, body: text }, 'text');
+  // Telegram formatting requires parse mode; without it, * _ ~ __ are shown as plain text
+  return await sendMessage(url, apiToken, { recipient, body: text, parse_mode: 'MarkdownV2' }, 'text');
 }
 
 async function sendFileMessage(
@@ -285,7 +286,7 @@ async function sendFileMessage(
   apiToken: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const url = `https://wappi.pro/tapi/sync/message/file/url/send?profile_id=${profileId}`;
-  const body: Record<string, unknown> = { recipient, url: fileUrl };
+  const body: Record<string, unknown> = { recipient, url: fileUrl, parse_mode: 'MarkdownV2' };
   if (caption) {
     body.caption = caption;
   }
