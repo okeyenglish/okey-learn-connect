@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { ChatThread, UnreadByMessenger } from './useChatMessages';
 import { chatListQueryConfig } from '@/lib/queryConfig';
-import { isGroupChatName } from './useCommunityChats';
+import { isGroupChatName, isTelegramGroup } from './useCommunityChats';
 
 /**
  * Optimized hook for loading chat threads using RPC function
@@ -48,12 +48,12 @@ function mapRpcToThreads(data: any[], startTime: number): ChatThread[] {
     const name = row.client_name || '';
     const telegramChatId = row.telegram_chat_id;
     
-    // Check for negative telegram_chat_id (Telegram supergroups)
+    // Check for real Telegram groups (negative telegram_chat_id starting with -100)
     if (telegramChatId) {
-      const isNegative = typeof telegramChatId === 'string' 
-        ? telegramChatId.startsWith('-')
-        : telegramChatId < 0;
-      if (isNegative) return false;
+      const chatIdStr = String(telegramChatId);
+      if (isTelegramGroup(chatIdStr)) {
+        return false;
+      }
     }
     
     // Exclude group chats by name patterns (ЖК, Английский язык, etc.)
