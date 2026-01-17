@@ -66,6 +66,8 @@ export function SyncDashboard() {
   const [isResyncingAll, setIsResyncingAll] = useState(false);
   const [isFillingIds, setIsFillingIds] = useState(false);
   const [isSyncingWithIds, setIsSyncingWithIds] = useState(false);
+  const [isSyncingNewClientsOnly, setIsSyncingNewClientsOnly] = useState(false);
+  const [clientsWithoutMessages, setClientsWithoutMessages] = useState<number | null>(null);
   const [isFullReimporting, setIsFullReimporting] = useState(false);
   const [isImportingCsv, setIsImportingCsv] = useState(false);
   const [selectedBranchForCsv, setSelectedBranchForCsv] = useState<string>('');
@@ -159,13 +161,17 @@ export function SyncDashboard() {
   // Fetch DB stats manually (heavy queries) - not on auto-refresh
   const fetchDbStats = async () => {
     try {
-      const [clientsRes, studentsRes, messagesRes, familyRes, clientsWithIdRes, clientsWithoutIdRes] = await Promise.all([
+      const [clientsRes, studentsRes, messagesRes, familyRes, clientsWithIdRes, clientsWithoutIdRes, clientsWithoutMessagesRes] = await Promise.all([
         supabase.from('clients').select('id', { count: 'exact', head: true }),
         supabase.from('students').select('id', { count: 'exact', head: true }),
         supabase.from('chat_messages').select('id', { count: 'exact', head: true }),
         supabase.from('family_groups').select('id', { count: 'exact', head: true }),
         supabase.from('clients').select('id', { count: 'exact', head: true }).not('salebot_client_id', 'is', null),
-        supabase.from('clients').select('id', { count: 'exact', head: true }).is('salebot_client_id', null)
+        supabase.from('clients').select('id', { count: 'exact', head: true }).is('salebot_client_id', null),
+        // Get count of clients with salebot_id but without imported messages
+        organizationId 
+          ? supabase.rpc('count_clients_without_imported_messages', { p_org_id: organizationId })
+          : Promise.resolve({ data: 0, error: null })
       ]);
 
       setDbStats({
@@ -176,6 +182,12 @@ export function SyncDashboard() {
         clientsWithSalebotId: clientsWithIdRes.count || 0,
         clientsWithoutSalebotId: clientsWithoutIdRes.count || 0
       });
+      
+      // Set clients without messages count
+      if (clientsWithoutMessagesRes.data !== null && !clientsWithoutMessagesRes.error) {
+        setClientsWithoutMessages(clientsWithoutMessagesRes.data as number);
+      }
+      
       setLastStatsRefresh(Date.now());
     } catch (error) {
       console.error('Error fetching DB stats:', error);
@@ -737,6 +749,113 @@ export function SyncDashboard() {
       });
     } finally {
       setIsFillingIds(false);
+    }
+  };
+
+  // Handler for importing only new clients (without imported messages)
+  const handleSyncNewClientsOnly = async (continueSync = false) => {
+    try {
+      setIsSyncingNewClientsOnly(true);
+      
+      // Check if stopped before continuing
+      const { data: currentProgress } = await supabase
+        .from('salebot_import_progress')
+        .select('is_paused, resync_mode')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (continueSync && currentProgress?.is_paused) {
+        console.log('⏸️ Импорт остановлен пользователем');
+        setIsSyncingNewClientsOnly(false);
+        return;
+      }
+      
+      const { data: progress } = await supabase
+        .from('salebot_import_progress')
+        .select('id')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (progress?.id) {
+        if (!continueSync) {
+          await supabase
+            .from('salebot_import_progress')
+            .update({ 
+              resync_offset: 0, 
+              resync_total_clients: 0,
+              resync_new_messages: 0,
+              resync_mode: true,
+              is_running: true,
+              is_paused: false 
+            })
+            .eq('id', progress.id);
+        } else {
+          await supabase
+            .from('salebot_import_progress')
+            .update({ 
+              resync_mode: true,
+              is_running: true,
+              is_paused: false 
+            })
+            .eq('id', progress.id);
+        }
+      }
+      
+      const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
+        body: { mode: 'sync_new_clients_only' }
+      });
+      if (error) throw error;
+      
+      const result = data as any;
+      
+      // Check if stopped during this batch
+      const { data: checkPaused } = await supabase
+        .from('salebot_import_progress')
+        .select('is_paused')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (checkPaused?.is_paused) {
+        console.log('⏸️ Импорт остановлен пользователем');
+        setIsSyncingNewClientsOnly(false);
+        return;
+      }
+      
+      // Auto-continue if not completed
+      if (result?.completed === false) {
+        toast({
+          title: '🆕 Батч завершён, продолжаем...',
+          description: `Обработано: ${result?.totalClients || 0} клиентов, новых сообщений: ${result?.totalNewMessages || 0}`,
+        });
+        setTimeout(() => handleSyncNewClientsOnly(true), 2000);
+        return;
+      }
+      
+      toast({
+        title: '🎉 Импорт новых клиентов завершён!',
+        description: `Обработано: ${result?.totalClients || 0} клиентов, новых сообщений: ${result?.totalNewMessages || 0}`,
+      });
+      
+      // Refresh stats to update the counter
+      fetchDbStats();
+      
+      if (progress?.id) {
+        await supabase
+          .from('salebot_import_progress')
+          .update({ is_running: false })
+          .eq('id', progress.id);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSyncingNewClientsOnly(false);
     }
   };
 
@@ -1480,6 +1599,33 @@ export function SyncDashboard() {
                   <AlertTitle>Готово к загрузке чатов</AlertTitle>
                   <AlertDescription>
                     {dbStats.clientsWithSalebotId.toLocaleString()} клиентов с Salebot ID готовы к загрузке диалогов.
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {/* New clients without imported messages alert */}
+              {clientsWithoutMessages !== null && clientsWithoutMessages > 0 && (
+                <Alert className="border-orange-500/50 bg-orange-50/50 dark:bg-orange-950/20">
+                  <AlertCircle className="h-4 w-4 text-orange-500" />
+                  <AlertTitle>🆕 Новые клиенты для импорта</AlertTitle>
+                  <AlertDescription className="flex items-center justify-between">
+                    <span>
+                      <strong>{clientsWithoutMessages.toLocaleString()}</strong> клиентов с Salebot ID ещё не имеют импортированных сообщений. 
+                      Webhook теперь ловит новые — импортируйте историю только для этих клиентов.
+                    </span>
+                    <Button 
+                      size="sm" 
+                      className="ml-4 bg-orange-600 hover:bg-orange-700"
+                      onClick={() => handleSyncNewClientsOnly(false)}
+                      disabled={isSyncingNewClientsOnly || importProgress?.isRunning || (apiUsage?.remaining || 0) < 1}
+                    >
+                      {isSyncingNewClientsOnly ? (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      ) : (
+                        <MessageSquare className="mr-1 h-3 w-3" />
+                      )}
+                      Импорт новых
+                    </Button>
                   </AlertDescription>
                 </Alert>
               )}
