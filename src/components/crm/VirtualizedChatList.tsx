@@ -1,6 +1,7 @@
-import React, { useRef } from 'react';
+import React, { useRef, useCallback } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChatListItem } from './ChatListItem';
+import { usePrefetchMessages } from '@/hooks/useChatMessagesOptimized';
 
 interface VirtualizedChatListProps {
   chats: any[];
@@ -36,6 +37,7 @@ export const VirtualizedChatList = React.memo(({
   onLinkChat
 }: VirtualizedChatListProps) => {
   const parentRef = useRef<HTMLDivElement>(null);
+  const { prefetch } = usePrefetchMessages();
 
   const virtualizer = useVirtualizer({
     count: chats.length,
@@ -43,6 +45,11 @@ export const VirtualizedChatList = React.memo(({
     estimateSize: () => 60,
     overscan: 4,
   });
+
+  // Prefetch messages on hover for instant chat opening
+  const handleMouseEnter = useCallback((chatId: string) => {
+    prefetch(chatId);
+  }, [prefetch]);
 
   return (
     <div 
@@ -77,6 +84,7 @@ export const VirtualizedChatList = React.memo(({
                 height: `${virtualRow.size}px`,
                 transform: `translateY(${virtualRow.start}px)`,
               }}
+              onMouseEnter={() => handleMouseEnter(chat.id)}
             >
               <div className="h-full">
                 <ChatListItem

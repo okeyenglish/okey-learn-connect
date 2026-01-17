@@ -17,7 +17,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useAuth } from "@/hooks/useAuth";
 import { useClients, useSearchClients, useCreateClient } from "@/hooks/useClients";
 import { useClientStatus } from "@/hooks/useClientStatus";
-import { useRealtimeMessages, useMarkAsRead, useMarkAsUnread, useChatThreads } from "@/hooks/useChatMessages";
+import { useRealtimeMessages, useMarkAsRead, useMarkAsUnread } from "@/hooks/useChatMessages";
+import { useChatThreadsOptimized } from "@/hooks/useChatThreadsOptimized";
 import { useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
 import { useStudentsLazy } from "@/hooks/useStudentsLazy";
 import { useStudentsCount } from "@/hooks/useStudentsCount";
@@ -284,7 +285,7 @@ const CRMContent = () => {
   
   // Критичные данные - загружаем сразу
   const { clients, isLoading: clientsLoading } = useClients();
-  const { threads, isLoading: threadsLoading } = useChatThreads();
+  const { data: threads = [], isLoading: threadsLoading } = useChatThreadsOptimized();
   const { corporateChats, teacherChats, isLoading: systemChatsLoading } = useSystemChatMessages();
   
   // Данные для модальных окон - загружаем только при открытии
