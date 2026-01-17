@@ -13,7 +13,15 @@ export interface CommunityChat {
   avatarUrl: string | null;
 }
 
-// Helper to check if a client name indicates it's a group/community
+// Helper to check if telegram_chat_id indicates a real Telegram group/supergroup
+// Real Telegram groups have negative IDs starting with -100
+export const isTelegramGroup = (telegramChatId: string | null): boolean => {
+  if (!telegramChatId) return false;
+  // Telegram supergroups/channels have IDs like -100XXXXXXXXXX (negative, starts with -100)
+  return telegramChatId.startsWith('-100');
+};
+
+// Helper to check if a client name indicates it's a group/community (for edge cases)
 export const isGroupChatName = (name: string): boolean => {
   if (!name) return false;
   const lowerName = name.toLowerCase();
@@ -29,6 +37,8 @@ export const isGroupChatName = (name: string): boolean => {
     lowerName.includes('support') ||
     lowerName.includes('люберцы') ||
     lowerName.includes('жулебино') ||
+    lowerName.includes('найти репетитора') ||
+    lowerName.includes('заявки для репетиторов') ||
     (lowerName.includes('|') && (lowerName.includes('язык') || lowerName.includes('группа')))
   );
 };
@@ -36,8 +46,8 @@ export const isGroupChatName = (name: string): boolean => {
 /**
  * Hook to fetch community chats (group chats from messengers)
  * Groups are identified by:
- * 1. Negative telegram_chat_id (Telegram supergroups)
- * 2. Name patterns like "ЖК", "Английский язык |", etc.
+ * 1. Negative telegram_chat_id starting with -100 (Telegram supergroups)
+ * 2. Name patterns like "ЖК", "Английский язык |", "Найти репетитора", etc.
  */
 export const useCommunityChats = () => {
   const queryClient = useQueryClient();
@@ -48,7 +58,7 @@ export const useCommunityChats = () => {
       console.log('[useCommunityChats] Fetching community chats...');
       
       // Get all clients with telegram_chat_id to filter groups
-      // We'll filter by name patterns on the client side for flexibility
+      // We'll filter by telegram group ID pattern on the client side
       const { data: clients, error } = await supabase
         .from('clients')
         .select(`
@@ -81,14 +91,15 @@ export const useCommunityChats = () => {
       }
 
       // Filter to only include group chats based on:
-      // 1. Negative telegram_chat_id (starts with -)
-      // 2. Name patterns indicating groups
+      // 1. Real Telegram groups (negative telegram_chat_id starting with -100)
+      // 2. Name patterns indicating groups (for edge cases from Salebot)
       const groupClients = clients.filter(client => {
-        const telegramId = client.telegram_chat_id;
-        const isNegativeId = telegramId && telegramId.startsWith('-');
+        const isRealTelegramGroup = isTelegramGroup(client.telegram_chat_id);
         const hasGroupName = isGroupChatName(client.name);
-        return isNegativeId || hasGroupName;
+        return isRealTelegramGroup || hasGroupName;
       });
+
+      console.log(`[useCommunityChats] Found ${groupClients.length} group chats out of ${clients.length} with telegram_chat_id`);
 
       console.log(`[useCommunityChats] Found ${groupClients.length} group chats out of ${clients.length} with telegram_chat_id`);
 
