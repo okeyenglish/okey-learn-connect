@@ -111,7 +111,7 @@ serve(async (req) => {
       const { data: defaultOrg } = await supabase
         .from('organizations')
         .select('id')
-        .eq('is_active', true)
+        .eq('status', 'active')
         .limit(1)
         .maybeSingle()
 
