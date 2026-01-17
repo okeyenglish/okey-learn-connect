@@ -321,6 +321,16 @@ const CRMContent = () => {
     closePinnedModal, 
     isPinned 
   } = usePinnedModalsDB();
+
+  // visibleChatIds теперь берем из threads (не из clients) - объявляем ДО useChatStatesDB
+  const visibleChatIds = useMemo(() => {
+    const ids = new Set<string>();
+    (threads || []).forEach((t: any) => t?.client_id && ids.add(t.client_id));
+    (corporateChats || []).forEach((c: any) => c?.id && ids.add(c.id));
+    (teacherChats || []).forEach((c: any) => c?.id && ids.add(c.id));
+    return Array.from(ids);
+  }, [threads, corporateChats, teacherChats]);
+
   const { 
     chatStates, 
     loading: chatStatesLoading,
@@ -330,15 +340,6 @@ const CRMContent = () => {
     markAsUnread,
     getChatState
   } = useChatStatesDB(visibleChatIds);
-
-  // visibleChatIds теперь берем из threads (не из clients)
-  const visibleChatIds = useMemo(() => {
-    const ids = new Set<string>();
-    (threads || []).forEach((t: any) => t?.client_id && ids.add(t.client_id));
-    (corporateChats || []).forEach((c: any) => c?.id && ids.add(c.id));
-    (teacherChats || []).forEach((c: any) => c?.id && ids.add(c.id));
-    return Array.from(ids);
-  }, [threads, corporateChats, teacherChats]);
 
   const { isInWorkByOthers, isPinnedByCurrentUser, isPinnedByAnyone, getPinnedByUserName, isLoading: sharedStatesLoading } = useSharedChatStates(visibleChatIds);
   const { markChatAsReadGlobally, isChatReadGlobally } = useGlobalChatReadStatus();
