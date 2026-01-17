@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { X } from 'lucide-react';
 import { useCreateClassroom, useUpdateClassroom, Classroom } from '@/hooks/useReferences';
+import { useOrganization } from '@/hooks/useOrganization';
 
 interface ClassroomModalProps {
   open: boolean;
@@ -21,6 +22,7 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
   onOpenChange,
   classroom
 }) => {
+  const { branches } = useOrganization();
   const [formData, setFormData] = useState({
     name: '',
     branch: '',
@@ -35,18 +37,6 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
 
   const createClassroom = useCreateClassroom();
   const updateClassroom = useUpdateClassroom();
-
-  const branches = [
-    'Окская',
-    'Котельники',
-    'Люберцы (Красная горка)',
-    'Люберцы (Октябрьский)',
-    'Мытищи',
-    'Новокосино',
-    'Солнцево',
-    'Стахановская',
-    'Онлайн'
-  ];
 
   useEffect(() => {
     if (classroom) {
@@ -142,8 +132,8 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
               </SelectTrigger>
               <SelectContent>
                 {branches.map((branch) => (
-                  <SelectItem key={branch} value={branch}>
-                    {branch}
+                  <SelectItem key={branch.id} value={branch.name}>
+                    {branch.name}
                   </SelectItem>
                 ))}
               </SelectContent>
