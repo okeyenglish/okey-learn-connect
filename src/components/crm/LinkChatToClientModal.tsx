@@ -131,6 +131,8 @@ export const LinkChatToClientModal = ({
 
     setIsLinking(true);
     try {
+      console.log("Starting link process:", { chatClientId, selectedClientId });
+      
       // Get target client data
       const { data: targetClient, error: targetError } = await supabase
         .from("clients")
@@ -138,7 +140,12 @@ export const LinkChatToClientModal = ({
         .eq("id", selectedClientId)
         .single();
 
-      if (targetError) throw targetError;
+      if (targetError) {
+        console.error("Error fetching target client:", targetError);
+        throw targetError;
+      }
+
+      console.log("Target client:", targetClient?.name);
 
       // Prepare update data - merge messenger IDs
       const updateData: Record<string, any> = {};
@@ -162,30 +169,45 @@ export const LinkChatToClientModal = ({
         updateData.max_user_id = currentClient.max_user_id;
         updateData.max_avatar_url = currentClient.max_avatar_url;
       }
+      
+      // Transfer salebot_client_id if current has it and target doesn't
+      if (currentClient.salebot_client_id && !targetClient.salebot_client_id) {
+        updateData.salebot_client_id = currentClient.salebot_client_id;
+      }
 
       // Update target client with merged data
       if (Object.keys(updateData).length > 0) {
+        console.log("Updating target client with:", updateData);
         const { error: updateError } = await supabase
           .from("clients")
           .update(updateData)
           .eq("id", selectedClientId);
 
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error("Error updating target client:", updateError);
+          throw updateError;
+        }
       }
 
       // Transfer all messages to target client
+      console.log("Transferring messages from", chatClientId, "to", selectedClientId);
       const { error: messagesError } = await supabase
         .from("chat_messages")
         .update({ client_id: selectedClientId })
         .eq("client_id", chatClientId);
 
-      if (messagesError) throw messagesError;
+      if (messagesError) {
+        console.error("Error transferring messages:", messagesError);
+        throw messagesError;
+      }
 
       // Transfer phone numbers that don't exist in target
       const { data: currentPhones } = await supabase
         .from("client_phone_numbers")
         .select("*")
         .eq("client_id", chatClientId);
+
+      console.log("Current phones to transfer:", currentPhones?.length);
 
       if (currentPhones && currentPhones.length > 0) {
         // Get target's existing phones to avoid duplicates
@@ -202,30 +224,42 @@ export const LinkChatToClientModal = ({
           (p) => !targetPhoneSet.has(p.phone.replace(/\D/g, ""))
         );
 
+        console.log("Phones to transfer after dedup:", phonesToTransfer.length);
+
         if (phonesToTransfer.length > 0) {
           for (const phone of phonesToTransfer) {
-            await supabase
+            const { error: phoneError } = await supabase
               .from("client_phone_numbers")
               .update({ client_id: selectedClientId, is_primary: false })
               .eq("id", phone.id);
+            
+            if (phoneError) {
+              console.error("Error transferring phone:", phone.phone, phoneError);
+              // Continue with other phones
+            }
           }
         }
       }
 
       // Deactivate the old client
+      console.log("Deactivating old client:", chatClientId);
       const { error: deactivateError } = await supabase
         .from("clients")
         .update({ is_active: false })
         .eq("id", chatClientId);
 
-      if (deactivateError) throw deactivateError;
+      if (deactivateError) {
+        console.error("Error deactivating client:", deactivateError);
+        throw deactivateError;
+      }
 
+      console.log("Link process completed successfully");
       toast.success("Чат успешно привязан к клиенту");
       onSuccess?.();
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error linking chat:", error);
-      toast.error("Ошибка при привязке чата");
+      toast.error(`Ошибка при привязке чата: ${error.message || 'Неизвестная ошибка'}`);
     } finally {
       setIsLinking(false);
     }
