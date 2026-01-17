@@ -1,4 +1,4 @@
-import { useState, memo } from 'react';
+import { useState, memo, useMemo } from 'react';
 import { Phone, PhoneCall, Play, FileSpreadsheet, Edit2, Check, X, Forward, Trash2, CheckCheck, MessageCircle, User, CheckCircle, XCircle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,36 @@ import { AttachedFile } from "./AttachedFile";
 import { MessageReadIndicator } from "./MessageReadIndicator";
 import { MessageReactions } from "./MessageReactions";
 import { MessageContextMenu } from "./MessageContextMenu";
+
+// URL regex pattern
+const URL_REGEX = /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g;
+
+// Helper to render text with clickable links
+function renderMessageWithLinks(text: string): React.ReactNode {
+  const parts = text.split(URL_REGEX);
+  if (parts.length === 1) {
+    return text;
+  }
+  return parts.map((part, i) => {
+    if (URL_REGEX.test(part)) {
+      // Reset regex lastIndex
+      URL_REGEX.lastIndex = 0;
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 underline hover:text-blue-800 break-all"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+}
 
 interface ChatMessageProps {
   type: 'client' | 'manager' | 'system' | 'comment';
@@ -357,7 +387,7 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                   <p className="text-sm leading-relaxed italic text-muted-foreground">*Данное сообщение удалено*</p>
                 ) : (
                   <div>
-                    <p className="text-sm leading-relaxed">{editedMessage}</p>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{renderMessageWithLinks(editedMessage)}</p>
                     {systemType === 'comment' && managerName && (
                       <div className="text-xs text-amber-700 mt-1 flex items-center gap-1">
                         <MessageCircle className="h-3 w-3" />
