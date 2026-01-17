@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ChatMessage } from "./ChatMessage";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useChatMessages, useSendMessage, useMarkAsRead, useRealtimeMessages } from '@/hooks/useChatMessages';
+import { useSendMessage, useMarkAsRead, useRealtimeMessages } from '@/hooks/useChatMessages';
+import { useChatMessagesOptimized } from '@/hooks/useChatMessagesOptimized';
 import { useTypingStatus } from '@/hooks/useTypingStatus';
 import { toast } from "sonner";
 import { useCommunityChats, CommunityChat } from '@/hooks/useCommunityChats';
@@ -50,9 +51,11 @@ export const CommunityChatArea = ({ onMessageChange, selectedCommunityId = null,
   // Get active community details
   const activeCommunity = communityChats.find(c => c.id === activeCommunityId);
 
-  // Setup chat hooks
+  // Setup chat hooks - load only 30 messages initially for fast opening
   const clientId = activeCommunityId || '';
-  const { messages } = useChatMessages(clientId);
+  const { data: messagesData, isLoading: messagesLoading } = useChatMessagesOptimized(clientId, 30);
+  const messages = messagesData?.messages || [];
+  const hasMoreMessages = messagesData?.hasMore || false;
   const sendMessage = useSendMessage();
   const markAsRead = useMarkAsRead();
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
@@ -104,8 +107,8 @@ export const CommunityChatArea = ({ onMessageChange, selectedCommunityId = null,
   };
 
   // Filter messages based on search query
-  const filteredMessages = messages.filter(msg => 
-    msg.message_text.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredMessages = messages.filter((msg: any) => 
+    (msg.message_text || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Get messenger-specific styling
@@ -268,11 +271,23 @@ export const CommunityChatArea = ({ onMessageChange, selectedCommunityId = null,
         )}
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {filteredMessages.map((msg, index) => (
+          {messagesLoading && (
+            <div className="flex items-center justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            </div>
+          )}
+          {hasMoreMessages && !messagesLoading && (
+            <div className="text-center py-2">
+              <span className="text-xs text-muted-foreground">
+                Загружены последние 30 сообщений
+              </span>
+            </div>
+          )}
+          {filteredMessages.map((msg: any, index: number) => (
             <ChatMessage 
               key={msg.id || index}
               messageId={msg.id}
-              message={msg.message_text}
+              message={msg.message_text || ''}
               time={new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
               type={msg.message_type === 'system' ? 'manager' : msg.message_type}
             />
