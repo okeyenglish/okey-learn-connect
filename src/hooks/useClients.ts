@@ -42,9 +42,10 @@ export interface ClientPhoneNumber {
   updated_at: string;
 }
 
-export const useClients = () => {
+export const useClients = (enabled: boolean = true) => {
   const { data: clients, isLoading, error } = useQuery({
     queryKey: ['clients'],
+    enabled,
     queryFn: async () => {
       console.log('Fetching clients...', { userId: supabase.auth.getUser() });
       try {

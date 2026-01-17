@@ -290,7 +290,7 @@ const CRMContent = () => {
   
   // Клиенты загружаются лениво - только при необходимости (поиск, модалы)
   const clientsNeeded = modals.openModal === "Ученики" || modals.openModal === "Лиды" || chatSearchQuery.length > 0;
-  const { clients, isLoading: clientsLoading } = useClients();
+  const { clients, isLoading: clientsLoading } = useClients(clientsNeeded);
   
   // Данные для модальных окон - загружаем только при открытии
   const studentsEnabled = modals.openModal === "Ученики" || modals.openModal === "Лиды";
@@ -329,7 +329,7 @@ const CRMContent = () => {
     markAsRead,
     markAsUnread,
     getChatState
-  } = useChatStatesDB();
+  } = useChatStatesDB(visibleChatIds);
 
   // visibleChatIds теперь берем из threads (не из clients)
   const visibleChatIds = useMemo(() => {

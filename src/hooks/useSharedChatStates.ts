@@ -28,11 +28,12 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
           return;
         }
 
-        // Мои состояния чатов (загружаем все для текущего пользователя)
+        // Мои состояния чатов (берем только для текущего списка chatIds, иначе это десятки тысяч строк)
         const { data: myStates, error: myStatesError } = await supabase
           .from('chat_states')
           .select('chat_id, is_pinned')
-          .eq('user_id', user.id);
+          .eq('user_id', user.id)
+          .in('chat_id', chatIds);
 
         if (myStatesError) {
           console.error('Error fetching my chat states:', myStatesError);
