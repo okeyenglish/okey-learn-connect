@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone, PanelLeft, PanelRight } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone, PanelLeft, PanelRight, CheckCheck, ListTodo } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -244,28 +244,18 @@ export const ChatArea = ({
     // после установки вкладки — прокручиваем именно её к последнему сообщению
     setTimeout(() => scrollToBottom(false, initialTab), 0);
     
-    // Mark messages as read for the initial tab
-    if (clientId && initialTab !== 'calls') {
-      markChatMessagesAsReadByMessengerMutation.mutate({ 
-        clientId, 
-        messengerType: initialTab 
-      });
-    }
+    // НЕ помечаем автоматически сообщения как прочитанные
+    // Менеджер должен явно нажать "Не требует ответа" или отправить сообщение
   }, [clientId, unreadLoading, unreadFetching, lastUnreadMessenger, initialTabSet, messages]);
 
-  // Mark messages as read when switching tabs - only for the current tab
+  // Mark messages as read when switching tabs - только прокрутка, НЕ отметка прочитанности
   const handleTabChange = (newTab: string) => {
     setActiveMessengerTab(newTab);
     // при переключении вкладки сразу показываем последние сообщения
     setTimeout(() => scrollToBottom(false, newTab), 0);
     
-    // Mark messages as read for the new tab
-    if (clientId && newTab !== 'calls') {
-      markChatMessagesAsReadByMessengerMutation.mutate({ 
-        clientId, 
-        messengerType: newTab 
-      });
-    }
+    // НЕ помечаем автоматически сообщения как прочитанные
+    // Менеджер должен явно нажать "Не требует ответа" или отправить сообщение
   };
 
   // Функция для начала редактирования имени
@@ -510,19 +500,12 @@ export const ChatArea = ({
           // Scroll to bottom with smooth animation for new messages
           setTimeout(() => scrollToBottom(true), 100);
           
-          // Mark as read ONLY if from client AND matches current active tab
+          // НЕ помечаем автоматически как прочитанные
+          // Менеджер должен явно нажать "Не требует ответа" или отправить сообщение
+          // Только обновляем счетчики непрочитанных для UI
           if (newMsg.message_type === 'client' || !newMsg.is_outgoing) {
-            const msgMessenger = newMsg.messenger_type || 'whatsapp';
-            // Only auto-mark as read if the message is for the currently active tab
-            if (msgMessenger === activeMessengerTab || (activeMessengerTab === 'whatsapp' && !newMsg.messenger_type)) {
-              markChatMessagesAsReadByMessengerMutation.mutate({ 
-                clientId, 
-                messengerType: activeMessengerTab 
-              });
-            }
-            // Invalidate unread counts to show badge on other tabs
-            // Note: chat-threads is already updated by debounced subscription in CRM.tsx
             queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', clientId] });
+            queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
           }
         }
       )
@@ -722,6 +705,67 @@ export const ChatArea = ({
     }
   };
 
+  // Функция для пометки чата как "Не требует ответа" - помечает все сообщения как прочитанные
+  const handleMarkAsNoResponseNeeded = async () => {
+    if (!clientId) return;
+    
+    try {
+      // Помечаем все непрочитанные сообщения клиента как прочитанные
+      const { error } = await supabase
+        .from('chat_messages')
+        .update({ is_read: true })
+        .eq('client_id', clientId)
+        .eq('is_read', false)
+        .eq('message_type', 'client');
+      
+      if (error) {
+        console.error('Error marking messages as read:', error);
+        toast({
+          title: "Ошибка",
+          description: "Не удалось пометить сообщения как прочитанные",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Инвалидируем кэши для обновления UI
+      queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+      
+      toast({
+        title: "Готово",
+        description: "Чат помечен как не требующий ответа",
+      });
+    } catch (error) {
+      console.error('Error in handleMarkAsNoResponseNeeded:', error);
+    }
+  };
+
+  // Функция для открытия модалки задач и пометки сообщений как прочитанных
+  const handleOpenTaskModalAndMarkRead = async () => {
+    // Сначала помечаем сообщения как прочитанные
+    try {
+      await supabase
+        .from('chat_messages')
+        .update({ is_read: true })
+        .eq('client_id', clientId)
+        .eq('is_read', false)
+        .eq('message_type', 'client');
+      
+      queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+    } catch (error) {
+      console.error('Error marking messages as read before opening task:', error);
+    }
+    
+    // Открываем модалку задач
+    if (onOpenTaskModal) {
+      onOpenTaskModal();
+    } else {
+      setShowAddTaskModal(true);
+    }
+  };
+
   const handleSendMessage = async () => {
     if ((!message.trim() && attachedFiles.length === 0) || loading || message.length > MAX_MESSAGE_LENGTH) return;
 
@@ -731,6 +775,21 @@ export const ChatArea = ({
     setMessage(""); // Clear input immediately
     setAttachedFiles([]); // Clear attached files immediately
     onMessageChange?.(false);
+    
+    // Помечаем все непрочитанные сообщения как прочитанные при отправке ответа
+    try {
+      await supabase
+        .from('chat_messages')
+        .update({ is_read: true })
+        .eq('client_id', clientId)
+        .eq('is_read', false)
+        .eq('message_type', 'client');
+      
+      queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+    } catch (error) {
+      console.error('Error marking messages as read on send:', error);
+    }
     
     // Reset textarea height
     if (textareaRef.current) {
@@ -2463,6 +2522,35 @@ export const ChatArea = ({
                     </DialogContent>
                   </Dialog>
                 )}
+                
+                {/* Разделитель */}
+                <div className="h-6 w-px bg-border mx-1 hidden md:block" />
+                
+                {/* Кнопка "Не требует ответа" */}
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="h-8 px-2 md:px-3 text-xs md:text-sm gap-1 md:gap-2 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                  onClick={handleMarkAsNoResponseNeeded}
+                  disabled={!!pendingMessage}
+                  title="Пометить как не требующий ответа"
+                >
+                  <CheckCheck className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                  <span className="hidden sm:inline">Не требует ответа</span>
+                </Button>
+                
+                {/* Кнопка "Поставить задачу" */}
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="h-8 px-2 md:px-3 text-xs md:text-sm gap-1 md:gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+                  onClick={handleOpenTaskModalAndMarkRead}
+                  disabled={!!pendingMessage}
+                  title="Поставить задачу"
+                >
+                  <ListTodo className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                  <span className="hidden sm:inline">Поставить задачу</span>
+                </Button>
               
               {/* Send button - icon only on mobile/tablet, icon+text on large desktop */}
               <Button 
