@@ -17,7 +17,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useAuth } from "@/hooks/useAuth";
 import { useClients, useSearchClients, useCreateClient } from "@/hooks/useClients";
 import { useClientStatus } from "@/hooks/useClientStatus";
-import { useChatThreads, useRealtimeMessages, useMarkAsRead, useMarkAsUnread } from "@/hooks/useChatMessages";
+import { useRealtimeMessages, useMarkAsRead, useMarkAsUnread } from "@/hooks/useChatMessages";
+import { useChatThreadsOptimized } from "@/hooks/useChatThreadsOptimized";
 import { useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
 import { useStudentsLazy } from "@/hooks/useStudentsLazy";
 import { useStudentsCount } from "@/hooks/useStudentsCount";
@@ -284,7 +285,7 @@ const CRMContent = () => {
   
   // Критичные данные - загружаем сразу
   const { clients, isLoading: clientsLoading } = useClients();
-  const { threads, isLoading: threadsLoading } = useChatThreads();
+  const { data: threads = [], isLoading: threadsLoading } = useChatThreadsOptimized();
   const { corporateChats, teacherChats, isLoading: systemChatsLoading } = useSystemChatMessages();
   
   // Данные для модальных окон - загружаем только при открытии
@@ -391,7 +392,7 @@ const CRMContent = () => {
       debounceTimer = setTimeout(() => {
         if (pendingRefetch) {
           console.log(`🔄 [CRM] Debounced chat-threads refetch (${eventCount} events batched)`);
-          queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+          queryClient.invalidateQueries({ queryKey: ['chat-threads-optimized'] });
           // Also refresh clients list in case a new client was created via webhook
           queryClient.invalidateQueries({ queryKey: ['clients'] });
           pendingRefetch = false;
