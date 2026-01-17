@@ -1438,15 +1438,21 @@ export function SyncDashboard() {
                     Филиал для импортируемых клиентов
                   </Label>
                   <Select value={selectedBranchForCsv} onValueChange={setSelectedBranchForCsv}>
-                    <SelectTrigger id="csv-branch">
+                    <SelectTrigger id="csv-branch" className="bg-background">
                       <SelectValue placeholder="Выберите филиал (обязательно)" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {branches.map((branch) => (
-                        <SelectItem key={branch.id} value={branch.name}>
-                          {branch.name}
+                    <SelectContent className="z-[9999] bg-popover">
+                      {branches.length === 0 ? (
+                        <SelectItem value="_empty" disabled>
+                          Нет филиалов — добавьте в Настройках
                         </SelectItem>
-                      ))}
+                      ) : (
+                        branches.map((branch) => (
+                          <SelectItem key={branch.id} value={branch.name}>
+                            {branch.name}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
