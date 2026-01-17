@@ -66,6 +66,8 @@ serve(async (req) => {
     console.log('Salebot webhook received:', {
       messageId: payload.id,
       salebotClientId: payload.client?.id,
+      clientType: payload.client?.client_type,
+      recepient: payload.client?.recepient,
       isInput: payload.is_input,
       message: payload.message?.slice(0, 100)
     })
@@ -90,7 +92,7 @@ serve(async (req) => {
     // Find existing client by salebot_client_id
     let { data: existingClient, error: findError } = await supabase
       .from('clients')
-      .select('id, organization_id, name')
+      .select('id, organization_id, name, telegram_user_id')
       .eq('salebot_client_id', payload.client.id)
       .maybeSingle()
 
@@ -105,6 +107,22 @@ serve(async (req) => {
       clientId = existingClient.id
       organizationId = existingClient.organization_id
       console.log('Found existing client:', clientId, 'org:', organizationId)
+      
+      // Update telegram_user_id if this is telegram client and not set yet
+      const messengerType = getMessengerType(payload.client.client_type)
+      if (messengerType === 'telegram' && payload.client.recepient) {
+        const telegramUserId = parseInt(payload.client.recepient) || null
+        if (telegramUserId && !existingClient.telegram_user_id) {
+          console.log('Updating telegram_user_id for existing client:', telegramUserId)
+          await supabase
+            .from('clients')
+            .update({ 
+              telegram_user_id: telegramUserId,
+              telegram_chat_id: payload.client.recepient
+            })
+            .eq('id', clientId)
+        }
+      }
     } else {
       // Client not found - create new one
       // Get default organization (first active one)
@@ -125,17 +143,31 @@ serve(async (req) => {
 
       organizationId = defaultOrg.id
 
-      // Create new client
+      // Determine messenger type from client_type
+      const messengerType = getMessengerType(payload.client.client_type)
+      
+      // Create new client with correct messenger identifiers
       const clientName = payload.client.name || `Salebot ${payload.client.id}`
+      const clientData: any = {
+        name: clientName,
+        salebot_client_id: payload.client.id,
+        avatar_url: payload.client.avatar || null,
+        organization_id: organizationId,
+        is_active: true,
+      }
+      
+      // Set messenger-specific identifiers based on client_type
+      if (messengerType === 'telegram') {
+        clientData.telegram_user_id = parseInt(payload.client.recepient) || null
+        clientData.telegram_chat_id = payload.client.recepient
+      } else if (messengerType === 'whatsapp') {
+        // For WhatsApp, recepient is phone number
+        clientData.phone = payload.client.recepient?.replace(/\D/g, '') || null
+      }
+      
       const { data: newClient, error: createError } = await supabase
         .from('clients')
-        .insert({
-          name: clientName,
-          salebot_client_id: payload.client.id,
-          avatar_url: payload.client.avatar || null,
-          organization_id: organizationId,
-          is_active: true,
-        })
+        .insert(clientData)
         .select('id')
         .single()
 
@@ -148,7 +180,7 @@ serve(async (req) => {
       }
 
       clientId = newClient.id
-      console.log('Created new client:', clientId, 'name:', clientName)
+      console.log('Created new client:', clientId, 'name:', clientName, 'messenger:', messengerType)
     }
 
     // Check for duplicate message by salebot_message_id
