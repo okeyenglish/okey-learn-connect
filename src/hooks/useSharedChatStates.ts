@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -14,82 +14,107 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
   const [sharedStates, setSharedStates] = useState<Record<string, SharedChatState>>({});
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
+  
+  // Stabilize chatIds to prevent infinite loops - use sorted string as key
+  const chatIdsKey = useMemo(() => {
+    if (!chatIds || chatIds.length === 0) return '';
+    return [...chatIds].sort().join(',');
+  }, [chatIds]);
+  
+  // Debounce ref for realtime updates
+  const debouncedFetchRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
+  const fetchSharedStates = useCallback(async () => {
     if (!user?.id) {
       setIsLoading(false);
       return;
     }
 
-    const fetchSharedStates = async () => {
-      try {
-        if (!chatIds || chatIds.length === 0) {
-          setSharedStates({});
-          return;
-        }
+    const currentChatIds = chatIdsKey ? chatIdsKey.split(',') : [];
+    
+    if (currentChatIds.length === 0) {
+      setSharedStates({});
+      setIsLoading(false);
+      return;
+    }
 
-        // Мои состояния чатов (берем только для текущего списка chatIds, иначе это десятки тысяч строк)
-        const { data: myStates, error: myStatesError } = await supabase
-          .from('chat_states')
-          .select('chat_id, is_pinned')
-          .eq('user_id', user.id)
-          .in('chat_id', chatIds);
+    try {
+      // Мои состояния чатов (берем только для текущего списка chatIds)
+      const { data: myStates, error: myStatesError } = await supabase
+        .from('chat_states')
+        .select('chat_id, is_pinned')
+        .eq('user_id', user.id)
+        .in('chat_id', currentChatIds);
 
-        if (myStatesError) {
-          console.error('Error fetching my chat states:', myStatesError);
-        }
-
-        const myStatesMap = new Map<string, boolean>();
-        (myStates || []).forEach((state: any) => {
-          myStatesMap.set(state.chat_id, state.is_pinned);
-        });
-
-        // Глобальный счетчик закреплений по чату (SECURITY DEFINER функция)
-        const { data: counts, error: countsError } = await supabase.rpc('get_chat_pin_counts', {
-          _chat_ids: chatIds
-        });
-
-        if (countsError) {
-          console.error('Error fetching shared pin counts:', countsError);
-        }
-
-        const countMap = new Map<string, number>();
-        (counts || []).forEach((row: any) => countMap.set(row.chat_id, row.pin_count));
-
-        // Собираем итоговую карту только для запрошенных chatIds
-        const chatStatesMap: Record<string, SharedChatState> = {};
-        const requestedChatIds = chatIds.length > 0 ? chatIds : Array.from(myStatesMap.keys());
-        requestedChatIds.forEach((chatId) => {
-          const isPinnedByMe = myStatesMap.get(chatId) || false;
-          const totalPins = countMap.get(chatId) || 0;
-          chatStatesMap[chatId] = {
-            chat_id: chatId,
-            is_pinned: isPinnedByMe,
-            user_id: isPinnedByMe ? user.id : '',
-            pinned_by_others: totalPins > 0 && !isPinnedByMe,
-            pinned_by_user_name: undefined
-          };
-        });
-
-        console.log('Updated shared chat states:', chatStatesMap);
-        setSharedStates(chatStatesMap);
-      } catch (error) {
-        console.error('Error in fetchSharedStates:', error);
-      } finally {
-        setIsLoading(false);
+      if (myStatesError) {
+        console.error('Error fetching my chat states:', myStatesError);
       }
-    };
+
+      const myStatesMap = new Map<string, boolean>();
+      (myStates || []).forEach((state: any) => {
+        myStatesMap.set(state.chat_id, state.is_pinned);
+      });
+
+      // Глобальный счетчик закреплений по чату (SECURITY DEFINER функция)
+      const { data: counts, error: countsError } = await supabase.rpc('get_chat_pin_counts', {
+        _chat_ids: currentChatIds
+      });
+
+      if (countsError) {
+        console.error('Error fetching shared pin counts:', countsError);
+      }
+
+      const countMap = new Map<string, number>();
+      (counts || []).forEach((row: any) => countMap.set(row.chat_id, row.pin_count));
+
+      // Собираем итоговую карту только для запрошенных chatIds
+      const chatStatesMap: Record<string, SharedChatState> = {};
+      currentChatIds.forEach((chatId) => {
+        const isPinnedByMe = myStatesMap.get(chatId) || false;
+        const totalPins = countMap.get(chatId) || 0;
+        chatStatesMap[chatId] = {
+          chat_id: chatId,
+          is_pinned: isPinnedByMe,
+          user_id: isPinnedByMe ? user.id : '',
+          pinned_by_others: totalPins > 0 && !isPinnedByMe,
+          pinned_by_user_name: undefined
+        };
+      });
+
+      setSharedStates(chatStatesMap);
+    } catch (error) {
+      console.error('Error in fetchSharedStates:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.id, chatIdsKey]);
+  
+  // Debounced fetch for realtime updates - prevents request floods
+  const debouncedFetch = useCallback(() => {
+    if (debouncedFetchRef.current) {
+      clearTimeout(debouncedFetchRef.current);
+    }
+    debouncedFetchRef.current = setTimeout(() => {
+      fetchSharedStates();
+    }, 2000); // 2 second debounce
+  }, [fetchSharedStates]);
+
+  useEffect(() => {
+    if (!user?.id || !chatIdsKey) {
+      setIsLoading(false);
+      return;
+    }
 
     fetchSharedStates();
 
-    // Подписываемся на изменения в chat_states (с учетом RLS могут не приходить события от других пользователей)
+    // Подписываемся на изменения в chat_states с debounce
     const changesChannel = supabase
       .channel('shared-chat-states-realtime')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'chat_states' }, 
-        (payload) => {
-          console.log('Shared chat states changed, refetching...', payload);
-          fetchSharedStates();
+        () => {
+          console.log('Shared chat states changed, debounced refetch...');
+          debouncedFetch();
         }
       )
       .subscribe();
@@ -98,16 +123,19 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
     const busChannel = supabase
       .channel('chat-states-bus')
       .on('broadcast', { event: 'pin-change' }, () => {
-        console.log('Broadcast pin-change received, refetching...');
-        fetchSharedStates();
+        console.log('Broadcast pin-change received, debounced refetch...');
+        debouncedFetch();
       })
       .subscribe();
 
     return () => {
+      if (debouncedFetchRef.current) {
+        clearTimeout(debouncedFetchRef.current);
+      }
       supabase.removeChannel(changesChannel);
       supabase.removeChannel(busChannel);
     };
-  }, [user?.id, chatIds]);
+  }, [user?.id, chatIdsKey, fetchSharedStates, debouncedFetch]);
 
   const isInWorkByOthers = (chatId: string): boolean => {
     const state = sharedStates[chatId];
@@ -116,9 +144,7 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
 
   const isPinnedByCurrentUser = (chatId: string): boolean => {
     const state = sharedStates[chatId];
-    const result = state ? state.is_pinned : false;
-    console.log(`isPinnedByCurrentUser(${chatId}):`, result, 'state:', state);
-    return result;
+    return state ? state.is_pinned : false;
   };
 
   const isPinnedByAnyone = (chatId: string): boolean => {

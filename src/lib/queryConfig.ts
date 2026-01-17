@@ -39,9 +39,16 @@ export const chatQueryConfig = {
 };
 
 export const chatListQueryConfig = {
-  staleTime: 10 * 1000, // Список чатов обновляется чаще - 10 сек
+  staleTime: 30 * 1000, // Список чатов обновляется раз в 30 сек (есть realtime)
   gcTime: 10 * 60 * 1000, // Кэш 10 минут
-  refetchOnWindowFocus: true, // Рефетчить список при фокусе
+  refetchOnWindowFocus: false, // Не рефетчить при фокусе - есть realtime
+};
+
+// Конфигурация для chat_states - данные редко меняются
+export const chatStatesQueryConfig = {
+  staleTime: 60 * 1000, // 60 секунд - данные о pin редко меняются
+  gcTime: 15 * 60 * 1000, // 15 минут
+  refetchOnWindowFocus: false,
 };
 
 export const staticDataQueryConfig = {

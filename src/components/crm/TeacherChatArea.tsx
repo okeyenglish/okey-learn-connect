@@ -16,7 +16,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useChatMessages, useSendMessage, useMarkAsRead, useRealtimeMessages } from '@/hooks/useChatMessages';
 import { useMarkChatMessagesAsRead } from '@/hooks/useMessageReadStatus';
 import { useTypingStatus } from '@/hooks/useTypingStatus';
-import { usePinCounts } from '@/hooks/usePinCounts';
+// usePinCounts removed - functionality consolidated in useSharedChatStates
 import { useWhatsApp } from '@/hooks/useWhatsApp';
 import { supabase } from '@/integrations/supabase/client';
 import { AddTeacherModal } from '@/components/admin/AddTeacherModal';

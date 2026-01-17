@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
@@ -14,6 +14,12 @@ export const useChatStatesDB = (chatIds?: string[]) => {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const busRef = useRef<any>(null);
+  
+  // Stabilize chatIds to prevent infinite loops - use sorted string as key
+  const chatIdsKey = useMemo(() => {
+    if (!chatIds || chatIds.length === 0) return '';
+    return [...chatIds].sort().join(',');
+  }, [chatIds]);
 
   // Загрузка состояний чатов из базы данных
   const loadChatStates = useCallback(async () => {
@@ -24,20 +30,22 @@ export const useChatStatesDB = (chatIds?: string[]) => {
     }
 
     // Если нам явно передали список и он пустой — ничего не грузим
-    if (Array.isArray(chatIds) && chatIds.length === 0) {
+    if (chatIdsKey === '') {
       setChatStates({});
       setLoading(false);
       return;
     }
 
     try {
+      const currentChatIds = chatIdsKey ? chatIdsKey.split(',') : [];
+      
       let query = supabase
         .from('chat_states')
         .select('chat_id, is_pinned, is_archived, is_unread')
         .eq('user_id', user.id);
 
-      if (Array.isArray(chatIds) && chatIds.length > 0) {
-        query = query.in('chat_id', chatIds);
+      if (currentChatIds.length > 0) {
+        query = query.in('chat_id', currentChatIds);
       }
 
       const { data, error } = await query;
@@ -63,7 +71,7 @@ export const useChatStatesDB = (chatIds?: string[]) => {
     } finally {
       setLoading(false);
     }
-  }, [user, chatIds]);
+  }, [user, chatIdsKey]);
 
   // Загружаем данные при монтировании компонента или изменении пользователя
   useEffect(() => {
