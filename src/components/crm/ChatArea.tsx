@@ -1516,6 +1516,10 @@ export const ChatArea = ({
     msg.messengerType === 'telegram'
   );
 
+  // Проверяем, является ли последнее сообщение входящим (от клиента)
+  const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+  const isLastMessageIncoming = lastMessage ? lastMessage.type === 'client' : false;
+
   return (
     <div 
       className="flex-1 bg-background flex flex-col min-w-0 min-h-0 relative"
@@ -2523,21 +2527,24 @@ export const ChatArea = ({
                   </Dialog>
                 )}
                 
-                {/* Разделитель */}
-                <div className="h-6 w-px bg-border mx-1 hidden md:block" />
-                
-                {/* Кнопка "Не требует ответа" */}
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="h-8 px-2 md:px-3 text-xs md:text-sm gap-1 md:gap-2 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
-                  onClick={handleMarkAsNoResponseNeeded}
-                  disabled={!!pendingMessage}
-                  title="Пометить как не требующий ответа"
-                >
-                  <CheckCheck className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                  <span className="hidden sm:inline">Не требует ответа</span>
-                </Button>
+                {/* Разделитель и кнопка "Не требует ответа" - только если последнее сообщение входящее */}
+                {isLastMessageIncoming && (
+                  <>
+                    <div className="h-6 w-px bg-border mx-1 hidden md:block" />
+                    
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="h-8 px-2 md:px-3 text-xs md:text-sm gap-1 md:gap-2 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                      onClick={handleMarkAsNoResponseNeeded}
+                      disabled={!!pendingMessage}
+                      title="Пометить как не требующий ответа"
+                    >
+                      <CheckCheck className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                      <span className="hidden sm:inline">Не требует ответа</span>
+                    </Button>
+                  </>
+                )}
                 
                 {/* Кнопка "Поставить задачу" */}
                 <Button 
