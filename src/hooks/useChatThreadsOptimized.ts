@@ -1,9 +1,9 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { ChatThread, UnreadByMessenger } from './useChatMessages';
 import { chatListQueryConfig } from '@/lib/queryConfig';
 import { isGroupChatName, isTelegramGroup } from './useCommunityChats';
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useState, useCallback } from 'react';
 
 /**
  * Optimized hook for loading chat threads using RPC function
@@ -12,7 +12,7 @@ import { useMemo, useEffect, useState } from 'react';
  * Step 3: Fetch missing unread threads and merge
  */
 export const useChatThreadsOptimized = () => {
-  const queryClient = useQueryClient();
+  // All useState hooks must be called first, unconditionally
   const [missingUnreadThreads, setMissingUnreadThreads] = useState<ChatThread[]>([]);
   const [isMissingLoading, setIsMissingLoading] = useState(false);
 
