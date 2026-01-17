@@ -52,12 +52,14 @@ function mapRpcToThreads(data: any[], startTime: number): ChatThread[] {
     if (telegramChatId) {
       const chatIdStr = String(telegramChatId);
       if (isTelegramGroup(chatIdStr)) {
+        console.log(`[useChatThreadsOptimized] Filtering out Telegram group: ${name}, chat_id: ${chatIdStr}`);
         return false;
       }
     }
     
     // Exclude group chats by name patterns (ЖК, Английский язык, etc.)
     if (isGroupChatName(name)) {
+      console.log(`[useChatThreadsOptimized] Filtering out by name pattern: ${name}`);
       return false;
     }
     
