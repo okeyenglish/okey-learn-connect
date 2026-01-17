@@ -11,27 +11,40 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 // Map Salebot client_type to our messenger_type
-// Salebot client_type values (based on real webhook data):
-// 1 = WhatsApp
-// 2 = Telegram
-// 3 = Viber  
-// 4 = VK
-// 6 = WhatsApp (alternative)
-// 21 = Telegram (alternative - probably Telegram Bot API)
-function getMessengerType(clientType: number): 'whatsapp' | 'telegram' | 'viber' | 'vk' {
+// Salebot client_type values (official documentation):
+// 0 = VK (Вконтакте)
+// 1 = Telegram
+// 2 = Viber
+// 3 = Facebook
+// 5 = Online chat
+// 6 = WhatsApp
+// 7 = Avito
+// 8 = Odnoklassniki
+// 10 = Instagram
+// 12 = Yula
+// 13 = Telephony
+// 14 = Email
+// 16 = Telegram Business Account
+// 19 = Cian
+// 20 = Max
+// 21 = Telegram account
+// 22 = TikTok
+function getMessengerType(clientType: number): 'whatsapp' | 'telegram' | 'viber' | 'vk' | 'max' {
   switch (clientType) {
+    case 0: 
+      return 'vk'
     case 1: 
-    case 6: 
-      return 'whatsapp'
-    case 2: 
+    case 16: 
     case 21: 
       return 'telegram'
-    case 3: 
+    case 2: 
       return 'viber'
-    case 4: 
-      return 'vk'
+    case 6: 
+      return 'whatsapp'
+    case 20:
+      return 'max'
     default: 
-      console.log('Unknown client_type:', clientType, '- defaulting to telegram')
+      console.log('Unmapped client_type:', clientType, '- defaulting to telegram')
       return 'telegram'
   }
 }
