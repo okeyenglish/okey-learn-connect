@@ -93,10 +93,11 @@ Deno.serve(async (req) => {
     console.log('✅ Admin role verified');
 
     // Parse request body - expecting pre-matched updates and new clients from client
-    const { updates, newClients, branch } = await req.json() as { 
+    const { updates, newClients, branch, organizationId } = await req.json() as { 
       updates: UpdateRequest[]; 
       newClients?: NewClientRequest[];
-      branch?: string 
+      branch?: string;
+      organizationId?: string;
     };
 
     const hasUpdates = updates && Array.isArray(updates) && updates.length > 0;
@@ -208,7 +209,21 @@ Deno.serve(async (req) => {
     let failedNewClients = 0;
 
     if (hasNewClients) {
-      console.log(`📥 Creating ${newClients.length} new clients...`);
+      console.log(`📥 Creating ${newClients.length} new clients with organizationId: ${organizationId}...`);
+      
+      if (!organizationId) {
+        console.error('❌ organizationId is required for creating new clients');
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'organizationId is required for creating new clients',
+          updated: updatedTotal,
+          created: 0,
+          errors: newClients.length
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
       
       for (const nc of newClients) {
         try {
@@ -218,13 +233,14 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          // Create client record
+          // Create client record with organizationId
           const { data: newClient, error: clientError } = await supabase
             .from('clients')
             .insert({
               name: nc.name || 'Без имени',
               salebot_client_id: salebotIdNum,
               branch: branch || null,
+              organization_id: organizationId,
               is_active: true
             })
             .select('id')

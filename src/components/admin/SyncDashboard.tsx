@@ -54,7 +54,7 @@ interface DbStats {
 
 export function SyncDashboard() {
   const { toast } = useToast();
-  const { branches } = useOrganization();
+  const { branches, organizationId } = useOrganization();
   const [importProgress, setImportProgress] = useState<SalebotProgress | null>(null);
   const [apiUsage, setApiUsage] = useState<ApiUsage | null>(null);
   const [dbStats, setDbStats] = useState<DbStats | null>(null);
@@ -1001,7 +1001,8 @@ export function SyncDashboard() {
         const { data, error } = await invokeWithRetry({ 
           updates: chunk, 
           newClients: [], 
-          branch: selectedBranchForCsv 
+          branch: selectedBranchForCsv,
+          organizationId 
         });
 
         if (error) {
@@ -1067,7 +1068,8 @@ export function SyncDashboard() {
           const { data, error } = await invokeWithRetry({ 
             updates: [], 
             newClients: chunk, 
-            branch: selectedBranchForCsv 
+            branch: selectedBranchForCsv,
+            organizationId 
           });
 
           if (error) {
