@@ -367,38 +367,50 @@ const CRMContent = () => {
   // Enable real-time updates for the active chat
   useRealtimeMessages(activeChatId);
 
-  // Debounced real-time refresh for chat threads (prevents "realtime storm")
+  // Real-time refresh for chat threads with smart debouncing
   useEffect(() => {
     let debounceTimer: NodeJS.Timeout | null = null;
     let pendingRefetch = false;
     let eventCount = 0;
 
-    const debouncedRefetch = () => {
+    const debouncedRefetch = (payload?: any) => {
       pendingRefetch = true;
       eventCount++;
+      
+      console.log('📩 [CRM] Real-time event received:', { 
+        eventCount, 
+        clientId: payload?.new?.client_id,
+        messageType: payload?.new?.message_type 
+      });
       
       if (debounceTimer) {
         clearTimeout(debounceTimer);
       }
       
-      // Wait 2 seconds after the last event before refetching
+      // Wait 500ms after the last event before refetching (faster response)
       debounceTimer = setTimeout(() => {
         if (pendingRefetch) {
           console.log(`🔄 [CRM] Debounced chat-threads refetch (${eventCount} events batched)`);
           queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+          // Also refresh clients list in case a new client was created via webhook
+          queryClient.invalidateQueries({ queryKey: ['clients'] });
           pendingRefetch = false;
           eventCount = 0;
         }
         debounceTimer = null;
-      }, 2000);
+      }, 500);
     };
 
     const channel = supabase
       .channel('chat-threads-realtime')
-      // Only listen to INSERT events - UPDATE events cause "storms" during bulk mark-as-read
+      // Listen to INSERT events for new messages
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, debouncedRefetch)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'call_logs' }, debouncedRefetch)
-      .subscribe();
+      // Also listen for new clients (created via webhook)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'clients' }, debouncedRefetch)
+      .subscribe((status) => {
+        console.log('📡 [CRM] Real-time subscription status:', status);
+      });
       
     return () => {
       if (debounceTimer) {
