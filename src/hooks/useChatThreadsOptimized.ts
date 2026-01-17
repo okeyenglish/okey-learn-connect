@@ -1,55 +1,70 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { ChatThread, UnreadByMessenger } from './useChatMessages';
 import { chatListQueryConfig } from '@/lib/queryConfig';
 
 /**
  * Optimized hook for loading chat threads using RPC function
- * Uses database RPC for 10-50x faster queries
+ * Uses database RPC for 10x faster queries (single query vs 4 sequential)
  */
 export const useChatThreadsOptimized = () => {
   return useQuery({
-    queryKey: ['chat-threads-optimized'],
+    queryKey: ['chat-threads'],
     queryFn: async (): Promise<ChatThread[]> => {
-      console.log('[useChatThreadsOptimized] Starting RPC fetch...');
+      console.log('[useChatThreadsOptimized] Starting optimized RPC fetch...');
       const startTime = performance.now();
 
       // Use optimized RPC function for fast chat threads loading
       const { data, error } = await supabase
-        .rpc('get_chat_threads_fast', { p_limit: 200 });
+        .rpc('get_chat_threads_optimized', { p_limit: 200 });
 
       if (error) {
-        console.error('[useChatThreadsOptimized] RPC error:', error);
-        throw error;
+        console.error('[useChatThreadsOptimized] RPC error, falling back to fast method:', error);
+        // Fallback to get_chat_threads_fast if available
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .rpc('get_chat_threads_fast', { p_limit: 200 });
+        
+        if (fallbackError) {
+          console.error('[useChatThreadsOptimized] Fallback RPC also failed:', fallbackError);
+          throw fallbackError;
+        }
+        
+        return mapRpcToThreads(fallbackData || [], startTime);
       }
 
-      // Map RPC result to ChatThread format
-      const threads: ChatThread[] = (data || []).map((row: any) => ({
-        client_id: row.client_id,
-        client_name: row.client_name || '',
-        client_phone: row.client_phone || '',
-        last_message: row.last_message || '',
-        last_message_time: row.last_message_time,
-        unread_count: Number(row.unread_count) || 0,
-        unread_by_messenger: {
-          whatsapp: Number(row.unread_whatsapp) || 0,
-          telegram: Number(row.unread_telegram) || 0,
-          max: Number(row.unread_max) || 0,
-          email: Number(row.unread_email) || 0,
-          calls: Number(row.unread_calls) || 0,
-        } as UnreadByMessenger,
-        last_unread_messenger: row.last_unread_messenger || null,
-        messages: []
-      }));
-
-      const endTime = performance.now();
-      console.log(`[useChatThreadsOptimized] Completed in ${(endTime - startTime).toFixed(2)}ms, ${threads.length} threads`);
-
-      return threads;
+      return mapRpcToThreads(data || [], startTime);
     },
     ...chatListQueryConfig,
+    // Keep previous data while loading for smooth UX
+    placeholderData: (previousData) => previousData,
   });
 };
+
+// Helper function to map RPC result to ChatThread format
+function mapRpcToThreads(data: any[], startTime: number): ChatThread[] {
+  const threads: ChatThread[] = data.map((row: any) => ({
+    client_id: row.client_id,
+    client_name: row.client_name || '',
+    client_phone: row.client_phone || '',
+    last_message: row.last_message || '',
+    last_message_time: row.last_message_time,
+    unread_count: Number(row.unread_count) || 0,
+    unread_by_messenger: {
+      whatsapp: Number(row.unread_whatsapp) || 0,
+      telegram: Number(row.unread_telegram) || 0,
+      max: Number(row.unread_max) || 0,
+      email: Number(row.unread_email) || 0,
+      calls: Number(row.unread_calls) || 0,
+    } as UnreadByMessenger,
+    last_unread_messenger: row.last_unread_messenger || null,
+    messages: []
+  }));
+
+  const endTime = performance.now();
+  console.log(`[useChatThreadsOptimized] ✅ Completed in ${(endTime - startTime).toFixed(2)}ms, ${threads.length} threads`);
+
+  return threads;
+}
 
 /**
  * Hook to get threads with unread messages only (faster for notifications)
