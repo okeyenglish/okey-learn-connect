@@ -17,6 +17,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useAuth } from "@/hooks/useAuth";
 import { useClients, useSearchClients, useCreateClient } from "@/hooks/useClients";
 import { useClientIdsByPhoneSearch } from "@/hooks/useClientIdsByPhoneSearch";
+import { usePhoneSearchThreads } from "@/hooks/usePhoneSearchThreads";
 import { useClientStatus } from "@/hooks/useClientStatus";
 import { useRealtimeMessages, useMarkAsRead, useMarkAsUnread } from "@/hooks/useChatMessages";
 import { useChatThreadsOptimized } from "@/hooks/useChatThreadsOptimized";
@@ -816,7 +817,7 @@ const CRMContent = () => {
       avatar_url: null,
     },
   ];
-  const threadClientIds = new Set((threads || []).map(t => t.client_id));
+  const threadClientIdsSet = useMemo(() => new Set((threads || []).map(t => t.client_id)), [threads]);
 
   // Функция для очистки имени от префикса "Клиент"
   const cleanClientName = (name: string) => {
@@ -889,12 +890,61 @@ const CRMContent = () => {
 
   const { data: phoneSearchClientIds = [] } = useClientIdsByPhoneSearch(chatSearchQuery);
   const phoneSearchClientIdsSet = useMemo(() => new Set(phoneSearchClientIds), [phoneSearchClientIds]);
+  
+  // Load full thread data for phone search results that are not in loaded threads
+  const { data: phoneSearchThreads = [] } = usePhoneSearchThreads(phoneSearchClientIds, threadClientIdsSet);
+  
+  // Merge phone search threads into allChats
+  const allChatsWithPhoneSearch = useMemo(() => {
+    if (phoneSearchThreads.length === 0) return allChats;
+    
+    const existingIds = new Set(allChats.map(c => c.id));
+    const newChats = phoneSearchThreads
+      .filter(thread => !existingIds.has(thread.client_id))
+      .map(thread => {
+        let displayAvatar: string | null = null;
+        if (thread.last_unread_messenger === 'telegram' && thread.telegram_avatar_url) {
+          displayAvatar = thread.telegram_avatar_url;
+        } else if (thread.last_unread_messenger === 'whatsapp' && thread.whatsapp_avatar_url) {
+          displayAvatar = thread.whatsapp_avatar_url;
+        } else if (thread.last_unread_messenger === 'max' && thread.max_avatar_url) {
+          displayAvatar = thread.max_avatar_url;
+        } else {
+          displayAvatar = thread.telegram_avatar_url || thread.whatsapp_avatar_url || thread.max_avatar_url || thread.avatar_url || null;
+        }
+        
+        return {
+          id: thread.client_id,
+          name: thread.client_name?.startsWith('Клиент ') 
+            ? thread.client_name.replace('Клиент ', '') 
+            : (thread.client_name || 'Без имени'),
+          phone: thread.client_phone,
+          branch: thread.client_branch,
+          lastMessage: thread.last_message?.trim?.() || 'Нет сообщений',
+          time: formatTime(thread.last_message_time),
+          unread: thread.unread_count,
+          type: 'client' as const,
+          timestamp: thread.last_message_time ? new Date(thread.last_message_time).getTime() : 0,
+          avatar_url: displayAvatar,
+          last_unread_messenger: thread.last_unread_messenger
+        };
+      });
+    
+    console.log('[CRM] Adding phone search threads:', newChats.length);
+    return [...allChats, ...newChats];
+  }, [allChats, phoneSearchThreads]);
 
-  const filteredChats = allChats
+  // Helper to normalize phone for comparison
+  const normalizePhoneForSearch = (phone: string | null | undefined) => 
+    (phone || '').replace(/[\s\+\-\(\)]/g, '');
+  const normalizedSearchQuery = normalizePhoneForSearch(chatSearchQuery);
+  const isPhoneSearch = /^\d{5,}$/.test(normalizedSearchQuery);
+
+  const filteredChats = allChatsWithPhoneSearch
   .filter(chat => 
     chatSearchQuery.length === 0 || 
     (chat.name?.toLowerCase?.().includes(chatSearchQuery.toLowerCase()) ?? false) ||
-    (chat.phone?.includes(chatSearchQuery) ?? false) ||
+    (isPhoneSearch && normalizePhoneForSearch(chat.phone).includes(normalizedSearchQuery)) ||
     (chat.type === 'client' && phoneSearchClientIdsSet.has(chat.id))
   )
     .filter(chat => !getChatState(chat.id).isArchived) // Скрываем архивированные чаты
