@@ -7847,6 +7847,10 @@ export type Database = {
       cleanup_old_cron_logs: { Args: never; Returns: undefined }
       cleanup_old_typing_status: { Args: never; Returns: undefined }
       complete_ai_key_job: { Args: { p_id: number }; Returns: undefined }
+      count_clients_without_imported_messages: {
+        Args: { p_org_id: string }
+        Returns: number
+      }
       create_internal_group_chat: {
         Args: {
           p_branch?: string
@@ -7965,6 +7969,14 @@ export type Database = {
         Returns: {
           chat_id: string
           pin_count: number
+        }[]
+      }
+      get_clients_without_imported_messages: {
+        Args: { p_limit?: number; p_offset?: number; p_org_id: string }
+        Returns: {
+          id: string
+          name: string
+          salebot_client_id: number
         }[]
       }
       get_cron_jobs: {
