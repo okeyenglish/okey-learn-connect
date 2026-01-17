@@ -147,19 +147,14 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
     return systemPatterns.some(pattern => pattern.test(message));
   }, [message]);
 
-  // If it looks like a system message, render it as system
+  // If it looks like a system message, render it as simple centered text
   if (type === 'manager' && isAutoSystemMessage) {
     return (
-      <div className="flex justify-center my-2">
-        <div className="bg-muted/50 border border-border rounded-lg px-3 py-1.5 max-w-md">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 bg-muted rounded flex items-center justify-center flex-shrink-0">
-              <User className="h-3 w-3 text-muted-foreground" />
-            </div>
-            <span className="text-xs text-muted-foreground">{message}</span>
-            <span className="text-[10px] text-muted-foreground/70">{time}</span>
-          </div>
-        </div>
+      <div className="flex justify-center items-center gap-2 my-2">
+        <User className="h-3.5 w-3.5 text-muted-foreground/60" />
+        <span className="text-xs text-muted-foreground">{message}</span>
+        <span className="text-xs text-muted-foreground/60">·</span>
+        <span className="text-xs text-muted-foreground/60">{time}</span>
       </div>
     );
   }
