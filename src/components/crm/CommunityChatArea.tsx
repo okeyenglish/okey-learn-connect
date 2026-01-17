@@ -189,7 +189,9 @@ export const CommunityChatArea = ({ onMessageChange, selectedCommunityId = null,
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="font-medium text-sm truncate">{community.name}</p>
+                            <p className="font-medium text-sm truncate max-w-[180px]" title={community.name}>
+                              {community.name.length > 30 ? community.name.substring(0, 30) + '...' : community.name}
+                            </p>
                             {community.unreadCount > 0 && (
                               <Badge variant="destructive" className="text-xs h-5 rounded-sm">
                                 {community.unreadCount}
@@ -205,7 +207,7 @@ export const CommunityChatArea = ({ onMessageChange, selectedCommunityId = null,
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground line-clamp-1 leading-snug mt-0.5">
-                            {community.lastMessage || 'Нет сообщений'}
+                            {community.lastMessage || (community.lastMessageTime ? '📎 Медиа' : 'Нет сообщений')}
                           </p>
                         </div>
                       </div>
@@ -381,9 +383,11 @@ export const CommunityChatArea = ({ onMessageChange, selectedCommunityId = null,
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="font-medium text-sm truncate">{community.name}</p>
+                            <p className="font-medium text-sm truncate max-w-[140px]" title={community.name}>
+                              {community.name.length > 25 ? community.name.substring(0, 25) + '...' : community.name}
+                            </p>
                             {community.unreadCount > 0 && (
-                              <Badge variant="destructive" className="text-xs h-4 rounded-sm">
+                              <Badge variant="destructive" className="text-xs h-4 rounded-sm flex-shrink-0">
                                 {community.unreadCount}
                               </Badge>
                             )}
@@ -394,7 +398,7 @@ export const CommunityChatArea = ({ onMessageChange, selectedCommunityId = null,
                             </span>
                           </div>
                           <p className="text-xs text-muted-foreground truncate mt-0.5">
-                            {community.lastMessage || 'Нет сообщений'}
+                            {community.lastMessage || (community.lastMessageTime ? '📎 Медиа' : 'Нет сообщений')}
                           </p>
                         </div>
                       </div>
