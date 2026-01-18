@@ -618,6 +618,10 @@ export const ChatArea = ({
       // Инвалидируем кэши для обновления UI
       queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', clientId] });
       queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads-unread-priority'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['chat-messages-infinite', clientId] });
       
       toast({
         title: "Готово",
