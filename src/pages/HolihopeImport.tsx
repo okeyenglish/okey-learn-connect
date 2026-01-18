@@ -771,23 +771,37 @@ export default function HolihopeImport() {
     setIsImporting(true);
     setShouldStopImport(false);
     
-    // Reset stale is_running flag before resuming
+    // Only reset is_running flag if import is TRULY stale (> 10 minutes without update)
     try {
       const { data: holihopeProgress } = await supabase
         .from('holihope_import_progress')
-        .select('id')
+        .select('id, ed_units_is_running, ed_units_last_updated_at')
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
       
-      if (holihopeProgress?.id) {
-        await supabase
-          .from('holihope_import_progress')
-          .update({ ed_units_is_running: false })
-          .eq('id', holihopeProgress.id);
+      if (holihopeProgress?.id && holihopeProgress?.ed_units_is_running) {
+        const lastUpdate = holihopeProgress.ed_units_last_updated_at 
+          ? new Date(holihopeProgress.ed_units_last_updated_at)
+          : null;
+        const secondsSinceUpdate = lastUpdate 
+          ? (Date.now() - lastUpdate.getTime()) / 1000 
+          : Infinity;
+        
+        // Only reset if truly stale (> 10 minutes)
+        if (secondsSinceUpdate > 600) {
+          console.log(`Import stale for ${secondsSinceUpdate}s, resetting is_running flag`);
+          await supabase
+            .from('holihope_import_progress')
+            .update({ ed_units_is_running: false })
+            .eq('id', holihopeProgress.id);
+        } else {
+          // Import is still active - don't reset, let edge function handle "already running"
+          console.log(`Import still active (${secondsSinceUpdate}s since last update), not resetting flag`);
+        }
       }
     } catch (e) {
-      console.error('Failed to reset is_running flag:', e);
+      console.error('Failed to check/reset is_running flag:', e);
     }
     
     toast({
@@ -1187,14 +1201,25 @@ export default function HolihopeImport() {
                     const secondsAgo = edUnitsProgress.lastUpdatedAt 
                       ? Math.floor((Date.now() - edUnitsProgress.lastUpdatedAt.getTime()) / 1000)
                       : null;
-                    const isActive = secondsAgo !== null && secondsAgo < 60;
-                    const isStale = secondsAgo !== null && secondsAgo >= 120;
+                    // Active: updated within 2 minutes (synced with edge function's heavy operations)
+                    const isActive = secondsAgo !== null && secondsAgo < 120;
+                    // Heavy processing: 2-5 minutes without update (upserts in progress)
+                    const isHeavyProcessing = secondsAgo !== null && secondsAgo >= 120 && secondsAgo < 300;
+                    // Stale: no update for > 5 minutes (matches edge function threshold)
+                    const isStale = secondsAgo !== null && secondsAgo >= 300;
                     
                     if (edUnitsProgress.isRunning && isActive) {
                       return (
                         <span className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400">
                           <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></span>
                           Активен ({secondsAgo}с назад)
+                        </span>
+                      );
+                    } else if (edUnitsProgress.isRunning && isHeavyProcessing) {
+                      return (
+                        <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                          <span className="h-2 w-2 bg-amber-400 rounded-full animate-pulse"></span>
+                          Тяжёлая обработка ({secondsAgo}с назад)
                         </span>
                       );
                     } else if (edUnitsProgress.isRunning && isStale) {
@@ -1265,10 +1290,11 @@ export default function HolihopeImport() {
               })()}
               
               {(() => {
-                // Detect stale import: is_running=true but last_updated_at is older than 2 minutes
+                // Detect stale import: is_running=true but last_updated_at is older than 5 minutes
+                // This matches the edge function's alreadyRunning threshold of 300 seconds
                 const isStale = edUnitsProgress.isRunning && 
                   edUnitsProgress.lastUpdatedAt &&
-                  (Date.now() - edUnitsProgress.lastUpdatedAt.getTime()) > 2 * 60 * 1000;
+                  (Date.now() - edUnitsProgress.lastUpdatedAt.getTime()) > 5 * 60 * 1000;
                 
                 const currentPosition = 
                   edUnitsProgress.officeIndex * 5 * 17 + 
