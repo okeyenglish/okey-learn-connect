@@ -3608,17 +3608,22 @@ Deno.serve(async (req) => {
                   console.log(`  ℹ Empty response (0 units)`);
                 }
                 
-                // Save progress every 20 requests to DB for resume capability
-                if (totalRequests % 20 === 0) {
-                  await updateHolihopeProgress(supabase, {
-                    ed_units_office_index: oi,
-                    ed_units_status_index: si,
-                    ed_units_time_index: ti,
-                    ed_units_total_imported: fetchedCount,
-                    ed_units_last_updated_at: new Date().toISOString(),
-                  });
-                  console.log(`📝 Progress saved to DB at request ${totalRequests}: office=${oi}, status=${si}, time=${ti}`);
-                }
+                // Save progress after every request for resume capability (since batch_size is small)
+                // Save the NEXT position so resume continues from correct spot
+                const nextTi = ti + 1;
+                const nextSi = nextTi >= timeRanges.length ? si + 1 : si;
+                const nextOi = nextSi >= statuses.length ? oi + 1 : oi;
+                const actualNextTi = nextTi >= timeRanges.length ? 0 : nextTi;
+                const actualNextSi = nextSi >= statuses.length ? 0 : nextSi;
+                
+                await updateHolihopeProgress(supabase, {
+                  ed_units_office_index: nextOi >= officeIds.length ? oi : nextOi,
+                  ed_units_status_index: nextOi >= officeIds.length ? si : actualNextSi,
+                  ed_units_time_index: nextOi >= officeIds.length ? ti : actualNextTi,
+                  ed_units_total_imported: fetchedCount + previouslyImported,
+                  ed_units_last_updated_at: new Date().toISOString(),
+                });
+                console.log(`📝 Progress saved: next position office=${nextOi >= officeIds.length ? oi : nextOi}, status=${nextOi >= officeIds.length ? si : actualNextSi}, time=${nextOi >= officeIds.length ? ti : actualNextTi}, total=${fetchedCount + previouslyImported}`);
                 
                 // Small delay to avoid overwhelming the API
                 await new Promise(resolve => setTimeout(resolve, 100));
