@@ -214,80 +214,94 @@ export default function HolihopeImport() {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  const isTransientInvokeError = (err: any) => {
+    const msg = String(err?.message || err || '');
+    return (
+      msg.includes('Failed to send a request to the Edge Function') ||
+      msg.includes('fetch failed') ||
+      msg.includes('Failed to fetch') ||
+      msg.includes('NetworkError') ||
+      msg.includes('Load failed') ||
+      msg.includes('REQUEST_TIMEOUT')
+    );
+  };
+
   const executeStep = async (step: ImportStep, batchParams?: any) => {
     setSteps((prev) =>
-      prev.map((s) =>
-        s.id === step.id ? { ...s, status: 'in_progress' } : s
-      )
+      prev.map((s) => (s.id === step.id ? { ...s, status: 'in_progress' } : s))
     );
 
     try {
-      const body: any = { action: step.action };
-      
-      // Add batch parameters if provided
-      if (batchParams) {
-        Object.assign(body, batchParams);
-      }
-      
-      // Set 60 second timeout for edge function calls
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000);
-      
-      try {
-        const { data, error } = await supabase.functions.invoke('import-holihope', {
-          body: JSON.stringify(body),
-          headers: {
-            'Content-Type': 'application/json',
-            'x-action': body.action,
-          },
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (error) throw error;
+      const body: any = { action: step.action, ...(batchParams || {}) };
 
-        const progress = data?.progress?.[0];
-        const nextBatch = data?.nextBatch;
-        const stats = data?.stats;
-        
+      // Step 12 is long-running (many batches); give it more headroom.
+      const timeoutMs = body.action === 'import_ed_units' ? 120_000 : 60_000;
+
+      const invokePromise = supabase.functions.invoke('import-holihope', {
+        body,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-action': body.action,
+        },
+      });
+
+      const result = (await Promise.race([
+        invokePromise,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('REQUEST_TIMEOUT')), timeoutMs)
+        ),
+      ])) as any;
+
+      const { data, error } = result || {};
+      if (error) throw error;
+
+      const progress = data?.progress?.[0];
+      const nextBatch = data?.nextBatch;
+      const stats = data?.stats;
+
+      setSteps((prev) =>
+        prev.map((s) =>
+          s.id === step.id
+            ? {
+                ...s,
+                status: progress?.status || 'completed',
+                count: progress?.count || stats?.totalImported,
+                message: progress?.message,
+                error: progress?.error,
+              }
+            : s
+        )
+      );
+
+      if (progress?.status === 'error') {
+        throw new Error(progress.error || 'Ошибка импорта');
+      }
+
+      return { success: true, progress, nextBatch, stats };
+    } catch (error: any) {
+      const transient = isTransientInvokeError(error);
+      console.error(`Error in step ${step.id}:`, error);
+
+      if (transient) {
+        // Do NOT mark the step as failed: we'll auto-retry in the calling loop.
         setSteps((prev) =>
           prev.map((s) =>
             s.id === step.id
               ? {
                   ...s,
-                  status: progress?.status || 'completed',
-                  count: progress?.count || stats?.totalImported,
-                  message: progress?.message,
-                  error: progress?.error,
+                  status: 'in_progress',
+                  message:
+                    '⏳ Связь с Edge Function прервалась/таймаут — продолжаю автоматически…',
                 }
               : s
           )
         );
-
-        if (progress?.status === 'error') {
-          throw new Error(progress.error || 'Ошибка импорта');
-        }
-
-        return { success: true, progress, nextBatch, stats };
-      } catch (err: any) {
-        clearTimeout(timeoutId);
-        
-        // If timeout, treat as temporary error and allow retry
-        if (err.name === 'AbortError' || err.message?.includes('aborted')) {
-          console.warn('Request timeout, but backend continues working. Will retry...');
-          throw new Error('Таймаут запроса. Backend продолжает работу. Повтор...');
-        }
-        
-        throw err;
+        return { success: false, transient: true };
       }
-    } catch (error: any) {
-      console.error(`Error in step ${step.id}:`, error);
-      
+
       setSteps((prev) =>
         prev.map((s) =>
-          s.id === step.id
-            ? { ...s, status: 'error', error: error.message }
-            : s
+          s.id === step.id ? { ...s, status: 'error', error: error.message } : s
         )
       );
 
