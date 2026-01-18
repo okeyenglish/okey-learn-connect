@@ -14,6 +14,14 @@ export interface TeacherRate {
   valid_until: string | null;
   is_active: boolean;
   notes: string | null;
+  // New fields for Hollihope compatibility
+  group_id: string | null;
+  individual_lesson_id: string | null;
+  min_students: number | null;
+  max_students: number | null;
+  bonus_percentage: number | null;
+  external_id: string | null;
+  holihope_metadata: any | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -32,6 +40,7 @@ export interface SalaryAccrual {
   status: string;
   payment_id: string | null;
   notes: string | null;
+  teacher_coefficient: number | null;
   created_at: string;
   updated_at: string;
 }
