@@ -41,6 +41,15 @@ export default function HolihopeImport() {
     isRunning: boolean;
     isPaused: boolean;
   } | null>(null);
+  const [edUnitsProgress, setEdUnitsProgress] = useState<{
+    officeIndex: number;
+    statusIndex: number;
+    timeIndex: number;
+    totalImported: number;
+    totalCombinations: number;
+    isRunning: boolean;
+    lastUpdatedAt: Date | null;
+  } | null>(null);
   const [apiUsage, setApiUsage] = useState<{
     used: number;
     limit: number;
@@ -141,6 +150,31 @@ export default function HolihopeImport() {
             limit: 6000,
             remaining: 6000,
             date: today
+          });
+        }
+        
+        // 4) Get ed_units progress from holihope_import_progress
+        const { data: holihopeProgress } = await supabase
+          .from('holihope_import_progress')
+          .select('ed_units_office_index, ed_units_status_index, ed_units_time_index, ed_units_total_imported, ed_units_total_combinations, ed_units_is_running, ed_units_last_updated_at')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (holihopeProgress) {
+          const currentPosition = 
+            (holihopeProgress.ed_units_office_index || 0) * 5 * 17 + 
+            (holihopeProgress.ed_units_status_index || 0) * 17 + 
+            (holihopeProgress.ed_units_time_index || 0);
+          
+          setEdUnitsProgress({
+            officeIndex: holihopeProgress.ed_units_office_index || 0,
+            statusIndex: holihopeProgress.ed_units_status_index || 0,
+            timeIndex: holihopeProgress.ed_units_time_index || 0,
+            totalImported: holihopeProgress.ed_units_total_imported || 0,
+            totalCombinations: holihopeProgress.ed_units_total_combinations || 1615,
+            isRunning: holihopeProgress.ed_units_is_running || false,
+            lastUpdatedAt: holihopeProgress.ed_units_last_updated_at ? new Date(holihopeProgress.ed_units_last_updated_at) : null,
           });
         }
       } catch (error) {
@@ -694,6 +728,125 @@ export default function HolihopeImport() {
     setShouldStopImport(false);
   };
 
+  // Resume ed_units import from saved progress in DB
+  const resumeEdUnitsImport = async () => {
+    if (!edUnitsProgress || edUnitsProgress.officeIndex === 0 && edUnitsProgress.statusIndex === 0 && edUnitsProgress.timeIndex === 0) {
+      toast({
+        title: 'Нет сохранённого прогресса',
+        description: 'Начните импорт шага 12 с начала',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    const step = steps.find(s => s.id === 'ed_units');
+    if (!step) return;
+    
+    setIsImporting(true);
+    setShouldStopImport(false);
+    
+    toast({
+      title: 'Продолжение импорта учебных единиц',
+      description: `Возобновление с office=${edUnitsProgress.officeIndex}, status=${edUnitsProgress.statusIndex}, time=${edUnitsProgress.timeIndex}`,
+    });
+    
+    let totalImported = edUnitsProgress.totalImported;
+    let shouldContinueImport = true;
+    let batchParams = { 
+      batch_size: 2,
+      resume: true, // Tell edge function to load progress from DB
+      full_history: true
+    };
+    
+    while (!shouldStopImport && shouldContinueImport) {
+      let retries = 0;
+      const maxRetries = 4;
+      let batchSuccess = false;
+      
+      while (retries < maxRetries && !batchSuccess && !shouldStopImport) {
+        try {
+          const retryDelay = retries > 0 ? Math.min(2000 * Math.pow(2, retries - 1), 16000) : 0;
+          if (retryDelay > 0) {
+            await new Promise((resolve) => setTimeout(resolve, retryDelay));
+          }
+          
+          console.log(`Resuming ed_units import (attempt ${retries + 1}/${maxRetries})`);
+          const result = await executeStep(step, batchParams);
+          
+          if (!result.success) {
+            if (result.transient) {
+              console.log('Transient error, will auto-retry...');
+              retries++;
+              continue;
+            }
+            retries++;
+            if (retries >= maxRetries) {
+              shouldContinueImport = false;
+              break;
+            }
+            continue;
+          }
+          
+          batchSuccess = true;
+          
+          const progress = result.progress;
+          const stats = result.stats;
+          const nextBatch = result.nextBatch;
+          
+          totalImported = stats?.totalImported || totalImported;
+          
+          const hasMore = progress?.hasMore || false;
+          const progressPercent = stats?.progressPercentage || 0;
+          const currentPos = stats?.currentPosition || 0;
+          const totalCombs = stats?.totalCombinations || 1615;
+          
+          setSteps((prev) =>
+            prev.map((s) =>
+              s.id === step.id
+                ? {
+                    ...s,
+                    count: totalImported,
+                    message: `Обработано ${currentPos}/${totalCombs} комбинаций (${progressPercent}%). Импортировано: ${totalImported} единиц.`,
+                    status: hasMore ? 'in_progress' : 'completed',
+                  }
+                : s
+            )
+          );
+          
+          if (!hasMore) {
+            toast({
+              title: 'Успешно',
+              description: `Шаг 12 завершен. Всего импортировано: ${totalImported}`,
+            });
+            shouldContinueImport = false;
+            break;
+          }
+          
+          // For next iteration, use resume=true again to load from DB
+          batchParams = { batch_size: 2, resume: true, full_history: true };
+          
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        } catch (error) {
+          console.error('Error in resume loop:', error);
+          retries++;
+          if (retries >= maxRetries) {
+            shouldContinueImport = false;
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
+      }
+      
+      if (!batchSuccess) {
+        shouldContinueImport = false;
+        break;
+      }
+    }
+    
+    setIsImporting(false);
+    setShouldStopImport(false);
+  };
+
   const deleteEdUnitsAndSchedule = async () => {
     if (!confirm('⚠️ ВНИМАНИЕ! Это действие удалит:\n\n• Все учебные единицы (группы, индивидуальные)\n• Все занятия и расписание\n• Связи ученик-группа\n\nЭто действие НЕОБРАТИМО!\n\nВы уверены?')) {
       return;
@@ -942,6 +1095,87 @@ export default function HolihopeImport() {
               <p className="text-xs text-muted-foreground">
                 ~{Math.floor(apiUsage.remaining / 11)} клиентов можно импортировать сегодня (11 API запросов на клиента)
               </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Ed Units Progress Card */}
+      {edUnitsProgress && (edUnitsProgress.officeIndex > 0 || edUnitsProgress.statusIndex > 0 || edUnitsProgress.timeIndex > 0 || edUnitsProgress.totalImported > 0) && (
+        <Card className="border-blue-500/50 bg-blue-50/50 dark:bg-blue-950/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-300 text-base">
+              📚 Прогресс импорта учебных единиц (Шаг 12)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {edUnitsProgress.isRunning ? (
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400">
+                      <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></span>
+                      Выполняется
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                      <span className="h-2 w-2 bg-amber-400 rounded-full"></span>
+                      Остановлен (можно продолжить)
+                    </span>
+                  )}
+                </div>
+                {edUnitsProgress.lastUpdatedAt && (
+                  <span className="text-xs text-muted-foreground">
+                    Обновлено: {edUnitsProgress.lastUpdatedAt.toLocaleTimeString()}
+                  </span>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-4 gap-3 text-sm">
+                <div className="p-2 bg-white/60 dark:bg-gray-800/60 rounded">
+                  <div className="text-xs text-muted-foreground">Офис</div>
+                  <div className="font-semibold">{edUnitsProgress.officeIndex + 1} / 19</div>
+                </div>
+                <div className="p-2 bg-white/60 dark:bg-gray-800/60 rounded">
+                  <div className="text-xs text-muted-foreground">Статус</div>
+                  <div className="font-semibold">{['Reserve', 'Forming', 'Working', 'Stopped', 'Finished'][edUnitsProgress.statusIndex] || '?'}</div>
+                </div>
+                <div className="p-2 bg-white/60 dark:bg-gray-800/60 rounded">
+                  <div className="text-xs text-muted-foreground">Время</div>
+                  <div className="font-semibold">{6 + edUnitsProgress.timeIndex}:00</div>
+                </div>
+                <div className="p-2 bg-white/60 dark:bg-gray-800/60 rounded">
+                  <div className="text-xs text-muted-foreground">Импортировано</div>
+                  <div className="font-semibold text-blue-600">{edUnitsProgress.totalImported}</div>
+                </div>
+              </div>
+              
+              {(() => {
+                const currentPosition = 
+                  edUnitsProgress.officeIndex * 5 * 17 + 
+                  edUnitsProgress.statusIndex * 17 + 
+                  edUnitsProgress.timeIndex;
+                const progress = Math.round((currentPosition / edUnitsProgress.totalCombinations) * 100);
+                return (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span>Комбинаций: {currentPosition} / {edUnitsProgress.totalCombinations}</span>
+                      <span className="font-semibold">{progress}%</span>
+                    </div>
+                    <Progress value={progress} className="h-2" />
+                  </div>
+                );
+              })()}
+              
+              {!edUnitsProgress.isRunning && !isImporting && (
+                <Button
+                  onClick={resumeEdUnitsImport}
+                  disabled={isImporting || isClearing}
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                >
+                  🔄 Продолжить импорт учебных единиц
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
