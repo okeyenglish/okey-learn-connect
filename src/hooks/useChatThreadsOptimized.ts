@@ -199,7 +199,7 @@ function mapRpcToThreads(data: any[], startTime: number): ChatThread[] {
     telegram_avatar_url: row.telegram_avatar_url || null,
     whatsapp_avatar_url: row.whatsapp_avatar_url || null,
     max_avatar_url: row.max_avatar_url || null,
-    last_message: row.last_message || '',
+    last_message: row.last_message_text || row.last_message || '', // last_message_text from RPC
     last_message_time: row.last_message_time,
     unread_count: Number(row.unread_count) || 0,
     unread_by_messenger: {
