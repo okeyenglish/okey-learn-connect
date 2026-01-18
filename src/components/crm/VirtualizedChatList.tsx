@@ -55,18 +55,32 @@ export const VirtualizedChatList = React.memo(({
     overscan: 5,
   });
 
-  // Infinite scroll: load more when approaching bottom
+  // Infinite scroll: load more only when user actually scrolls near the bottom
+  // Uses scroll position instead of virtual items to prevent runaway loading
   useEffect(() => {
-    if (!hasNextPage || !onLoadMore || isFetchingNextPage) return;
+    const parentElement = parentRef.current;
+    if (!parentElement || !hasNextPage || !onLoadMore) return;
 
-    const items = virtualizer.getVirtualItems();
-    const lastItem = items[items.length - 1];
-    
-    // If last visible item is near the end, load more
-    if (lastItem && lastItem.index >= chats.length - 5) {
-      onLoadMore();
-    }
-  }, [virtualizer.getVirtualItems(), hasNextPage, onLoadMore, isFetchingNextPage, chats.length]);
+    let isLoadingMore = false;
+
+    const handleScroll = () => {
+      if (isLoadingMore || isFetchingNextPage) return;
+      
+      const { scrollTop, scrollHeight, clientHeight } = parentElement;
+      const scrolledToBottom = scrollTop + clientHeight >= scrollHeight - 300;
+      
+      if (scrolledToBottom) {
+        isLoadingMore = true;
+        console.log('[VirtualizedChatList] Loading more - scrolled near bottom');
+        onLoadMore();
+        // Reset after a delay to allow new data to load
+        setTimeout(() => { isLoadingMore = false; }, 1000);
+      }
+    };
+
+    parentElement.addEventListener('scroll', handleScroll);
+    return () => parentElement.removeEventListener('scroll', handleScroll);
+  }, [hasNextPage, onLoadMore, isFetchingNextPage]);
 
   // Debounced prefetch on hover - only prefetch if hovering for 150ms
   // Prioritizes unread chats for instant prefetch

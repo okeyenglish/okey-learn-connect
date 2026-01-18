@@ -338,14 +338,26 @@ const CRMContent = () => {
     isPinned 
   } = usePinnedModalsDB();
 
-  // visibleChatIds теперь берем из threads (не из clients) - объявляем ДО useChatStatesDB
+  // visibleChatIds - ограничиваем только реально видимыми (первые 200) + активный + системные
+  // Это предотвращает огромные запросы к chat_states при infinite scroll
   const visibleChatIds = useMemo(() => {
     const ids = new Set<string>();
-    (threads || []).forEach((t: any) => t?.client_id && ids.add(t.client_id));
+    
+    // Только первые 200 threads (достаточно для viewport + буфер)
+    const visibleThreads = (threads || []).slice(0, 200);
+    visibleThreads.forEach((t: any) => t?.client_id && ids.add(t.client_id));
+    
+    // Всегда добавляем активный чат
+    if (activeChatId) {
+      ids.add(activeChatId);
+    }
+    
+    // Системные чаты (их мало)
     (corporateChats || []).forEach((c: any) => c?.id && ids.add(c.id));
     (teacherChats || []).forEach((c: any) => c?.id && ids.add(c.id));
+    
     return Array.from(ids);
-  }, [threads, corporateChats, teacherChats]);
+  }, [threads, corporateChats, teacherChats, activeChatId]);
 
   const { 
     chatStates, 

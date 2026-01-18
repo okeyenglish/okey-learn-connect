@@ -39,31 +39,41 @@ export const useChatStatesDB = (chatIds?: string[]) => {
     try {
       const currentChatIds = chatIdsKey ? chatIdsKey.split(',') : [];
       
-      let query = supabase
-        .from('chat_states')
-        .select('chat_id, is_pinned, is_archived, is_unread')
-        .eq('user_id', user.id);
-
-      if (currentChatIds.length > 0) {
-        query = query.in('chat_id', currentChatIds);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('Error loading chat states:', error);
+      // Chunk the IDs to avoid URL length limits (max ~100 IDs per request)
+      const CHUNK_SIZE = 100;
+      const statesMap: Record<string, ChatState> = {};
+      
+      if (currentChatIds.length === 0) {
+        // No specific IDs - skip loading to avoid fetching all states
+        setChatStates({});
+        setLoading(false);
         return;
       }
 
-      const statesMap: Record<string, ChatState> = {};
-      (data || []).forEach(state => {
-        statesMap[state.chat_id] = {
-          chatId: state.chat_id,
-          isPinned: state.is_pinned,
-          isArchived: state.is_archived,
-          isUnread: state.is_unread
-        };
-      });
+      // Process in chunks to avoid URL overflow
+      for (let i = 0; i < currentChatIds.length; i += CHUNK_SIZE) {
+        const chunk = currentChatIds.slice(i, i + CHUNK_SIZE);
+        
+        const { data, error } = await supabase
+          .from('chat_states')
+          .select('chat_id, is_pinned, is_archived, is_unread')
+          .eq('user_id', user.id)
+          .in('chat_id', chunk);
+
+        if (error) {
+          console.error('Error loading chat states chunk:', error);
+          continue;
+        }
+
+        (data || []).forEach(state => {
+          statesMap[state.chat_id] = {
+            chatId: state.chat_id,
+            isPinned: state.is_pinned,
+            isArchived: state.is_archived,
+            isUnread: state.is_unread
+          };
+        });
+      }
 
       setChatStates(statesMap);
     } catch (error) {
