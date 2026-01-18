@@ -899,11 +899,24 @@ const CRMContent = () => {
     sample: allChats.slice(0, 5).map(c => ({ id: c.id, name: c.name, type: c.type }))
   });
 
-  const { data: phoneSearchClientIds = [] } = useClientIdsByPhoneSearch(chatSearchQuery);
+  const { data: phoneSearchClientIds = [], isLoading: phoneSearchLoading } = useClientIdsByPhoneSearch(chatSearchQuery);
   const phoneSearchClientIdsSet = useMemo(() => new Set(phoneSearchClientIds), [phoneSearchClientIds]);
   
+  // Debug logging for phone search
+  console.log('[CRM] Phone search state:', { 
+    query: chatSearchQuery, 
+    clientIdsFound: phoneSearchClientIds.length,
+    isLoading: phoneSearchLoading,
+    ids: phoneSearchClientIds.slice(0, 5)
+  });
+  
   // Load full thread data for phone search results that are not in loaded threads
-  const { data: phoneSearchThreads = [] } = usePhoneSearchThreads(phoneSearchClientIds, threadClientIdsSet);
+  const { data: phoneSearchThreads = [], isLoading: phoneThreadsLoading } = usePhoneSearchThreads(phoneSearchClientIds, threadClientIdsSet);
+  
+  console.log('[CRM] Phone search threads:', {
+    threadsLoaded: phoneSearchThreads.length,
+    isLoading: phoneThreadsLoading
+  });
   
   // Merge phone search threads into allChats
   const allChatsWithPhoneSearch = useMemo(() => {
