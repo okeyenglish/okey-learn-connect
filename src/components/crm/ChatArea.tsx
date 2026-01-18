@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone, PanelLeft, PanelRight, CheckCheck, ListTodo } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,7 +12,8 @@ import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useTypingStatus } from "@/hooks/useTypingStatus";
-import { useRealtimeMessages, useClientUnreadByMessenger } from "@/hooks/useChatMessages";
+import { useClientUnreadByMessenger } from "@/hooks/useChatMessages";
+import { useChatMessagesOptimized } from "@/hooks/useChatMessagesOptimized";
 import { ChatMessage } from "./ChatMessage";
 import { DateSeparator, shouldShowDateSeparator } from "./DateSeparator";
 import { SalebotCallbackMessage, isSalebotCallback } from "./SalebotCallbackMessage";
@@ -80,12 +81,18 @@ export const ChatArea = ({
   const [showSearchInput, setShowSearchInput] = useState(false);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
-  const [messages, setMessages] = useState<any[]>([]);
-  const [loadingMessages, setLoadingMessages] = useState(true);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  
+  // React Query for messages - replaces useState + loadMessages for caching
+  const [messageLimit, setMessageLimit] = useState(100);
+  const { 
+    data: messagesData, 
+    isLoading: loadingMessages, 
+    isFetching: fetchingMessages 
+  } = useChatMessagesOptimized(clientId, messageLimit);
+  
+  const hasMoreMessages = messagesData?.hasMore ?? false;
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
-  const [hasMoreMessages, setHasMoreMessages] = useState(false);
-  const [messageLimit, setMessageLimit] = useState(100); // Начинаем с 100 последних сообщений
+  
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
   const [showForwardModal, setShowForwardModal] = useState(false);
@@ -162,9 +169,6 @@ export const ChatArea = ({
   // Get pending GPT responses for this client
   const { data: pendingGPTResponses, isLoading: pendingGPTLoading, error: pendingGPTError } = usePendingGPTResponses(clientId);
   
-  // Set up real-time message updates
-  useRealtimeMessages(clientId);
-  
   // Log pending responses for debugging
   useEffect(() => {
     console.log('ChatArea - clientId:', clientId);
@@ -231,9 +235,10 @@ export const ChatArea = ({
     let initialTab = lastUnreadMessenger;
     
     // If no unread messages, check the last message's messenger type
-    if (!initialTab && messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-      initialTab = lastMessage?.messengerType || 'whatsapp';
+    const rawMessages = messagesData?.messages || [];
+    if (!initialTab && rawMessages.length > 0) {
+      const lastMessage = rawMessages[rawMessages.length - 1];
+      initialTab = (lastMessage as any)?.messenger_type || 'whatsapp';
       console.log('[ChatArea] Setting initial tab from last message:', initialTab, 'message:', lastMessage?.id);
     }
     
@@ -242,7 +247,7 @@ export const ChatArea = ({
       initialTab = 'whatsapp';
     }
     
-    console.log('[ChatArea] Setting initial tab:', initialTab, 'for client:', clientId, 'lastUnreadMessenger:', lastUnreadMessenger, 'messagesCount:', messages.length);
+    console.log('[ChatArea] Setting initial tab:', initialTab, 'for client:', clientId, 'lastUnreadMessenger:', lastUnreadMessenger, 'messagesCount:', rawMessages.length);
     
     setActiveMessengerTab(initialTab);
     setInitialTabSet(clientId);
@@ -251,7 +256,7 @@ export const ChatArea = ({
     
     // НЕ помечаем автоматически сообщения как прочитанные
     // Менеджер должен явно нажать "Не требует ответа" или отправить сообщение
-  }, [clientId, unreadLoading, unreadFetching, lastUnreadMessenger, initialTabSet, messages, loadingMessages]);
+  }, [clientId, unreadLoading, unreadFetching, lastUnreadMessenger, initialTabSet, messagesData?.messages, loadingMessages]);
 
   // Mark messages as read when switching tabs - только прокрутка, НЕ отметка прочитанности
   const handleTabChange = (newTab: string) => {
@@ -341,7 +346,7 @@ export const ChatArea = ({
   };
 
   // Format message helper - мемоизированная функция
-  const formatMessage = (msg: any) => ({
+  const formatMessage = useCallback((msg: any) => ({
     id: msg.id,
     type: msg.message_type || (msg.is_outgoing ? 'manager' : 'client'),
     message: msg.message_text || '',
@@ -370,180 +375,78 @@ export const ChatArea = ({
     fileType: msg.file_type,
     whatsappChatId: msg.whatsapp_chat_id,
     externalMessageId: msg.external_message_id,
-    messengerType: msg.messenger_type || 'whatsapp'
-  });
+    messengerType: msg.messenger_type || 'whatsapp',
+    // Forwarding metadata
+    isForwarded: msg.is_forwarded || false,
+    forwardedFrom: msg.forwarded_from || null,
+    forwardedFromType: msg.forwarded_from_type || null,
+  }), [managerName]);
 
-  // Load messages from database with pagination
-  const loadMessages = async (limit = messageLimit, append = false) => {
-    if (!clientId || clientId === '1') {
-      console.log('Invalid clientId:', clientId);
-      setLoadingMessages(false);
-      return;
-    }
-    
-    if (append) {
-      setLoadingOlderMessages(true);
-    } else {
-      setLoadingMessages(true);
-    }
-    console.log('Loading messages for client:', clientId, 'limit:', limit, 'append:', append);
-    
-    try {
-      // Get total count first
-      const { count: totalCount } = await supabase
-        .from('chat_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('client_id', clientId);
-      
-      // Load messages with limit (most recent ones)
-      const primary = await supabase
-        .from('chat_messages')
-        .select(`
-          *,
-          clients(avatar_url, whatsapp_chat_id, telegram_avatar_url, whatsapp_avatar_url, max_avatar_url)
-        `)
-        .eq('client_id', clientId)
-        .order('created_at', { ascending: false })
-        .limit(limit);
+  // Format messages from React Query data using memoization for performance
+  const messages = useMemo(() => {
+    if (!messagesData?.messages) return [];
+    return messagesData.messages.map(formatMessage);
+  }, [messagesData?.messages, formatMessage]);
 
-      let data: any[] = primary.data as any[] || [];
-
-      // If join or RLS on clients blocked results, fall back to plain select without join
-      if (primary.error || data.length === 0) {
-        if (primary.error) console.warn('Primary messages query error, falling back without join:', primary.error);
-        const fallback = await supabase
-          .from('chat_messages')
-          .select('*')
-          .eq('client_id', clientId)
-          .order('created_at', { ascending: false })
-          .limit(limit);
-        data = (fallback.data as any[]) || [];
-        if (fallback.error) console.error('Fallback messages query error:', fallback.error);
-      }
-
-      console.log('Loaded messages from database (count/total):', data?.length || 0, '/', totalCount);
-      
-      // Check if there are more messages to load
-      setHasMoreMessages((totalCount || 0) > limit);
-
-      // Reverse to show oldest first
-      const formattedMessages = (data || []).reverse().map(formatMessage);
-
-      console.log('Formatted messages (count):', formattedMessages.length);
-      
-      if (append) {
-        setMessages(prev => [...formattedMessages, ...prev]);
-      } else {
-        setMessages(formattedMessages);
-        
-        // Мгновенная прокрутка к концу при первой загрузке
-        if (formattedMessages.length > 0) {
-          setTimeout(() => scrollToBottom(false), 50);
-          setIsInitialLoad(false);
-          
-          // НЕ помечаем все сообщения как прочитанные здесь!
-          // Это делается в useEffect при установке начальной вкладки
-        }
-      }
-    } catch (error) {
-      console.error('Error loading messages:', error);
-    } finally {
-      if (append) {
-        setLoadingOlderMessages(false);
-      } else {
-        setLoadingMessages(false);
-      }
-    }
-  };
-
-  // Load older messages handler
-  const loadOlderMessages = () => {
+  // Load older messages handler - just increases limit, React Query handles the rest
+  const loadOlderMessages = useCallback(() => {
+    setLoadingOlderMessages(true);
     const newLimit = messageLimit + 100;
     setMessageLimit(newLimit);
-    loadMessages(newLimit, false);
-  };
+    // React Query will automatically refetch with new limit
+    // Reset loading state after a short delay (React Query will update data)
+    setTimeout(() => setLoadingOlderMessages(false), 500);
+  }, [messageLimit]);
 
-  // Load messages on component mount and when clientId changes
+  // Reset limit when client changes
   useEffect(() => {
-    setIsInitialLoad(true);
-    setMessageLimit(100); // Reset limit
-    loadMessages(100, false);
+    setMessageLimit(100);
   }, [clientId]);
 
-  // Set up real-time message updates when client changes
+  // Scroll to bottom when messages load initially or when switching clients
+  const prevClientIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!loadingMessages && messages.length > 0) {
+      // Only scroll on initial load or client change
+      if (prevClientIdRef.current !== clientId) {
+        setTimeout(() => scrollToBottom(false), 50);
+        prevClientIdRef.current = clientId;
+      }
+    }
+  }, [loadingMessages, messages.length, clientId]);
+
+  // Set up real-time message updates - invalidate React Query cache instead of managing state
   useEffect(() => {
     if (!clientId || clientId === '1') return;
     
-    // Set up real-time subscription for new messages
     const channel = supabase
       .channel(`chat_messages_${clientId}`)
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*', // Listen to all events: INSERT, UPDATE, DELETE
           schema: 'public',
           table: 'chat_messages',
           filter: `client_id=eq.${clientId}`
         },
         (payload) => {
-          console.log('Received new message via real-time:', payload);
-          const newMsg = payload.new as any;
+          console.log('[ChatArea] Real-time message event:', payload.eventType, payload);
           
-          // Avoid duplicate by checking if message already exists
-          setMessages(prev => {
-            const exists = prev.some(m => m.id === newMsg.id);
-            if (exists) {
-              console.log('Message already exists, skipping:', newMsg.id);
-              return prev;
-            }
-            
-            const formatted = formatMessage(newMsg);
-            console.log('Adding new message to chat:', formatted.id);
-            return [...prev, formatted];
+          // Invalidate React Query cache to refetch messages
+          queryClient.invalidateQueries({ 
+            queryKey: ['chat-messages-optimized', clientId] 
           });
           
-          // Scroll to bottom with smooth animation for new messages
-          setTimeout(() => scrollToBottom(true), 100);
-          
-          // НЕ помечаем автоматически как прочитанные
-          // Менеджер должен явно нажать "Не требует ответа" или отправить сообщение
-          // Только обновляем счетчики непрочитанных для UI
-          if (newMsg.message_type === 'client' || !newMsg.is_outgoing) {
-            queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', clientId] });
-            queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+          // For new client messages, also update unread counts
+          if (payload.eventType === 'INSERT') {
+            const newMsg = payload.new as any;
+            if (newMsg.message_type === 'client' || !newMsg.is_outgoing) {
+              queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', clientId] });
+              queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+            }
+            // Scroll to bottom for new messages
+            setTimeout(() => scrollToBottom(true), 100);
           }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `client_id=eq.${clientId}`
-        },
-        (payload) => {
-          console.log('Message updated via real-time:', payload);
-          const updatedMsg = payload.new as any;
-          
-          setMessages(prev => 
-            prev.map(m => m.id === updatedMsg.id ? formatMessage(updatedMsg) : m)
-          );
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `client_id=eq.${clientId}`
-        },
-        (payload) => {
-          console.log('Message deleted via real-time:', payload);
-          const deletedMsg = payload.old as any;
-          
-          setMessages(prev => prev.filter(m => m.id !== deletedMsg.id));
         }
       )
       .subscribe();
@@ -551,7 +454,7 @@ export const ChatArea = ({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [clientId]);
+  }, [clientId, queryClient]);
 
   // Check MAX availability when switching to MAX tab with no messages
   useEffect(() => {
@@ -1461,14 +1364,8 @@ export const ChatArea = ({
         description: isMaxMessage ? "Сообщение обновлено" : "Сообщение обновлено в WhatsApp",
       });
       
-      // Обновляем локальное состояние сообщений
-      setMessages(prev => 
-        prev.map(m => 
-          m.id === messageId
-            ? { ...m, message: newMessage, isEdited: true, editedTime: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) }
-            : m
-        )
-      );
+      // Invalidate React Query cache to refetch messages with updated content
+      queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
     }
   };
 
@@ -1483,14 +1380,8 @@ export const ChatArea = ({
       : await deleteMessage(messageId, clientId);
     
     if (result.success) {
-      // Обновляем локальное состояние сообщений
-      setMessages(prev => 
-        prev.map(m => 
-          m.id === messageId
-            ? { ...m, message: '[Сообщение удалено]', isDeleted: true }
-            : m
-        )
-      );
+      // Invalidate React Query cache to refetch messages
+      queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
     }
   };
 
