@@ -612,7 +612,7 @@ Deno.serve(async (req) => {
 
           const { error } = await supabase
             .from('teachers')
-            .upsert(teacherData);
+            .upsert(teacherData, { onConflict: 'external_id' });
 
           if (error) {
             console.error(`Error importing teacher ${teacher.lastName}:`, error);
@@ -2808,7 +2808,7 @@ Deno.serve(async (req) => {
             organization_id: orgId,
             external_id: type.id?.toString() || type.Id?.toString(),
             holihope_metadata: type, // Store complete API response
-          });
+          }, { onConflict: 'external_id,organization_id' });
           
           if (error) {
             console.error('Error upserting learning type:', error);
@@ -3344,7 +3344,7 @@ Deno.serve(async (req) => {
           
           const { error: employeeError } = await supabase
             .from('employees')
-            .upsert(employeeData);
+            .upsert(employeeData, { onConflict: 'external_id' });
           
           if (employeeError) {
             console.error('Error upserting employee:', employeeError);
