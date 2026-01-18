@@ -1089,13 +1089,23 @@ const CRMContent = () => {
       // Helper to get phone: try client.phone first, then fetch from client_phone_numbers
       const getClientPhone = async (clientId: string, clientPhone?: string | null): Promise<string> => {
         if (clientPhone) return clientPhone;
+        // First try to get primary phone
         const { data: primaryPhone } = await supabase
           .from('client_phone_numbers')
           .select('phone')
           .eq('client_id', clientId)
           .eq('is_primary', true)
           .maybeSingle();
-        return primaryPhone?.phone || '';
+        if (primaryPhone?.phone) return primaryPhone.phone;
+        
+        // Fallback: get any phone number for this client
+        const { data: anyPhone } = await supabase
+          .from('client_phone_numbers')
+          .select('phone')
+          .eq('client_id', clientId)
+          .limit(1)
+          .maybeSingle();
+        return anyPhone?.phone || '';
       };
       
       if (existingClient) {
@@ -1115,24 +1125,18 @@ const CRMContent = () => {
       } else {
         // Загружаем из базы данных
         try {
-          const [{ data: clientData, error }, { data: primaryPhone }] = await Promise.all([
-            supabase
-              .from('clients')
-              .select('name, phone, notes')
-              .eq('id', chatId)
-              .maybeSingle(),
-            supabase
-              .from('client_phone_numbers')
-              .select('phone')
-              .eq('client_id', chatId)
-              .eq('is_primary', true)
-              .maybeSingle()
-          ]);
+          const { data: clientData, error } = await supabase
+            .from('clients')
+            .select('name, phone, notes')
+            .eq('id', chatId)
+            .maybeSingle();
           
           if (!error && clientData) {
+            // Use the helper function that includes fallback logic
+            const phone = await getClientPhone(chatId, clientData.phone);
             setActiveClientInfo({
               name: clientData.name,
-              phone: clientData.phone || primaryPhone?.phone || '',
+              phone: phone,
               comment: clientData.notes || 'Клиент'
             });
           } else {
@@ -1298,7 +1302,7 @@ const CRMContent = () => {
   const getActiveClientInfo = (clientId?: string | null) => {
     const targetClientId = clientId || activeChatId;
     
-    // Если запрашиваем активный чат и есть закэшированная информация
+    // Если запрашиваем активный чат и есть закэшированная информация (с уже загруженным телефоном из client_phone_numbers)
     if (targetClientId === activeChatId && activeClientInfo) {
       return activeClientInfo;
     }
@@ -1307,16 +1311,19 @@ const CRMContent = () => {
     const targetThread = threads.find(thread => thread.client_id === targetClientId);
     
     if (targetClient) {
+      // For clients, we need to check if phone exists in the main field
+      // If not, the actual phone will be loaded via handleChatClick and cached in activeClientInfo
+      // For now, return what we have - the phone from main table or empty string
       return {
         name: targetClient.name,
-        phone: targetClient.phone,
+        phone: targetClient.phone || '',
         comment: targetClient.notes || 'Клиент'
       };
     }
     if (targetThread) {
       return {
         name: targetThread.client_name,
-        phone: targetThread.client_phone,
+        phone: targetThread.client_phone || '',
         comment: 'Клиент'
       };
     }
