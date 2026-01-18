@@ -241,6 +241,22 @@ async function handleIncomingMessage(data: any) {
     phone: phone,
     whatsappChatId: `${phone}@c.us`
   })
+
+  // IMPORTANT: If this is an outgoing message (manager replied from phone),
+  // mark all unread messages from this client as read
+  if (isFromMe) {
+    const { error: markReadError, count: markedCount } = await supabase
+      .from('chat_messages')
+      .update({ is_read: true })
+      .eq('client_id', client.id)
+      .eq('is_read', false)
+
+    if (markReadError) {
+      console.error('Error marking messages as read:', markReadError)
+    } else if (markedCount && markedCount > 0) {
+      console.log(`Marked ${markedCount} messages as read for client:`, client.id)
+    }
+  }
   
   const { error: messageError } = await supabase
     .from('chat_messages')
@@ -248,7 +264,7 @@ async function handleIncomingMessage(data: any) {
       client_id: client.id,
       message_text: messageText,
       message_type: isFromMe ? 'manager' : 'client',
-      is_read: false,
+      is_read: isFromMe, // Outgoing messages are already read
       is_outgoing: isFromMe,
       messenger_type: 'whatsapp',
       file_url: media?.url || null,
