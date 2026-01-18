@@ -41,27 +41,30 @@ export const useChatThreadsOptimized = () => {
     placeholderData: (previousData) => previousData,
   });
 
-  // Step 2: Load unread client IDs (fast, uses partial index)
+  // Step 2: Load unread client IDs (fast, uses partial index, LIMITED to prevent timeout)
   const unreadClientsQuery = useQuery({
     queryKey: ['unread-client-ids'],
     queryFn: async (): Promise<string[]> => {
       console.log('[useChatThreadsOptimized] Step 2: Loading unread client IDs...');
       const startTime = performance.now();
       
+      // IMPORTANT: Limit to 500 to prevent statement timeout on large datasets
       const { data, error } = await supabase
         .from('chat_messages')
         .select('client_id')
         .eq('is_read', false)
-        .eq('message_type', 'client');
+        .eq('message_type', 'client')
+        .order('created_at', { ascending: false })
+        .limit(1000); // Get recent 1000 unread messages, then dedupe
 
       if (error) throw error;
 
-      // Get unique client IDs
+      // Get unique client IDs (deduped from limited set)
       const clientIds = [...new Set((data || []).map(m => m.client_id))];
       console.log(`[useChatThreadsOptimized] Step 2: Found ${clientIds.length} clients with unread in ${(performance.now() - startTime).toFixed(2)}ms`);
       return clientIds;
     },
-    staleTime: 10000,
+    staleTime: 15000, // Increased staleTime to reduce requests
     refetchOnWindowFocus: false,
   });
 

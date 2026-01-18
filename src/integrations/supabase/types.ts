@@ -8066,18 +8066,24 @@ export type Database = {
       get_chat_threads_fast: {
         Args: { p_limit?: number }
         Returns: {
+          avatar_url: string
+          client_branch: string
           client_id: string
           client_name: string
           client_phone: string
           last_message: string
           last_message_time: string
           last_unread_messenger: string
+          max_avatar_url: string
+          telegram_avatar_url: string
+          telegram_chat_id: string
           unread_calls: number
           unread_count: number
           unread_email: number
           unread_max: number
           unread_telegram: number
           unread_whatsapp: number
+          whatsapp_avatar_url: string
         }[]
       }
       get_chat_threads_optimized: {
@@ -8545,7 +8551,13 @@ export type Database = {
         | "read"
         | "failed"
         | "noAccount"
-      messenger_type: "whatsapp" | "telegram" | "system" | "max" | "email"
+      messenger_type:
+        | "whatsapp"
+        | "telegram"
+        | "system"
+        | "max"
+        | "email"
+        | "salebot"
       payment_method: "per_lesson" | "monthly" | "course" | "package"
       payment_method_type: "cash" | "card" | "bank_transfer" | "online"
       relationship_type: "main" | "spouse" | "parent" | "guardian" | "other"
@@ -8753,7 +8765,14 @@ export const Constants = {
         "failed",
         "noAccount",
       ],
-      messenger_type: ["whatsapp", "telegram", "system", "max", "email"],
+      messenger_type: [
+        "whatsapp",
+        "telegram",
+        "system",
+        "max",
+        "email",
+        "salebot",
+      ],
       payment_method: ["per_lesson", "monthly", "course", "package"],
       payment_method_type: ["cash", "card", "bank_transfer", "online"],
       relationship_type: ["main", "spouse", "parent", "guardian", "other"],
