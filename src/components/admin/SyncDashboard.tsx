@@ -249,12 +249,26 @@ export function SyncDashboard() {
     }
   };
 
+  // Quick refresh of clients without messages count (separate from full stats)
+  const refreshClientsWithoutMessagesCount = async () => {
+    if (!organizationId) return;
+    try {
+      const { data, error } = await supabase.rpc('count_clients_without_imported_messages', { p_org_id: organizationId });
+      if (!error && data !== null) {
+        setClientsWithoutMessages(data as number);
+      }
+    } catch (error) {
+      console.error('Error refreshing clients without messages count:', error);
+    }
+  };
+
   useEffect(() => {
     // Initial fetch
     fetchProgressOnly();
     fetchDbStats(); // Fetch stats once on mount
 
     let intervalId: NodeJS.Timeout;
+    let statsIntervalId: NodeJS.Timeout;
 
     const startPolling = () => {
       // Only poll if tab is visible
@@ -264,6 +278,13 @@ export function SyncDashboard() {
             fetchProgressOnly();
           }
         }, pollInterval);
+        
+        // Refresh clientsWithoutMessages count every 30 seconds
+        statsIntervalId = setInterval(() => {
+          if (document.visibilityState === 'visible') {
+            refreshClientsWithoutMessagesCount();
+          }
+        }, 30000);
       }
     };
 
@@ -271,10 +292,12 @@ export function SyncDashboard() {
       if (document.visibilityState === 'visible') {
         // Resume polling when tab becomes visible
         fetchProgressOnly();
+        refreshClientsWithoutMessagesCount();
         startPolling();
       } else {
         // Stop polling when tab is hidden
         if (intervalId) clearInterval(intervalId);
+        if (statsIntervalId) clearInterval(statsIntervalId);
       }
     };
 
@@ -283,9 +306,10 @@ export function SyncDashboard() {
 
     return () => {
       if (intervalId) clearInterval(intervalId);
+      if (statsIntervalId) clearInterval(statsIntervalId);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [pollInterval]);
+  }, [pollInterval, organizationId]);
 
   const [isStopping, setIsStopping] = useState(false);
   const [isResettingStuck, setIsResettingStuck] = useState(false);
