@@ -3467,12 +3467,13 @@ Deno.serve(async (req) => {
           const lastUpdate = new Date(currentProgress.ed_units_last_updated_at);
           const secondsSinceUpdate = (Date.now() - lastUpdate.getTime()) / 1000;
           
-          // If updated within 60 seconds, another import is still active
-          if (secondsSinceUpdate < 60) {
+          // If updated within 300 seconds (5 minutes), another import is still active
+          // This gives room for heavy operations like upserts which can take time
+          if (secondsSinceUpdate < 300) {
             console.log(`❌ Import already running (last update ${secondsSinceUpdate.toFixed(0)}s ago). Rejecting new request.`);
             return new Response(JSON.stringify({
               success: false,
-              message: `Импорт уже выполняется (последнее обновление ${Math.round(secondsSinceUpdate)} сек назад). Подождите минуту или обновите страницу.`,
+              message: `Импорт уже выполняется (последнее обновление ${Math.round(secondsSinceUpdate)} сек назад). Подождите 5 минут или обновите страницу.`,
               alreadyRunning: true,
               lastUpdatedSecondsAgo: Math.round(secondsSinceUpdate),
             }), {
@@ -3823,7 +3824,7 @@ Deno.serve(async (req) => {
         // Batch upsert in chunks of 50 to avoid timeouts
         const CHUNK_SIZE = 50;
         
-        // Upsert individual lessons in chunks
+        // Upsert individual lessons in chunks with heartbeat
         if (individualLessonsToUpsert.length > 0) {
           console.log(`Upserting ${individualLessonsToUpsert.length} individual lessons in chunks of ${CHUNK_SIZE}...`);
           for (let i = 0; i < individualLessonsToUpsert.length; i += CHUNK_SIZE) {
@@ -3837,10 +3838,15 @@ Deno.serve(async (req) => {
             } else {
               console.log(`  ✓ Upserted individual lessons ${i + 1}-${Math.min(i + CHUNK_SIZE, individualLessonsToUpsert.length)}`);
             }
+            
+            // Heartbeat: update timestamp every chunk to show import is alive
+            await updateHolihopeProgress(supabase, {
+              ed_units_last_updated_at: new Date().toISOString(),
+            });
           }
         }
         
-        // Upsert learning groups in chunks
+        // Upsert learning groups in chunks with heartbeat
         if (learningGroupsToUpsert.length > 0) {
           console.log(`Upserting ${learningGroupsToUpsert.length} learning groups in chunks of ${CHUNK_SIZE}...`);
           for (let i = 0; i < learningGroupsToUpsert.length; i += CHUNK_SIZE) {
@@ -3854,6 +3860,11 @@ Deno.serve(async (req) => {
             } else {
               console.log(`  ✓ Upserted learning groups ${i + 1}-${Math.min(i + CHUNK_SIZE, learningGroupsToUpsert.length)}`);
             }
+            
+            // Heartbeat: update timestamp every chunk to show import is alive
+            await updateHolihopeProgress(supabase, {
+              ed_units_last_updated_at: new Date().toISOString(),
+            });
           }
         }
         
