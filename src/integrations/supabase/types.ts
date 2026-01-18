@@ -8044,49 +8044,60 @@ export type Database = {
         Args: { p_client_ids: string[] }
         Returns: {
           avatar_url: string
-          client_branch: string
-          client_id: string
           client_name: string
           client_phone: string
-          last_message: string
+          clt_id: string
+          last_message_text: string
           last_message_time: string
+          last_messenger_type: string
           last_unread_messenger: string
           max_avatar_url: string
+          max_chat_id: string
           telegram_avatar_url: string
           telegram_chat_id: string
-          unread_calls: number
           unread_count: number
-          unread_email: number
-          unread_max: number
-          unread_telegram: number
-          unread_whatsapp: number
           whatsapp_avatar_url: string
+          whatsapp_chat_id: string
         }[]
       }
       get_chat_threads_fast: {
         Args: { p_limit?: number }
         Returns: {
-          client_avatar: string
+          avatar_url: string
           client_name: string
+          client_phone: string
           clt_id: string
-          is_outgoing: boolean
-          last_message: string
+          last_message_text: string
           last_message_time: string
-          last_messenger: string
+          last_messenger_type: string
+          last_unread_messenger: string
+          max_avatar_url: string
+          max_chat_id: string
+          telegram_avatar_url: string
+          telegram_chat_id: string
           unread_count: number
+          whatsapp_avatar_url: string
+          whatsapp_chat_id: string
         }[]
       }
       get_chat_threads_optimized: {
         Args: { p_limit?: number }
         Returns: {
-          client_avatar: string
+          avatar_url: string
           client_name: string
+          client_phone: string
           clt_id: string
-          is_outgoing: boolean
-          last_message: string
+          last_message_text: string
           last_message_time: string
-          last_messenger: string
+          last_messenger_type: string
+          last_unread_messenger: string
+          max_avatar_url: string
+          max_chat_id: string
+          telegram_avatar_url: string
+          telegram_chat_id: string
           unread_count: number
+          whatsapp_avatar_url: string
+          whatsapp_chat_id: string
         }[]
       }
       get_clients_without_imported_messages: {
