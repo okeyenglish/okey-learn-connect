@@ -184,7 +184,7 @@ function mapRpcToThreads(data: any[]): ChatThread[] {
   });
 
   return filteredData.map((row: any) => ({
-    client_id: row.client_id,
+    client_id: row.clt_id || row.client_id, // clt_id from new RPC, client_id fallback
     client_name: row.client_name || '',
     client_phone: row.client_phone || '',
     client_branch: row.client_branch || null,
@@ -192,7 +192,7 @@ function mapRpcToThreads(data: any[]): ChatThread[] {
     telegram_avatar_url: row.telegram_avatar_url || null,
     whatsapp_avatar_url: row.whatsapp_avatar_url || null,
     max_avatar_url: row.max_avatar_url || null,
-    last_message: row.last_message || '',
+    last_message: row.last_message_text || row.last_message || '', // last_message_text from new RPC
     last_message_time: row.last_message_time,
     unread_count: Number(row.unread_count) || 0,
     unread_by_messenger: {
