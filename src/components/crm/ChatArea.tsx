@@ -18,6 +18,7 @@ import { ChatMessage } from "./ChatMessage";
 import { DateSeparator, shouldShowDateSeparator } from "./DateSeparator";
 import { SalebotCallbackMessage, isSalebotCallback } from "./SalebotCallbackMessage";
 import { ClientTasks } from "./ClientTasks";
+import { MessageSkeleton } from "./MessageSkeleton";
 // Lazy load heavy modal components for faster initial render
 const AddTaskModal = lazy(() => import("./AddTaskModal").then(m => ({ default: m.AddTaskModal })));
 const CreateInvoiceModal = lazy(() => import("./CreateInvoiceModal").then(m => ({ default: m.CreateInvoiceModal })));
@@ -1808,9 +1809,7 @@ export const ChatArea = ({
           <TabsContent value="whatsapp" className="flex-1 p-3 overflow-y-auto mt-0">
             <div className="space-y-1">
               {loadingMessages ? (
-                <div className="text-center text-muted-foreground text-sm py-4">
-                  Загрузка сообщений...
-                </div>
+                <MessageSkeleton count={6} />
               ) : whatsappMessages.length > 0 ? (
                 <>
                   {/* Load older messages button */}
@@ -1962,9 +1961,7 @@ export const ChatArea = ({
           <TabsContent value="telegram" className="flex-1 p-3 overflow-y-auto mt-0">
             <div className="space-y-1">
               {loadingMessages ? (
-                <div className="text-center text-muted-foreground text-sm py-4">
-                  Загрузка сообщений...
-                </div>
+                <MessageSkeleton count={6} />
               ) : telegramMessages.length > 0 ? (
                 <>
                   {telegramMessages.map((msg, index) => {
@@ -2047,9 +2044,7 @@ export const ChatArea = ({
           <TabsContent value="max" className="flex-1 p-3 overflow-y-auto mt-0">
             <div className="space-y-1">
               {loadingMessages ? (
-                <div className="text-center text-muted-foreground text-sm py-4">
-                  Загрузка сообщений...
-                </div>
+                <MessageSkeleton count={6} />
               ) : maxMessages.length > 0 ? (
                 <>
                   {maxMessages.map((msg, index) => {
