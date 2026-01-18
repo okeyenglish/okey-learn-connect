@@ -289,6 +289,15 @@ export default function HolihopeImport() {
       const { data, error } = result || {};
       if (error) throw error;
 
+      // Check if edge function returned "already running" response
+      if (data?.alreadyRunning) {
+        return { 
+          success: false, 
+          alreadyRunning: true, 
+          lastUpdatedSecondsAgo: data.lastUpdatedSecondsAgo 
+        };
+      }
+
       const progress = data?.progress?.[0];
       const nextBatch = data?.nextBatch;
       const stats = data?.stats;
@@ -314,7 +323,24 @@ export default function HolihopeImport() {
       return { success: true, progress, nextBatch, stats };
     } catch (error: any) {
       const transient = isTransientInvokeError(error);
+      const isTimeout = error.message === 'REQUEST_TIMEOUT';
       console.error(`Error in step ${step.id}:`, error);
+
+      if (isTimeout) {
+        // Timeout - but import continues on server
+        setSteps((prev) =>
+          prev.map((s) =>
+            s.id === step.id
+              ? {
+                  ...s,
+                  status: 'in_progress',
+                  message: '⏳ Соединение прервано, но импорт продолжается на сервере...',
+                }
+              : s
+          )
+        );
+        return { success: false, timeout: true };
+      }
 
       if (transient) {
         // Do NOT mark the step as failed: we'll auto-retry in the calling loop.
@@ -325,7 +351,7 @@ export default function HolihopeImport() {
                   ...s,
                   status: 'in_progress',
                   message:
-                    '⏳ Связь с Edge Function прервалась/таймаут — продолжаю автоматически…',
+                    '⏳ Связь с Edge Function прервалась — продолжаю автоматически…',
                 }
               : s
           )
@@ -793,6 +819,32 @@ export default function HolihopeImport() {
           const result = await executeStep(step, batchParams);
           
           if (!result.success) {
+            // Check if this is "already running" response
+            if (result.alreadyRunning) {
+              toast({
+                title: 'Импорт уже выполняется',
+                description: `Другой процесс импорта активен. Последнее обновление ${result.lastUpdatedSecondsAgo || '?'} сек назад.`,
+                variant: 'default',
+              });
+              shouldContinueImport = false;
+              break;
+            }
+            
+            // Handle timeout (504) - import continues on server
+            if (result.timeout) {
+              toast({
+                title: 'Таймаут соединения',
+                description: 'Импорт продолжается на сервере. Прогресс сохраняется автоматически. Обновите страницу через минуту.',
+                variant: 'default',
+              });
+              // Don't stop - wait and retry to reconnect
+              await new Promise((resolve) => setTimeout(resolve, 5000));
+              // Trigger manual poll of progress (pollProgress is in useEffect scope)
+              setPollInterval(3000); // Speed up polling temporarily
+              retries++;
+              continue;
+            }
+            
             if (result.transient) {
               console.log('Transient error, will auto-retry...');
               retries++;
@@ -1131,21 +1183,47 @@ export default function HolihopeImport() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  {edUnitsProgress.isRunning ? (
-                    <span className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400">
-                      <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></span>
-                      Выполняется
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
-                      <span className="h-2 w-2 bg-amber-400 rounded-full"></span>
-                      Остановлен (можно продолжить)
-                    </span>
-                  )}
+                  {(() => {
+                    const secondsAgo = edUnitsProgress.lastUpdatedAt 
+                      ? Math.floor((Date.now() - edUnitsProgress.lastUpdatedAt.getTime()) / 1000)
+                      : null;
+                    const isActive = secondsAgo !== null && secondsAgo < 60;
+                    const isStale = secondsAgo !== null && secondsAgo >= 120;
+                    
+                    if (edUnitsProgress.isRunning && isActive) {
+                      return (
+                        <span className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400">
+                          <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></span>
+                          Активен ({secondsAgo}с назад)
+                        </span>
+                      );
+                    } else if (edUnitsProgress.isRunning && isStale) {
+                      return (
+                        <span className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+                          <span className="h-2 w-2 bg-red-500 rounded-full"></span>
+                          Завис (нет ответа {secondsAgo}с)
+                        </span>
+                      );
+                    } else if (edUnitsProgress.isRunning) {
+                      return (
+                        <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                          <span className="h-2 w-2 bg-amber-400 rounded-full animate-pulse"></span>
+                          Ожидание ({secondsAgo}с назад)
+                        </span>
+                      );
+                    } else {
+                      return (
+                        <span className="flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-400">
+                          <span className="h-2 w-2 bg-gray-400 rounded-full"></span>
+                          Остановлен
+                        </span>
+                      );
+                    }
+                  })()}
                 </div>
                 {edUnitsProgress.lastUpdatedAt && (
                   <span className="text-xs text-muted-foreground">
-                    Обновлено: {edUnitsProgress.lastUpdatedAt.toLocaleTimeString()}
+                    {edUnitsProgress.lastUpdatedAt.toLocaleTimeString()}
                   </span>
                 )}
               </div>

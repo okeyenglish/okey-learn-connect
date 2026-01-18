@@ -3455,6 +3455,35 @@ Deno.serve(async (req) => {
         let startTimeIndex = body.time_index || 0;
         let previouslyImported = 0;
         
+        // Check for active import BEFORE starting (prevent double import)
+        const { data: currentProgress } = await supabase
+          .from('holihope_import_progress')
+          .select('ed_units_is_running, ed_units_last_updated_at')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (currentProgress?.ed_units_is_running && currentProgress?.ed_units_last_updated_at) {
+          const lastUpdate = new Date(currentProgress.ed_units_last_updated_at);
+          const secondsSinceUpdate = (Date.now() - lastUpdate.getTime()) / 1000;
+          
+          // If updated within 60 seconds, another import is still active
+          if (secondsSinceUpdate < 60) {
+            console.log(`❌ Import already running (last update ${secondsSinceUpdate.toFixed(0)}s ago). Rejecting new request.`);
+            return new Response(JSON.stringify({
+              success: false,
+              message: `Импорт уже выполняется (последнее обновление ${Math.round(secondsSinceUpdate)} сек назад). Подождите минуту или обновите страницу.`,
+              alreadyRunning: true,
+              lastUpdatedSecondsAgo: Math.round(secondsSinceUpdate),
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              status: 200
+            });
+          } else {
+            console.log(`⚠️ Previous import seems stale (${secondsSinceUpdate.toFixed(0)}s since last update). Proceeding with new import.`);
+          }
+        }
+        
         if (isResume) {
           console.log('Resume mode: loading progress from database...');
           const { data: savedProgress } = await supabase
