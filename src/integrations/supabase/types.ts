@@ -4764,22 +4764,68 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_freezes: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          days_count: number | null
+          freeze_end: string | null
+          freeze_start: string
+          id: string
+          payment_id: string
+          reason: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          days_count?: number | null
+          freeze_end?: string | null
+          freeze_start: string
+          id?: string
+          payment_id: string
+          reason?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          days_count?: number | null
+          freeze_end?: string | null
+          freeze_start?: string
+          id?: string
+          payment_id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_freezes_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number
           created_at: string
           created_by: string | null
           description: string | null
+          expires_at: string | null
           external_id: string | null
+          freeze_days_used: number | null
+          frozen_at: string | null
           group_id: string | null
           id: string
           idempotency_key: string | null
           individual_lesson_id: string | null
           invoice_id: string | null
+          is_frozen: boolean | null
           lessons_count: number | null
           method: Database["public"]["Enums"]["finance_payment_method"]
           notes: string | null
           organization_id: string
+          package_id: string | null
           payment_date: string
           provider_transaction_id: string | null
           status: Database["public"]["Enums"]["finance_payment_status"]
@@ -4792,16 +4838,21 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          expires_at?: string | null
           external_id?: string | null
+          freeze_days_used?: number | null
+          frozen_at?: string | null
           group_id?: string | null
           id?: string
           idempotency_key?: string | null
           individual_lesson_id?: string | null
           invoice_id?: string | null
+          is_frozen?: boolean | null
           lessons_count?: number | null
           method: Database["public"]["Enums"]["finance_payment_method"]
           notes?: string | null
           organization_id?: string
+          package_id?: string | null
           payment_date?: string
           provider_transaction_id?: string | null
           status?: Database["public"]["Enums"]["finance_payment_status"]
@@ -4814,16 +4865,21 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          expires_at?: string | null
           external_id?: string | null
+          freeze_days_used?: number | null
+          frozen_at?: string | null
           group_id?: string | null
           id?: string
           idempotency_key?: string | null
           individual_lesson_id?: string | null
           invoice_id?: string | null
+          is_frozen?: boolean | null
           lessons_count?: number | null
           method?: Database["public"]["Enums"]["finance_payment_method"]
           notes?: string | null
           organization_id?: string
+          package_id?: string | null
           payment_date?: string
           provider_transaction_id?: string | null
           status?: Database["public"]["Enums"]["finance_payment_status"]
@@ -4866,6 +4922,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_organization_ai_settings"
             referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "payments_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "price_packages"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "payments_student_id_fkey"
@@ -5160,6 +5223,103 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "currencies"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      price_packages: {
+        Row: {
+          age_category_id: string | null
+          branch: string | null
+          can_freeze: boolean | null
+          can_pay_partially: boolean | null
+          created_at: string | null
+          currency: string | null
+          description: string | null
+          external_id: string | null
+          holihope_metadata: Json | null
+          hours_count: number
+          id: string
+          is_active: boolean | null
+          learning_type: string | null
+          max_freeze_days: number | null
+          min_payment_percent: number | null
+          name: string
+          organization_id: string | null
+          price: number
+          sort_order: number | null
+          subject: string | null
+          updated_at: string | null
+          validity_days: number | null
+        }
+        Insert: {
+          age_category_id?: string | null
+          branch?: string | null
+          can_freeze?: boolean | null
+          can_pay_partially?: boolean | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          external_id?: string | null
+          holihope_metadata?: Json | null
+          hours_count: number
+          id?: string
+          is_active?: boolean | null
+          learning_type?: string | null
+          max_freeze_days?: number | null
+          min_payment_percent?: number | null
+          name: string
+          organization_id?: string | null
+          price: number
+          sort_order?: number | null
+          subject?: string | null
+          updated_at?: string | null
+          validity_days?: number | null
+        }
+        Update: {
+          age_category_id?: string | null
+          branch?: string | null
+          can_freeze?: boolean | null
+          can_pay_partially?: boolean | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          external_id?: string | null
+          holihope_metadata?: Json | null
+          hours_count?: number
+          id?: string
+          is_active?: boolean | null
+          learning_type?: string | null
+          max_freeze_days?: number | null
+          min_payment_percent?: number | null
+          name?: string
+          organization_id?: string | null
+          price?: number
+          sort_order?: number | null
+          subject?: string | null
+          updated_at?: string | null
+          validity_days?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_packages_age_category_id_fkey"
+            columns: ["age_category_id"]
+            isOneToOne: false
+            referencedRelation: "age_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_packages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_packages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -6818,6 +6978,79 @@ export type Database = {
         }
         Relationships: []
       }
+      teacher_adjustments: {
+        Row: {
+          adjustment_date: string
+          adjustment_type: string
+          amount: number
+          created_at: string | null
+          created_by: string | null
+          currency: string | null
+          description: string | null
+          external_id: string | null
+          holihope_metadata: Json | null
+          id: string
+          payment_id: string | null
+          status: string | null
+          teacher_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          adjustment_date?: string
+          adjustment_type: string
+          amount: number
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          description?: string | null
+          external_id?: string | null
+          holihope_metadata?: Json | null
+          id?: string
+          payment_id?: string | null
+          status?: string | null
+          teacher_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          adjustment_date?: string
+          adjustment_type?: string
+          amount?: number
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          description?: string | null
+          external_id?: string | null
+          holihope_metadata?: Json | null
+          id?: string
+          payment_id?: string | null
+          status?: string | null
+          teacher_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_adjustments_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_adjustments_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_adjustments_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers_with_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teacher_bbb_rooms: {
         Row: {
           attendee_password: string
@@ -6930,6 +7163,7 @@ export type Database = {
           payment_id: string | null
           rate_per_hour: number
           status: string
+          teacher_coefficient: number | null
           teacher_id: string
           updated_at: string
         }
@@ -6947,6 +7181,7 @@ export type Database = {
           payment_id?: string | null
           rate_per_hour: number
           status?: string
+          teacher_coefficient?: number | null
           teacher_id: string
           updated_at?: string
         }
@@ -6964,6 +7199,7 @@ export type Database = {
           payment_id?: string | null
           rate_per_hour?: number
           status?: string
+          teacher_coefficient?: number | null
           teacher_id?: string
           updated_at?: string
         }
@@ -6995,6 +7231,41 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_organization_ai_settings"
             referencedColumns: ["organization_id"]
+          },
+        ]
+      }
+      teacher_floating_rates: {
+        Row: {
+          created_at: string | null
+          id: string
+          rate_amount: number
+          rate_id: string
+          student_count: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          rate_amount: number
+          rate_id: string
+          student_count: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          rate_amount?: number
+          rate_id?: string
+          student_count?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_floating_rates_rate_id_fkey"
+            columns: ["rate_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_rates"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -7183,12 +7454,19 @@ export type Database = {
       }
       teacher_rates: {
         Row: {
+          bonus_percentage: number | null
           branch: string | null
           created_at: string
           created_by: string | null
           currency: string
+          external_id: string | null
+          group_id: string | null
+          holihope_metadata: Json | null
           id: string
+          individual_lesson_id: string | null
           is_active: boolean
+          max_students: number | null
+          min_students: number | null
           notes: string | null
           rate_per_academic_hour: number
           rate_type: string
@@ -7199,12 +7477,19 @@ export type Database = {
           valid_until: string | null
         }
         Insert: {
+          bonus_percentage?: number | null
           branch?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
+          external_id?: string | null
+          group_id?: string | null
+          holihope_metadata?: Json | null
           id?: string
+          individual_lesson_id?: string | null
           is_active?: boolean
+          max_students?: number | null
+          min_students?: number | null
           notes?: string | null
           rate_per_academic_hour: number
           rate_type: string
@@ -7215,12 +7500,19 @@ export type Database = {
           valid_until?: string | null
         }
         Update: {
+          bonus_percentage?: number | null
           branch?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
+          external_id?: string | null
+          group_id?: string | null
+          holihope_metadata?: Json | null
           id?: string
+          individual_lesson_id?: string | null
           is_active?: boolean
+          max_students?: number | null
+          min_students?: number | null
           notes?: string | null
           rate_per_academic_hour?: number
           rate_type?: string
@@ -7230,7 +7522,22 @@ export type Database = {
           valid_from?: string
           valid_until?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "teacher_rates_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "learning_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_rates_individual_lesson_id_fkey"
+            columns: ["individual_lesson_id"]
+            isOneToOne: false
+            referencedRelation: "individual_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       teacher_substitutions: {
         Row: {
